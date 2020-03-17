@@ -128,7 +128,10 @@ func main() {
 		),
 	)
 
-	cacherClient := client.New(*facility)
+	cacherClient, err := client.New(*facility)
+	if err != nil {
+		panic(err)
+	}
 	go func() {
 		c := time.Tick(15 * time.Second)
 		for range c {
