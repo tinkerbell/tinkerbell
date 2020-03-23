@@ -1,10 +1,10 @@
 module github.com/packethost/hegel
 
-go 1.13
+go 1.12
 
 require (
-	github.com/golang/protobuf v1.3.2
-	github.com/grpc-ecosystem/go-grpc-middleware v1.1.0
+	github.com/golang/protobuf v1.3.5
+	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/packethost/cacher v0.0.0-20200319200613-5dc1cac4fd33
 	github.com/packethost/pkg v0.0.0-20190410153520-e8e15f4ce770
