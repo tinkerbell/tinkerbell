@@ -36,9 +36,9 @@ var active_subscription = promauto.NewGauge(prometheus.GaugeOpts{
 	Help: "Number of active hegel subscribers",
 })
 
-var active_cacher_subscription = promauto.NewGauge(prometheus.GaugeOpts{
-	Name: "hegel_active_cacher_subscriptions",
-	Help: "Number of active hegel subscriptions to cacher",
+var active_tink_subscription = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "hegel_active_tink_subscription",
+	Help: "Number of active hegel subscriptions to tink",
 })
 
 func exportHardware(hw []byte) ([]byte, error) {
@@ -73,25 +73,13 @@ func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 	if !ok {
 		return nil, errors.New("could not get peer info from client")
 	}
-
 	s.log.With("client", p.Addr, "op", "get").Info()
-	hw, err := s.cacherClient.ByIP(ctx, &cacher.GetRequest{
-		IP: p.Addr.(*net.TCPAddr).IP.String(),
-	})
+	userIP := p.Addr.(*net.TCPAddr).IP.String()
 
+	ehw, err := getByIP(ctx, s, userIP)
 	if err != nil {
 		return nil, err
 	}
-
-	if hw == nil {
-		return nil, errors.New("could not find hardware")
-	}
-
-	ehw, err := exportHardware([]byte(hw.JSON))
-	if err != nil {
-		return nil, err
-	}
-
 	return &hegel.GetResponse{
 		JSON: string(ehw),
 	}, nil
@@ -136,8 +124,8 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	errs := make(chan error, 1)
 	ehws := make(chan []byte, 1)
 	go func() {
-		active_cacher_subscription.Inc()
-		defer active_cacher_subscription.Dec()
+		active_tink_subscription.Inc()
+		defer active_tink_subscription.Dec()
 		for {
 			hw, err := watch.Recv()
 			if err != nil {
@@ -181,4 +169,24 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		retErr = err
 	}
 	return retErr
+}
+
+func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
+	hw, err := s.cacherClient.ByIP(ctx, &cacher.GetRequest{
+		IP: userIP,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if hw == nil {
+		return nil, errors.New("could not find hardware")
+	}
+
+	ehw, err := exportHardware([]byte(hw.JSON))
+	if err != nil {
+		return nil, err
+	}
+	return ehw, nil
 }

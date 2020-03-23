@@ -2,13 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
-	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -19,8 +17,9 @@ import (
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
 	"github.com/packethost/hegel/gxff"
-	packetgrpc "github.com/packethost/pkg/grpc"
+	"github.com/packethost/pkg/env"
 	"github.com/packethost/pkg/log"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -32,17 +31,21 @@ type server struct {
 }
 
 var (
-	facility    = flag.String("facility", envString("HEGEL_FACILITY", "lab1"), "The facility we are running in (mostly to connect to cacher)")
-	tlsCertPath = flag.String("tls_cert", envString("HEGEL_TLS_CERT", ""), "Path of tls certificat to use.")
-	tlsKeyPath  = flag.String("tls_key", envString("HEGEL_TLS_KEY", ""), "Path of tls key to use.")
-	useTLS      = flag.Bool("use_tls", envBool("HEGEL_USE_TLS", true), "Whether we should use tls or not (should be disabled for traefik)")
-	metricsPort = flag.Int("http_port", envInt("HEGEL_HTTP_PORT", 50061), "Port to liten on http")
-
-	gitRev     string = "undefind"
-	gitRevJSON []byte
-	startTime  = time.Now()
-	logger     log.Logger
-
+	facility = flag.String("facility", envString("HEGEL_FACILITY", "onprem"),
+		"The facility we are running in (mostly to connect to cacher)")
+	tlsCertPath = flag.String("tls_cert", envString("HEGEL_TLS_CERT", ""),
+		"Path of tls certificat to use.")
+	tlsKeyPath = flag.String("tls_key", envString("HEGEL_TLS_KEY", ""),
+		"Path of tls key to use.")
+	useTLS = flag.Bool("use_tls", envBool("HEGEL_USE_TLS", true),
+		"Whether we should use tls or not (should be disabled for traefik)")
+	metricsPort = flag.Int("http_port", envInt("HEGEL_HTTP_PORT", 50061),
+		"Port to liten on http")
+	gitRev              string = "undefind"
+	gitRevJSON          []byte
+	StartTime           = time.Now()
+	logger              log.Logger
+	hegelServer         *server
 	isCacherAvailableMu sync.RWMutex
 	isCacherAvailable   bool
 )
@@ -54,13 +57,13 @@ func envString(key string, def string) (val string) {
 	}
 	return
 }
+
 func envBool(key string, def bool) (val bool) {
 	v, ok := os.LookupEnv(key)
 	if !ok {
 		val = def
-	} else {
-		val, _ = strconv.ParseBool(v)
 	}
+	val, _ = strconv.ParseBool(v)
 	return
 }
 
@@ -78,29 +81,21 @@ func envInt(key string, def int) (val int) {
 func main() {
 	flag.Parse()
 	// setup structured logging
-	l, cleanup, err := log.Init("github.com/packethost/hegel")
+	l, err := log.Init("github.com/packethost/hegel")
 	logger = l.Package("main")
 	if err != nil {
 		panic(err)
 	}
-	defer cleanup()
+	defer l.Close()
 
-	grpcConfig, err := packetgrpc.ConfigFromEnv()
+	port, err := strconv.Atoi(env.Get("GRPC_PORT", "42115"))
 	if err != nil {
-		logger.Error(err, "Failed to get config")
-		panic(err)
+		logger.Fatal(err, "parse grpc port from env")
+	}
+	if port < 1 {
+		logger.Fatal(err, "parse grpc port from env")
 	}
 
-	grpcAddr, err := grpcConfig.BindAddress()
-	if err != nil {
-		logger.Error(err, "failed to get bind address")
-		panic(err)
-	}
-	lis, err := net.Listen("tcp", grpcAddr)
-	if err != nil {
-		logger.Error(err, "failed to listen for gRPC addr", grpcAddr)
-		panic(err)
-	}
 	serverOpts := make([]grpc.ServerOption, 0)
 
 	// setup tls credentials
@@ -130,7 +125,7 @@ func main() {
 
 	cacherClient, err := client.New(*facility)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err, "Failed to create the cacher client")
 	}
 	go func() {
 		c := time.Tick(15 * time.Second)
@@ -158,16 +153,33 @@ func main() {
 	}()
 
 	grpcServer := grpc.NewServer(serverOpts...)
-	hegel.RegisterHegelServer(grpcServer, &server{
+	hegelServer = &server{
 		log:          logger,
 		cacherClient: cacherClient,
-	})
+	}
+
+	hegel.RegisterHegelServer(grpcServer, hegelServer)
+
+	logger.Info("serving grpc")
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		err = errors.Wrap(err, "failed to listen")
+		logger.Error(err)
+		panic(err)
+	}
+
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		logger.Fatal(err, "Failed to serve  grpc")
+	}
 
 	// Register grpc prometheus server
 	grpc_prometheus.Register(grpcServer)
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/_packet/healthcheck", healthCheckHandler)
 	http.HandleFunc("/_packet/version", versionHandler)
+	http.HandleFunc("/metadata", getMetadata)
+
 	logger.With("port", *metricsPort).Info("Starting http server")
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf(":%d", *metricsPort), nil)
@@ -176,47 +188,4 @@ func main() {
 			panic(err)
 		}
 	}()
-
-	logger.With("listen_address", grpcAddr).Info("starting gRPC server")
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		logger.Error(err, "failed to serve grpc")
-		panic(err)
-	}
-}
-
-func versionHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	//nolint:errcheck
-	w.Write(gitRevJSON)
-}
-
-func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	isCacherAvailableMu.RLock()
-	isCacherAvailableTemp := isCacherAvailable
-	isCacherAvailableMu.RUnlock()
-
-	res := struct {
-		GitRev          string  `json:"git_rev"`
-		Uptime          float64 `json:"uptime"`
-		Goroutines      int     `json:"goroutines"`
-		CacherAvailable bool    `json:"cacher_status"`
-	}{
-		GitRev:          gitRev,
-		Uptime:          time.Since(startTime).Seconds(),
-		Goroutines:      runtime.NumGoroutine(),
-		CacherAvailable: isCacherAvailableTemp,
-	}
-	b, err := json.Marshal(&res)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-
-	if !isCacherAvailableTemp {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	//nolint:errcheck
-	w.Write(b)
 }

@@ -1,3 +1,5 @@
+[![Build Status](https://cloud.drone.io/api/badges/packethost/hegel/status.svg)](https://cloud.drone.io/packethost/hegel)
+
 ### Hegel
 The logical successor to Kant? A gRPC metadata service for Packet. Subscribe to changes in device metadata, get notified when IPs are added/removed, a device appears in the project, spot instance termination is triggered, etc.
 
