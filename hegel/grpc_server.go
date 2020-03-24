@@ -12,6 +12,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 //go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
@@ -27,6 +30,16 @@ type exportedHardware struct {
 	Hostname                           string                   `json:"hostname"`
 	BondingMode                        int                      `json:"bonding_mode"`
 }
+
+var activeSubscription = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "hegel_activeSubscriptions",
+	Help: "Number of active hegel subscribers",
+})
+
+var activeTinkSubscription = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "hegel_activeTinkSubscriptions",
+	Help: "Number of active hegel subscriptions to tink",
+})
 
 func exportHardware(hw []byte) ([]byte, error) {
 	exported := &exportedHardware{}
@@ -71,17 +84,10 @@ func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 		JSON: string(ehw),
 	}, nil
 }
-/*func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetResponse, error) {
-	ehw, err := getByIP(ctx, s)
-	if err != nil {
-		return nil, err
-	}
-	return &hegel.GetResponse{
-		JSON: string(ehw),
-	}, nil
-}*/
 
 func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_SubscribeServer) error {
+	activeSubscription.Inc()
+	defer activeSubscription.Dec()
 	p, ok := peer.FromContext(stream.Context())
 	if !ok {
 		return errors.New("could not get peer info from client")
@@ -93,6 +99,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	})
 
 	if err != nil {
+		s.log.Error(err)
 		return err
 	}
 
@@ -104,7 +111,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	hwID := hwJSON["id"]
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(stream.Context())
 	watch, err := s.cacherClient.Watch(ctx, &cacher.GetRequest{
 		ID: hwID.(string),
 	})
@@ -117,6 +124,8 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	errs := make(chan error, 1)
 	ehws := make(chan []byte, 1)
 	go func() {
+		activeTinkSubscription.Inc()
+		defer activeTinkSubscription.Dec()
 		for {
 			hw, err := watch.Recv()
 			if err != nil {
@@ -156,9 +165,6 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	}()
 
 	var retErr error
-	if err = <-errs; status.Code(err) != codes.OK && retErr == nil {
-		retErr = err
-	}
 	if err = <-errs; status.Code(err) != codes.OK && retErr == nil {
 		retErr = err
 	}
