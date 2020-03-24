@@ -29,13 +29,13 @@ type server struct {
 }
 
 var (
-	facility = flag.String("facility", envString("HEGEL_FACILITY", "lab1"),
+	facility = flag.String("facility", envString("HEGEL_FACILITY", "onprem"),
 		"The facility we are running in (mostly to connect to cacher)")
 	tlsCertPath = flag.String("tls_cert", envString("HEGEL_TLS_CERT", ""),
 		"Path of tls certificat to use.")
 	tlsKeyPath = flag.String("tls_key", envString("HEGEL_TLS_KEY", ""),
 		"Path of tls key to use.")
-	useTls = flag.Bool("use_tls", envBool("HEGEL_USE_TLS", true),
+	useTLS = flag.Bool("use_tls", envBool("HEGEL_USE_TLS", true),
 		"Whether we should use tls or not (should be disabled for traefik)")
 	metricsPort = flag.Int("http_port", envInt("HEGEL_HTTP_PORT", 50061),
 		"Port to liten on http")
@@ -92,29 +92,10 @@ func main() {
 		logger.Fatal(err, "parse grpc port from env")
 	}
 
-	/*grpcConfig, err := packetgrpc.ConfigFromEnv()
-	if err != nil {
-		logger.Error(err, "Failed to get config")
-		panic(err)
-	}
-
-	grpcAddr, err := grpcConfig.BindAddress()
-	if err != nil {
-		logger.Error(err, "failed to get bind address")
-		panic(err)
-	}*/
-
-	/*lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-
-	if err != nil {
-		logger.Error(err, "failed to listen for gRPC addr", lis)
-		panic(err)
-	}*/
-
 	serverOpts := make([]grpc.ServerOption, 0)
 
 	// setup tls credentials
-	if *useTls {
+	if *useTLS {
 		creds, err := credentials.NewServerTLSFromFile(*tlsCertPath, *tlsKeyPath)
 		if err != nil {
 			logger.Error(err, "failed to initialize server credentials")
