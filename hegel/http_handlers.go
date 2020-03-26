@@ -19,18 +19,27 @@ func versionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	res := struct {
-		GitRev     string  `json:"git_rev"`
-		Uptime     float64 `json:"uptime"`
-		Goroutines int     `json:"goroutines"`
-	}{
-		GitRev:     gitRev,
-		Uptime:     time.Since(StartTime).Seconds(),
-		Goroutines: runtime.NumGoroutine(),
-	}
+	isCacherAvailableMu.RLock()
+	isCacherAvailableTemp := isCacherAvailable
+	isCacherAvailableMu.RUnlock()
 
+	res := struct {
+		GitRev          string  `json:"git_rev"`
+		Uptime          float64 `json:"uptime"`
+		Goroutines      int     `json:"goroutines"`
+		CacherAvailable bool    `json:"cacher_status"`
+	}{
+		GitRev:          gitRev,
+		Uptime:          time.Since(StartTime).Seconds(),
+		Goroutines:      runtime.NumGoroutine(),
+		CacherAvailable: isCacherAvailableTemp,
+	}
 	b, err := json.Marshal(&res)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	if !isCacherAvailableTemp {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
