@@ -8,8 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 func versionHandler(w http.ResponseWriter, r *http.Request) {
@@ -41,23 +39,6 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Error(err, " Failed to write for healthChecker")
 	}
-}
-
-func setupGitRevJSON() {
-	res := struct {
-		GitRev  string `json:"git_rev"`
-		Service string `json:"service_name"`
-	}{
-		GitRev:  gitRev,
-		Service: "cacher",
-	}
-	b, err := json.Marshal(&res)
-	if err != nil {
-		err = errors.Wrap(err, "could not marshal version json")
-		logger.Error(err)
-		panic(err)
-	}
-	gitRevJSON = b
 }
 
 func getMetadata(w http.ResponseWriter, r *http.Request) {

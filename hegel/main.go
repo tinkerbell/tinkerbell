@@ -62,8 +62,9 @@ func envBool(key string, def bool) (val bool) {
 	v, ok := os.LookupEnv(key)
 	if !ok {
 		val = def
+	} else {
+		val, _ = strconv.ParseBool(v)
 	}
-	val, _ = strconv.ParseBool(v)
 	return
 }
 
