@@ -1,7 +1,7 @@
 [![Build Status](https://cloud.drone.io/api/badges/packethost/hegel/status.svg)](https://cloud.drone.io/packethost/hegel)
 
 ### Hegel
-The logical successor to Kant? A gRPC metadata service for Packet. Subscribe to changes in device metadata, get notified when IPs are added/removed, a device appears in the project, spot instance termination is triggered, etc.
+The logical successor to Kant? A gRPC metadata service for Tinkerbell. Subscribe to changes in device metadata, get notified when IPs are added/removed, a device appears in the project, spot instance termination is triggered, etc.
 
 
 #### Notes
@@ -31,7 +31,3 @@ There are a number of env vars you'll want to set before running `docker-compose
 - `FACILITY` - facility code
 - `PACKET_API_AUTH_TOKEN` - an API token
 - `PACKET_API_URL` - `https://api.packet.net/` for using the production API
-
-Running `docker-compose up` will bring up an instance of `cacher` and an instance of `hegel` pointed at that `cacher`.
-The instance of `cacher` will `ingest` hardware data from the API, depending on which `FACILITY` is specified.
-**Therefore, when testing locally, it's important to pick a "small" facility (such as `SEA1`) so that ingestion is quick**
