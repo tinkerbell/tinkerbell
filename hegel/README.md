@@ -31,7 +31,6 @@ There are a number of env vars you'll want to set before running `docker-compose
 - `FACILITY` - facility code
 - `PACKET_API_AUTH_TOKEN` - an API token
 - `PACKET_API_URL` - `https://api.packet.net/` for using the production API
-- `PACKET_CONSUMER_TOKEN` - a consumer token to identify the API user
 
 Running `docker-compose up` will bring up an instance of `cacher` and an instance of `hegel` pointed at that `cacher`.
 The instance of `cacher` will `ingest` hardware data from the API, depending on which `FACILITY` is specified.
