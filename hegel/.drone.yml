@@ -40,7 +40,7 @@ pipeline:
       - ${DRONE_BUILD_NUMBER}-${DRONE_COMMIT_SHA}
     when:
       event: [push]
-    secrets: [registry_username, registry_password]
+    secrets: [docker_username, docker_password]
 
   publish_tag:
     group: publish
@@ -50,4 +50,4 @@ pipeline:
     tags: ${DRONE_TAG}
     when:
       event: [tag]
-    secrets: [registry_username, registry_password]
+    secrets: [docker_username, docker_password]
