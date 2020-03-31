@@ -16,13 +16,10 @@ Full documentation can be found at [tinkerbell.org](https://github.com/tinkerbel
 To use Hegel with TLS certificates:
 
     mkdir ./certs
-    pushd ./certs
-    openssl genrsa -des3 -passout pass:x -out server.pass.key 2048
-    openssl rsa -passin pass:x -in server.pass.key -out server.key
-    openssl req -new -key server.key -out server.csr
-    openssl x509 -req -sha256 -days 365 -in server.csr -signkey server.key -out server.crt
-    popd
-
-    export HEGEL_TLS_CERT=certs/server.crt
-    export HEGEL_TLS_KEY=certs/server.key
+    openssl genrsa -des3 -passout pass:x -out ./certs/server.pass.key 2048
+    openssl rsa -passin pass:x -in ./certs/server.pass.key -out ./certs/server.key
+    openssl req -new -key ./certs/server.key -out ./certs/server.csr
+    openssl x509 -req -sha256 -days 365 -in ./certs/server.csr -signkey ./certs/server.key -out ./certs/server.crt
+    export HEGEL_TLS_CERT=./certs/server.crt
+    export HEGEL_TLS_KEY=./certs/server.key
     go run main.go
