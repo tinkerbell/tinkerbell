@@ -1,7 +1,9 @@
 [![Build Status](https://cloud.drone.io/api/badges/tinkerbell/hegel/status.svg)](https://cloud.drone.io/tinkerbell/hegel)
 
 ### Hegel
-The logical successor to Kant? The gRPC and HTTP metadata service for Tinkerbell. Subscribe to changes in metadata, get notified when data is added/removed, etc. Full documentation can be found at [tinkerbell.org](https://github.com/tinkerbell/tink)
+The logical successor to Kant? The gRPC and HTTP metadata service for Tinkerbell. Subscribe to changes in metadata, get notified when data is added/removed, etc.
+
+Full documentation can be found at [tinkerbell.org](https://github.com/tinkerbell/tink)
 
 
 #### Notes
