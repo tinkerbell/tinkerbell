@@ -1,4 +1,4 @@
-[![Build Status](https://cloud.drone.io/api/badges/packethost/hegel/status.svg)](https://cloud.drone.io/packethost/hegel)
+[![Build Status](https://cloud.drone.io/api/badges/tinkerbell/hegel/status.svg)](https://cloud.drone.io/tinkerbell/hegel)
 
 ### Hegel
 The logical successor to Kant? A gRPC metadata service for Tinkerbell. Subscribe to changes in device metadata, get notified when IPs are added/removed, a device appears in the project, spot instance termination is triggered, etc.
