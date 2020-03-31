@@ -1,7 +1,7 @@
 [![Build Status](https://cloud.drone.io/api/badges/tinkerbell/hegel/status.svg)](https://cloud.drone.io/tinkerbell/hegel)
 
 ### Hegel
-The logical successor to Kant? A gRPC metadata service for Tinkerbell. Subscribe to changes in device metadata, get notified when IPs are added/removed, a device appears in the project, spot instance termination is triggered, etc.
+The logical successor to Kant? The gRPC and HTTP metadata service for Tinkerbell. Subscribe to changes in metadata, get notified when data is added/removed, etc. Full documentation can be found at [tinkerbell.org](https://github.com/tinkerbell/tink)
 
 
 #### Notes
@@ -9,7 +9,9 @@ The logical successor to Kant? A gRPC metadata service for Tinkerbell. Subscribe
 `protoc -I ./protos/hegel ./protos/hegel/hegel.proto --go_out=plugins=grpc:./protos/hegel`
 
 
-#### Create and use self signed certificates
+#### Self-Signed Certificates
+
+To use Hegel with TLS certificates:
 
     mkdir ./certs
     pushd ./certs
@@ -22,12 +24,3 @@ The logical successor to Kant? A gRPC metadata service for Tinkerbell. Subscribe
     export HEGEL_TLS_CERT=certs/server.crt
     export HEGEL_TLS_KEY=certs/server.key
     go run main.go
-
-#### Running Hegel Locally
-
-The `docker-compose.yml` in the root of this repo makes it possible to run `hegel` locally for verifying basic functionality.
-There are a number of env vars you'll want to set before running `docker-compose`:
-
-- `FACILITY` - facility code
-- `PACKET_API_AUTH_TOKEN` - an API token
-- `PACKET_API_URL` - `https://api.packet.net/` for using the production API
