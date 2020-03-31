@@ -2,7 +2,7 @@
 
 workspace:
   base: /go
-  path: src/github.com/packethost/hegel
+  path: src/github.com/tinkerbell/hegel
 
 pipeline:
   lint:
