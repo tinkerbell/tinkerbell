@@ -64,18 +64,12 @@ pipeline:
 
   publish_pr_hegel:
     <<: *publish_pr_tmpl
-    context: .
-    dockerfile: Dockerfile
     repo: quay.io/tinkerbell/hegel-pr
 
   publish_master_hegel:
     <<: *publish_master_tmpl
-    context: .
-    dockerfile: Dockerfile
     repo: quay.io/tinkerbell/hegel
 
   publish_tag_hegel:
     <<: *publish_tag_tmpl
-    context: .
-    dockerfile: Dockerfile
     repo: quay.io/tinkerbell/hegel
