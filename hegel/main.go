@@ -161,7 +161,6 @@ func main() {
 
 	hegel.RegisterHegelServer(grpcServer, hegelServer)
 
-	logger.Info("serving grpc")
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		err = errors.Wrap(err, "failed to listen")
@@ -169,10 +168,6 @@ func main() {
 		panic(err)
 	}
 
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		logger.Fatal(err, "Failed to serve  grpc")
-	}
 
 	// Register grpc prometheus server
 	grpc_prometheus.Register(grpcServer)
@@ -189,4 +184,11 @@ func main() {
 			panic(err)
 		}
 	}()
+
+	//Serving GRPC
+	logger.Info("serving grpc")
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		logger.Fatal(err, "Failed to serve  grpc")
+	}
 }
