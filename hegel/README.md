@@ -1,7 +1,9 @@
-[![Build Status](https://cloud.drone.io/api/badges/packethost/hegel/status.svg)](https://cloud.drone.io/packethost/hegel)
+[![Build Status](https://cloud.drone.io/api/badges/tinkerbell/hegel/status.svg)](https://cloud.drone.io/tinkerbell/hegel)
 
 ### Hegel
-The logical successor to Kant? A gRPC metadata service for Packet. Subscribe to changes in device metadata, get notified when IPs are added/removed, a device appears in the project, spot instance termination is triggered, etc.
+The logical successor to Kant? The gRPC and HTTP metadata service for Tinkerbell. Subscribe to changes in metadata, get notified when data is added/removed, etc.
+
+Full documentation can be found at [tinkerbell.org](https://github.com/tinkerbell/tink)
 
 
 #### Notes
@@ -9,30 +11,15 @@ The logical successor to Kant? A gRPC metadata service for Packet. Subscribe to 
 `protoc -I ./protos/hegel ./protos/hegel/hegel.proto --go_out=plugins=grpc:./protos/hegel`
 
 
-#### Create and use self signed certificates
+#### Self-Signed Certificates
+
+To use Hegel with TLS certificates:
 
     mkdir ./certs
-    pushd ./certs
-    openssl genrsa -des3 -passout pass:x -out server.pass.key 2048
-    openssl rsa -passin pass:x -in server.pass.key -out server.key
-    openssl req -new -key server.key -out server.csr
-    openssl x509 -req -sha256 -days 365 -in server.csr -signkey server.key -out server.crt
-    popd
-
-    export HEGEL_TLS_CERT=certs/server.crt
-    export HEGEL_TLS_KEY=certs/server.key
+    openssl genrsa -des3 -passout pass:x -out ./certs/server.pass.key 2048
+    openssl rsa -passin pass:x -in ./certs/server.pass.key -out ./certs/server.key
+    openssl req -new -key ./certs/server.key -out ./certs/server.csr
+    openssl x509 -req -sha256 -days 365 -in ./certs/server.csr -signkey ./certs/server.key -out ./certs/server.crt
+    export HEGEL_TLS_CERT=./certs/server.crt
+    export HEGEL_TLS_KEY=./certs/server.key
     go run main.go
-
-#### Running Hegel Locally
-
-The `docker-compose.yml` in the root of this repo makes it possible to run `hegel` locally for verifying basic functionality.
-There are a number of env vars you'll want to set before running `docker-compose`:
-
-- `FACILITY` - facility code
-- `PACKET_API_AUTH_TOKEN` - an API token
-- `PACKET_API_URL` - `https://api.packet.net/` for using the production API
-- `PACKET_CONSUMER_TOKEN` - a consumer token to identify the API user
-
-Running `docker-compose up` will bring up an instance of `cacher` and an instance of `hegel` pointed at that `cacher`.
-The instance of `cacher` will `ingest` hardware data from the API, depending on which `FACILITY` is specified.
-**Therefore, when testing locally, it's important to pick a "small" facility (such as `SEA1`) so that ingestion is quick**
