@@ -2,7 +2,6 @@
 
 ### Hegel
 
-The logical successor to Kant?
 The gRPC and HTTP metadata service for Tinkerbell.
 Subscribe to changes in metadata, get notified when data is added/removed, etc.
 
