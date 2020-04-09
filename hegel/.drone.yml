@@ -1,75 +1,80 @@
 ---
-publish_pr_tmpl: &publish_pr_tmpl
-  group: publish
-  image: plugins/docker
+quay_settings: &quay_settings
   registry: quay.io
-  tags:
-    - ${DRONE_PULL_REQUEST}
-    - ${DRONE_PULL_REQUEST}-${DRONE_BUILD_NUMBER}-${DRONE_COMMIT_SHA}
-  when:
-    event: pull_request
-  secrets:
-    - source: public_docker_password
-      target: docker_password
-    - source: public_docker_username
-      target: docker_username
+  repo: quay.io/tinkerbell/hegel
+  username:
+    from_secret: docker_username
+  password:
+    from_secret: docker_password
 
-publish_master_tmpl: &publish_master_tmpl
-  <<: *publish_pr_tmpl
-  tags:
-    - latest
-    - ${DRONE_BUILD_NUMBER}-${DRONE_COMMIT_SHA}
-  when:
-    branch: master
-    event: push
-  secrets:
-    - docker_password
-    - docker_username
+publish_tmpl: &publish_tmpl
+  image: plugins/docker
+  depends_on:
+    - build
+    - fmt
+    - lint
+    - test
 
-publish_tag_tmpl: &publish_tag_tmpl
-  <<: *publish_master_tmpl
-  tags: ${DRONE_TAG}
-  when:
-    event: tag
+quay_settings_pr: &quay_settings_pr
+  registry: quay.io
+  repo: quay.io/tinkerbell/hegel-pr
+  username:
+    from_secret: public_docker_username
+  password:
+    from_secret: public_docker_password
 
-workspace:
-  base: /go
-  path: src/github.com/tinkerbell/hegel
+kind: pipeline
+type: docker
+name: default
 
-pipeline:
-  lint:
-    group: ci
+steps:
+  - name: lint
     image: golangci/golangci-lint:v1.23.8
     commands:
       - golangci-lint run -v --skip-dirs cmd/packetflow
 
-  fmt:
-    group: ci
+  - name: fmt
     image: golang:1.13-alpine
     commands:
       - apk add --update --upgrade --no-cache git
       - goimports -d . | (! grep .)
 
-  test:
-    group: ci
+  - name: test
     image: golang:1.13-alpine
     commands:
       - CGO_ENABLED=0 go test -v ./...
 
-  build:
-    group: ci
+  - name: build
     image: golang:1.13-alpine
     commands:
       - CGO_ENABLED=0 go build
 
-  publish_pr_hegel:
-    <<: *publish_pr_tmpl
-    repo: quay.io/tinkerbell/hegel-pr
+  - name: publish pr
+    <<: *publish_tmpl
+    settings:
+      <<: *quay_settings_pr
+      tags:
+        - pr${DRONE_PULL_REQUEST}
+        - pr${DRONE_PULL_REQUEST}-${DRONE_BUILD_NUMBER}-${DRONE_COMMIT_SHA}
+    when:
+      event: pull_request
 
-  publish_master_hegel:
-    <<: *publish_master_tmpl
-    repo: quay.io/tinkerbell/hegel
+  - name: publish master
+    <<: *publish_tmpl
+    settings:
+      <<: *quay_settings
+      tags:
+        - latest
+        - ${DRONE_BUILD_NUMBER}-${DRONE_COMMIT_SHA}
+    when:
+      event: push
+      branch: master
 
-  publish_tag_hegel:
-    <<: *publish_tag_tmpl
-    repo: quay.io/tinkerbell/hegel
+  - name: publish tag
+    <<: *publish_tmpl
+    settings:
+      <<: *quay_settings
+      tags:
+        - ${DRONE_TAG}
+    when:
+      event: tag
