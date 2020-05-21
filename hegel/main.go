@@ -17,6 +17,7 @@ import (
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
 	"github.com/packethost/hegel/gxff"
+	"github.com/packethost/hegel/metrics"
 	"github.com/packethost/pkg/env"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
@@ -88,6 +89,9 @@ func main() {
 		panic(err)
 	}
 	defer l.Close()
+	metrics.Init(l)
+
+	metrics.State.Set(metrics.Initializing)
 
 	port, err := strconv.Atoi(env.Get("GRPC_PORT", "42115"))
 	if err != nil {
@@ -148,7 +152,16 @@ func main() {
 			isCacherAvailable = isCacherAvailableTemp
 			isCacherAvailableMu.Unlock()
 
-			logger.With("status", isCacherAvailableTemp).Debug("tick")
+			if isCacherAvailableTemp {
+				metrics.CacherConnected.Set(1)
+				metrics.CacherHealthcheck.WithLabelValues("true").Inc()
+				logger.With("status", isCacherAvailableTemp).Debug("tick")
+			} else {
+				metrics.CacherConnected.Set(0)
+				metrics.CacherHealthcheck.WithLabelValues("false").Inc()
+				metrics.Errors.WithLabelValues("cacher", "healthcheck").Inc()
+				logger.With("status", isCacherAvailableTemp).Error(err)
+			}
 		}
 
 	}()
@@ -168,7 +181,6 @@ func main() {
 		panic(err)
 	}
 
-
 	// Register grpc prometheus server
 	grpc_prometheus.Register(grpcServer)
 	http.Handle("/metrics", promhttp.Handler())
@@ -185,6 +197,7 @@ func main() {
 		}
 	}()
 
+	metrics.State.Set(metrics.Ready)
 	//Serving GRPC
 	logger.Info("serving grpc")
 	err = grpcServer.Serve(lis)

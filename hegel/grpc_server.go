@@ -9,12 +9,10 @@ import (
 
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
+	"github.com/packethost/hegel/metrics"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 //go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
@@ -30,16 +28,6 @@ type exportedHardware struct {
 	Hostname                           string                   `json:"hostname"`
 	BondingMode                        int                      `json:"bonding_mode"`
 }
-
-var active_subscription = promauto.NewGauge(prometheus.GaugeOpts{
-	Name: "hegel_active_subscriptions",
-	Help: "Number of active hegel subscribers",
-})
-
-var active_tink_subscription = promauto.NewGauge(prometheus.GaugeOpts{
-	Name: "hegel_active_tink_subscription",
-	Help: "Number of active hegel subscriptions to tink",
-})
 
 func exportHardware(hw []byte) ([]byte, error) {
 	exported := &exportedHardware{}
@@ -86,27 +74,39 @@ func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 }
 
 func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_SubscribeServer) error {
-	active_subscription.Inc()
-	defer active_subscription.Dec()
-	p, ok := peer.FromContext(stream.Context())
-	if !ok {
-		return errors.New("could not get peer info from client")
+	metrics.TotalSubscriptions.Inc()
+	metrics.Subscriptions.WithLabelValues("initializing").Inc()
+
+	logger := s.log.With("op", "subscribe")
+
+	initError := func(err error) error {
+		logger.Error(err)
+		metrics.Subscriptions.WithLabelValues("initializing").Dec()
+		metrics.Errors.WithLabelValues("subscribe", "initializing").Inc()
+		return err
 	}
 
-	s.log.With("client", p.Addr, "op", "subscribe").Info()
+	p, ok := peer.FromContext(stream.Context())
+	if !ok {
+		return initError(errors.New("could not get peer info from client"))
+	}
+
+	ip := p.Addr.(*net.TCPAddr).IP.String()
+	logger = logger.With("ip", ip, "client", p.Addr)
+
+	logger.Info()
 	hw, err := s.cacherClient.ByIP(stream.Context(), &cacher.GetRequest{
-		IP: p.Addr.(*net.TCPAddr).IP.String(),
+		IP: ip,
 	})
 
 	if err != nil {
-		s.log.Error(err)
-		return err
+		return initError(err)
 	}
 
 	hwJSON := make(map[string]interface{})
 	err = json.Unmarshal([]byte(hw.JSON), &hwJSON)
 	if err != nil {
-		return err
+		return initError(err)
 	}
 
 	hwID := hwJSON["id"]
@@ -118,14 +118,24 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	if err != nil {
 		cancel()
+		return initError(err)
+	}
+
+	metrics.Subscriptions.WithLabelValues("initializing").Dec()
+	metrics.Subscriptions.WithLabelValues("active").Inc()
+	activeError := func(err error) error {
+		if err == nil {
+			return err
+		}
+		logger.Error(err)
+		metrics.Subscriptions.WithLabelValues("active").Dec()
+		metrics.Errors.WithLabelValues("subscribe", "active").Inc()
 		return err
 	}
 
 	errs := make(chan error, 1)
 	ehws := make(chan []byte, 1)
 	go func() {
-		active_tink_subscription.Inc()
-		defer active_tink_subscription.Dec()
 		for {
 			hw, err := watch.Recv()
 			if err != nil {
@@ -148,7 +158,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		}
 	}()
 	go func() {
-		l := s.log.With("client", p.Addr, "op", "send")
+		l := logger.With("op", "send")
 		for ehw := range ehws {
 			l.Info()
 			err = stream.Send(&hegel.SubscribeResponse{
@@ -168,7 +178,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	if err = <-errs; status.Code(err) != codes.OK && retErr == nil {
 		retErr = err
 	}
-	return retErr
+	return activeError(retErr)
 }
 
 func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
