@@ -6,10 +6,12 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
 
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
 	"github.com/packethost/hegel/metrics"
+	tink "github.com/tinkerbell/tink/protos/hardware"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -17,7 +19,9 @@ import (
 
 //go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
 
-type exportedHardware struct {
+type exportedHardware interface{}
+
+type exportedHardwareCacher struct {
 	ID                                 string                   `json:"id"`
 	State                              string                   `json:"state"`
 	Instance                           interface{}              `json:"instance"`
@@ -29,8 +33,31 @@ type exportedHardware struct {
 	BondingMode                        int                      `json:"bonding_mode"`
 }
 
+type exportedHardwareTinkerbell struct {
+	ID       string   `json:"id"`
+	Metadata Metadata `json:"metadata"`
+}
+
+type Metadata struct {
+	State        string      `json:"state"`
+	BondingMode  int         `json:"bonding_mode"`
+	Manufacturer interface{} `json:"manufacturer"`
+	Instance     interface{} `json:"instance"`
+	Custom       interface{} `json:"custom"`
+	Facility     interface{} `json:"facility"`
+}
+
 func exportHardware(hw []byte) ([]byte, error) {
-	exported := &exportedHardware{}
+	var exported exportedHardware
+
+	discoveryType := os.Getenv("DISCOVERY_TYPE")
+	switch discoveryType {
+	case discoveryTypeTinkerbell:
+		exported = &exportedHardwareTinkerbell{}
+	default:
+		exported = &exportedHardwareCacher{}
+	}
+
 	err := json.Unmarshal(hw, exported)
 	if err != nil {
 		return nil, err
@@ -38,8 +65,8 @@ func exportHardware(hw []byte) ([]byte, error) {
 	return json.Marshal(exported)
 }
 
-func (eh *exportedHardware) UnmarshalJSON(b []byte) error {
-	type ehj exportedHardware
+func (eh *exportedHardwareCacher) UnmarshalJSON(b []byte) error {
+	type ehj exportedHardwareCacher
 	var tmp ehj
 	err := json.Unmarshal(b, &tmp)
 	if err != nil {
@@ -52,7 +79,7 @@ func (eh *exportedHardware) UnmarshalJSON(b []byte) error {
 		}
 	}
 	tmp.NetworkPorts = networkPorts
-	*eh = exportedHardware(tmp)
+	*eh = exportedHardwareCacher(tmp)
 	return nil
 }
 
@@ -95,7 +122,12 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	logger = logger.With("ip", ip, "client", p.Addr)
 
 	logger.Info()
-	hw, err := s.cacherClient.ByIP(stream.Context(), &cacher.GetRequest{
+
+	ctx, cancel := context.WithCancel(stream.Context())
+
+	// TODO: make this work with tink
+	cc := s.hardwareClient.(cacher.CacherClient)
+	hw, err := cc.ByIP(stream.Context(), &cacher.GetRequest{
 		IP: ip,
 	})
 
@@ -111,8 +143,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	hwID := hwJSON["id"]
 
-	ctx, cancel := context.WithCancel(stream.Context())
-	watch, err := s.cacherClient.Watch(ctx, &cacher.GetRequest{
+	watch, err := cc.Watch(ctx, &cacher.GetRequest{
 		ID: hwID.(string),
 	})
 
@@ -182,19 +213,41 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 }
 
 func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
-	hw, err := s.cacherClient.ByIP(ctx, &cacher.GetRequest{
-		IP: userIP,
-	})
 
-	if err != nil {
-		return nil, err
+	var hw []byte
+	discoveryType := os.Getenv("DISCOVERY_TYPE")
+	switch discoveryType {
+	case discoveryTypeTinkerbell:
+		resp, err := s.hardwareClient.(tink.HardwareServiceClient).ByIP(ctx, &tink.GetRequest{
+			Ip: userIP,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		if resp == nil {
+			return nil, errors.New("could not find hardware")
+		}
+
+		hw, err = json.Marshal(resp)
+	default:
+		resp, err := s.hardwareClient.(cacher.CacherClient).ByIP(ctx, &cacher.GetRequest{
+			IP: userIP,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		if resp == nil {
+			return nil, errors.New("could not find hardware")
+		}
+
+		hw = []byte(resp.JSON)
 	}
 
-	if hw == nil {
-		return nil, errors.New("could not find hardware")
-	}
-
-	ehw, err := exportHardware([]byte(hw.JSON))
+	ehw, err := exportHardware(hw)
 	if err != nil {
 		return nil, err
 	}
