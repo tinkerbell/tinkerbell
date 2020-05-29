@@ -16,4 +16,4 @@ require (
 	google.golang.org/grpc v1.28.0
 )
 
-replace github.com/tinkerbell/tink v0.0.0-20200527081417-d9d6b637de27 => github.com/kdeng3849/tink v0.0.0-20200527231431-56a0d8e7117e
+replace github.com/tinkerbell/tink v0.0.0-20200527081417-d9d6b637de27 => github.com/kdeng3849/tink v0.0.0-20200529181742-d1f05514f9cd

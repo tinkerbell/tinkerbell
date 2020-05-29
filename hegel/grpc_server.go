@@ -123,8 +123,6 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	logger.Info()
 
-	ctx, cancel := context.WithCancel(stream.Context())
-
 	// TODO: make this work with tink
 	cc := s.hardwareClient.(cacher.CacherClient)
 	hw, err := cc.ByIP(stream.Context(), &cacher.GetRequest{
@@ -143,6 +141,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	hwID := hwJSON["id"]
 
+	ctx, cancel := context.WithCancel(stream.Context())
 	watch, err := cc.Watch(ctx, &cacher.GetRequest{
 		ID: hwID.(string),
 	})
@@ -231,6 +230,9 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		}
 
 		hw, err = json.Marshal(resp)
+		if err != nil {
+			return nil, errors.New("could not marshal hardware")
+		}
 	default:
 		resp, err := s.hardwareClient.(cacher.CacherClient).ByIP(ctx, &cacher.GetRequest{
 			IP: userIP,
