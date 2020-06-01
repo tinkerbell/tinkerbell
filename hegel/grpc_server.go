@@ -19,6 +19,8 @@ import (
 
 //go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
 
+type watchHardware interface {}
+
 type exportedHardware interface{}
 
 type exportedHardwareCacher struct {
@@ -123,32 +125,57 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	logger.Info()
 
-	// TODO: make this work with tink
-	cc := s.hardwareClient.(cacher.CacherClient)
-	hw, err := cc.ByIP(stream.Context(), &cacher.GetRequest{
-		IP: ip,
-	})
+	var watch watchHardware
+	var ctx context.Context
+	var cancel context.CancelFunc
+	discoveryType := os.Getenv("DISCOVERY_TYPE")
+	switch discoveryType {
+	case discoveryTypeTinkerbell:
+		tc := s.hardwareClient.(tink.HardwareServiceClient)
+		hw, err := tc.ByIP(stream.Context(), &tink.GetRequest{
+			Ip: ip,
+		})
 
-	if err != nil {
-		return initError(err)
-	}
+		if err != nil {
+			return initError(err)
+		}
 
-	hwJSON := make(map[string]interface{})
-	err = json.Unmarshal([]byte(hw.JSON), &hwJSON)
-	if err != nil {
-		return initError(err)
-	}
+		ctx, cancel = context.WithCancel(stream.Context())
+		watch, err = tc.Watch(ctx, &tink.GetRequest{
+			Id: hw.Id,
+		})
 
-	hwID := hwJSON["id"]
+		if err != nil {
+			cancel()
+			return initError(err)
+		}
+	default:
+		cc := s.hardwareClient.(cacher.CacherClient)
+		hw, err := cc.ByIP(stream.Context(), &cacher.GetRequest{
+			IP: ip,
+		})
 
-	ctx, cancel := context.WithCancel(stream.Context())
-	watch, err := cc.Watch(ctx, &cacher.GetRequest{
-		ID: hwID.(string),
-	})
+		if err != nil {
+			return initError(err)
+		}
 
-	if err != nil {
-		cancel()
-		return initError(err)
+		hwJSON := make(map[string]interface{})
+		err = json.Unmarshal([]byte(hw.JSON), &hwJSON)
+		if err != nil {
+			return initError(err)
+		}
+
+		hwID := hwJSON["id"]
+
+		ctx, cancel = context.WithCancel(stream.Context())
+		watch, err = cc.Watch(ctx, &cacher.GetRequest{
+			ID: hwID.(string),
+		})
+
+		if err != nil {
+			cancel()
+			return initError(err)
+		}
 	}
 
 	metrics.Subscriptions.WithLabelValues("initializing").Dec()
@@ -167,17 +194,41 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	ehws := make(chan []byte, 1)
 	go func() {
 		for {
-			hw, err := watch.Recv()
-			if err != nil {
-				if err == io.EOF {
-					err = status.Error(codes.OK, "stream ended")
+			var hw []byte
+			discoveryType := os.Getenv("DISCOVERY_TYPE")
+			switch discoveryType {
+			case discoveryTypeTinkerbell:
+				wt := watch.(tink.HardwareService_WatchClient)
+				resp, err := wt.Recv()
+				if err != nil {
+					if err == io.EOF {
+						err = status.Error(codes.OK, "stream ended")
+					}
+					errs <- err
+					close(ehws)
+					return
 				}
-				errs <- err
-				close(ehws)
-				return
+				hw, err = json.Marshal(resp)
+				if err != nil {
+					errs <- errors.New("could not marshal hardware")
+					close(ehws)
+					return
+				}
+			default:
+				wc := watch.(cacher.Cacher_WatchClient)
+				resp, err := wc.Recv()
+				if err != nil {
+					if err == io.EOF {
+						err = status.Error(codes.OK, "stream ended")
+					}
+					errs <- err
+					close(ehws)
+					return
+				}
+				hw = []byte(resp.JSON)
 			}
 
-			ehw, err := exportHardware([]byte(hw.JSON))
+			ehw, err := exportHardware(hw)
 			if err != nil {
 				errs <- err
 				close(ehws)
@@ -191,7 +242,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		l := logger.With("op", "send")
 		for ehw := range ehws {
 			l.Info()
-			err = stream.Send(&hegel.SubscribeResponse{
+			err := stream.Send(&hegel.SubscribeResponse{
 				JSON: string(ehw),
 			})
 
@@ -205,7 +256,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	}()
 
 	var retErr error
-	if err = <-errs; status.Code(err) != codes.OK && retErr == nil {
+	if err := <-errs; status.Code(err) != codes.OK && retErr == nil {
 		retErr = err
 	}
 	return activeError(retErr)
