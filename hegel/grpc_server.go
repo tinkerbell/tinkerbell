@@ -19,7 +19,7 @@ import (
 
 //go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
 
-type watchHardware interface {}
+type watchClient interface {}
 
 type exportedHardware interface{}
 
@@ -125,7 +125,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	logger.Info()
 
-	var watch watchHardware
+	var watch watchClient
 	var ctx context.Context
 	var cancel context.CancelFunc
 	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
