@@ -96,6 +96,7 @@ github.com/kdeng3849/tink v0.0.0-20200527231431-56a0d8e7117e h1:vg4SUc9sWDaHqLHn
 github.com/kdeng3849/tink v0.0.0-20200527231431-56a0d8e7117e/go.mod h1:nOwtva5LoT5snDi8xe48ufG6NYWXjeE9p1WCE5rnHhA=
 github.com/kdeng3849/tink v0.0.0-20200529001420-90e8fd71b012 h1:Y4fpm2V4zQIW03H1qqb1pXod+5rECXP23KpLqBVr8g4=
 github.com/kdeng3849/tink v0.0.0-20200529001420-90e8fd71b012/go.mod h1:nOwtva5LoT5snDi8xe48ufG6NYWXjeE9p1WCE5rnHhA=
+github.com/kdeng3849/tink v0.0.0-20200529181742-d1f05514f9cd h1:7jyaQay1p5EczynR+X4cER+PHe6XgIGVsnVKoE4hW5M=
 github.com/kdeng3849/tink v0.0.0-20200529181742-d1f05514f9cd/go.mod h1:nOwtva5LoT5snDi8xe48ufG6NYWXjeE9p1WCE5rnHhA=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=

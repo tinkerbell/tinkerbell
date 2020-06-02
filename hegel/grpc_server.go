@@ -52,9 +52,9 @@ type Metadata struct {
 func exportHardware(hw []byte) ([]byte, error) {
 	var exported exportedHardware
 
-	discoveryType := os.Getenv("DISCOVERY_TYPE")
-	switch discoveryType {
-	case discoveryTypeTinkerbell:
+	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
+	switch hardwareDataModel {
+	case hardwareDataModelTinkerbell:
 		exported = &exportedHardwareTinkerbell{}
 	default:
 		exported = &exportedHardwareCacher{}
@@ -128,9 +128,9 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	var watch watchHardware
 	var ctx context.Context
 	var cancel context.CancelFunc
-	discoveryType := os.Getenv("DISCOVERY_TYPE")
-	switch discoveryType {
-	case discoveryTypeTinkerbell:
+	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
+	switch hardwareDataModel {
+	case hardwareDataModelTinkerbell:
 		tc := s.hardwareClient.(tink.HardwareServiceClient)
 		hw, err := tc.ByIP(stream.Context(), &tink.GetRequest{
 			Ip: ip,
@@ -195,9 +195,9 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	go func() {
 		for {
 			var hw []byte
-			discoveryType := os.Getenv("DISCOVERY_TYPE")
-			switch discoveryType {
-			case discoveryTypeTinkerbell:
+			hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
+			switch hardwareDataModel {
+			case hardwareDataModelTinkerbell:
 				wt := watch.(tink.HardwareService_WatchClient)
 				resp, err := wt.Recv()
 				if err != nil {
@@ -265,9 +265,9 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 
 	var hw []byte
-	discoveryType := os.Getenv("DISCOVERY_TYPE")
-	switch discoveryType {
-	case discoveryTypeTinkerbell:
+	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
+	switch hardwareDataModel {
+	case hardwareDataModelTinkerbell:
 		resp, err := s.hardwareClient.(tink.HardwareServiceClient).ByIP(ctx, &tink.GetRequest{
 			Ip: userIP,
 		})
