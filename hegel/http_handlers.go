@@ -54,12 +54,12 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 
 func getMetadata(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		logger.Debug("Calling Getmetadata ")
+		logger.Debug("Calling getMetadata ")
 		userIP := getIPFromRequest(r)
 		if userIP != "" {
 			metrics.MetadataRequests.Inc()
 			logger.With("userIP", userIP).Info("Actual IP is : ")
-			ehw, err := getByIP(context.Background(), hegelServer, userIP)
+			ehw, err := fetcher.GetByIP(context.Background(), hegelServer, userIP)
 			if err != nil {
 				metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 				logger.Info("Error in Finding Hardware ", err)
