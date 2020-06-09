@@ -158,8 +158,8 @@ type dataFetch interface {
 	GetByIP(ctx context.Context, s *server, userIP string) ([]byte, error)
 }
 
-type dataFetcher struct {}
-type dataFetcherMock struct {}
+type dataFetcher struct{}
+type dataFetcherMock struct{}
 
 func (d dataFetcher) GetByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 	return getByIP(ctx, s, userIP)
@@ -169,8 +169,8 @@ func (d dataFetcherMock) GetByIP(ctx context.Context, s *server, userIP string) 
 	var hw []byte
 	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
 	switch hardwareDataModel {
-		case hardwareDataModelTinkerbell:
-			hw = []byte(tinkerbellDataModel)
+	case hardwareDataModelTinkerbell:
+		hw = []byte(tinkerbellDataModel)
 	default:
 		hw = []byte(cacherDataModel)
 	}

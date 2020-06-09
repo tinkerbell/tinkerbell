@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/packethost/hegel/metrics"
-	"github.com/packethost/pkg/log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/packethost/hegel/metrics"
+	"github.com/packethost/pkg/log"
 )
 
 func TestMain(m *testing.M) {
@@ -95,25 +96,25 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 }
 
 var cacherTests = map[string]struct {
-	id string
-	remote           string
-	planSlug		string
+	id       string
+	remote   string
+	planSlug string
 }{
 	"cacher": {
-		id: "8978e7d4-1a55-4845-8a66-a5259236b104",
-		remote:            "192.168.1.5",
-		planSlug:           "t1.small.x86",
+		id:       "8978e7d4-1a55-4845-8a66-a5259236b104",
+		remote:   "192.168.1.5",
+		planSlug: "t1.small.x86",
 	},
 }
 
 var tinkerbellTests = map[string]struct {
-	id string
-	remote           string
-	bondingMode		int
+	id          string
+	remote      string
+	bondingMode int
 }{
 	"tinkerbell": {
-		id: "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
-		remote:            "192.168.1.5",
-		bondingMode:           5,
+		id:          "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
+		remote:      "192.168.1.5",
+		bondingMode: 5,
 	},
 }

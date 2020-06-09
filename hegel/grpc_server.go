@@ -19,7 +19,7 @@ import (
 
 //go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
 
-type watchClient interface {}
+type watchClient interface{}
 
 type exportedHardware interface{}
 
@@ -86,6 +86,7 @@ func (eh *exportedHardwareCacher) UnmarshalJSON(b []byte) error {
 }
 
 func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetResponse, error) {
+	// todo add tink
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, errors.New("could not get peer info from client")
@@ -131,8 +132,8 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
 	switch hardwareDataModel {
 	case hardwareDataModelTinkerbell:
-		tc := s.hardwareClient.(tink.HardwareServiceClient)
-		hw, err := tc.ByIP(stream.Context(), &tink.GetRequest{
+		//tc := s.hardwareClient.(tink.HardwareServiceClient)
+		hw, err := s.hardwareClient.ByIP(stream.Context(), &tink.GetRequest{
 			Ip: ip,
 		})
 
@@ -141,8 +142,8 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		}
 
 		ctx, cancel = context.WithCancel(stream.Context())
-		watch, err = tc.Watch(ctx, &tink.GetRequest{
-			Id: hw.Id,
+		watch, err = s.hardwareClient.Watch(ctx, &tink.GetRequest{
+			Id: hw.(tink.Hardware).Id,
 		})
 
 		if err != nil {
@@ -150,8 +151,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 			return initError(err)
 		}
 	default:
-		cc := s.hardwareClient.(cacher.CacherClient)
-		hw, err := cc.ByIP(stream.Context(), &cacher.GetRequest{
+		hw, err := s.hardwareClient.ByIP(stream.Context(), &cacher.GetRequest{
 			IP: ip,
 		})
 
@@ -160,7 +160,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		}
 
 		hwJSON := make(map[string]interface{})
-		err = json.Unmarshal([]byte(hw.JSON), &hwJSON)
+		err = json.Unmarshal([]byte(hw.(cacher.Hardware).JSON), &hwJSON)
 		if err != nil {
 			return initError(err)
 		}
@@ -168,7 +168,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		hwID := hwJSON["id"]
 
 		ctx, cancel = context.WithCancel(stream.Context())
-		watch, err = cc.Watch(ctx, &cacher.GetRequest{
+		watch, err = s.hardwareClient.Watch(ctx, &cacher.GetRequest{
 			ID: hwID.(string),
 		})
 
@@ -268,9 +268,10 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
 	switch hardwareDataModel {
 	case hardwareDataModelTinkerbell:
-		resp, err := s.hardwareClient.(tink.HardwareServiceClient).ByIP(ctx, &tink.GetRequest{
+		var req getRequest = tink.GetRequest{
 			Ip: userIP,
-		})
+		}
+		resp, err := s.hardwareClient.ByIP(ctx, &req)
 
 		if err != nil {
 			return nil, err
@@ -285,9 +286,10 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, errors.New("could not marshal hardware")
 		}
 	default:
-		resp, err := s.hardwareClient.(cacher.CacherClient).ByIP(ctx, &cacher.GetRequest{
+		var req getRequest = cacher.GetRequest{
 			IP: userIP,
-		})
+		}
+		resp, err := s.hardwareClient.ByIP(ctx, &req)
 
 		if err != nil {
 			return nil, err
@@ -297,7 +299,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, errors.New("could not find hardware")
 		}
 
-		hw = []byte(resp.JSON)
+		hw = []byte((*resp).(cacher.Hardware).JSON)
 	}
 
 	ehw, err := exportHardware(hw)

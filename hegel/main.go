@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	tink "github.com/tinkerbell/tink/protos/hardware"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	cacherClient "github.com/packethost/cacher/client"
@@ -35,6 +37,50 @@ type server struct {
 }
 
 type hardwareGetter interface {
+	ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error)
+	Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error)
+}
+
+type hardwareGetterCacher struct {
+	client cacher.CacherClient
+}
+type hardwareGetterTinkerbell struct {
+	client tink.HardwareServiceClient
+}
+
+type getRequest interface{}
+type hardware interface{}
+
+func (hg hardwareGetterCacher) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
+	hw, err := hg.client.ByIP(ctx, in.(*cacher.GetRequest), opts...)
+	if err != nil {
+		return nil, err
+	}
+	return hw, nil
+}
+
+func (hg hardwareGetterCacher) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
+	w, err := hg.client.Watch(ctx, in.(*cacher.GetRequest), opts...)
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+func (hg hardwareGetterTinkerbell) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
+	hw, err := hg.client.ByIP(ctx, in.(*tink.GetRequest), opts...)
+	if err != nil {
+		return nil, err
+	}
+	return hw, nil
+}
+
+func (hg hardwareGetterTinkerbell) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
+	w, err := hg.client.Watch(ctx, in.(*tink.GetRequest), opts...)
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
 }
 
 var (
@@ -138,17 +184,18 @@ func main() {
 	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
 	switch hardwareDataModel {
 	case hardwareDataModelTinkerbell:
-		hg, err = tinkClient.NewTinkerbellClient()
+		tc, err := tinkClient.NewTinkerbellClient()
 		if err != nil {
 			logger.Fatal(err, "Failed to create the tink client")
 		}
+		hg = hardwareGetterTinkerbell{tc}
 		// add health check for tink?
 	default:
-		hg, err = cacherClient.New(*facility)
+		cc, err := cacherClient.New(*facility)
 		if err != nil {
 			logger.Fatal(err, "Failed to create the cacher client")
 		}
-		//hg = hardwareGetterCacher{client: cc}
+		hg = hardwareGetterCacher{cc}
 		go func() {
 			c := time.Tick(15 * time.Second)
 			for range c {
