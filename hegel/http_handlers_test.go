@@ -83,6 +83,9 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 
 		hw := exportedHardwareTinkerbell{}
 		err = json.Unmarshal(resp.Body.Bytes(), &hw)
+		if err != nil {
+			t.Error("Error in unmarshalling hardware")
+		}
 
 		if hw.ID != test.id {
 			t.Errorf("handler returned unexpected id: got %v want %v",

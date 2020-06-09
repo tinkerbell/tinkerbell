@@ -42,14 +42,14 @@ func TestGetByIPCacher(t *testing.T) {
 	}
 	for name, test := range cacherGrpcTests {
 		t.Log(name)
-		ehw, err := getByIP(context.Background(), hegelTestServer, test.userIP)
+		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote)
 		if err != nil {
 			t.Fatal("Error in Finding Hardware", err)
 		}
 		hw := exportedHardwareCacher{}
 		err = json.Unmarshal(ehw, &hw)
 		if err != nil {
-			// todo
+			t.Fatal("Error in unmarshalling hardware", err)
 		}
 		if hw.PlanSlug != test.planSlug {
 			t.Fatalf("unexpected plan slug, want: %v, got: %v\n", test.planSlug, hw.PlanSlug)
@@ -67,7 +67,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 		hardwareClient: hgm,
 	}
 
-	for name, test := range tinkerbellTests {
+	for name, test := range tinkerbellGrpcTests {
 		t.Log(name)
 		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote)
 		if err != nil {
@@ -85,24 +85,24 @@ func TestGetByIPTinkerbell(t *testing.T) {
 }
 
 var tinkerbellGrpcTests = map[string]struct {
-	userIP      string
+	remote      string
 	bondingMode int
 	json        string
 }{
 	"tinkerbell": {
-		userIP:      "192.168.1.5",
+		remote:      "192.168.1.5",
 		bondingMode: 5,
 		json:        tinkerbellDataModel,
 	},
 }
 
 var cacherGrpcTests = map[string]struct {
-	userIP   string
+	remote   string
 	planSlug string
 	json     string
 }{
 	"cacher": {
-		userIP:   "192.168.1.5",
+		remote:   "192.168.1.5",
 		planSlug: "t1.small.x86",
 		json:     cacherDataModel,
 	},
