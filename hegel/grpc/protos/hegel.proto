@@ -1,0 +1,21 @@
+syntax = "proto3";
+package hegel;
+
+service Hegel {
+    rpc Get(GetRequest) returns (GetResponse);
+    rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+}
+
+message GetRequest {}
+
+message GetResponse {
+    string JSON = 1;
+}
+
+message SubscribeRequest {
+    string ID = 1;
+}
+
+message SubscribeResponse {
+    string JSON = 1;
+}

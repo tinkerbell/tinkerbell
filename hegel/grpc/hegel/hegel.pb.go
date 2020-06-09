@@ -4,15 +4,13 @@
 package hegel
 
 import (
+	context "context"
 	fmt "fmt"
-
 	proto "github.com/golang/protobuf/proto"
-
-	math "math"
-
-	context "golang.org/x/net/context"
-
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -24,7 +22,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type GetRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -36,16 +34,17 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hegel_924b8cac78cf458f, []int{0}
+	return fileDescriptor_8cbcf324d414b83a, []int{0}
 }
+
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetRequest.Unmarshal(m, b)
 }
 func (m *GetRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetRequest.Marshal(b, m, deterministic)
 }
-func (dst *GetRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetRequest.Merge(dst, src)
+func (m *GetRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetRequest.Merge(m, src)
 }
 func (m *GetRequest) XXX_Size() int {
 	return xxx_messageInfo_GetRequest.Size(m)
@@ -57,7 +56,7 @@ func (m *GetRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_GetRequest proto.InternalMessageInfo
 
 type GetResponse struct {
-	JSON                 string   `protobuf:"bytes,1,opt,name=JSON" json:"JSON,omitempty"`
+	JSON                 string   `protobuf:"bytes,1,opt,name=JSON,proto3" json:"JSON,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -67,16 +66,17 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hegel_924b8cac78cf458f, []int{1}
+	return fileDescriptor_8cbcf324d414b83a, []int{1}
 }
+
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetResponse.Unmarshal(m, b)
 }
 func (m *GetResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetResponse.Marshal(b, m, deterministic)
 }
-func (dst *GetResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetResponse.Merge(dst, src)
+func (m *GetResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetResponse.Merge(m, src)
 }
 func (m *GetResponse) XXX_Size() int {
 	return xxx_messageInfo_GetResponse.Size(m)
@@ -95,7 +95,7 @@ func (m *GetResponse) GetJSON() string {
 }
 
 type SubscribeRequest struct {
-	ID                   string   `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	ID                   string   `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -105,16 +105,17 @@ func (m *SubscribeRequest) Reset()         { *m = SubscribeRequest{} }
 func (m *SubscribeRequest) String() string { return proto.CompactTextString(m) }
 func (*SubscribeRequest) ProtoMessage()    {}
 func (*SubscribeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hegel_924b8cac78cf458f, []int{2}
+	return fileDescriptor_8cbcf324d414b83a, []int{2}
 }
+
 func (m *SubscribeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SubscribeRequest.Unmarshal(m, b)
 }
 func (m *SubscribeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SubscribeRequest.Marshal(b, m, deterministic)
 }
-func (dst *SubscribeRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SubscribeRequest.Merge(dst, src)
+func (m *SubscribeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SubscribeRequest.Merge(m, src)
 }
 func (m *SubscribeRequest) XXX_Size() int {
 	return xxx_messageInfo_SubscribeRequest.Size(m)
@@ -133,7 +134,7 @@ func (m *SubscribeRequest) GetID() string {
 }
 
 type SubscribeResponse struct {
-	JSON                 string   `protobuf:"bytes,1,opt,name=JSON" json:"JSON,omitempty"`
+	JSON                 string   `protobuf:"bytes,1,opt,name=JSON,proto3" json:"JSON,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -143,16 +144,17 @@ func (m *SubscribeResponse) Reset()         { *m = SubscribeResponse{} }
 func (m *SubscribeResponse) String() string { return proto.CompactTextString(m) }
 func (*SubscribeResponse) ProtoMessage()    {}
 func (*SubscribeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hegel_924b8cac78cf458f, []int{3}
+	return fileDescriptor_8cbcf324d414b83a, []int{3}
 }
+
 func (m *SubscribeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SubscribeResponse.Unmarshal(m, b)
 }
 func (m *SubscribeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SubscribeResponse.Marshal(b, m, deterministic)
 }
-func (dst *SubscribeResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SubscribeResponse.Merge(dst, src)
+func (m *SubscribeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SubscribeResponse.Merge(m, src)
 }
 func (m *SubscribeResponse) XXX_Size() int {
 	return xxx_messageInfo_SubscribeResponse.Size(m)
@@ -177,32 +179,52 @@ func init() {
 	proto.RegisterType((*SubscribeResponse)(nil), "hegel.SubscribeResponse")
 }
 
+func init() {
+	proto.RegisterFile("hegel.proto", fileDescriptor_8cbcf324d414b83a)
+}
+
+var fileDescriptor_8cbcf324d414b83a = []byte{
+	// 171 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xce, 0x48, 0x4d, 0x4f,
+	0xcd, 0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x05, 0x73, 0x94, 0x78, 0xb8, 0xb8, 0xdc,
+	0x53, 0x4b, 0x82, 0x52, 0x0b, 0x4b, 0x53, 0x8b, 0x4b, 0x94, 0x14, 0xb9, 0xb8, 0xc1, 0xbc, 0xe2,
+	0x82, 0xfc, 0xbc, 0xe2, 0x54, 0x21, 0x21, 0x2e, 0x16, 0xaf, 0x60, 0x7f, 0x3f, 0x09, 0x46, 0x05,
+	0x46, 0x0d, 0xce, 0x20, 0x30, 0x5b, 0x49, 0x89, 0x4b, 0x20, 0xb8, 0x34, 0xa9, 0x38, 0xb9, 0x28,
+	0x33, 0x29, 0x15, 0xaa, 0x4d, 0x88, 0x8f, 0x8b, 0xc9, 0xd3, 0x05, 0xaa, 0x8a, 0xc9, 0xd3, 0x45,
+	0x49, 0x9d, 0x4b, 0x10, 0x49, 0x0d, 0x6e, 0xc3, 0x8c, 0xca, 0xb9, 0x58, 0x3d, 0x40, 0xce, 0x10,
+	0xd2, 0xe1, 0x62, 0x76, 0x4f, 0x2d, 0x11, 0x12, 0xd4, 0x83, 0x38, 0x11, 0xe1, 0x24, 0x29, 0x21,
+	0x64, 0x21, 0xa8, 0x51, 0x0e, 0x5c, 0x9c, 0x70, 0xf3, 0x85, 0xc4, 0xa1, 0x0a, 0xd0, 0x5d, 0x25,
+	0x25, 0x81, 0x29, 0x01, 0xd1, 0x6f, 0xc0, 0x98, 0xc4, 0x06, 0x0e, 0x04, 0x63, 0x40, 0x00, 0x00,
+	0x00, 0xff, 0xff, 0x1a, 0x22, 0x9c, 0x73, 0x13, 0x01, 0x00, 0x00,
+}
+
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConn
+var _ grpc.ClientConnInterface
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion4
+const _ = grpc.SupportPackageIsVersion6
 
-// Client API for Hegel service
-
+// HegelClient is the client API for Hegel service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type HegelClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Hegel_SubscribeClient, error)
 }
 
 type hegelClient struct {
-	cc *grpc.ClientConn
+	cc grpc.ClientConnInterface
 }
 
-func NewHegelClient(cc *grpc.ClientConn) HegelClient {
+func NewHegelClient(cc grpc.ClientConnInterface) HegelClient {
 	return &hegelClient{cc}
 }
 
 func (c *hegelClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
 	out := new(GetResponse)
-	err := grpc.Invoke(ctx, "/hegel.Hegel/Get", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/hegel.Hegel/Get", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +232,7 @@ func (c *hegelClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.Call
 }
 
 func (c *hegelClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Hegel_SubscribeClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Hegel_serviceDesc.Streams[0], c.cc, "/hegel.Hegel/Subscribe", opts...)
+	stream, err := c.cc.NewStream(ctx, &_Hegel_serviceDesc.Streams[0], "/hegel.Hegel/Subscribe", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -241,11 +263,21 @@ func (x *hegelSubscribeClient) Recv() (*SubscribeResponse, error) {
 	return m, nil
 }
 
-// Server API for Hegel service
-
+// HegelServer is the server API for Hegel service.
 type HegelServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Subscribe(*SubscribeRequest, Hegel_SubscribeServer) error
+}
+
+// UnimplementedHegelServer can be embedded to have forward compatible implementations.
+type UnimplementedHegelServer struct {
+}
+
+func (*UnimplementedHegelServer) Get(ctx context.Context, req *GetRequest) (*GetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (*UnimplementedHegelServer) Subscribe(req *SubscribeRequest, srv Hegel_SubscribeServer) error {
+	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
 }
 
 func RegisterHegelServer(s *grpc.Server, srv HegelServer) {
@@ -308,21 +340,4 @@ var _Hegel_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Metadata: "hegel.proto",
-}
-
-func init() { proto.RegisterFile("hegel.proto", fileDescriptor_hegel_924b8cac78cf458f) }
-
-var fileDescriptor_hegel_924b8cac78cf458f = []byte{
-	// 171 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xce, 0x48, 0x4d, 0x4f,
-	0xcd, 0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x05, 0x73, 0x94, 0x78, 0xb8, 0xb8, 0xdc,
-	0x53, 0x4b, 0x82, 0x52, 0x0b, 0x4b, 0x53, 0x8b, 0x4b, 0x94, 0x14, 0xb9, 0xb8, 0xc1, 0xbc, 0xe2,
-	0x82, 0xfc, 0xbc, 0xe2, 0x54, 0x21, 0x21, 0x2e, 0x16, 0xaf, 0x60, 0x7f, 0x3f, 0x09, 0x46, 0x05,
-	0x46, 0x0d, 0xce, 0x20, 0x30, 0x5b, 0x49, 0x89, 0x4b, 0x20, 0xb8, 0x34, 0xa9, 0x38, 0xb9, 0x28,
-	0x33, 0x29, 0x15, 0xaa, 0x4d, 0x88, 0x8f, 0x8b, 0xc9, 0xd3, 0x05, 0xaa, 0x8a, 0xc9, 0xd3, 0x45,
-	0x49, 0x9d, 0x4b, 0x10, 0x49, 0x0d, 0x6e, 0xc3, 0x8c, 0xca, 0xb9, 0x58, 0x3d, 0x40, 0xce, 0x10,
-	0xd2, 0xe1, 0x62, 0x76, 0x4f, 0x2d, 0x11, 0x12, 0xd4, 0x83, 0x38, 0x11, 0xe1, 0x24, 0x29, 0x21,
-	0x64, 0x21, 0xa8, 0x51, 0x0e, 0x5c, 0x9c, 0x70, 0xf3, 0x85, 0xc4, 0xa1, 0x0a, 0xd0, 0x5d, 0x25,
-	0x25, 0x81, 0x29, 0x01, 0xd1, 0x6f, 0xc0, 0x98, 0xc4, 0x06, 0x0e, 0x04, 0x63, 0x40, 0x00, 0x00,
-	0x00, 0xff, 0xff, 0x1a, 0x22, 0x9c, 0x73, 0x13, 0x01, 0x00, 0x00,
 }
