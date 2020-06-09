@@ -52,9 +52,9 @@ type Metadata struct {
 func exportHardware(hw []byte) ([]byte, error) {
 	var exported exportedHardware
 
-	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
-	switch hardwareDataModel {
-	case hardwareDataModelTinkerbell:
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	switch dataModelVersion {
+	case "1":
 		exported = &exportedHardwareTinkerbell{}
 	default:
 		exported = &exportedHardwareCacher{}
@@ -129,9 +129,9 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	var watch watchClient
 	var ctx context.Context
 	var cancel context.CancelFunc
-	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
-	switch hardwareDataModel {
-	case hardwareDataModelTinkerbell:
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	switch dataModelVersion {
+	case "1":
 		//tc := s.hardwareClient.(tink.HardwareServiceClient)
 		hw, err := s.hardwareClient.ByIP(stream.Context(), &tink.GetRequest{
 			Ip: ip,
@@ -195,9 +195,9 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	go func() {
 		for {
 			var hw []byte
-			hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
-			switch hardwareDataModel {
-			case hardwareDataModelTinkerbell:
+			dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+			switch dataModelVersion {
+			case "1":
 				wt := watch.(tink.HardwareService_WatchClient)
 				resp, err := wt.Recv()
 				if err != nil {
@@ -265,9 +265,9 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 
 	var hw []byte
-	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
-	switch hardwareDataModel {
-	case hardwareDataModelTinkerbell:
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	switch dataModelVersion {
+	case "1":
 		var req getRequest = tink.GetRequest{
 			Ip: userIP,
 		}
@@ -299,7 +299,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, errors.New("could not find hardware")
 		}
 
-		hw = []byte((*resp).(cacher.Hardware).JSON)
+		hw = []byte(resp.(cacher.Hardware).JSON)
 	}
 
 	ehw, err := exportHardware(hw)

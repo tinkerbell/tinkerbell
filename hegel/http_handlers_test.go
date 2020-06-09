@@ -29,7 +29,7 @@ func TestGetMetadataCacher(t *testing.T) {
 	for name, test := range cacherTests {
 		t.Log(name)
 
-		os.Setenv("HARDWARE_DATA_MODEL", "")
+		os.Setenv("DATA_MODEL_VERSION", "")
 
 		req, err := http.NewRequest("GET", "/metadata", nil)
 		if err != nil {
@@ -61,7 +61,7 @@ func TestGetMetadataCacher(t *testing.T) {
 }
 
 func TestGetMetadataTinkerbell(t *testing.T) {
-	os.Setenv("HARDWARE_DATA_MODEL", "tinkerbell")
+	os.Setenv("DATA_MODEL_VERSION", "1")
 
 	for name, test := range tinkerbellTests {
 		t.Log(name)

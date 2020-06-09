@@ -29,8 +29,6 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-const hardwareDataModelTinkerbell = "tinkerbell"
-
 type server struct {
 	log            log.Logger
 	hardwareClient hardwareGetter
@@ -181,9 +179,9 @@ func main() {
 	)
 
 	var hg hardwareGetter
-	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
-	switch hardwareDataModel {
-	case hardwareDataModelTinkerbell:
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	switch dataModelVersion {
+	case "1":
 		tc, err := tinkClient.NewTinkerbellClient()
 		if err != nil {
 			logger.Fatal(err, "Failed to create the tink client")

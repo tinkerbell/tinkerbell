@@ -167,9 +167,9 @@ func (d dataFetcher) GetByIP(ctx context.Context, s *server, userIP string) ([]b
 
 func (d dataFetcherMock) GetByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 	var hw []byte
-	hardwareDataModel := os.Getenv("HARDWARE_DATA_MODEL")
-	switch hardwareDataModel {
-	case hardwareDataModelTinkerbell:
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	switch dataModelVersion {
+	case "1":
 		hw = []byte(tinkerbellDataModel)
 	default:
 		hw = []byte(cacherDataModel)
