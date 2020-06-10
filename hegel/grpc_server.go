@@ -49,6 +49,7 @@ type Metadata struct {
 	Facility     interface{} `json:"facility"`
 }
 
+// exportedHardware transforms hardware that is returned from cacher/tink into what we want to expose to clients
 func exportHardware(hw []byte) ([]byte, error) {
 	var exported exportedHardware
 
@@ -268,10 +269,10 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
-		var req getRequest = tink.GetRequest{
+		req := &tink.GetRequest{
 			Ip: userIP,
 		}
-		resp, err := s.hardwareClient.ByIP(ctx, &req)
+		resp, err := s.hardwareClient.ByIP(ctx, req)
 
 		if err != nil {
 			return nil, err
@@ -286,10 +287,10 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, errors.New("could not marshal hardware")
 		}
 	default:
-		var req getRequest = cacher.GetRequest{
+		req := &cacher.GetRequest{
 			IP: userIP,
 		}
-		resp, err := s.hardwareClient.ByIP(ctx, &req)
+		resp, err := s.hardwareClient.ByIP(ctx, req)
 
 		if err != nil {
 			return nil, err
@@ -299,7 +300,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, errors.New("could not find hardware")
 		}
 
-		hw = []byte(resp.(cacher.Hardware).JSON)
+		hw = []byte(resp.(*cacher.Hardware).JSON)
 	}
 
 	ehw, err := exportHardware(hw)

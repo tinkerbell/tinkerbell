@@ -204,7 +204,7 @@ func main() {
 				// Note that we don't do anything with the stream (we don't read from it)
 				var isCacherAvailableTemp bool
 				ctx, cancel := context.WithCancel(context.Background())
-				_, err := hg.(cacher.CacherClient).All(ctx, &cacher.Empty{})
+				_, err := cc.All(ctx, &cacher.Empty{})
 				if err == nil {
 					isCacherAvailableTemp = true
 				}

@@ -3,7 +3,7 @@ module github.com/packethost/hegel
 go 1.13
 
 require (
-	github.com/golang/protobuf v1.3.5
+	github.com/golang/protobuf v1.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/packethost/cacher v0.0.0-20200319200613-5dc1cac4fd33
@@ -13,7 +13,7 @@ require (
 	github.com/tinkerbell/tink v0.0.0-20200527081417-d9d6b637de27
 	go.mongodb.org/mongo-driver v1.1.2
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
-	google.golang.org/grpc v1.28.0
+	google.golang.org/grpc v1.29.1
 )
 
-replace github.com/tinkerbell/tink v0.0.0-20200527081417-d9d6b637de27 => github.com/kdeng3849/tink v0.0.0-20200529181742-d1f05514f9cd
+replace github.com/tinkerbell/tink v0.0.0-20200527081417-d9d6b637de27 => github.com/kdeng3849/tink v0.0.0-20200610164039-8cbc23b575a7
