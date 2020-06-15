@@ -18,6 +18,7 @@ const (
 	  "allow_workflow": true,
 	  "plan_slug": "t1.small.x86",
 	  "facility_code": "onprem",
+      "efi_boot": false,
 	  "instance": {
 		"storage": {
 		  "disks": [
@@ -96,6 +97,126 @@ const (
 	  ]
 	}
 `
+	cacherPartitionSizeInt = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": 4096,
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeString = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "3333",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeWhitespace = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "  1234   ",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeK = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "24K",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeKB = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "24Kb",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeM = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "3m",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
 	tinkerbellDataModel = `
 	{
 	  "id":"fde7c87c-d154-447e-9fce-7eb7bdec90c0",
@@ -139,7 +260,61 @@ const (
 			"id":"",
 			"slug":""
 		 },
-		 "instance":{},
+		 "instance":{
+			"storage": {
+			  "disks": [
+				{
+				  "device": "/dev/sda",
+				  "wipeTable": true,
+				  "partitions": [
+					{
+					  "size": 4096,
+					  "label": "BIOS",
+					  "number": 1
+					},
+					{
+					  "size": 3993600,
+					  "label": "SWAP",
+					  "number": 2
+					},
+					{
+					  "size": 0,
+					  "label": "ROOT",
+					  "number": 3
+					}
+				  ]
+				}
+			  ],
+			  "filesystems": [
+				{
+				  "mount": {
+					"point": "/",
+					"create": {
+					  "options": ["-L", "ROOT"]
+					},
+					"device": "/dev/sda3",
+					"format": "ext4"
+				  }
+				},
+				{
+				  "mount": {
+					"point": "none",
+					"create": {
+					  "options": ["-L", "SWAP"]
+					},
+					"device": "/dev/sda2",
+					"format": "swap"
+				  }
+				}
+			  ]
+			},
+			"crypted_root_password": "$6$qViImWbWFfH/a4pq$s1bpFFXMpQj1eQbHWsruLy6/",
+			"operating_system_version": {
+			  "distro": "ubuntu",
+			  "version": "16.04",
+			  "os_slug": "ubuntu_16_04"
+			}
+         },
 		 "custom":{
 			"preinstalled_operating_system_version":{},
 			"private_subnets":[]

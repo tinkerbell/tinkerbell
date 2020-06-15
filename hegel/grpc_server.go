@@ -5,8 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net"
 	"os"
+	"strconv"
+	"strings"
+	"unicode"
 
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
@@ -25,8 +29,10 @@ type exportedHardware interface{}
 
 type exportedHardwareCacher struct {
 	ID                                 string                   `json:"id"`
+	Arch                               string                   `json:"arch"`
 	State                              string                   `json:"state"`
-	Instance                           interface{}              `json:"instance"`
+	EFIBoot                            bool                     `json:"efi_boot"`
+	Instance                           instance                 `json:"instance"`
 	PreinstalledOperatingSystemVersion interface{}              `json:"preinstalled_operating_system_version"`
 	NetworkPorts                       []map[string]interface{} `json:"network_ports"`
 	PlanSlug                           string                   `json:"plan_slug"`
@@ -37,16 +43,127 @@ type exportedHardwareCacher struct {
 
 type exportedHardwareTinkerbell struct {
 	ID       string   `json:"id"`
-	Metadata Metadata `json:"metadata"`
+	Metadata metadata `json:"metadata"`
 }
 
-type Metadata struct {
+type metadata struct {
 	State        string      `json:"state"`
 	BondingMode  int         `json:"bonding_mode"`
 	Manufacturer interface{} `json:"manufacturer"`
-	Instance     interface{} `json:"instance"`
+	Instance     instance    `json:"instance"`
 	Custom       interface{} `json:"custom"`
 	Facility     interface{} `json:"facility"`
+}
+
+type instance struct {
+	ID       string `json:"id"`
+	State    string `json:"state"`
+	Hostname string `json:"hostname"`
+	AllowPXE bool   `json:"allow_pxe"`
+	Rescue   bool   `json:"rescue"`
+
+	OS       operatingSystem `json:"operating_system_version"`
+	UserData string          `json:"userdata,omitempty"`
+
+	CryptedRootPassword string `json:"crypted_root_password,omitempty"`
+
+	Storage      storage  `json:"storage,omitempty"`
+	SSHKeys      []string `json:"ssh_keys,omitempty"`
+	NetworkReady bool     `json:"network_ready,omitempty"`
+}
+
+type operatingSystem struct {
+	Slug     string `json:"slug"`
+	Distro   string `json:"distro"`
+	Version  string `json:"version"`
+	ImageTag string `json:"image_tag"`
+	OsSlug   string `json:"os_slug"`
+}
+
+type disk struct {
+	Device    string       `json:"device"`
+	WipeTable bool         `json:"wipeTable,omitempty"`
+	Paritions []*partition `json:"partitions,omitempty"`
+}
+
+type file struct {
+	Path     string `json:"path"`
+	Contents string `json:"contents,omitempty"`
+	Mode     int    `json:"mode,omitempty"`
+	UID      int    `json:"uid,omitempty"`
+	GID      int    `json:"gid,omitempty"`
+}
+
+type filesystem struct {
+	Mount struct {
+		Device string             `json:"device"`
+		Format string             `json:"format"`
+		Files  []*file            `json:"files,omitempty"`
+		Create *filesystemOptions `json:"create,omitempty"`
+	} `json:"mount"`
+}
+
+type filesystemOptions struct {
+	Force   bool     `json:"force,omitempty"`
+	Options []string `json:"options,omitempty"`
+}
+
+type partition struct {
+	Label    string      `json:"label,omitempty"`
+	Number   int         `json:"number,omitempty"`
+	Size     intOrString `json:"size,omitempty"`
+	Start    int         `json:"start,omitempty"`
+	TypeGUID string      `json:"typeGuid,omitempty"`
+}
+
+type RAID struct {
+	Name    string   `json:"name"`
+	Level   string   `json:"level"`
+	Devices []string `json:"devices"`
+	Spares  int      `json:"spares,omitempty"`
+}
+
+type storage struct {
+	Disks       []*disk       `json:"disks,omitempty"`
+	RAID        []*RAID       `json:"raid,omitempty"`
+	Filesystems []*filesystem `json:"filesystems,omitempty"`
+}
+
+type intOrString int
+
+func (ios *intOrString) UnmarshalJSON(b []byte) error {
+	if b[0] != '"' {
+		return json.Unmarshal(b, (*int)(ios))
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	i, err := convertSuffix(s)
+	if err != nil {
+		return err
+	}
+	*ios = intOrString(i)
+	return nil
+}
+
+func convertSuffix(s string) (int, error) {
+	suffixes := map[string]int{"k": 1, "m": 2, "g": 3, "t": 4}
+	s = strings.ToLower(s)
+	i := strings.TrimFunc(s, func(r rune) bool {
+		return !unicode.IsNumber(r)
+	})
+	size, err := strconv.Atoi(i)
+	if err != nil {
+		return 0, err
+	}
+
+	suf := strings.TrimFunc(s, func(r rune) bool {
+		return !unicode.IsLetter(r)
+	})
+	suf = strings.ReplaceAll(suf, "b", "")
+	res := size * int(math.Pow(1024, float64(suffixes[suf])))
+	return res, nil
 }
 
 // exportedHardware transforms hardware that is returned from cacher/tink into what we want to expose to clients
@@ -87,7 +204,6 @@ func (eh *exportedHardwareCacher) UnmarshalJSON(b []byte) error {
 }
 
 func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetResponse, error) {
-	// todo add tink
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, errors.New("could not get peer info from client")
@@ -300,7 +416,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, errors.New("could not find hardware")
 		}
 
-		hw = []byte(resp.(*cacher.Hardware).JSON)
+		hw = []byte(resp.(cacher.Hardware).JSON)
 	}
 
 	ehw, err := exportHardware(hw)
