@@ -135,6 +135,7 @@ type storage struct {
 
 type intOrString int
 
+// UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of IntOrString
 func (ios *intOrString) UnmarshalJSON(b []byte) error {
 	if b[0] != '"' {
 		return json.Unmarshal(b, (*int)(ios))
@@ -153,9 +154,13 @@ func (ios *intOrString) UnmarshalJSON(b []byte) error {
 
 // converts a string of "<size><suffix>" (e.g. "123kb") into its equivalent size in bytes
 func convertSuffix(s string) (int, error) {
+	if s == "" { // return 0 if empty string
+		return 0, nil
+	}
+
 	suffixes := map[string]float64{"": 0, "b": 0, "k": 1, "kb": 1, "m": 2, "mb": 2, "g": 3, "gb": 3, "t": 4, "tb": 4}
 	s = strings.ToLower(s)                       // converts string s to all lowercase
-	i := strings.TrimFunc(s, func(r rune) bool { // trims from string s of anything not a number (e.g., "123 kb" -> "123" and "12k3b" -> "12k3")
+	i := strings.TrimFunc(s, func(r rune) bool { // trims both ends of string s of anything not a number (e.g., "123 kb" -> "123" and "12k3b" -> "12k3")
 		return !unicode.IsNumber(r)
 	})
 	size, err := strconv.Atoi(i) // convert number portion of string s into an int
@@ -163,7 +168,7 @@ func convertSuffix(s string) (int, error) {
 		return -1, err
 	}
 
-	suf := strings.TrimFunc(s, func(r rune) bool { // trims from string s of anything not a letter (e.g., "123 kb" -> "kb")
+	suf := strings.TrimFunc(s, func(r rune) bool { // trims both ends of string s of anything not a letter (e.g., "123 kb" -> "kb")
 		return !unicode.IsLetter(r)
 	})
 
@@ -193,6 +198,7 @@ func exportHardware(hw []byte) ([]byte, error) {
 	return json.Marshal(exported)
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareCacher
 func (eh *exportedHardwareCacher) UnmarshalJSON(b []byte) error {
 	type ehj exportedHardwareCacher
 	var tmp ehj

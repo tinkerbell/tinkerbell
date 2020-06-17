@@ -137,6 +137,26 @@ const (
 	  }
 	}
 `
+	cacherPartitionSizeStringLeadingZeros = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "007",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
 	cacherPartitionSizeWhitespace = `
     {
 	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
@@ -146,7 +166,67 @@ const (
 			{
 			  "partitions": [
 				{
-				  "size": "  1234   ",
+				  "size": " \t 1234\n   ",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeInterceptingWhitespace = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "12\tmb",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeBLower = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "1000000b",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeBUpper = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "1000000B",
 				  "label": "BIOS",
 				  "number": 1
 				}
@@ -177,7 +257,7 @@ const (
 	  }
 	}
 `
-	cacherPartitionSizeKB = `
+	cacherPartitionSizeKBLower = `
     {
 	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
 	  "instance": {
@@ -186,7 +266,47 @@ const (
 			{
 			  "partitions": [
 				{
-				  "size": "25Kb",
+				  "size": "24kb",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeKBUpper = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "24KB",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeKBMixed = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "24Kb",
 				  "label": "BIOS",
 				  "number": 1
 				}
@@ -217,6 +337,26 @@ const (
 	  }
 	}
 `
+	cacherPartitionSizeTB = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "2TB",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
 	cacherPartitionSizeInvalidSuffix = `
     {
 	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
@@ -226,7 +366,7 @@ const (
 			{
 			  "partitions": [
 				{
-				  "size": "3kmgt",
+				  "size": "3kmgtb",
 				  "label": "BIOS",
 				  "number": 1
 				}
@@ -247,6 +387,66 @@ const (
 			  "partitions": [
 				{
 				  "size": "12kb3",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeInvalidIntertwined2 = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "k123b",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeEmpty = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeReversedPlacement = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "b10",
 				  "label": "BIOS",
 				  "number": 1
 				}
