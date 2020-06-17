@@ -27,6 +27,8 @@ type watchClient interface{}
 
 type exportedHardware interface{}
 
+// exportedHardwareCacher is the structure in which hegel returns to clients using the old cacher data model
+// exposes only certain fields of the hardware data returned by cacher
 type exportedHardwareCacher struct {
 	ID                                 string                   `json:"id"`
 	Arch                               string                   `json:"arch"`
@@ -41,6 +43,8 @@ type exportedHardwareCacher struct {
 	BondingMode                        int                      `json:"bonding_mode"`
 }
 
+// exportedHardwareTinkerbell is the structure in which hegel returns to clients using the new tinkerbell data model
+// exposes only certain fields of the hardware data returned by tinkerbell
 type exportedHardwareTinkerbell struct {
 	ID       string   `json:"id"`
 	Metadata metadata `json:"metadata"`
@@ -116,7 +120,7 @@ type partition struct {
 	TypeGUID string      `json:"typeGuid,omitempty"`
 }
 
-type RAID struct {
+type raid struct {
 	Name    string   `json:"name"`
 	Level   string   `json:"level"`
 	Devices []string `json:"devices"`
@@ -125,7 +129,7 @@ type RAID struct {
 
 type storage struct {
 	Disks       []*disk       `json:"disks,omitempty"`
-	RAID        []*RAID       `json:"raid,omitempty"`
+	RAID        []*raid       `json:"raid,omitempty"`
 	Filesystems []*filesystem `json:"filesystems,omitempty"`
 }
 
@@ -147,23 +151,27 @@ func (ios *intOrString) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// converts a string of "<size><suffix>" (e.g. "123kb") into its equivalent size in bytes
 func convertSuffix(s string) (int, error) {
-	suffixes := map[string]int{"k": 1, "m": 2, "g": 3, "t": 4}
-	s = strings.ToLower(s)
-	i := strings.TrimFunc(s, func(r rune) bool {
+	suffixes := map[string]float64{"": 0, "b": 0, "k": 1, "kb": 1, "m": 2, "mb": 2, "g": 3, "gb": 3, "t": 4, "tb": 4}
+	s = strings.ToLower(s)                       // converts string s to all lowercase
+	i := strings.TrimFunc(s, func(r rune) bool { // trims from string s of anything not a number (e.g., "123 kb" -> "123" and "12k3b" -> "12k3")
 		return !unicode.IsNumber(r)
 	})
-	size, err := strconv.Atoi(i)
+	size, err := strconv.Atoi(i) // convert number portion of string s into an int
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
-	suf := strings.TrimFunc(s, func(r rune) bool {
+	suf := strings.TrimFunc(s, func(r rune) bool { // trims from string s of anything not a letter (e.g., "123 kb" -> "kb")
 		return !unicode.IsLetter(r)
 	})
-	suf = strings.ReplaceAll(suf, "b", "")
-	res := size * int(math.Pow(1024, float64(suffixes[suf])))
-	return res, nil
+
+	if pow, ok := suffixes[suf]; ok { // checks if suf is a valid suffix
+		res := size * int(math.Pow(1024, pow))
+		return res, nil
+	}
+	return -1, errors.New("invalid suffix")
 }
 
 // exportedHardware transforms hardware that is returned from cacher/tink into what we want to expose to clients

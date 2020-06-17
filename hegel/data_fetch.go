@@ -186,7 +186,7 @@ const (
 			{
 			  "partitions": [
 				{
-				  "size": "24Kb",
+				  "size": "25Kb",
 				  "label": "BIOS",
 				  "number": 1
 				}
@@ -207,6 +207,46 @@ const (
 			  "partitions": [
 				{
 				  "size": "3m",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeInvalidSuffix = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "3kmgt",
+				  "label": "BIOS",
+				  "number": 1
+				}
+			  ]
+			}
+		  ]
+        }
+	  }
+	}
+`
+	cacherPartitionSizeInvalidIntertwined = `
+    {
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "instance": {
+		"storage": {
+		  "disks": [
+			{
+			  "partitions": [
+				{
+				  "size": "12kb3",
 				  "label": "BIOS",
 				  "number": 1
 				}
@@ -311,8 +351,8 @@ const (
 			"crypted_root_password": "$6$qViImWbWFfH/a4pq$s1bpFFXMpQj1eQbHWsruLy6/",
 			"operating_system_version": {
 			  "distro": "ubuntu",
-			  "version": "16.04",
-			  "os_slug": "ubuntu_16_04"
+			  "version": "18.04",
+			  "os_slug": "ubuntu_18_04"
 			}
          },
 		 "custom":{

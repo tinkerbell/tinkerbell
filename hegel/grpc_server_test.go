@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"testing"
 
@@ -32,6 +31,7 @@ func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...gr
 }
 
 func (hg hardwareGetterMock) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
+	// TODO (kdeng3849)
 	return nil, nil
 }
 
@@ -48,20 +48,16 @@ func TestGetByIPCacher(t *testing.T) {
 		}
 		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote)
 		if err != nil {
-			t.Fatal("Error in Finding Hardware", err)
+			if err.Error() != test.error {
+				t.Fatalf("unexpected error in getByIP, want: %v, got: %v\n", test.error, err.Error())
+			}
+			return
 		}
 		hw := exportedHardwareCacher{}
 		err = json.Unmarshal(ehw, &hw)
 		if err != nil {
 			t.Fatal("Error in unmarshalling hardware", err)
 		}
-
-		//instance := instance{}
-		//err = json.Unmarshal(hw.instance, &instance)
-		//if err != nil {
-		//	t.Fatal("Error in unmarshalling hardware instance", err)
-		//}
-		//fmt.Println(instance)
 
 		if hw.State != test.state {
 			t.Fatalf("unexpected state, want: %v, got: %v\n", test.state, hw.State)
@@ -70,7 +66,7 @@ func TestGetByIPCacher(t *testing.T) {
 			t.Fatalf("unexpected facility, want: %v, got: %v\n", test.facility, hw.Facility)
 		}
 		if len(hw.NetworkPorts) > 0 && hw.NetworkPorts[0]["data"].(map[string]interface{})["mac"] != test.mac {
-			t.Fatalf("unexpected mac, want: %v, got: %v\n", test.mac, hw.NetworkPorts[0]["data"])
+			t.Fatalf("unexpected mac, want: %v, got: %v\n", test.mac, hw.NetworkPorts[0]["data"].(map[string]interface{})["mac"])
 		}
 		if len(hw.Instance.Storage.Disks) > 0 {
 			if hw.Instance.Storage.Disks[0].Device != test.diskDevice {
@@ -79,8 +75,8 @@ func TestGetByIPCacher(t *testing.T) {
 			if hw.Instance.Storage.Disks[0].WipeTable != test.wipeTable {
 				t.Fatalf("unexpected storage disk wipe table, want: %v, got: %v\n", test.wipeTable, hw.Instance.Storage.Disks[0].WipeTable)
 			}
-			if int(hw.Instance.Storage.Disks[0].Paritions[0].Size) != test.partionSize {
-				t.Fatalf("unexpected storage disk partition size, want: %v, got: %v\n", test.partionSize, hw.Instance.Storage.Disks[0].Paritions[0].Size)
+			if int(hw.Instance.Storage.Disks[0].Paritions[0].Size) != test.partitionSize {
+				t.Fatalf("unexpected storage disk partition size, want: %v, got: %v\n", test.partitionSize, hw.Instance.Storage.Disks[0].Paritions[0].Size)
 			}
 		}
 		if len(hw.Instance.Storage.Filesystems) > 0 {
@@ -91,24 +87,12 @@ func TestGetByIPCacher(t *testing.T) {
 				t.Fatalf("unexpected storage filesystem mount format, want: %v, got: %v\n", test.filesystemFormat, hw.Instance.Storage.Filesystems[0].Mount.Format)
 			}
 		}
-		if hw.Instance.OS.Slug != test.osSlug {
-			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, hw.Instance.OS.Slug)
+		if hw.Instance.OS.OsSlug != test.osSlug {
+			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, hw.Instance.OS.OsSlug)
 		}
 		if hw.PlanSlug != test.planSlug {
 			t.Fatalf("unexpected plan slug, want: %v, got: %v\n", test.planSlug, hw.PlanSlug)
 		}
-
-		//fmt.Println(hw.State)
-		//fmt.Println(hw.Facility)
-		//fmt.Println(hw.Instance.Storage.Disks[0].Device)
-		//fmt.Println(hw.Instance.Storage.Disks[0].WipeTable)
-		fmt.Println(hw.Instance.Storage.Disks[0].Paritions[0].Size)
-		//fmt.Println(hw.Instance.Storage.Filesystems[0].Mount.Device)
-		//fmt.Println(hw.Instance.Storage.Filesystems[0].Mount.Format)
-		//fmt.Println(hw.Instance.OS.Slug)
-
-		//instance := reflect.ValueOf(hw.instance)
-		//fmt.Println(instance.MapIndex(reflect.ValueOf("storage")))
 	}
 }
 
@@ -126,17 +110,47 @@ func TestGetByIPTinkerbell(t *testing.T) {
 		}
 		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote)
 		if err != nil {
-			t.Fatal("Error in Finding Hardware", err)
+			if err.Error() != test.error {
+				t.Fatalf("unexpected error in getByIP, want: %v, got: %v\n", test.error, err.Error())
+			}
+			return
 		}
 		hw := exportedHardwareTinkerbell{}
 		err = json.Unmarshal(ehw, &hw)
 		if err != nil {
 			t.Fatal("Error in unmarshalling hardware", err)
 		}
-		if hw.Metadata.BondingMode != test.bondingMode {
-			t.Fatalf("unexpected primary data mac, want: %v, got: %v\n", test.bondingMode, hw.Metadata.BondingMode)
+		if hw.Metadata.State != test.state {
+			t.Fatalf("unexpected state, want: %v, got: %v\n", test.state, hw.Metadata.State)
 		}
-		// TODO (kdeng3849) fill out the rest
+		if hw.Metadata.BondingMode != test.bondingMode {
+			t.Fatalf("unexpected bonding mode, want: %v, got: %v\n", test.bondingMode, hw.Metadata.BondingMode)
+		}
+		if len(hw.Metadata.Instance.Storage.Disks) > 0 {
+			if hw.Metadata.Instance.Storage.Disks[0].Device != test.diskDevice {
+				t.Fatalf("unexpected disk device, want: %v, got: %v\n", test.diskDevice, hw.Metadata.Instance.Storage.Disks[0].Device)
+			}
+			if hw.Metadata.Instance.Storage.Disks[0].WipeTable != test.wipeTable {
+				t.Fatalf("unexpected wipe table, want: %v, got: %v\n", test.wipeTable, hw.Metadata.Instance.Storage.Disks[0].WipeTable)
+			}
+			if int(hw.Metadata.Instance.Storage.Disks[0].Paritions[0].Size) != test.partitionSize {
+				t.Fatalf("unexpected partition size, want: %v, got: %v\n", test.partitionSize, hw.Metadata.Instance.Storage.Disks[0].Paritions[0].Size)
+			}
+		}
+		if len(hw.Metadata.Instance.Storage.Filesystems) > 0 {
+			if hw.Metadata.Instance.Storage.Filesystems[0].Mount.Device != test.filesystemDevice {
+				t.Fatalf("unexpected filesystem mount device, want: %v, got: %v\n", test.filesystemDevice, hw.Metadata.Instance.Storage.Filesystems[0].Mount.Device)
+			}
+			if hw.Metadata.Instance.Storage.Filesystems[0].Mount.Format != test.filesystemFormat {
+				t.Fatalf("unexpected filesystem mount format, want: %v, got: %v\n", test.filesystemFormat, hw.Metadata.Instance.Storage.Filesystems[0].Mount.Format)
+			}
+		}
+		if hw.Metadata.Instance.OS.OsSlug != test.osSlug {
+			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, hw.Metadata.Instance.OS.OsSlug)
+		}
+		if hw.Metadata.Facility.(map[string]interface{})["plan_slug"] != test.planSlug {
+			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.planSlug, hw.Metadata.Facility.(map[string]interface{})["plan_slug"])
+		}
 	}
 }
 
@@ -147,12 +161,13 @@ var cacherGrpcTests = map[string]struct {
 	mac              string
 	diskDevice       string
 	wipeTable        bool
-	partionSize      int
+	partitionSize    int
 	filesystemDevice string
 	filesystemFormat string
 	osSlug           string
 	planSlug         string
 	json             string
+	error            string
 }{
 	"cacher": {
 		remote:           "192.168.1.5",
@@ -161,35 +176,45 @@ var cacherGrpcTests = map[string]struct {
 		mac:              "98:03:9b:48:de:bc",
 		diskDevice:       "/dev/sda",
 		wipeTable:        true,
-		partionSize:      4096,
+		partitionSize:    4096,
 		filesystemDevice: "/dev/sda3",
 		filesystemFormat: "ext4",
+		osSlug:           "ubuntu_16_04",
 		planSlug:         "t1.small.x86",
 		json:             cacherDataModel,
 	},
 	"cacher_partition_size_int": {
-		partionSize: 4096,
-		json:        cacherPartitionSizeInt,
+		partitionSize: 4096,
+		json:          cacherPartitionSizeInt,
 	},
 	"cacher_partition_size_string": {
-		partionSize: 3333,
-		json:        cacherPartitionSizeString,
+		partitionSize: 3333,
+		json:          cacherPartitionSizeString,
 	},
 	"cacher_partition_size_whitespace": {
-		partionSize: 1234,
-		json:        cacherPartitionSizeWhitespace,
+		partitionSize: 1234,
+		json:          cacherPartitionSizeWhitespace,
 	},
 	"cacher_partition_size_k": {
-		partionSize: 24576,
-		json:        cacherPartitionSizeK,
+		partitionSize: 24576,
+		json:          cacherPartitionSizeK,
 	},
 	"cacher_partition_size_kb": {
-		partionSize: 24576,
-		json:        cacherPartitionSizeKB,
+		partitionSize: 25600,
+		json:          cacherPartitionSizeKB,
 	},
 	"cacher_partition_size_m": {
-		partionSize: 3145728,
-		json:        cacherPartitionSizeM,
+		partitionSize: 3145728,
+		json:          cacherPartitionSizeM,
+	},
+	"cacher_partition_size_invalid_suffix": {
+		partitionSize: -1,
+		json:          cacherPartitionSizeInvalidSuffix,
+		error:         "invalid suffix",
+	},
+	"cacher_partition_size_invalid_intertwined": {
+		json:  cacherPartitionSizeInvalidIntertwined,
+		error: `strconv.Atoi: parsing "12kb3": invalid syntax`,
 	},
 }
 
@@ -199,22 +224,23 @@ var tinkerbellGrpcTests = map[string]struct {
 	bondingMode      int
 	diskDevice       string
 	wipeTable        bool
-	partionSize      int
+	partitionSize    int
 	filesystemDevice string
 	filesystemFormat string
 	osSlug           string
 	planSlug         string
 	json             string
+	error            string
 }{
 	"tinkerbell": {
 		remote:           "192.168.1.5",
 		bondingMode:      5,
 		diskDevice:       "/dev/sda",
 		wipeTable:        true,
-		partionSize:      4096,
+		partitionSize:    4096,
 		filesystemDevice: "/dev/sda3",
 		filesystemFormat: "ext4",
-		osSlug:           "ubuntu_16_04",
+		osSlug:           "ubuntu_18_04",
 		planSlug:         "c2.medium.x86",
 		json:             tinkerbellDataModel,
 	},
