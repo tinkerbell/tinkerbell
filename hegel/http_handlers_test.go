@@ -6,28 +6,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-
-	"github.com/packethost/hegel/metrics"
-	"github.com/packethost/pkg/log"
 )
-
-func TestMain(m *testing.M) {
-	fetcher = dataFetcherMock{}
-
-	os.Setenv("PACKET_ENV", "test")
-	os.Setenv("PACKET_VERSION", "ignored")
-	os.Setenv("ROLLBAR_TOKEN", "ignored")
-
-	l, _ := log.Init("github.com/packethost/hegel")
-	logger = l.Package("main")
-	metrics.Init(l)
-
-	os.Exit(m.Run())
-}
 
 func TestGetMetadataCacher(t *testing.T) {
 	for name, test := range cacherTests {
 		t.Log(name)
+		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
 		os.Setenv("DATA_MODEL_VERSION", "")
 
@@ -68,6 +52,7 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 
 	for name, test := range tinkerbellTests {
 		t.Log(name)
+		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
 		req, err := http.NewRequest("GET", "/metadata", nil)
 		if err != nil {
@@ -105,11 +90,13 @@ var cacherTests = map[string]struct {
 	id       string
 	remote   string
 	planSlug string
+	json     string
 }{
 	"cacher": {
 		id:       "8978e7d4-1a55-4845-8a66-a5259236b104",
 		remote:   "192.168.1.5",
 		planSlug: "t1.small.x86",
+		json:     cacherDataModel,
 	},
 }
 
@@ -117,10 +104,12 @@ var tinkerbellTests = map[string]struct {
 	id          string
 	remote      string
 	bondingMode int
+	json        string
 }{
 	"tinkerbell": {
 		id:          "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
 		remote:      "192.168.1.5",
 		bondingMode: 5,
+		json:        tinkerbellDataModel,
 	},
 }

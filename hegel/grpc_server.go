@@ -152,18 +152,18 @@ func (ios *intOrString) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// converts a string of "<size><suffix>" (e.g. "123kb") into its equivalent size in bytes
+// convertSuffix converts a string of "<size><suffix>" (e.g. "123kb") into its equivalent size in bytes
 func convertSuffix(s string) (int, error) {
-	if s == "" { // return 0 if empty string
+	if s == "" {
 		return 0, nil
 	}
 
 	suffixes := map[string]float64{"": 0, "b": 0, "k": 1, "kb": 1, "m": 2, "mb": 2, "g": 3, "gb": 3, "t": 4, "tb": 4}
-	s = strings.ToLower(s)                       // converts string s to all lowercase
+	s = strings.ToLower(s)
 	i := strings.TrimFunc(s, func(r rune) bool { // trims both ends of string s of anything not a number (e.g., "123 kb" -> "123" and "12k3b" -> "12k3")
 		return !unicode.IsNumber(r)
 	})
-	size, err := strconv.Atoi(i) // convert number portion of string s into an int
+	size, err := strconv.Atoi(i)
 	if err != nil {
 		return -1, err
 	}
@@ -172,7 +172,7 @@ func convertSuffix(s string) (int, error) {
 		return !unicode.IsLetter(r)
 	})
 
-	if pow, ok := suffixes[suf]; ok { // checks if suf is a valid suffix
+	if pow, ok := suffixes[suf]; ok {
 		res := size * int(math.Pow(1024, pow))
 		return res, nil
 	}

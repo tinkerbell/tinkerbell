@@ -2,10 +2,38 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
+
+	"github.com/packethost/cacher/protos/cacher"
+	"google.golang.org/grpc"
 )
 
-var fetcher dataFetch
+// hardwareGetterMock is a mock implentation of the
+type hardwareGetterMock struct {
+	hardwareResp string
+}
+
+func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
+	var hw hardware
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	switch dataModelVersion {
+	case "1":
+		err := json.Unmarshal([]byte(hg.hardwareResp), &hw)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		hw = cacher.Hardware{JSON: hg.hardwareResp}
+	}
+
+	return hw, nil
+}
+
+func (hg hardwareGetterMock) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
+	// TODO (kdeng3849)
+	return nil, nil
+}
 
 const (
 	cacherDataModel = `
@@ -568,31 +596,3 @@ const (
 	}
 `
 )
-
-type dataFetch interface {
-	GetByIP(ctx context.Context, s *server, userIP string) ([]byte, error)
-}
-
-type dataFetcher struct{}
-type dataFetcherMock struct{}
-
-func (d dataFetcher) GetByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
-	return getByIP(ctx, s, userIP)
-}
-
-func (d dataFetcherMock) GetByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
-	var hw []byte
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	switch dataModelVersion {
-	case "1":
-		hw = []byte(tinkerbellDataModel)
-	default:
-		hw = []byte(cacherDataModel)
-	}
-
-	return exportHardware(hw)
-}
-
-func init() {
-	fetcher = dataFetcher{}
-}

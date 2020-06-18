@@ -39,15 +39,16 @@ type hardwareGetter interface {
 	Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error)
 }
 
+type getRequest interface{}
+type hardware interface{}
+
 type hardwareGetterCacher struct {
 	client cacher.CacherClient
 }
+
 type hardwareGetterTinkerbell struct {
 	client tink.HardwareServiceClient
 }
-
-type getRequest interface{}
-type hardware interface{}
 
 func (hg hardwareGetterCacher) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
 	hw, err := hg.client.ByIP(ctx, in.(*cacher.GetRequest), opts...)

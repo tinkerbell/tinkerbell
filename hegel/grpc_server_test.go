@@ -5,35 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
-
-	"github.com/packethost/cacher/protos/cacher"
-	"google.golang.org/grpc"
 )
-
-type hardwareGetterMock struct {
-	hardwareResp string
-}
-
-func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
-	var hw hardware
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	switch dataModelVersion {
-	case "1":
-		err := json.Unmarshal([]byte(hg.hardwareResp), &hw)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		hw = cacher.Hardware{JSON: hg.hardwareResp}
-	}
-
-	return hw, nil
-}
-
-func (hg hardwareGetterMock) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
-	// TODO (kdeng3849)
-	return nil, nil
-}
 
 func TestGetByIPCacher(t *testing.T) {
 	t.Log("DATA_MODEL_VERSION (empty to use cacher):", os.Getenv("DATA_MODEL_VERSION"))
@@ -41,10 +13,9 @@ func TestGetByIPCacher(t *testing.T) {
 	for name, test := range cacherGrpcTests {
 		t.Log(name)
 
-		var hgm hardwareGetter = hardwareGetterMock{test.json}
 		hegelTestServer := &server{
 			log:            logger,
-			hardwareClient: hgm,
+			hardwareClient: hardwareGetterMock{test.json},
 		}
 		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote)
 		if err != nil {
@@ -104,10 +75,9 @@ func TestGetByIPTinkerbell(t *testing.T) {
 	for name, test := range tinkerbellGrpcTests {
 		t.Log(name)
 
-		var hgm hardwareGetter = hardwareGetterMock{test.json}
 		hegelTestServer := &server{
 			log:            logger,
-			hardwareClient: hgm,
+			hardwareClient: hardwareGetterMock{test.json},
 		}
 		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote)
 		if err != nil {
