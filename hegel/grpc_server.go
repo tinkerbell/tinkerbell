@@ -274,7 +274,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 		ctx, cancel = context.WithCancel(stream.Context())
 		watch, err = s.hardwareClient.Watch(ctx, &tink.GetRequest{
-			Id: hw.(tink.Hardware).Id,
+			Id: hw.(*tink.Hardware).Id,
 		})
 
 		if err != nil {
@@ -291,7 +291,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		}
 
 		hwJSON := make(map[string]interface{})
-		err = json.Unmarshal([]byte(hw.(cacher.Hardware).JSON), &hwJSON)
+		err = json.Unmarshal([]byte(hw.(*cacher.Hardware).JSON), &hwJSON)
 		if err != nil {
 			return initError(err)
 		}
@@ -430,7 +430,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, errors.New("could not find hardware")
 		}
 
-		hw = []byte(resp.(cacher.Hardware).JSON)
+		hw = []byte(resp.(*cacher.Hardware).JSON)
 	}
 
 	ehw, err := exportHardware(hw)

@@ -225,8 +225,8 @@ var cacherGrpcTests = map[string]struct {
 		partitionSize: 0,
 		json:          cacherPartitionSizeEmpty,
 	},
-	"cacher_partition_size_reverse_placement": { // "b10" // (kdeng3849) should we allow this?
-		partitionSize: 10,
+	"cacher_partition_size_reverse_placement": { // "mb10" // (kdeng3849) should we allow this?
+		partitionSize: 10485760,
 		json:          cacherPartitionSizeReversedPlacement,
 	},
 }

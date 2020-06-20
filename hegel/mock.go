@@ -24,7 +24,7 @@ func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...gr
 			return nil, err
 		}
 	default:
-		hw = cacher.Hardware{JSON: hg.hardwareResp}
+		hw = &cacher.Hardware{JSON: hg.hardwareResp}
 	}
 
 	return hw, nil
@@ -474,7 +474,7 @@ const (
 			{
 			  "partitions": [
 				{
-				  "size": "b10",
+				  "size": "mb10",
 				  "label": "BIOS",
 				  "number": 1
 				}
