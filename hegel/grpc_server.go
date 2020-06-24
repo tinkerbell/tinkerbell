@@ -104,6 +104,7 @@ type filesystem struct {
 		Format string             `json:"format"`
 		Files  []*file            `json:"files,omitempty"`
 		Create *filesystemOptions `json:"create,omitempty"`
+		Point  string             `json:"point"`
 	} `json:"mount"`
 }
 
