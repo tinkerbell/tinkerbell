@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"net"
@@ -46,8 +47,8 @@ type exportedHardwareCacher struct {
 // exportedHardwareTinkerbell is the structure in which hegel returns to clients using the new tinkerbell data model
 // exposes only certain fields of the hardware data returned by tinkerbell
 type exportedHardwareTinkerbell struct {
-	ID       string   `json:"id"`
-	Metadata metadata `json:"metadata"`
+	ID       string      `json:"id"`
+	Metadata interface{} `json:"metadata"`
 }
 
 type metadata struct {
@@ -215,6 +216,29 @@ func (eh *exportedHardwareCacher) UnmarshalJSON(b []byte) error {
 	}
 	tmp.NetworkPorts = networkPorts
 	*eh = exportedHardwareCacher(tmp)
+	return nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareTinkerbell
+// transforms the metadata from a string (as defined in the hardware returned by tink) into a map for cleaner printing
+func (eh *exportedHardwareTinkerbell) UnmarshalJSON(b []byte) error {
+	type ehj exportedHardwareTinkerbell
+	var tmp ehj
+	err := json.Unmarshal(b, &tmp)
+	if err != nil {
+		return err
+	}
+
+	if tmp.Metadata != nil {
+		metadata := make(map[string]interface{})
+		err = json.Unmarshal([]byte(tmp.Metadata.(string)), &metadata) // metadata is now a map
+
+		if err != nil {
+			fmt.Println(err)
+		}
+		tmp.Metadata = metadata
+	}
+	*eh = exportedHardwareTinkerbell(tmp)
 	return nil
 }
 

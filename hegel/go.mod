@@ -13,3 +13,5 @@ require (
 	github.com/tinkerbell/tink v0.0.0-20200708073808-997394055483
 	google.golang.org/grpc v1.29.1
 )
+
+replace github.com/tinkerbell/tink v0.0.0-20200622174048-5e66098170f3 => github.com/kdeng3849/tink v0.0.0-20200706184442-ed174c5a9d20
