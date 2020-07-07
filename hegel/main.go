@@ -183,7 +183,7 @@ func main() {
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
-		tc, err := tinkClient.NewTinkerbellClient()
+		tc, err := tinkClient.TinkHardwareClient()
 		if err != nil {
 			logger.Fatal(err, "Failed to create the tink client")
 		}
