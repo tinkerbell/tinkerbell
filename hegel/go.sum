@@ -102,6 +102,8 @@ github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7V
 github.com/kdeng3849/tink v0.0.0-20200520101934-527cd4267ae6/go.mod h1:8GgEepVuZzEryfZlSD6SSVy1f5YDRssuJuzydgrH6vU=
 github.com/kdeng3849/tink v0.0.0-20200706184442-ed174c5a9d20 h1:b69jnofKDgyh0j/70j1HFws/spJgC2zlWm8cv2l13ao=
 github.com/kdeng3849/tink v0.0.0-20200706184442-ed174c5a9d20/go.mod h1:76mIaisvbix90uCd7nRXXNO198WiL+TeJihDr4BXRas=
+github.com/kdeng3849/tink v0.0.0-20200707134055-37bac1d809b1 h1:PRIIgoWz4b7b0qLDBT0U8cuI1HmIYaY3Pkmb9cJWZPk=
+github.com/kdeng3849/tink v0.0.0-20200707134055-37bac1d809b1/go.mod h1:76mIaisvbix90uCd7nRXXNO198WiL+TeJihDr4BXRas=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+
+	"github.com/tinkerbell/tink/protos/packet"
 )
 
 func TestGetByIPCacher(t *testing.T) {
@@ -89,38 +91,53 @@ func TestGetByIPTinkerbell(t *testing.T) {
 		hw := exportedHardwareTinkerbell{}
 		err = json.Unmarshal(ehw, &hw)
 		if err != nil {
-			t.Fatal("Error in unmarshalling hardware", err)
+			t.Error("Error in unmarshalling hardware:", err)
 		}
-		if hw.Metadata.State != test.state {
-			t.Fatalf("unexpected state, want: %v, got: %v\n", test.state, hw.Metadata.State)
+
+		if hw.Metadata == nil {
+			return
 		}
-		if hw.Metadata.BondingMode != test.bondingMode {
-			t.Fatalf("unexpected bonding mode, want: %v, got: %v\n", test.bondingMode, hw.Metadata.BondingMode)
+
+		var metadata packet.Metadata
+		md, err := json.Marshal(hw.Metadata)
+		if err != nil {
+			t.Error("Error in unmarshalling hardware", err)
 		}
-		if len(hw.Metadata.Instance.Storage.Disks) > 0 {
-			if hw.Metadata.Instance.Storage.Disks[0].Device != test.diskDevice {
-				t.Fatalf("unexpected disk device, want: %v, got: %v\n", test.diskDevice, hw.Metadata.Instance.Storage.Disks[0].Device)
+		err = json.Unmarshal(md, &metadata)
+		if err != nil {
+			t.Error("Error in unmarshalling hardware metadata", err)
+		}
+
+		if metadata.State != test.state {
+			t.Fatalf("unexpected state, want: %v, got: %v\n", test.state, metadata.State)
+		}
+		if metadata.BondingMode != test.bondingMode {
+			t.Fatalf("unexpected bonding mode, want: %v, got: %v\n", test.bondingMode, metadata.BondingMode)
+		}
+		if len(metadata.Instance.Storage.Disks) > 0 {
+			if metadata.Instance.Storage.Disks[0].Device != test.diskDevice {
+				t.Fatalf("unexpected disk device, want: %v, got: %v\n", test.diskDevice, metadata.Instance.Storage.Disks[0].Device)
 			}
-			if hw.Metadata.Instance.Storage.Disks[0].WipeTable != test.wipeTable {
-				t.Fatalf("unexpected wipe table, want: %v, got: %v\n", test.wipeTable, hw.Metadata.Instance.Storage.Disks[0].WipeTable)
+			if metadata.Instance.Storage.Disks[0].WipeTable != test.wipeTable {
+				t.Fatalf("unexpected wipe table, want: %v, got: %v\n", test.wipeTable, metadata.Instance.Storage.Disks[0].WipeTable)
 			}
-			if int(hw.Metadata.Instance.Storage.Disks[0].Paritions[0].Size) != test.partitionSize {
-				t.Fatalf("unexpected partition size, want: %v, got: %v\n", test.partitionSize, hw.Metadata.Instance.Storage.Disks[0].Paritions[0].Size)
-			}
-		}
-		if len(hw.Metadata.Instance.Storage.Filesystems) > 0 {
-			if hw.Metadata.Instance.Storage.Filesystems[0].Mount.Device != test.filesystemDevice {
-				t.Fatalf("unexpected filesystem mount device, want: %v, got: %v\n", test.filesystemDevice, hw.Metadata.Instance.Storage.Filesystems[0].Mount.Device)
-			}
-			if hw.Metadata.Instance.Storage.Filesystems[0].Mount.Format != test.filesystemFormat {
-				t.Fatalf("unexpected filesystem mount format, want: %v, got: %v\n", test.filesystemFormat, hw.Metadata.Instance.Storage.Filesystems[0].Mount.Format)
+			if metadata.Instance.Storage.Disks[0].Partitions[0].Size != test.partitionSize {
+				t.Fatalf("unexpected partition size, want: %v, got: %v\n", test.partitionSize, metadata.Instance.Storage.Disks[0].Partitions[0].Size)
 			}
 		}
-		if hw.Metadata.Instance.OS.OsSlug != test.osSlug {
-			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, hw.Metadata.Instance.OS.OsSlug)
+		if len(metadata.Instance.Storage.Filesystems) > 0 {
+			if metadata.Instance.Storage.Filesystems[0].Mount.Device != test.filesystemDevice {
+				t.Fatalf("unexpected filesystem mount device, want: %v, got: %v\n", test.filesystemDevice, metadata.Instance.Storage.Filesystems[0].Mount.Device)
+			}
+			if metadata.Instance.Storage.Filesystems[0].Mount.Format != test.filesystemFormat {
+				t.Fatalf("unexpected filesystem mount format, want: %v, got: %v\n", test.filesystemFormat, metadata.Instance.Storage.Filesystems[0].Mount.Format)
+			}
 		}
-		if hw.Metadata.Facility.(map[string]interface{})["plan_slug"] != test.planSlug {
-			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.planSlug, hw.Metadata.Facility.(map[string]interface{})["plan_slug"])
+		if metadata.Instance.OperatingSystemVersion.OsSlug != test.osSlug {
+			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, metadata.Instance.OperatingSystemVersion.OsSlug)
+		}
+		if metadata.Facility.PlanSlug != test.planSlug {
+			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.planSlug, metadata.Facility.PlanSlug)
 		}
 	}
 }
@@ -234,10 +251,10 @@ var cacherGrpcTests = map[string]struct {
 var tinkerbellGrpcTests = map[string]struct {
 	remote           string
 	state            string
-	bondingMode      int
+	bondingMode      int64
 	diskDevice       string
 	wipeTable        bool
-	partitionSize    int
+	partitionSize    int64
 	filesystemDevice string
 	filesystemFormat string
 	osSlug           string
@@ -256,5 +273,9 @@ var tinkerbellGrpcTests = map[string]struct {
 		osSlug:           "ubuntu_18_04",
 		planSlug:         "c2.medium.x86",
 		json:             tinkerbellDataModel,
+	},
+	"tinkerbell no metadata": {
+		remote: "192.168.1.5",
+		json:   tinkerbellNoMetadata,
 	},
 }
