@@ -94,6 +94,11 @@ func TestGetByIPTinkerbell(t *testing.T) {
 			t.Error("Error in unmarshalling hardware:", err)
 		}
 
+		if hw.ID != test.id {
+			t.Errorf("handler returned unexpected id: got %v want %v",
+				hw.ID, test.id)
+		}
+
 		if hw.Metadata == nil {
 			return
 		}
@@ -143,6 +148,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 }
 
 var cacherGrpcTests = map[string]struct {
+	id               string
 	remote           string
 	state            string
 	facility         string
@@ -249,6 +255,7 @@ var cacherGrpcTests = map[string]struct {
 }
 
 var tinkerbellGrpcTests = map[string]struct {
+	id               string
 	remote           string
 	state            string
 	bondingMode      int64
@@ -263,6 +270,7 @@ var tinkerbellGrpcTests = map[string]struct {
 	error            string
 }{
 	"tinkerbell": {
+		id:               "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
 		remote:           "192.168.1.5",
 		bondingMode:      5,
 		diskDevice:       "/dev/sda",
@@ -275,6 +283,7 @@ var tinkerbellGrpcTests = map[string]struct {
 		json:             tinkerbellDataModel,
 	},
 	"tinkerbell no metadata": {
+		id:     "363115b0-f03d-4ce5-9a15-5514193d131a",
 		remote: "192.168.1.5",
 		json:   tinkerbellNoMetadata,
 	},
