@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tinkerbell/tink/util"
 	"io"
 	"math"
 	"net"
@@ -241,7 +242,11 @@ func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 	s.log.With("client", p.Addr, "op", "get").Info()
 	userIP := p.Addr.(*net.TCPAddr).IP.String()
 
-	ehw, err := getByIP(ctx, s, userIP)
+	hw, err := getByIP(ctx, s, userIP)
+	if err != nil {
+		return nil, err
+	}
+	ehw, err := exportHardware(hw)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +359,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 					close(ehws)
 					return
 				}
-				hw, err = json.Marshal(resp)
+				hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp})
 				if err != nil {
 					errs <- errors.New("could not marshal hardware")
 					close(ehws)
@@ -427,7 +432,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, errors.New("could not find hardware")
 		}
 
-		hw, err = json.Marshal(resp)
+		hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp.(*tink.Hardware)})
 		if err != nil {
 			return nil, errors.New("could not marshal hardware")
 		}
@@ -448,9 +453,10 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		hw = []byte(resp.(*cacher.Hardware).JSON)
 	}
 
-	ehw, err := exportHardware(hw)
-	if err != nil {
-		return nil, err
-	}
-	return ehw, nil
+	//ehw, err := exportHardware(hw)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return ehw, nil
+	return hw, nil
 }
