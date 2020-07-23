@@ -94,6 +94,7 @@ var (
 		"Whether we should use tls or not (should be disabled for traefik)")
 	metricsPort = flag.Int("http_port", envInt("HEGEL_HTTP_PORT", 50061),
 		"Port to liten on http")
+	customEndpoints = envString("CUSTOM_ENDPOINTS", `{"/metadata":".metadata"}`)
 	gitRev              string = "undefind"
 	gitRevJSON          []byte
 	StartTime           = time.Now()
@@ -276,8 +277,6 @@ func main() {
 }
 
 func registerCustomEndpoints() error {
-	customEndpoints := `{"/metadata":".metadata.instance","/components":".metadata.components","/all":"."}`
-
 	endpoints := make(map[string]string)
 	err := json.Unmarshal([]byte(customEndpoints), &endpoints)
 	if err != nil {
