@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tinkerbell/tink/util"
 	"io"
 	"math"
 	"net"
@@ -13,6 +12,9 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/itchyny/gojq"
+	"github.com/tinkerbell/tink/util"
 
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
@@ -189,6 +191,29 @@ func exportHardware(hw []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	return json.Marshal(exported)
+}
+
+func exportMetadata(hw []byte, filter string) ([]byte, error) {
+	var exported interface{}
+	query, err := gojq.Parse(filter)
+	if err != nil {
+		return nil, err
+	}
+	input := make(map[string]interface{})
+	err = json.Unmarshal(hw, &input)
+	iter := query.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return nil, err
+		}
+		exported = v
+	}
+
 	return json.Marshal(exported)
 }
 

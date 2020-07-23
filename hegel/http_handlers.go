@@ -80,6 +80,36 @@ func getMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func filterMetadata(filter string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			logger.Debug("Calling filterMetadata ")
+			userIP := getIPFromRequest(r)
+			if userIP != "" {
+				metrics.MetadataRequests.Inc()
+				logger.With("userIP", userIP).Info("Actual IP is: ")
+				hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
+				if err != nil {
+					metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
+					logger.Info("Error in finding hardware: ", err)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				emd, err := exportMetadata(hw, filter) // actually do filtering
+				if err != nil {
+					logger.Info("Error in exporting hardware: ", err)
+				}
+				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "application/json")
+				_, err = w.Write(emd)
+				if err != nil {
+					logger.Error(err, "failed to write Metadata")
+				}
+			}
+		}
+	}
+}
+
 func getIPFromRequest(r *http.Request) string {
 	IPAddress := r.RemoteAddr
 	if strings.ContainsRune(IPAddress, ':') {

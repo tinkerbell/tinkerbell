@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
@@ -250,7 +251,11 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/_packet/healthcheck", healthCheckHandler)
 	http.HandleFunc("/_packet/version", versionHandler)
-	http.HandleFunc("/metadata", getMetadata)
+	//http.HandleFunc("/metadata", getMetadata)
+	err = registerCustomEndpoints()
+	if err != nil {
+		logger.Error(err, "could not register custom endpoints")
+	}
 
 	logger.With("port", *metricsPort).Info("Starting http server")
 	go func() {
@@ -268,4 +273,19 @@ func main() {
 	if err != nil {
 		logger.Fatal(err, "Failed to serve  grpc")
 	}
+}
+
+func registerCustomEndpoints() error {
+	customEndpoints := `{"/metadata":".metadata.instance","/components":".metadata.components","/all":"."}`
+
+	endpoints := make(map[string]string)
+	err := json.Unmarshal([]byte(customEndpoints), &endpoints)
+	if err != nil {
+		logger.Info("Error in parsing custom endpoints: ", err)
+	}
+	for endpoint, filter := range endpoints {
+		http.HandleFunc(endpoint, filterMetadata(filter))
+	}
+
+	return nil
 }
