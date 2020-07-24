@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -95,13 +97,27 @@ func filterMetadata(filter string) http.HandlerFunc {
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
-				emd, err := exportMetadata(hw, filter) // actually do filtering
-				if err != nil {
-					logger.Info("Error in exporting hardware: ", err)
+
+				var resp []byte
+				dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+				switch dataModelVersion {
+				case "":
+					resp, err = exportHardware(hw) // filter not used in cacher mode
+					if err != nil {
+						logger.Info("Error in exporting hardware: ", err)
+					}
+				case "1":
+					resp, err = exportMetadata(hw, filter) // actually do filtering
+					if err != nil {
+						logger.Info("Error in exporting metadata: ", err)
+					}
+				default:
+					logger.Fatal(errors.New("unknown DATA_MODEL_VERSION"))
+
 				}
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
-				_, err = w.Write(emd)
+				_, err = w.Write(resp)
 				if err != nil {
 					logger.Error(err, "failed to write Metadata")
 				}

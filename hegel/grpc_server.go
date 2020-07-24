@@ -478,10 +478,5 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		hw = []byte(resp.(*cacher.Hardware).JSON)
 	}
 
-	//ehw, err := exportHardware(hw)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return ehw, nil
 	return hw, nil
 }
