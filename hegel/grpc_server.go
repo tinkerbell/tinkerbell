@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"net"
@@ -46,17 +47,8 @@ type exportedHardwareCacher struct {
 // exportedHardwareTinkerbell is the structure in which hegel returns to clients using the new tinkerbell data model
 // exposes only certain fields of the hardware data returned by tinkerbell
 type exportedHardwareTinkerbell struct {
-	ID       string   `json:"id"`
-	Metadata metadata `json:"metadata"`
-}
-
-type metadata struct {
-	State        string      `json:"state"`
-	BondingMode  int         `json:"bonding_mode"`
-	Manufacturer interface{} `json:"manufacturer"`
-	Instance     instance    `json:"instance"`
-	Custom       interface{} `json:"custom"`
-	Facility     interface{} `json:"facility"`
+	ID       string      `json:"id"`
+	Metadata interface{} `json:"metadata"`
 }
 
 type instance struct {
@@ -218,6 +210,29 @@ func (eh *exportedHardwareCacher) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareTinkerbell
+// transforms the metadata from a string (as defined in the hardware returned by tink) into a map for cleaner printing
+func (eh *exportedHardwareTinkerbell) UnmarshalJSON(b []byte) error {
+	type ehj exportedHardwareTinkerbell
+	var tmp ehj
+	err := json.Unmarshal(b, &tmp)
+	if err != nil {
+		return err
+	}
+
+	if md, ok := tmp.Metadata.(string); ok { // won't run block if unable to cast into string (including if nil)
+		metadata := make(map[string]interface{})
+		err = json.Unmarshal([]byte(md), &metadata) // metadata is now a map
+
+		if err != nil {
+			fmt.Println(err)
+		}
+		tmp.Metadata = metadata
+	}
+	*eh = exportedHardwareTinkerbell(tmp)
+	return nil
+}
+
 func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetResponse, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
@@ -264,7 +279,6 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
-		//tc := s.hardwareClient.(tink.HardwareServiceClient)
 		hw, err := s.hardwareClient.ByIP(stream.Context(), &tink.GetRequest{
 			Ip: ip,
 		})
@@ -403,7 +417,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		req := &tink.GetRequest{
 			Ip: userIP,
 		}
-		resp, err := s.hardwareClient.ByIP(ctx, req)
+		resp, err := s.hardwareClient.ByIP(ctx, req) // use wrapper?
 
 		if err != nil {
 			return nil, err

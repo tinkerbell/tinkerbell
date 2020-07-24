@@ -62,7 +62,7 @@ func getMetadata(w http.ResponseWriter, r *http.Request) {
 			ehw, err := getByIP(context.Background(), hegelServer, userIP)
 			if err != nil {
 				metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
-				logger.Info("Error in finding or exporting hardware ", err)
+				logger.Info("Error in finding or exporting hardware: ", err)
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}

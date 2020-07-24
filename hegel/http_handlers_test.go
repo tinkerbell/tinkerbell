@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/tinkerbell/tink/protos/packet"
 )
 
 func TestGetMetadataCacher(t *testing.T) {
@@ -79,9 +81,24 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 			t.Errorf("handler returned unexpected id: got %v want %v",
 				hw.ID, test.id)
 		}
-		if hw.Metadata.BondingMode != test.bondingMode {
+
+		if hw.Metadata == nil {
+			return
+		}
+
+		var metadata packet.Metadata
+		md, err := json.Marshal(hw.Metadata)
+		if err != nil {
+			t.Error("Error in marshalling hardware metadata", err)
+		}
+		err = json.Unmarshal(md, &metadata)
+		if err != nil {
+			t.Error("Error in unmarshalling hardware metadata", err)
+		}
+
+		if metadata.BondingMode != test.bondingMode {
 			t.Errorf("handler returned unexpected bonding mode: got %v want %v",
-				hw.Metadata.BondingMode, test.bondingMode)
+				metadata.BondingMode, test.bondingMode)
 		}
 	}
 }
@@ -103,7 +120,7 @@ var cacherTests = map[string]struct {
 var tinkerbellTests = map[string]struct {
 	id          string
 	remote      string
-	bondingMode int
+	bondingMode int64
 	json        string
 }{
 	"tinkerbell": {
@@ -111,5 +128,10 @@ var tinkerbellTests = map[string]struct {
 		remote:      "192.168.1.5",
 		bondingMode: 5,
 		json:        tinkerbellDataModel,
+	},
+	"tinkerbell no metadata": {
+		id:     "363115b0-f03d-4ce5-9a15-5514193d131a",
+		remote: "192.168.1.5",
+		json:   tinkerbellNoMetadata,
 	},
 }
