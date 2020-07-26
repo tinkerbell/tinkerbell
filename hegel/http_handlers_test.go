@@ -16,6 +16,7 @@ func TestGetMetadataCacher(t *testing.T) {
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
 		os.Setenv("DATA_MODEL_VERSION", "")
+		os.Unsetenv("CUSTOM_ENDPOINTS")
 
 		req, err := http.NewRequest("GET", "/metadata", nil)
 		if err != nil {
@@ -23,9 +24,9 @@ func TestGetMetadataCacher(t *testing.T) {
 		}
 		req.RemoteAddr = test.remote
 		resp := httptest.NewRecorder()
-		handler := http.HandlerFunc(getMetadata)
+		http.HandleFunc("/metadata", filterMetadata("")) // filter not used in cacher mode
 
-		handler.ServeHTTP(resp, req)
+		http.DefaultServeMux.ServeHTTP(resp, req)
 
 		if status := resp.Code; status != http.StatusOK {
 			t.Errorf("handler returned wrong status code: got %v want %v",
@@ -35,7 +36,7 @@ func TestGetMetadataCacher(t *testing.T) {
 		hw := exportedHardwareCacher{}
 		err = json.Unmarshal(resp.Body.Bytes(), &hw)
 		if err != nil {
-			t.Error("Error in unmarshalling hardware")
+			t.Error("Error in unmarshalling hardware:", err)
 		}
 
 		if hw.ID != test.id {
@@ -49,12 +50,20 @@ func TestGetMetadataCacher(t *testing.T) {
 	}
 }
 
+// TestGetMetadataTinkerbell tests the default use case in tinkerbell mode
 func TestGetMetadataTinkerbell(t *testing.T) {
 	os.Setenv("DATA_MODEL_VERSION", "1")
+	os.Unsetenv("CUSTOM_ENDPOINTS")
 
 	for name, test := range tinkerbellTests {
 		t.Log(name)
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+
+		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+		err := registerCustomEndpoints()
+		if err != nil {
+			t.Fatal("Error registering custom endpoints", err)
+		}
 
 		req, err := http.NewRequest("GET", "/metadata", nil)
 		if err != nil {
@@ -62,44 +71,59 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 		}
 		req.RemoteAddr = test.remote
 		resp := httptest.NewRecorder()
-		handler := http.HandlerFunc(getMetadata)
 
-		handler.ServeHTTP(resp, req)
+		http.DefaultServeMux.ServeHTTP(resp, req)
 
 		if status := resp.Code; status != http.StatusOK {
 			t.Errorf("handler returned wrong status code: got %v want %v",
 				status, http.StatusOK)
 		}
 
-		hw := exportedHardwareTinkerbell{}
-		err = json.Unmarshal(resp.Body.Bytes(), &hw)
-		if err != nil {
-			t.Error("Error in unmarshalling hardware")
-		}
-
-		if hw.ID != test.id {
-			t.Errorf("handler returned unexpected id: got %v want %v",
-				hw.ID, test.id)
-		}
-
-		if hw.Metadata == nil {
-			return
-		}
-
 		var metadata packet.Metadata
-		md, err := json.Marshal(hw.Metadata)
+		err = json.Unmarshal(resp.Body.Bytes(), &metadata)
 		if err != nil {
-			t.Error("Error in marshalling hardware metadata", err)
-		}
-		err = json.Unmarshal(md, &metadata)
-		if err != nil {
-			t.Error("Error in unmarshalling hardware metadata", err)
+			t.Error("Error in unmarshalling hardware metadata:", err)
 		}
 
 		if metadata.BondingMode != test.bondingMode {
 			t.Errorf("handler returned unexpected bonding mode: got %v want %v",
 				metadata.BondingMode, test.bondingMode)
 		}
+	}
+}
+
+func TestRegisterEndpoints(t *testing.T) {
+	os.Setenv("DATA_MODEL_VERSION", "1")
+
+	for name, test := range registerEndpointTests {
+		t.Log(name)
+		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+
+		if test.customEndpoints != "" {
+			os.Setenv("CUSTOM_ENDPOINTS", test.customEndpoints)
+		}
+
+		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+		err := registerCustomEndpoints()
+		if err != nil {
+			t.Fatal("Error registering custom endpoints", err)
+		}
+
+		req, err := http.NewRequest("GET", test.url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.RemoteAddr = test.remote
+		resp := httptest.NewRecorder()
+
+		http.DefaultServeMux.ServeHTTP(resp, req)
+
+		if status := resp.Code; status != test.status {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, test.status)
+		}
+
+		t.Log("response:", resp.Body.String()) // logging response instead of explicitly checking content
 	}
 }
 
@@ -133,5 +157,65 @@ var tinkerbellTests = map[string]struct {
 		id:     "363115b0-f03d-4ce5-9a15-5514193d131a",
 		remote: "192.168.1.5",
 		json:   tinkerbellNoMetadata,
+	},
+}
+
+var registerEndpointTests = map[string]struct {
+	customEndpoints string
+	url             string
+	remote          string
+	status          int
+	userdata        string
+	json            string
+}{
+	"single custom endpoint": {
+		customEndpoints: `{"/facility": ".metadata.facility"}`,
+		url:             "/facility",
+		remote:          "192.168.1.5",
+		status:          200,
+		userdata: `#!/bin/bash
+echo "Hello world!"`,
+		json: tinkerbellDataModel,
+	},
+	"single custom endpoint, invalid url call": {
+		customEndpoints: `{"/userdata": ".metadata.userdata"}`,
+		url:             "/metadata",
+		remote:          "192.168.1.5",
+		status:          404,
+		json:            tinkerbellDataModel,
+	},
+	"multiple custom endpoints": {
+		customEndpoints: `{"/metadata":".metadata.instance","/components":".metadata.components","/all":".","/userdata":".metadata.userdata"}`,
+		url:             "/components",
+		remote:          "192.168.1.5",
+		status:          200,
+		json:            tinkerbellDataModel,
+	},
+	"default endpoint": {
+		url:    "/metadata",
+		remote: "192.168.1.5",
+		status: 200,
+		json:   tinkerbellDataModel,
+	},
+	"custom endpoints invalid format (not a map)": {
+		customEndpoints: `"/userdata":".metadata.userdata"`,
+		url:             "/userdata",
+		remote:          "192.168.1.5",
+		status:          404,
+		json:            tinkerbellDataModel,
+	},
+	"custom endpoints invalid format (endpoint missing forward slash)": {
+		customEndpoints: `{"userdata":".metadata.userdata"}`,
+		url:             "/userdata",
+		remote:          "192.168.1.5",
+		status:          404,
+		json:            tinkerbellDataModel,
+	},
+	"custom endpoints invalid format (invalid jq filter)": {
+		customEndpoints: `{"/userdata":"invalid"}`,
+		url:             "/userdata",
+		remote:          "192.168.1.5",
+		status:          200,
+		json:            tinkerbellDataModel,
 	},
 }

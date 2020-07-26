@@ -54,34 +54,6 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getMetadata(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		logger.Debug("Calling getMetadata ")
-		userIP := getIPFromRequest(r)
-		if userIP != "" {
-			metrics.MetadataRequests.Inc()
-			logger.With("userIP", userIP).Info("Actual IP is : ")
-			hw, err := getByIP(context.Background(), hegelServer, userIP)
-			if err != nil {
-				metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
-				logger.Info("Error in finding hardware: ", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			ehw, err := exportHardware(hw)
-			if err != nil {
-				logger.Info("Error in exporting hardware: ", err)
-			}
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "application/json")
-			_, err = w.Write(ehw)
-			if err != nil {
-				logger.Error(err, "failed to write Metadata")
-			}
-		}
-	}
-}
-
 func filterMetadata(filter string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
