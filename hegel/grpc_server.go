@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"net"
@@ -29,8 +28,6 @@ import (
 
 type watchClient interface{}
 
-type exportedHardware interface{}
-
 // exportedHardwareCacher is the structure in which hegel returns to clients using the old cacher data model
 // exposes only certain fields of the hardware data returned by cacher
 type exportedHardwareCacher struct {
@@ -45,13 +42,6 @@ type exportedHardwareCacher struct {
 	Facility                           string                   `json:"facility_code"`
 	Hostname                           string                   `json:"hostname"`
 	BondingMode                        int                      `json:"bonding_mode"`
-}
-
-// exportedHardwareTinkerbell is the structure in which hegel returns to clients using the new tinkerbell data model
-// exposes only certain fields of the hardware data returned by tinkerbell
-type exportedHardwareTinkerbell struct {
-	ID       string      `json:"id"`
-	Metadata interface{} `json:"metadata"`
 }
 
 type instance struct {
@@ -175,17 +165,9 @@ func convertSuffix(s string) (int, error) {
 	return -1, errors.New("invalid suffix")
 }
 
-// exportedHardware transforms hardware that is returned from cacher/tink into what we want to expose to clients
+// exportedHardware transforms hardware that is returned from cacher into what we want to expose to clients
 func exportHardware(hw []byte) ([]byte, error) {
-	var exported exportedHardware
-
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	switch dataModelVersion {
-	case "1":
-		exported = &exportedHardwareTinkerbell{}
-	default:
-		exported = &exportedHardwareCacher{}
-	}
+	exported := &exportedHardwareCacher{}
 
 	err := json.Unmarshal(hw, exported)
 	if err != nil {
@@ -233,29 +215,6 @@ func (eh *exportedHardwareCacher) UnmarshalJSON(b []byte) error {
 	}
 	tmp.NetworkPorts = networkPorts
 	*eh = exportedHardwareCacher(tmp)
-	return nil
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareTinkerbell
-// transforms the metadata from a string (as defined in the hardware returned by tink) into a map for cleaner printing
-func (eh *exportedHardwareTinkerbell) UnmarshalJSON(b []byte) error {
-	type ehj exportedHardwareTinkerbell
-	var tmp ehj
-	err := json.Unmarshal(b, &tmp)
-	if err != nil {
-		return err
-	}
-
-	if md, ok := tmp.Metadata.(string); ok { // won't run block if unable to cast into string (including if nil)
-		metadata := make(map[string]interface{})
-		err = json.Unmarshal([]byte(md), &metadata) // metadata is now a map
-
-		if err != nil {
-			fmt.Println(err)
-		}
-		tmp.Metadata = metadata
-	}
-	*eh = exportedHardwareTinkerbell(tmp)
 	return nil
 }
 
