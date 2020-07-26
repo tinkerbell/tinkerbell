@@ -92,6 +92,41 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 	}
 }
 
+func TestGetMetadataTinkerbellKant(t *testing.T) {
+	os.Setenv("DATA_MODEL_VERSION", "1")
+	os.Setenv("CUSTOM_ENDPOINTS", `{"/metadata":".metadata.instance","/components":".metadata.components","/userdata":".metadata.userdata"}`)
+
+	for name, test := range tinkerbellKantTests {
+		t.Log(name)
+		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+
+		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+		err := registerCustomEndpoints()
+		if err != nil {
+			t.Fatal("Error registering custom endpoints", err)
+		}
+
+		req, err := http.NewRequest("GET", test.url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.RemoteAddr = test.remote
+		resp := httptest.NewRecorder()
+
+		http.DefaultServeMux.ServeHTTP(resp, req)
+
+		if status := resp.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+
+		if resp.Body.String() != test.response {
+			t.Errorf("handler returned unexpected bonding mode: got %v want %v",
+				resp.Body.String(), test.response)
+		}
+	}
+}
+
 func TestRegisterEndpoints(t *testing.T) {
 	os.Setenv("DATA_MODEL_VERSION", "1")
 
@@ -99,6 +134,7 @@ func TestRegisterEndpoints(t *testing.T) {
 		t.Log(name)
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
+		os.Unsetenv("CUSTOM_ENDPOINTS")
 		if test.customEndpoints != "" {
 			os.Setenv("CUSTOM_ENDPOINTS", test.customEndpoints)
 		}
@@ -124,6 +160,9 @@ func TestRegisterEndpoints(t *testing.T) {
 		}
 
 		t.Log("response:", resp.Body.String()) // logging response instead of explicitly checking content
+		if resp.Body.String() == "" && !test.expectResponseEmpty {
+			t.Errorf("handler should have returned a non-empty response")
+		}
 	}
 }
 
@@ -160,22 +199,57 @@ var tinkerbellTests = map[string]struct {
 	},
 }
 
+var tinkerbellKantTests = map[string]struct {
+	url      string
+	remote   string
+	status   int
+	response string
+	json     string
+}{
+	"metadata endpoint": {
+		url:      "/metadata",
+		remote:   "192.168.1.5",
+		status:   200,
+		response: `{"facility":"sjc1","hostname":"tink-provisioner","id":"f955e31a-cab6-44d6-872c-9614c2024bb4"}`,
+		json:     tinkerbellKant,
+	},
+	"components endpoint": {
+		url:      "/components",
+		remote:   "192.168.1.5",
+		status:   200,
+		response: `{"id":"bc9ce39b-7f18-425b-bc7b-067914fa9786","type":"DiskComponent"}`,
+		json:     tinkerbellKant,
+	},
+	"userdata endpoint": {
+		url:      "/userdata",
+		remote:   "192.168.1.5",
+		status:   200,
+		response: `"#!/bin/bash\n\necho \"Hello world!\""`,
+		json:     tinkerbellKant,
+	},
+	"no metadata": {
+		url:      "/metadata",
+		remote:   "192.168.1.5",
+		status:   200,
+		response: "null",
+		json:     tinkerbellNoMetadata,
+	},
+}
+
 var registerEndpointTests = map[string]struct {
-	customEndpoints string
-	url             string
-	remote          string
-	status          int
-	userdata        string
-	json            string
+	customEndpoints     string
+	url                 string
+	remote              string
+	status              int
+	expectResponseEmpty bool
+	json                string
 }{
 	"single custom endpoint": {
 		customEndpoints: `{"/facility": ".metadata.facility"}`,
 		url:             "/facility",
 		remote:          "192.168.1.5",
 		status:          200,
-		userdata: `#!/bin/bash
-echo "Hello world!"`,
-		json: tinkerbellDataModel,
+		json:            tinkerbellDataModel,
 	},
 	"single custom endpoint, invalid url call": {
 		customEndpoints: `{"/userdata": ".metadata.userdata"}`,
@@ -212,10 +286,11 @@ echo "Hello world!"`,
 		json:            tinkerbellDataModel,
 	},
 	"custom endpoints invalid format (invalid jq filter)": {
-		customEndpoints: `{"/userdata":"invalid"}`,
-		url:             "/userdata",
-		remote:          "192.168.1.5",
-		status:          200,
-		json:            tinkerbellDataModel,
+		customEndpoints:     `{"/userdata":"invalid"}`,
+		url:                 "/userdata",
+		remote:              "192.168.1.5",
+		status:              200,
+		expectResponseEmpty: true,
+		json:                tinkerbellDataModel,
 	},
 }

@@ -555,4 +555,38 @@ const (
 	   "id":"363115b0-f03d-4ce5-9a15-5514193d131a"
 	}
 `
+	tinkerbellKant = `
+	{
+	   "network":{
+		  "interfaces":[
+			 {
+				"dhcp":{
+				   "mac":"ec:0d:9a:c0:01:0c",
+				   "hostname":"server001",
+				   "lease_time":86400,
+				   "arch":"x86_64",
+				   "ip":{
+					  "address":"192.168.1.5",
+					  "netmask":"255.255.255.248",
+					  "gateway":"192.168.1.1"
+				   }
+				},
+				"netboot":{
+				   "allow_pxe":true,
+				   "allow_workflow":true,
+				   "ipxe":{
+					  "url":"http://url/menu.ipxe",
+					  "contents":"#!ipxe"
+				   },
+				   "osie":{
+					  "kernel":"vmlinuz-x86_64"
+				   }
+				}
+			 }
+		  ]
+	   },
+	   "id":"fde7c87c-d154-447e-9fce-7eb7bdec90c0",
+       "metadata": "{\"components\":{\"id\":\"bc9ce39b-7f18-425b-bc7b-067914fa9786\",\"type\":\"DiskComponent\"},\"instance\":{\"facility\":\"sjc1\",\"hostname\":\"tink-provisioner\",\"id\":\"f955e31a-cab6-44d6-872c-9614c2024bb4\"},\"userdata\":\"#!/bin/bash\\n\\necho \\\"Hello world!\\\"\"}"
+	}
+`
 )
