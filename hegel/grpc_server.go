@@ -184,6 +184,9 @@ func filterMetadata(hw []byte, filter string) ([]byte, error) {
 	}
 	input := make(map[string]interface{})
 	err = json.Unmarshal(hw, &input)
+	if err != nil {
+		return nil, err
+	}
 	iter := query.Run(input)
 	for {
 		v, ok := iter.Next()
