@@ -54,10 +54,10 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func filterMetadata(filter string) http.HandlerFunc {
+func getMetadata(filter string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
-			logger.Debug("Calling filterMetadata ")
+			logger.Debug("Calling getMetadata ")
 			userIP := getIPFromRequest(r)
 			if userIP != "" {
 				metrics.MetadataRequests.Inc()
@@ -74,14 +74,14 @@ func filterMetadata(filter string) http.HandlerFunc {
 				dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 				switch dataModelVersion {
 				case "":
-					resp, err = exportHardware(hw) // filter not used in cacher mode
+					resp, err = exportHardware(hw) // in cacher mode, the "filter" is the exportedHardwareCacher type
 					if err != nil {
 						logger.Info("Error in exporting hardware: ", err)
 					}
 				case "1":
-					resp, err = exportMetadata(hw, filter) // actually do filtering
+					resp, err = filterMetadata(hw, filter)
 					if err != nil {
-						logger.Info("Error in exporting metadata: ", err)
+						logger.Info("Error in filtering metadata: ", err)
 					}
 				default:
 					logger.Fatal(errors.New("unknown DATA_MODEL_VERSION"))

@@ -24,7 +24,7 @@ func TestGetMetadataCacher(t *testing.T) {
 		}
 		req.RemoteAddr = test.remote
 		resp := httptest.NewRecorder()
-		http.HandleFunc("/metadata", filterMetadata("")) // filter not used in cacher mode
+		http.HandleFunc("/metadata", getMetadata("")) // filter not used in cacher mode
 
 		http.DefaultServeMux.ServeHTTP(resp, req)
 

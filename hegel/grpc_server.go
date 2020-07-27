@@ -176,8 +176,8 @@ func exportHardware(hw []byte) ([]byte, error) {
 	return json.Marshal(exported)
 }
 
-func exportMetadata(hw []byte, filter string) ([]byte, error) {
-	var exported interface{}
+func filterMetadata(hw []byte, filter string) ([]byte, error) {
+	var result interface{}
 	query, err := gojq.Parse(filter)
 	if err != nil {
 		return nil, err
@@ -193,14 +193,14 @@ func exportMetadata(hw []byte, filter string) ([]byte, error) {
 		if err, ok := v.(error); ok {
 			return nil, err
 		}
-		exported = v
+		result = v
 	}
 
-	if exportedString, ok := exported.(string); ok { // if already a string, don't marshal
-		return []byte(exportedString), nil
+	if resultString, ok := result.(string); ok { // if already a string, don't marshal
+		return []byte(resultString), nil
 	}
-	if exported != nil { // if nil, don't marshal (json.Marshal(nil) returns "null")
-		return json.Marshal(exported)
+	if result != nil { // if nil, don't marshal (json.Marshal(nil) returns "null")
+		return json.Marshal(result)
 	}
 	return nil, nil
 }

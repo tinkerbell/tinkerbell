@@ -252,7 +252,6 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/_packet/healthcheck", healthCheckHandler)
 	http.HandleFunc("/_packet/version", versionHandler)
-	//http.HandleFunc("/metadata", getMetadata)
 	err = registerCustomEndpoints()
 	if err != nil {
 		logger.Error(err, "could not register custom endpoints")
@@ -285,7 +284,7 @@ func registerCustomEndpoints() error {
 		logger.Info("Error in parsing custom endpoints: ", err)
 	}
 	for endpoint, filter := range endpoints {
-		http.HandleFunc(endpoint, filterMetadata(filter))
+		http.HandleFunc(endpoint, getMetadata(filter))
 	}
 
 	return nil
