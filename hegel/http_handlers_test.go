@@ -79,6 +79,10 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 				status, http.StatusOK)
 		}
 
+		if resp.Body.Bytes() == nil {
+			return
+		}
+
 		var metadata packet.Metadata
 		err = json.Unmarshal(resp.Body.Bytes(), &metadata)
 		if err != nil {
@@ -92,6 +96,7 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 	}
 }
 
+// TestGetMetadataTinkerbellKant tests the kant specific use case in tinkerbell mode
 func TestGetMetadataTinkerbellKant(t *testing.T) {
 	os.Setenv("DATA_MODEL_VERSION", "1")
 	os.Setenv("CUSTOM_ENDPOINTS", `{"/metadata":".metadata.instance","/components":".metadata.components","/userdata":".metadata.userdata"}`)
@@ -121,7 +126,7 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 		}
 
 		if resp.Body.String() != test.response {
-			t.Errorf("handler returned unexpected bonding mode: got %v want %v",
+			t.Errorf("handler returned with unexpected body: got %v want %v",
 				resp.Body.String(), test.response)
 		}
 	}
@@ -221,17 +226,19 @@ var tinkerbellKantTests = map[string]struct {
 		json:     tinkerbellKant,
 	},
 	"userdata endpoint": {
-		url:      "/userdata",
-		remote:   "192.168.1.5",
-		status:   200,
-		response: `"#!/bin/bash\n\necho \"Hello world!\""`,
-		json:     tinkerbellKant,
+		url:    "/userdata",
+		remote: "192.168.1.5",
+		status: 200,
+		response: `#!/bin/bash
+
+echo "Hello world!"`,
+		json: tinkerbellKant,
 	},
 	"no metadata": {
 		url:      "/metadata",
 		remote:   "192.168.1.5",
 		status:   200,
-		response: "null",
+		response: "",
 		json:     tinkerbellNoMetadata,
 	},
 }

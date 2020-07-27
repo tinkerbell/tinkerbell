@@ -196,7 +196,13 @@ func exportMetadata(hw []byte, filter string) ([]byte, error) {
 		exported = v
 	}
 
-	return json.Marshal(exported)
+	if exportedString, ok := exported.(string); ok { // if already a string, don't marshal
+		return []byte(exportedString), nil
+	}
+	if exported != nil { // if nil, don't marshal (json.Marshal(nil) returns "null")
+		return json.Marshal(exported)
+	}
+	return nil, nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareCacher

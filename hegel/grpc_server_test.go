@@ -91,7 +91,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 		}
 
 		hw := struct {
-			ID string `json:"id"`
+			ID       string          `json:"id"`
 			Metadata packet.Metadata `json:"metadata"`
 		}{}
 		err = json.Unmarshal(ehw, &hw)
