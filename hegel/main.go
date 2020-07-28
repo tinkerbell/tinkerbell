@@ -254,7 +254,7 @@ func main() {
 	http.HandleFunc("/_packet/version", versionHandler)
 	err = registerCustomEndpoints()
 	if err != nil {
-		logger.Error(err, "could not register custom endpoints")
+		logger.Fatal(err, "could not register custom endpoints")
 	}
 
 	logger.With("port", *metricsPort).Info("Starting http server")
