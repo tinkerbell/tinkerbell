@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"net"
@@ -12,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/itchyny/gojq"
+	"github.com/tinkerbell/tink/util"
 
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
@@ -25,8 +27,6 @@ import (
 //go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
 
 type watchClient interface{}
-
-type exportedHardware interface{}
 
 // exportedHardwareCacher is the structure in which hegel returns to clients using the old cacher data model
 // exposes only certain fields of the hardware data returned by cacher
@@ -42,13 +42,6 @@ type exportedHardwareCacher struct {
 	Facility                           string                   `json:"facility_code"`
 	Hostname                           string                   `json:"hostname"`
 	BondingMode                        int                      `json:"bonding_mode"`
-}
-
-// exportedHardwareTinkerbell is the structure in which hegel returns to clients using the new tinkerbell data model
-// exposes only certain fields of the hardware data returned by tinkerbell
-type exportedHardwareTinkerbell struct {
-	ID       string      `json:"id"`
-	Metadata interface{} `json:"metadata"`
 }
 
 type instance struct {
@@ -172,23 +165,47 @@ func convertSuffix(s string) (int, error) {
 	return -1, errors.New("invalid suffix")
 }
 
-// exportedHardware transforms hardware that is returned from cacher/tink into what we want to expose to clients
+// exportedHardware transforms hardware that is returned from cacher into what we want to expose to clients
 func exportHardware(hw []byte) ([]byte, error) {
-	var exported exportedHardware
-
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	switch dataModelVersion {
-	case "1":
-		exported = &exportedHardwareTinkerbell{}
-	default:
-		exported = &exportedHardwareCacher{}
-	}
+	exported := &exportedHardwareCacher{}
 
 	err := json.Unmarshal(hw, exported)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(exported)
+}
+
+func filterMetadata(hw []byte, filter string) ([]byte, error) {
+	var result interface{}
+	query, err := gojq.Parse(filter)
+	if err != nil {
+		return nil, err
+	}
+	input := make(map[string]interface{})
+	err = json.Unmarshal(hw, &input)
+	if err != nil {
+		return nil, err
+	}
+	iter := query.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return nil, err
+		}
+		result = v
+	}
+
+	if resultString, ok := result.(string); ok { // if already a string, don't marshal
+		return []byte(resultString), nil
+	}
+	if result != nil { // if nil, don't marshal (json.Marshal(nil) returns "null")
+		return json.Marshal(result)
+	}
+	return nil, nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareCacher
@@ -210,29 +227,6 @@ func (eh *exportedHardwareCacher) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareTinkerbell
-// transforms the metadata from a string (as defined in the hardware returned by tink) into a map for cleaner printing
-func (eh *exportedHardwareTinkerbell) UnmarshalJSON(b []byte) error {
-	type ehj exportedHardwareTinkerbell
-	var tmp ehj
-	err := json.Unmarshal(b, &tmp)
-	if err != nil {
-		return err
-	}
-
-	if md, ok := tmp.Metadata.(string); ok { // won't run block if unable to cast into string (including if nil)
-		metadata := make(map[string]interface{})
-		err = json.Unmarshal([]byte(md), &metadata) // metadata is now a map
-
-		if err != nil {
-			fmt.Println(err)
-		}
-		tmp.Metadata = metadata
-	}
-	*eh = exportedHardwareTinkerbell(tmp)
-	return nil
-}
-
 func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetResponse, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
@@ -241,7 +235,11 @@ func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 	s.log.With("client", p.Addr, "op", "get").Info()
 	userIP := p.Addr.(*net.TCPAddr).IP.String()
 
-	ehw, err := getByIP(ctx, s, userIP)
+	hw, err := getByIP(ctx, s, userIP)
+	if err != nil {
+		return nil, err
+	}
+	ehw, err := exportHardware(hw)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +352,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 					close(ehws)
 					return
 				}
-				hw, err = json.Marshal(resp)
+				hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp})
 				if err != nil {
 					errs <- errors.New("could not marshal hardware")
 					close(ehws)
@@ -427,7 +425,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, errors.New("could not find hardware")
 		}
 
-		hw, err = json.Marshal(resp)
+		hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp.(*tink.Hardware)})
 		if err != nil {
 			return nil, errors.New("could not marshal hardware")
 		}
@@ -448,9 +446,5 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		hw = []byte(resp.(*cacher.Hardware).JSON)
 	}
 
-	ehw, err := exportHardware(hw)
-	if err != nil {
-		return nil, err
-	}
-	return ehw, nil
+	return hw, nil
 }

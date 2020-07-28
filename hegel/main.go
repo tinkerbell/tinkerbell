@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
@@ -93,6 +94,7 @@ var (
 		"Whether we should use tls or not (should be disabled for traefik)")
 	metricsPort = flag.Int("http_port", envInt("HEGEL_HTTP_PORT", 50061),
 		"Port to liten on http")
+	customEndpoints     string
 	gitRev              string = "undefind"
 	gitRevJSON          []byte
 	StartTime           = time.Now()
@@ -250,7 +252,10 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/_packet/healthcheck", healthCheckHandler)
 	http.HandleFunc("/_packet/version", versionHandler)
-	http.HandleFunc("/metadata", getMetadata)
+	err = registerCustomEndpoints()
+	if err != nil {
+		logger.Fatal(err, "could not register custom endpoints")
+	}
 
 	logger.With("port", *metricsPort).Info("Starting http server")
 	go func() {
@@ -268,4 +273,19 @@ func main() {
 	if err != nil {
 		logger.Fatal(err, "Failed to serve  grpc")
 	}
+}
+
+func registerCustomEndpoints() error {
+	customEndpoints = envString("CUSTOM_ENDPOINTS", `{"/metadata":".metadata"}`)
+
+	endpoints := make(map[string]string)
+	err := json.Unmarshal([]byte(customEndpoints), &endpoints)
+	if err != nil {
+		logger.Info("Error in parsing custom endpoints: ", err)
+	}
+	for endpoint, filter := range endpoints {
+		http.HandleFunc(endpoint, getMetadata(filter))
+	}
+
+	return nil
 }

@@ -519,7 +519,7 @@ const (
 		  ]
 	   },
 	   "id":"fde7c87c-d154-447e-9fce-7eb7bdec90c0",
-	   "metadata":"{\"bonding_mode\":5,\"custom\":{\"preinstalled_operating_system_version\":{},\"private_subnets\":[]},\"facility\":{\"facility_code\":\"ewr1\",\"plan_slug\":\"c2.medium.x86\",\"plan_version_slug\":\"\"},\"instance\":{\"crypted_root_password\":\"redacted/\",\"operating_system_version\":{\"distro\":\"ubuntu\",\"os_slug\":\"ubuntu_18_04\",\"version\":\"18.04\"},\"storage\":{\"disks\":[{\"device\":\"/dev/sda\",\"partitions\":[{\"label\":\"BIOS\",\"number\":1,\"size\":4096},{\"label\":\"SWAP\",\"number\":2,\"size\":3993600},{\"label\":\"ROOT\",\"number\":3,\"size\":0}],\"wipe_table\":true}],\"filesystems\":[{\"mount\":{\"create\":{\"options\":[\"-L\",\"ROOT\"]},\"device\":\"/dev/sda3\",\"format\":\"ext4\",\"point\":\"/\"}},{\"mount\":{\"create\":{\"options\":[\"-L\",\"SWAP\"]},\"device\":\"/dev/sda2\",\"format\":\"swap\",\"point\":\"none\"}}]}},\"manufacturer\":{\"id\":\"\",\"slug\":\"\"},\"state\":\"\"}"
+	   "metadata":"{\"components\":{\"id\":\"bc9ce39b-7f18-425b-bc7b-067914fa9786\",\"type\":\"DiskComponent\"},\"userdata\":\"#!/bin/bash\\necho \\\"Hello world!\\\"\",\"bonding_mode\":5,\"custom\":{\"preinstalled_operating_system_version\":{},\"private_subnets\":[]},\"facility\":{\"facility_code\":\"ewr1\",\"plan_slug\":\"c2.medium.x86\",\"plan_version_slug\":\"\"},\"instance\":{\"crypted_root_password\":\"redacted/\",\"operating_system_version\":{\"distro\":\"ubuntu\",\"os_slug\":\"ubuntu_18_04\",\"version\":\"18.04\"},\"storage\":{\"disks\":[{\"device\":\"/dev/sda\",\"partitions\":[{\"label\":\"BIOS\",\"number\":1,\"size\":4096},{\"label\":\"SWAP\",\"number\":2,\"size\":3993600},{\"label\":\"ROOT\",\"number\":3,\"size\":0}],\"wipe_table\":true}],\"filesystems\":[{\"mount\":{\"create\":{\"options\":[\"-L\",\"ROOT\"]},\"device\":\"/dev/sda3\",\"format\":\"ext4\",\"point\":\"/\"}},{\"mount\":{\"create\":{\"options\":[\"-L\",\"SWAP\"]},\"device\":\"/dev/sda2\",\"format\":\"swap\",\"point\":\"none\"}}]}},\"manufacturer\":{\"id\":\"\",\"slug\":\"\"},\"state\":\"\"}"
 	}
 `
 	tinkerbellNoMetadata = `
@@ -553,6 +553,40 @@ const (
 		  ]
 	   },
 	   "id":"363115b0-f03d-4ce5-9a15-5514193d131a"
+	}
+`
+	tinkerbellKant = `
+	{
+	   "network":{
+		  "interfaces":[
+			 {
+				"dhcp":{
+				   "mac":"ec:0d:9a:c0:01:0c",
+				   "hostname":"server001",
+				   "lease_time":86400,
+				   "arch":"x86_64",
+				   "ip":{
+					  "address":"192.168.1.5",
+					  "netmask":"255.255.255.248",
+					  "gateway":"192.168.1.1"
+				   }
+				},
+				"netboot":{
+				   "allow_pxe":true,
+				   "allow_workflow":true,
+				   "ipxe":{
+					  "url":"http://url/menu.ipxe",
+					  "contents":"#!ipxe"
+				   },
+				   "osie":{
+					  "kernel":"vmlinuz-x86_64"
+				   }
+				}
+			 }
+		  ]
+	   },
+	   "id":"fde7c87c-d154-447e-9fce-7eb7bdec90c0",
+       "metadata": "{\"components\":{\"id\":\"bc9ce39b-7f18-425b-bc7b-067914fa9786\",\"type\":\"DiskComponent\"},\"instance\":{\"facility\":\"sjc1\",\"hostname\":\"tink-provisioner\",\"id\":\"f955e31a-cab6-44d6-872c-9614c2024bb4\"},\"userdata\":\"#!/bin/bash\\n\\necho \\\"Hello world!\\\"\"}"
 	}
 `
 )

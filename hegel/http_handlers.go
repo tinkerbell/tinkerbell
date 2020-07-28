@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -52,26 +54,50 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getMetadata(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
+func getMetadata(filter string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			return
+		}
+
 		logger.Debug("Calling getMetadata ")
 		userIP := getIPFromRequest(r)
-		if userIP != "" {
-			metrics.MetadataRequests.Inc()
-			logger.With("userIP", userIP).Info("Actual IP is : ")
-			ehw, err := getByIP(context.Background(), hegelServer, userIP)
+		if userIP == "" {
+			return
+		}
+
+		metrics.MetadataRequests.Inc()
+		logger.With("userIP", userIP).Info("Actual IP is: ")
+		hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
+		if err != nil {
+			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
+			logger.Info("Error in finding hardware: ", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		var resp []byte
+		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+		switch dataModelVersion {
+		case "":
+			resp, err = exportHardware(hw) // in cacher mode, the "filter" is the exportedHardwareCacher type
 			if err != nil {
-				metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
-				logger.Info("Error in finding or exporting hardware: ", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
+				logger.Info("Error in exporting hardware: ", err)
 			}
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "application/json")
-			_, err = w.Write(ehw)
+		case "1":
+			resp, err = filterMetadata(hw, filter)
 			if err != nil {
-				logger.Error(err, "failed to write Metadata")
+				logger.Info("Error in filtering metadata: ", err)
 			}
+		default:
+			logger.Fatal(errors.New("unknown DATA_MODEL_VERSION"))
+
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(resp)
+		if err != nil {
+			logger.Error(err, "failed to write Metadata")
 		}
 	}
 }
