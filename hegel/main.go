@@ -31,6 +31,9 @@ import (
 type server struct {
 	log            log.Logger
 	hardwareClient hardwareGetter
+
+	subLock       sync.RWMutex
+	subscriptions map[string]*subscription
 }
 
 type hardwareGetter interface {
@@ -40,6 +43,15 @@ type hardwareGetter interface {
 
 type getRequest interface{}
 type hardware interface{}
+
+type subscription struct {
+	ID           string        `json:"id"`
+	IP           string        `json:"ip"`
+	InitDuration time.Duration `json:"init_duration"`
+	StartedAt    time.Time     `json:"started_at"`
+	cancel       func()
+	updateChan   chan []byte
+}
 
 type hardwareGetterCacher struct {
 	client cacher.CacherClient
@@ -199,6 +211,7 @@ func main() {
 	hegelServer = &server{
 		log:            logger,
 		hardwareClient: hg,
+		subscriptions:  make(map[string]*subscription),
 	}
 
 	hegel.RegisterHegelServer(grpcServer, hegelServer)
@@ -217,6 +230,8 @@ func main() {
 	http.HandleFunc("/_packet/version", versionHandler)
 	http.HandleFunc("/2009-04-04", ec2Handler) // workaround for making trailing slash optional
 	http.HandleFunc("/2009-04-04/", ec2Handler)
+
+	buildSubscriberHandlers(hegelServer)
 
 	err = registerCustomEndpoints()
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/itchyny/gojq"
@@ -258,6 +259,7 @@ func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 }
 
 func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_SubscribeServer) error {
+	startedAt := time.Now().UTC()
 	metrics.TotalSubscriptions.Inc()
 	metrics.Subscriptions.WithLabelValues("initializing").Inc()
 
@@ -275,6 +277,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		return initError(errors.New("could not get peer info from client"))
 	}
 
+	var id string
 	ip := p.Addr.(*net.TCPAddr).IP.String()
 	logger = logger.With("ip", ip, "client", p.Addr)
 
@@ -294,9 +297,11 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 			return initError(err)
 		}
 
+		id = hw.(*tink.Hardware).Id
+
 		ctx, cancel = context.WithCancel(stream.Context())
 		watch, err = s.hardwareClient.Watch(ctx, &tink.GetRequest{
-			Id: hw.(*tink.Hardware).Id,
+			Id: id,
 		})
 
 		if err != nil {
@@ -319,10 +324,11 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		}
 
 		hwID := hwJSON["id"]
+		id = hwID.(string)
 
 		ctx, cancel = context.WithCancel(stream.Context())
 		watch, err = s.hardwareClient.Watch(ctx, &cacher.GetRequest{
-			ID: hwID.(string),
+			ID: id,
 		})
 
 		if err != nil {
@@ -331,8 +337,38 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		}
 	}
 
+	sub := &subscription{
+		ID:           id,
+		IP:           ip,
+		StartedAt:    startedAt,
+		InitDuration: time.Since(startedAt),
+		cancel:       cancel,
+		updateChan:   make(chan []byte, 1),
+	}
+
+	s.subLock.Lock()
+	old := s.subscriptions[id]
+	s.subscriptions[id] = sub
+	s.subLock.Unlock()
+
+	// Disconnect previous client if a client is already connected for this hardware id
+	if old != nil {
+		old.cancel()
+	}
+
+	defer func() {
+		s.subLock.Lock()
+		defer s.subLock.Unlock()
+		// Check if subscription for hardware id exists.
+		// If the subscriptions exists, make sure it has not been replaced by a new connection.
+		if cSub := s.subscriptions[id]; cSub == sub {
+			delete(s.subscriptions, id)
+		}
+	}()
+
 	metrics.Subscriptions.WithLabelValues("initializing").Dec()
 	metrics.Subscriptions.WithLabelValues("active").Inc()
+
 	activeError := func(err error) error {
 		if err == nil {
 			return err
@@ -344,7 +380,6 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	}
 
 	errs := make(chan error, 1)
-	ehws := make(chan []byte, 1)
 	go func() {
 		for {
 			var hw []byte
@@ -358,13 +393,13 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 						err = status.Error(codes.OK, "stream ended")
 					}
 					errs <- err
-					close(ehws)
+					close(sub.updateChan)
 					return
 				}
 				hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp})
 				if err != nil {
 					errs <- errors.New("could not marshal hardware")
-					close(ehws)
+					close(sub.updateChan)
 					return
 				}
 			default:
@@ -375,7 +410,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 						err = status.Error(codes.OK, "stream ended")
 					}
 					errs <- err
-					close(ehws)
+					close(sub.updateChan)
 					return
 				}
 				hw = []byte(resp.JSON)
@@ -384,16 +419,16 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 			ehw, err := exportHardware(hw)
 			if err != nil {
 				errs <- err
-				close(ehws)
+				close(sub.updateChan)
 				return
 			}
 
-			ehws <- ehw
+			sub.updateChan <- ehw
 		}
 	}()
 	go func() {
 		l := logger.With("op", "send")
-		for ehw := range ehws {
+		for ehw := range sub.updateChan {
 			l.Info()
 			err := stream.Send(&hegel.SubscribeResponse{
 				JSON: string(ehw),
