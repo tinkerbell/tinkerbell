@@ -22,7 +22,7 @@ func TestGetMetadataCacher(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = test.remote
+		req.RemoteAddr = mockUserIP
 		resp := httptest.NewRecorder()
 		http.HandleFunc("/metadata", getMetadata("")) // filter not used in cacher mode
 
@@ -69,7 +69,7 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = test.remote
+		req.RemoteAddr = mockUserIP
 		resp := httptest.NewRecorder()
 
 		http.DefaultServeMux.ServeHTTP(resp, req)
@@ -115,7 +115,7 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = test.remote
+		req.RemoteAddr = mockUserIP
 		resp := httptest.NewRecorder()
 
 		http.DefaultServeMux.ServeHTTP(resp, req)
@@ -154,7 +154,7 @@ func TestRegisterEndpoints(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = test.remote
+		req.RemoteAddr = mockUserIP
 		resp := httptest.NewRecorder()
 
 		http.DefaultServeMux.ServeHTTP(resp, req)
@@ -171,63 +171,57 @@ func TestRegisterEndpoints(t *testing.T) {
 	}
 }
 
+// test cases for TestGetMetadataCacher
 var cacherTests = map[string]struct {
 	id       string
-	remote   string
 	planSlug string
 	json     string
 }{
 	"cacher": {
 		id:       "8978e7d4-1a55-4845-8a66-a5259236b104",
-		remote:   "192.168.1.5",
 		planSlug: "t1.small.x86",
 		json:     cacherDataModel,
 	},
 }
 
+// test cases for TestGetMetadataTinkerbell
 var tinkerbellTests = map[string]struct {
 	id          string
-	remote      string
 	bondingMode int64
 	json        string
 }{
 	"tinkerbell": {
 		id:          "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
-		remote:      "192.168.1.5",
 		bondingMode: 5,
 		json:        tinkerbellDataModel,
 	},
 	"tinkerbell no metadata": {
-		id:     "363115b0-f03d-4ce5-9a15-5514193d131a",
-		remote: "192.168.1.5",
-		json:   tinkerbellNoMetadata,
+		id:   "363115b0-f03d-4ce5-9a15-5514193d131a",
+		json: tinkerbellNoMetadata,
 	},
 }
 
+// test cases for TestGetMetadataTinkerbellKant
 var tinkerbellKantTests = map[string]struct {
 	url      string
-	remote   string
 	status   int
 	response string
 	json     string
 }{
 	"metadata endpoint": {
 		url:      "/metadata",
-		remote:   "192.168.1.5",
 		status:   200,
 		response: `{"facility":"sjc1","hostname":"tink-provisioner","id":"f955e31a-cab6-44d6-872c-9614c2024bb4"}`,
 		json:     tinkerbellKant,
 	},
 	"components endpoint": {
 		url:      "/components",
-		remote:   "192.168.1.5",
 		status:   200,
 		response: `{"id":"bc9ce39b-7f18-425b-bc7b-067914fa9786","type":"DiskComponent"}`,
 		json:     tinkerbellKant,
 	},
 	"userdata endpoint": {
 		url:    "/userdata",
-		remote: "192.168.1.5",
 		status: 200,
 		response: `#!/bin/bash
 
@@ -236,17 +230,16 @@ echo "Hello world!"`,
 	},
 	"no metadata": {
 		url:      "/metadata",
-		remote:   "192.168.1.5",
 		status:   200,
 		response: "",
 		json:     tinkerbellNoMetadata,
 	},
 }
 
+// test cases for TestRegisterEndpoints
 var registerEndpointTests = map[string]struct {
 	customEndpoints     string
 	url                 string
-	remote              string
 	status              int
 	expectResponseEmpty bool
 	json                string
@@ -254,48 +247,41 @@ var registerEndpointTests = map[string]struct {
 	"single custom endpoint": {
 		customEndpoints: `{"/facility": ".metadata.facility"}`,
 		url:             "/facility",
-		remote:          "192.168.1.5",
 		status:          200,
 		json:            tinkerbellDataModel,
 	},
 	"single custom endpoint, invalid url call": {
 		customEndpoints: `{"/userdata": ".metadata.userdata"}`,
 		url:             "/metadata",
-		remote:          "192.168.1.5",
 		status:          404,
 		json:            tinkerbellDataModel,
 	},
 	"multiple custom endpoints": {
 		customEndpoints: `{"/metadata":".metadata.instance","/components":".metadata.components","/all":".","/userdata":".metadata.userdata"}`,
 		url:             "/components",
-		remote:          "192.168.1.5",
 		status:          200,
 		json:            tinkerbellDataModel,
 	},
 	"default endpoint": {
 		url:    "/metadata",
-		remote: "192.168.1.5",
 		status: 200,
 		json:   tinkerbellDataModel,
 	},
 	"custom endpoints invalid format (not a map)": {
 		customEndpoints: `"/userdata":".metadata.userdata"`,
 		url:             "/userdata",
-		remote:          "192.168.1.5",
 		status:          404,
 		json:            tinkerbellDataModel,
 	},
 	"custom endpoints invalid format (endpoint missing forward slash)": {
 		customEndpoints: `{"userdata":".metadata.userdata"}`,
 		url:             "/userdata",
-		remote:          "192.168.1.5",
 		status:          404,
 		json:            tinkerbellDataModel,
 	},
 	"custom endpoints invalid format (invalid jq filter)": {
 		customEndpoints:     `{"/userdata":"invalid"}`,
 		url:                 "/userdata",
-		remote:              "192.168.1.5",
 		status:              200,
 		expectResponseEmpty: true,
 		json:                tinkerbellDataModel,

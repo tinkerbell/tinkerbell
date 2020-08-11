@@ -11,7 +11,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-// hardwareGetterMock is a mock implentation of the
+// hardwareGetterMock is a mock implentation of the hardwareGetter interface
+// hardwareResp represents the hardware data stored inside tink db
 type hardwareGetterMock struct {
 	hardwareResp string
 }
@@ -39,6 +40,7 @@ func (hg hardwareGetterMock) Watch(ctx context.Context, in getRequest, opts ...g
 }
 
 const (
+	mockUserIP      = "192.168.1.5" // value is completely arbitrary, as long as it's an IP to be parsed by getIPFromRequest (could even be 0.0.0.0)
 	cacherDataModel = `
 	{
 	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",

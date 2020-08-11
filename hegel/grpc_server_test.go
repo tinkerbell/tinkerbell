@@ -20,7 +20,7 @@ func TestGetByIPCacher(t *testing.T) {
 			log:            logger,
 			hardwareClient: hardwareGetterMock{test.json},
 		}
-		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote) // returns hardware data as []byte
+		ehw, err := getByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
 		if err != nil {
 			t.Fatal("unexpected error while getting hardware by ip:", err)
 		}
@@ -82,7 +82,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 			log:            logger,
 			hardwareClient: hardwareGetterMock{test.json},
 		}
-		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote) // returns hardware data as []byte
+		ehw, err := getByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
 		if err != nil {
 			if err.Error() != test.error {
 				t.Fatalf("unexpected error in getByIP, want: %v, got: %v\n", test.error, err.Error())
@@ -142,9 +142,9 @@ func TestGetByIPTinkerbell(t *testing.T) {
 	}
 }
 
+// test cases for TestGetByIPCacher
 var cacherGrpcTests = map[string]struct {
 	id               string
-	remote           string
 	state            string
 	facility         string
 	mac              string
@@ -159,7 +159,6 @@ var cacherGrpcTests = map[string]struct {
 	error            string
 }{
 	"cacher": {
-		remote:           "192.168.1.5",
 		state:            "provisioning",
 		facility:         "onprem",
 		mac:              "98:03:9b:48:de:bc",
@@ -249,9 +248,9 @@ var cacherGrpcTests = map[string]struct {
 	},
 }
 
+// test cases for TestGetByIPTinkerbell
 var tinkerbellGrpcTests = map[string]struct {
 	id               string
-	remote           string
 	state            string
 	bondingMode      int64
 	diskDevice       string
@@ -266,7 +265,6 @@ var tinkerbellGrpcTests = map[string]struct {
 }{
 	"tinkerbell": {
 		id:               "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
-		remote:           "192.168.1.5",
 		bondingMode:      5,
 		diskDevice:       "/dev/sda",
 		wipeTable:        true,
@@ -278,8 +276,7 @@ var tinkerbellGrpcTests = map[string]struct {
 		json:             tinkerbellDataModel,
 	},
 	"tinkerbell no metadata": {
-		id:     "363115b0-f03d-4ce5-9a15-5514193d131a",
-		remote: "192.168.1.5",
-		json:   tinkerbellNoMetadata,
+		id:   "363115b0-f03d-4ce5-9a15-5514193d131a",
+		json: tinkerbellNoMetadata,
 	},
 }
