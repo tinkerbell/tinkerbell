@@ -415,20 +415,21 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		req := &tink.GetRequest{
 			Ip: userIP,
 		}
-		resp, err := s.hardwareClient.ByIP(ctx, req) // use wrapper?
+		resp, err := s.hardwareClient.ByIP(ctx, req)
 
 		if err != nil {
 			return nil, err
-		}
-
-		if resp == nil {
-			return nil, errors.New("could not find hardware")
 		}
 
 		hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp.(*tink.Hardware)})
 		if err != nil {
 			return nil, errors.New("could not marshal hardware")
 		}
+
+		if string(hw) == "{}" {
+			return nil, errors.New("could not find hardware")
+		}
+
 	default:
 		req := &cacher.GetRequest{
 			IP: userIP,
@@ -439,11 +440,10 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, err
 		}
 
-		if resp == nil {
+		hw = []byte(resp.(*cacher.Hardware).JSON)
+		if string(hw) == "" {
 			return nil, errors.New("could not find hardware")
 		}
-
-		hw = []byte(resp.(*cacher.Hardware).JSON)
 	}
 
 	return hw, nil
