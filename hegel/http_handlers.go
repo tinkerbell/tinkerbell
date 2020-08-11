@@ -67,11 +67,12 @@ func getMetadata(filter string) http.HandlerFunc {
 		}
 
 		metrics.MetadataRequests.Inc()
-		logger.With("userIP", userIP).Info("Actual IP is: ")
+		l := logger.With("userIP", userIP)
+		l.Info("got ip from request")
 		hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
 		if err != nil {
 			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
-			logger.Info("Error in finding hardware: ", err)
+			l.With("error", err).Info("failed to get hardware by ip")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -82,22 +83,22 @@ func getMetadata(filter string) http.HandlerFunc {
 		case "":
 			resp, err = exportHardware(hw) // in cacher mode, the "filter" is the exportedHardwareCacher type
 			if err != nil {
-				logger.Info("Error in exporting hardware: ", err)
+				l.With("error", err).Info("failed to export hardware")
 			}
 		case "1":
 			resp, err = filterMetadata(hw, filter)
 			if err != nil {
-				logger.Info("Error in filtering metadata: ", err)
+				l.With("error", err).Info("failed to filter metadata")
 			}
 		default:
-			logger.Fatal(errors.New("unknown DATA_MODEL_VERSION"))
+			l.Fatal(errors.New("unknown DATA_MODEL_VERSION"))
 
 		}
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		_, err = w.Write(resp)
 		if err != nil {
-			logger.Error(err, "failed to write Metadata")
+			l.With("error", err).Info("failed to write response")
 		}
 	}
 }
