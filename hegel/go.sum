@@ -149,6 +149,8 @@ github.com/packethost/packngo v0.1.1-0.20180510203711-dff6ec250ba6/go.mod h1:otz
 github.com/packethost/pkg v0.0.0-20190410153520-e8e15f4ce770/go.mod h1:cbOkI4WbX7B68Nj552pbadMrjVy2oMIVazIEo7z+qWQ=
 github.com/packethost/pkg v0.0.0-20190715213007-7c3a64b4b5e3 h1:gAPNlbHt/n4y2xlTFvymOAz7MKR0dH9EGeDFuUOkk6Y=
 github.com/packethost/pkg v0.0.0-20190715213007-7c3a64b4b5e3/go.mod h1:GkI1SaiEDaO+JsKjtcMsn/eDSU4/GD8CMin2b03fQvE=
+github.com/packethost/pkg v0.0.0-20200807181840-a2cb6bbc41b9 h1:BikdQN3TbmCk9uMYgmy6vt3Wzefn7D3a1n2SiJN1J/s=
+github.com/packethost/pkg v0.0.0-20200807181840-a2cb6bbc41b9/go.mod h1:GSv7cTtIjns4yc0pyajaM1RE/KE4djJONoblFIRDrxA=
 github.com/pbnjay/strptime v0.0.0-20140226051138-5c05b0d668c9 h1:4lfz0keanz7/gAlvJ7lAe9zmE08HXxifBZJC0AdeGKo=
 github.com/pbnjay/strptime v0.0.0-20140226051138-5c05b0d668c9/go.mod h1:6Hr+C/olSdkdL3z68MlyXWzwhvwmwN7KuUFXGb3PoOk=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
