@@ -65,7 +65,7 @@ func TestGetByIPCacher(t *testing.T) {
 				t.Fatalf("unexpected storage filesystem mount format, want: %v, got: %v\n", test.filesystemFormat, hw.Instance.Storage.Filesystems[0].Mount.Format)
 			}
 		}
-		if hw.Instance.OS.OsSlug != test.osSlug {
+		if test.osSlug != "" && hw.Instance.OS.OsSlug != test.osSlug {
 			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, hw.Instance.OS.OsSlug)
 		}
 		if hw.PlanSlug != test.planSlug {

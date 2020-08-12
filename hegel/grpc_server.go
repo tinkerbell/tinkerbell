@@ -37,7 +37,7 @@ type exportedHardwareCacher struct {
 	Arch                               string                   `json:"arch"`
 	State                              string                   `json:"state"`
 	EFIBoot                            bool                     `json:"efi_boot"`
-	Instance                           instance                 `json:"instance"`
+	Instance                           instance                 `json:"instance,omitempty"`
 	PreinstalledOperatingSystemVersion interface{}              `json:"preinstalled_operating_system_version"`
 	NetworkPorts                       []map[string]interface{} `json:"network_ports"`
 	PlanSlug                           string                   `json:"plan_slug"`
@@ -47,18 +47,19 @@ type exportedHardwareCacher struct {
 }
 
 type instance struct {
-	ID       string `json:"id"`
-	State    string `json:"state"`
-	Hostname string `json:"hostname"`
-	AllowPXE bool   `json:"allow_pxe"`
-	Rescue   bool   `json:"rescue"`
+	ID       string `json:"id,omitempty"`
+	State    string `json:"state,omitempty"`
+	Hostname string `json:"hostname,omitempty"`
+	AllowPXE bool   `json:"allow_pxe,omitempty"`
+	Rescue   bool   `json:"rescue,omitempty"`
 
-	OS       operatingSystem `json:"operating_system_version"`
-	UserData string          `json:"userdata,omitempty"`
+	IPAddresses []map[string]interface{} `json:"ip_addresses,omitempty"`
+	OS          *operatingSystem         `json:"operating_system_version,omitempty"`
+	UserData    string                   `json:"userdata,omitempty"`
 
 	CryptedRootPassword string `json:"crypted_root_password,omitempty"`
 
-	Storage      storage  `json:"storage,omitempty"`
+	Storage      *storage `json:"storage,omitempty"`
 	SSHKeys      []string `json:"ssh_keys,omitempty"`
 	NetworkReady bool     `json:"network_ready,omitempty"`
 }
@@ -101,9 +102,9 @@ type filesystemOptions struct {
 }
 
 type partition struct {
-	Label    string      `json:"label,omitempty"`
-	Number   int         `json:"number,omitempty"`
-	Size     intOrString `json:"size,omitempty"`
+	Label    string      `json:"label"`
+	Number   int         `json:"number"`
+	Size     intOrString `json:"size"`
 	Start    int         `json:"start,omitempty"`
 	TypeGUID string      `json:"typeGuid,omitempty"`
 }
