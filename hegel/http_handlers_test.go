@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/tinkerbell/tink/protos/packet"
@@ -194,6 +195,61 @@ func TestRegisterEndpoints(t *testing.T) {
 	}
 }
 
+func TestEC2Endpoint(t *testing.T) {
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
+	os.Setenv("DATA_MODEL_VERSION", "1")
+
+	for name, test := range tinkerbellEC2Tests {
+		t.Run(name, func(t *testing.T) {
+			hegelServer.hardwareClient = hardwareGetterMock{test.json}
+
+			http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+
+			http.HandleFunc("/2009-04-04", ec2Handler) // workaround for making trailing slash optional
+			http.HandleFunc("/2009-04-04/", ec2Handler)
+
+			req, err := http.NewRequest("GET", test.url, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.RemoteAddr = mockUserIP
+			resp := httptest.NewRecorder()
+
+			http.DefaultServeMux.ServeHTTP(resp, req)
+
+			if status := resp.Code; status != test.status {
+				t.Errorf("handler returned wrong status code: got %v want %v",
+					status, test.status)
+			}
+
+			if resp.Body.String() != test.response {
+				t.Errorf("handler returned wrong body: got %v want %v", resp.Body.String(), test.response)
+			}
+		})
+	}
+}
+
+func TestProcessEC2Query(t *testing.T) {
+	for name, test := range processEC2QueryTests {
+		t.Run(name, func(t *testing.T) {
+
+			res, err := processEC2Query(test.url)
+			if test.error != "" {
+				if err == nil {
+					t.Fatalf("processEC2Query should have returned error: %v", test.error)
+				} else if err.Error() != test.error {
+					t.Fatalf("processEC2Query returned wrong error: got %v want %v", err, test.error)
+				}
+			}
+
+			if !reflect.DeepEqual(res, test.result) {
+				t.Errorf("handler returned wrong result: got %v want %v", res, test.result)
+			}
+		})
+	}
+}
+
 // test cases for TestGetMetadataCacher
 var cacherTests = map[string]struct {
 	id       string
@@ -323,5 +379,166 @@ var registerEndpointTests = map[string]struct {
 		status:              200,
 		expectResponseEmpty: true,
 		json:                tinkerbellDataModel,
+	},
+}
+
+// test cases for TestEC2Endpoint
+var tinkerbellEC2Tests = map[string]struct {
+	url      string
+	status   int
+	response string
+	json     string
+}{
+	"user-data": {
+		url:    "/2009-04-04/user-data",
+		status: 200,
+		response: `#!/bin/bash
+
+echo "Hello world!"`,
+		json: tinkerbellKantEC2,
+	},
+	"meta-data": {
+		url:    "/2009-04-04/meta-data",
+		status: 200,
+		response: `facility
+hostname
+instance-id
+iqn
+local-ipv4
+operating-system
+plan
+public-ipv4
+public-ipv6
+public-keys
+tags`,
+		json: tinkerbellKantEC2,
+	},
+	"instance-id": {
+		url:      "/2009-04-04/meta-data/instance-id",
+		status:   200,
+		response: "7c9a5711-aadd-4fa0-8e57-789431626a27",
+		json:     tinkerbellKantEC2,
+	},
+	"public-ipv4": {
+		url:      "/2009-04-04/meta-data/public-ipv4",
+		status:   200,
+		response: "139.175.86.114",
+		json:     tinkerbellKantEC2,
+	},
+	"public-ipv6": {
+		url:      "/2009-04-04/meta-data/public-ipv6",
+		status:   200,
+		response: "2604:1380:1000:ca00::7",
+		json:     tinkerbellKantEC2,
+	},
+	"local-ipv4": {
+		url:      "/2009-04-04/meta-data/local-ipv4",
+		status:   200,
+		response: "10.87.63.3",
+		json:     tinkerbellKantEC2,
+	},
+	"tags": {
+		url:    "/2009-04-04/meta-data/tags",
+		status: 200,
+		response: `hello
+test`,
+		json: tinkerbellKantEC2,
+	},
+	"operating-system slug": {
+		url:      "/2009-04-04/meta-data/operating-system/slug",
+		status:   200,
+		response: "ubuntu_18_04",
+		json:     tinkerbellKantEC2,
+	},
+	"invalid metadata item": {
+		url:      "/2009-04-04/meta-data/invalid",
+		status:   404,
+		response: "404 not found",
+		json:     tinkerbellKantEC2,
+	},
+	"valid metadata item, but not found": {
+		url:      "/2009-04-04/meta-data/public-keys",
+		status:   200,
+		response: "",
+		json:     tinkerbellNoMetadata,
+	},
+	"with trailing slash": {
+		url:      "/2009-04-04/meta-data/hostname/",
+		status:   200,
+		response: "tink-provisioner",
+		json:     tinkerbellKantEC2,
+	},
+	"base endpoint": {
+		url:    "/2009-04-04",
+		status: 200,
+		response: `meta-data
+user-data`,
+		json: tinkerbellKantEC2,
+	},
+	"base endpoint with trailing slash": {
+		url:    "/2009-04-04/",
+		status: 200,
+		response: `meta-data
+user-data`,
+		json: tinkerbellKantEC2,
+	},
+	"spot instance with empty (but still present) spot field": {
+		url:    "/2009-04-04/meta-data",
+		status: 200,
+		response: `facility
+hostname
+instance-id
+iqn
+local-ipv4
+operating-system
+plan
+public-ipv4
+public-ipv6
+public-keys
+spot
+tags`,
+		json: tinkerbellKantEC2SpotEmpty,
+	},
+	"termination-time": {
+		url:      "/2009-04-04/meta-data/spot/termination-time",
+		status:   200,
+		response: "now",
+		json:     tinkerbellKantEC2SpotWithTermination,
+	},
+}
+
+// test cases for TestProcessEC2Query
+var processEC2QueryTests = map[string]struct {
+	url    string
+	error  string
+	result string
+}{
+	"hardware filter result (simple query)": {
+		url:    "/2009-04-04/user-data",
+		result: ec2Filters["/user-data"],
+	},
+	"hardware filter result (long query)": {
+		url:    "/2009-04-04/meta-data/operating-system/license_activation/state",
+		result: ec2Filters["/meta-data/operating-system/license_activation/state"],
+	},
+	"directory-listing filter result": {
+		url:    "/2009-04-04/meta-data/operating-system/license_activation",
+		result: ec2Filters["/meta-data/operating-system/license_activation"],
+	},
+	"directory-listing filter result (base endpoint)": {
+		url:    "/2009-04-04/",
+		result: ec2Filters[""],
+	},
+	"directory-listing result (/meta-data endpoint)": {
+		url:    "/2009-04-04/meta-data",
+		result: ec2Filters["/meta-data"],
+	},
+	"invalid query (invalid metadata item)": {
+		url:   "/2009-04-04/invalid",
+		error: "invalid metadata item",
+	},
+	"invalid query (not a subdirectory)": {
+		url:   "/2009-04-04/user-data/hostname",
+		error: "invalid metadata item",
 	},
 }
