@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"math"
 	"net"
@@ -18,6 +18,7 @@ import (
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
 	"github.com/packethost/hegel/metrics"
+	"github.com/pkg/errors"
 	tink "github.com/tinkerbell/tink/protos/hardware"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -177,7 +178,7 @@ func exportHardware(hw []byte) ([]byte, error) {
 }
 
 func filterMetadata(hw []byte, filter string) ([]byte, error) {
-	var result interface{}
+	var result bytes.Buffer
 	query, err := gojq.Parse(filter)
 	if err != nil {
 		return nil, err
@@ -193,19 +194,27 @@ func filterMetadata(hw []byte, filter string) ([]byte, error) {
 		if !ok {
 			break
 		}
-		if err, ok := v.(error); ok {
-			return nil, err
+
+		if v == nil {
+			continue
 		}
-		result = v
+
+		switch vv := v.(type) {
+		case error:
+			return nil, errors.Wrap(vv, "error while filtering with gojq")
+		case string:
+			result.WriteString(vv)
+		default:
+			marshalled, err := json.Marshal(vv)
+			if err != nil {
+				return nil, errors.Wrap(err, "error marshalling jq result")
+			}
+			result.Write(marshalled)
+		}
+		result.WriteRune('\n')
 	}
 
-	if resultString, ok := result.(string); ok { // if already a string, don't marshal
-		return []byte(resultString), nil
-	}
-	if result != nil { // if nil, don't marshal (json.Marshal(nil) returns "null")
-		return json.Marshal(result)
-	}
-	return nil, nil
+	return bytes.TrimSuffix(result.Bytes(), []byte("\n")), nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareCacher
