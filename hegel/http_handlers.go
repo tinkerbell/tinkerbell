@@ -105,7 +105,7 @@ func getMetadata(filter string) http.HandlerFunc {
 		if err != nil {
 			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 			l.With("error", err).Info("failed to get hardware by ip")
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
@@ -154,7 +154,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 		l.With("error", err).Info("failed to get hardware by ip")
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
