@@ -11,10 +11,12 @@ import (
 )
 
 func TestGetByIPCacher(t *testing.T) {
-	t.Log("DATA_MODEL_VERSION (empty to use cacher):", os.Getenv("DATA_MODEL_VERSION"))
-
 	for name, test := range cacherGrpcTests {
 		t.Log(name)
+
+		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
+		os.Unsetenv("DATA_MODEL_VERSION")
 
 		hegelTestServer := &server{
 			log:            logger,
@@ -72,8 +74,9 @@ func TestGetByIPCacher(t *testing.T) {
 }
 
 func TestGetByIPTinkerbell(t *testing.T) {
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 	os.Setenv("DATA_MODEL_VERSION", "1")
-	t.Log("DATA_MODEL_VERSION:", os.Getenv("DATA_MODEL_VERSION"))
 
 	for name, test := range tinkerbellGrpcTests {
 		t.Log(name)

@@ -15,7 +15,12 @@ func TestGetMetadataCacher(t *testing.T) {
 		t.Log(name)
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
-		os.Setenv("DATA_MODEL_VERSION", "")
+		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
+		os.Unsetenv("DATA_MODEL_VERSION")
+
+		customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
+		defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
 		os.Unsetenv("CUSTOM_ENDPOINTS")
 
 		req, err := http.NewRequest("GET", "/metadata", nil)
@@ -52,7 +57,12 @@ func TestGetMetadataCacher(t *testing.T) {
 
 // TestGetMetadataTinkerbell tests the default use case in tinkerbell mode
 func TestGetMetadataTinkerbell(t *testing.T) {
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 	os.Setenv("DATA_MODEL_VERSION", "1")
+
+	customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
+	defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
 	os.Unsetenv("CUSTOM_ENDPOINTS")
 
 	for name, test := range tinkerbellTests {
@@ -98,7 +108,12 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 
 // TestGetMetadataTinkerbellKant tests the kant specific use case in tinkerbell mode
 func TestGetMetadataTinkerbellKant(t *testing.T) {
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 	os.Setenv("DATA_MODEL_VERSION", "1")
+
+	customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
+	defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
 	os.Setenv("CUSTOM_ENDPOINTS", `{"/metadata":".metadata.instance","/components":".metadata.components","/userdata":".metadata.userdata"}`)
 
 	for name, test := range tinkerbellKantTests {
@@ -133,7 +148,12 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 }
 
 func TestRegisterEndpoints(t *testing.T) {
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 	os.Setenv("DATA_MODEL_VERSION", "1")
+
+	customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
+	defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
 
 	for name, test := range registerEndpointTests {
 		t.Log(name)
