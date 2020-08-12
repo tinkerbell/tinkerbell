@@ -145,6 +145,26 @@ func TestGetByIPTinkerbell(t *testing.T) {
 	}
 }
 
+func TestFilterMetadata(t *testing.T) {
+	for name, test := range tinkerbellFilterMetadataTests {
+		t.Run(name, func(t *testing.T) {
+
+			res, err := filterMetadata([]byte(test.json), test.filter)
+			if test.error != "" {
+				if err == nil {
+					t.Errorf("filterMetadata should have returned error: %v", test.error)
+				} else if err.Error() != test.error {
+					t.Errorf("filterMetadata returned wrong error: got %v want %v", err, test.error)
+				}
+			}
+
+			if string(res) != test.result {
+				t.Errorf("filterMetadata returned wrong result: got %s want %v", res, test.result)
+			}
+		})
+	}
+}
+
 // test cases for TestGetByIPCacher
 var cacherGrpcTests = map[string]struct {
 	id               string
@@ -281,5 +301,80 @@ var tinkerbellGrpcTests = map[string]struct {
 	"tinkerbell no metadata": {
 		id:   "363115b0-f03d-4ce5-9a15-5514193d131a",
 		json: tinkerbellNoMetadata,
+	},
+}
+
+// test cases for TestFilterMetadata
+var tinkerbellFilterMetadataTests = map[string]struct {
+	filter string
+	result string
+	error  string
+	json   string
+}{
+	"single result (simple)": {
+		filter: ec2Filters["/user-data"],
+		result: `#!/bin/bash
+
+echo "Hello world!"`,
+		json: tinkerbellFilterMetadata,
+	},
+	"single result (complex)": {
+		filter: ec2Filters["/meta-data/public-ipv4"],
+		result: "139.175.86.114",
+		json:   tinkerbellFilterMetadata,
+	},
+	"multiple results (separated list results from hardware)": {
+		filter: ec2Filters["/meta-data/tags"],
+		result: `hello
+test`,
+		json: tinkerbellFilterMetadata,
+	},
+	"multiple results (separated list results from filter)": {
+		filter: ec2Filters["/meta-data/operating-system"],
+		result: `distro
+image_tag
+license_activation
+slug
+version`,
+		json: tinkerbellFilterMetadata,
+	},
+	"multiple results (/meta-data filter with spot field present)": {
+		filter: ec2Filters["/meta-data"],
+		result: `facility
+hostname
+instance-id
+iqn
+local-ipv4
+operating-system
+plan
+public-ipv4
+public-ipv6
+public-keys
+spot
+tags`,
+		json: tinkerbellFilterMetadata,
+	},
+	"invalid filter syntax": {
+		filter: "invalid",
+		error:  "error while filtering with gojq: function not defined: invalid/0",
+		json:   tinkerbellFilterMetadata,
+	},
+	"valid filter syntax, nonexistent field": {
+		filter: "metadata.nonexistent",
+		json:   tinkerbellFilterMetadata,
+	},
+	"empty string filter": {
+		filter: "",
+		result: tinkerbellFilterMetadata,
+		json:   tinkerbellFilterMetadata,
+	},
+	"list filter on nonexistent field, without '?'": {
+		filter: ".metadata.nonexistent[]",
+		error:  "error while filtering with gojq: cannot iterate over: null",
+		json:   tinkerbellFilterMetadata,
+	},
+	"list filter on nonexistent field, with '?'": {
+		filter: ".metadata.nonexistent[]?",
+		json:   tinkerbellFilterMetadata,
 	},
 }
