@@ -70,6 +70,7 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
 		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+
 		err := registerCustomEndpoints()
 		if err != nil {
 			t.Fatal("Error registering custom endpoints", err)
@@ -121,6 +122,7 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
 		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+
 		err := registerCustomEndpoints()
 		if err != nil {
 			t.Fatal("Error registering custom endpoints", err)
@@ -165,9 +167,10 @@ func TestRegisterEndpoints(t *testing.T) {
 		}
 
 		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+
 		err := registerCustomEndpoints()
-		if err != nil {
-			t.Fatal("Error registering custom endpoints", err)
+		if err != nil && err.Error() != test.error {
+			t.Fatalf("unexpected error: got %v want %v", err, test.error)
 		}
 
 		req, err := http.NewRequest("GET", test.url, nil)
@@ -262,11 +265,18 @@ var registerEndpointTests = map[string]struct {
 	url                 string
 	status              int
 	expectResponseEmpty bool
+	error               string
 	json                string
 }{
 	"single custom endpoint": {
 		customEndpoints: `{"/facility": ".metadata.facility"}`,
 		url:             "/facility",
+		status:          200,
+		json:            tinkerbellDataModel,
+	},
+	"single custom endpoint, non-metadata": {
+		customEndpoints: `{"/id": ".id"}`,
+		url:             "/id",
 		status:          200,
 		json:            tinkerbellDataModel,
 	},
@@ -291,6 +301,7 @@ var registerEndpointTests = map[string]struct {
 		customEndpoints: `"/userdata":".metadata.userdata"`,
 		url:             "/userdata",
 		status:          404,
+		error:           "error in parsing custom endpoints: invalid character ':' after top-level value",
 		json:            tinkerbellDataModel,
 	},
 	"custom endpoints invalid format (endpoint missing forward slash)": {
@@ -299,8 +310,15 @@ var registerEndpointTests = map[string]struct {
 		status:          404,
 		json:            tinkerbellDataModel,
 	},
-	"custom endpoints invalid format (invalid jq filter)": {
+	"custom endpoints invalid format (invalid jq filter syntax)": {
 		customEndpoints:     `{"/userdata":"invalid"}`,
+		url:                 "/userdata",
+		status:              200,
+		expectResponseEmpty: true,
+		json:                tinkerbellDataModel,
+	},
+	"custom endpoints invalid format (valid jq filter syntax, nonexistent field)": {
+		customEndpoints:     `{"/userdata":".nonexistent"}`,
 		url:                 "/userdata",
 		status:              200,
 		expectResponseEmpty: true,

@@ -252,6 +252,9 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/_packet/healthcheck", healthCheckHandler)
 	http.HandleFunc("/_packet/version", versionHandler)
+	http.HandleFunc("/2009-04-04", ec2Handler) // workaround for making trailing slash optional
+	http.HandleFunc("/2009-04-04/", ec2Handler)
+
 	err = registerCustomEndpoints()
 	if err != nil {
 		logger.Fatal(err, "could not register custom endpoints")
@@ -281,7 +284,7 @@ func registerCustomEndpoints() error {
 	endpoints := make(map[string]string)
 	err := json.Unmarshal([]byte(customEndpoints), &endpoints)
 	if err != nil {
-		logger.Info("Error in parsing custom endpoints: ", err)
+		return errors.Wrap(err, "error in parsing custom endpoints")
 	}
 	for endpoint, filter := range endpoints {
 		http.HandleFunc(endpoint, getMetadata(filter))
