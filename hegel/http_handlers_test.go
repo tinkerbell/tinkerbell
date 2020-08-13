@@ -5,7 +5,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/tinkerbell/tink/protos/packet"
@@ -247,6 +250,42 @@ func TestProcessEC2Query(t *testing.T) {
 				t.Errorf("handler returned wrong result: got %v want %v", res, test.result)
 			}
 		})
+	}
+}
+
+// TestEC2FiltersMap checks if the all the metadata items are listed in their corresponding directory-listing filter
+// itemsFromQueries are the metadata items "extracted" from the queries (keys) of the ec2Filters map
+// itemsFromFilter are the metadata items "extracted" from the filters (values) of the ec2Filters map
+func TestEC2FiltersMap(t *testing.T) {
+	directories := make(map[string][]string) // keys are the directory base paths; values are a list of metadata items that are under the base paths
+
+	for query := range ec2Filters {
+		basePath, metadataItem := path.Split(query)
+		directories[basePath] = append(directories[basePath], metadataItem)
+	}
+
+	for basePath, metadataItems := range directories {
+		if basePath == "" { // ignore the `"": []` entry
+			continue
+		}
+		t.Log("base path:", basePath)
+
+		hw := `{"metadata":{"instance":{"spot":{}}}}` // to make sure the 'spot' metadata item will be included
+		query := strings.TrimSuffix(basePath, "/")
+		dirListFilter := ec2Filters[query] // get the directory-list filter
+		itemsFromFilter, err := filterMetadata([]byte(hw), dirListFilter)
+		if err != nil {
+			t.Errorf("failed to filter metadata: %s", err)
+		}
+
+		sort.Strings(metadataItems)
+		itemsFromQueries := strings.Join(metadataItems, "\n")
+
+		if string(itemsFromFilter) != itemsFromQueries {
+			t.Error("directory-list does not match the actual queries")
+			t.Errorf("from filter: %s", itemsFromFilter)
+			t.Errorf("from queries: %s", itemsFromQueries)
+		}
 	}
 }
 
