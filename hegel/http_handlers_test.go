@@ -408,7 +408,7 @@ var registerEndpointTests = map[string]struct {
 	"custom endpoints invalid format (invalid jq filter syntax)": {
 		customEndpoints:     `{"/userdata":"invalid"}`,
 		url:                 "/userdata",
-		status:              200,
+		status:              500,
 		expectResponseEmpty: true,
 		json:                tinkerbellDataModel,
 	},

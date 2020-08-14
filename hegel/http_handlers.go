@@ -116,14 +116,20 @@ func getMetadata(filter string) http.HandlerFunc {
 			resp, err = exportHardware(hw) // in cacher mode, the "filter" is the exportedHardwareCacher type
 			if err != nil {
 				l.With("error", err).Info("failed to export hardware")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 		case "1":
 			resp, err = filterMetadata(hw, filter)
 			if err != nil {
 				l.With("error", err).Info("failed to filter metadata")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 		default:
 			l.Fatal(errors.New("unknown DATA_MODEL_VERSION"))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 
 		}
 		w.WriteHeader(http.StatusOK)
