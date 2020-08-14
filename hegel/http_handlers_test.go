@@ -173,8 +173,12 @@ func TestRegisterEndpoints(t *testing.T) {
 		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
 
 		err := registerCustomEndpoints()
-		if err != nil && err.Error() != test.error {
-			t.Fatalf("unexpected error: got %v want %v", err, test.error)
+		if test.error != "" {
+			if err == nil {
+				t.Fatalf("registerCustomEndpoints should have returned error: %v", test.error)
+			} else if err.Error() != test.error {
+				t.Fatalf("registerCustomEndpoints returned wrong error: got %v want %v", err, test.error)
+			}
 		}
 
 		req, err := http.NewRequest("GET", test.url, nil)

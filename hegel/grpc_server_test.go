@@ -28,11 +28,12 @@ func TestGetByIPCacher(t *testing.T) {
 		}
 		hw := exportedHardwareCacher{}
 		err = json.Unmarshal(ehw, &hw)
-		if err != nil {
-			if err.Error() != test.error {
-				t.Fatalf("unexpected error while unmarshalling, want: %v, got: %v\n", test.error, err.Error())
+		if test.error != "" {
+			if err == nil {
+				t.Fatalf("unmarshal should have returned error: %v", test.error)
+			} else if err.Error() != test.error {
+				t.Fatalf("unmarshal returned wrong error, want: %v, got: %v\n", err, test.error)
 			}
-			continue
 		}
 
 		if hw.State != test.state {
@@ -86,11 +87,12 @@ func TestGetByIPTinkerbell(t *testing.T) {
 			hardwareClient: hardwareGetterMock{test.json},
 		}
 		ehw, err := getByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
-		if err != nil {
-			if err.Error() != test.error {
-				t.Fatalf("unexpected error in getByIP, want: %v, got: %v\n", test.error, err.Error())
+		if test.error != "" {
+			if err == nil {
+				t.Fatalf("getByIP should have returned error: %v", test.error)
+			} else if err.Error() != test.error {
+				t.Fatalf("getByIP returned wrong error: got %v want %v", err, test.error)
 			}
-			continue
 		}
 
 		hw := struct {
@@ -99,7 +101,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 		}{}
 		err = json.Unmarshal(ehw, &hw)
 		if err != nil {
-			t.Error("Error in unmarshalling hardware metadata", err)
+			t.Error("error in unmarshalling hardware metadata", err)
 		}
 
 		if hw.ID != test.id {
