@@ -73,9 +73,9 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 		t.Log(name)
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
-		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+		mux := &http.ServeMux{}
 
-		err := registerCustomEndpoints()
+		err := registerCustomEndpoints(mux)
 		if err != nil {
 			t.Fatal("Error registering custom endpoints", err)
 		}
@@ -87,7 +87,7 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 		req.RemoteAddr = mockUserIP
 		resp := httptest.NewRecorder()
 
-		http.DefaultServeMux.ServeHTTP(resp, req)
+		mux.ServeHTTP(resp, req)
 
 		if status := resp.Code; status != http.StatusOK {
 			t.Errorf("handler returned wrong status code: got %v want %v",
@@ -125,9 +125,9 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 		t.Log(name)
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
-		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+		mux := &http.ServeMux{}
 
-		err := registerCustomEndpoints()
+		err := registerCustomEndpoints(mux)
 		if err != nil {
 			t.Fatal("Error registering custom endpoints", err)
 		}
@@ -139,7 +139,7 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 		req.RemoteAddr = mockUserIP
 		resp := httptest.NewRecorder()
 
-		http.DefaultServeMux.ServeHTTP(resp, req)
+		mux.ServeHTTP(resp, req)
 
 		if status := resp.Code; status != http.StatusOK {
 			t.Errorf("handler returned wrong status code: got %v want %v",
@@ -170,9 +170,9 @@ func TestRegisterEndpoints(t *testing.T) {
 			os.Setenv("CUSTOM_ENDPOINTS", test.customEndpoints)
 		}
 
-		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+		mux := &http.ServeMux{}
 
-		err := registerCustomEndpoints()
+		err := registerCustomEndpoints(mux)
 		if test.error != "" {
 			if err == nil {
 				t.Fatalf("registerCustomEndpoints should have returned error: %v", test.error)
@@ -188,7 +188,7 @@ func TestRegisterEndpoints(t *testing.T) {
 		req.RemoteAddr = mockUserIP
 		resp := httptest.NewRecorder()
 
-		http.DefaultServeMux.ServeHTTP(resp, req)
+		mux.ServeHTTP(resp, req)
 
 		if status := resp.Code; status != test.status {
 			t.Errorf("handler returned wrong status code: got %v want %v",

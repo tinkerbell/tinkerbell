@@ -88,7 +88,7 @@ func updateRemote(ctx context.Context, l log.Logger, masks []net.IPNet) context.
 	return ctx
 }
 
-func parseTrustedProxies() []string {
+func ParseTrustedProxies() []string {
 	var result []string
 
 	trustedProxies := os.Getenv("TRUSTED_PROXIES")
@@ -121,7 +121,7 @@ func parseTrustedProxies() []string {
 // If allowedSubnets is nil and TRUSTED_PROXIES is empty then X-FORWARDED-FOR will be ignored (no proxy is trusted).
 func New(l log.Logger, allowedSubnets []string) (grpc.StreamServerInterceptor, grpc.UnaryServerInterceptor) {
 	if allowedSubnets == nil {
-		allowedSubnets = parseTrustedProxies()
+		allowedSubnets = ParseTrustedProxies()
 		if allowedSubnets == nil {
 			streamer := func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 				return handler(srv, ss)

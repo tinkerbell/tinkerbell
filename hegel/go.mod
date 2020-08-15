@@ -9,6 +9,7 @@ require (
 	github.com/itchyny/gojq v0.11.0
 	github.com/packethost/cacher v0.0.0-20200825140532-0b62e6726807
 	github.com/packethost/pkg v0.0.0-20200807181840-a2cb6bbc41b9
+	github.com/packethost/xff v0.0.0-20190305172552-d3e9190c41b3
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.6.0
 	github.com/tinkerbell/tink v0.0.0-20200807143153-f5831e4a5fb8
