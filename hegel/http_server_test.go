@@ -11,8 +11,52 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/packethost/hegel/gxff"
 	"github.com/tinkerbell/tink/protos/packet"
 )
+
+// TestTrustedProxies tests if the actual remote user IP is extracted correctly from the X-FORWARDED-FOR header according to the list of trusted proxies provided
+func TestTrustedProxies(t *testing.T) {
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
+	os.Setenv("DATA_MODEL_VERSION", "1")
+
+	trustedProxies := os.Getenv("TRUSTED_PROXIES")
+	defer os.Setenv("TRUSTED_PROXIES", trustedProxies)
+
+	for name, test := range trustedProxiesTests {
+		t.Run(name, func(t *testing.T) {
+			os.Setenv("TRUSTED_PROXIES", test.trustedProxies)
+			hegelServer.hardwareClient = hardwareGetterMock{test.json}
+
+			mux := &http.ServeMux{}
+			mux.HandleFunc("/2009-04-04/", ec2Handler)
+
+			trustedProxies := gxff.ParseTrustedProxies()
+			xffHandler := handleTrustedProxies(mux, trustedProxies)
+
+			req, err := http.NewRequest("GET", test.url, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Add("X-Forwarded-For", test.xffHeader)
+			req.RemoteAddr = test.lastProxyIP // the ip of the last proxy the request goes through before reaching the server
+
+			resp := httptest.NewRecorder()
+			xffHandler.ServeHTTP(resp, req)
+
+			if status := resp.Code; status != test.status {
+				t.Errorf("handler returned wrong status code: got %v want %v",
+					status, test.status)
+			}
+
+			if resp.Body.String() != test.resp {
+				t.Errorf("handler returned wrong status code: got %v want %v",
+					resp.Body.String(), test.resp)
+			}
+		})
+	}
+}
 
 func TestGetMetadataCacher(t *testing.T) {
 	for name, test := range cacherTests {
@@ -291,6 +335,121 @@ func TestEC2FiltersMap(t *testing.T) {
 			t.Errorf("from queries: %s", itemsFromQueries)
 		}
 	}
+}
+
+// test cases for TestTrustedProxies
+var trustedProxiesTests = map[string]struct {
+	trustedProxies string
+	url            string
+	xffHeader      string // the X-Forwarded-For header does not include the IP of the last proxy
+	lastProxyIP    string // the IP must include a port, but the port number is completely arbitrary
+	status         int
+	resp           string
+	json           string
+}{
+	"single proxy": {
+		trustedProxies: "172.18.0.1",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      mockUserIP,
+		lastProxyIP:    "172.18.0.1:8080",
+		status:         200,
+		resp:           "tink-provisioner",
+		json:           tinkerbellKant,
+	},
+	"multiple proxies": {
+		trustedProxies: "172.18.0.5, 172.18.0.6, 172.18.0.1",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.1", "172.18.0.5"}, ", "),
+		lastProxyIP:    "172.18.0.6:8080",
+		status:         200,
+		resp:           "tink-provisioner",
+		json:           tinkerbellKant,
+	},
+	"single proxy, no trusted proxies set": {
+		url:         "/2009-04-04/meta-data/hostname",
+		xffHeader:   mockUserIP,
+		lastProxyIP: "172.18.0.1:8080",
+		status:      404,
+		json:        tinkerbellKant,
+	},
+	"single proxy, multiple trusted proxies set (proxy in list)": {
+		trustedProxies: "172.18.0.6, 172.18.0.1",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      mockUserIP,
+		lastProxyIP:    "172.18.0.6:8080",
+		status:         200,
+		resp:           "tink-provisioner",
+		json:           tinkerbellKant,
+	},
+	"single proxy, multiple trusted proxies set (proxy not in list)": {
+		trustedProxies: "172.18.0.5, 172.18.0.1",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      mockUserIP,
+		lastProxyIP:    "172.18.0.6:8080",
+		status:         404,
+		json:           tinkerbellKant,
+	},
+	"multiple proxies, multiple trusted proxies set (one proxy not in list)": {
+		trustedProxies: "172.18.0.5, 172.18.0.1",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.6"}, ", "),
+		lastProxyIP:    "172.18.0.5:8080",
+		status:         404,
+		json:           tinkerbellKant,
+	},
+	"multiple proxies, multiple trusted proxies set (proxies in mask)": {
+		trustedProxies: "172.18.1.1, 172.18.0.0/29",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.0.6"}, ", "),
+		lastProxyIP:    "172.18.1.1:8080",
+		status:         200,
+		resp:           "tink-provisioner",
+		json:           tinkerbellKant,
+	},
+	"multiple proxies, multiple trusted proxies set (multiple masks)": {
+		trustedProxies: "172.18.1.0/29, 172.18.0.0/27",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.1.6"}, ", "),
+		lastProxyIP:    "172.18.1.1:8080",
+		status:         200,
+		resp:           "tink-provisioner",
+		json:           tinkerbellKant,
+	},
+	"multiple proxies, multiple trusted proxies set (overlapping masks)": {
+		trustedProxies: "172.18.0.0/29, 172.18.0.0/27",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.0.27"}, ", "),
+		lastProxyIP:    "172.18.0.6:8080",
+		status:         200,
+		resp:           "tink-provisioner",
+		json:           tinkerbellKant,
+	},
+	"multiple proxies, multiple trusted proxies set (one proxy not in mask)": {
+		trustedProxies: "172.18.0.0/29",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.1.1"}, ", "),
+		lastProxyIP:    "172.18.0.1:8080",
+		status:         404,
+		json:           tinkerbellKant,
+	},
+	"multiple trusted proxies set (no spaces)": {
+		trustedProxies: "172.18.0.6,172.18.0.5,172.18.0.1",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.0.1"}, ", "),
+		lastProxyIP:    "172.18.0.6:8080",
+		status:         200,
+		resp:           "tink-provisioner",
+		json:           tinkerbellKant,
+	},
+	"multiple trusted proxies set (extra commas)": {
+		trustedProxies: "172.18.0.6,, 172.18.0.5,172.18.0.1,",
+		url:            "/2009-04-04/meta-data/hostname",
+		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.0.1"}, ", "),
+		lastProxyIP:    "172.18.0.6:8080",
+		status:         200,
+		resp:           "tink-provisioner",
+		json:           tinkerbellKant,
+	},
 }
 
 // test cases for TestGetMetadataCacher
