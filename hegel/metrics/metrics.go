@@ -15,6 +15,7 @@ const (
 var (
 	CacherConnected    prometheus.Gauge
 	CacherHealthcheck  *prometheus.CounterVec
+	InitDuration       prometheus.Observer
 	Errors             *prometheus.CounterVec
 	MetadataRequests   prometheus.Counter
 	State              prometheus.Gauge
@@ -38,6 +39,12 @@ func Init(_ log.Logger) {
 		{"success": "false"},
 	}
 	initCounterLabels(CacherHealthcheck, labelValues)
+
+	InitDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "hegel_subscription_initialization_duration_seconds",
+		Help:    "Duration taken to get a responce for a newly discovered request.",
+		Buckets: []float64{0.5, 1, 5, 10, 30, 60},
+	}, []string{}).With(prometheus.Labels{})
 
 	Errors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "hegel_errors",

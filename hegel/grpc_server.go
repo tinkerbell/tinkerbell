@@ -16,6 +16,7 @@ import (
 	"github.com/packethost/hegel/grpc/hegel"
 	"github.com/packethost/hegel/metrics"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	tink "github.com/tinkerbell/tink/protos/hardware"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -213,6 +214,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	startedAt := time.Now().UTC()
 	metrics.TotalSubscriptions.Inc()
 	metrics.Subscriptions.WithLabelValues("initializing").Inc()
+	timer := prometheus.NewTimer(metrics.InitDuration)
 
 	logger := s.log.With("op", "subscribe")
 
@@ -220,6 +222,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		logger.Error(err)
 		metrics.Subscriptions.WithLabelValues("initializing").Dec()
 		metrics.Errors.WithLabelValues("subscribe", "initializing").Inc()
+		timer.ObserveDuration()
 		return err
 	}
 
@@ -317,6 +320,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		}
 	}()
 
+	timer.ObserveDuration()
 	metrics.Subscriptions.WithLabelValues("initializing").Dec()
 	metrics.Subscriptions.WithLabelValues("active").Inc()
 
