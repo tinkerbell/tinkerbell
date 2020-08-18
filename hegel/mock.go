@@ -17,17 +17,33 @@ type hardwareGetterMock struct {
 	hardwareResp string
 }
 
+// ByIP mocks the retrieval a piece of hardware from tink/cacher by ip
+// In order to simulate the process of finding the piece of hardware that matches the IP provided in the get request without
+// having to parse the (mock) hardware data `hardwareResp`, the process has been simplified to only match with the constant `mockUserIP`.
+// Given any other IP inside the get request, ByIP will return an empty piece of hardware regardless of whether or not the IP
+// actually matches the IP inside `hardwareResp`.
 func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
 	var hw hardware
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
 		hw = &tink.Hardware{}
+
+		ip := in.(*tink.GetRequest).Ip
+		if ip != mockUserIP {
+			return hw, nil
+		}
+
 		err := json.Unmarshal([]byte(hg.hardwareResp), hw)
 		if err != nil {
 			return nil, err
 		}
 	default:
+		ip := in.(*cacher.GetRequest).IP
+		if ip != mockUserIP {
+			return &cacher.Hardware{}, nil
+		}
+
 		hw = &cacher.Hardware{JSON: hg.hardwareResp}
 	}
 
