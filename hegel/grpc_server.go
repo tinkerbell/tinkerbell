@@ -5,13 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"math"
 	"net"
 	"os"
-	"strconv"
-	"strings"
 	"time"
-	"unicode"
 
 	"github.com/itchyny/gojq"
 	"github.com/tinkerbell/tink/util"
@@ -104,7 +100,7 @@ type filesystemOptions struct {
 type partition struct {
 	Label    string      `json:"label"`
 	Number   int         `json:"number"`
-	Size     intOrString `json:"size"`
+	Size     interface{} `json:"size"`
 	Start    int         `json:"start,omitempty"`
 	TypeGUID string      `json:"typeGuid,omitempty"`
 }
@@ -120,52 +116,6 @@ type storage struct {
 	Disks       []*disk       `json:"disks,omitempty"`
 	RAID        []*raid       `json:"raid,omitempty"`
 	Filesystems []*filesystem `json:"filesystems,omitempty"`
-}
-
-type intOrString int
-
-// UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of IntOrString
-func (ios *intOrString) UnmarshalJSON(b []byte) error {
-	if b[0] != '"' {
-		return json.Unmarshal(b, (*int)(ios))
-	}
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
-	}
-	i, err := convertSuffix(s)
-	if err != nil {
-		return err
-	}
-	*ios = intOrString(i)
-	return nil
-}
-
-// convertSuffix converts a string of "<size><suffix>" (e.g. "123kb") into its equivalent size in bytes
-func convertSuffix(s string) (int, error) {
-	if s == "" {
-		return 0, nil
-	}
-
-	suffixes := map[string]float64{"": 0, "b": 0, "k": 1, "kb": 1, "m": 2, "mb": 2, "g": 3, "gb": 3, "t": 4, "tb": 4}
-	s = strings.ToLower(s)
-	i := strings.TrimFunc(s, func(r rune) bool { // trims both ends of string s of anything not a number (e.g., "123 kb" -> "123" and "12k3b" -> "12k3")
-		return !unicode.IsNumber(r)
-	})
-	size, err := strconv.Atoi(i)
-	if err != nil {
-		return -1, err
-	}
-
-	suf := strings.TrimFunc(s, func(r rune) bool { // trims both ends of string s of anything not a letter (e.g., "123 kb" -> "kb")
-		return !unicode.IsLetter(r)
-	})
-
-	if pow, ok := suffixes[suf]; ok {
-		res := size * int(math.Pow(1024, pow))
-		return res, nil
-	}
-	return -1, errors.New("invalid suffix")
 }
 
 // exportedHardware transforms hardware that is returned from cacher into what we want to expose to clients
