@@ -11,26 +11,29 @@ import (
 )
 
 func TestGetByIPCacher(t *testing.T) {
-	t.Log("DATA_MODEL_VERSION (empty to use cacher):", os.Getenv("DATA_MODEL_VERSION"))
-
 	for name, test := range cacherGrpcTests {
 		t.Log(name)
+
+		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
+		os.Unsetenv("DATA_MODEL_VERSION")
 
 		hegelTestServer := &server{
 			log:            logger,
 			hardwareClient: hardwareGetterMock{test.json},
 		}
-		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote) // returns hardware data as []byte
+		ehw, err := getByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
 		if err != nil {
 			t.Fatal("unexpected error while getting hardware by ip:", err)
 		}
 		hw := exportedHardwareCacher{}
 		err = json.Unmarshal(ehw, &hw)
-		if err != nil {
-			if err.Error() != test.error {
-				t.Fatalf("unexpected error while unmarshalling, want: %v, got: %v\n", test.error, err.Error())
+		if test.error != "" {
+			if err == nil {
+				t.Fatalf("unmarshal should have returned error: %v", test.error)
+			} else if err.Error() != test.error {
+				t.Fatalf("unmarshal returned wrong error, want: %v, got: %v\n", err, test.error)
 			}
-			continue
 		}
 
 		if hw.State != test.state {
@@ -72,8 +75,9 @@ func TestGetByIPCacher(t *testing.T) {
 }
 
 func TestGetByIPTinkerbell(t *testing.T) {
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 	os.Setenv("DATA_MODEL_VERSION", "1")
-	t.Log("DATA_MODEL_VERSION:", os.Getenv("DATA_MODEL_VERSION"))
 
 	for name, test := range tinkerbellGrpcTests {
 		t.Log(name)
@@ -82,12 +86,13 @@ func TestGetByIPTinkerbell(t *testing.T) {
 			log:            logger,
 			hardwareClient: hardwareGetterMock{test.json},
 		}
-		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote) // returns hardware data as []byte
-		if err != nil {
-			if err.Error() != test.error {
-				t.Fatalf("unexpected error in getByIP, want: %v, got: %v\n", test.error, err.Error())
+		ehw, err := getByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
+		if test.error != "" {
+			if err == nil {
+				t.Fatalf("getByIP should have returned error: %v", test.error)
+			} else if err.Error() != test.error {
+				t.Fatalf("getByIP returned wrong error: got %v want %v", err, test.error)
 			}
-			continue
 		}
 
 		hw := struct {
@@ -96,7 +101,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 		}{}
 		err = json.Unmarshal(ehw, &hw)
 		if err != nil {
-			t.Error("Error in unmarshalling hardware metadata", err)
+			t.Error("error in unmarshalling hardware metadata", err)
 		}
 
 		if hw.ID != test.id {
@@ -142,9 +147,29 @@ func TestGetByIPTinkerbell(t *testing.T) {
 	}
 }
 
+func TestFilterMetadata(t *testing.T) {
+	for name, test := range tinkerbellFilterMetadataTests {
+		t.Run(name, func(t *testing.T) {
+
+			res, err := filterMetadata([]byte(test.json), test.filter)
+			if test.error != "" {
+				if err == nil {
+					t.Errorf("filterMetadata should have returned error: %v", test.error)
+				} else if err.Error() != test.error {
+					t.Errorf("filterMetadata returned wrong error: got %v want %v", err, test.error)
+				}
+			}
+
+			if string(res) != test.result {
+				t.Errorf("filterMetadata returned wrong result: got %s want %v", res, test.result)
+			}
+		})
+	}
+}
+
+// test cases for TestGetByIPCacher
 var cacherGrpcTests = map[string]struct {
 	id               string
-	remote           string
 	state            string
 	facility         string
 	mac              string
@@ -159,7 +184,6 @@ var cacherGrpcTests = map[string]struct {
 	error            string
 }{
 	"cacher": {
-		remote:           "192.168.1.5",
 		state:            "provisioning",
 		facility:         "onprem",
 		mac:              "98:03:9b:48:de:bc",
@@ -249,9 +273,9 @@ var cacherGrpcTests = map[string]struct {
 	},
 }
 
+// test cases for TestGetByIPTinkerbell
 var tinkerbellGrpcTests = map[string]struct {
 	id               string
-	remote           string
 	state            string
 	bondingMode      int64
 	diskDevice       string
@@ -266,7 +290,6 @@ var tinkerbellGrpcTests = map[string]struct {
 }{
 	"tinkerbell": {
 		id:               "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
-		remote:           "192.168.1.5",
 		bondingMode:      5,
 		diskDevice:       "/dev/sda",
 		wipeTable:        true,
@@ -278,8 +301,82 @@ var tinkerbellGrpcTests = map[string]struct {
 		json:             tinkerbellDataModel,
 	},
 	"tinkerbell no metadata": {
-		id:     "363115b0-f03d-4ce5-9a15-5514193d131a",
-		remote: "192.168.1.5",
-		json:   tinkerbellNoMetadata,
+		id:   "363115b0-f03d-4ce5-9a15-5514193d131a",
+		json: tinkerbellNoMetadata,
+	},
+}
+
+// test cases for TestFilterMetadata
+var tinkerbellFilterMetadataTests = map[string]struct {
+	filter string
+	result string
+	error  string
+	json   string
+}{
+	"single result (simple)": {
+		filter: ec2Filters["/user-data"],
+		result: `#!/bin/bash
+
+echo "Hello world!"`,
+		json: tinkerbellFilterMetadata,
+	},
+	"single result (complex)": {
+		filter: ec2Filters["/meta-data/public-ipv4"],
+		result: "139.175.86.114",
+		json:   tinkerbellFilterMetadata,
+	},
+	"multiple results (separated list results from hardware)": {
+		filter: ec2Filters["/meta-data/tags"],
+		result: `hello
+test`,
+		json: tinkerbellFilterMetadata,
+	},
+	"multiple results (separated list results from filter)": {
+		filter: ec2Filters["/meta-data/operating-system"],
+		result: `distro
+image_tag
+license_activation
+slug
+version`,
+		json: tinkerbellFilterMetadata,
+	},
+	"multiple results (/meta-data filter with spot field present)": {
+		filter: ec2Filters["/meta-data"],
+		result: `facility
+hostname
+instance-id
+iqn
+local-ipv4
+operating-system
+plan
+public-ipv4
+public-ipv6
+public-keys
+spot
+tags`,
+		json: tinkerbellFilterMetadata,
+	},
+	"invalid filter syntax": {
+		filter: "invalid",
+		error:  "error while filtering with gojq: function not defined: invalid/0",
+		json:   tinkerbellFilterMetadata,
+	},
+	"valid filter syntax, nonexistent field": {
+		filter: "metadata.nonexistent",
+		json:   tinkerbellFilterMetadata,
+	},
+	"empty string filter": {
+		filter: "",
+		result: tinkerbellFilterMetadata,
+		json:   tinkerbellFilterMetadata,
+	},
+	"list filter on nonexistent field, without '?'": {
+		filter: ".metadata.nonexistent[]",
+		error:  "error while filtering with gojq: cannot iterate over: null",
+		json:   tinkerbellFilterMetadata,
+	},
+	"list filter on nonexistent field, with '?'": {
+		filter: ".metadata.nonexistent[]?",
+		json:   tinkerbellFilterMetadata,
 	},
 }
