@@ -5,12 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"math"
 	"net"
 	"os"
-	"strconv"
-	"strings"
-	"unicode"
+	"time"
 
 	"github.com/itchyny/gojq"
 	"github.com/tinkerbell/tink/util"
@@ -19,6 +16,7 @@ import (
 	"github.com/packethost/hegel/grpc/hegel"
 	"github.com/packethost/hegel/metrics"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	tink "github.com/tinkerbell/tink/protos/hardware"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -36,7 +34,7 @@ type exportedHardwareCacher struct {
 	Arch                               string                   `json:"arch"`
 	State                              string                   `json:"state"`
 	EFIBoot                            bool                     `json:"efi_boot"`
-	Instance                           instance                 `json:"instance"`
+	Instance                           instance                 `json:"instance,omitempty"`
 	PreinstalledOperatingSystemVersion interface{}              `json:"preinstalled_operating_system_version"`
 	NetworkPorts                       []map[string]interface{} `json:"network_ports"`
 	PlanSlug                           string                   `json:"plan_slug"`
@@ -46,18 +44,19 @@ type exportedHardwareCacher struct {
 }
 
 type instance struct {
-	ID       string `json:"id"`
-	State    string `json:"state"`
-	Hostname string `json:"hostname"`
-	AllowPXE bool   `json:"allow_pxe"`
-	Rescue   bool   `json:"rescue"`
+	ID       string `json:"id,omitempty"`
+	State    string `json:"state,omitempty"`
+	Hostname string `json:"hostname,omitempty"`
+	AllowPXE bool   `json:"allow_pxe,omitempty"`
+	Rescue   bool   `json:"rescue,omitempty"`
 
-	OS       operatingSystem `json:"operating_system_version"`
-	UserData string          `json:"userdata,omitempty"`
+	IPAddresses []map[string]interface{} `json:"ip_addresses,omitempty"`
+	OS          *operatingSystem         `json:"operating_system_version,omitempty"`
+	UserData    string                   `json:"userdata,omitempty"`
 
 	CryptedRootPassword string `json:"crypted_root_password,omitempty"`
 
-	Storage      storage  `json:"storage,omitempty"`
+	Storage      *storage `json:"storage,omitempty"`
 	SSHKeys      []string `json:"ssh_keys,omitempty"`
 	NetworkReady bool     `json:"network_ready,omitempty"`
 }
@@ -100,9 +99,9 @@ type filesystemOptions struct {
 }
 
 type partition struct {
-	Label    string      `json:"label,omitempty"`
-	Number   int         `json:"number,omitempty"`
-	Size     intOrString `json:"size,omitempty"`
+	Label    string      `json:"label"`
+	Number   int         `json:"number"`
+	Size     interface{} `json:"size"`
 	Start    int         `json:"start,omitempty"`
 	TypeGUID string      `json:"typeGuid,omitempty"`
 }
@@ -118,52 +117,6 @@ type storage struct {
 	Disks       []*disk       `json:"disks,omitempty"`
 	RAID        []*raid       `json:"raid,omitempty"`
 	Filesystems []*filesystem `json:"filesystems,omitempty"`
-}
-
-type intOrString int
-
-// UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of IntOrString
-func (ios *intOrString) UnmarshalJSON(b []byte) error {
-	if b[0] != '"' {
-		return json.Unmarshal(b, (*int)(ios))
-	}
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
-	}
-	i, err := convertSuffix(s)
-	if err != nil {
-		return err
-	}
-	*ios = intOrString(i)
-	return nil
-}
-
-// convertSuffix converts a string of "<size><suffix>" (e.g. "123kb") into its equivalent size in bytes
-func convertSuffix(s string) (int, error) {
-	if s == "" {
-		return 0, nil
-	}
-
-	suffixes := map[string]float64{"": 0, "b": 0, "k": 1, "kb": 1, "m": 2, "mb": 2, "g": 3, "gb": 3, "t": 4, "tb": 4}
-	s = strings.ToLower(s)
-	i := strings.TrimFunc(s, func(r rune) bool { // trims both ends of string s of anything not a number (e.g., "123 kb" -> "123" and "12k3b" -> "12k3")
-		return !unicode.IsNumber(r)
-	})
-	size, err := strconv.Atoi(i)
-	if err != nil {
-		return -1, err
-	}
-
-	suf := strings.TrimFunc(s, func(r rune) bool { // trims both ends of string s of anything not a letter (e.g., "123 kb" -> "kb")
-		return !unicode.IsLetter(r)
-	})
-
-	if pow, ok := suffixes[suf]; ok {
-		res := size * int(math.Pow(1024, pow))
-		return res, nil
-	}
-	return -1, errors.New("invalid suffix")
 }
 
 // exportedHardware transforms hardware that is returned from cacher into what we want to expose to clients
@@ -258,8 +211,10 @@ func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 }
 
 func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_SubscribeServer) error {
+	startedAt := time.Now().UTC()
 	metrics.TotalSubscriptions.Inc()
 	metrics.Subscriptions.WithLabelValues("initializing").Inc()
+	timer := prometheus.NewTimer(metrics.InitDuration)
 
 	logger := s.log.With("op", "subscribe")
 
@@ -267,6 +222,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		logger.Error(err)
 		metrics.Subscriptions.WithLabelValues("initializing").Dec()
 		metrics.Errors.WithLabelValues("subscribe", "initializing").Inc()
+		timer.ObserveDuration()
 		return err
 	}
 
@@ -275,6 +231,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		return initError(errors.New("could not get peer info from client"))
 	}
 
+	var id string
 	ip := p.Addr.(*net.TCPAddr).IP.String()
 	logger = logger.With("ip", ip, "client", p.Addr)
 
@@ -294,9 +251,11 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 			return initError(err)
 		}
 
+		id = hw.(*tink.Hardware).Id
+
 		ctx, cancel = context.WithCancel(stream.Context())
 		watch, err = s.hardwareClient.Watch(ctx, &tink.GetRequest{
-			Id: hw.(*tink.Hardware).Id,
+			Id: id,
 		})
 
 		if err != nil {
@@ -319,10 +278,11 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		}
 
 		hwID := hwJSON["id"]
+		id = hwID.(string)
 
 		ctx, cancel = context.WithCancel(stream.Context())
 		watch, err = s.hardwareClient.Watch(ctx, &cacher.GetRequest{
-			ID: hwID.(string),
+			ID: id,
 		})
 
 		if err != nil {
@@ -331,8 +291,39 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		}
 	}
 
+	sub := &subscription{
+		ID:           id,
+		IP:           ip,
+		StartedAt:    startedAt,
+		InitDuration: time.Since(startedAt),
+		cancel:       cancel,
+		updateChan:   make(chan []byte, 1),
+	}
+
+	s.subLock.Lock()
+	old := s.subscriptions[id]
+	s.subscriptions[id] = sub
+	s.subLock.Unlock()
+
+	// Disconnect previous client if a client is already connected for this hardware id
+	if old != nil {
+		old.cancel()
+	}
+
+	defer func() {
+		s.subLock.Lock()
+		defer s.subLock.Unlock()
+		// Check if subscription for hardware id exists.
+		// If the subscriptions exists, make sure it has not been replaced by a new connection.
+		if cSub := s.subscriptions[id]; cSub == sub {
+			delete(s.subscriptions, id)
+		}
+	}()
+
+	timer.ObserveDuration()
 	metrics.Subscriptions.WithLabelValues("initializing").Dec()
 	metrics.Subscriptions.WithLabelValues("active").Inc()
+
 	activeError := func(err error) error {
 		if err == nil {
 			return err
@@ -344,7 +335,6 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	}
 
 	errs := make(chan error, 1)
-	ehws := make(chan []byte, 1)
 	go func() {
 		for {
 			var hw []byte
@@ -358,13 +348,13 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 						err = status.Error(codes.OK, "stream ended")
 					}
 					errs <- err
-					close(ehws)
+					close(sub.updateChan)
 					return
 				}
 				hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp})
 				if err != nil {
 					errs <- errors.New("could not marshal hardware")
-					close(ehws)
+					close(sub.updateChan)
 					return
 				}
 			default:
@@ -375,7 +365,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 						err = status.Error(codes.OK, "stream ended")
 					}
 					errs <- err
-					close(ehws)
+					close(sub.updateChan)
 					return
 				}
 				hw = []byte(resp.JSON)
@@ -384,16 +374,16 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 			ehw, err := exportHardware(hw)
 			if err != nil {
 				errs <- err
-				close(ehws)
+				close(sub.updateChan)
 				return
 			}
 
-			ehws <- ehw
+			sub.updateChan <- ehw
 		}
 	}()
 	go func() {
 		l := logger.With("op", "send")
-		for ehw := range ehws {
+		for ehw := range sub.updateChan {
 			l.Info()
 			err := stream.Send(&hegel.SubscribeResponse{
 				JSON: string(ehw),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -208,4 +209,58 @@ func getIPFromRequest(r *http.Request) string {
 		IPAddress, _, _ = net.SplitHostPort(IPAddress)
 	}
 	return IPAddress
+}
+
+func writeJSON(w http.ResponseWriter, status int, data interface{}) error {
+	var body []byte
+	body, err := json.Marshal(data)
+	if err != nil {
+		if status < 400 {
+			return jsonError(w, http.StatusInternalServerError, err, "marshalling response")
+		} else {
+			status = 500
+			logger.Error(err, "failed to marshal error")
+			body = []byte(`{"error", {"comment": "Failed to marshal error"}}`)
+		}
+	}
+	w.WriteHeader(status)
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(body)
+	return err
+}
+
+func jsonError(w http.ResponseWriter, status int, err error, msg string) error {
+	logger.Error(err, msg)
+	resp := map[string]interface{}{
+		"error": map[string]interface{}{
+			"error":   err.Error(),
+			"comment": msg,
+		},
+	}
+	return writeJSON(w, status, resp)
+}
+
+func handleSubscriptions(w http.ResponseWriter, r *http.Request) {
+	var getid string
+	if strings.HasPrefix(r.URL.Path, "/subscriptions/") {
+		getid = strings.TrimPrefix(r.URL.Path, "/subscriptions/")
+	}
+	hegelServer.subLock.RLock()
+	defer hegelServer.subLock.RUnlock()
+	var err error
+	if getid == "" {
+		err = writeJSON(w, http.StatusOK, hegelServer.subscriptions)
+	} else if sub, ok := hegelServer.subscriptions[getid]; ok {
+		err = writeJSON(w, http.StatusOK, sub)
+	} else {
+		err = jsonError(w, http.StatusNotFound, fmt.Errorf("%s not found", getid), "item not found")
+	}
+	if err != nil {
+		logger.Error(err)
+	}
+}
+
+func buildSubscriberHandlers(hegelServer *server) {
+	http.HandleFunc("/subscriptions", handleSubscriptions)
+	http.HandleFunc("/subscriptions/", handleSubscriptions)
 }

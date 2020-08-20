@@ -7,8 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"strconv"
+	_ "net/http/pprof"
 	"sync"
 	"time"
 
@@ -33,6 +32,9 @@ import (
 type server struct {
 	log            log.Logger
 	hardwareClient hardwareGetter
+
+	subLock       sync.RWMutex
+	subscriptions map[string]*subscription
 }
 
 type hardwareGetter interface {
@@ -42,6 +44,15 @@ type hardwareGetter interface {
 
 type getRequest interface{}
 type hardware interface{}
+
+type subscription struct {
+	ID           string        `json:"id"`
+	IP           string        `json:"ip"`
+	InitDuration time.Duration `json:"init_duration"`
+	StartedAt    time.Time     `json:"started_at"`
+	cancel       func()
+	updateChan   chan []byte
+}
 
 type hardwareGetterCacher struct {
 	client cacher.CacherClient
@@ -84,15 +95,15 @@ func (hg hardwareGetterTinkerbell) Watch(ctx context.Context, in getRequest, opt
 }
 
 var (
-	facility = flag.String("facility", envString("HEGEL_FACILITY", "onprem"),
+	facility = flag.String("facility", env.Get("HEGEL_FACILITY", "onprem"),
 		"The facility we are running in (mostly to connect to cacher)")
-	tlsCertPath = flag.String("tls_cert", envString("HEGEL_TLS_CERT", ""),
+	tlsCertPath = flag.String("tls_cert", env.Get("HEGEL_TLS_CERT"),
 		"Path of tls certificat to use.")
-	tlsKeyPath = flag.String("tls_key", envString("HEGEL_TLS_KEY", ""),
+	tlsKeyPath = flag.String("tls_key", env.Get("HEGEL_TLS_KEY"),
 		"Path of tls key to use.")
-	useTLS = flag.Bool("use_tls", envBool("HEGEL_USE_TLS", true),
+	useTLS = flag.Bool("use_tls", env.Bool("HEGEL_USE_TLS", true),
 		"Whether we should use tls or not (should be disabled for traefik)")
-	metricsPort = flag.Int("http_port", envInt("HEGEL_HTTP_PORT", 50061),
+	metricsPort = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061),
 		"Port to liten on http")
 	customEndpoints     string
 	gitRev              string = "undefind"
@@ -103,35 +114,6 @@ var (
 	isCacherAvailableMu sync.RWMutex
 	isCacherAvailable   bool
 )
-
-func envString(key string, def string) (val string) {
-	val, ok := os.LookupEnv(key)
-	if !ok {
-		val = def
-	}
-	return
-}
-
-func envBool(key string, def bool) (val bool) {
-	v, ok := os.LookupEnv(key)
-	if !ok {
-		val = def
-	} else {
-		val, _ = strconv.ParseBool(v)
-	}
-	return
-}
-
-func envInt(key string, def int) (val int) {
-	v, ok := os.LookupEnv(key)
-	if !ok {
-		val = def
-		return
-	}
-	i64, _ := strconv.ParseInt(v, 10, 64)
-	val = int(i64)
-	return
-}
 
 func main() {
 	flag.Parse()
@@ -146,13 +128,7 @@ func main() {
 
 	metrics.State.Set(metrics.Initializing)
 
-	port, err := strconv.Atoi(env.Get("GRPC_PORT", "42115"))
-	if err != nil {
-		logger.Fatal(err, "parse grpc port from env")
-	}
-	if port < 1 {
-		logger.Fatal(err, "parse grpc port from env")
-	}
+	port := env.Int("GRPC_PORT", 42115)
 
 	serverOpts := make([]grpc.ServerOption, 0)
 
@@ -182,7 +158,7 @@ func main() {
 	)
 
 	var hg hardwareGetter
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	dataModelVersion := env.Get("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
 		tc, err := tinkClient.TinkHardwareClient()
@@ -236,6 +212,7 @@ func main() {
 	hegelServer = &server{
 		log:            logger,
 		hardwareClient: hg,
+		subscriptions:  make(map[string]*subscription),
 	}
 
 	hegel.RegisterHegelServer(grpcServer, hegelServer)
@@ -254,6 +231,8 @@ func main() {
 	http.HandleFunc("/_packet/version", versionHandler)
 	http.HandleFunc("/2009-04-04", ec2Handler) // workaround for making trailing slash optional
 	http.HandleFunc("/2009-04-04/", ec2Handler)
+
+	buildSubscriberHandlers(hegelServer)
 
 	err = registerCustomEndpoints()
 	if err != nil {
@@ -279,7 +258,7 @@ func main() {
 }
 
 func registerCustomEndpoints() error {
-	customEndpoints = envString("CUSTOM_ENDPOINTS", `{"/metadata":".metadata"}`)
+	customEndpoints = env.Get("CUSTOM_ENDPOINTS", `{"/metadata":".metadata"}`)
 
 	endpoints := make(map[string]string)
 	err := json.Unmarshal([]byte(customEndpoints), &endpoints)
