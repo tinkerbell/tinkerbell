@@ -18,8 +18,8 @@ import (
 	cacherClient "github.com/packethost/cacher/client"
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
-	"github.com/packethost/hegel/gxff"
 	"github.com/packethost/hegel/metrics"
+	"github.com/packethost/hegel/xff"
 	"github.com/packethost/pkg/env"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
@@ -141,7 +141,8 @@ func main() {
 		serverOpts = append(serverOpts, grpc.Creds(creds))
 	}
 
-	xffStream, xffUnary := gxff.New(logger, nil)
+	trustedProxies := xff.ParseTrustedProxies()
+	xffStream, xffUnary := xff.GRPCMiddlewares(logger, trustedProxies)
 	streamLogger, unaryLogger := logger.GRPCLoggers()
 	serverOpts = append(serverOpts,
 		grpc_middleware.WithUnaryServerChain(

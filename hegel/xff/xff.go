@@ -1,13 +1,15 @@
-package gxff
+package xff
 
 import (
 	"context"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/packethost/pkg/log"
+	"github.com/packethost/xff"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -116,21 +118,18 @@ func ParseTrustedProxies() []string {
 	return result
 }
 
-// New returns a set of grpc interceptors that will replace peer.IP with X-FORWARDED-FOR value if the peer ip within a subnet in allowedSubnets
-// If allowedSubnets is nil it will look for subents in the TRUSTED_PROXIES env var.
+// GRPCMiddlewares returns a set of grpc interceptors that will replace peer.IP with X-FORWARDED-FOR value if the peer IP is within one of the subnets in allowedSubnets
+// If allowedSubnets is nil it will look for subnets in the TRUSTED_PROXIES env var.
 // If allowedSubnets is nil and TRUSTED_PROXIES is empty then X-FORWARDED-FOR will be ignored (no proxy is trusted).
-func New(l log.Logger, allowedSubnets []string) (grpc.StreamServerInterceptor, grpc.UnaryServerInterceptor) {
+func GRPCMiddlewares(l log.Logger, allowedSubnets []string) (grpc.StreamServerInterceptor, grpc.UnaryServerInterceptor) {
 	if allowedSubnets == nil {
-		allowedSubnets = ParseTrustedProxies()
-		if allowedSubnets == nil {
-			streamer := func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-				return handler(srv, ss)
-			}
-			unaryer := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-				return handler(ctx, req)
-			}
-			return streamer, unaryer
+		streamer := func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+			return handler(srv, ss)
 		}
+		unaryer := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+			return handler(ctx, req)
+		}
+		return streamer, unaryer
 	}
 
 	masks, err := toMasks(allowedSubnets)
@@ -147,4 +146,27 @@ func New(l log.Logger, allowedSubnets []string) (grpc.StreamServerInterceptor, g
 		return handler(updateRemote(ctx, l, masks), req)
 	}
 	return streamer, unaryer
+}
+
+// HTTPHandler creates a XFF handler if there are allowedSubnets specified
+func HTTPHandler(l log.Logger, mux *http.ServeMux, allowedSubnets []string) http.Handler {
+	var handler http.Handler
+	if mux == nil {
+		mux = http.DefaultServeMux
+	}
+
+	if len(allowedSubnets) > 0 {
+		xffmw, err := xff.New(xff.Options{
+			AllowedSubnets: allowedSubnets,
+		})
+		if err != nil {
+			l.Fatal(err, "error creating a new xff handler")
+		}
+
+		handler = xffmw.Handler(mux)
+	} else {
+		handler = mux
+	}
+
+	return handler
 }

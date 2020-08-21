@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/packethost/hegel/metrics"
-	"github.com/packethost/xff"
 )
 
 var (
@@ -264,22 +263,4 @@ func handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 func buildSubscriberHandlers(hegelServer *server) {
 	http.HandleFunc("/subscriptions", handleSubscriptions)
 	http.HandleFunc("/subscriptions/", handleSubscriptions)
-}
-
-func handleTrustedProxies(mux *http.ServeMux, trustedProxies []string) http.Handler {
-	var handler http.Handler
-	if len(trustedProxies) > 0 {
-		xffmw, err := xff.New(xff.Options{
-			AllowedSubnets: trustedProxies,
-		})
-		if err != nil {
-			logger.Fatal(err, "error creating a new xff handler")
-		}
-
-		handler = xffmw.Handler(mux)
-	} else {
-		handler = mux
-	}
-
-	return handler
 }

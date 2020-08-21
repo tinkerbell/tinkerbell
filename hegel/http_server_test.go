@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/packethost/hegel/gxff"
+	"github.com/packethost/hegel/xff"
 	"github.com/tinkerbell/tink/protos/packet"
 )
 
@@ -32,8 +32,8 @@ func TestTrustedProxies(t *testing.T) {
 			mux := &http.ServeMux{}
 			mux.HandleFunc("/2009-04-04/", ec2Handler)
 
-			trustedProxies := gxff.ParseTrustedProxies()
-			xffHandler := handleTrustedProxies(mux, trustedProxies)
+			trustedProxies := xff.ParseTrustedProxies()
+			xffHandler := xff.HTTPHandler(logger, mux, trustedProxies)
 
 			req, err := http.NewRequest("GET", test.url, nil)
 			if err != nil {
