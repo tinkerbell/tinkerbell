@@ -18,12 +18,11 @@ import (
 	cacherClient "github.com/packethost/cacher/client"
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
-	"github.com/packethost/hegel/gxff"
 	"github.com/packethost/hegel/metrics"
+	"github.com/packethost/hegel/xff"
 	"github.com/packethost/pkg/env"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	tinkClient "github.com/tinkerbell/tink/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -142,7 +141,8 @@ func main() {
 		serverOpts = append(serverOpts, grpc.Creds(creds))
 	}
 
-	xffStream, xffUnary := gxff.New(logger, nil)
+	trustedProxies := xff.ParseTrustedProxies()
+	xffStream, xffUnary := xff.GRPCMiddlewares(logger, trustedProxies)
 	streamLogger, unaryLogger := logger.GRPCLoggers()
 	serverOpts = append(serverOpts,
 		grpc_middleware.WithUnaryServerChain(
@@ -226,27 +226,7 @@ func main() {
 
 	// Register grpc prometheus server
 	grpc_prometheus.Register(grpcServer)
-	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/_packet/healthcheck", healthCheckHandler)
-	http.HandleFunc("/_packet/version", versionHandler)
-	http.HandleFunc("/2009-04-04", ec2Handler) // workaround for making trailing slash optional
-	http.HandleFunc("/2009-04-04/", ec2Handler)
-
-	buildSubscriberHandlers(hegelServer)
-
-	err = registerCustomEndpoints()
-	if err != nil {
-		logger.Fatal(err, "could not register custom endpoints")
-	}
-
-	logger.With("port", *metricsPort).Info("Starting http server")
-	go func() {
-		err := http.ListenAndServe(fmt.Sprintf(":%d", *metricsPort), nil)
-		if err != nil {
-			logger.Error(err, "failed to serve http")
-			panic(err)
-		}
-	}()
+	ServeHTTP()
 
 	metrics.State.Set(metrics.Ready)
 	//Serving GRPC
@@ -257,8 +237,11 @@ func main() {
 	}
 }
 
-func registerCustomEndpoints() error {
+func registerCustomEndpoints(mux *http.ServeMux) error {
 	customEndpoints = env.Get("CUSTOM_ENDPOINTS", `{"/metadata":".metadata"}`)
+	if mux == nil {
+		mux = http.DefaultServeMux
+	}
 
 	endpoints := make(map[string]string)
 	err := json.Unmarshal([]byte(customEndpoints), &endpoints)
@@ -266,7 +249,7 @@ func registerCustomEndpoints() error {
 		return errors.Wrap(err, "error in parsing custom endpoints")
 	}
 	for endpoint, filter := range endpoints {
-		http.HandleFunc(endpoint, getMetadata(filter))
+		mux.HandleFunc(endpoint, getMetadata(filter))
 	}
 
 	return nil
