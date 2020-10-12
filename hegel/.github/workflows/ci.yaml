@@ -44,7 +44,7 @@ jobs:
     - name: Docker Image Tag for Sha
       id: docker-image-tag
       run: |
-        echo ::set-output name=tag::quay.io/tinkerbell/hegel:latest,quay.io/tinkerbell/hegel:sha-${GITHUB_SHA::8}
+        echo ::set-output name=tags::quay.io/tinkerbell/hegel:latest,quay.io/tinkerbell/hegel:sha-${GITHUB_SHA::8}
     - name: Checkout code
       uses: actions/checkout@v2
     - name: Download hegel binary
