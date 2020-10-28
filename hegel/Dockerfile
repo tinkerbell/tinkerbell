@@ -1,8 +1,13 @@
+FROM golang:1.15-alpine
+COPY . /usr/myapp
+WORKDIR /usr/myapp
+RUN mkdir bin && go build -o ./bin ./...
+
 FROM alpine:3.7
 
 EXPOSE 50060
 EXPOSE 50061
-ENTRYPOINT [ "cmd/hegel" ]
+ENTRYPOINT ["/usr/bin/hegel"]
 
 RUN apk add --update --upgrade ca-certificates
-ADD hegel cmd/hegel
+COPY --from=0 /usr/myapp/bin/hegel /usr/bin/hegel
