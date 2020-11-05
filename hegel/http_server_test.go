@@ -60,46 +60,47 @@ func TestTrustedProxies(t *testing.T) {
 
 func TestGetMetadataCacher(t *testing.T) {
 	for name, test := range cacherTests {
-		t.Log(name)
-		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+		t.Run(name, func(t *testing.T) {
+			hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
-		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
-		os.Unsetenv("DATA_MODEL_VERSION")
+			dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+			defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
+			os.Unsetenv("DATA_MODEL_VERSION")
 
-		customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
-		defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
-		os.Unsetenv("CUSTOM_ENDPOINTS")
+			customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
+			defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
+			os.Unsetenv("CUSTOM_ENDPOINTS")
 
-		req, err := http.NewRequest("GET", "/metadata", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.RemoteAddr = mockUserIP
-		resp := httptest.NewRecorder()
-		http.HandleFunc("/metadata", getMetadata("")) // filter not used in cacher mode
+			req, err := http.NewRequest("GET", "/metadata", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.RemoteAddr = mockUserIP
+			resp := httptest.NewRecorder()
+			http.HandleFunc("/metadata", getMetadata("")) // filter not used in cacher mode
 
-		http.DefaultServeMux.ServeHTTP(resp, req)
+			http.DefaultServeMux.ServeHTTP(resp, req)
 
-		if status := resp.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
-		}
+			if status := resp.Code; status != http.StatusOK {
+				t.Errorf("handler returned wrong status code: got %v want %v",
+					status, http.StatusOK)
+			}
 
-		hw := exportedHardwareCacher{}
-		err = json.Unmarshal(resp.Body.Bytes(), &hw)
-		if err != nil {
-			t.Error("Error in unmarshalling hardware:", err)
-		}
+			hw := exportedHardwareCacher{}
+			err = json.Unmarshal(resp.Body.Bytes(), &hw)
+			if err != nil {
+				t.Error("Error in unmarshalling hardware:", err)
+			}
 
-		if hw.ID != test.id {
-			t.Errorf("handler returned unexpected id: got %v want %v",
-				hw.ID, test.id)
-		}
-		if hw.PlanSlug != test.planSlug {
-			t.Errorf("handler returned unexpected plan slug: got %v want %v",
-				hw.PlanSlug, test.planSlug)
-		}
+			if hw.ID != test.id {
+				t.Errorf("handler returned unexpected id: got %v want %v",
+					hw.ID, test.id)
+			}
+			if hw.PlanSlug != test.planSlug {
+				t.Errorf("handler returned unexpected plan slug: got %v want %v",
+					hw.PlanSlug, test.planSlug)
+			}
+		})
 	}
 }
 
@@ -114,44 +115,45 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 	os.Unsetenv("CUSTOM_ENDPOINTS")
 
 	for name, test := range tinkerbellTests {
-		t.Log(name)
-		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+		t.Run(name, func(t *testing.T) {
+			hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
-		mux := &http.ServeMux{}
+			mux := &http.ServeMux{}
 
-		err := registerCustomEndpoints(mux)
-		if err != nil {
-			t.Fatal("Error registering custom endpoints", err)
-		}
+			err := registerCustomEndpoints(mux)
+			if err != nil {
+				t.Fatal("Error registering custom endpoints", err)
+			}
 
-		req, err := http.NewRequest("GET", "/metadata", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.RemoteAddr = mockUserIP
-		resp := httptest.NewRecorder()
+			req, err := http.NewRequest("GET", "/metadata", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.RemoteAddr = mockUserIP
+			resp := httptest.NewRecorder()
 
-		mux.ServeHTTP(resp, req)
+			mux.ServeHTTP(resp, req)
 
-		if status := resp.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
-		}
+			if status := resp.Code; status != http.StatusOK {
+				t.Errorf("handler returned wrong status code: got %v want %v",
+					status, http.StatusOK)
+			}
 
-		if resp.Body.Bytes() == nil {
-			return
-		}
+			if resp.Body.Bytes() == nil {
+				return
+			}
 
-		var metadata packet.Metadata
-		err = json.Unmarshal(resp.Body.Bytes(), &metadata)
-		if err != nil {
-			t.Error("Error in unmarshalling hardware metadata:", err)
-		}
+			var metadata packet.Metadata
+			err = json.Unmarshal(resp.Body.Bytes(), &metadata)
+			if err != nil {
+				t.Error("Error in unmarshalling hardware metadata:", err)
+			}
 
-		if metadata.BondingMode != test.bondingMode {
-			t.Errorf("handler returned unexpected bonding mode: got %v want %v",
-				metadata.BondingMode, test.bondingMode)
-		}
+			if metadata.BondingMode != test.bondingMode {
+				t.Errorf("handler returned unexpected bonding mode: got %v want %v",
+					metadata.BondingMode, test.bondingMode)
+			}
+		})
 	}
 }
 
@@ -166,34 +168,35 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 	os.Setenv("CUSTOM_ENDPOINTS", `{"/metadata":".metadata.instance","/components":".metadata.components","/userdata":".metadata.userdata"}`)
 
 	for name, test := range tinkerbellKantTests {
-		t.Log(name)
-		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+		t.Run(name, func(t *testing.T) {
+			hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
-		mux := &http.ServeMux{}
+			mux := &http.ServeMux{}
 
-		err := registerCustomEndpoints(mux)
-		if err != nil {
-			t.Fatal("Error registering custom endpoints", err)
-		}
+			err := registerCustomEndpoints(mux)
+			if err != nil {
+				t.Fatal("Error registering custom endpoints", err)
+			}
 
-		req, err := http.NewRequest("GET", test.url, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.RemoteAddr = mockUserIP
-		resp := httptest.NewRecorder()
+			req, err := http.NewRequest("GET", test.url, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.RemoteAddr = mockUserIP
+			resp := httptest.NewRecorder()
 
-		mux.ServeHTTP(resp, req)
+			mux.ServeHTTP(resp, req)
 
-		if status := resp.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
-		}
+			if status := resp.Code; status != http.StatusOK {
+				t.Errorf("handler returned wrong status code: got %v want %v",
+					status, http.StatusOK)
+			}
 
-		if resp.Body.String() != test.response {
-			t.Errorf("handler returned with unexpected body: got %v want %v",
-				resp.Body.String(), test.response)
-		}
+			if resp.Body.String() != test.response {
+				t.Errorf("handler returned with unexpected body: got %v want %v",
+					resp.Body.String(), test.response)
+			}
+		})
 	}
 }
 
@@ -206,43 +209,44 @@ func TestRegisterEndpoints(t *testing.T) {
 	defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
 
 	for name, test := range registerEndpointTests {
-		t.Log(name)
-		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+		t.Run(name, func(t *testing.T) {
+			hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
-		os.Unsetenv("CUSTOM_ENDPOINTS")
-		if test.customEndpoints != "" {
-			os.Setenv("CUSTOM_ENDPOINTS", test.customEndpoints)
-		}
-
-		mux := &http.ServeMux{}
-
-		err := registerCustomEndpoints(mux)
-		if test.error != "" {
-			if err == nil {
-				t.Fatalf("registerCustomEndpoints should have returned error: %v", test.error)
-			} else if err.Error() != test.error {
-				t.Fatalf("registerCustomEndpoints returned wrong error: got %v want %v", err, test.error)
+			os.Unsetenv("CUSTOM_ENDPOINTS")
+			if test.customEndpoints != "" {
+				os.Setenv("CUSTOM_ENDPOINTS", test.customEndpoints)
 			}
-		}
 
-		req, err := http.NewRequest("GET", test.url, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.RemoteAddr = mockUserIP
-		resp := httptest.NewRecorder()
+			mux := &http.ServeMux{}
 
-		mux.ServeHTTP(resp, req)
+			err := registerCustomEndpoints(mux)
+			if test.error != "" {
+				if err == nil {
+					t.Fatalf("registerCustomEndpoints should have returned error: %v", test.error)
+				} else if err.Error() != test.error {
+					t.Fatalf("registerCustomEndpoints returned wrong error: got %v want %v", err, test.error)
+				}
+			}
 
-		if status := resp.Code; status != test.status {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, test.status)
-		}
+			req, err := http.NewRequest("GET", test.url, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.RemoteAddr = mockUserIP
+			resp := httptest.NewRecorder()
 
-		t.Log("response:", resp.Body.String()) // logging response instead of explicitly checking content
-		if resp.Body.String() == "" && !test.expectResponseEmpty {
-			t.Errorf("handler should have returned a non-empty response")
-		}
+			mux.ServeHTTP(resp, req)
+
+			if status := resp.Code; status != test.status {
+				t.Errorf("handler returned wrong status code: got %v want %v",
+					status, test.status)
+			}
+
+			t.Log("response:", resp.Body.String()) // logging response instead of explicitly checking content
+			if resp.Body.String() == "" && !test.expectResponseEmpty {
+				t.Errorf("handler should have returned a non-empty response")
+			}
+		})
 	}
 }
 
@@ -316,24 +320,24 @@ func TestEC2FiltersMap(t *testing.T) {
 		if basePath == "" { // ignore the `"": []` entry
 			continue
 		}
-		t.Log("base path:", basePath)
+		t.Run(basePath, func(t *testing.T) {
+			hw := `{"metadata":{"instance":{"spot":{}}}}` // to make sure the 'spot' metadata item will be included
+			query := strings.TrimSuffix(basePath, "/")
+			dirListFilter := ec2Filters[query] // get the directory-list filter
+			itemsFromFilter, err := filterMetadata([]byte(hw), dirListFilter)
+			if err != nil {
+				t.Errorf("failed to filter metadata: %s", err)
+			}
 
-		hw := `{"metadata":{"instance":{"spot":{}}}}` // to make sure the 'spot' metadata item will be included
-		query := strings.TrimSuffix(basePath, "/")
-		dirListFilter := ec2Filters[query] // get the directory-list filter
-		itemsFromFilter, err := filterMetadata([]byte(hw), dirListFilter)
-		if err != nil {
-			t.Errorf("failed to filter metadata: %s", err)
-		}
+			sort.Strings(metadataItems)
+			itemsFromQueries := strings.Join(metadataItems, "\n")
 
-		sort.Strings(metadataItems)
-		itemsFromQueries := strings.Join(metadataItems, "\n")
-
-		if string(itemsFromFilter) != itemsFromQueries {
-			t.Error("directory-list does not match the actual queries")
-			t.Errorf("from filter: %s", itemsFromFilter)
-			t.Errorf("from queries: %s", itemsFromQueries)
-		}
+			if string(itemsFromFilter) != itemsFromQueries {
+				t.Error("directory-list does not match the actual queries")
+				t.Errorf("from filter: %s", itemsFromFilter)
+				t.Errorf("from queries: %s", itemsFromQueries)
+			}
+		})
 	}
 }
 
