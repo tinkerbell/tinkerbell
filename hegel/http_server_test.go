@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/packethost/hegel/xff"
-	"github.com/tinkerbell/tink/protos/packet"
 )
 
 // TestTrustedProxies tests if the actual remote user IP is extracted correctly from the X-FORWARDED-FOR header according to the list of trusted proxies provided
@@ -139,15 +138,15 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 				return
 			}
 
-			var metadata packet.Metadata
+			var metadata map[string]interface{}
 			err = json.Unmarshal(resp.Body.Bytes(), &metadata)
 			if err != nil {
 				t.Error("Error in unmarshalling hardware metadata:", err)
 			}
 
-			if metadata.BondingMode != test.bondingMode {
+			if int64(metadata["bonding_mode"].(float64)) != test.bondingMode {
 				t.Errorf("handler returned unexpected bonding mode: got %v want %v",
-					metadata.BondingMode, test.bondingMode)
+					metadata["bonding_mode"], test.bondingMode)
 			}
 		})
 	}
