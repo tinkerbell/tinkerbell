@@ -93,7 +93,7 @@ func (hg hardwareGetterTinkerbell) Watch(ctx context.Context, in getRequest, opt
 	return w, nil
 }
 
-const defaultCustomEndpoints = `{"/metadata":".metadata"}`
+const defaultCustomEndpoints = `{"/metadata":".metadata.instance"}`
 
 var (
 	facility = flag.String("facility", env.Get("HEGEL_FACILITY", "onprem"),

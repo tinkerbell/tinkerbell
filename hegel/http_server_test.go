@@ -144,9 +144,9 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 				t.Error("Error in unmarshalling hardware metadata:", err)
 			}
 
-			if int64(metadata["bonding_mode"].(float64)) != test.bondingMode {
-				t.Errorf("handler returned unexpected bonding mode: got %v want %v",
-					metadata["bonding_mode"], test.bondingMode)
+			if metadata["crypted_root_password"].(string) != test.crypted_root_password {
+				t.Errorf("handler returned unexpected crypted_root_password: got %v want %v",
+					metadata["crypted_root_password"], test.crypted_root_password)
 			}
 		})
 	}
@@ -469,14 +469,14 @@ var cacherTests = map[string]struct {
 
 // test cases for TestGetMetadataTinkerbell
 var tinkerbellTests = map[string]struct {
-	id          string
-	bondingMode int64
-	json        string
+	id                    string
+	crypted_root_password string
+	json                  string
 }{
 	"tinkerbell": {
-		id:          "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
-		bondingMode: 5,
-		json:        tinkerbellDataModel,
+		id:                    "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
+		crypted_root_password: "redacted/",
+		json:                  tinkerbellDataModel,
 	},
 	"tinkerbell no metadata": {
 		id:   "363115b0-f03d-4ce5-9a15-5514193d131a",
