@@ -67,10 +67,6 @@ func TestGetMetadataCacher(t *testing.T) {
 			defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 			os.Unsetenv("DATA_MODEL_VERSION")
 
-			customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
-			defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
-			os.Unsetenv("CUSTOM_ENDPOINTS")
-
 			req, err := http.NewRequest("GET", "/metadata", nil)
 			if err != nil {
 				t.Fatal(err)
@@ -110,17 +106,17 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 	os.Setenv("DATA_MODEL_VERSION", "1")
 
-	customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
-	defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
-	os.Unsetenv("CUSTOM_ENDPOINTS")
-
+	defaultCustomEndpoints, err := parseCustomEndpoints("")
+	if err != nil {
+		t.Error(err)
+	}
 	for name, test := range tinkerbellTests {
 		t.Run(name, func(t *testing.T) {
 			hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
 			mux := &http.ServeMux{}
 
-			err := registerCustomEndpoints(mux)
+			err := registerCustomEndpoints(mux, defaultCustomEndpoints)
 			if err != nil {
 				t.Fatal("Error registering custom endpoints", err)
 			}
@@ -163,17 +159,18 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 	os.Setenv("DATA_MODEL_VERSION", "1")
 
-	customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
-	defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
-	os.Setenv("CUSTOM_ENDPOINTS", `{"/metadata":".metadata.instance","/components":".metadata.components","/userdata":".metadata.userdata"}`)
-
+	customEndpoints := map[string]string{
+		"/metadata":   ".metadata.instance",
+		"/components": ".metadata.components",
+		"/userdata":   ".metadata.userdata",
+	}
 	for name, test := range tinkerbellKantTests {
 		t.Run(name, func(t *testing.T) {
 			hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
 			mux := &http.ServeMux{}
 
-			err := registerCustomEndpoints(mux)
+			err := registerCustomEndpoints(mux, customEndpoints)
 			if err != nil {
 				t.Fatal("Error registering custom endpoints", err)
 			}
@@ -205,21 +202,23 @@ func TestRegisterEndpoints(t *testing.T) {
 	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 	os.Setenv("DATA_MODEL_VERSION", "1")
 
-	customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
-	defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
-
 	for name, test := range registerEndpointTests {
 		t.Run(name, func(t *testing.T) {
 			hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
-			os.Unsetenv("CUSTOM_ENDPOINTS")
-			if test.customEndpoints != "" {
-				os.Setenv("CUSTOM_ENDPOINTS", test.customEndpoints)
+			customEndpoints, err := parseCustomEndpoints(test.customEndpoints)
+			if test.error != "" {
+				if err == nil {
+					t.Fatalf("parseCustomEndpoints should have returned error: %v", test.error)
+				} else if err.Error() != test.error {
+					t.Fatalf("parseCustomEndpoints returned wrong error: got %v want %v", err, test.error)
+				}
+				return
 			}
 
 			mux := &http.ServeMux{}
 
-			err := registerCustomEndpoints(mux)
+			err = registerCustomEndpoints(mux, customEndpoints)
 			if test.error != "" {
 				if err == nil {
 					t.Fatalf("registerCustomEndpoints should have returned error: %v", test.error)
