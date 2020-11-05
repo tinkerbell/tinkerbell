@@ -30,8 +30,7 @@ func ServeHTTP() {
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf(":%d", *metricsPort), nil)
 		if err != nil {
-			logger.Error(err, "failed to serve http")
-			panic(err)
+			logger.Fatal(err, "failed to serve http")
 		}
 	}()
 }

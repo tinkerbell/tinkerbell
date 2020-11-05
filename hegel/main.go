@@ -135,8 +135,7 @@ func main() {
 	if *useTLS {
 		creds, err := credentials.NewServerTLSFromFile(*tlsCertPath, *tlsKeyPath)
 		if err != nil {
-			logger.Error(err, "failed to initialize server credentials")
-			panic(err)
+			logger.Fatal(err, "failed to initialize server credentials")
 		}
 		serverOpts = append(serverOpts, grpc.Creds(creds))
 	}
@@ -220,8 +219,7 @@ func main() {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		err = errors.Wrap(err, "failed to listen")
-		logger.Error(err)
-		panic(err)
+		logger.Fatal(err)
 	}
 
 	// Register grpc prometheus server
