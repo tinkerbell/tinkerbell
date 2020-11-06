@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func ServeHTTP() {
+func ServeHTTP(customEndpoints map[string]string) {
 	mux := &http.ServeMux{}
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/_packet/healthcheck", healthCheckHandler)
@@ -18,7 +18,7 @@ func ServeHTTP() {
 
 	buildSubscriberHandlers(hegelServer)
 
-	err := registerCustomEndpoints(mux)
+	err := registerCustomEndpoints(mux, customEndpoints)
 	if err != nil {
 		logger.Fatal(err, "could not register custom endpoints")
 	}
@@ -30,8 +30,7 @@ func ServeHTTP() {
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf(":%d", *metricsPort), nil)
 		if err != nil {
-			logger.Error(err, "failed to serve http")
-			panic(err)
+			logger.Fatal(err, "failed to serve http")
 		}
 	}()
 }

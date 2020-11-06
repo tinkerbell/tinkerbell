@@ -93,6 +93,8 @@ func (hg hardwareGetterTinkerbell) Watch(ctx context.Context, in getRequest, opt
 	return w, nil
 }
 
+const defaultCustomEndpoints = `{"/metadata":".metadata.instance"}`
+
 var (
 	facility = flag.String("facility", env.Get("HEGEL_FACILITY", "onprem"),
 		"The facility we are running in (mostly to connect to cacher)")
@@ -104,7 +106,6 @@ var (
 		"Whether we should use tls or not (should be disabled for traefik)")
 	metricsPort = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061),
 		"Port to liten on http")
-	customEndpoints     string
 	gitRev              string = "undefind"
 	gitRevJSON          []byte
 	StartTime           = time.Now()
@@ -135,8 +136,7 @@ func main() {
 	if *useTLS {
 		creds, err := credentials.NewServerTLSFromFile(*tlsCertPath, *tlsKeyPath)
 		if err != nil {
-			logger.Error(err, "failed to initialize server credentials")
-			panic(err)
+			logger.Fatal(err, "failed to initialize server credentials")
 		}
 		serverOpts = append(serverOpts, grpc.Creds(creds))
 	}
@@ -220,13 +220,17 @@ func main() {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		err = errors.Wrap(err, "failed to listen")
-		logger.Error(err)
-		panic(err)
+		logger.Fatal(err)
 	}
 
 	// Register grpc prometheus server
 	grpc_prometheus.Register(grpcServer)
-	ServeHTTP()
+
+	endpoints, err := parseCustomEndpoints(env.Get("CUSTOM_ENDPOINTS"))
+	if err != nil {
+		logger.Fatal(err)
+	}
+	ServeHTTP(endpoints)
 
 	metrics.State.Set(metrics.Ready)
 	//Serving GRPC
@@ -237,17 +241,25 @@ func main() {
 	}
 }
 
-func registerCustomEndpoints(mux *http.ServeMux) error {
-	customEndpoints = env.Get("CUSTOM_ENDPOINTS", `{"/metadata":".metadata"}`)
-	if mux == nil {
-		mux = http.DefaultServeMux
+func parseCustomEndpoints(customEndpoints string) (map[string]string, error) {
+	if customEndpoints == "" {
+		customEndpoints = defaultCustomEndpoints
 	}
 
 	endpoints := make(map[string]string)
 	err := json.Unmarshal([]byte(customEndpoints), &endpoints)
 	if err != nil {
-		return errors.Wrap(err, "error in parsing custom endpoints")
+		err = errors.Wrap(err, "error in parsing custom endpoints")
+		return nil, err
 	}
+	return endpoints, nil
+}
+
+func registerCustomEndpoints(mux *http.ServeMux, endpoints map[string]string) error {
+	if mux == nil {
+		mux = http.DefaultServeMux
+	}
+
 	for endpoint, filter := range endpoints {
 		mux.HandleFunc(endpoint, getMetadata(filter))
 	}
