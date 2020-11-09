@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
-	"github.com/tinkerbell/tink/util"
+	tpkg "github.com/tinkerbell/tink/pkg"
 
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
@@ -351,7 +351,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 					close(sub.updateChan)
 					return
 				}
-				hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp})
+				hw, err = json.Marshal(tpkg.HardwareWrapper{Hardware: resp})
 				if err != nil {
 					errs <- errors.New("could not marshal hardware")
 					close(sub.updateChan)
@@ -420,7 +420,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 			return nil, err
 		}
 
-		hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp.(*tink.Hardware)})
+		hw, err = json.Marshal(tpkg.HardwareWrapper{Hardware: resp.(*tink.Hardware)})
 		if err != nil {
 			return nil, errors.New("could not marshal hardware")
 		}
