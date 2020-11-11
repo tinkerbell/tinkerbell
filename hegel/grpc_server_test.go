@@ -110,7 +110,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 				hw.ID, test.id)
 		}
 
-		if reflect.DeepEqual(hw.Metadata, packet.Metadata{}) { // return if metadata is empty
+		if reflect.DeepEqual(&hw.Metadata, &packet.Metadata{}) { // return if metadata is empty
 			return
 		}
 
