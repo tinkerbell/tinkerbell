@@ -341,7 +341,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 			dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 			switch dataModelVersion {
 			case "1":
-				wt := watch.(tink.HardwareService_WatchClient)
+				wt := watch.(tink.HardwareService_DeprecatedWatchClient)
 				resp, err := wt.Recv()
 				if err != nil {
 					if err == io.EOF {

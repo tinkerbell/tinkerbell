@@ -86,7 +86,7 @@ func (hg hardwareGetterTinkerbell) ByIP(ctx context.Context, in getRequest, opts
 }
 
 func (hg hardwareGetterTinkerbell) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
-	w, err := hg.client.Watch(ctx, in.(*tink.GetRequest), opts...)
+	w, err := hg.client.DeprecatedWatch(ctx, in.(*tink.GetRequest), opts...)
 	if err != nil {
 		return nil, err
 	}
