@@ -110,8 +110,8 @@ func TestGetByIPTinkerbell(t *testing.T) {
 				hw.ID, test.id)
 		}
 
-		if reflect.DeepEqual(&hw.Metadata, &packet.Metadata{}) { // return if metadata is empty
-			return
+		if reflect.DeepEqual(&hw.Metadata, &packet.Metadata{}) { // continue if metadata is empty
+			continue
 		}
 
 		if hw.Metadata.State != test.state {
@@ -139,8 +139,8 @@ func TestGetByIPTinkerbell(t *testing.T) {
 				t.Fatalf("unexpected filesystem mount format, want: %v, got: %v\n", test.filesystemFormat, hw.Metadata.Instance.Storage.Filesystems[0].Mount.Format)
 			}
 		}
-		if hw.Metadata.Instance.OperatingSystemVersion.OsSlug != test.osSlug {
-			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, hw.Metadata.Instance.OperatingSystemVersion.OsSlug)
+		if hw.Metadata.Instance.OperatingSystem.Slug != test.osSlug {
+			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, hw.Metadata.Instance.OperatingSystem.Slug)
 		}
 		if hw.Metadata.Facility.PlanSlug != test.planSlug {
 			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.planSlug, hw.Metadata.Facility.PlanSlug)
