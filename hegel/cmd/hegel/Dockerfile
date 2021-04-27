@@ -1,7 +1,7 @@
 FROM golang:1.15-alpine
 COPY . /usr/myapp
 WORKDIR /usr/myapp
-RUN mkdir bin && go build -o ./bin ./...
+RUN mkdir -p bin && go build -o ./bin ./...
 
 FROM alpine:3.7
 

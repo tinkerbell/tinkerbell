@@ -8,7 +8,7 @@ import (
 	"io"
 	"log"
 
-	"github.com/packethost/hegel/grpc/hegel"
+	"github.com/tinkerbell/hegel/grpc/protos/hegel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )

@@ -1,17 +1,23 @@
-package main
+package grpcserver
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 
+	"github.com/packethost/pkg/log"
+	"github.com/tinkerbell/hegel/hardware"
+	"github.com/tinkerbell/hegel/hardware/mock"
 	"github.com/tinkerbell/tink/protos/packet"
+	"google.golang.org/grpc/peer"
 )
 
-func TestGetByIPCacher(t *testing.T) {
+func TestGetCacher(t *testing.T) {
 	for name, test := range cacherGrpcTests {
 		t.Log(name)
 
@@ -19,16 +25,32 @@ func TestGetByIPCacher(t *testing.T) {
 		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 		os.Unsetenv("DATA_MODEL_VERSION")
 
-		hegelTestServer := &server{
-			log:            logger,
-			hardwareClient: hardwareGetterMock{test.json},
+		l, err := log.Init("github.com/tinkerbell/hegel")
+		if err != nil {
+			panic(err)
 		}
-		ehw, err := getByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
+		logger := l.Package("grpcserver")
+
+		hegelTestServer, err := NewServer(logger, mock.HardwareClient{Data: test.json})
+		if err != nil {
+			t.Fatal(err, "failed to create hegel server")
+
+		}
+		addr, err := net.ResolveTCPAddr("tcp", mock.UserIP+":80")
+		if err != nil {
+			t.Fatal(err, "failed to resolve tcp addr")
+		}
+		p := &peer.Peer{Addr: addr}
+		ctx := peer.NewContext(context.Background(), p)
+
+		ehw, err := hegelTestServer.Get(ctx, nil)
 		if err != nil {
 			t.Fatal("unexpected error while getting hardware by ip:", err)
 		}
-		hw := exportedHardwareCacher{}
-		err = json.Unmarshal(ehw, &hw)
+		t.Log(ehw.JSON)
+
+		hw := hardware.ExportedHardwareCacher{}
+		err = json.Unmarshal([]byte(ehw.JSON), &hw)
 		if test.error != "" {
 			if err == nil {
 				t.Fatalf("unmarshal should have returned error: %v", test.error)
@@ -83,24 +105,35 @@ func TestGetByIPTinkerbell(t *testing.T) {
 	for name, test := range tinkerbellGrpcTests {
 		t.Log(name)
 
-		hegelTestServer := &server{
-			log:            logger,
-			hardwareClient: hardwareGetterMock{test.json},
+		l, err := log.Init("github.com/tinkerbell/hegel")
+		if err != nil {
+			panic(err)
 		}
-		ehw, err := getByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
-		if test.error != "" {
-			if err == nil {
-				t.Fatalf("getByIP should have returned error: %v", test.error)
-			} else if err.Error() != test.error {
-				t.Fatalf("getByIP returned wrong error: got %v want %v", err, test.error)
-			}
+		logger := l.Package("grpcserver")
+
+		hegelTestServer, err := NewServer(logger, mock.HardwareClient{Data: test.json})
+		if err != nil {
+			t.Fatal(err, "failed to create hegel server")
 		}
+
+		addr, err := net.ResolveTCPAddr("tcp", mock.UserIP+":80")
+		if err != nil {
+			t.Fatal(err, "failed to resolve tcp addr")
+		}
+		p := &peer.Peer{Addr: addr}
+		ctx := peer.NewContext(context.Background(), p)
+
+		ehw, err := hegelTestServer.Get(ctx, nil)
+		if err != nil {
+			t.Fatal("unexpected error while getting hardware by ip:", err)
+		}
+		t.Log(ehw.JSON)
 
 		hw := struct {
 			ID       string          `json:"id"`
 			Metadata packet.Metadata `json:"metadata"`
 		}{}
-		err = json.Unmarshal(ehw, &hw)
+		err = json.Unmarshal([]byte(ehw.JSON), &hw)
 		if err != nil {
 			t.Error("error in unmarshalling hardware metadata", err)
 		}
@@ -139,32 +172,12 @@ func TestGetByIPTinkerbell(t *testing.T) {
 				t.Fatalf("unexpected filesystem mount format, want: %v, got: %v\n", test.filesystemFormat, hw.Metadata.Instance.Storage.Filesystems[0].Mount.Format)
 			}
 		}
-		if hw.Metadata.Instance.OperatingSystem.Slug != test.osSlug {
+		if hw.Metadata.Instance.OperatingSystem != nil && hw.Metadata.Instance.OperatingSystem.Slug != test.osSlug {
 			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, hw.Metadata.Instance.OperatingSystem.Slug)
 		}
 		if hw.Metadata.Facility.PlanSlug != test.planSlug {
 			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.planSlug, hw.Metadata.Facility.PlanSlug)
 		}
-	}
-}
-
-func TestFilterMetadata(t *testing.T) {
-	for name, test := range tinkerbellFilterMetadataTests {
-		t.Run(name, func(t *testing.T) {
-
-			res, err := filterMetadata([]byte(test.json), test.filter)
-			if test.error != "" {
-				if err == nil {
-					t.Errorf("filterMetadata should have returned error: %v", test.error)
-				} else if err.Error() != test.error {
-					t.Errorf("filterMetadata returned wrong error: got %v want %v", err, test.error)
-				}
-			}
-
-			if string(res) != test.result {
-				t.Errorf("filterMetadata returned wrong result: got %s want %v", res, test.result)
-			}
-		})
 	}
 }
 
@@ -185,6 +198,7 @@ var cacherGrpcTests = map[string]struct {
 	error            string
 }{
 	"cacher": {
+		id:               "",
 		state:            "provisioning",
 		facility:         "onprem",
 		mac:              "98:03:9b:48:de:bc",
@@ -195,19 +209,53 @@ var cacherGrpcTests = map[string]struct {
 		filesystemFormat: "ext4",
 		osSlug:           "ubuntu_16_04",
 		planSlug:         "t1.small.x86",
-		json:             cacherDataModel,
+		json:             mock.CacherDataModel,
+		error:            "",
 	},
-	"cacher_partition_size_int": { // 4096
-		partitionSize: 4096,
-		json:          cacherPartitionSizeInt,
+	"cacher_partition_size_int": {
+		id:               "",
+		state:            "",
+		facility:         "",
+		mac:              "",
+		diskDevice:       "",
+		wipeTable:        false,
+		partitionSize:    4096,
+		filesystemDevice: "",
+		filesystemFormat: "",
+		osSlug:           "",
+		planSlug:         "",
+		json:             mock.CacherPartitionSizeInt,
+		error:            "",
 	},
-	"cacher_partition_size_string": { // "3333"
-		partitionSize: 3333,
-		json:          cacherPartitionSizeString,
+	"cacher_partition_size_string": {
+		id:               "",
+		state:            "",
+		facility:         "",
+		mac:              "",
+		diskDevice:       "",
+		wipeTable:        false,
+		partitionSize:    3333,
+		filesystemDevice: "",
+		filesystemFormat: "",
+		osSlug:           "",
+		planSlug:         "",
+		json:             mock.CacherPartitionSizeString,
+		error:            "",
 	},
-	"cacher_partition_size_b_lower": { // "1000000b"
-		partitionSize: "1000000b",
-		json:          cacherPartitionSizeBLower,
+	"cacher_partition_size_b_lower": {
+		id:               "",
+		state:            "",
+		facility:         "",
+		mac:              "",
+		diskDevice:       "",
+		wipeTable:        false,
+		partitionSize:    "1000000b",
+		filesystemDevice: "",
+		filesystemFormat: "",
+		osSlug:           "",
+		planSlug:         "",
+		json:             mock.CacherPartitionSizeBLower,
+		error:            "",
 	},
 }
 
@@ -228,6 +276,7 @@ var tinkerbellGrpcTests = map[string]struct {
 }{
 	"tinkerbell": {
 		id:               "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
+		state:            "",
 		bondingMode:      5,
 		diskDevice:       "/dev/sda",
 		wipeTable:        true,
@@ -236,85 +285,97 @@ var tinkerbellGrpcTests = map[string]struct {
 		filesystemFormat: "ext4",
 		osSlug:           "ubuntu_18_04",
 		planSlug:         "c2.medium.x86",
-		json:             tinkerbellDataModel,
+		json:             mock.TinkerbellDataModel,
+		error:            "",
 	},
 	"tinkerbell no metadata": {
-		id:   "363115b0-f03d-4ce5-9a15-5514193d131a",
-		json: tinkerbellNoMetadata,
+		id:               "363115b0-f03d-4ce5-9a15-5514193d131a",
+		state:            "",
+		bondingMode:      0,
+		diskDevice:       "",
+		wipeTable:        false,
+		partitionSize:    nil,
+		filesystemDevice: "",
+		filesystemFormat: "",
+		osSlug:           "",
+		planSlug:         "",
+		json:             mock.TinkerbellNoMetadata,
+		error:            "",
 	},
 }
 
-// test cases for TestFilterMetadata
-var tinkerbellFilterMetadataTests = map[string]struct {
-	filter string
-	result string
-	error  string
-	json   string
-}{
-	"single result (simple)": {
-		filter: ec2Filters["/user-data"],
-		result: `#!/bin/bash
+func TestServer_SubLock(t *testing.T) {
+	var mutex sync.RWMutex
+	mutex.Lock()
 
-echo "Hello world!"`,
-		json: tinkerbellFilterMetadata,
-	},
-	"single result (complex)": {
-		filter: ec2Filters["/meta-data/public-ipv4"],
-		result: "139.175.86.114",
-		json:   tinkerbellFilterMetadata,
-	},
-	"multiple results (separated list results from hardware)": {
-		filter: ec2Filters["/meta-data/tags"],
-		result: `hello
-test`,
-		json: tinkerbellFilterMetadata,
-	},
-	"multiple results (separated list results from filter)": {
-		filter: ec2Filters["/meta-data/operating-system"],
-		result: `distro
-image_tag
-license_activation
-slug
-version`,
-		json: tinkerbellFilterMetadata,
-	},
-	"multiple results (/meta-data filter with spot field present)": {
-		filter: ec2Filters["/meta-data"],
-		result: `facility
-hostname
-instance-id
-iqn
-local-ipv4
-operating-system
-plan
-public-ipv4
-public-ipv6
-public-keys
-spot
-tags`,
-		json: tinkerbellFilterMetadata,
-	},
-	"invalid filter syntax": {
-		filter: "invalid",
-		error:  "error while filtering with gojq: function not defined: invalid/0",
-		json:   tinkerbellFilterMetadata,
-	},
-	"valid filter syntax, nonexistent field": {
-		filter: "metadata.nonexistent",
-		json:   tinkerbellFilterMetadata,
-	},
-	"empty string filter": {
-		filter: "",
-		result: tinkerbellFilterMetadata,
-		json:   tinkerbellFilterMetadata,
-	},
-	"list filter on nonexistent field, without '?'": {
-		filter: ".metadata.nonexistent[]",
-		error:  "error while filtering with gojq: cannot iterate over: null",
-		json:   tinkerbellFilterMetadata,
-	},
-	"list filter on nonexistent field, with '?'": {
-		filter: ".metadata.nonexistent[]?",
-		json:   tinkerbellFilterMetadata,
-	},
+	tests := []struct {
+		name    string
+		subLock *sync.RWMutex
+	}{
+		{
+			name:    "test_sublock_lock_unlock",
+			subLock: &mutex,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{subLock: tt.subLock}
+			retval_lock := s.SubLock()
+			if retval_lock == nil {
+				t.Errorf("Server.SubLock() lock failed")
+			}
+
+			mutex.Unlock()
+			retval_unlock := s.SubLock()
+			if retval_unlock == nil {
+				t.Errorf("Server.SubLock() unlock failed")
+			}
+		})
+	}
+}
+
+func TestServer_SetHardwareClient(t *testing.T) {
+	tests := []struct {
+		name           string
+		hardwareClient hardware.Client
+	}{
+		{
+			name:           "test_hw_client",
+			hardwareClient: mock.HardwareClient{Data: "test_success"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{}
+			s.SetHardwareClient(tt.hardwareClient)
+			retval := s.HardwareClient()
+			if retval == nil {
+				t.Error("Server.SetHardwareClient() failed")
+			}
+
+		})
+
+	}
+}
+
+func TestServer_Subscriptions(t *testing.T) {
+
+	tests := []struct {
+		name string
+		sub  map[string]*subscription
+	}{
+		{
+			name: "test_subscription",
+			sub:  make(map[string]*subscription),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{subscriptions: tt.sub}
+			retval := s.Subscriptions()
+			if retval == nil {
+				t.Error("Server.Subscriptions() failed")
+			}
+		})
+	}
 }

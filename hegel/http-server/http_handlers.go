@@ -1,9 +1,9 @@
-package main
+package httpserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,7 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/packethost/hegel/metrics"
+	"github.com/itchyny/gojq"
+	"github.com/pkg/errors"
+	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	"github.com/tinkerbell/hegel/metrics"
 )
 
 var (
@@ -55,27 +58,27 @@ func versionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	isCacherAvailableMu.RLock()
-	isCacherAvailableTemp := isCacherAvailable
-	isCacherAvailableMu.RUnlock()
+	isHardwareClientAvailableMu.RLock()
+	isHardwareClientAvailableTemp := isHardwareClientAvailable
+	isHardwareClientAvailableMu.RUnlock()
 
 	res := struct {
-		GitRev          string  `json:"git_rev"`
-		Uptime          float64 `json:"uptime"`
-		Goroutines      int     `json:"goroutines"`
-		CacherAvailable bool    `json:"cacher_status"`
+		GitRev                  string  `json:"git_rev"`
+		Uptime                  float64 `json:"uptime"`
+		Goroutines              int     `json:"goroutines"`
+		HardwareClientAvailable bool    `json:"hardware_client_status"`
 	}{
-		GitRev:          gitRev,
-		Uptime:          time.Since(StartTime).Seconds(),
-		Goroutines:      runtime.NumGoroutine(),
-		CacherAvailable: isCacherAvailableTemp,
+		GitRev:                  gitRev,
+		Uptime:                  time.Since(startTime).Seconds(),
+		Goroutines:              runtime.NumGoroutine(),
+		HardwareClientAvailable: isHardwareClientAvailableTemp,
 	}
 	b, err := json.Marshal(&res)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
-	if !isCacherAvailableTemp {
+	if !isHardwareClientAvailableTemp {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
@@ -102,7 +105,7 @@ func getMetadata(filter string) http.HandlerFunc {
 		metrics.MetadataRequests.Inc()
 		l := logger.With("userIP", userIP)
 		l.Info("got ip from request")
-		hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
+		hw, err := hegelServer.HardwareClient().ByIP(context.Background(), userIP)
 		if err != nil {
 			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 			l.With("error", err).Info("failed to get hardware by ip")
@@ -110,18 +113,22 @@ func getMetadata(filter string) http.HandlerFunc {
 			return
 		}
 
+		ehw, err := hw.Export()
+		if err != nil {
+			l.With("error", err).Info("failed to export hardware")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		var resp []byte
 		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 		switch dataModelVersion {
 		case "":
-			resp, err = exportHardware(hw) // in cacher mode, the "filter" is the exportedHardwareCacher type
-			if err != nil {
-				l.With("error", err).Info("failed to export hardware")
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
+			// in cacher mode, the "filter" is the exportedHardwareCacher type
+			// TODO (kdeng3849) figure out a way to remove the switch case
+			resp = ehw
 		case "1":
-			resp, err = filterMetadata(hw, filter)
+			resp, err = filterMetadata(ehw, filter)
 			if err != nil {
 				l.With("error", err).Info("failed to filter metadata")
 				w.WriteHeader(http.StatusInternalServerError)
@@ -157,7 +164,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	metrics.MetadataRequests.Inc()
 	l := logger.With("userIP", userIP)
 	l.Info("got ip from request")
-	hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
+	hw, err := hegelServer.HardwareClient().ByIP(context.Background(), userIP)
 	if err != nil {
 		metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 		l.With("error", err).Info("failed to get hardware by ip")
@@ -176,8 +183,17 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var resp []byte
-	resp, err = filterMetadata(hw, filter)
+	ehw, err := hw.Export()
+	if err != nil {
+		l.With("error", err).Info("failed to export hardware")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, err := w.Write([]byte("404 not found"))
+		if err != nil {
+			l.With("error", err).Info("failed to write response")
+		}
+		return
+	}
+	resp, err := filterMetadata(ehw, filter)
 	if err != nil {
 		l.With("error", err).Info("failed to filter metadata")
 	}
@@ -188,6 +204,46 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		l.With("error", err).Info("failed to write response")
 	}
+}
+
+func filterMetadata(hw []byte, filter string) ([]byte, error) {
+	var result bytes.Buffer
+	query, err := gojq.Parse(filter)
+	if err != nil {
+		return nil, err
+	}
+	input := make(map[string]interface{})
+	err = json.Unmarshal(hw, &input)
+	if err != nil {
+		return nil, err
+	}
+	iter := query.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+
+		if v == nil {
+			continue
+		}
+
+		switch vv := v.(type) {
+		case error:
+			return nil, errors.Wrap(vv, "error while filtering with gojq")
+		case string:
+			result.WriteString(vv)
+		default:
+			marshalled, err := json.Marshal(vv)
+			if err != nil {
+				return nil, errors.Wrap(err, "error marshalling jq result")
+			}
+			result.Write(marshalled)
+		}
+		result.WriteRune('\n')
+	}
+
+	return bytes.TrimSuffix(result.Bytes(), []byte("\n")), nil
 }
 
 // processEC2Query returns either a specific filter (used to parse hardware data for the value of a specific field),
@@ -245,12 +301,12 @@ func handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/subscriptions/") {
 		getid = strings.TrimPrefix(r.URL.Path, "/subscriptions/")
 	}
-	hegelServer.subLock.RLock()
-	defer hegelServer.subLock.RUnlock()
+	hegelServer.SubLock().RLock()
+	defer hegelServer.SubLock().RUnlock()
 	var err error
 	if getid == "" {
-		err = writeJSON(w, http.StatusOK, hegelServer.subscriptions)
-	} else if sub, ok := hegelServer.subscriptions[getid]; ok {
+		err = writeJSON(w, http.StatusOK, hegelServer.Subscriptions)
+	} else if sub, ok := hegelServer.Subscriptions()[getid]; ok {
 		err = writeJSON(w, http.StatusOK, sub)
 	} else {
 		err = jsonError(w, http.StatusNotFound, fmt.Errorf("%s not found", getid), "item not found")
@@ -260,7 +316,7 @@ func handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func buildSubscriberHandlers(hegelServer *server) {
+func buildSubscriberHandlers(hegelServer *grpcserver.Server) {
 	http.HandleFunc("/subscriptions", handleSubscriptions)
 	http.HandleFunc("/subscriptions/", handleSubscriptions)
 }
