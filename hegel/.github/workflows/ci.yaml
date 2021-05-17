@@ -55,7 +55,7 @@ jobs:
       uses: docker/build-push-action@v2
       with:
         context: ./
-        file: ./Dockerfile
+        file: ./cmd/hegel/Dockerfile
         cache-from: type=registry,ref=quay.io/tinkerbell/hegel:latest
         push: ${{ startsWith(github.ref, 'refs/heads/master') }}
         tags: ${{ steps.docker-image-tag.outputs.tags }}

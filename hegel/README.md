@@ -28,5 +28,5 @@ openssl req -new -key ./certs/server.key -out ./certs/server.csr
 openssl x509 -req -sha256 -days 365 -in ./certs/server.csr -signkey ./certs/server.key -out ./certs/server.crt
 export HEGEL_TLS_CERT=./certs/server.crt
 export HEGEL_TLS_KEY=./certs/server.key
-go run main.go
+go run cmd/hegel/main.go
 ```

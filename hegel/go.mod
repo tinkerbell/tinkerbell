@@ -1,4 +1,4 @@
-module github.com/packethost/hegel
+module github.com/tinkerbell/hegel
 
 go 1.13
 
