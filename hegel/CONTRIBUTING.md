@@ -11,6 +11,10 @@ We're so glad you're here.
 
 Please read and understand the code of conduct found [here](https://github.com/tinkerbell/.github/blob/master/CODE_OF_CONDUCT.md).
 
+### DCO Sign Off
+
+Please read and understand the DCO found [here](docs/DCO.md).
+
 ### Environment Details
 
 #### Nix
