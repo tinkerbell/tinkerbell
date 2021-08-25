@@ -19,6 +19,7 @@ import (
 	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/metrics"
 	"github.com/tinkerbell/hegel/xff"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -91,11 +92,13 @@ func Serve(ctx context.Context, l log.Logger, srv *Server) error {
 			xffUnary,
 			unaryLogger,
 			grpc_prometheus.UnaryServerInterceptor,
+			otelgrpc.UnaryServerInterceptor(),
 		),
 		grpc_middleware.WithStreamServerChain(
 			xffStream,
 			streamLogger,
 			grpc_prometheus.StreamServerInterceptor,
+			otelgrpc.StreamServerInterceptor(),
 		),
 	)
 
