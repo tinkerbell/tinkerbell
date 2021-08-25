@@ -20,6 +20,8 @@ import (
 	"github.com/tinkerbell/hegel/metrics"
 	"github.com/tinkerbell/hegel/xff"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -226,6 +228,12 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	old := s.subscriptions[id]
 	s.subscriptions[id] = sub
 	s.subLock.Unlock()
+
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("grpc client subscribed",
+		trace.WithAttributes(attribute.String("ID", id)),
+		trace.WithAttributes(attribute.String("IP", ip)),
+	)
 
 	// Disconnect previous client if a client is already connected for this hardware id
 	if old != nil {
