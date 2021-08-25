@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	grpcserver "github.com/tinkerbell/hegel/grpc-server"
 	"github.com/tinkerbell/hegel/metrics"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
@@ -317,6 +318,7 @@ func handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 }
 
 func buildSubscriberHandlers(hegelServer *grpcserver.Server) {
-	http.HandleFunc("/subscriptions", handleSubscriptions)
-	http.HandleFunc("/subscriptions/", handleSubscriptions)
+	handler := otelhttp.WithRouteTag("/subscriptions", http.HandlerFunc(handleSubscriptions))
+	http.Handle("/subscriptions", handler)
+	http.Handle("/subscriptions/", handler)
 }

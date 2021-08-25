@@ -15,6 +15,7 @@ require (
 	github.com/prometheus/client_golang v1.6.0
 	github.com/tinkerbell/tink v0.0.0-20201207184750-9c52cca562bc
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.22.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.22.0
 	go.opentelemetry.io/otel v1.0.0-RC2
 	go.opentelemetry.io/otel/trace v1.0.0-RC2
 	google.golang.org/grpc v1.39.0
