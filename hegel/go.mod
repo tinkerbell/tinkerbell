@@ -3,7 +3,8 @@ module github.com/tinkerbell/hegel
 go 1.13
 
 require (
-	github.com/golang/protobuf v1.4.2
+	github.com/equinix-labs/otel-init-go v0.0.1 // indirect
+	github.com/golang/protobuf v1.5.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/itchyny/gojq v0.11.0
@@ -13,6 +14,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.6.0
 	github.com/tinkerbell/tink v0.0.0-20201207184750-9c52cca562bc
-	google.golang.org/grpc v1.32.0
+	google.golang.org/grpc v1.39.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 )
