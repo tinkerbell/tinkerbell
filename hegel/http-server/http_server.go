@@ -16,6 +16,7 @@ import (
 	grpcserver "github.com/tinkerbell/hegel/grpc-server"
 	"github.com/tinkerbell/hegel/metrics"
 	"github.com/tinkerbell/hegel/xff"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
@@ -46,8 +47,10 @@ func Serve(ctx context.Context, l log.Logger, srv *grpcserver.Server, gRev strin
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/_packet/healthcheck", healthCheckHandler)
 	mux.HandleFunc("/_packet/version", versionHandler)
-	mux.HandleFunc("/2009-04-04", ec2Handler) // workaround for making trailing slash optional
-	mux.HandleFunc("/2009-04-04/", ec2Handler)
+
+	ec2hf := otelhttp.WithRouteTag("/2009-04-04", http.HandlerFunc(ec2Handler))
+	mux.Handle("/2009-04-04", ec2hf) // workaround for making trailing slash optional
+	mux.Handle("/2009-04-04/", ec2hf)
 
 	buildSubscriberHandlers(hegelServer)
 
@@ -81,7 +84,9 @@ func registerCustomEndpoints(mux *http.ServeMux, customEndpoints string) error {
 		return errors.Wrap(err, "error in parsing custom endpoints")
 	}
 	for endpoint, filter := range endpoints {
-		mux.HandleFunc(endpoint, getMetadata(filter))
+		route := getMetadata(filter)                 // generates a handler
+		hf := otelhttp.WithRouteTag(endpoint, route) // wrap it with otel
+		mux.Handle(endpoint, hf)
 	}
 
 	return nil

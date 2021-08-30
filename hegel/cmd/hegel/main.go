@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/equinix-labs/otel-init-go/otelinit"
 	"github.com/packethost/pkg/env"
 	"github.com/packethost/pkg/log"
 	grpcserver "github.com/tinkerbell/hegel/grpc-server"
@@ -33,6 +34,10 @@ func main() {
 	logger = l.Package("main")
 	defer l.Close()
 	metrics.Init(l)
+
+	ctx := context.Background()
+	ctx, otelShutdown := otelinit.InitOpenTelemetry(ctx, "hegel")
+	defer otelShutdown(ctx)
 
 	metrics.State.Set(metrics.Initializing)
 
