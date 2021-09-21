@@ -662,6 +662,7 @@ echo "Hello world!"`,
 hostname
 instance-id
 iqn
+local-hostname
 local-ipv4
 operating-system
 plan
@@ -747,6 +748,7 @@ user-data`,
 hostname
 instance-id
 iqn
+local-hostname
 local-ipv4
 operating-system
 plan
@@ -809,6 +811,7 @@ version`,
 hostname
 instance-id
 iqn
+local-hostname
 local-ipv4
 operating-system
 plan

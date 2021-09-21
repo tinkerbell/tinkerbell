@@ -27,9 +27,10 @@ var (
 	ec2Filters = map[string]string{
 		"":                                    `"meta-data", "user-data"`, // base path
 		"/user-data":                          ".metadata.userdata",
-		"/meta-data":                          `["instance-id", "hostname", "iqn", "plan", "facility", "tags", "operating-system", "public-keys", "public-ipv4", "public-ipv6", "local-ipv4"] + (if .metadata.instance.spot != null then ["spot"] else [] end) | sort | .[]`,
+		"/meta-data":                          `["instance-id", "hostname", "local-hostname", "iqn", "plan", "facility", "tags", "operating-system", "public-keys", "public-ipv4", "public-ipv6", "local-ipv4"] + (if .metadata.instance.spot != null then ["spot"] else [] end) | sort | .[]`,
 		"/meta-data/instance-id":              ".metadata.instance.id",
 		"/meta-data/hostname":                 ".metadata.instance.hostname",
+		"/meta-data/local-hostname":           ".metadata.instance.hostname",
 		"/meta-data/iqn":                      ".metadata.instance.iqn",
 		"/meta-data/plan":                     ".metadata.instance.plan",
 		"/meta-data/facility":                 ".metadata.instance.facility",
