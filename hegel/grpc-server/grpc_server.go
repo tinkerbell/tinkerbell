@@ -223,7 +223,8 @@ func (s *Server) Subscribe(_ *hegel.SubscribeRequest, stream hegel.Hegel_Subscri
 	}
 
 	s.subLock.Lock()
-
+	// NOTE: Access to s.subscriptions must be done within this lock to avoid race conditions
+	old := s.subscriptions[id] // nolint:ifshort // variable 'old' is only used in the if-statement in :237
 	s.subscriptions[id] = sub
 	s.subLock.Unlock()
 
@@ -234,7 +235,7 @@ func (s *Server) Subscribe(_ *hegel.SubscribeRequest, stream hegel.Hegel_Subscri
 	)
 
 	// Disconnect previous client if a client is already connected for this hardware id
-	if old := s.subscriptions[id]; old != nil {
+	if old != nil {
 		old.cancel()
 	}
 
