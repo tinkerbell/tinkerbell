@@ -2,9 +2,9 @@ package hardware
 
 import "encoding/json"
 
-// ExportedHardwareCacher is the structure in which hegel returns to clients using the old cacher data model
-// exposes only certain fields of the hardware data returned by cacher
-type ExportedHardwareCacher struct {
+// ExportedCacher is the structure in which hegel returns to clients using the old cacher data model
+// exposes only certain fields of the hardware data returned by cacher.
+type ExportedCacher struct {
 	ID                                 string                   `json:"id"`
 	Arch                               string                   `json:"arch"`
 	State                              string                   `json:"state"`
@@ -94,21 +94,23 @@ type storage struct {
 	Filesystems []*filesystem `json:"filesystems,omitempty"`
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of ExportedHardwareCacher
-func (eh *ExportedHardwareCacher) UnmarshalJSON(b []byte) error {
-	type ehj ExportedHardwareCacher
+// UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of ExportedCacher.
+func (eh *ExportedCacher) UnmarshalJSON(b []byte) error {
+	type ehj ExportedCacher
 	var tmp ehj
-	err := json.Unmarshal(b, &tmp)
-	if err != nil {
+
+	if err := json.Unmarshal(b, &tmp); err != nil {
 		return err
 	}
+
 	networkPorts := []map[string]interface{}{}
 	for _, port := range tmp.NetworkPorts {
 		if port["type"] == "data" {
 			networkPorts = append(networkPorts, port)
 		}
 	}
+
 	tmp.NetworkPorts = networkPorts
-	*eh = ExportedHardwareCacher(tmp)
+	*eh = ExportedCacher(tmp)
 	return nil
 }

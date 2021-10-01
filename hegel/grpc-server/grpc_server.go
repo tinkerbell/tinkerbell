@@ -42,10 +42,10 @@ type Server struct {
 	hardwareClient hardware.Client
 
 	subLock       *sync.RWMutex
-	subscriptions map[string]*subscription
+	subscriptions map[string]*Subscription
 }
 
-type subscription struct {
+type Subscription struct {
 	ID           string        `json:"id"`
 	IP           string        `json:"ip"`
 	InitDuration time.Duration `json:"init_duration"`
@@ -66,12 +66,12 @@ func NewServer(l log.Logger, hc hardware.Client) (*Server, error) {
 	s := &Server{
 		log:            l,
 		hardwareClient: hc,
-		subscriptions:  make(map[string]*subscription),
+		subscriptions:  make(map[string]*Subscription),
 	}
 	return s, nil
 }
 
-func Serve(ctx context.Context, l log.Logger, srv *Server) error {
+func Serve(_ context.Context, l log.Logger, srv *Server) error {
 	port := env.Int("GRPC_PORT", 42115)
 
 	serverOpts := make([]grpc.ServerOption, 0)
@@ -119,7 +119,7 @@ func Serve(ctx context.Context, l log.Logger, srv *Server) error {
 	}
 
 	metrics.State.Set(metrics.Ready)
-	//Serving GRPC
+	// Serving GRPC
 	l.Info("serving grpc")
 	err = grpcServer.Serve(lis)
 	if err != nil {
@@ -141,7 +141,7 @@ func (s *Server) SubLock() *sync.RWMutex {
 	return s.subLock
 }
 
-func (s *Server) Subscriptions() map[string]*subscription {
+func (s *Server) Subscriptions() map[string]*Subscription {
 	return s.subscriptions
 }
 
@@ -149,7 +149,7 @@ func (s *Server) SetHardwareClient(hc hardware.Client) {
 	s.hardwareClient = hc
 }
 
-func (s *Server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetResponse, error) {
+func (s *Server) Get(ctx context.Context, _ *hegel.GetRequest) (*hegel.GetResponse, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, errors.New("could not get peer info from client")
@@ -170,7 +170,7 @@ func (s *Server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 	}, nil
 }
 
-func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_SubscribeServer) error {
+func (s *Server) Subscribe(_ *hegel.SubscribeRequest, stream hegel.Hegel_SubscribeServer) error {
 	startedAt := time.Now().UTC()
 	metrics.TotalSubscriptions.Inc()
 	metrics.Subscriptions.WithLabelValues("initializing").Inc()
@@ -197,7 +197,6 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	logger.Info()
 
 	hw, err := s.hardwareClient.ByIP(stream.Context(), ip)
-
 	if err != nil {
 		return initError(err)
 	}
@@ -209,13 +208,12 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	ctx, cancel := context.WithCancel(stream.Context())
 	watch, err := s.hardwareClient.Watch(ctx, id)
-
 	if err != nil {
 		cancel()
 		return initError(err)
 	}
 
-	sub := &subscription{
+	sub := &Subscription{
 		ID:           id,
 		IP:           ip,
 		StartedAt:    startedAt,
@@ -225,7 +223,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	}
 
 	s.subLock.Lock()
-	old := s.subscriptions[id]
+
 	s.subscriptions[id] = sub
 	s.subLock.Unlock()
 
@@ -236,7 +234,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	)
 
 	// Disconnect previous client if a client is already connected for this hardware id
-	if old != nil {
+	if old := s.subscriptions[id]; old != nil {
 		old.cancel()
 	}
 
@@ -256,8 +254,9 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	activeError := func(err error) error {
 		if err == nil {
-			return err
+			return nil
 		}
+
 		logger.Error(err)
 		metrics.Subscriptions.WithLabelValues("active").Dec()
 		metrics.Errors.WithLabelValues("subscribe", "active").Inc()
@@ -269,7 +268,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		for {
 			hw, err := watch.Recv()
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					err = status.Error(codes.OK, "stream ended")
 				}
 				errs <- err
@@ -294,14 +293,12 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 			err := stream.Send(&hegel.SubscribeResponse{
 				JSON: string(ehw),
 			})
-
 			if err != nil {
 				errs <- err
 				cancel()
 				return
 			}
 		}
-
 	}()
 
 	var retErr error

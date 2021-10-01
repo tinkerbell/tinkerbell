@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 
 	cacherClient "github.com/packethost/cacher/client"
 	"github.com/packethost/cacher/protos/cacher"
@@ -20,7 +21,7 @@ var (
 	facility         = flag.String("facility", env.Get("HEGEL_FACILITY", "onprem"), "The facility we are running in (mostly to connect to cacher)")
 )
 
-// Client acts as the messenger between Hegel and Cacher/Tink
+// Client acts as the messenger between Hegel and Cacher/Tink.
 type Client interface {
 	All(ctx context.Context, opts ...grpc.CallOption) (AllClient, error)
 	ByIP(ctx context.Context, id string, opts ...grpc.CallOption) (Hardware, error)
@@ -29,13 +30,13 @@ type Client interface {
 
 type AllClient interface{}
 
-// Hardware is the interface for Cacher/Tink hardware types
+// Hardware is the interface for Cacher/Tink hardware types.
 type Hardware interface {
 	Export() ([]byte, error)
 	ID() (string, error)
 }
 
-// Watcher is the interface for Cacher/Tink watch client types
+// Watcher is the interface for Cacher/Tink watch client types.
 type Watcher interface {
 	Recv() (Hardware, error)
 }
@@ -48,11 +49,11 @@ type clientTinkerbell struct {
 	client tink.HardwareServiceClient
 }
 
-type HardwareCacher struct {
+type Cacher struct {
 	*cacher.Hardware
 }
 
-type HardwareTinkerbell struct {
+type Tinkerbell struct {
 	*tink.Hardware
 }
 
@@ -64,7 +65,7 @@ type watcherTinkerbell struct {
 	client tink.HardwareService_DeprecatedWatchClient
 }
 
-// NewClient returns a new hardware Client, configured appropriately according to the mode (Cacher or Tink) Hegel is running in
+// NewClient returns a new hardware Client, configured appropriately according to the mode (Cacher or Tink) Hegel is running in.
 func NewClient() (Client, error) {
 	var hg Client
 
@@ -86,7 +87,7 @@ func NewClient() (Client, error) {
 	return hg, nil
 }
 
-// All retrieves all the pieces of hardware stored in Cacher
+// All retrieves all the pieces of hardware stored in Cacher.
 func (hg clientCacher) All(ctx context.Context, opts ...grpc.CallOption) (AllClient, error) {
 	in := &cacher.Empty{}
 	all, err := hg.client.All(ctx, in, opts...)
@@ -96,7 +97,7 @@ func (hg clientCacher) All(ctx context.Context, opts ...grpc.CallOption) (AllCli
 	return all, nil
 }
 
-// ByIP retrieves from Cacher the piece of hardware with the specified IP
+// ByIP retrieves from Cacher the piece of hardware with the specified IP.
 func (hg clientCacher) ByIP(ctx context.Context, ip string, opts ...grpc.CallOption) (Hardware, error) {
 	in := &cacher.GetRequest{
 		IP: ip,
@@ -105,10 +106,10 @@ func (hg clientCacher) ByIP(ctx context.Context, ip string, opts ...grpc.CallOpt
 	if err != nil {
 		return nil, err
 	}
-	return &HardwareCacher{hw}, nil
+	return &Cacher{hw}, nil
 }
 
-// Watch returns a Cacher watch client on the hardware with the specified ID
+// Watch returns a Cacher watch client on the hardware with the specified ID.
 func (hg clientCacher) Watch(ctx context.Context, id string, opts ...grpc.CallOption) (Watcher, error) {
 	in := &cacher.GetRequest{
 		ID: id,
@@ -120,7 +121,7 @@ func (hg clientCacher) Watch(ctx context.Context, id string, opts ...grpc.CallOp
 	return &watcherCacher{w}, nil
 }
 
-// All retrieves all the pieces of hardware stored in Cacher
+// All retrieves all the pieces of hardware stored in Cacher.
 func (hg clientTinkerbell) All(ctx context.Context, opts ...grpc.CallOption) (AllClient, error) {
 	in := &tink.Empty{}
 	all, err := hg.client.All(ctx, in, opts...)
@@ -130,7 +131,7 @@ func (hg clientTinkerbell) All(ctx context.Context, opts ...grpc.CallOption) (Al
 	return all, nil
 }
 
-// ByIP retrieves from Tink the piece of hardware with the specified IP
+// ByIP retrieves from Tink the piece of hardware with the specified IP.
 func (hg clientTinkerbell) ByIP(ctx context.Context, ip string, opts ...grpc.CallOption) (Hardware, error) {
 	in := &tink.GetRequest{
 		Ip: ip,
@@ -139,10 +140,10 @@ func (hg clientTinkerbell) ByIP(ctx context.Context, ip string, opts ...grpc.Cal
 	if err != nil {
 		return nil, err
 	}
-	return &HardwareTinkerbell{hw}, nil
+	return &Tinkerbell{hw}, nil
 }
 
-// Watch returns a Tink watch client on the hardware with the specified ID
+// Watch returns a Tink watch client on the hardware with the specified ID.
 func (hg clientTinkerbell) Watch(ctx context.Context, id string, opts ...grpc.CallOption) (Watcher, error) {
 	in := &tink.GetRequest{
 		Id: id,
@@ -154,9 +155,9 @@ func (hg clientTinkerbell) Watch(ctx context.Context, id string, opts ...grpc.Ca
 	return &watcherTinkerbell{w}, nil
 }
 
-// Export formats the piece of hardware to be returned in responses to clients
-func (hw *HardwareCacher) Export() ([]byte, error) {
-	exported := &ExportedHardwareCacher{}
+// Export formats the piece of hardware to be returned in responses to clients.
+func (hw *Cacher) Export() ([]byte, error) {
+	exported := &ExportedCacher{}
 
 	err := json.Unmarshal([]byte(hw.JSON), exported)
 	if err != nil {
@@ -165,8 +166,8 @@ func (hw *HardwareCacher) Export() ([]byte, error) {
 	return json.Marshal(exported)
 }
 
-// ID returns the hardware ID
-func (hw *HardwareCacher) ID() (string, error) {
+// ID returns the hardware ID.
+func (hw *Cacher) ID() (string, error) {
 	hwJSON := make(map[string]interface{})
 	err := json.Unmarshal([]byte(hw.JSON), &hwJSON)
 	if err != nil {
@@ -174,35 +175,38 @@ func (hw *HardwareCacher) ID() (string, error) {
 	}
 
 	hwID := hwJSON["id"]
-	id := hwID.(string)
+	id, ok := hwID.(string)
+	if !ok {
+		return "", fmt.Errorf("hwID is %T, not a string", hwID)
+	}
 
 	return id, err
 }
 
-// Export formats the piece of hardware to be returned in responses to clients
-func (hw *HardwareTinkerbell) Export() ([]byte, error) {
+// Export formats the piece of hardware to be returned in responses to clients.
+func (hw *Tinkerbell) Export() ([]byte, error) {
 	return json.Marshal(tpkg.HardwareWrapper(*hw))
 }
 
-// ID returns the hardware ID
-func (hw *HardwareTinkerbell) ID() (string, error) {
+// ID returns the hardware ID.
+func (hw *Tinkerbell) ID() (string, error) {
 	return hw.Id, nil
 }
 
-// Recv receives a piece of hardware from the Cacher watch client
+// Recv receives a piece of hardware from the Cacher watch client.
 func (w *watcherCacher) Recv() (Hardware, error) {
 	hw, err := w.client.Recv()
 	if err != nil {
 		return nil, err
 	}
-	return &HardwareCacher{hw}, nil
+	return &Cacher{hw}, nil
 }
 
-// Recv receives a piece of hardware from the Tink watch client
+// Recv receives a piece of hardware from the Tink watch client.
 func (w *watcherTinkerbell) Recv() (Hardware, error) {
 	hw, err := w.client.Recv()
 	if err != nil {
 		return nil, err
 	}
-	return &HardwareTinkerbell{hw}, nil
+	return &Tinkerbell{hw}, nil
 }

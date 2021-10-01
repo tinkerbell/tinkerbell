@@ -15,8 +15,11 @@ import (
 
 func main() {
 	config := &tls.Config{
-		InsecureSkipVerify: true,
+		// TODO: Investigate whether it is safe to remove this dangerous default
+		InsecureSkipVerify: true, //nolint:gosec // G402: TLS InsecureSkipVerify set true
 	}
+
+	// TODO: Remove this hard-coded hostname
 	conn, err := grpc.Dial("metadata.packet.net:50060", grpc.WithTransportCredentials(credentials.NewTLS(config)))
 	if err != nil {
 		log.Panic(err)
@@ -49,7 +52,7 @@ func subscribe(ctx context.Context, client hegel.HegelClient, onJSON func(string
 
 	for {
 		hw, err := watcher.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return errors.New("hegel closed the subscription")
 		}
 

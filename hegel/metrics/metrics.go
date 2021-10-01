@@ -42,7 +42,7 @@ func Init(_ log.Logger) {
 
 	InitDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "hegel_subscription_initialization_duration_seconds",
-		Help:    "Duration taken to get a responce for a newly discovered request.",
+		Help:    "Duration taken to get a response for a newly discovered request.",
 		Buckets: []float64{0.5, 1, 5, 10, 30, 60},
 	}, []string{}).With(prometheus.Labels{})
 

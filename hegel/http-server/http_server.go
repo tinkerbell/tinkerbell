@@ -30,7 +30,7 @@ var (
 	hegelServer                 *grpcserver.Server
 )
 
-func Serve(ctx context.Context, l log.Logger, srv *grpcserver.Server, gRev string, t time.Time, customEndpoints string) error {
+func Serve(l log.Logger, srv *grpcserver.Server, gRev string, t time.Time, customEndpoints string) error {
 	startTime = t
 	gitRev = gRev
 	logger = l
@@ -52,7 +52,7 @@ func Serve(ctx context.Context, l log.Logger, srv *grpcserver.Server, gRev strin
 	mux.Handle("/2009-04-04", ec2hf) // workaround for making trailing slash optional
 	mux.Handle("/2009-04-04/", ec2hf)
 
-	buildSubscriberHandlers(hegelServer)
+	buildSubscriberHandlers()
 
 	err := registerCustomEndpoints(mux, customEndpoints)
 	if err != nil {

@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	_ "net/http/pprof"
+	_ "net/http/pprof" //nolint:gosec // G108: Profiling endpoint is automatically exposed on /debug/pprof
 	"os"
 	"os/signal"
 	"sync"
@@ -46,7 +46,7 @@ func main() {
 		logger.Fatal(err, "failed to create hegel server")
 	}
 
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	var ret error
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -55,7 +55,7 @@ func main() {
 	customEndpoints = env.Get("CUSTOM_ENDPOINTS", `{"/metadata":".metadata.instance"}`)
 
 	runGoroutine(&ret, cancel, &once, &wg, func() error {
-		return httpserver.Serve(ctx, logger, hegelServer, GitRev, time.Now(), customEndpoints)
+		return httpserver.Serve(logger, hegelServer, GitRev, time.Now(), customEndpoints)
 	})
 
 	runGoroutine(&ret, cancel, &once, &wg, func() error {

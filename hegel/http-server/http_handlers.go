@@ -14,52 +14,49 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/pkg/errors"
-	grpcserver "github.com/tinkerbell/hegel/grpc-server"
 	"github.com/tinkerbell/hegel/metrics"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-var (
-	// ec2Filters defines the query pattern and filters for the EC2 endpoint
-	// for queries that are to return another list of metadata items, the filter is a static list of the metadata items ("directory-listing filter")
-	// for /meta-data, the `spot` metadata item will only show up when the instance is a spot instance (denoted by if the `spot` field inside hardware is nonnull)
-	// NOTE: make sure when adding a new metadata item in a "subdirectory", to also add it to the directory-listing filter
-	ec2Filters = map[string]string{
-		"":                                    `"meta-data", "user-data"`, // base path
-		"/user-data":                          ".metadata.userdata",
-		"/meta-data":                          `["instance-id", "hostname", "local-hostname", "iqn", "plan", "facility", "tags", "operating-system", "public-keys", "public-ipv4", "public-ipv6", "local-ipv4"] + (if .metadata.instance.spot != null then ["spot"] else [] end) | sort | .[]`,
-		"/meta-data/instance-id":              ".metadata.instance.id",
-		"/meta-data/hostname":                 ".metadata.instance.hostname",
-		"/meta-data/local-hostname":           ".metadata.instance.hostname",
-		"/meta-data/iqn":                      ".metadata.instance.iqn",
-		"/meta-data/plan":                     ".metadata.instance.plan",
-		"/meta-data/facility":                 ".metadata.instance.facility",
-		"/meta-data/tags":                     ".metadata.instance.tags[]?",
-		"/meta-data/operating-system":         `["slug", "distro", "version", "license_activation", "image_tag"] | sort | .[]`,
-		"/meta-data/operating-system/slug":    ".metadata.instance.operating_system.slug",
-		"/meta-data/operating-system/distro":  ".metadata.instance.operating_system.distro",
-		"/meta-data/operating-system/version": ".metadata.instance.operating_system.version",
-		"/meta-data/operating-system/license_activation":       `"state"`,
-		"/meta-data/operating-system/license_activation/state": ".metadata.instance.operating_system.license_activation.state",
-		"/meta-data/operating-system/image_tag":                ".metadata.instance.operating_system.image_tag",
-		"/meta-data/public-keys":                               ".metadata.instance.ssh_keys[]?",
-		"/meta-data/spot":                                      `"termination-time"`,
-		"/meta-data/spot/termination-time":                     ".metadata.instance.spot.termination_time",
-		"/meta-data/public-ipv4":                               ".metadata.instance.network.addresses[]? | select(.address_family == 4 and .public == true) | .address",
-		"/meta-data/public-ipv6":                               ".metadata.instance.network.addresses[]? | select(.address_family == 6 and .public == true) | .address",
-		"/meta-data/local-ipv4":                                ".metadata.instance.network.addresses[]? | select(.address_family == 4 and .public == false) | .address",
-	}
-)
+// ec2Filters defines the query pattern and filters for the EC2 endpoint
+// for queries that are to return another list of metadata items, the filter is a static list of the metadata items ("directory-listing filter")
+// for /meta-data, the `spot` metadata item will only show up when the instance is a spot instance (denoted by if the `spot` field inside hardware is nonnull)
+// NOTE: make sure when adding a new metadata item in a "subdirectory", to also add it to the directory-listing filter.
+var ec2Filters = map[string]string{
+	"":                                    `"meta-data", "user-data"`, // base path
+	"/user-data":                          ".metadata.userdata",
+	"/meta-data":                          `["instance-id", "hostname", "local-hostname", "iqn", "plan", "facility", "tags", "operating-system", "public-keys", "public-ipv4", "public-ipv6", "local-ipv4"] + (if .metadata.instance.spot != null then ["spot"] else [] end) | sort | .[]`,
+	"/meta-data/instance-id":              ".metadata.instance.id",
+	"/meta-data/hostname":                 ".metadata.instance.hostname",
+	"/meta-data/local-hostname":           ".metadata.instance.hostname",
+	"/meta-data/iqn":                      ".metadata.instance.iqn",
+	"/meta-data/plan":                     ".metadata.instance.plan",
+	"/meta-data/facility":                 ".metadata.instance.facility",
+	"/meta-data/tags":                     ".metadata.instance.tags[]?",
+	"/meta-data/operating-system":         `["slug", "distro", "version", "license_activation", "image_tag"] | sort | .[]`,
+	"/meta-data/operating-system/slug":    ".metadata.instance.operating_system.slug",
+	"/meta-data/operating-system/distro":  ".metadata.instance.operating_system.distro",
+	"/meta-data/operating-system/version": ".metadata.instance.operating_system.version",
+	"/meta-data/operating-system/license_activation":       `"state"`,
+	"/meta-data/operating-system/license_activation/state": ".metadata.instance.operating_system.license_activation.state",
+	"/meta-data/operating-system/image_tag":                ".metadata.instance.operating_system.image_tag",
+	"/meta-data/public-keys":                               ".metadata.instance.ssh_keys[]?",
+	"/meta-data/spot":                                      `"termination-time"`,
+	"/meta-data/spot/termination-time":                     ".metadata.instance.spot.termination_time",
+	"/meta-data/public-ipv4":                               ".metadata.instance.network.addresses[]? | select(.address_family == 4 and .public == true) | .address",
+	"/meta-data/public-ipv6":                               ".metadata.instance.network.addresses[]? | select(.address_family == 6 and .public == true) | .address",
+	"/meta-data/local-ipv4":                                ".metadata.instance.network.addresses[]? | select(.address_family == 4 and .public == false) | .address",
+}
 
-func versionHandler(w http.ResponseWriter, r *http.Request) {
+func versionHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	_, err := w.Write(gitRevJSON)
-	if err != nil {
+
+	if _, err := w.Write(gitRevJSON); err != nil {
 		logger.Error(err, " Failed to write gitRevJSON")
 	}
 }
 
-func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+func healthCheckHandler(w http.ResponseWriter, _ *http.Request) {
 	isHardwareClientAvailableMu.RLock()
 	isHardwareClientAvailableTemp := isHardwareClientAvailable
 	isHardwareClientAvailableMu.RUnlock()
@@ -126,7 +123,7 @@ func getMetadata(filter string) http.HandlerFunc {
 		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 		switch dataModelVersion {
 		case "":
-			// in cacher mode, the "filter" is the exportedHardwareCacher type
+			// in cacher mode, the "filter" is the exportedCacher type
 			// TODO (kdeng3849) figure out a way to remove the switch case
 			resp = ehw
 		case "1":
@@ -140,7 +137,6 @@ func getMetadata(filter string) http.HandlerFunc {
 			l.Fatal(errors.New("unknown DATA_MODEL_VERSION"))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
-
 		}
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
@@ -249,7 +245,7 @@ func filterMetadata(hw []byte, filter string) ([]byte, error) {
 }
 
 // processEC2Query returns either a specific filter (used to parse hardware data for the value of a specific field),
-// or a comma-separated list of metadata items (to be printed)
+// or a comma-separated list of metadata items (to be printed).
 func processEC2Query(url string) (string, error) {
 	query := strings.TrimRight(strings.TrimPrefix(url, "/2009-04-04"), "/") // remove base pattern and trailing slash
 
@@ -262,25 +258,27 @@ func processEC2Query(url string) (string, error) {
 }
 
 func getIPFromRequest(r *http.Request) string {
-	IPAddress := r.RemoteAddr
-	if strings.ContainsRune(IPAddress, ':') {
-		IPAddress, _, _ = net.SplitHostPort(IPAddress)
+	addr := r.RemoteAddr
+	if strings.ContainsRune(addr, ':') {
+		addr, _, _ = net.SplitHostPort(addr)
 	}
-	return IPAddress
+	return addr
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) error {
 	var body []byte
+
 	body, err := json.Marshal(data)
 	if err != nil {
 		if status < 400 {
 			return jsonError(w, http.StatusInternalServerError, err, "marshalling response")
-		} else {
-			status = 500
-			logger.Error(err, "failed to marshal error")
-			body = []byte(`{"error", {"comment": "Failed to marshal error"}}`)
 		}
+
+		status = 500
+		logger.Error(err, "failed to marshal error")
+		body = []byte(`{"error", {"comment": "Failed to marshal error"}}`)
 	}
+
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(body)
@@ -318,7 +316,7 @@ func handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func buildSubscriberHandlers(hegelServer *grpcserver.Server) {
+func buildSubscriberHandlers() {
 	handler := otelhttp.WithRouteTag("/subscriptions", http.HandlerFunc(handleSubscriptions))
 	http.Handle("/subscriptions", handler)
 	http.Handle("/subscriptions/", handler)

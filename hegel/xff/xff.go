@@ -2,6 +2,7 @@ package xff
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -49,17 +50,23 @@ func updateRemote(ctx context.Context, l log.Logger, masks []net.IPNet) context.
 		return ctx
 	}
 
-	tcpAddr := remote.Addr.(*net.TCPAddr)
+	tcpAddr, ok := remote.Addr.(*net.TCPAddr)
+	if !ok {
+		l.Info(fmt.Sprintf("remote.Addr is a %T, not a net.TCPAddr", remote.Addr))
+		return ctx
+	}
+
 	rip := tcpAddr.IP
 	l = l.With("remote", remote)
 
 	allowed := false
-	for _, net := range masks {
-		if net.Contains(rip) {
+	for _, n := range masks {
+		if n.Contains(rip) {
 			allowed = true
 			break
 		}
 	}
+
 	if !allowed {
 		l.With("masks", masks).Info("remote host not in allowed list")
 		return ctx
@@ -67,8 +74,8 @@ func updateRemote(ctx context.Context, l log.Logger, masks []net.IPNet) context.
 
 	var ip *net.IPAddr
 	var err error
-	for _, xff := range xffs {
-		ip, err = net.ResolveIPAddr("ip", xff)
+	for _, x := range xffs {
+		ip, err = net.ResolveIPAddr("ip", x)
 		if ip != nil {
 			break
 		}
@@ -104,9 +111,9 @@ func ParseTrustedProxies() []string {
 			// Its not a cidr, but maybe its an IP
 			if ip := net.ParseIP(cidr); ip != nil {
 				if ip.To4() != nil {
-					cidr = cidr + "/32"
+					cidr += "/32"
 				} else {
-					cidr = cidr + "/128"
+					cidr += "/128"
 				}
 			} else {
 				// not an IP, panic
@@ -148,7 +155,7 @@ func GRPCMiddlewares(l log.Logger, allowedSubnets []string) (grpc.StreamServerIn
 	return streamer, unaryer
 }
 
-// HTTPHandler creates a XFF handler if there are allowedSubnets specified
+// HTTPHandler creates a XFF handler if there are allowedSubnets specified.
 func HTTPHandler(l log.Logger, mux *http.ServeMux, allowedSubnets []string) http.Handler {
 	var handler http.Handler
 	if mux == nil {
