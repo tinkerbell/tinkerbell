@@ -1,3 +1,4 @@
 certs/
 /cmd/hegel/hegel
 .env
+out/

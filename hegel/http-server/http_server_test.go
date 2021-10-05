@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -37,7 +36,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// TestTrustedProxies tests if the actual remote user IP is extracted correctly from the X-FORWARDED-FOR header according to the list of trusted proxies provided
+// TestTrustedProxies tests if the actual remote user IP is extracted correctly from the X-FORWARDED-FOR header according to the list of trusted proxies provided.
 func TestTrustedProxies(t *testing.T) {
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
@@ -81,18 +80,20 @@ func TestTrustedProxies(t *testing.T) {
 }
 
 func TestGetMetadataCacher(t *testing.T) {
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
+
 	for name, test := range cacherTests {
 		t.Log(name)
 		hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
 
-		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 		os.Unsetenv("DATA_MODEL_VERSION")
 
 		req, err := http.NewRequest("GET", "/metadata", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		req.RemoteAddr = mock.UserIP
 		resp := httptest.NewRecorder()
 		http.HandleFunc("/metadata", getMetadata("")) // filter not used in cacher mode
@@ -104,7 +105,7 @@ func TestGetMetadataCacher(t *testing.T) {
 				status, http.StatusOK)
 		}
 
-		hw := hardware.ExportedHardwareCacher{}
+		hw := hardware.ExportedCacher{}
 		err = json.Unmarshal(resp.Body.Bytes(), &hw)
 		if err != nil {
 			t.Error("Error in unmarshalling hardware:", err)
@@ -121,7 +122,7 @@ func TestGetMetadataCacher(t *testing.T) {
 	}
 }
 
-// TestGetMetadataTinkerbell tests the default use case in tinkerbell mode
+// TestGetMetadataTinkerbell tests the default use case in tinkerbell mode.
 func TestGetMetadataTinkerbell(t *testing.T) {
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
@@ -164,15 +165,15 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 				t.Error("Error in unmarshalling hardware metadata:", err)
 			}
 
-			if metadata["crypted_root_password"].(string) != test.crypted_root_password {
+			if metadata["crypted_root_password"].(string) != test.password {
 				t.Errorf("handler returned unexpected crypted_root_password: got %v want %v",
-					metadata["crypted_root_password"], test.crypted_root_password)
+					metadata["crypted_root_password"], test.password)
 			}
 		})
 	}
 }
 
-// TestGetMetadataTinkerbellKant tests the kant specific use case in tinkerbell mode
+// TestGetMetadataTinkerbellKant tests the kant specific use case in tinkerbell mode.
 func TestGetMetadataTinkerbellKant(t *testing.T) {
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
@@ -297,7 +298,6 @@ func TestEC2Endpoint(t *testing.T) {
 func TestFilterMetadata(t *testing.T) {
 	for name, test := range tinkerbellFilterMetadataTests {
 		t.Run(name, func(t *testing.T) {
-
 			res, err := filterMetadata([]byte(test.json), test.filter)
 			if test.error != "" {
 				if err == nil {
@@ -317,7 +317,6 @@ func TestFilterMetadata(t *testing.T) {
 func TestProcessEC2Query(t *testing.T) {
 	for name, test := range processEC2QueryTests {
 		t.Run(name, func(t *testing.T) {
-
 			res, err := processEC2Query(test.url)
 			if test.error != "" {
 				if err == nil {
@@ -336,7 +335,7 @@ func TestProcessEC2Query(t *testing.T) {
 
 // TestEC2FiltersMap checks if the all the metadata items are listed in their corresponding directory-listing filter
 // itemsFromQueries are the metadata items "extracted" from the queries (keys) of the ec2Filters map
-// itemsFromFilter are the metadata items "extracted" from the filters (values) of the ec2Filters map
+// itemsFromFilter are the metadata items "extracted" from the filters (values) of the ec2Filters map.
 func TestEC2FiltersMap(t *testing.T) {
 	directories := make(map[string][]string) // keys are the directory base paths; values are a list of metadata items that are under the base paths
 
@@ -350,7 +349,6 @@ func TestEC2FiltersMap(t *testing.T) {
 			continue
 		}
 		t.Run(basePath, func(t *testing.T) {
-
 			hw := `{"metadata":{"instance":{"spot":{}}}}` // to make sure the 'spot' metadata item will be included
 			query := strings.TrimSuffix(basePath, "/")
 			dirListFilter := ec2Filters[query] // get the directory-list filter
@@ -371,7 +369,7 @@ func TestEC2FiltersMap(t *testing.T) {
 	}
 }
 
-// test cases for TestTrustedProxies
+// test cases for TestTrustedProxies.
 var trustedProxiesTests = map[string]struct {
 	trustedProxies string
 	url            string
@@ -491,7 +489,7 @@ var trustedProxiesTests = map[string]struct {
 	},
 }
 
-// test cases for TestGetMetadataCacher
+// test cases for TestGetMetadataCacher.
 var cacherTests = map[string]struct {
 	id       string
 	planSlug string
@@ -504,25 +502,25 @@ var cacherTests = map[string]struct {
 	},
 }
 
-// test cases for TestGetMetadataTinkerbell
+// test cases for TestGetMetadataTinkerbell.
 var tinkerbellTests = map[string]struct {
-	id                    string
-	crypted_root_password string
-	json                  string
+	id       string
+	password string
+	json     string
 }{
 	"tinkerbell": {
-		id:                    "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
-		crypted_root_password: "redacted/",
-		json:                  mock.TinkerbellDataModel,
+		id:       "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
+		password: "redacted/",
+		json:     mock.TinkerbellDataModel,
 	},
 	"tinkerbell no metadata": {
-		id:                    "363115b0-f03d-4ce5-9a15-5514193d131a",
-		crypted_root_password: "redacted/",
-		json:                  mock.TinkerbellNoMetadata,
+		id:       "363115b0-f03d-4ce5-9a15-5514193d131a",
+		password: "redacted/",
+		json:     mock.TinkerbellNoMetadata,
 	},
 }
 
-// test cases for TestGetMetadataTinkerbellKant
+// test cases for TestGetMetadataTinkerbellKant.
 var tinkerbellKantTests = map[string]struct {
 	url      string
 	status   int
@@ -557,7 +555,7 @@ echo "Hello world!"`,
 	},
 }
 
-// test cases for TestRegisterEndpoints
+// test cases for TestRegisterEndpoints.
 var registerEndpointTests = map[string]struct {
 	customEndpoints     string
 	url                 string
@@ -640,7 +638,7 @@ var registerEndpointTests = map[string]struct {
 	},
 }
 
-// test cases for TestEC2Endpoint
+// test cases for TestEC2Endpoint.
 var tinkerbellEC2Tests = map[string]struct {
 	url      string
 	status   int
@@ -767,7 +765,7 @@ tags`,
 	},
 }
 
-// test cases for TestFilterMetadata
+// test cases for TestFilterMetadata.
 var tinkerbellFilterMetadataTests = map[string]struct {
 	filter string
 	result string
@@ -854,7 +852,7 @@ tags`,
 	},
 }
 
-// test cases for TestProcessEC2Query
+// test cases for TestProcessEC2Query.
 var processEC2QueryTests = map[string]struct {
 	url    string
 	error  string
@@ -897,7 +895,6 @@ var processEC2QueryTests = map[string]struct {
 }
 
 func TestServe(t *testing.T) {
-
 	tests := []struct {
 		name    string
 		status  int
@@ -916,30 +913,35 @@ func TestServe(t *testing.T) {
 	}
 	mport := 52000
 	metricsPort = &mport
-	ctx := context.Background()
 
 	customEndpoints := `{"/metadata":".metadata.instance"}`
 
 	go func() {
-		if err := Serve(ctx, logger, hegelServer, "grev", time.Now(), customEndpoints); err != nil {
+		if err := Serve(logger, hegelServer, "grev", time.Now(), customEndpoints); err != nil {
 			t.Errorf("Serve() error = %v", err)
 		}
 	}()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v"+"%v", mport, tt.httpreq), nil)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("request creation failed: %v", err)
 			}
+
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("request failed: %v", err)
 			}
+
 			if status := resp.StatusCode; status != tt.status {
 				t.Errorf("handler returned wrong status code: got %v want %v",
 					status, tt.status)
+			}
+
+			err = resp.Body.Close()
+			if err != nil {
+				t.Errorf("close failed: %v", err)
 			}
 		})
 	}

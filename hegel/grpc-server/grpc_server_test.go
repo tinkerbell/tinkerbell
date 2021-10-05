@@ -18,11 +18,11 @@ import (
 )
 
 func TestGetCacher(t *testing.T) {
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
+
 	for name, test := range cacherGrpcTests {
 		t.Log(name)
-
-		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 		os.Unsetenv("DATA_MODEL_VERSION")
 
 		l, err := log.Init("github.com/tinkerbell/hegel")
@@ -34,7 +34,6 @@ func TestGetCacher(t *testing.T) {
 		hegelTestServer, err := NewServer(logger, mock.HardwareClient{Data: test.json})
 		if err != nil {
 			t.Fatal(err, "failed to create hegel server")
-
 		}
 		addr, err := net.ResolveTCPAddr("tcp", mock.UserIP+":80")
 		if err != nil {
@@ -49,7 +48,7 @@ func TestGetCacher(t *testing.T) {
 		}
 		t.Log(ehw.JSON)
 
-		hw := hardware.ExportedHardwareCacher{}
+		hw := hardware.ExportedCacher{}
 		err = json.Unmarshal([]byte(ehw.JSON), &hw)
 		if test.error != "" {
 			if err == nil {
@@ -181,7 +180,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 	}
 }
 
-// test cases for TestGetByIPCacher
+// test cases for TestGetByIPCacher.
 var cacherGrpcTests = map[string]struct {
 	id               string
 	state            string
@@ -259,7 +258,7 @@ var cacherGrpcTests = map[string]struct {
 	},
 }
 
-// test cases for TestGetByIPTinkerbell
+// test cases for TestGetByIPTinkerbell.
 var tinkerbellGrpcTests = map[string]struct {
 	id               string
 	state            string
@@ -320,14 +319,14 @@ func TestServer_SubLock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Server{subLock: tt.subLock}
-			retval_lock := s.SubLock()
-			if retval_lock == nil {
+			retvalLock := s.SubLock()
+			if retvalLock == nil {
 				t.Errorf("Server.SubLock() lock failed")
 			}
 
 			mutex.Unlock()
-			retval_unlock := s.SubLock()
-			if retval_unlock == nil {
+			retvalUnlock := s.SubLock()
+			if retvalUnlock == nil {
 				t.Errorf("Server.SubLock() unlock failed")
 			}
 		})
@@ -352,21 +351,18 @@ func TestServer_SetHardwareClient(t *testing.T) {
 			if retval == nil {
 				t.Error("Server.SetHardwareClient() failed")
 			}
-
 		})
-
 	}
 }
 
 func TestServer_Subscriptions(t *testing.T) {
-
 	tests := []struct {
 		name string
-		sub  map[string]*subscription
+		sub  map[string]*Subscription
 	}{
 		{
 			name: "test_subscription",
-			sub:  make(map[string]*subscription),
+			sub:  make(map[string]*Subscription),
 		},
 	}
 	for _, tt := range tests {
