@@ -1,0 +1,6 @@
+#!ipxe
+  
+set user-class Tinkerbell
+echo Welcome to Neverland!
+
+autoboot
