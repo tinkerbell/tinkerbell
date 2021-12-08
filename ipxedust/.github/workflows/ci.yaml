@@ -17,3 +17,11 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: "1.17"
+      - name: lint
+        run: make lint
+      - name: test
+        run: make test
+      - name: generate coverage report
+        run: make cover
+      - name: Codecov
+        uses: codecov/codecov-action@v2.1.0

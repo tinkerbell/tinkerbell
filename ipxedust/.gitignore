@@ -20,3 +20,6 @@ bin/
 # iPXE build directories
 upstream-*
 ipxe-*.tar.gz
+
+# added by lint-install
+out/
