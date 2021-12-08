@@ -1,4 +1,4 @@
-package ipxe
+package http
 
 import (
 	"context"
