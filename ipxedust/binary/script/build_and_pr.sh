@@ -27,7 +27,7 @@ binaries=(
 
 git_email="github-actions[bot]@users.noreply.github.com"
 git_name="github-actions[bot]"
-repo="jacobweinstock/ipxe"
+repo="tinkerbell/boots-ipxe"
 
 # check for the GITHUB_TOKEN environment variable
 function check_github_token() {
@@ -129,7 +129,7 @@ function commit_changes() {
 # push changes to origin
 function push_changes() {
     local branch="${1}"
-    local repository="${2:-jacobweinstock/ipxe}"
+    local repository="${2:-tinkerbell/boots-ipxe}"
     local git_actor="${3:-github-actions[bot]}"
     local token="${4:-${GITHUB_TOKEN}}"
 
