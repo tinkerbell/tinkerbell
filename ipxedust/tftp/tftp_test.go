@@ -156,8 +156,8 @@ func TestExtractTraceparentFromFilename(t *testing.T) {
 		fileIn  string
 		fileOut string
 		err     error
-		spanId  string
-		traceId string
+		spanID  string
+		traceID string
 	}{
 		"do nothing when no tp": {fileIn: "undionly.ipxe", fileOut: "undionly.ipxe", err: nil},
 		"ignore bad filename": {
@@ -174,8 +174,8 @@ func TestExtractTraceparentFromFilename(t *testing.T) {
 			fileIn:  "undionly.ipxe-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01",
 			fileOut: "undionly.ipxe",
 			err:     nil,
-			spanId:  "d887dc3912240434",
-			traceId: "23b1e307bb35484f535a1f772c06910e",
+			spanID:  "d887dc3912240434",
+			traceID: "23b1e307bb35484f535a1f772c06910e",
 		},
 	}
 
@@ -183,26 +183,26 @@ func TestExtractTraceparentFromFilename(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx, outfile, err := extractTraceparentFromFilename(ctx, tc.fileIn)
-			if err != tc.err {
+			if !errors.Is(err, tc.err) {
 				t.Errorf("filename %q should have resulted in error %q but got %q", tc.fileIn, tc.err, err)
 			}
 			if outfile != tc.fileOut {
 				t.Errorf("filename %q should have resulted in %q but got %q", tc.fileIn, tc.fileOut, outfile)
 			}
 
-			if tc.spanId != "" {
+			if tc.spanID != "" {
 				sc := trace.SpanContextFromContext(ctx)
 				got := sc.SpanID().String()
-				if tc.spanId != got {
-					t.Errorf("got incorrect span id from context, expected %q but got %q", tc.spanId, got)
+				if tc.spanID != got {
+					t.Errorf("got incorrect span id from context, expected %q but got %q", tc.spanID, got)
 				}
 			}
 
-			if tc.traceId != "" {
+			if tc.traceID != "" {
 				sc := trace.SpanContextFromContext(ctx)
 				got := sc.TraceID().String()
-				if tc.traceId != got {
-					t.Errorf("got incorrect trace id from context, expected %q but got %q", tc.traceId, got)
+				if tc.traceID != got {
+					t.Errorf("got incorrect trace id from context, expected %q but got %q", tc.traceID, got)
 				}
 			}
 		})
