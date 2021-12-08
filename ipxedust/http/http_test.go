@@ -50,7 +50,7 @@ func (r *fakeResponse) Result() *http.Response {
 
 func TestListenAndServeHTTP(t *testing.T) {
 	router := http.NewServeMux()
-	s := HandleHTTP{Log: logr.Discard()}
+	s := Handle{Log: logr.Discard()}
 	router.HandleFunc("/", s.Handler)
 	srv := &http.Server{Handler: router}
 	type args struct {
@@ -86,7 +86,7 @@ func TestListenAndServeHTTP(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.args.ctx.Done()
 			tt.args.h.Shutdown(tt.args.ctx)
-			err := ListenAndServeHTTP(tt.args.ctx, tt.args.addr, tt.args.h)
+			err := ListenAndServe(tt.args.ctx, tt.args.addr, tt.args.h)
 			if diff := cmp.Diff(err.Error(), tt.wantErr.Error()); diff != "" {
 				t.Fatalf(diff)
 			}
@@ -144,12 +144,12 @@ func TestHandleHTTP_Handler(t *testing.T) {
 			var resp *http.Response
 			if tt.failWrite {
 				w := newFakeResponse()
-				h := HandleHTTP{Log: logr.Discard()}
+				h := Handle{Log: logr.Discard()}
 				h.Handler(w, req)
 				resp = w.Result()
 			} else {
 				w := httptest.NewRecorder()
-				h := HandleHTTP{Log: logr.Discard()}
+				h := Handle{Log: logr.Discard()}
 				h.Handler(w, req)
 				resp = w.Result()
 			}

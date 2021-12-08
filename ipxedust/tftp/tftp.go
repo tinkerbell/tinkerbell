@@ -22,13 +22,13 @@ import (
 	"inet.af/netaddr"
 )
 
-// HandleTFTP is the struct that implements the TFTP read and write function handlers.
-type HandleTFTP struct {
+// Handle is the struct that implements the TFTP read and write function handlers.
+type Handle struct {
 	Log logr.Logger
 }
 
-// ListenAndServeTFTP sets up the listener on the given address and serves TFTP requests.
-func ListenAndServeTFTP(ctx context.Context, addr netaddr.IPPort, s *tftp.Server) error {
+// ListenAndServe sets up the listener on the given address and serves TFTP requests.
+func ListenAndServe(ctx context.Context, addr netaddr.IPPort, s *tftp.Server) error {
 	a, err := net.ResolveUDPAddr("udp", addr.String())
 	if err != nil {
 		return err
@@ -37,16 +37,16 @@ func ListenAndServeTFTP(ctx context.Context, addr netaddr.IPPort, s *tftp.Server
 	if err != nil {
 		return err
 	}
-	return ServeTFTP(ctx, conn, s)
+	return Serve(ctx, conn, s)
 }
 
-// ServeTFTP serves TFTP requests using the given conn and server.
-func ServeTFTP(_ context.Context, conn net.PacketConn, s *tftp.Server) error {
+// Serve serves TFTP requests using the given conn and server.
+func Serve(_ context.Context, conn net.PacketConn, s *tftp.Server) error {
 	return s.Serve(conn)
 }
 
 // ReadHandler handlers TFTP GET requests.
-func (t HandleTFTP) ReadHandler(filename string, rf io.ReaderFrom) error {
+func (t Handle) ReadHandler(filename string, rf io.ReaderFrom) error {
 	client := net.UDPAddr{}
 	if rpi, ok := rf.(tftp.OutgoingTransfer); ok {
 		client = rpi.RemoteAddr()
@@ -102,7 +102,7 @@ func (t HandleTFTP) ReadHandler(filename string, rf io.ReaderFrom) error {
 }
 
 // WriteHandler handles TFTP PUT requests. It will always return an error. This library does not support PUT.
-func (t HandleTFTP) WriteHandler(filename string, wt io.WriterTo) error {
+func (t Handle) WriteHandler(filename string, wt io.WriterTo) error {
 	err := errors.Wrap(os.ErrPermission, "access_violation")
 	client := net.UDPAddr{}
 	if rpi, ok := wt.(tftp.OutgoingTransfer); ok {
