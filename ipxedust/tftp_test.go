@@ -20,9 +20,13 @@ import (
 type fakeReaderFrom struct {
 	addr    net.UDPAddr
 	content []byte
+	err     error
 }
 
 func (f *fakeReaderFrom) ReadFrom(r io.Reader) (n int64, err error) {
+	if f.err != nil {
+		return 0, f.err
+	}
 	nInt, err := r.Read(f.content)
 	return int64(nInt), err
 }
@@ -62,7 +66,7 @@ func TestListenAndServeTFTP(t *testing.T) {
 		{
 			name: "success",
 			args: args{
-				ctx:  func() context.Context { c, cn := context.WithCancel(context.Background()); defer cn(); return c }(),
+				ctx:  context.Background(),
 				addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 9999),
 				h:    srv,
 			},
@@ -77,7 +81,6 @@ func TestListenAndServeTFTP(t *testing.T) {
 			}()
 
 			if tt.args.h != nil {
-				tt.args.ctx.Done()
 				time.Sleep(time.Second)
 				tt.args.h.Shutdown()
 			}
@@ -90,17 +93,52 @@ func TestListenAndServeTFTP(t *testing.T) {
 }
 
 func TestHandlerTFTP_ReadHandler(t *testing.T) {
-	ht := &HandleTFTP{Log: logr.Discard()}
-	rf := &fakeReaderFrom{
-		addr:    net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999},
-		content: make([]byte, len(binary.Files["snp.efi"])),
+	tests := []struct {
+		name     string
+		fileName string
+		want     []byte
+		wantErr  error
+	}{
+		{
+			name:     "success",
+			fileName: "snp.efi",
+			want:     binary.Files["snp.efi"],
+		},
+		{
+			name:     "success - with otel name",
+			fileName: "snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01",
+			want:     binary.Files["snp.efi"],
+		},
+		{
+			name:     "fail - not found",
+			fileName: "not-found",
+			want:     []byte{},
+			wantErr:  os.ErrNotExist,
+		},
+		{
+			name:     "failure - with read error",
+			fileName: "snp.efi",
+			want:     []byte{},
+			wantErr:  net.ErrClosed,
+		},
 	}
-	err := ht.ReadHandler("snp.efi", rf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diff := cmp.Diff(rf.content, binary.Files["snp.efi"]); diff != "" {
-		t.Fatal(diff)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ht := &HandleTFTP{Log: logr.Discard()}
+			rf := &fakeReaderFrom{
+				addr:    net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999},
+				content: make([]byte, len(tt.want)),
+				err:     tt.wantErr,
+			}
+			err := ht.ReadHandler(tt.fileName, rf)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("error mismatch, got: %T, want: %T", err, tt.wantErr)
+			}
+			if diff := cmp.Diff(rf.content, tt.want); diff != "" {
+				t.Fatal(diff)
+			}
+		})
 	}
 }
 

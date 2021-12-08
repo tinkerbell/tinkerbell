@@ -84,7 +84,7 @@ func (t HandleTFTP) ReadHandler(filename string, rf io.ReaderFrom) error {
 	span.SetStatus(codes.Ok, filename)
 	span.End()
 
-	content, ok := binary.Files[filepath.Base(filename)]
+	content, ok := binary.Files[filepath.Base(shortfile)]
 	if !ok {
 		err := errors.Wrap(os.ErrNotExist, "file unknown")
 		l.Error(err, "file unknown")
