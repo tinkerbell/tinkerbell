@@ -23,8 +23,8 @@ import (
 	"inet.af/netaddr"
 )
 
-// Handle is the struct that implements the TFTP read and write function handlers.
-type Handle struct {
+// Handler is the struct that implements the TFTP read and write function handlers.
+type Handler struct {
 	Log logr.Logger
 }
 
@@ -46,8 +46,8 @@ func Serve(_ context.Context, conn net.PacketConn, s *tftp.Server) error {
 	return s.Serve(conn)
 }
 
-// ReadHandler handlers TFTP GET requests.
-func (t Handle) ReadHandler(filename string, rf io.ReaderFrom) error {
+// HandleRead handlers TFTP GET requests. The function signature satisfies the tftp.Server.readHandler parameter type.
+func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 	client := net.UDPAddr{}
 	if rpi, ok := rf.(tftp.OutgoingTransfer); ok {
 		client = rpi.RemoteAddr()
@@ -102,8 +102,8 @@ func (t Handle) ReadHandler(filename string, rf io.ReaderFrom) error {
 	return nil
 }
 
-// WriteHandler handles TFTP PUT requests. It will always return an error. This library does not support PUT.
-func (t Handle) WriteHandler(filename string, wt io.WriterTo) error {
+// HandleWrite handles TFTP PUT requests. It will always return an error. This library does not support PUT.
+func (t Handler) HandleWrite(filename string, wt io.WriterTo) error {
 	err := errors.Wrap(os.ErrPermission, "access_violation")
 	client := net.UDPAddr{}
 	if rpi, ok := wt.(tftp.OutgoingTransfer); ok {

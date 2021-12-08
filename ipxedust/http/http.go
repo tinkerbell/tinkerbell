@@ -15,8 +15,8 @@ import (
 	"inet.af/netaddr"
 )
 
-// Handle is the struct that implements the http.Handler interface.
-type Handle struct {
+// Handler is the struct that implements the http.Handler interface.
+type Handler struct {
 	Log logr.Logger
 }
 
@@ -49,8 +49,8 @@ func trimFirstRune(s string) string {
 	return s[i:]
 }
 
-// Handler handles responses to HTTP requests.
-func (s Handle) Handler(w http.ResponseWriter, req *http.Request) {
+// Handle handles responses to HTTP requests.
+func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return

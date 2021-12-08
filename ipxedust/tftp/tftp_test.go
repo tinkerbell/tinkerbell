@@ -42,8 +42,8 @@ func (f *fakeReaderFrom) WriteTo(_ io.Writer) (n int64, err error) {
 }
 
 func TestListenAndServeTFTP(t *testing.T) {
-	ht := &Handle{Log: logr.Discard()}
-	srv := tftp.NewServer(ht.ReadHandler, ht.WriteHandler)
+	ht := &Handler{Log: logr.Discard()}
+	srv := tftp.NewServer(ht.HandleRead, ht.HandleWrite)
 	type args struct {
 		ctx  context.Context
 		addr netaddr.IPPort
@@ -125,13 +125,13 @@ func TestHandlerTFTP_ReadHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ht := &Handle{Log: logr.Discard()}
+			ht := &Handler{Log: logr.Discard()}
 			rf := &fakeReaderFrom{
 				addr:    net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999},
 				content: make([]byte, len(tt.want)),
 				err:     tt.wantErr,
 			}
-			err := ht.ReadHandler(tt.fileName, rf)
+			err := ht.HandleRead(tt.fileName, rf)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("error mismatch, got: %T, want: %T", err, tt.wantErr)
 			}
@@ -143,9 +143,9 @@ func TestHandlerTFTP_ReadHandler(t *testing.T) {
 }
 
 func TestHandlerTFTP_WriteHandler(t *testing.T) {
-	ht := &Handle{Log: logr.Discard()}
+	ht := &Handler{Log: logr.Discard()}
 	rf := &fakeReaderFrom{addr: net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999}}
-	err := ht.WriteHandler("snp.efi", rf)
+	err := ht.HandleWrite("snp.efi", rf)
 	if !errors.Is(err, os.ErrPermission) {
 		t.Fatalf("error mismatch, got: %T, want: %T", err, os.ErrPermission)
 	}
