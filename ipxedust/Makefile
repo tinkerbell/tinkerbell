@@ -3,7 +3,9 @@ IPXE_BUILD_SCRIPT:=binary/script/build_ipxe.sh
 IPXE_NIX_SHELL:=binary/script/shell.nix
 
 help: ## show this help message
-		@grep -E '^[a-zA-Z_-]+.*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+.*:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}'
+
+include lint.mk
 
 binary: binary/ipxe.efi binary/snp.efi binary/undionly.kpxe ## build all upstream ipxe binaries
 
@@ -15,16 +17,25 @@ ipxe_sha_or_tag := $(shell cat binary/script/ipxe.commit)
 ipxe_build_in_docker := $(shell if [ $(OSFLAG) = "darwin" ]; then echo true; else echo false; fi)
 
 binary/ipxe.efi: ## build ipxe.efi
-		${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
+	${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
 
 binary/undionly.kpxe: ## build undionly.kpxe
-		${IPXE_BUILD_SCRIPT} bin/undionly.kpxe "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
+	${IPXE_BUILD_SCRIPT} bin/undionly.kpxe "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
 
 binary/snp.efi: ## build snp.efi
-		${IPXE_BUILD_SCRIPT} bin-arm64-efi/snp.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@  "${IPXE_NIX_SHELL}" "CROSS_COMPILE=aarch64-unknown-linux-gnu-"
+	${IPXE_BUILD_SCRIPT} bin-arm64-efi/snp.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@  "${IPXE_NIX_SHELL}" "CROSS_COMPILE=aarch64-unknown-linux-gnu-"
 
 .PHONY: binary/clean
 binary/clean: ## clean ipxe binaries, upstream ipxe source code directory, and ipxe source tarball
-		rm -rf binary/ipxe.efi binary/snp.efi binary/undionly.kpxe
-		rm -rf upstream-*
-		rm -rf ipxe-*
+	rm -rf binary/ipxe.efi binary/snp.efi binary/undionly.kpxe
+	rm -rf upstream-*
+	rm -rf ipxe-*
+
+.PHONY: test
+test: ## run unit tests
+	go test -v -covermode=count ./...
+
+.PHONY: cover
+cover: ## Run unit tests with coverage report
+	go test -coverprofile=coverage.out ./... || true
+	go tool cover -func=coverage.out
