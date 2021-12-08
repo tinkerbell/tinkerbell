@@ -1,3 +1,4 @@
+// Package http implements an HTTP server for iPXE binaries.
 package http
 
 import (

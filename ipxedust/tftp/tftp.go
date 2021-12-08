@@ -1,3 +1,4 @@
+// Package tftp implements a TFTP server for iPXE binaries.
 package tftp
 
 import (
