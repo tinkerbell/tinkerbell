@@ -51,6 +51,7 @@ func trimFirstRune(s string) string {
 
 // Handle handles responses to HTTP requests.
 func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
+	s.Log.V(1).Info("handling request", "method", req.Method, "path", req.URL.Path)
 	if req.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -80,5 +81,4 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	s.Log.Info("file served", "bytes sent", b, "file size", len(file), "file", got)
-	w.WriteHeader(http.StatusOK)
 }

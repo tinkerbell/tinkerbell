@@ -3,6 +3,7 @@ package ipxe
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"reflect"
@@ -17,30 +18,38 @@ import (
 	"inet.af/netaddr"
 )
 
-// Config holds the details for running the iPXE service.
-type Config struct {
-	// TFTP holds the details for the TFTP server.
-	TFTP Attribute
-	// HTTP holds the details for the HTTP server.
-	HTTP Attribute
+// Server holds the details for configuring the iPXE service.
+type Server struct {
+	// TFTP holds the details specific for the TFTP server.
+	TFTP ServerSpec
+	// HTTP holds the details specific for the HTTP server.
+	HTTP ServerSpec
 	// Log is the logger to use.
 	Log logr.Logger
 }
 
-// Attribute holds details about a server.
-type Attribute struct {
+// ServerSpec holds details used to configure a server.
+type ServerSpec struct {
 	// Addr is the address:port to listen on for requests.
 	Addr netaddr.IPPort
-	// Timeout is the timeout for serving requests.
+	// Timeout is the timeout for serving individual requests.
 	Timeout time.Duration
 }
 
 // ListenAndServe will listen and serve iPXE binaries over TFTP and HTTP.
+//
+// Default TFTP listen address is ":69".
+//
+// Default HTTP listen address is ":8080".
+//
+// Default request timeout for both is 5 seconds.
+//
+// Override the defaults by setting the Config struct fields.
 // See binary/binary.go for the iPXE files that are served.
-func (c *Config) ListenAndServe(ctx context.Context) error {
-	defaults := Config{
-		TFTP: Attribute{Addr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 69), Timeout: 5 * time.Second},
-		HTTP: Attribute{Addr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 8080), Timeout: 5 * time.Second},
+func (c *Server) ListenAndServe(ctx context.Context) error {
+	defaults := Server{
+		TFTP: ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 69), Timeout: 5 * time.Second},
+		HTTP: ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 8080), Timeout: 5 * time.Second},
 		Log:  logr.Discard(),
 	}
 
@@ -51,34 +60,98 @@ func (c *Config) ListenAndServe(ctx context.Context) error {
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return c.serveTFTP(ctx)
+		return c.listenAndServeTFTP(ctx)
 	})
 	g.Go(func() error {
-		return c.serveHTTP(ctx)
+		return c.listenAndServeHTTP(ctx)
 	})
 
 	<-ctx.Done()
-	e := g.Wait()
+	err = g.Wait()
 	c.Log.Info("shutting down")
 
-	return e
+	return err
 }
 
-func (c *Config) serveHTTP(ctx context.Context) error {
+func (c *Server) Serve(ctx context.Context, tcpConn net.Listener, udpConn net.PacketConn) error {
+	if tcpConn == nil {
+		return errors.New("tcp listener must not be nil")
+	}
+	if udpConn == nil {
+		return errors.New("udp conn must not be nil")
+	}
+	defaults := Server{
+		TFTP: ServerSpec{Timeout: 5 * time.Second},
+		HTTP: ServerSpec{Timeout: 5 * time.Second},
+		Log:  logr.Discard(),
+	}
+
+	err := mergo.Merge(c, defaults, mergo.WithTransformers(c))
+	if err != nil {
+		return err
+	}
+
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return c.serveTFTP(ctx, udpConn)
+	})
+	g.Go(func() error {
+		return c.serveHTTP(ctx, tcpConn)
+	})
+
+	<-ctx.Done()
+	err = g.Wait()
+	c.Log.Info("shutting down")
+
+	return err
+}
+
+func (c *Server) listenAndServeHTTP(ctx context.Context) error {
 	s := ihttp.Handler{Log: c.Log}
 	router := http.NewServeMux()
 	router.HandleFunc("/", s.Handle)
-	hs := &http.Server{Handler: router, BaseContext: func(net.Listener) context.Context { return ctx }}
+	hs := &http.Server{
+		Handler:     router,
+		BaseContext: func(net.Listener) context.Context { return ctx },
+		ReadTimeout: c.HTTP.Timeout,
+	}
 	go func() {
 		<-ctx.Done()
 		_ = hs.Shutdown(ctx)
 	}()
-	c.Log.Info("serving HTTP", "addr", c.HTTP.Addr, "timeout", c.HTTP.Timeout)
-
-	return ihttp.ListenAndServe(ctx, c.HTTP.Addr, hs)
+	c.Log.Info("serving HTTP", "addr", c.HTTP.Addr.String(), "timeout", c.HTTP.Timeout)
+	err := ihttp.ListenAndServe(ctx, c.HTTP.Addr, hs)
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
 }
 
-func (c *Config) serveTFTP(ctx context.Context) error {
+func (c *Server) serveHTTP(ctx context.Context, l net.Listener) error {
+	if l == nil || reflect.ValueOf(l).IsNil() {
+		return errors.New("listener must not be nil")
+	}
+	s := ihttp.Handler{Log: c.Log}
+	router := http.NewServeMux()
+	router.HandleFunc("/", s.Handle)
+	hs := &http.Server{
+		Handler:     router,
+		BaseContext: func(net.Listener) context.Context { return ctx },
+		ReadTimeout: c.HTTP.Timeout,
+	}
+	go func() {
+		<-ctx.Done()
+		_ = hs.Shutdown(ctx)
+	}()
+	c.Log.Info("serving HTTP", "addr", l.Addr().String(), "timeout", c.HTTP.Timeout)
+	err := ihttp.Serve(ctx, l, hs)
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}
+
+func (c *Server) listenAndServeTFTP(ctx context.Context) error {
 	a, err := net.ResolveUDPAddr("udp", c.TFTP.Addr.String())
 	if err != nil {
 		return err
@@ -118,8 +191,43 @@ func (c *Config) serveTFTP(ctx context.Context) error {
 	return itftp.Serve(ctx, conn, ts)
 }
 
+func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
+	if conn == nil || reflect.ValueOf(conn).IsNil() {
+		return errors.New("conn must not be nil")
+	}
+
+	h := &itftp.Handler{Log: c.Log}
+	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
+	ts.SetTimeout(c.TFTP.Timeout)
+	// This log line is load bearing. It allows the tftp server shutdown below to not nil pointer error
+	// if a canceled context is passed in to the serveTFTP() function.
+	// One option to "fix" this issue is to PR the following into github.com/pin/tftp:
+	/*
+			func (s *Server) Shutdown() {
+			if !s.singlePort {
+				if s.conn != nil {
+					s.conn.Close()
+				}
+			}
+			q := make(chan struct{})
+			s.quit <- q
+			<-q
+			s.wg.Wait()
+		}
+	*/
+	c.Log.Info("serving TFTP", "addr", conn.LocalAddr().String(), "timeout", c.TFTP.Timeout)
+	go func() {
+		<-ctx.Done()
+		if !reflect.ValueOf(conn).IsNil() {
+			ts.Shutdown()
+		}
+	}()
+
+	return itftp.Serve(ctx, conn, ts)
+}
+
 // Transformer for merging the netaddr.IPPort and logr.Logger structs.
-func (c *Config) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
+func (c *Server) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
 	switch typ {
 	case reflect.TypeOf(logr.Logger{}):
 		return func(dst, src reflect.Value) error {
