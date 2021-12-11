@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/go-logr/logr v1.2.1
+	github.com/go-logr/stdr v1.2.0
 	github.com/google/go-cmp v0.5.6
 	github.com/imdario/mergo v0.3.12
 	github.com/pin/tftp v0.0.0-20210809155059-0161c5dd2e96
