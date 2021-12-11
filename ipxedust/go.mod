@@ -4,11 +4,14 @@ go 1.17
 
 require (
 	github.com/go-logr/logr v1.2.1
+	github.com/go-logr/stdr v1.2.0
 	github.com/google/go-cmp v0.5.6
+	github.com/imdario/mergo v0.3.12
 	github.com/pin/tftp v0.0.0-20210809155059-0161c5dd2e96
 	github.com/pkg/errors v0.9.1
 	go.opentelemetry.io/otel v1.2.0
 	go.opentelemetry.io/otel/trace v1.2.0
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	inet.af/netaddr v0.0.0-20211027220019-c74959edd3b6
 )
 
