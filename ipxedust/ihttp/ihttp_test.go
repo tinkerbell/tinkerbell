@@ -3,16 +3,21 @@ package ihttp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/ipxedust/binary"
+	"go.opentelemetry.io/otel/trace"
 	"inet.af/netaddr"
 )
 
@@ -115,7 +120,7 @@ func TestHandleHTTP_Handler(t *testing.T) {
 		},
 		{
 			name: "success",
-			req:  req{method: "GET", url: "/snp.efi"},
+			req:  req{method: "GET", url: "/30:23:03:73:a5:a7/snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01"},
 			want: &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       ioutil.NopCloser(bytes.NewBuffer(binary.Files["snp.efi"])),
@@ -140,16 +145,19 @@ func TestHandleHTTP_Handler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			logger := stdr.New(log.New(os.Stdout, "", log.Lshortfile))
 			req := httptest.NewRequest(tt.req.method, tt.req.url, tt.req.body)
 			var resp *http.Response
 			if tt.failWrite {
 				w := newFakeResponse()
-				h := Handler{Log: logr.Discard()}
+				//h := Handler{Log: logr.Discard()}
+				h := Handler{Log: logger}
 				h.Handle(w, req)
 				resp = w.Result()
 			} else {
 				w := httptest.NewRecorder()
-				h := Handler{Log: logr.Discard()}
+				h := Handler{Log: logger}
+				//h := Handler{Log: logr.Discard()}
 				h.Handle(w, req)
 				resp = w.Result()
 			}
@@ -170,6 +178,64 @@ func TestHandleHTTP_Handler(t *testing.T) {
 
 				if diff := cmp.Diff(got, want); diff != "" {
 					t.Fatalf(diff)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractTraceparentFromFilename(t *testing.T) {
+	tests := map[string]struct {
+		fileIn  string
+		fileOut string
+		err     error
+		spanID  string
+		traceID string
+	}{
+		"do nothing when no tp": {fileIn: "undionly.ipxe", fileOut: "undionly.ipxe", err: nil},
+		"ignore bad filename": {
+			fileIn:  "undionly.ipxe-00-0000-0000-00",
+			fileOut: "undionly.ipxe-00-0000-0000-00",
+			err:     nil,
+		},
+		"ignore corrupt tp": {
+			fileIn:  "undionly.ipxe-00-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-abcdefghijklmnop-01",
+			fileOut: "undionly.ipxe-00-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-abcdefghijklmnop-01",
+			err:     nil,
+		},
+		"extract tp": {
+			fileIn:  "undionly.ipxe-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01",
+			fileOut: "undionly.ipxe",
+			err:     nil,
+			spanID:  "d887dc3912240434",
+			traceID: "23b1e307bb35484f535a1f772c06910e",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx, outfile, err := extractTraceparentFromFilename(ctx, tc.fileIn)
+			if !errors.Is(err, tc.err) {
+				t.Errorf("filename %q should have resulted in error %q but got %q", tc.fileIn, tc.err, err)
+			}
+			if outfile != tc.fileOut {
+				t.Errorf("filename %q should have resulted in %q but got %q", tc.fileIn, tc.fileOut, outfile)
+			}
+
+			if tc.spanID != "" {
+				sc := trace.SpanContextFromContext(ctx)
+				got := sc.SpanID().String()
+				if tc.spanID != got {
+					t.Errorf("got incorrect span id from context, expected %q but got %q", tc.spanID, got)
+				}
+			}
+
+			if tc.traceID != "" {
+				sc := trace.SpanContextFromContext(ctx)
+				got := sc.TraceID().String()
+				if tc.traceID != got {
+					t.Errorf("got incorrect trace id from context, expected %q but got %q", tc.traceID, got)
 				}
 			}
 		})

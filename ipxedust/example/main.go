@@ -15,7 +15,14 @@ import (
 )
 
 func main() {
-	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
+
+	ctx := context.Background()
+	/*
+		ctx, otelShutdown := otelinit.InitOpenTelemetry(ctx, "ipxe")
+		defer otelShutdown(ctx)
+	*/
+
+	ctx, done := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
 	defer done()
 	logger := stdr.New(log.New(os.Stdout, "", log.Lshortfile))
 
