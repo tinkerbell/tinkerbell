@@ -15,7 +15,6 @@ Full documentation can be found at [tinkerbell.org](https://github.com/tinkerbel
 
 `protoc -I ./protos/hegel ./protos/hegel/hegel.proto --go_out=plugins=grpc:./protos/hegel`
 
-
 #### Self-Signed Certificates
 
 To use Hegel with TLS certificates:
