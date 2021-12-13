@@ -3,7 +3,7 @@ module github.com/tinkerbell/hegel
 go 1.13
 
 require (
-	github.com/equinix-labs/otel-init-go v0.0.1
+	github.com/equinix-labs/otel-init-go v0.0.4
 	github.com/golang/protobuf v1.5.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
