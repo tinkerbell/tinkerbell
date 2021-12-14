@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/stdr"
 	ipxe "github.com/tinkerbell/boots-ipxe"
+	cli "github.com/tinkerbell/boots-ipxe/cmd/ipxe"
 )
 
 func main() {
@@ -20,7 +21,8 @@ func main() {
 	logger := stdr.New(log.New(os.Stdout, "", log.Lshortfile))
 
 	// how := "listenAndServe"
-	how := "serve"
+	// how := "serve"
+	how := "serveCLI"
 	switch how {
 	case "serve":
 		logger.Info("serve")
@@ -31,6 +33,10 @@ func main() {
 		logger.Info("listening and serve")
 		if err := listenAndServe(ctx, logger); err != nil && !errors.Is(err, context.Canceled) {
 			logger.Error(err, "failed to listen and serve ipxe")
+		}
+	case "serveCLI":
+		if err := serveCLI(ctx, logger); err != nil {
+			logger.Error(err, "failed to serve ipxe cli")
 		}
 	default:
 	}
@@ -59,4 +65,8 @@ func serve(ctx context.Context, logger logr.Logger) error {
 
 	s := ipxe.Server{Log: logger}
 	return s.Serve(ctx, conn, uconn)
+}
+
+func serveCLI(ctx context.Context, _ logr.Logger) error {
+	return cli.Execute(ctx, os.Args[1:])
 }

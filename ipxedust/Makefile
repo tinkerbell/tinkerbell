@@ -1,4 +1,5 @@
-OSFLAG:= $(shell go env GOHOSTOS)
+OSFLAG:=$(shell go env GOHOSTOS)
+BINARY:=ipxe
 IPXE_BUILD_SCRIPT:=binary/script/build_ipxe.sh
 IPXE_NIX_SHELL:=binary/script/shell.nix
 
@@ -39,3 +40,19 @@ test: ## run unit tests
 cover: ## Run unit tests with coverage report
 	go test -coverprofile=coverage.out ./... || true
 	go tool cover -func=coverage.out
+
+.PHONY: build-linux
+build-linux: ## Compile for linux
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags '-s -w -extldflags "-static"' -o bin/${BINARY}-linux cmd/main.go
+
+.PHONY: build-darwin
+build-darwin: ## Compile for darwin
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -extldflags '-static'" -o bin/${BINARY}-darwin cmd/main.go
+
+.PHONY: build
+build: ## Compile the binary for the native OS
+ifeq (${OSFLAG},linux)
+	@$(MAKE) build-linux
+else
+	@$(MAKE) build-darwin
+endif
