@@ -19,7 +19,7 @@ func main() {
 	defer done()
 	logger := stdr.New(log.New(os.Stdout, "", log.Lshortfile))
 
-	//how := "listenAndServe"
+	// how := "listenAndServe"
 	how := "serve"
 	switch how {
 	case "serve":
@@ -44,7 +44,7 @@ func listenAndServe(ctx context.Context, logger logr.Logger) error {
 }
 
 func serve(ctx context.Context, logger logr.Logger) error {
-	conn, err := net.Listen("tcp", "0.0.0.0:0")
+	conn, err := net.Listen("tcp", "0.0.0.0:0") // nolint: gosec // this is just example code
 	if err != nil {
 		return err
 	}

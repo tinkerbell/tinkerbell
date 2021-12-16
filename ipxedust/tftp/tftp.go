@@ -14,7 +14,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pin/tftp"
-	"github.com/pkg/errors"
 	"github.com/tinkerbell/boots-ipxe/binary"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -87,7 +86,7 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 
 	content, ok := binary.Files[filepath.Base(shortfile)]
 	if !ok {
-		err := errors.Wrap(os.ErrNotExist, "file unknown")
+		err := fmt.Errorf("file unknown: %w", os.ErrNotExist)
 		l.Error(err, "file unknown")
 		return err
 	}
@@ -104,7 +103,7 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 
 // HandleWrite handles TFTP PUT requests. It will always return an error. This library does not support PUT.
 func (t Handler) HandleWrite(filename string, wt io.WriterTo) error {
-	err := errors.Wrap(os.ErrPermission, "access_violation")
+	err := fmt.Errorf("access_violation: %w", os.ErrPermission)
 	client := net.UDPAddr{}
 	if rpi, ok := wt.(tftp.OutgoingTransfer); ok {
 		client = rpi.RemoteAddr()
