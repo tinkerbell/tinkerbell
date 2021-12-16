@@ -7,6 +7,31 @@
 
 TFTP and HTTP library and cli for serving [iPXE](https://ipxe.org/) binaries.
 
+## Build
+
+```bash
+make build
+```
+
+## Usage
+
+CLI
+
+```bash
+./bin/ipxe-linux -h # ./bin/ipxe-darwin -h
+
+USAGE
+  Run TFTP and HTTP iPXE binary server
+
+FLAGS
+  -http-addr 0.0.0.0:8080  HTTP server address
+  -http-timeout 5s         HTTP server timeout
+  -log-level info          Log level
+  -tftp-addr 0.0.0.0:69    TFTP server address
+  -tftp-timeout 5s         TFTP server timeout
+
+```
+
 ## Design Philosophy
 
 This repository is designed to be both a library and a command line tool.
