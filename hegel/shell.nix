@@ -1,12 +1,12 @@
 let _pkgs = import <nixpkgs> { };
 in { pkgs ? import (_pkgs.fetchFromGitHub {
   owner = "NixOS";
-  repo = "nixpkgs-channels";
-  #branch@date: nixpkgs-unstable@2020-02-01
-  rev = "e3a9318b6fdb2b022c0bda66d399e1e481b24b5c";
-  sha256 = "1hlblna9j0afvcm20p15f5is7cmwl96mc4vavc99ydc4yc9df62a";
+  repo = "nixpkgs";
+  #branch@date: 21.11@2021-12-15
+  rev = "3253c2c9636d4213df47e94fd19b259fba43f323";
+  sha256 = "1z618cgxsdkbqvvbvjbggigwd2m64l2d1ixjs3dg0m1zjv0id969";
 }) { } }:
 
 with pkgs;
 
-mkShell { buildInputs = [ go protobuf ]; }
+mkShell { buildInputs = [ go_1_17 protobuf ]; }
