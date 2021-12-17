@@ -3,6 +3,7 @@ package itftp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -170,6 +171,16 @@ func TestExtractTraceparentFromFilename(t *testing.T) {
 			fileOut: "undionly.ipxe-00-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-abcdefghijklmnop-01",
 			err:     nil,
 		},
+		"ignore corrupt TraceID": {
+			fileIn:  "undionly.ipxe-00-00000000000000000000000000000000-0000000000000000-01",
+			fileOut: "undionly.ipxe-00-00000000000000000000000000000000-0000000000000000-01",
+			err:     fmt.Errorf("parsing OpenTelemetry trace id %q failed: %w", "00000000000000000000000000000000", fmt.Errorf("trace-id can't be all zero")),
+		},
+		"ignore corrupt SpanID": {
+			fileIn:  "undionly.ipxe-00-11111111111111111111111111111111-0000000000000000-01",
+			fileOut: "undionly.ipxe-00-11111111111111111111111111111111-0000000000000000-01",
+			err:     fmt.Errorf("parsing OpenTelemetry span id %q failed: %w", "0000000000000000", fmt.Errorf("span-id can't be all zero")),
+		},
 		"extract tp": {
 			fileIn:  "undionly.ipxe-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01",
 			fileOut: "undionly.ipxe",
@@ -184,7 +195,10 @@ func TestExtractTraceparentFromFilename(t *testing.T) {
 			ctx := context.Background()
 			ctx, outfile, err := extractTraceparentFromFilename(ctx, tc.fileIn)
 			if !errors.Is(err, tc.err) {
-				t.Errorf("filename %q should have resulted in error %q but got %q", tc.fileIn, tc.err, err)
+				if diff := cmp.Diff(fmt.Sprint(err), fmt.Sprint(tc.err)); diff != "" {
+					t.Errorf(diff)
+					t.Errorf("filename %q should have resulted in error %q but got %q", tc.fileIn, tc.err, err)
+				}
 			}
 			if outfile != tc.fileOut {
 				t.Errorf("filename %q should have resulted in %q but got %q", tc.fileIn, tc.fileOut, outfile)
