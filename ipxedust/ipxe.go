@@ -117,17 +117,17 @@ func (c *Server) listenAndServeHTTP(ctx context.Context) error {
 		ReadTimeout: c.HTTP.Timeout,
 	}
 	c.Log.Info("serving HTTP", "addr", c.HTTP.Addr.String(), "timeout", c.HTTP.Timeout)
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- ihttp.ListenAndServe(ctx, c.HTTP.Addr, hs)
-	}()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return ihttp.ListenAndServe(ctx, c.HTTP.Addr, hs)
+	})
 
 	<-ctx.Done()
 	err := hs.Shutdown(ctx)
 	if err != nil {
 		return err
 	}
-	err = <-errChan
+	err = g.Wait()
 	if errors.Is(err, http.ErrServerClosed) {
 		err = nil
 	}
@@ -147,17 +147,17 @@ func (c *Server) serveHTTP(ctx context.Context, l net.Listener) error {
 		ReadTimeout: c.HTTP.Timeout,
 	}
 	c.Log.Info("serving HTTP", "addr", l.Addr().String(), "timeout", c.HTTP.Timeout)
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- ihttp.Serve(ctx, l, hs)
-	}()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return ihttp.Serve(ctx, l, hs)
+	})
 
 	<-ctx.Done()
 	err := hs.Shutdown(ctx)
 	if err != nil {
 		return err
 	}
-	err = <-errChan
+	err = g.Wait()
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
@@ -177,11 +177,11 @@ func (c *Server) listenAndServeTFTP(ctx context.Context) error {
 	h := &itftp.Handler{Log: c.Log}
 	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
 	ts.SetTimeout(c.TFTP.Timeout)
-	errChan := make(chan error, 1)
 	c.Log.Info("serving TFTP", "addr", c.TFTP.Addr, "timeout", c.TFTP.Timeout)
-	go func() {
-		errChan <- itftp.Serve(ctx, conn, ts)
-	}()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return itftp.Serve(ctx, conn, ts)
+	})
 	// The time.Sleep(time.Second) is load bearing. It allows the tftp server shutdown below to not nil pointer error
 	// if a canceled context is passed in to the serveTFTP() function. This happens because itftp.Serve must be called
 	// for ts.conn to be populated. ts.Shutdown needs ts.conn to be populated to close the connection or else it panics.
@@ -203,7 +203,7 @@ func (c *Server) listenAndServeTFTP(ctx context.Context) error {
 	<-ctx.Done()
 	ts.Shutdown()
 
-	return <-errChan
+	return g.Wait()
 }
 
 func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
@@ -215,10 +215,10 @@ func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
 	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
 	ts.SetTimeout(c.TFTP.Timeout)
 	c.Log.Info("serving TFTP", "addr", conn.LocalAddr().String(), "timeout", c.TFTP.Timeout)
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- itftp.Serve(ctx, conn, ts)
-	}()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return itftp.Serve(ctx, conn, ts)
+	})
 	// The time.Sleep(time.Second) is load bearing. It allows the tftp server shutdown below to not nil pointer error
 	// if a canceled context is passed in to the serveTFTP() function. This happens because itftp.Serve must be called
 	// for ts.conn to be populated. ts.Shutdown needs ts.conn to be populated to close the connection or else it panics.
@@ -239,7 +239,7 @@ func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
 	time.Sleep(time.Second)
 	<-ctx.Done()
 	ts.Shutdown()
-	return <-errChan
+	return g.Wait()
 }
 
 // Transformer for merging the netaddr.IPPort and logr.Logger structs.
