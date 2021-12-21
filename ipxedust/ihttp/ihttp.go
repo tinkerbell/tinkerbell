@@ -73,10 +73,10 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	host, port, _ := net.SplitHostPort(req.RemoteAddr)
-	s.Log = s.Log.WithValues("host", host, "port", port)
+	log := s.Log.WithValues("host", host, "port", port)
 	// If a mac address is provided, log it. Mac address is optional.
 	mac := parseMac(req.URL.Path)
-	s.Log = s.Log.WithValues("mac", mac.String())
+	log = log.WithValues("mac", mac.String())
 	filename := filepath.Base(req.URL.Path)
 
 	// clients can send traceparent over HTTP by appending the traceparent string
@@ -84,10 +84,10 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	longfile := filename // hang onto this to report in traces
 	ctx, shortfile, err := extractTraceparentFromFilename(context.Background(), filename)
 	if err != nil {
-		s.Log.Error(err, "failed to extract traceparent from filename")
+		log.Error(err, "failed to extract traceparent from filename")
 	}
 	if shortfile != filename {
-		s.Log.Info("traceparent found in filename", "filename_with_traceparent", longfile, "filename", shortfile)
+		log.Info("traceparent found in filename", "filename_with_traceparent", longfile, "filename", shortfile)
 		filename = shortfile
 	}
 
@@ -103,20 +103,20 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	span.SetStatus(codes.Ok, filename)
 	span.End()
 
-	s.Log = s.Log.WithValues("filename", filename)
+	log = log.WithValues("filename", filename)
 	file, found := binary.Files[filename]
 	if !found {
-		s.Log.Info("requested file not found")
+		log.Info("requested file not found")
 		http.NotFound(w, req)
 		return
 	}
 	b, err := w.Write(file)
 	if err != nil {
-		s.Log.Error(err, "error serving file")
+		log.Error(err, "error serving file")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	s.Log.Info("file served", "bytes sent", b, "file size", len(file))
+	log.Info("file served", "bytes sent", b, "file size", len(file))
 }
 
 // extractTraceparentFromFilename takes a context and filename and checks the filename for
