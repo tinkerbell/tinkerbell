@@ -1,4 +1,4 @@
-FROM golang:1.15-alpine
+FROM golang:1.17.5-alpine
 COPY . /usr/myapp
 WORKDIR /usr/myapp
 RUN mkdir -p bin && go build -o ./bin ./...
