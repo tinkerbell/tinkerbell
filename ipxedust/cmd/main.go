@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/tinkerbell/boots-ipxe/cmd/ipxe"
+	ipxe "github.com/tinkerbell/boots-ipxe"
 )
 
 func main() {

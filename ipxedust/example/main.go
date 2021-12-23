@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/stdr"
 	ipxe "github.com/tinkerbell/boots-ipxe"
-	cli "github.com/tinkerbell/boots-ipxe/cmd/ipxe"
 )
 
 func main() {
@@ -68,5 +67,5 @@ func serve(ctx context.Context, logger logr.Logger) error {
 }
 
 func serveCLI(ctx context.Context, _ logr.Logger) error {
-	return cli.Execute(ctx, os.Args[1:])
+	return ipxe.Execute(ctx, os.Args[1:])
 }

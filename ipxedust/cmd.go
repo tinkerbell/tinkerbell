@@ -13,7 +13,6 @@ import (
 	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/rs/zerolog"
-	ipxe "github.com/tinkerbell/boots-ipxe"
 	"inet.af/netaddr"
 )
 
@@ -81,12 +80,12 @@ func (c *Command) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	srv := ipxe.Server{
-		TFTP: ipxe.ServerSpec{
+	srv := Server{
+		TFTP: ServerSpec{
 			Addr:    tAddr,
 			Timeout: c.TFTPTimeout,
 		},
-		HTTP: ipxe.ServerSpec{
+		HTTP: ServerSpec{
 			Addr:    hAddr,
 			Timeout: c.HTTPTimeout,
 		},
