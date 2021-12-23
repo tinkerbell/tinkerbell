@@ -15,7 +15,6 @@ import (
 )
 
 func main() {
-
 	ctx := context.Background()
 	/*
 		ctx, otelShutdown := otelinit.InitOpenTelemetry(ctx, "ipxe")

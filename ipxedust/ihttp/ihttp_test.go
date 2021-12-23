@@ -158,14 +158,12 @@ func TestHandleHTTP_Handler(t *testing.T) {
 			var resp *http.Response
 			if tt.failWrite {
 				w := newFakeResponse()
-				//h := Handler{Log: logr.Discard()}
 				h := Handler{Log: logger}
 				h.Handle(w, req)
 				resp = w.Result()
 			} else {
 				w := httptest.NewRecorder()
 				h := Handler{Log: logger}
-				//h := Handler{Log: logr.Discard()}
 				h.Handle(w, req)
 				resp = w.Result()
 			}

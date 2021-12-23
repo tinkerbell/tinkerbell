@@ -51,12 +51,10 @@ func Serve(_ context.Context, conn net.Listener, h *http.Server) error {
 }
 
 func parseMac(urlPath string) net.HardwareAddr {
-	p := path.Dir(urlPath)
 	var name string
-	if strings.HasPrefix(p, "/") {
-		s := path.Dir(urlPath)
-		_, i := utf8.DecodeRuneInString(s)
-		name = s[i:]
+	if p := path.Dir(urlPath); strings.HasPrefix(p, "/") {
+		_, i := utf8.DecodeRuneInString(p)
+		name = p[i:]
 	}
 	mac, err := net.ParseMAC(name)
 	if err != nil {
@@ -78,6 +76,7 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	mac := parseMac(req.URL.Path)
 	log = log.WithValues("mac", mac.String())
 	filename := filepath.Base(req.URL.Path)
+	log = log.WithValues("filename", filename)
 
 	// clients can send traceparent over HTTP by appending the traceparent string
 	// to the end of the filename they really want
@@ -87,7 +86,8 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 		log.Error(err, "failed to extract traceparent from filename")
 	}
 	if shortfile != filename {
-		log.Info("traceparent found in filename", "filename_with_traceparent", longfile, "filename", shortfile)
+		log = log.WithValues("shortfile", shortfile)
+		log.Info("traceparent found in filename", "filenameWithTraceparent", longfile)
 		filename = shortfile
 	}
 
@@ -103,7 +103,6 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	span.SetStatus(codes.Ok, filename)
 	span.End()
 
-	log = log.WithValues("filename", filename)
 	file, found := binary.Files[filename]
 	if !found {
 		log.Info("requested file not found")
@@ -116,7 +115,7 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	log.Info("file served", "bytes sent", b, "file size", len(file))
+	log.Info("file served", "bytesSent", b, "fileSize", len(file))
 }
 
 // extractTraceparentFromFilename takes a context and filename and checks the filename for
