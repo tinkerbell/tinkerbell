@@ -99,7 +99,7 @@ func TestListenAndServeHTTP(t *testing.T) {
 	}
 }
 
-func TestHandleHTTP_Handler(t *testing.T) {
+func TestHandle(t *testing.T) {
 	type req struct {
 		method string
 		url    string
@@ -127,7 +127,7 @@ func TestHandleHTTP_Handler(t *testing.T) {
 			},
 		},
 		{
-			name: "success but with bad traceparent",
+			name: "fail with bad traceparent",
 			req:  req{method: "GET", url: "/30:23:03:73:a5:a7/snp.efi-00-00000000000000000000000000000000-d887dc3912240434-01"},
 			want: &http.Response{
 				StatusCode: http.StatusNotFound,

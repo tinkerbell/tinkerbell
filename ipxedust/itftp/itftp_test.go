@@ -93,7 +93,7 @@ func TestListenAndServeTFTP(t *testing.T) {
 	}
 }
 
-func TestHandlerTFTP_ReadHandler(t *testing.T) {
+func TestHandleRead(t *testing.T) {
 	tests := []struct {
 		name     string
 		fileName string
@@ -111,15 +111,18 @@ func TestHandlerTFTP_ReadHandler(t *testing.T) {
 			want:     binary.Files["snp.efi"],
 		},
 		{
+			name:     "fail with bad traceparent",
+			fileName: "snp.efi-00-00000000000000000000000000000000-d887dc3912240434-01",
+			wantErr:  os.ErrNotExist,
+		},
+		{
 			name:     "fail - not found",
 			fileName: "not-found",
-			want:     []byte{},
 			wantErr:  os.ErrNotExist,
 		},
 		{
 			name:     "failure - with read error",
 			fileName: "snp.efi",
-			want:     []byte{},
 			wantErr:  net.ErrClosed,
 		},
 	}
@@ -136,6 +139,9 @@ func TestHandlerTFTP_ReadHandler(t *testing.T) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("error mismatch, got: %T, want: %T", err, tt.wantErr)
 			}
+			if tt.wantErr != nil {
+				tt.want = []byte{}
+			}
 			if diff := cmp.Diff(rf.content, tt.want); diff != "" {
 				t.Fatal(diff)
 			}
@@ -143,7 +149,7 @@ func TestHandlerTFTP_ReadHandler(t *testing.T) {
 	}
 }
 
-func TestHandlerTFTP_WriteHandler(t *testing.T) {
+func TestHandleWrite(t *testing.T) {
 	ht := &Handler{Log: logr.Discard()}
 	rf := &fakeReaderFrom{addr: net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999}}
 	err := ht.HandleWrite("snp.efi", rf)
