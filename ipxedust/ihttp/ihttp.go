@@ -1,5 +1,5 @@
 // Package http implements an HTTP server for iPXE binaries.
-package http
+package ihttp
 
 import (
 	"context"
