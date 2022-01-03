@@ -34,6 +34,8 @@ type ServerSpec struct {
 	Addr netaddr.IPPort
 	// Timeout is the timeout for serving individual requests.
 	Timeout time.Duration
+	// Disabled allows a server to be disabled. Useful, for example, to disable TFTP.
+	Disabled bool
 }
 
 // ListenAndServe will listen and serve iPXE binaries over TFTP and HTTP.
@@ -59,12 +61,16 @@ func (c *Server) ListenAndServe(ctx context.Context) error {
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return c.listenAndServeTFTP(ctx)
-	})
-	g.Go(func() error {
-		return c.listenAndServeHTTP(ctx)
-	})
+	if !c.TFTP.Disabled {
+		g.Go(func() error {
+			return c.listenAndServeTFTP(ctx)
+		})
+	}
+	if !c.HTTP.Disabled {
+		g.Go(func() error {
+			return c.listenAndServeHTTP(ctx)
+		})
+	}
 
 	<-ctx.Done()
 	err = g.Wait()
@@ -92,12 +98,16 @@ func (c *Server) Serve(ctx context.Context, tcpConn net.Listener, udpConn net.Pa
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return c.serveTFTP(ctx, udpConn)
-	})
-	g.Go(func() error {
-		return c.serveHTTP(ctx, tcpConn)
-	})
+	if !c.TFTP.Disabled {
+		g.Go(func() error {
+			return c.serveTFTP(ctx, udpConn)
+		})
+	}
+	if !c.HTTP.Disabled {
+		g.Go(func() error {
+			return c.serveHTTP(ctx, tcpConn)
+		})
+	}
 
 	<-ctx.Done()
 	err = g.Wait()
