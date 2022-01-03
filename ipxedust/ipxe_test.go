@@ -40,6 +40,7 @@ func TestListenAndServe(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &Server{
 				TFTP: tt.tftp,
+				HTTP: tt.http,
 			}
 			ctx, cn := context.WithCancel(context.Background())
 
