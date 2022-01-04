@@ -1,4 +1,4 @@
-# BEGIN: lint-install tinkerbell/boots-ipxe
+# BEGIN: lint-install tinkerbell/ipxedust
 # http://github.com/tinkerbell/lint-install
 
 .PHONY: lint
@@ -72,4 +72,4 @@ _lint: $(LINTERS)
 .PHONY: fix $(FIXERS)
 fix: $(FIXERS)
 
-# END: lint-install tinkerbell/boots-ipxe
+# END: lint-install tinkerbell/ipxedust

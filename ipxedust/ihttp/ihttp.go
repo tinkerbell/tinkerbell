@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-logr/logr"
-	"github.com/tinkerbell/boots-ipxe/binary"
+	"github.com/tinkerbell/ipxedust/binary"
 	"inet.af/netaddr"
 )
 

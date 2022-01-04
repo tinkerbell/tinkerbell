@@ -1,6 +1,6 @@
 # Design Philosophy
 
-This living document describes some Go design philosophies we endeavor to use/start with when working, building, or writing `boots-ipxe`.
+This living document describes some Go design philosophies we endeavor to use/start with when working, building, or writing `ipxedust`.
 
 ## General
 

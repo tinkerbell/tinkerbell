@@ -1,4 +1,4 @@
-module github.com/tinkerbell/boots-ipxe
+module github.com/tinkerbell/ipxedust
 
 go 1.17
 
