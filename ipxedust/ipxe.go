@@ -79,6 +79,7 @@ func (c *Server) ListenAndServe(ctx context.Context) error {
 	return err
 }
 
+// Serve iPXE binaries over TFTP using udpConn and HTTP using tcpConn.
 func (c *Server) Serve(ctx context.Context, tcpConn net.Listener, udpConn net.PacketConn) error {
 	if tcpConn == nil {
 		return errors.New("tcp listener must not be nil")
