@@ -26,6 +26,18 @@ type Server struct {
 	HTTP ServerSpec
 	// Log is the logger to use.
 	Log logr.Logger
+	// EnableTFTPSinglePort is a flag to enable single port mode for the TFTP server.
+	// A standard TFTP server implementation receives requests on port 69 and
+	// allocates a new high port (over 1024) dedicated to that request. In single
+	// port mode, the same port is used for transmit and receive. If the server
+	// is started on port 69, all communication will be done on port 69.
+	// This option is required when running in a container that doesn't bind to the hosts
+	// network because this type of dynamic port allocation is not generally supported.
+	//
+	// This option is specific to github.com/pin/tftp. The pin/tftp library says this option is
+	// experimental and "Enabling this will negatively impact performance". Please take this into
+	// consideration when using this option.
+	EnableTFTPSinglePort bool
 }
 
 // ServerSpec holds details used to configure a server.
@@ -187,7 +199,10 @@ func (c *Server) listenAndServeTFTP(ctx context.Context) error {
 	h := &itftp.Handler{Log: c.Log}
 	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
 	ts.SetTimeout(c.TFTP.Timeout)
-	c.Log.Info("serving TFTP", "addr", c.TFTP.Addr, "timeout", c.TFTP.Timeout)
+	if c.EnableTFTPSinglePort {
+		ts.EnableSinglePort()
+	}
+	c.Log.Info("serving TFTP", "addr", c.TFTP.Addr, "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return itftp.Serve(ctx, conn, ts)
@@ -211,6 +226,7 @@ func (c *Server) listenAndServeTFTP(ctx context.Context) error {
 	*/
 	time.Sleep(time.Second)
 	<-ctx.Done()
+	conn.Close()
 	ts.Shutdown()
 
 	return g.Wait()
@@ -224,7 +240,10 @@ func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
 	h := &itftp.Handler{Log: c.Log}
 	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
 	ts.SetTimeout(c.TFTP.Timeout)
-	c.Log.Info("serving TFTP", "addr", conn.LocalAddr().String(), "timeout", c.TFTP.Timeout)
+	if c.EnableTFTPSinglePort {
+		ts.EnableSinglePort()
+	}
+	c.Log.Info("serving TFTP", "addr", conn.LocalAddr().String(), "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return itftp.Serve(ctx, conn, ts)
@@ -248,6 +267,7 @@ func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
 	*/
 	time.Sleep(time.Second)
 	<-ctx.Done()
+	conn.Close()
 	ts.Shutdown()
 	return g.Wait()
 }

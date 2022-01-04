@@ -30,6 +30,18 @@ type Command struct {
 	Log logr.Logger
 	// LogLevel defines the logging level.
 	LogLevel string
+	// EnableTFTPSinglePort is a flag to enable single port mode for the TFTP server.
+	// A standard TFTP server implementation receives requests on port 69 and
+	// allocates a new high port (over 1024) dedicated to that request. In single
+	// port mode, the same port is used for transmit and receive. If the server
+	// is started on port 69, all communication will be done on port 69.
+	// This option is required when running in a container that doesn't bind to the hosts
+	// network because this type of dynamic port allocation is not generally supported.
+	//
+	// This option is specific to github.com/pin/tftp. The pin/tftp library says this option is
+	// experimental and "Enabling this will negatively impact performance". Please take this into
+	// consideration when using this option.
+	EnableTFTPSinglePort bool
 }
 
 // Execute runs the ipxe command.
@@ -101,6 +113,7 @@ func (c *Command) RegisterFlags(f *flag.FlagSet) {
 	f.StringVar(&c.HTTPAddr, "http-addr", "0.0.0.0:8080", "HTTP server address")
 	f.DurationVar(&c.HTTPTimeout, "http-timeout", time.Second*5, "HTTP server timeout")
 	f.StringVar(&c.LogLevel, "log-level", "info", "Log level")
+	f.BoolVar(&c.EnableTFTPSinglePort, "tftp-single-port", false, "Enable single port mode for TFTP server (needed for container deploys)")
 }
 
 // Validate checks the Command struct for validation errors.

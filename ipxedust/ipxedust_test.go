@@ -39,8 +39,9 @@ func TestListenAndServe(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &Server{
-				TFTP: tt.tftp,
-				HTTP: tt.http,
+				TFTP:                 tt.tftp,
+				HTTP:                 tt.http,
+				EnableTFTPSinglePort: true,
 			}
 			ctx, cn := context.WithCancel(context.Background())
 
@@ -49,6 +50,7 @@ func TestListenAndServe(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				err = got.ListenAndServe(ctx)
+
 				wg.Done()
 			}()
 			cn()
@@ -98,7 +100,8 @@ func TestServe(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &Server{
-				TFTP: tt.tftp,
+				TFTP:                 tt.tftp,
+				EnableTFTPSinglePort: true,
 			}
 			ctx, cn := context.WithCancel(context.Background())
 
