@@ -27,6 +27,7 @@ func TestCommand_RegisterFlags(t *testing.T) {
 			fs.StringVar(&c.HTTPAddr, "http-addr", "0.0.0.0:8080", "HTTP server address")
 			fs.DurationVar(&c.HTTPTimeout, "http-timeout", time.Second*5, "HTTP server timeout")
 			fs.StringVar(&c.LogLevel, "log-level", "info", "Log level")
+			fs.BoolVar(&c.EnableTFTPSinglePort, "tftp-single-port", false, "Enable single port mode for TFTP server (needed for container deploys)")
 			return fs
 		}()},
 	}
