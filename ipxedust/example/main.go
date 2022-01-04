@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/stdr"
-	ipxe "github.com/tinkerbell/boots-ipxe"
+	"github.com/tinkerbell/ipxedust"
 )
 
 func main() {
@@ -44,7 +44,7 @@ func main() {
 }
 
 func listenAndServe(ctx context.Context, logger logr.Logger) error {
-	s := ipxe.Server{Log: logger}
+	s := ipxedust.Server{Log: logger}
 	return s.ListenAndServe(ctx)
 }
 
@@ -62,10 +62,10 @@ func serve(ctx context.Context, logger logr.Logger) error {
 		return err
 	}
 
-	s := ipxe.Server{Log: logger}
+	s := ipxedust.Server{Log: logger}
 	return s.Serve(ctx, conn, uconn)
 }
 
 func serveCLI(ctx context.Context, _ logr.Logger) error {
-	return ipxe.Execute(ctx, os.Args[1:])
+	return ipxedust.Execute(ctx, os.Args[1:])
 }

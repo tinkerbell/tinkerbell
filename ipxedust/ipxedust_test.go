@@ -1,4 +1,4 @@
-package ipxe
+package ipxedust
 
 import (
 	"context"

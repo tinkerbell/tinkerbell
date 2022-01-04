@@ -1,5 +1,5 @@
 // Package ipxe implements the iPXE tftp and http serving.
-package ipxe
+package ipxedust
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/imdario/mergo"
 	"github.com/pin/tftp"
-	"github.com/tinkerbell/boots-ipxe/ihttp"
-	"github.com/tinkerbell/boots-ipxe/itftp"
+	"github.com/tinkerbell/ipxedust/ihttp"
+	"github.com/tinkerbell/ipxedust/itftp"
 	"golang.org/x/sync/errgroup"
 	"inet.af/netaddr"
 )

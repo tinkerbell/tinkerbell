@@ -14,7 +14,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pin/tftp"
-	"github.com/tinkerbell/boots-ipxe/binary"
+	"github.com/tinkerbell/ipxedust/binary"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"

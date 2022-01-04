@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	ipxe "github.com/tinkerbell/boots-ipxe"
+	"github.com/tinkerbell/ipxedust"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
 	defer done()
 
-	if err := ipxe.Execute(ctx, os.Args[1:]); err != nil && !errors.Is(err, context.Canceled) {
+	if err := ipxedust.Execute(ctx, os.Args[1:]); err != nil && !errors.Is(err, context.Canceled) {
 		fmt.Fprintln(os.Stderr, err)
 		exitCode = 1
 	}
