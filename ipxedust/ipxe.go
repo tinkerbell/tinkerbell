@@ -12,8 +12,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/imdario/mergo"
 	"github.com/pin/tftp"
-	ihttp "github.com/tinkerbell/boots-ipxe/http"
-	itftp "github.com/tinkerbell/boots-ipxe/tftp"
+	"github.com/tinkerbell/boots-ipxe/ihttp"
+	"github.com/tinkerbell/boots-ipxe/itftp"
 	"golang.org/x/sync/errgroup"
 	"inet.af/netaddr"
 )
