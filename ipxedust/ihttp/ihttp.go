@@ -1,4 +1,4 @@
-// Package http implements an HTTP server for iPXE binaries.
+// Package ihttp implements an HTTP server for iPXE binaries.
 package ihttp
 
 import (
