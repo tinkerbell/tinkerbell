@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/ipxedust/binary"
@@ -50,19 +49,6 @@ func Serve(_ context.Context, conn net.Listener, h *http.Server) error {
 	return h.Serve(conn)
 }
 
-func parseMac(urlPath string) net.HardwareAddr {
-	var name string
-	if p := path.Dir(urlPath); strings.HasPrefix(p, "/") {
-		_, i := utf8.DecodeRuneInString(p)
-		name = p[i:]
-	}
-	mac, err := net.ParseMAC(name)
-	if err != nil {
-		return nil
-	}
-	return mac
-}
-
 // Handle handles responses to HTTP requests.
 func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	s.Log.V(1).Info("handling request", "method", req.Method, "path", req.URL.Path)
@@ -73,8 +59,8 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	host, port, _ := net.SplitHostPort(req.RemoteAddr)
 	log := s.Log.WithValues("host", host, "port", port)
 	// If a mac address is provided, log it. Mac address is optional.
-	mac := parseMac(req.URL.Path)
-	log = log.WithValues("mac", mac.String())
+	mac, _ := net.ParseMAC(strings.TrimPrefix(path.Dir(req.URL.Path), "/"))
+	log = log.WithValues("macFromURI", mac.String())
 	filename := filepath.Base(req.URL.Path)
 	log = log.WithValues("filename", filename)
 

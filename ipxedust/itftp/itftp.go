@@ -70,7 +70,7 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 	}
 	// If a mac address is provided, log it. Mac address is optional.
 	mac, _ := net.ParseMAC(path.Dir(full))
-	log = log.WithValues("mac", mac.String())
+	log = log.WithValues("macFromURI", mac.String())
 
 	tracer := otel.Tracer("TFTP")
 	_, span := tracer.Start(ctx, "TFTP get",
@@ -86,7 +86,7 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 
 	content, ok := binary.Files[filepath.Base(shortfile)]
 	if !ok {
-		err := fmt.Errorf("file unknown: %w", os.ErrNotExist)
+		err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
 		log.Error(err, "file unknown")
 		return err
 	}
