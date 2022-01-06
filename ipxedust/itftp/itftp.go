@@ -1,4 +1,4 @@
-// Package tftp implements a TFTP server for iPXE binaries.
+// Package itftp implements a TFTP server for iPXE binaries.
 package itftp
 
 import (
@@ -54,23 +54,24 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 
 	full := filename
 	filename = path.Base(filename)
-	l := t.Log.WithValues("event", "get", "filename", filename, "uri", full, "client", client)
+	log := t.Log.WithValues("event", "get", "filename", filename, "uri", full, "client", client)
 
 	// clients can send traceparent over TFTP by appending the traceparent string
 	// to the end of the filename they really want
 	longfile := filename // hang onto this to report in traces
 	ctx, shortfile, err := extractTraceparentFromFilename(context.Background(), filename)
 	if err != nil {
-		l.Error(err, "")
+		log.Error(err, "failed to extract traceparent from filename")
 	}
 	if shortfile != filename {
-		l = l.WithValues("filename", shortfile) // flip to the short filename in logs
-		l.Info("client requested filename '", filename, "' with a traceparent attached and has been shortened to '", shortfile, "'")
+		log = log.WithValues("shortfile", shortfile)
+		log.Info("traceparent found in filename", "filenameWithTraceparent", longfile)
 		filename = shortfile
 	}
-	// If a mac address is provided, log it. Mac address is optional.
-	mac, _ := net.ParseMAC(path.Dir(full))
-	l = l.WithValues("mac", mac.String())
+	// If a mac address is provided (0a:00:27:00:00:02/snp.efi), parse and log it.
+	// Mac address is optional.
+	optionalMac, _ := net.ParseMAC(path.Dir(full))
+	log = log.WithValues("macFromURI", optionalMac.String())
 
 	tracer := otel.Tracer("TFTP")
 	_, span := tracer.Start(ctx, "TFTP get",
@@ -78,7 +79,7 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 		trace.WithAttributes(attribute.String("filename", filename)),
 		trace.WithAttributes(attribute.String("requested-filename", longfile)),
 		trace.WithAttributes(attribute.String("ip", client.IP.String())),
-		trace.WithAttributes(attribute.String("mac", mac.String())),
+		trace.WithAttributes(attribute.String("mac", optionalMac.String())),
 	)
 
 	span.SetStatus(codes.Ok, filename)
@@ -86,18 +87,18 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 
 	content, ok := binary.Files[filepath.Base(shortfile)]
 	if !ok {
-		err := fmt.Errorf("file unknown: %w", os.ErrNotExist)
-		l.Error(err, "file unknown")
+		err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
+		log.Error(err, "file unknown")
 		return err
 	}
 	ct := bytes.NewReader(content)
 
 	b, err := rf.ReadFrom(ct)
 	if err != nil {
-		l.Error(err, "file serve failed", "b", b, "content size", len(content))
+		log.Error(err, "file serve failed", "b", b, "contentSize", len(content))
 		return err
 	}
-	l.Info("file served", "bytes sent", b, "content size", len(content))
+	log.Info("file served", "bytesSent", b, "contentSize", len(content))
 	return nil
 }
 

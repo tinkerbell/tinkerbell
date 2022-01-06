@@ -3,6 +3,7 @@ package itftp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -92,7 +93,7 @@ func TestListenAndServeTFTP(t *testing.T) {
 	}
 }
 
-func TestHandlerTFTP_ReadHandler(t *testing.T) {
+func TestHandleRead(t *testing.T) {
 	tests := []struct {
 		name     string
 		fileName string
@@ -110,15 +111,18 @@ func TestHandlerTFTP_ReadHandler(t *testing.T) {
 			want:     binary.Files["snp.efi"],
 		},
 		{
+			name:     "fail with bad traceparent",
+			fileName: "snp.efi-00-00000000000000000000000000000000-d887dc3912240434-01",
+			wantErr:  os.ErrNotExist,
+		},
+		{
 			name:     "fail - not found",
 			fileName: "not-found",
-			want:     []byte{},
 			wantErr:  os.ErrNotExist,
 		},
 		{
 			name:     "failure - with read error",
 			fileName: "snp.efi",
-			want:     []byte{},
 			wantErr:  net.ErrClosed,
 		},
 	}
@@ -135,6 +139,9 @@ func TestHandlerTFTP_ReadHandler(t *testing.T) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("error mismatch, got: %T, want: %T", err, tt.wantErr)
 			}
+			if tt.wantErr != nil {
+				tt.want = []byte{}
+			}
 			if diff := cmp.Diff(rf.content, tt.want); diff != "" {
 				t.Fatal(diff)
 			}
@@ -142,7 +149,7 @@ func TestHandlerTFTP_ReadHandler(t *testing.T) {
 	}
 }
 
-func TestHandlerTFTP_WriteHandler(t *testing.T) {
+func TestHandleWrite(t *testing.T) {
 	ht := &Handler{Log: logr.Discard()}
 	rf := &fakeReaderFrom{addr: net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999}}
 	err := ht.HandleWrite("snp.efi", rf)
@@ -170,6 +177,16 @@ func TestExtractTraceparentFromFilename(t *testing.T) {
 			fileOut: "undionly.ipxe-00-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-abcdefghijklmnop-01",
 			err:     nil,
 		},
+		"ignore corrupt TraceID": {
+			fileIn:  "undionly.ipxe-00-00000000000000000000000000000000-0000000000000000-01",
+			fileOut: "undionly.ipxe-00-00000000000000000000000000000000-0000000000000000-01",
+			err:     fmt.Errorf("parsing OpenTelemetry trace id %q failed: %w", "00000000000000000000000000000000", fmt.Errorf("trace-id can't be all zero")),
+		},
+		"ignore corrupt SpanID": {
+			fileIn:  "undionly.ipxe-00-11111111111111111111111111111111-0000000000000000-01",
+			fileOut: "undionly.ipxe-00-11111111111111111111111111111111-0000000000000000-01",
+			err:     fmt.Errorf("parsing OpenTelemetry span id %q failed: %w", "0000000000000000", fmt.Errorf("span-id can't be all zero")),
+		},
 		"extract tp": {
 			fileIn:  "undionly.ipxe-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01",
 			fileOut: "undionly.ipxe",
@@ -184,7 +201,10 @@ func TestExtractTraceparentFromFilename(t *testing.T) {
 			ctx := context.Background()
 			ctx, outfile, err := extractTraceparentFromFilename(ctx, tc.fileIn)
 			if !errors.Is(err, tc.err) {
-				t.Errorf("filename %q should have resulted in error %q but got %q", tc.fileIn, tc.err, err)
+				if diff := cmp.Diff(fmt.Sprint(err), fmt.Sprint(tc.err)); diff != "" {
+					t.Errorf(diff)
+					t.Errorf("filename %q should have resulted in error %q but got %q", tc.fileIn, tc.err, err)
+				}
 			}
 			if outfile != tc.fileOut {
 				t.Errorf("filename %q should have resulted in %q but got %q", tc.fileIn, tc.fileOut, outfile)

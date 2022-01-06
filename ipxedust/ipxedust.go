@@ -1,4 +1,4 @@
-// Package ipxe implements the iPXE tftp and http serving.
+// Package ipxedust implements the iPXE tftp and http serving.
 package ipxedust
 
 import (
