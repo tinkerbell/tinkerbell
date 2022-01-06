@@ -64,6 +64,7 @@ func NewServer(l log.Logger, hc hardware.Client) (*Server, error) {
 	s := &Server{
 		log:            l,
 		hardwareClient: hc,
+		subLock:        &sync.RWMutex{},
 		subscriptions:  make(map[string]*Subscription),
 	}
 	return s, nil
