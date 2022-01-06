@@ -58,9 +58,10 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	}
 	host, port, _ := net.SplitHostPort(req.RemoteAddr)
 	log := s.Log.WithValues("host", host, "port", port)
-	// If a mac address is provided, log it. Mac address is optional.
-	mac, _ := net.ParseMAC(strings.TrimPrefix(path.Dir(req.URL.Path), "/"))
-	log = log.WithValues("macFromURI", mac.String())
+	// If a mac address is provided (/0a:00:27:00:00:02/snp.efi), parse and log it.
+	// Mac address is optional.
+	optionalMac, _ := net.ParseMAC(strings.TrimPrefix(path.Dir(req.URL.Path), "/"))
+	log = log.WithValues("macFromURI", optionalMac.String())
 	filename := filepath.Base(req.URL.Path)
 	log = log.WithValues("filename", filename)
 
@@ -83,7 +84,7 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 		trace.WithAttributes(attribute.String("filename", filename)),
 		trace.WithAttributes(attribute.String("requested-filename", longfile)),
 		trace.WithAttributes(attribute.String("ip", host)),
-		trace.WithAttributes(attribute.String("mac", mac.String())),
+		trace.WithAttributes(attribute.String("mac", optionalMac.String())),
 	)
 
 	span.SetStatus(codes.Ok, filename)

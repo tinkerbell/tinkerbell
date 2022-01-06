@@ -68,9 +68,10 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 		log.Info("traceparent found in filename", "filenameWithTraceparent", longfile)
 		filename = shortfile
 	}
-	// If a mac address is provided, log it. Mac address is optional.
-	mac, _ := net.ParseMAC(path.Dir(full))
-	log = log.WithValues("macFromURI", mac.String())
+	// If a mac address is provided (0a:00:27:00:00:02/snp.efi), parse and log it.
+	// Mac address is optional.
+	optionalMac, _ := net.ParseMAC(path.Dir(full))
+	log = log.WithValues("macFromURI", optionalMac.String())
 
 	tracer := otel.Tracer("TFTP")
 	_, span := tracer.Start(ctx, "TFTP get",
@@ -78,7 +79,7 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 		trace.WithAttributes(attribute.String("filename", filename)),
 		trace.WithAttributes(attribute.String("requested-filename", longfile)),
 		trace.WithAttributes(attribute.String("ip", client.IP.String())),
-		trace.WithAttributes(attribute.String("mac", mac.String())),
+		trace.WithAttributes(attribute.String("mac", optionalMac.String())),
 	)
 
 	span.SetStatus(codes.Ok, filename)
