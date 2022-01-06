@@ -154,9 +154,15 @@ func (s *Server) Get(ctx context.Context, _ *hegel.GetRequest) (*hegel.GetRespon
 		return nil, errors.New("could not get peer info from client")
 	}
 	s.log.With("client", p.Addr, "op", "get").Info()
-	userIP := p.Addr.(*net.TCPAddr).IP.String()
 
-	hw, err := s.hardwareClient.ByIP(ctx, userIP)
+	var ip string
+	if tcp, ok := p.Addr.(*net.TCPAddr); ok {
+		ip = tcp.IP.String()
+	} else {
+		ip = p.Addr.String()
+	}
+
+	hw, err := s.hardwareClient.ByIP(ctx, ip)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +196,13 @@ func (s *Server) Subscribe(_ *hegel.SubscribeRequest, stream hegel.Hegel_Subscri
 		return initError(errors.New("could not get peer info from client"))
 	}
 
-	ip := p.Addr.(*net.TCPAddr).IP.String()
+	var ip string
+	if tcp, ok := p.Addr.(*net.TCPAddr); ok {
+		ip = tcp.IP.String()
+	} else {
+		ip = p.Addr.String()
+	}
+
 	logger = logger.With("ip", ip, "client", p.Addr)
 
 	logger.Info()
