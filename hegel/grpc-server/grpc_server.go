@@ -148,6 +148,15 @@ func (s *Server) SetHardwareClient(hc hardware.Client) {
 	s.hardwareClient = hc
 }
 
+// Try to parse out the peer IP.
+func peerIP(a net.Addr) string {
+	if tcp, ok := a.(*net.TCPAddr); ok {
+		return tcp.IP.String()
+	}
+	// we see "bufconn" here under TestSubscribe
+	return a.String()
+}
+
 func (s *Server) Get(ctx context.Context, _ *hegel.GetRequest) (*hegel.GetResponse, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
@@ -155,12 +164,7 @@ func (s *Server) Get(ctx context.Context, _ *hegel.GetRequest) (*hegel.GetRespon
 	}
 	s.log.With("client", p.Addr, "op", "get").Info()
 
-	var ip string
-	if tcp, ok := p.Addr.(*net.TCPAddr); ok {
-		ip = tcp.IP.String()
-	} else {
-		ip = p.Addr.String()
-	}
+	ip := peerIP(p.Addr)
 
 	hw, err := s.hardwareClient.ByIP(ctx, ip)
 	if err != nil {
@@ -196,12 +200,7 @@ func (s *Server) Subscribe(_ *hegel.SubscribeRequest, stream hegel.Hegel_Subscri
 		return initError(errors.New("could not get peer info from client"))
 	}
 
-	var ip string
-	if tcp, ok := p.Addr.(*net.TCPAddr); ok {
-		ip = tcp.IP.String()
-	} else {
-		ip = p.Addr.String()
-	}
+	ip := peerIP(p.Addr)
 
 	logger = logger.With("ip", ip, "client", p.Addr)
 
