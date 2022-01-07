@@ -65,6 +65,21 @@ type watcherTinkerbell struct {
 	client tink.HardwareService_DeprecatedWatchClient
 }
 
+// NewCacherClient returns a new hardware Client, configured to use a provided cacher Client
+// This function is primarily used for testing.
+func NewCacherClient(cc cacher.CacherClient) (Client, error) {
+	var hg Client
+
+	switch dataModelVersion {
+	case "1":
+		return nil, errors.New("NewCacherClient is only valid for the cacher data Model")
+	default:
+		hg = clientCacher{client: cc}
+	}
+
+	return hg, nil
+}
+
 // NewClient returns a new hardware Client, configured appropriately according to the mode (Cacher or Tink) Hegel is running in.
 func NewClient() (Client, error) {
 	var hg Client
