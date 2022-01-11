@@ -4,25 +4,53 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"strconv"
 
 	"github.com/tinkerbell/hegel/grpc/protos/hegel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
+var (
+	server string
+	port   int
+
+	defaultServer = "metadata"
+	defaultPort   = 50060
+
+	envVarServer = "HEGEL_SERVER"
+	envVarPort   = "HEGEL_PORT"
+)
+
 func main() {
+	if envServer := os.Getenv(envVarServer); envServer != "" {
+		defaultServer = envServer
+	}
+	if envPort := os.Getenv(envVarPort); envPort != "" {
+		var err error
+		if defaultPort, err = strconv.Atoi(envPort); err != nil {
+			log.Panic(err)
+		}
+	}
+
+	flag.StringVar(&server, "server", defaultServer, fmt.Sprintf("The hostname or address of the Hegel service [%s]", envVarServer))
+	flag.IntVar(&port, "port", defaultPort, fmt.Sprintf("The port of the Hegel service [%s]", envVarPort))
+	flag.Parse()
+
 	config := &tls.Config{
 		// TODO: Investigate whether it is safe to remove this dangerous default
 		InsecureSkipVerify: true, //nolint:gosec // G402: TLS InsecureSkipVerify set true
 	}
 
-	// TODO: Remove this hard-coded hostname
-	conn, err := grpc.Dial("metadata.packet.net:50060", grpc.WithTransportCredentials(credentials.NewTLS(config)))
+	dest := fmt.Sprintf("%s:%d", server, port)
+	conn, err := grpc.Dial(dest, grpc.WithTransportCredentials(credentials.NewTLS(config)))
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 	client := hegel.NewHegelClient(conn)
 
@@ -33,7 +61,7 @@ func main() {
 		fmt.Println(str)
 	})
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 }
 
