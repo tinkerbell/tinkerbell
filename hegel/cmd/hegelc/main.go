@@ -48,14 +48,15 @@ func main() {
 	}
 
 	dest := fmt.Sprintf("%s:%d", server, port)
-	conn, err := grpc.Dial(dest, grpc.WithTransportCredentials(credentials.NewTLS(config)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	conn, err := grpc.DialContext(ctx, dest, grpc.WithTransportCredentials(credentials.NewTLS(config)))
 	if err != nil {
 		log.Fatal(err)
 	}
 	client := hegel.NewHegelClient(conn)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	err = subscribe(ctx, client, func(str string) {
 		fmt.Println(str)
