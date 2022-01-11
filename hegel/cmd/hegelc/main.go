@@ -28,13 +28,18 @@ var (
 )
 
 func main() {
+	defer func() { os.Exit(run()) }()
+}
+
+func run() int {
 	if envServer := os.Getenv(envVarServer); envServer != "" {
 		defaultServer = envServer
 	}
 	if envPort := os.Getenv(envVarPort); envPort != "" {
 		var err error
 		if defaultPort, err = strconv.Atoi(envPort); err != nil {
-			log.Panic(err)
+			log.Print(err)
+			return 1
 		}
 	}
 
@@ -54,7 +59,8 @@ func main() {
 
 	conn, err := grpc.DialContext(ctx, dest, grpc.WithTransportCredentials(credentials.NewTLS(config)))
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return 1
 	}
 	client := hegel.NewHegelClient(conn)
 
@@ -62,8 +68,10 @@ func main() {
 		fmt.Println(str)
 	})
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return 1
 	}
+	return 0
 }
 
 func subscribe(ctx context.Context, client hegel.HegelClient, onJSON func(string)) error {
