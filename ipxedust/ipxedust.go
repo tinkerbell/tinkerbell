@@ -86,7 +86,7 @@ func (c *Server) ListenAndServe(ctx context.Context) error {
 
 	<-ctx.Done()
 	err = g.Wait()
-	c.Log.Info("shutting down")
+	c.Log.Info("shutting down iPXE servers")
 
 	return err
 }
@@ -124,7 +124,7 @@ func (c *Server) Serve(ctx context.Context, tcpConn net.Listener, udpConn net.Pa
 
 	<-ctx.Done()
 	err = g.Wait()
-	c.Log.Info("shutting down")
+	c.Log.Info("shutting down iPXE servers")
 
 	return err
 }
@@ -138,7 +138,7 @@ func (c *Server) listenAndServeHTTP(ctx context.Context) error {
 		BaseContext: func(net.Listener) context.Context { return ctx },
 		ReadTimeout: c.HTTP.Timeout,
 	}
-	c.Log.Info("serving HTTP", "addr", c.HTTP.Addr.String(), "timeout", c.HTTP.Timeout)
+	c.Log.Info("serving iPXE binaries via HTTP", "addr", c.HTTP.Addr.String(), "timeout", c.HTTP.Timeout)
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return ihttp.ListenAndServe(ctx, c.HTTP.Addr, hs)
@@ -168,7 +168,7 @@ func (c *Server) serveHTTP(ctx context.Context, l net.Listener) error {
 		BaseContext: func(net.Listener) context.Context { return ctx },
 		ReadTimeout: c.HTTP.Timeout,
 	}
-	c.Log.Info("serving HTTP", "addr", l.Addr().String(), "timeout", c.HTTP.Timeout)
+	c.Log.Info("serving iPXE binaries via HTTP", "addr", l.Addr().String(), "timeout", c.HTTP.Timeout)
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return ihttp.Serve(ctx, l, hs)
@@ -202,7 +202,7 @@ func (c *Server) listenAndServeTFTP(ctx context.Context) error {
 	if c.EnableTFTPSinglePort {
 		ts.EnableSinglePort()
 	}
-	c.Log.Info("serving TFTP", "addr", c.TFTP.Addr, "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
+	c.Log.Info("serving iPXE binaries via TFTP", "addr", c.TFTP.Addr, "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return itftp.Serve(ctx, conn, ts)
@@ -243,7 +243,7 @@ func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
 	if c.EnableTFTPSinglePort {
 		ts.EnableSinglePort()
 	}
-	c.Log.Info("serving TFTP", "addr", conn.LocalAddr().String(), "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
+	c.Log.Info("serving iPXE binaries via TFTP", "addr", conn.LocalAddr().String(), "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return itftp.Serve(ctx, conn, ts)
