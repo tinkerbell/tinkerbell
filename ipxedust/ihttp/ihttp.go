@@ -49,10 +49,11 @@ func Serve(_ context.Context, conn net.Listener, h *http.Server) error {
 	return h.Serve(conn)
 }
 
-// Handle handles responses to HTTP requests.
+// Handle handles GET and HEAD responses to HTTP requests.
+// Serves embedded iPXE binaries.
 func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	s.Log.V(1).Info("handling request", "method", req.Method, "path", req.URL.Path)
-	if req.Method != "GET" {
+	if req.Method != http.MethodGet && req.Method != http.MethodHead {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -79,7 +80,7 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	}
 
 	tracer := otel.Tracer("HTTP")
-	_, span := tracer.Start(ctx, "HTTP get",
+	_, span := tracer.Start(ctx, fmt.Sprintf("HTTP %v", req.Method),
 		trace.WithSpanKind(trace.SpanKindServer),
 		trace.WithAttributes(attribute.String("filename", filename)),
 		trace.WithAttributes(attribute.String("requested-filename", longfile)),
@@ -96,13 +97,19 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 		http.NotFound(w, req)
 		return
 	}
-	b, err := w.Write(file)
-	if err != nil {
-		log.Error(err, "error serving file")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(file)))
+	if req.Method == http.MethodGet {
+		b, err := w.Write(file)
+		if err != nil {
+			log.Error(err, "error serving file")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		log.Info("file served", "bytesSent", b, "fileSize", len(file))
+	} else if req.Method == http.MethodHead {
+		log.Info("HEAD method requested", "fileSize", len(file))
 	}
-	log.Info("file served", "bytesSent", b, "fileSize", len(file))
+	w.WriteHeader(http.StatusOK)
 }
 
 // extractTraceparentFromFilename takes a context and filename and checks the filename for
