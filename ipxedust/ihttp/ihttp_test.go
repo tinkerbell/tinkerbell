@@ -127,6 +127,14 @@ func TestHandle(t *testing.T) {
 			},
 		},
 		{
+			name: "success - head request",
+			req:  req{method: "HEAD", url: "/30:23:03:73:a5:a7/snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01"},
+			want: &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       nil,
+			},
+		},
+		{
 			name: "fail with bad traceparent",
 			req:  req{method: "GET", url: "/30:23:03:73:a5:a7/snp.efi-00-00000000000000000000000000000000-d887dc3912240434-01"},
 			want: &http.Response{
