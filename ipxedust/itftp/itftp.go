@@ -37,6 +37,7 @@ func ListenAndServe(ctx context.Context, addr netaddr.IPPort, s *tftp.Server) er
 	if err != nil {
 		return err
 	}
+
 	return Serve(ctx, conn, s)
 }
 
@@ -81,24 +82,26 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 		trace.WithAttributes(attribute.String("ip", client.IP.String())),
 		trace.WithAttributes(attribute.String("mac", optionalMac.String())),
 	)
-
-	span.SetStatus(codes.Ok, filename)
-	span.End()
+	defer span.End()
 
 	content, ok := binary.Files[filepath.Base(shortfile)]
 	if !ok {
 		err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
 		log.Error(err, "file unknown")
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 	ct := bytes.NewReader(content)
-
 	b, err := rf.ReadFrom(ct)
 	if err != nil {
 		log.Error(err, "file serve failed", "b", b, "contentSize", len(content))
+		span.SetStatus(codes.Error, err.Error())
+
 		return err
 	}
 	log.Info("file served", "bytesSent", b, "contentSize", len(content))
+	span.SetStatus(codes.Ok, filename)
+
 	return nil
 }
 
