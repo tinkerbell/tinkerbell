@@ -87,14 +87,14 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 		trace.WithAttributes(attribute.String("ip", host)),
 		trace.WithAttributes(attribute.String("mac", optionalMac.String())),
 	)
-
-	span.SetStatus(codes.Ok, filename)
-	span.End()
+	defer span.End()
 
 	file, found := binary.Files[filename]
 	if !found {
 		log.Info("requested file not found")
 		http.NotFound(w, req)
+		span.SetStatus(codes.Error, "requested file not found")
+
 		return
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(file)))
@@ -103,13 +103,15 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			log.Error(err, "error serving file")
 			w.WriteHeader(http.StatusInternalServerError)
+			span.SetStatus(codes.Error, err.Error())
+
 			return
 		}
 		log.Info("file served", "bytesSent", b, "fileSize", len(file))
 	} else if req.Method == http.MethodHead {
 		log.Info("HEAD method requested", "fileSize", len(file))
 	}
-	w.WriteHeader(http.StatusOK)
+	span.SetStatus(codes.Ok, filename)
 }
 
 // extractTraceparentFromFilename takes a context and filename and checks the filename for

@@ -4,6 +4,7 @@ package ipxedust
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"reflect"
@@ -49,6 +50,8 @@ type ServerSpec struct {
 	// Disabled allows a server to be disabled. Useful, for example, to disable TFTP.
 	Disabled bool
 }
+
+var errNilListener = fmt.Errorf("listener must not be nil")
 
 // ListenAndServe will listen and serve iPXE binaries over TFTP and HTTP.
 //
@@ -139,17 +142,12 @@ func (c *Server) listenAndServeHTTP(ctx context.Context) error {
 		ReadTimeout: c.HTTP.Timeout,
 	}
 	c.Log.Info("serving iPXE binaries via HTTP", "addr", c.HTTP.Addr.String(), "timeout", c.HTTP.Timeout)
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return ihttp.ListenAndServe(ctx, c.HTTP.Addr, hs)
-	})
 
-	<-ctx.Done()
-	err := hs.Shutdown(ctx)
-	if err != nil {
-		return err
-	}
-	err = g.Wait()
+	go func() {
+		<-ctx.Done()
+		_ = hs.Shutdown(ctx)
+	}()
+	err := ihttp.ListenAndServe(ctx, c.HTTP.Addr, hs)
 	if errors.Is(err, http.ErrServerClosed) {
 		err = nil
 	}
@@ -158,7 +156,7 @@ func (c *Server) listenAndServeHTTP(ctx context.Context) error {
 
 func (c *Server) serveHTTP(ctx context.Context, l net.Listener) error {
 	if l == nil || reflect.ValueOf(l).IsNil() {
-		return errors.New("listener must not be nil")
+		return errNilListener
 	}
 	s := ihttp.Handler{Log: c.Log}
 	router := http.NewServeMux()
@@ -169,21 +167,12 @@ func (c *Server) serveHTTP(ctx context.Context, l net.Listener) error {
 		ReadTimeout: c.HTTP.Timeout,
 	}
 	c.Log.Info("serving iPXE binaries via HTTP", "addr", l.Addr().String(), "timeout", c.HTTP.Timeout)
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return ihttp.Serve(ctx, l, hs)
-	})
+	go func() {
+		<-ctx.Done()
+		_ = hs.Shutdown(ctx)
+	}()
 
-	<-ctx.Done()
-	err := hs.Shutdown(ctx)
-	if err != nil {
-		return err
-	}
-	err = g.Wait()
-	if errors.Is(err, http.ErrServerClosed) {
-		return nil
-	}
-	return err
+	return ihttp.Serve(ctx, l, hs)
 }
 
 func (c *Server) listenAndServeTFTP(ctx context.Context) error {
@@ -203,33 +192,12 @@ func (c *Server) listenAndServeTFTP(ctx context.Context) error {
 		ts.EnableSinglePort()
 	}
 	c.Log.Info("serving iPXE binaries via TFTP", "addr", c.TFTP.Addr, "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return itftp.Serve(ctx, conn, ts)
-	})
-	// The time.Sleep(time.Second) is load bearing. It allows the tftp server shutdown below to not nil pointer error
-	// if a canceled context is passed in to the serveTFTP() function. This happens because itftp.Serve must be called
-	// for ts.conn to be populated. ts.Shutdown needs ts.conn to be populated to close the connection or else it panics.
-	// One option to "fix" this issue is to PR the following into github.com/pin/tftp:
-	/*
-			func (s *Server) Shutdown() {
-			if !s.singlePort {
-				if s.conn != nil {
-					s.conn.Close()
-				}
-			}
-			q := make(chan struct{})
-			s.quit <- q
-			<-q
-			s.wg.Wait()
-		}
-	*/
-	time.Sleep(time.Second)
-	<-ctx.Done()
-	conn.Close()
-	ts.Shutdown()
-
-	return g.Wait()
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+		ts.Shutdown()
+	}()
+	return itftp.Serve(ctx, conn, ts)
 }
 
 func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
@@ -244,32 +212,13 @@ func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
 		ts.EnableSinglePort()
 	}
 	c.Log.Info("serving iPXE binaries via TFTP", "addr", conn.LocalAddr().String(), "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return itftp.Serve(ctx, conn, ts)
-	})
-	// The time.Sleep(time.Second) is load bearing. It allows the tftp server shutdown below to not nil pointer error
-	// if a canceled context is passed in to the serveTFTP() function. This happens because itftp.Serve must be called
-	// for ts.conn to be populated. ts.Shutdown needs ts.conn to be populated to close the connection or else it panics.
-	// One option to "fix" this issue is to PR the following into github.com/pin/tftp:
-	/*
-			func (s *Server) Shutdown() {
-			if !s.singlePort {
-				if s.conn != nil {
-					s.conn.Close()
-				}
-			}
-			q := make(chan struct{})
-			s.quit <- q
-			<-q
-			s.wg.Wait()
-		}
-	*/
-	time.Sleep(time.Second)
-	<-ctx.Done()
-	conn.Close()
-	ts.Shutdown()
-	return g.Wait()
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+		ts.Shutdown()
+	}()
+
+	return itftp.Serve(ctx, conn, ts)
 }
 
 // Transformer for merging the netaddr.IPPort and logr.Logger structs.
