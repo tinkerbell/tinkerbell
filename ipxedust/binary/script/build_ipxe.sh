@@ -74,6 +74,7 @@ function copy_common_files() {
     cp -a binary/script/ipxe-customizations/colour.h "${ipxe_dir}"/src/config/local/
     cp -a binary/script/ipxe-customizations/common.h "${ipxe_dir}"/src/config/local/
     cp -a binary/script/ipxe-customizations/console.h "${ipxe_dir}"/src/config/local/
+    cp -a binary/script/ipxe-customizations/crypto.h "${ipxe_dir}"/src/config/local/
 }
 
 # copy_custom_files will copy in any custom header files based on a requested ipxe binary.

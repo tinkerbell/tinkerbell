@@ -7,6 +7,7 @@ tracked_files=(
     "./script/ipxe-customizations/console.h"
     "./script/ipxe-customizations/isa.h"
     "./script/ipxe-customizations/colour.h"
+    "./script/ipxe-customizations/crypto.h"
     "./script/ipxe-customizations/general.efi.h"
     "./script/ipxe-customizations/general.undionly.h"
     "./script/ipxe-customizations/common.h"
