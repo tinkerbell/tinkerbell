@@ -27,13 +27,13 @@ $(ipxe_readme): binary/script/ipxe.commit
 	touch "$@"
 
 binary/ipxe.efi: $(ipxe_readme) ## build ipxe.efi
-	${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
+	+${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
 
 binary/undionly.kpxe: $(ipxe_readme) ## build undionly.kpxe
-	${IPXE_BUILD_SCRIPT} bin/undionly.kpxe "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
+	+${IPXE_BUILD_SCRIPT} bin/undionly.kpxe "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
 
 binary/snp.efi: $(ipxe_readme) ## build snp.efi
-	${IPXE_BUILD_SCRIPT} bin-arm64-efi/snp.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@  "${IPXE_NIX_SHELL}" "CROSS_COMPILE=aarch64-unknown-linux-gnu-"
+	+${IPXE_BUILD_SCRIPT} bin-arm64-efi/snp.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@  "${IPXE_NIX_SHELL}" "CROSS_COMPILE=aarch64-unknown-linux-gnu-"
 
 .PHONY: binary/clean
 binary/clean: ## clean ipxe binaries, upstream ipxe source code directory, and ipxe source tarball
