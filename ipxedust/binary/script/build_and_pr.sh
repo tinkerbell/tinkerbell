@@ -3,7 +3,6 @@
 set -uxo pipefail
 
 # tracked_files defines the files that will cause the iPXE binaries to be rebuilt.
-# files added or removed from this list also need to be updated in sha512sum.txt
 tracked_files=(
     "./script/ipxe-customizations/console.h"
     "./script/ipxe-customizations/isa.h"
@@ -43,7 +42,7 @@ function check_github_token() {
 function changes_detected() {
     local file="${1:-sha512sum.txt}"
 
-    if sha512sum -c "${file}"; then
+    if create_checksums /dev/stdout | diff -U 1 "${file}" -; then
         echo "No changes detected"
         exit 0
     fi
