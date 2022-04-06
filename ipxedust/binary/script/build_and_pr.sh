@@ -3,6 +3,7 @@
 set -uxo pipefail
 
 # tracked_files defines the files that will cause the iPXE binaries to be rebuilt.
+# files added or removed from this list also need to be updated in sha512sum.txt
 tracked_files=(
     "./script/ipxe-customizations/console.h"
     "./script/ipxe-customizations/isa.h"
