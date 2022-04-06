@@ -1,6 +1,7 @@
 OSFLAG := $(shell go env GOHOSTOS)
 BINARY := ipxe
 IPXE_BUILD_SCRIPT := binary/script/build_ipxe.sh
+IPXE_FETCH_SCRIPT := binary/script/fetch_and_extract_ipxe.sh
 IPXE_NIX_SHELL := binary/script/shell.nix
 
 help: ## show this help message
@@ -8,22 +9,30 @@ help: ## show this help message
 
 include lint.mk
 
+.PHONY: binary
 binary: binary/ipxe.efi binary/snp.efi binary/undionly.kpxe ## build all upstream ipxe binaries
 
 # ipxe_sha_or_tag := v1.21.1 # could not get this tag to build ipxe.efi
 # https://github.com/ipxe/ipxe/tree/2265a65191d76ce367913a61c97752ab88ab1a59
 ipxe_sha_or_tag := $(shell cat binary/script/ipxe.commit)
+ipxe_readme := upstream-$(ipxe_sha_or_tag)/README
 
 # building iPXE on a Mac is troublesome and difficult to get working. For that reason, on a Mac, we build the iPXE binary using Docker.
 ipxe_build_in_docker := $(shell if [ $(OSFLAG) = "darwin" ]; then echo true; else echo false; fi)
 
-binary/ipxe.efi: ## build ipxe.efi
+.PHONY: extract-ipxe
+extract-ipxe: $(ipxe_readme) ## Fetch and extract ipxe source
+$(ipxe_readme): binary/script/ipxe.commit
+	${IPXE_FETCH_SCRIPT} "$(ipxe_sha_or_tag)"
+	touch "$@"
+
+binary/ipxe.efi: $(ipxe_readme) ## build ipxe.efi
 	${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
 
-binary/undionly.kpxe: ## build undionly.kpxe
+binary/undionly.kpxe: $(ipxe_readme) ## build undionly.kpxe
 	${IPXE_BUILD_SCRIPT} bin/undionly.kpxe "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
 
-binary/snp.efi: ## build snp.efi
+binary/snp.efi: $(ipxe_readme) ## build snp.efi
 	${IPXE_BUILD_SCRIPT} bin-arm64-efi/snp.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@  "${IPXE_NIX_SHELL}" "CROSS_COMPILE=aarch64-unknown-linux-gnu-"
 
 .PHONY: binary/clean

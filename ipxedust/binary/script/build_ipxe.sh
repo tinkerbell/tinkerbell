@@ -4,32 +4,6 @@
 
 set -eux
 
-# download_ipxe_repo will download a source archive from github.
-function download_ipxe_repo() {
-    local sha_or_tag="$1"
-    if [ ! -f "ipxe-${sha_or_tag}.tar.gz" ]; then
-        echo "downloading"
-        curl -fLo ipxe-"${sha_or_tag}".tar.gz https://github.com/ipxe/ipxe/archive/"${sha_or_tag}".tar.gz
-    else
-        echo "already downloaded"
-    fi
-    
-}
-
-# extract_ipxe_repo will extract a tarball.
-function extract_ipxe_repo() {
-    local archive_name="$1"
-    local archive_dir="$2"
-
-    if [ ! -d "$archive_dir" ]; then
-        echo "extracting"
-        mkdir -p "${archive_dir}"
-        tar -xzf "${archive_name}" -C "${archive_dir}" --strip-components 1
-    else
-        echo "already extracted"
-    fi
-}
-
 # build_ipxe will run the make target in the upstream ipxe source
 # that will build an ipxe binary.
 function build_ipxe() {
@@ -174,9 +148,8 @@ function main() {
         hasDocker
     fi
 
-    download_ipxe_repo "${ipxe_sha_or_tag}"
-    extract_ipxe_repo "ipxe-${ipxe_sha_or_tag}.tar.gz" "upstream-${ipxe_sha_or_tag}"
     mv_embed_into_build "${embed_path}" "upstream-${ipxe_sha_or_tag}"
+
     customize "upstream-${ipxe_sha_or_tag}" "${bin_path}"
     build_ipxe "upstream-${ipxe_sha_or_tag}" "${bin_path}" "${ipxe_build_in_docker}" "${env_opts}" "embed.ipxe" "${nix_shell}"
     cp -a "upstream-${ipxe_sha_or_tag}/src/${bin_path}" "${final_path}"
