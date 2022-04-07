@@ -121,6 +121,14 @@ function hasUname() {
     fi
 }
 
+function setup_build_dir() {
+    local src_dir=$1
+    local build_dir=$2
+
+    rm -rf "${build_dir}"
+    cp -a "${src_dir}" "${build_dir}"
+}
+
 # main function orchestrating a full ipxe compile.
 function main() {
     local bin_path
@@ -148,11 +156,15 @@ function main() {
         hasDocker
     fi
 
-    mv_embed_into_build "${embed_path}" "upstream-${ipxe_sha_or_tag}"
+    local ipxe_src=upstream-${ipxe_sha_or_tag}
+    local build_dir=${ipxe_src}-${final_path##*/}
 
-    customize "upstream-${ipxe_sha_or_tag}" "${bin_path}"
-    build_ipxe "upstream-${ipxe_sha_or_tag}" "${bin_path}" "${ipxe_build_in_docker}" "${env_opts}" "embed.ipxe" "${nix_shell}"
-    cp -a "upstream-${ipxe_sha_or_tag}/src/${bin_path}" "${final_path}"
+    setup_build_dir "${ipxe_src}" "${build_dir}"
+    mv_embed_into_build "${embed_path}" "${build_dir}"
+    customize "${build_dir}" "${bin_path}"
+
+    build_ipxe "${build_dir}" "${bin_path}" "${ipxe_build_in_docker}" "${env_opts}" "embed.ipxe" "${nix_shell}"
+    cp -a "${build_dir}/src/${bin_path}" "${final_path}"
 }
 
 main "$1" "$2" "$3" "$4" "$5" "${6:-''}" "${7:-binary/script/embed.ipxe}"
