@@ -131,20 +131,13 @@ function setup_build_dir() {
 
 # main function orchestrating a full ipxe compile.
 function main() {
-    local bin_path
-    bin_path=$(echo "${1}" | xargs)
-    local ipxe_sha_or_tag
-    ipxe_sha_or_tag=$(echo "${2}" | xargs)
-    local ipxe_build_in_docker
-    ipxe_build_in_docker=$(echo "${3}" | xargs)
-    local final_path
-    final_path=$(echo "${4}" | xargs)
-    local nix_shell
-    nix_shell=$(echo "${5}" | xargs)
-    local env_opts
-    env_opts=$(echo "${6}" | xargs)
-    local embed_path
-    embed_path=$(echo "${7}" | xargs)
+    local bin_path=${1}
+    local ipxe_sha_or_tag=${2}
+    local ipxe_build_in_docker=${3}
+    local final_path=${4}
+    local nix_shell=${5}
+    local env_opts=${6}
+    local embed_path=${7}
 
     # check for prerequisites
     hasType
@@ -167,4 +160,4 @@ function main() {
     cp -a "${build_dir}/src/${bin_path}" "${final_path}"
 }
 
-main "$1" "$2" "$3" "$4" "$5" "${6:-''}" "${7:-binary/script/embed.ipxe}"
+main "$1" "$2" "$3" "$4" "$5" "${6:-}" "${7:-binary/script/embed.ipxe}"
