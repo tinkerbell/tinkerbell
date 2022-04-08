@@ -13,7 +13,6 @@ import (
 	tinkClient "github.com/tinkerbell/tink/client"
 	tpkg "github.com/tinkerbell/tink/pkg"
 	tink "github.com/tinkerbell/tink/protos/hardware"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -21,14 +20,18 @@ var (
 	facility         = flag.String("facility", env.Get("HEGEL_FACILITY", "onprem"), "The facility we are running in (mostly to connect to cacher)")
 )
 
-// Client acts as the messenger between Hegel and Cacher/Tink.
+// Client defines the behaviors for interacting with hardware data providers.
 type Client interface {
-	All(ctx context.Context, opts ...grpc.CallOption) (AllClient, error)
-	ByIP(ctx context.Context, id string, opts ...grpc.CallOption) (Hardware, error)
-	Watch(ctx context.Context, id string, opts ...grpc.CallOption) (Watcher, error)
-}
+	// IsHealthy reports whether the client is connected and can retrieve hardware data from the data provider.
+	IsHealthy(ctx context.Context) bool
 
-type AllClient interface{}
+	// ByIP retrieves hardware data by its IP address.
+	ByIP(ctx context.Context, ip string) (Hardware, error)
+
+	// Watch creates a subscription to a hardware identified by id such that updates to the hardware data are
+	// pushed to the stream.
+	Watch(ctx context.Context, id string) (Watcher, error)
+}
 
 // Hardware is the interface for Cacher/Tink hardware types.
 type Hardware interface {
@@ -102,22 +105,17 @@ func NewClient() (Client, error) {
 	return hg, nil
 }
 
-// All retrieves all the pieces of hardware stored in Cacher.
-func (hg clientCacher) All(ctx context.Context, opts ...grpc.CallOption) (AllClient, error) {
-	in := &cacher.Empty{}
-	all, err := hg.client.All(ctx, in, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return all, nil
+func (hg clientCacher) IsHealthy(ctx context.Context) bool {
+	_, err := hg.client.All(ctx, &cacher.Empty{})
+	return err == nil
 }
 
 // ByIP retrieves from Cacher the piece of hardware with the specified IP.
-func (hg clientCacher) ByIP(ctx context.Context, ip string, opts ...grpc.CallOption) (Hardware, error) {
+func (hg clientCacher) ByIP(ctx context.Context, ip string) (Hardware, error) {
 	in := &cacher.GetRequest{
 		IP: ip,
 	}
-	hw, err := hg.client.ByIP(ctx, in, opts...)
+	hw, err := hg.client.ByIP(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -125,11 +123,11 @@ func (hg clientCacher) ByIP(ctx context.Context, ip string, opts ...grpc.CallOpt
 }
 
 // Watch returns a Cacher watch client on the hardware with the specified ID.
-func (hg clientCacher) Watch(ctx context.Context, id string, opts ...grpc.CallOption) (Watcher, error) {
+func (hg clientCacher) Watch(ctx context.Context, id string) (Watcher, error) {
 	in := &cacher.GetRequest{
 		ID: id,
 	}
-	w, err := hg.client.Watch(ctx, in, opts...)
+	w, err := hg.client.Watch(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -137,21 +135,17 @@ func (hg clientCacher) Watch(ctx context.Context, id string, opts ...grpc.CallOp
 }
 
 // All retrieves all the pieces of hardware stored in Cacher.
-func (hg clientTinkerbell) All(ctx context.Context, opts ...grpc.CallOption) (AllClient, error) {
-	in := &tink.Empty{}
-	all, err := hg.client.All(ctx, in, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return all, nil
+func (hg clientTinkerbell) IsHealthy(ctx context.Context) bool {
+	_, err := hg.client.All(ctx, &tink.Empty{})
+	return err == nil
 }
 
 // ByIP retrieves from Tink the piece of hardware with the specified IP.
-func (hg clientTinkerbell) ByIP(ctx context.Context, ip string, opts ...grpc.CallOption) (Hardware, error) {
+func (hg clientTinkerbell) ByIP(ctx context.Context, ip string) (Hardware, error) {
 	in := &tink.GetRequest{
 		Ip: ip,
 	}
-	hw, err := hg.client.ByIP(ctx, in, opts...)
+	hw, err := hg.client.ByIP(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -159,11 +153,11 @@ func (hg clientTinkerbell) ByIP(ctx context.Context, ip string, opts ...grpc.Cal
 }
 
 // Watch returns a Tink watch client on the hardware with the specified ID.
-func (hg clientTinkerbell) Watch(ctx context.Context, id string, opts ...grpc.CallOption) (Watcher, error) {
+func (hg clientTinkerbell) Watch(ctx context.Context, id string) (Watcher, error) {
 	in := &tink.GetRequest{
 		Id: id,
 	}
-	w, err := hg.client.DeprecatedWatch(ctx, in, opts...)
+	w, err := hg.client.DeprecatedWatch(ctx, in)
 	if err != nil {
 		return nil, err
 	}
