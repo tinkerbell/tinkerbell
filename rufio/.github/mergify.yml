@@ -1,0 +1,29 @@
+queue_rules:
+  - name: default
+    conditions:
+      # Conditions to get out of the queue (= merged)
+      - check-success=DCO
+      - check-success~=images
+      - check-success=build
+
+pull_request_rules:
+  - name: Automatic merge on approval
+    conditions:
+      - base=main
+      - "#approved-reviews-by>=1"
+      - "#changes-requested-reviews-by=0"
+      - "#review-requested=0"
+      - check-success=DCO
+      - check-success=verify
+      - check-success=test
+      - check-success=build
+      - check-success~=images
+      - label!=do-not-merge
+      - label=ready-to-merge
+    actions:
+      queue:
+        method: merge
+        name: default
+        commit_message_template: |
+          {{ title }} (#{{ number }})
+

@@ -1,0 +1,20 @@
+# permissions for end users to view powercyclejobs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: powercyclejob-viewer-role
+rules:
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - powercyclejobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - powercyclejobs/status
+  verbs:
+  - get

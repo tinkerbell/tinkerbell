@@ -1,0 +1,6 @@
+apiVersion: bmc.tinkerbell.org/v1alpha1
+kind: BaseboardManagement
+metadata:
+  name: baseboardmanagement-sample
+spec:
+  # TODO(user): Add fields here

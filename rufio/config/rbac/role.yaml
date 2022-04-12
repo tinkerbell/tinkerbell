@@ -1,0 +1,59 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - baseboardmanagements
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - baseboardmanagements/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - baseboardmanagements/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - powercyclejobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - powercyclejobs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - powercyclejobs/status
+  verbs:
+  - get
+  - patch
+  - update

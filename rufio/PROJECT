@@ -1,0 +1,25 @@
+domain: tinkerbell.org
+layout:
+- go.kubebuilder.io/v3
+projectName: rufio
+repo: github.com/tinkerbell/rufio
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: tinkerbell.org
+  group: bmc
+  kind: BaseboardManagement
+  path: github.com/tinkerbell/rufio/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: tinkerbell.org
+  group: bmc
+  kind: PowerCycleJob
+  path: github.com/tinkerbell/rufio/api/v1alpha1
+  version: v1alpha1
+version: "3"
