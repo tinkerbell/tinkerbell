@@ -101,7 +101,8 @@ func (c *Command) Run(ctx context.Context) error {
 			Addr:    hAddr,
 			Timeout: c.HTTPTimeout,
 		},
-		Log: c.Log,
+		Log:                  c.Log,
+		EnableTFTPSinglePort: c.EnableTFTPSinglePort,
 	}
 	return srv.ListenAndServe(ctx)
 }
