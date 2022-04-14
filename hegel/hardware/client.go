@@ -64,38 +64,87 @@ type watcherTinkerbell struct {
 // NewCacherClient returns a new hardware Client, configured to use a provided cacher Client
 // This function is primarily used for testing.
 func NewCacherClient(cc cacher.CacherClient, model datamodel.DataModel) (Client, error) {
-	var hg Client
-
-	switch model {
-	case datamodel.TinkServer:
-		return nil, errors.New("cacher client is only valid for the cacher data model")
-	default:
-		hg = clientCacher{client: cc}
+	if model != "" {
+		return nil, errors.New("NewCacherClient is only valid for the cacher data model")
 	}
 
-	return hg, nil
+	return clientCacher{client: cc}, nil
+}
+
+// ClientConfig is the configuration used by the NewClient func. Field requirements are based on the value of Model.
+type ClientConfig struct {
+	// Model defines the client implementation that is constructed.
+	// Required.
+	Model datamodel.DataModel
+
+	// Facility is used by the Cache client.
+	// Required for datamodel.Cacher.
+	Facility string
+
+	// KubeAPI is the URL of the Kube API the Kubernetes client talks to.
+	// Required for datamodel.Kubernetes.
+	KubeAPI string
+
+	// Kuberconfig is a path to a Kubeconfig file used by the Kubernetes client.
+	// Required for datamodel.Kubernetes.
+	Kubeconfig string
+}
+
+func (v ClientConfig) validate() error {
+	if v.Model == datamodel.Cacher {
+		if v.Facility == "" {
+			return errors.New("cacher data model: factility is required")
+		}
+	}
+
+	if v.Model == datamodel.Kubernetes {
+		if v.KubeAPI == "" {
+			return errors.New("kubernetes data model: kube api url is required")
+		}
+
+		if v.Kubeconfig == "" {
+			return errors.New("kubernetes data model: kubeconfig path is required")
+		}
+	}
+
+	return nil
 }
 
 // NewClient returns a new hardware Client, configured appropriately according to the mode (Cacher or Tink) Hegel is running in.
-func NewClient(facility string, model datamodel.DataModel) (Client, error) {
-	var hg Client
+func NewClient(config ClientConfig) (Client, error) {
+	if err := config.validate(); err != nil {
+		return nil, err
+	}
 
-	switch model {
+	switch config.Model {
+	case datamodel.Kubernetes:
+		config, err := NewKubernetesClientConfig(config.Kubeconfig, config.KubeAPI)
+		if err != nil {
+			return nil, errors.Errorf("loading kubernetes config: %v", err)
+		}
+
+		kubeclient, err := NewKubernetesClient(config)
+		if err != nil {
+			return nil, errors.Wrap(err, "creating kubernetes hardware client")
+		}
+		kubeclient.WaitForCacheSync(context.Background())
+
+		return kubeclient, nil
+
 	case datamodel.TinkServer:
 		tc, err := tinkClient.TinkHardwareClient()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create the tink client")
 		}
-		hg = clientTinkerbell{client: tc}
+		return clientTinkerbell{client: tc}, nil
+
 	default:
-		cc, err := cacherClient.New(facility)
+		cc, err := cacherClient.New(config.Facility)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create the cacher client")
 		}
-		hg = clientCacher{client: cc}
+		return clientCacher{client: cc}, nil
 	}
-
-	return hg, nil
 }
 
 func (hg clientCacher) IsHealthy(ctx context.Context) bool {

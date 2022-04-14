@@ -857,12 +857,12 @@ var processEC2QueryTests = map[string]struct {
 	},
 	"invalid query (invalid metadata item)": {
 		url:    "/2009-04-04/invalid",
-		error:  "invalid metadata item",
+		error:  "invalid metadata item: /invalid",
 		result: "",
 	},
 	"invalid query (not a subdirectory)": {
 		url:    "/2009-04-04/user-data/hostname",
-		error:  "invalid metadata item",
+		error:  "invalid metadata item: /user-data/hostname",
 		result: "",
 	},
 }

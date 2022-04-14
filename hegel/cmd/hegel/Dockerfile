@@ -11,7 +11,7 @@ COPY go.* ./
 RUN go mod download
 
 COPY . .
-RUN make
+RUN make build
 
 FROM alpine:3.7
 

@@ -73,8 +73,8 @@ type RootCommandOptions struct {
 	GRPCTLSKeyPath  string `mapstructure:"grpc-tls-key"`
 	GRPCUseTLS      bool   `mapstructure:"grpc-use-tls"`
 
-	KubeAPI    string `mapstructure:"kubernetes-api"`
-	Kubeconfig string `mapstructure:"kubeconfig"`
+	KubernetesAPIURL string `mapstructure:"kubernetes"`
+	Kubeconfig       string `mapstructure:"kubeconfig"`
 }
 
 func (o RootCommandOptions) GetDataModel() datamodel.DataModel {
@@ -144,7 +144,12 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 
 	metrics.State.Set(metrics.Initializing)
 
-	hardwareClient, err := hardware.NewClient(c.Opts.Facility, c.Opts.GetDataModel())
+	hardwareClient, err := hardware.NewClient(hardware.ClientConfig{
+		Model:      c.Opts.GetDataModel(),
+		Facility:   c.Opts.Facility,
+		KubeAPI:    c.Opts.KubernetesAPIURL,
+		Kubeconfig: c.Opts.Kubeconfig,
+	})
 	if err != nil {
 		return errors.Errorf("create client: %v", err)
 	}
@@ -204,7 +209,7 @@ func (c *RootCommand) configureFlags() error {
 	c.Flags().Int("http-port", 50061, "Port to listen on for HTTP requests")
 
 	c.Flags().String("kubeconfig", "", "Path to a kubeconfig file")
-	c.Flags().String("kubernetes-api", "", "URL of the Kubernetes API Server")
+	c.Flags().String("kubernetes", "", "URL of the Kubernetes API Server")
 
 	c.Flags().String("trusted-proxies", "", "A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For for both gRPC and HTTP endpoints")
 

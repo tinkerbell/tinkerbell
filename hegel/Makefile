@@ -1,6 +1,7 @@
 binary := cmd/hegel
 
-all: build
+# The image recipe calls build hence build doesn't feature here.
+all: unit-test image
 
 .PHONY: ${binary} build
 ${binary}: 
@@ -17,12 +18,16 @@ image:
 
 .PHONY: gen
 gen: grpc/protos/hegel/hegel.pb.go
+
 grpc/protos/hegel/hegel.pb.go: grpc/protos/hegel/hegel.proto
 	protoc --go_out=plugins=grpc:./ grpc/protos/hegel/hegel.proto
 	goimports -w $@
+
 ifeq ($(CI),drone)
 run: ${binary}
 	${binary}
+
+.PHONY test
 test:
 	go test -race -coverprofile=coverage.txt -covermode=atomic ${TEST_ARGS} ./...
 endif

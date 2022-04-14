@@ -142,7 +142,7 @@ func GetMetadataHandler(logger log.Logger, client hardware.Client, filter string
 			return
 		}
 
-		if model == datamodel.TinkServer {
+		if model == datamodel.TinkServer || model == datamodel.Kubernetes {
 			hardware, err = filterMetadata(hardware, filter)
 			if err != nil {
 				l.With("error", err).Info("failed to filter metadata")
