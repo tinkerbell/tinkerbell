@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -118,14 +117,10 @@ func (k *KubernetesClient) ByIP(ctx context.Context, ip string) (Hardware, error
 	}
 
 	if len(hw.Items) > 1 {
-		names := make([]string, len(hw.Items))
-		for i, item := range hw.Items {
-			names[i] = item.Name
-		}
-		return nil, fmt.Errorf("multiple hardware with ip '%v': [%v]", ip, strings.Join(names, ", "))
+		return nil, fmt.Errorf("multiple hardware with ip '%v'", ip)
 	}
 
-	return &hardware{hw.Items[0]}, nil
+	return FromK8sTinkHardware(&hw.Items[0]), nil
 }
 
 // Watch is unimplemented.
@@ -168,14 +163,88 @@ func NewKubernetesClientConfig(kubeconfig, kubeAPI string) (KubernetesClientConf
 	}, nil
 }
 
-type hardware struct {
-	tinkv1alpha1.Hardware
+// FromK8sTinkHardware creates an K8sHardware from tinkHardware.
+func FromK8sTinkHardware(tinkHardware *tinkv1alpha1.Hardware) *K8sHardware {
+	hw := &K8sHardware{
+		Hardware: tinkHardware,
+		Metadata: K8sHardwareMetadata{
+			Userdata: tinkHardware.Spec.UserData,
+			Instance: K8sHardwareMetadataInstance{
+				ID:        tinkHardware.Spec.Metadata.Instance.ID,
+				Hostname:  tinkHardware.Spec.Metadata.Instance.Hostname,
+				Plan:      tinkHardware.Spec.Metadata.Facility.PlanSlug,
+				Factility: tinkHardware.Spec.Metadata.Facility.FacilityCode,
+				Tags:      tinkHardware.Spec.Metadata.Instance.Tags,
+				SSHKeys:   tinkHardware.Spec.Metadata.Instance.SSHKeys,
+				OperatingSystem: K8sHardwareMetadataInstanceOperatingSystem{
+					Slug:     tinkHardware.Spec.Metadata.Instance.OperatingSystem.Slug,
+					Distro:   tinkHardware.Spec.Metadata.Instance.OperatingSystem.Distro,
+					Version:  tinkHardware.Spec.Metadata.Instance.OperatingSystem.Version,
+					ImageTag: tinkHardware.Spec.Metadata.Instance.OperatingSystem.ImageTag,
+				},
+			},
+		},
+	}
+
+	for _, ip := range tinkHardware.Spec.Metadata.Instance.Ips {
+		hw.Metadata.Instance.Network.Addresses = append(
+			hw.Metadata.Instance.Network.Addresses,
+			K8sHardwareMetadataInstanceNetworkAddress{
+				Address:       ip.Address,
+				AddressFamily: ip.Family,
+				Public:        ip.Public,
+			},
+		)
+	}
+
+	return hw
 }
 
-func (h hardware) Export() ([]byte, error) {
-	return json.Marshal(h.Hardware.Spec)
+// K8sHardware satisfies the Export() requirements of the EC2 Metadata filter handling.
+type K8sHardware struct {
+	Hardware *tinkv1alpha1.Hardware `json:"-"`
+	Metadata K8sHardwareMetadata    `json:"metadata,omitempty"`
 }
 
-func (h hardware) ID() (string, error) {
-	return h.Spec.Metadata.Instance.ID, nil
+// Exprot returns a JSON representation of h.
+func (h K8sHardware) Export() ([]byte, error) {
+	return json.Marshal(h)
+}
+
+// ID retrieves the instance ID.
+func (h K8sHardware) ID() (string, error) {
+	return h.Metadata.Instance.ID, nil
+}
+
+type K8sHardwareMetadata struct {
+	Userdata *string                     `json:"userdata,omitempty"`
+	Instance K8sHardwareMetadataInstance `json:"instance,omitempty"`
+}
+
+type K8sHardwareMetadataInstance struct {
+	ID              string                                     `json:"id,omitempty"`
+	Hostname        string                                     `json:"hostname,omitempty"`
+	Plan            string                                     `json:"plan,omitempty"`
+	Factility       string                                     `json:"factility,omitempty"`
+	Tags            []string                                   `json:"tags,omitempty"`
+	SSHKeys         []string                                   `json:"ssh_keys,omitempty"`
+	OperatingSystem K8sHardwareMetadataInstanceOperatingSystem `json:"operating_system,omitempty"`
+	Network         K8sHardwareMetadataInstanceNetwork         `json:"network,omitempty"`
+}
+
+type K8sHardwareMetadataInstanceOperatingSystem struct {
+	Slug     string `json:"slug,omitempty"`
+	Distro   string `json:"distro,omitempty"`
+	Version  string `json:"version,omitempty"`
+	ImageTag string `json:"image_tag,omitempty"`
+}
+
+type K8sHardwareMetadataInstanceNetwork struct {
+	Addresses []K8sHardwareMetadataInstanceNetworkAddress `json:"addresses,omitempty"`
+}
+
+type K8sHardwareMetadataInstanceNetworkAddress struct {
+	AddressFamily int64  `json:"address_family,omitempty"`
+	Address       string `json:"address,omitempty"`
+	Public        bool   `json:"public,omitempty"`
 }

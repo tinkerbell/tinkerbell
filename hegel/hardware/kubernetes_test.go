@@ -2,6 +2,7 @@ package hardware_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -28,6 +29,15 @@ func TestKubernetesClientLists(t *testing.T) {
 
 			hw.Items = append(hw.Items, tinkv1alpha1.Hardware{
 				ObjectMeta: v1.ObjectMeta{Name: name},
+				Spec: tinkv1alpha1.HardwareSpec{
+					Metadata: &tinkv1alpha1.HardwareMetadata{
+						Facility: &tinkv1alpha1.MetadataFacility{},
+						Instance: &tinkv1alpha1.MetadataInstance{
+							OperatingSystem: &tinkv1alpha1.MetadataInstanceOperatingSystem{},
+							Ips:             []*tinkv1alpha1.MetadataInstanceIP{},
+						},
+					},
+				},
 			})
 		}).
 		Return((error)(nil))
@@ -107,6 +117,46 @@ func TestKubernetesClientHealthyAndClose(t *testing.T) {
 	client.Close()
 
 	assert.False(t, client.IsHealthy(context.Background()))
+}
+
+func TestK8sHardwareExport(t *testing.T) {
+	userdata := "hello-world"
+	hw := hardware.K8sHardware{
+		Metadata: hardware.K8sHardwareMetadata{
+			Userdata: &userdata,
+			Instance: hardware.K8sHardwareMetadataInstance{
+				ID:        "id",
+				Hostname:  "hostname",
+				Plan:      "plan",
+				Factility: "facility",
+				Tags:      []string{"foo", "bar"},
+				SSHKeys:   []string{"baz", "qux"},
+				OperatingSystem: hardware.K8sHardwareMetadataInstanceOperatingSystem{
+					Slug:     "slug",
+					Distro:   "distro",
+					Version:  "version",
+					ImageTag: "imagetag",
+				},
+				Network: hardware.K8sHardwareMetadataInstanceNetwork{
+					Addresses: []hardware.K8sHardwareMetadataInstanceNetworkAddress{
+						{
+							AddressFamily: 4,
+							Address:       "1.1.1.1",
+							Public:        true,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	expect, err := json.Marshal(hw)
+	require.NoError(t, err)
+
+	actual, err := hw.Export()
+	require.NoError(t, err)
+
+	assert.Equal(t, expect, actual)
 }
 
 type ListerClientMock struct {
