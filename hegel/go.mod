@@ -19,6 +19,9 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/rollbar/rollbar-go/errors v0.0.0-20211129211054-6380fe0f262a // indirect
+	github.com/spf13/cobra v1.4.0
+	github.com/spf13/pflag v1.0.5
+	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tinkerbell/tink v0.0.0-20201207184750-9c52cca562bc
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.26.1
