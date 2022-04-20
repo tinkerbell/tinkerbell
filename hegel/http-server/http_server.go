@@ -99,9 +99,9 @@ func checkHardwareClientHealth() {
 	// this will have to do.
 	// Note that we don't do anything with the stream (we don't read from it)
 	var isHardwareClientAvailableTemp bool
-	ctx, cancel := context.WithCancel(context.Background())
-	_, err := hegelServer.HardwareClient().All(ctx) // checks for tink health as well
-	if err == nil {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	if hegelServer.HardwareClient().IsHealthy(ctx) {
 		isHardwareClientAvailableTemp = true
 	}
 	cancel()
@@ -118,6 +118,6 @@ func checkHardwareClientHealth() {
 		metrics.CacherConnected.Set(0)
 		metrics.CacherHealthcheck.WithLabelValues("false").Inc()
 		metrics.Errors.WithLabelValues("cacher", "healthcheck").Inc()
-		logger.With("status", isHardwareClientAvailableTemp).Error(err)
+		logger.With("status", isHardwareClientAvailableTemp).Error(errors.New("client reported unhealthy"))
 	}
 }

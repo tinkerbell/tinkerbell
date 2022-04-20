@@ -8,7 +8,6 @@ import (
 
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/tinkerbell/hegel/hardware"
-	"google.golang.org/grpc"
 )
 
 // HardwareClient is a mock implementation of the hardwareGetter interface
@@ -17,8 +16,8 @@ type HardwareClient struct {
 	Data string
 }
 
-func (hg HardwareClient) All(_ context.Context, _ ...grpc.CallOption) (hardware.AllClient, error) {
-	return nil, nil
+func (hg HardwareClient) IsHealthy(context.Context) bool {
+	return true
 }
 
 // ByIP mocks the retrieval a piece of hardware from tink/cacher by ip
@@ -26,7 +25,7 @@ func (hg HardwareClient) All(_ context.Context, _ ...grpc.CallOption) (hardware.
 // having to parse the (mock) hardware data `HardwareClient.Data`, the process has been simplified to only match with the constant `UserIP`.
 // Given any other IP inside the get request, ByIP will return an empty piece of hardware regardless of whether or not the IP
 // actually matches the IP inside `Data`.
-func (hg HardwareClient) ByIP(_ context.Context, ip string, _ ...grpc.CallOption) (hardware.Hardware, error) {
+func (hg HardwareClient) ByIP(_ context.Context, ip string) (hardware.Hardware, error) {
 	var hw hardware.Hardware
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
@@ -52,7 +51,7 @@ func (hg HardwareClient) ByIP(_ context.Context, ip string, _ ...grpc.CallOption
 	return hw, nil
 }
 
-func (hg HardwareClient) Watch(_ context.Context, _ string, _ ...grpc.CallOption) (hardware.Watcher, error) {
+func (hg HardwareClient) Watch(context.Context, string) (hardware.Watcher, error) {
 	return nil, nil
 }
 
