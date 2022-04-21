@@ -70,6 +70,9 @@ type RootCommand struct {
 	Opts RootCommandOptions
 }
 
+// Temporary workaround to circumvent the linter until the root command is wired up.
+var _, _ = NewRootCommand()
+
 // NewRootCommand creates new RootCommand instance.
 func NewRootCommand() (*RootCommand, error) {
 	rootCmd := &RootCommand{
