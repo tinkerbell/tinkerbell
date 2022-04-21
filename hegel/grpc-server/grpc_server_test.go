@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -18,12 +17,8 @@ import (
 )
 
 func TestGetCacher(t *testing.T) {
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
-
 	for name, test := range cacherGrpcTests {
 		t.Log(name)
-		os.Unsetenv("DATA_MODEL_VERSION")
 
 		l, err := log.Init("github.com/tinkerbell/hegel")
 		if err != nil {
@@ -31,10 +26,8 @@ func TestGetCacher(t *testing.T) {
 		}
 		logger := l.Package("grpcserver")
 
-		hegelTestServer, err := NewServer(logger, mock.HardwareClient{Data: test.json})
-		if err != nil {
-			t.Fatal(err, "failed to create hegel server")
-		}
+		hegelTestServer := NewServer(logger, mock.HardwareClient{Data: test.json})
+
 		addr, err := net.ResolveTCPAddr("tcp", mock.UserIP+":80")
 		if err != nil {
 			t.Fatal(err, "failed to resolve tcp addr")
@@ -97,10 +90,6 @@ func TestGetCacher(t *testing.T) {
 }
 
 func TestGetByIPTinkerbell(t *testing.T) {
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
-	os.Setenv("DATA_MODEL_VERSION", "1")
-
 	for name, test := range tinkerbellGrpcTests {
 		t.Log(name)
 
@@ -110,10 +99,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 		}
 		logger := l.Package("grpcserver")
 
-		hegelTestServer, err := NewServer(logger, mock.HardwareClient{Data: test.json})
-		if err != nil {
-			t.Fatal(err, "failed to create hegel server")
-		}
+		hegelTestServer := NewServer(logger, mock.HardwareClient{Data: test.json})
 
 		addr, err := net.ResolveTCPAddr("tcp", mock.UserIP+":80")
 		if err != nil {

@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/packethost/pkg/log"
+	"github.com/tinkerbell/hegel/datamodel"
 	grpcserver "github.com/tinkerbell/hegel/grpc-server"
 	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/hardware/mock"
@@ -26,34 +28,22 @@ func TestMain(m *testing.M) {
 	logger = l.Package("httpserver")
 	metrics.Init(l)
 
-	var err error
 	hc := mock.HardwareClient{}
-	hegelServer, err = grpcserver.NewServer(logger, hc)
-	if err != nil {
-		logger.Fatal(err, "failed to create hegel server")
-	}
+	hegelServer = grpcserver.NewServer(logger, hc)
 
 	os.Exit(m.Run())
 }
 
 // TestTrustedProxies tests if the actual remote user IP is extracted correctly from the X-FORWARDED-FOR header according to the list of trusted proxies provided.
 func TestTrustedProxies(t *testing.T) {
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
-	os.Setenv("DATA_MODEL_VERSION", "1")
-
-	trustedProxies := os.Getenv("TRUSTED_PROXIES")
-	defer os.Setenv("TRUSTED_PROXIES", trustedProxies)
-
 	for name, test := range trustedProxiesTests {
 		t.Run(name, func(t *testing.T) {
-			os.Setenv("TRUSTED_PROXIES", test.trustedProxies)
-			hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
+			hegelServer.SetHardwareClient(mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json})
 
 			mux := &http.ServeMux{}
 			mux.HandleFunc("/2009-04-04/", ec2Handler)
 
-			trustedProxies := xff.ParseTrustedProxies()
+			trustedProxies := xff.ParseTrustedProxies(test.trustedProxies)
 			xffHandler := xff.HTTPHandler(logger, mux, trustedProxies)
 
 			req, err := http.NewRequest("GET", test.url, nil)
@@ -80,14 +70,9 @@ func TestTrustedProxies(t *testing.T) {
 }
 
 func TestGetMetadataCacher(t *testing.T) {
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
-
 	for name, test := range cacherTests {
 		t.Log(name)
 		hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
-
-		os.Unsetenv("DATA_MODEL_VERSION")
 
 		req, err := http.NewRequest("GET", "/metadata", nil)
 		if err != nil {
@@ -96,7 +81,7 @@ func TestGetMetadataCacher(t *testing.T) {
 
 		req.RemoteAddr = mock.UserIP
 		resp := httptest.NewRecorder()
-		http.HandleFunc("/metadata", getMetadata("")) // filter not used in cacher mode
+		http.HandleFunc("/metadata", getMetadata("", datamodel.Cacher)) // filter not used in cacher mode
 
 		http.DefaultServeMux.ServeHTTP(resp, req)
 
@@ -124,19 +109,15 @@ func TestGetMetadataCacher(t *testing.T) {
 
 // TestGetMetadataTinkerbell tests the default use case in tinkerbell mode.
 func TestGetMetadataTinkerbell(t *testing.T) {
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
-	os.Setenv("DATA_MODEL_VERSION", "1")
-
 	customEndpoints := `{"/metadata":".metadata.instance"}`
 
 	for name, test := range tinkerbellTests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
+			hegelServer.SetHardwareClient(mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json})
 
 			mux := &http.ServeMux{}
 
-			err := registerCustomEndpoints(mux, customEndpoints)
+			err := registerCustomEndpoints(mux, datamodel.TinkServer, customEndpoints)
 			if err != nil {
 				t.Fatal("Error registering custom endpoints", err)
 			}
@@ -175,19 +156,15 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 
 // TestGetMetadataTinkerbellKant tests the kant specific use case in tinkerbell mode.
 func TestGetMetadataTinkerbellKant(t *testing.T) {
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
-	os.Setenv("DATA_MODEL_VERSION", "1")
-
 	customEndpoints := `{"/metadata":".metadata.instance","/components":".metadata.components","/userdata":".metadata.userdata"}`
 
 	for name, test := range tinkerbellKantTests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
+			hegelServer.SetHardwareClient(mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json})
 
 			mux := &http.ServeMux{}
 
-			err := registerCustomEndpoints(mux, customEndpoints)
+			err := registerCustomEndpoints(mux, datamodel.TinkServer, customEndpoints)
 			if err != nil {
 				t.Fatal("Error registering custom endpoints", err)
 			}
@@ -215,13 +192,9 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 }
 
 func TestRegisterEndpoints(t *testing.T) {
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
-	os.Setenv("DATA_MODEL_VERSION", "1")
-
 	for name, test := range registerEndpointTests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
+			hegelServer.SetHardwareClient(mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json})
 
 			if test.customEndpoints == "" {
 				test.customEndpoints = `{"/metadata":".metadata.instance"}`
@@ -229,7 +202,7 @@ func TestRegisterEndpoints(t *testing.T) {
 
 			mux := &http.ServeMux{}
 
-			err := registerCustomEndpoints(mux, test.customEndpoints)
+			err := registerCustomEndpoints(mux, datamodel.TinkServer, test.customEndpoints)
 			if test.error != "" {
 				if err == nil {
 					t.Fatalf("registerCustomEndpoints should have returned error: %v", test.error)
@@ -261,13 +234,9 @@ func TestRegisterEndpoints(t *testing.T) {
 }
 
 func TestEC2Endpoint(t *testing.T) {
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
-	os.Setenv("DATA_MODEL_VERSION", "1")
-
 	for name, test := range tinkerbellEC2Tests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
+			hegelServer.SetHardwareClient(mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json})
 
 			http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
 
@@ -912,12 +881,11 @@ func TestServe(t *testing.T) {
 		},
 	}
 	mport := 52000
-	metricsPort = &mport
 
 	customEndpoints := `{"/metadata":".metadata.instance"}`
 
 	go func() {
-		if err := Serve(logger, hegelServer, "grev", time.Now(), customEndpoints); err != nil {
+		if err := Serve(context.Background(), logger, hegelServer, mport, "grev", time.Now(), "", customEndpoints, ""); err != nil {
 			t.Errorf("Serve() error = %v", err)
 		}
 	}()

@@ -12,6 +12,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/itchyny/gojq v0.11.0
+	github.com/oklog/run v1.1.0
 	github.com/packethost/cacher v0.0.0-20211110202753-9b918bf0fe6d
 	github.com/packethost/pkg v0.0.0-20211110202003-387414657e83
 	github.com/packethost/xff v0.0.0-20190305172552-d3e9190c41b3

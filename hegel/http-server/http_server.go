@@ -3,16 +3,15 @@ package httpserver
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/packethost/pkg/env"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/tinkerbell/hegel/datamodel"
 	grpcserver "github.com/tinkerbell/hegel/grpc-server"
 	"github.com/tinkerbell/hegel/metrics"
 	"github.com/tinkerbell/hegel/xff"
@@ -23,14 +22,23 @@ var (
 	isHardwareClientAvailableMu sync.RWMutex
 	isHardwareClientAvailable   bool
 	startTime                   time.Time
-	metricsPort                 = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061), "Port to listen on http")
 	gitRev                      string
 	gitRevJSON                  []byte
 	logger                      log.Logger
 	hegelServer                 *grpcserver.Server
 )
 
-func Serve(l log.Logger, srv *grpcserver.Server, gRev string, t time.Time, customEndpoints string) error {
+func Serve(
+	ctx context.Context,
+	l log.Logger,
+	srv *grpcserver.Server,
+	port int,
+	gRev string,
+	t time.Time,
+	model datamodel.DataModel,
+	customEndpoints string,
+	unparsedProxies string,
+) error {
 	startTime = t
 	gitRev = gRev
 	logger = l
@@ -54,26 +62,29 @@ func Serve(l log.Logger, srv *grpcserver.Server, gRev string, t time.Time, custo
 
 	buildSubscriberHandlers()
 
-	err := registerCustomEndpoints(mux, customEndpoints)
+	err := registerCustomEndpoints(mux, model, customEndpoints)
 	if err != nil {
 		l.Fatal(err, "could not register custom endpoints")
 	}
 
-	trustedProxies := xff.ParseTrustedProxies()
-	http.Handle("/", xff.HTTPHandler(logger, mux, trustedProxies))
+	proxies := xff.ParseTrustedProxies(unparsedProxies)
+	http.Handle("/", xff.HTTPHandler(logger, mux, proxies))
 
-	l.With("port", *metricsPort).Info("Starting http server")
+	server := &http.Server{Addr: fmt.Sprintf(":%d", port)}
 	go func() {
-		err := http.ListenAndServe(fmt.Sprintf(":%d", *metricsPort), nil)
-		if err != nil {
-			l.Fatal(err, "failed to serve http")
-		}
+		<-ctx.Done()
+
+		// todo(chrisdoherty4) Refactor server construction and 'listen' to be separate so we can more gracefully
+		// shutdown and introduce a timeout before calling Close().
+		server.Close()
 	}()
 
-	return nil
+	l.With("port", port).Info("Starting http server")
+
+	return server.ListenAndServe()
 }
 
-func registerCustomEndpoints(mux *http.ServeMux, customEndpoints string) error {
+func registerCustomEndpoints(mux *http.ServeMux, model datamodel.DataModel, customEndpoints string) error {
 	if mux == nil {
 		mux = http.DefaultServeMux
 	}
@@ -84,7 +95,7 @@ func registerCustomEndpoints(mux *http.ServeMux, customEndpoints string) error {
 		return errors.Wrap(err, "error in parsing custom endpoints")
 	}
 	for endpoint, filter := range endpoints {
-		route := getMetadata(filter)                 // generates a handler
+		route := getMetadata(filter, model)          // generates a handler
 		hf := otelhttp.WithRouteTag(endpoint, route) // wrap it with otel
 		mux.Handle(endpoint, hf)
 	}

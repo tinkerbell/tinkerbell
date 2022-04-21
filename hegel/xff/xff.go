@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -97,10 +96,9 @@ func updateRemote(ctx context.Context, l log.Logger, masks []net.IPNet) context.
 	return ctx
 }
 
-func ParseTrustedProxies() []string {
+func ParseTrustedProxies(trustedProxies string) []string {
 	var result []string
 
-	trustedProxies := os.Getenv("TRUSTED_PROXIES")
 	for _, cidr := range strings.Split(trustedProxies, ",") {
 		cidr = strings.TrimSpace(cidr)
 		if cidr == "" {

@@ -3,17 +3,19 @@ package mock
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"os"
+	"fmt"
 
 	"github.com/packethost/cacher/protos/cacher"
+	"github.com/pkg/errors"
+	"github.com/tinkerbell/hegel/datamodel"
 	"github.com/tinkerbell/hegel/hardware"
 )
 
 // HardwareClient is a mock implementation of the hardwareGetter interface
 // Data represents the hardware data stored inside tink db.
 type HardwareClient struct {
-	Data string
+	Model datamodel.DataModel
+	Data  string
 }
 
 func (hg HardwareClient) IsHealthy(context.Context) bool {
@@ -26,29 +28,26 @@ func (hg HardwareClient) IsHealthy(context.Context) bool {
 // Given any other IP inside the get request, ByIP will return an empty piece of hardware regardless of whether or not the IP
 // actually matches the IP inside `Data`.
 func (hg HardwareClient) ByIP(_ context.Context, ip string) (hardware.Hardware, error) {
-	var hw hardware.Hardware
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	switch dataModelVersion {
-	case "1":
-		hw = &hardware.Tinkerbell{}
-
+	switch hg.Model {
+	case datamodel.TinkServer:
+		fmt.Printf("HELLO WORLD\n")
 		if ip != UserIP {
-			return hw, errors.New("rpc error: code = Unknown desc = unexpected end of JSON input")
+			return nil, errors.Errorf("received non-mock remote ip address: %v", ip)
 		}
 
-		err := json.Unmarshal([]byte(hg.Data), hw)
-		if err != nil {
+		hw := &hardware.Tinkerbell{}
+		if err := json.Unmarshal([]byte(hg.Data), hw); err != nil {
 			return nil, err
 		}
+
+		return hw, nil
 	default:
 		if ip != UserIP {
-			return &hardware.Cacher{}, errors.New("rpc error: code = Unknown desc = DB is not ready")
+			return &hardware.Cacher{}, errors.Errorf("received non-mock remote ip address: %v", ip)
 		}
 
-		hw = &hardware.Cacher{Hardware: &cacher.Hardware{JSON: hg.Data}}
+		return &hardware.Cacher{Hardware: &cacher.Hardware{JSON: hg.Data}}, nil
 	}
-
-	return hw, nil
 }
 
 func (hg HardwareClient) Watch(context.Context, string) (hardware.Watcher, error) {

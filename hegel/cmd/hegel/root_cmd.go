@@ -1,15 +1,28 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
+	_ "net/http/pprof" //nolint:gosec // G108: Profiling endpoint is automatically exposed on /debug/pprof
+
+	"github.com/equinix-labs/otel-init-go/otelinit"
+	"github.com/oklog/run"
+	"github.com/packethost/pkg/log"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/tinkerbell/hegel/build"
 	"github.com/tinkerbell/hegel/datamodel"
+	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	"github.com/tinkerbell/hegel/hardware"
+	httpserver "github.com/tinkerbell/hegel/http-server"
+	"github.com/tinkerbell/hegel/metrics"
 )
 
 const longHelp = `
@@ -29,17 +42,18 @@ specifying both deprecated and current forms is undefined.
 Deprecated CLI flags
   Deprecated   Current
   --http_port  --http-port
-  --use_tls    --grpc-use-tls
   --tls_cert   --grpc-tls-cert
   --tls_key    --grpc-tls-key
+  --use_tls    --grpc-use-tls
 
 Deprecated environment variables
   Deprecated          Current
+  CUSTOM_ENDPOINTS    HEGEL_HTTP_CUSTOM_ENDPOINTS
   DATA_MODEL_VERSION  HEGEL_DATA_MODEL
+  GRPC_PORT           HEGEL_GRPC_PORT
   HEGEL_TLS_CERT      HEGEL_GRPC_TLS_CERT
   HEGEL_TLS_KEY       HEGEL_GRPC_TLS_KEY
-  USE_TLS             HEGEL_GRPC_USE_TLS
-  CUSTOM_ENDPOINTS    HEGEL_HTTP_CUSTOM_ENDPOINTS
+  HEGEL_USE_TLS       HEGEL_GRPC_USE_TLS
   TRUSTED_PROXIES     HEGEL_TRUSTED_PROXIES
 `
 
@@ -48,16 +62,17 @@ const EnvNamePrefix = "HEGEL"
 
 // RootCommandOptions encompasses all the configurability of the RootCommand.
 type RootCommandOptions struct {
-	Facility       string `mapstructure:"facility"`
 	DataModel      string `mapstructure:"data-model"`
+	Facility       string `mapstructure:"facility"`
 	TrustedProxies string `mapstructure:"trusted-proxies"`
 
-	HTTPPort            int    `mapstructure:"http-port"`
 	HTTPCustomEndpoints string `mapstructure:"http-custom-endpoints"`
+	HTTPPort            int    `mapstructure:"http-port"`
 
-	GrpcTLSCertPath string `mapstructure:"grpc-tls-cert"`
-	GrpcTLSKeyPath  string `mapstructure:"grpc-tls-key"`
-	GrpcUseTLS      bool   `mapstructure:"grpc-use-tls"`
+	GRPCPort        int    `mapstructure:"grpc-port"`
+	GRPCTLSCertPath string `mapstructure:"grpc-tls-cert"`
+	GRPCTLSKeyPath  string `mapstructure:"grpc-tls-key"`
+	GRPCUseTLS      bool   `mapstructure:"grpc-use-tls"`
 
 	KubeAPI    string `mapstructure:"kubernetes-api"`
 	Kubeconfig string `mapstructure:"kubeconfig"`
@@ -70,7 +85,7 @@ func (o RootCommandOptions) GetDataModel() datamodel.DataModel {
 // RootCommand is the root command that represents the entrypoint to Hegel.
 type RootCommand struct {
 	*cobra.Command
-	Vpr  *viper.Viper
+	vpr  *viper.Viper
 	Opts RootCommandOptions
 }
 
@@ -91,8 +106,8 @@ func NewRootCommand() (*RootCommand, error) {
 	rootCmd.Flags().SortFlags = false // Print flag help in the order they're specified.
 
 	// Ensure keys with `-` use `_` for env keys else Viper won't match them.
-	rootCmd.Vpr = viper.NewWithOptions(viper.EnvKeyReplacer(strings.NewReplacer("-", "_")))
-	rootCmd.Vpr.SetEnvPrefix(EnvNamePrefix)
+	rootCmd.vpr = viper.NewWithOptions(viper.EnvKeyReplacer(strings.NewReplacer("-", "_")))
+	rootCmd.vpr.SetEnvPrefix(EnvNamePrefix)
 
 	if err := rootCmd.configureFlags(); err != nil {
 		return nil, err
@@ -105,52 +120,112 @@ func NewRootCommand() (*RootCommand, error) {
 	return rootCmd, nil
 }
 
-// PreRun satisfies cobra.Command.PreRunE and unmarshalls. Its responsible for populating rc.Opts.
-func (rc *RootCommand) PreRun(*cobra.Command, []string) error {
-	if err := rc.Vpr.Unmarshal(&rc.Opts); err != nil {
+// PreRun satisfies cobra.Command.PreRunE and unmarshalls. Its responsible for populating c.Opts.
+func (c *RootCommand) PreRun(*cobra.Command, []string) error {
+	if err := c.vpr.Unmarshal(&c.Opts); err != nil {
 		return err
 	}
 
-	return rc.validateOpts()
+	return c.validateOpts()
 }
 
-// Run executes Hegel. Its temporarily unimplemented.
-func (rc *RootCommand) Run(*cobra.Command, []string) error {
-	return nil
+// Run executes Hegel.
+func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
+	logger, err := log.Init("github.com/tinkerbell/hegel")
+	if err != nil {
+		return errors.Errorf("initialize logger: %v", err)
+	}
+	defer logger.Close()
+	metrics.Init(logger)
+
+	logger.Package("main").With("opts", fmt.Sprintf("%+v", c.Opts)).Info("root command options")
+
+	ctx, otelShutdown := otelinit.InitOpenTelemetry(cmd.Context(), "hegel")
+	defer otelShutdown(ctx)
+
+	metrics.State.Set(metrics.Initializing)
+
+	hardwareClient, err := hardware.NewClient(c.Opts.Facility, c.Opts.GetDataModel())
+	if err != nil {
+		return errors.Errorf("create client: %v", err)
+	}
+
+	grpcServer := grpcserver.NewServer(logger, hardwareClient)
+
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	var routines run.Group
+
+	routines.Add(
+		func() error {
+			return httpserver.Serve(
+				ctx,
+				logger,
+				grpcServer,
+				c.Opts.HTTPPort,
+				build.GetGitRevision(),
+				time.Now(),
+				c.Opts.GetDataModel(),
+				c.Opts.HTTPCustomEndpoints,
+				c.Opts.TrustedProxies,
+			)
+		},
+		func(error) { cancel() },
+	)
+
+	routines.Add(
+		func() error {
+			return grpcserver.Serve(
+				ctx,
+				logger,
+				grpcServer,
+				c.Opts.GRPCPort,
+				c.Opts.TrustedProxies,
+				c.Opts.GRPCTLSCertPath,
+				c.Opts.GRPCTLSKeyPath,
+				c.Opts.GRPCUseTLS,
+			)
+		},
+		func(error) { cancel() },
+	)
+
+	return routines.Run()
 }
 
-func (rc *RootCommand) configureFlags() error {
-	rc.Flags().String("facility", "onprem", "The facility we are running in (mostly to connect to cacher)")
-	rc.Flags().String("data-model", string(datamodel.TinkServer), "The back-end data source: [\"1\", \"kubernetes\"] (1 indicates tink server)")
-	rc.Flags().String("trusted-proxies", "", "A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For for both gRPC and HTTP endpoints")
+func (c *RootCommand) configureFlags() error {
+	// Alphabetically ordereed
+	c.Flags().String("data-model", string(datamodel.TinkServer), "The back-end data source: [\"1\", \"kubernetes\"] (1 indicates tink server)")
+	c.Flags().String("facility", "onprem", "The facility we are running in (mostly to connect to cacher)")
 
-	rc.Flags().String("grpc-tls-cert", "", "Path of a TLS certificate for the gRPC server")
-	rc.Flags().String("grpc-tls-key", "", "Path to the private key for the tls_cert")
-	rc.Flags().Bool("grpc-use-tls", true, "Toggle for gRPC TLS usage")
+	c.Flags().Int("grpc-port", 42115, "Port to listen on for gRPC requests")
+	c.Flags().String("grpc-tls-cert", "", "Path of a TLS certificate for the gRPC server")
+	c.Flags().String("grpc-tls-key", "", "Path to the private key for the tls_cert")
+	c.Flags().Bool("grpc-use-tls", true, "Toggle for gRPC TLS usage")
 
-	rc.Flags().Int("http-port", 50061, "Port to listen on for HTTP requests")
-	rc.Flags().String("http-custom-endpoints", `{"/metadata":".metadata.instance"}`, "JSON encoded object specifying custom endpoint => metadata mappings")
+	c.Flags().String("http-custom-endpoints", `{"/metadata":".metadata.instance"}`, "JSON encoded object specifying custom endpoint => metadata mappings")
+	c.Flags().Int("http-port", 50061, "Port to listen on for HTTP requests")
 
-	rc.Flags().String("kubernetes-api", "", "URL of the Kubernetes API Server")
-	rc.Flags().String("kubeconfig", "", "Path to a kubeconfig file")
+	c.Flags().String("kubeconfig", "", "Path to a kubeconfig file")
+	c.Flags().String("kubernetes-api", "", "URL of the Kubernetes API Server")
 
-	if err := rc.Vpr.BindPFlags(rc.Flags()); err != nil {
+	c.Flags().String("trusted-proxies", "", "A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For for both gRPC and HTTP endpoints")
+
+	if err := c.vpr.BindPFlags(c.Flags()); err != nil {
 		return err
 	}
 
 	var err error
-	rc.Flags().VisitAll(func(f *pflag.Flag) {
+	c.Flags().VisitAll(func(f *pflag.Flag) {
 		if err != nil {
 			return
 		}
-		err = rc.Vpr.BindEnv(f.Name)
+		err = c.vpr.BindEnv(f.Name)
 	})
 
 	return err
 }
 
-func (rc *RootCommand) configureLegacyFlags() error {
-	rc.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
+func (c *RootCommand) configureLegacyFlags() error {
+	c.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
 		switch name {
 		case "use_tls":
 			return pflag.NormalizedName("grpc-use-tls")
@@ -169,11 +244,11 @@ func (rc *RootCommand) configureLegacyFlags() error {
 		"data-model":            "DATA_MODEL_VERSION",
 		"grpc-tls-cert":         "HEGEL_TLS_CERT",
 		"grpc-tls-key":          "HEGEL_TLS_KEY",
-		"grpc-use-tls":          "USE_TLS",
+		"grpc-use-tls":          "HEGEL_USE_TLS",
 		"http-custom-endpoints": "CUSTOM_ENDPOINTS",
 		"trusted-proxies":       "TRUSTED_PROXIES",
 	} {
-		if err := rc.Vpr.BindEnv(key, envName); err != nil {
+		if err := c.vpr.BindEnv(key, envName); err != nil {
 			return err
 		}
 	}
@@ -181,19 +256,19 @@ func (rc *RootCommand) configureLegacyFlags() error {
 	return nil
 }
 
-func (rc *RootCommand) validateOpts() error {
-	if rc.Opts.GrpcUseTLS {
-		if rc.Opts.GrpcTLSCertPath == "" {
+func (c *RootCommand) validateOpts() error {
+	if c.Opts.GRPCUseTLS {
+		if c.Opts.GRPCTLSCertPath == "" {
 			return errors.New("--grpc-use-tls requires --grpc-tls-cert")
 		}
 
-		if rc.Opts.GrpcTLSKeyPath == "" {
+		if c.Opts.GRPCTLSKeyPath == "" {
 			return errors.New("--grpc-use-tls requires --grpc-tls-key")
 		}
 	}
-	if rc.Opts.GetDataModel() == datamodel.Kubernetes {
-		if rc.Opts.Kubeconfig == "" {
-			return fmt.Errorf("--data-model=%v requires --kubeconfig", datamodel.Kubernetes)
+	if c.Opts.GetDataModel() == datamodel.Kubernetes {
+		if c.Opts.Kubeconfig == "" {
+			return errors.Errorf("--data-model=%v requires --kubeconfig", datamodel.Kubernetes)
 		}
 	}
 
