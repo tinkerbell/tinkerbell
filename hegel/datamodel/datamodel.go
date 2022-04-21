@@ -3,7 +3,10 @@ Package datamodel defines constants for the various back-end storage mechanisms 
 */
 package datamodel
 
+// DataModel defines the mechanism for back-end data retrieval.
+type DataModel string
+
 const (
-	TinkServer = "1"
-	Kubernetes = "kubernetes"
+	TinkServer DataModel = "1"
+	Kubernetes DataModel = "kubernetes"
 )

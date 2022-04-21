@@ -63,6 +63,10 @@ type RootCommandOptions struct {
 	Kubeconfig string `mapstructure:"kubeconfig"`
 }
 
+func (o RootCommandOptions) GetDataModel() datamodel.DataModel {
+	return datamodel.DataModel(o.DataModel)
+}
+
 // RootCommand is the root command that represents the entrypoint to Hegel.
 type RootCommand struct {
 	*cobra.Command
@@ -117,7 +121,7 @@ func (rc *RootCommand) Run(*cobra.Command, []string) error {
 
 func (rc *RootCommand) configureFlags() error {
 	rc.Flags().String("facility", "onprem", "The facility we are running in (mostly to connect to cacher)")
-	rc.Flags().String("data-model", datamodel.TinkServer, "The back-end data source: [\"1\", \"kubernetes\"] (1 indicates tink server)")
+	rc.Flags().String("data-model", string(datamodel.TinkServer), "The back-end data source: [\"1\", \"kubernetes\"] (1 indicates tink server)")
 	rc.Flags().String("trusted-proxies", "", "A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For for both gRPC and HTTP endpoints")
 
 	rc.Flags().String("grpc-tls-cert", "", "Path of a TLS certificate for the gRPC server")
@@ -187,8 +191,7 @@ func (rc *RootCommand) validateOpts() error {
 			return errors.New("--grpc-use-tls requires --grpc-tls-key")
 		}
 	}
-
-	if rc.Opts.DataModel == datamodel.Kubernetes {
+	if rc.Opts.GetDataModel() == datamodel.Kubernetes {
 		if rc.Opts.Kubeconfig == "" {
 			return fmt.Errorf("--data-model=%v requires --kubeconfig", datamodel.Kubernetes)
 		}
