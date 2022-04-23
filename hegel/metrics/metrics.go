@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"github.com/packethost/pkg/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -23,7 +22,7 @@ var (
 	TotalSubscriptions prometheus.Counter
 )
 
-func Init(_ log.Logger) {
+func init() {
 	CacherConnected = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "hegel_cacher_connected",
 		Help: "Hegel health check status for cacher, 0:not connected, 1:connected",

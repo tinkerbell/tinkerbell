@@ -319,28 +319,6 @@ func TestServer_SubLock(t *testing.T) {
 	}
 }
 
-func TestServer_SetHardwareClient(t *testing.T) {
-	tests := []struct {
-		name           string
-		hardwareClient hardware.Client
-	}{
-		{
-			name:           "test_hw_client",
-			hardwareClient: mock.HardwareClient{Data: "test_success"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &Server{}
-			s.SetHardwareClient(tt.hardwareClient)
-			retval := s.HardwareClient()
-			if retval == nil {
-				t.Error("Server.SetHardwareClient() failed")
-			}
-		})
-	}
-}
-
 func TestServer_Subscriptions(t *testing.T) {
 	tests := []struct {
 		name string

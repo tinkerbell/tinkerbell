@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/packethost/pkg/log"
@@ -13,64 +12,50 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tinkerbell/hegel/datamodel"
 	grpcserver "github.com/tinkerbell/hegel/grpc-server"
-	"github.com/tinkerbell/hegel/metrics"
+	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/xff"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-var (
-	isHardwareClientAvailableMu sync.RWMutex
-	isHardwareClientAvailable   bool
-	startTime                   time.Time
-	gitRev                      string
-	gitRevJSON                  []byte
-	logger                      log.Logger
-	hegelServer                 *grpcserver.Server
-)
-
 func Serve(
 	ctx context.Context,
-	l log.Logger,
-	srv *grpcserver.Server,
+	logger log.Logger,
+	client hardware.Client,
+	grpcsrv *grpcserver.Server,
 	port int,
-	gRev string,
-	t time.Time,
+	start time.Time,
 	model datamodel.DataModel,
 	customEndpoints string,
 	unparsedProxies string,
 ) error {
-	startTime = t
-	gitRev = gRev
-	logger = l
-	hegelServer = srv
-
-	go func() {
-		c := time.Tick(15 * time.Second)
-		for range c {
-			checkHardwareClientHealth()
-		}
-	}()
-
-	mux := &http.ServeMux{}
+	logger.Info("in the http serve func")
+	var mux http.ServeMux
 	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/_packet/healthcheck", healthCheckHandler)
-	mux.HandleFunc("/_packet/version", versionHandler)
+	mux.Handle("/_packet/healthcheck", HealthCheckHandler(logger, client, start))
+	mux.Handle("/_packet/version", VersionHandler(logger))
 
-	ec2hf := otelhttp.WithRouteTag("/2009-04-04", http.HandlerFunc(ec2Handler))
-	mux.Handle("/2009-04-04", ec2hf) // workaround for making trailing slash optional
-	mux.Handle("/2009-04-04/", ec2hf)
+	ec2MetadataHandler := otelhttp.WithRouteTag("/2009-04-04", EC2MetadataHandler(logger, client))
+	mux.Handle("/2009-04-04/", ec2MetadataHandler)
+	mux.Handle("/2009-04-04", ec2MetadataHandler)
 
-	buildSubscriberHandlers()
+	subscriptionHandler := otelhttp.WithRouteTag("/subscriptions", SubscriptionsHandler(grpcsrv, logger))
+	mux.Handle("/subscriptions/", subscriptionHandler)
+	mux.Handle("/subscriptions", subscriptionHandler)
 
-	err := registerCustomEndpoints(mux, model, customEndpoints)
+	err := registerCustomEndpoints(logger, client, &mux, model, customEndpoints)
 	if err != nil {
-		l.Fatal(err, "could not register custom endpoints")
+		return fmt.Errorf("register custom endpoints: %w", err)
 	}
 
+	// Add an X-Forward-For middleware for proxies.
 	proxies := xff.ParseTrustedProxies(unparsedProxies)
-	http.Handle("/", xff.HTTPHandler(logger, mux, proxies))
+	handler, err := xff.HTTPHandler(&mux, proxies)
+	if err != nil {
+		return err
+	}
 
-	server := &http.Server{Addr: fmt.Sprintf(":%d", port)}
+	address := fmt.Sprintf(":%d", port)
+	server := &http.Server{Addr: address, Handler: handler}
 	go func() {
 		<-ctx.Done()
 
@@ -79,56 +64,21 @@ func Serve(
 		server.Close()
 	}()
 
-	l.With("port", port).Info("Starting http server")
-
+	logger.With("address", address).Info("Starting http server")
 	return server.ListenAndServe()
 }
 
-func registerCustomEndpoints(mux *http.ServeMux, model datamodel.DataModel, customEndpoints string) error {
-	if mux == nil {
-		mux = http.DefaultServeMux
-	}
-
+func registerCustomEndpoints(logger log.Logger, client hardware.Client, mux *http.ServeMux, model datamodel.DataModel, customEndpoints string) error {
 	endpoints := make(map[string]string)
 	err := json.Unmarshal([]byte(customEndpoints), &endpoints)
 	if err != nil {
 		return errors.Wrap(err, "error in parsing custom endpoints")
 	}
+
 	for endpoint, filter := range endpoints {
-		route := getMetadata(filter, model)          // generates a handler
-		hf := otelhttp.WithRouteTag(endpoint, route) // wrap it with otel
-		mux.Handle(endpoint, hf)
+		handler := otelhttp.WithRouteTag(endpoint, GetMetadataHandler(logger, client, filter, model))
+		mux.Handle(endpoint, handler)
 	}
 
 	return nil
-}
-
-func checkHardwareClientHealth() {
-	// Get All hardware as a proxy for a healthcheck
-	// TODO (patrickdevivo) until Cacher gets a proper healthcheck RPC
-	// a la https://github.com/grpc/grpc/blob/master/doc/health-checking.md
-	// this will have to do.
-	// Note that we don't do anything with the stream (we don't read from it)
-	var isHardwareClientAvailableTemp bool
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	if hegelServer.HardwareClient().IsHealthy(ctx) {
-		isHardwareClientAvailableTemp = true
-	}
-	cancel()
-
-	isHardwareClientAvailableMu.Lock()
-	isHardwareClientAvailable = isHardwareClientAvailableTemp
-	isHardwareClientAvailableMu.Unlock()
-
-	if isHardwareClientAvailableTemp {
-		metrics.CacherConnected.Set(1)
-		metrics.CacherHealthcheck.WithLabelValues("true").Inc()
-		logger.With("status", isHardwareClientAvailableTemp).Debug("tick")
-	} else {
-		metrics.CacherConnected.Set(0)
-		metrics.CacherHealthcheck.WithLabelValues("false").Inc()
-		metrics.Errors.WithLabelValues("cacher", "healthcheck").Inc()
-		logger.With("status", isHardwareClientAvailableTemp).Error(errors.New("client reported unhealthy"))
-	}
 }

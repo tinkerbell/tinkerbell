@@ -11,10 +11,13 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
+	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
+	"github.com/tinkerbell/hegel/build"
 	"github.com/tinkerbell/hegel/datamodel"
+	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/metrics"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // ec2Filters defines the query pattern and filters for the EC2 endpoint
@@ -47,54 +50,75 @@ var ec2Filters = map[string]string{
 	"/meta-data/local-ipv4":                                ".metadata.instance.network.addresses[]? | select(.address_family == 4 and .public == false) | .address",
 }
 
-func versionHandler(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func VersionHandler(logger log.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		payload := struct {
+			// Use git_rev to match the health endpoint reporting.
+			Revision string `json:"git_rev"`
+		}{
+			Revision: build.GetGitRevision(),
+		}
 
-	if _, err := w.Write(gitRevJSON); err != nil {
-		logger.Error(err, " Failed to write gitRevJSON")
-	}
+		encoder := json.NewEncoder(w)
+
+		if err := encoder.Encode(payload); err != nil {
+			logger.Error(err, "marshalling version")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	})
 }
 
-func healthCheckHandler(w http.ResponseWriter, _ *http.Request) {
-	isHardwareClientAvailableMu.RLock()
-	isHardwareClientAvailableTemp := isHardwareClientAvailable
-	isHardwareClientAvailableMu.RUnlock()
-
-	res := struct {
-		GitRev                  string  `json:"git_rev"`
-		Uptime                  float64 `json:"uptime"`
-		Goroutines              int     `json:"goroutines"`
-		HardwareClientAvailable bool    `json:"hardware_client_status"`
-	}{
-		GitRev:                  gitRev,
-		Uptime:                  time.Since(startTime).Seconds(),
-		Goroutines:              runtime.NumGoroutine(),
-		HardwareClientAvailable: isHardwareClientAvailableTemp,
-	}
-	b, err := json.Marshal(&res)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-
-	if !isHardwareClientAvailableTemp {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(b)
-	if err != nil {
-		logger.Error(err, " Failed to write for healthChecker")
-	}
+// HealthChecker provide health checking behavior for services.
+type HealthChecker interface {
+	IsHealthy(context.Context) bool
 }
 
-func getMetadata(filter string, model datamodel.DataModel) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+// HealthCheckHandler provides an http handler that exposes health check information to consumers.
+// The data is exposed as a json payload containing git_rev, uptim, goroutines and hardware_client_status.
+func HealthCheckHandler(logger log.Logger, client HealthChecker, start time.Time) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		clientIsHealthy := client.IsHealthy(r.Context())
+
+		res := struct {
+			GitRev                  string  `json:"git_rev"`
+			Uptime                  float64 `json:"uptime"`
+			Goroutines              int     `json:"goroutines"`
+			HardwareClientAvailable bool    `json:"hardware_client_status"`
+		}{
+			GitRev:                  build.GetGitRevision(),
+			Uptime:                  time.Since(start).Seconds(),
+			Goroutines:              runtime.NumGoroutine(),
+			HardwareClientAvailable: clientIsHealthy,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		encoder := json.NewEncoder(w)
+
+		if err := encoder.Encode(&res); err != nil {
+			logger.Error(err, "Failed to write for healthChecker")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if !clientIsHealthy {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	})
+}
+
+// GetMetadataHandler provides an http handler that retrieves metadata using client filtering it
+// using filter. filter should be a jq compatible processing string. Data is only filtered when
+// using the TinkServer data model.
+func GetMetadataHandler(logger log.Logger, client hardware.Client, filter string, model datamodel.DataModel) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
 
-		logger.Debug("calling getMetadata ")
+		logger.Debug("retrieving metadata")
 		userIP := getIPFromRequest(r)
 		if userIP == "" {
 			return
@@ -103,7 +127,7 @@ func getMetadata(filter string, model datamodel.DataModel) http.HandlerFunc {
 		metrics.MetadataRequests.Inc()
 		l := logger.With("userIP", userIP)
 		l.Info("got ip from request")
-		hw, err := hegelServer.HardwareClient().ByIP(context.Background(), userIP)
+		hw, err := client.ByIP(r.Context(), userIP)
 		if err != nil {
 			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 			l.With("error", err).Info("failed to get hardware by ip")
@@ -132,64 +156,65 @@ func getMetadata(filter string, model datamodel.DataModel) http.HandlerFunc {
 		if err != nil {
 			l.With("error", err).Info("failed to write response")
 		}
-	}
+	})
 }
 
-func ec2Handler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
+func EC2MetadataHandler(logger log.Logger, client hardware.Client) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
 
-	logger.Debug("calling ec2Handler ")
-	userIP := getIPFromRequest(r)
-	if userIP == "" {
-		return
-	}
+		logger.Debug("calling EC2MetadataHandler")
+		userIP := getIPFromRequest(r)
+		if userIP == "" {
+			return
+		}
 
-	metrics.MetadataRequests.Inc()
-	l := logger.With("userIP", userIP)
-	l.Info("got ip from request")
-	hw, err := hegelServer.HardwareClient().ByIP(context.Background(), userIP)
-	if err != nil {
-		metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
-		l.With("error", err).Info("failed to get hardware by ip")
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
+		metrics.MetadataRequests.Inc()
+		l := logger.With("userIP", userIP)
+		l.Info("got ip from request")
+		hw, err := client.ByIP(r.Context(), userIP)
+		if err != nil {
+			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
+			l.With("error", err).Info("failed to get hardware by ip")
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 
-	filter, err := processEC2Query(r.URL.Path)
-	if err != nil {
-		l.With("error", err).Info("failed to process ec2 query")
-		w.WriteHeader(http.StatusNotFound)
-		_, err := w.Write([]byte("404 not found"))
+		filter, err := processEC2Query(r.URL.Path)
+		if err != nil {
+			l.With("error", err).Info("failed to process ec2 query")
+			w.WriteHeader(http.StatusNotFound)
+			_, err := w.Write([]byte("404 not found"))
+			if err != nil {
+				l.With("error", err).Info("failed to write response")
+			}
+			return
+		}
+
+		ehw, err := hw.Export()
+		if err != nil {
+			l.With("error", err).Info("failed to export hardware")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err := w.Write([]byte("404 not found"))
+			if err != nil {
+				l.With("error", err).Info("failed to write response")
+			}
+			return
+		}
+		resp, err := filterMetadata(ehw, filter)
+		if err != nil {
+			l.With("error", err).Info("failed to filter metadata")
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(resp)
 		if err != nil {
 			l.With("error", err).Info("failed to write response")
 		}
-		return
-	}
-
-	ehw, err := hw.Export()
-	if err != nil {
-		l.With("error", err).Info("failed to export hardware")
-		w.WriteHeader(http.StatusInternalServerError)
-		_, err := w.Write([]byte("404 not found"))
-		if err != nil {
-			l.With("error", err).Info("failed to write response")
-		}
-		return
-	}
-	resp, err := filterMetadata(ehw, filter)
-	if err != nil {
-		l.With("error", err).Info("failed to filter metadata")
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(resp)
-	if err != nil {
-		l.With("error", err).Info("failed to write response")
-	}
+	})
 }
 
 func filterMetadata(hw []byte, filter string) ([]byte, error) {
@@ -253,13 +278,13 @@ func getIPFromRequest(r *http.Request) string {
 	return addr
 }
 
-func writeJSON(w http.ResponseWriter, status int, data interface{}) error {
+func writeJSON(logger log.Logger, w http.ResponseWriter, status int, data interface{}) error {
 	var body []byte
 
 	body, err := json.Marshal(data)
 	if err != nil {
 		if status < 400 {
-			return jsonError(w, http.StatusInternalServerError, err, "marshalling response")
+			return jsonError(logger, w, http.StatusInternalServerError, err, "marshalling response")
 		}
 
 		status = 500
@@ -268,12 +293,11 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) error {
 	}
 
 	w.WriteHeader(status)
-	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(body)
 	return err
 }
 
-func jsonError(w http.ResponseWriter, status int, err error, msg string) error {
+func jsonError(logger log.Logger, w http.ResponseWriter, status int, err error, msg string) error {
 	logger.Error(err, msg)
 	resp := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -281,31 +305,27 @@ func jsonError(w http.ResponseWriter, status int, err error, msg string) error {
 			"comment": msg,
 		},
 	}
-	return writeJSON(w, status, resp)
+	return writeJSON(logger, w, status, resp)
 }
 
-func handleSubscriptions(w http.ResponseWriter, r *http.Request) {
-	var getid string
-	if strings.HasPrefix(r.URL.Path, "/subscriptions/") {
-		getid = strings.TrimPrefix(r.URL.Path, "/subscriptions/")
-	}
-	hegelServer.SubLock().RLock()
-	defer hegelServer.SubLock().RUnlock()
-	var err error
-	if getid == "" {
-		err = writeJSON(w, http.StatusOK, hegelServer.Subscriptions)
-	} else if sub, ok := hegelServer.Subscriptions()[getid]; ok {
-		err = writeJSON(w, http.StatusOK, sub)
-	} else {
-		err = jsonError(w, http.StatusNotFound, errors.Errorf("%s not found", getid), "item not found")
-	}
-	if err != nil {
-		logger.Error(err)
-	}
-}
-
-func buildSubscriberHandlers() {
-	handler := otelhttp.WithRouteTag("/subscriptions", http.HandlerFunc(handleSubscriptions))
-	http.Handle("/subscriptions", handler)
-	http.Handle("/subscriptions/", handler)
+// todo(chrisdoherty4) Re-write this. It violates several laws and is dangerously fragile.
+// Also, does this work for `/subscriptions`? The writeJSON call injects a function that isn't
+// handled properly by writeJSON.
+func SubscriptionsHandler(server *grpcserver.Server, logger log.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		getid := strings.TrimPrefix(r.URL.Path, "/subscriptions/")
+		server.SubLock().RLock()
+		defer server.SubLock().RUnlock()
+		var err error
+		if getid == "" {
+			err = writeJSON(logger, w, http.StatusOK, server.Subscriptions)
+		} else if sub, ok := server.Subscriptions()[getid]; ok {
+			err = writeJSON(logger, w, http.StatusOK, sub)
+		} else {
+			err = jsonError(logger, w, http.StatusNotFound, errors.Errorf("%s not found", getid), "item not found")
+		}
+		if err != nil {
+			logger.Error(err)
+		}
+	})
 }

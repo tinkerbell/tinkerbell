@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path"
 	"reflect"
 	"sort"
@@ -15,36 +14,29 @@ import (
 	"time"
 
 	"github.com/packethost/pkg/log"
+	"github.com/stretchr/testify/require"
 	"github.com/tinkerbell/hegel/datamodel"
 	grpcserver "github.com/tinkerbell/hegel/grpc-server"
 	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/hardware/mock"
-	"github.com/tinkerbell/hegel/metrics"
+	_ "github.com/tinkerbell/hegel/metrics" // Initialize metrics.
 	"github.com/tinkerbell/hegel/xff"
 )
 
-func TestMain(m *testing.M) {
-	l, _ := log.Init("github.com/tinkerbell/hegel")
-	logger = l.Package("httpserver")
-	metrics.Init(l)
-
-	hc := mock.HardwareClient{}
-	hegelServer = grpcserver.NewServer(logger, hc)
-
-	os.Exit(m.Run())
-}
-
 // TestTrustedProxies tests if the actual remote user IP is extracted correctly from the X-FORWARDED-FOR header according to the list of trusted proxies provided.
 func TestTrustedProxies(t *testing.T) {
+	logger := log.Test(t, t.Name())
+
 	for name, test := range trustedProxiesTests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.SetHardwareClient(mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json})
+			client := mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json}
 
 			mux := &http.ServeMux{}
-			mux.HandleFunc("/2009-04-04/", ec2Handler)
+			mux.Handle("/2009-04-04/", EC2MetadataHandler(logger, client))
 
 			trustedProxies := xff.ParseTrustedProxies(test.trustedProxies)
-			xffHandler := xff.HTTPHandler(logger, mux, trustedProxies)
+			xffHandler, err := xff.HTTPHandler(mux, trustedProxies)
+			require.NoError(t, err)
 
 			req, err := http.NewRequest("GET", test.url, nil)
 			if err != nil {
@@ -70,9 +62,12 @@ func TestTrustedProxies(t *testing.T) {
 }
 
 func TestGetMetadataCacher(t *testing.T) {
+	logger, err := log.Init(t.Name())
+	require.NoError(t, err)
+
 	for name, test := range cacherTests {
 		t.Log(name)
-		hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
+		client := mock.HardwareClient{Data: test.json}
 
 		req, err := http.NewRequest("GET", "/metadata", nil)
 		if err != nil {
@@ -81,7 +76,7 @@ func TestGetMetadataCacher(t *testing.T) {
 
 		req.RemoteAddr = mock.UserIP
 		resp := httptest.NewRecorder()
-		http.HandleFunc("/metadata", getMetadata("", datamodel.Cacher)) // filter not used in cacher mode
+		http.Handle("/metadata", GetMetadataHandler(logger, client, "", datamodel.Cacher)) // filter not used in cacher mode
 
 		http.DefaultServeMux.ServeHTTP(resp, req)
 
@@ -109,15 +104,17 @@ func TestGetMetadataCacher(t *testing.T) {
 
 // TestGetMetadataTinkerbell tests the default use case in tinkerbell mode.
 func TestGetMetadataTinkerbell(t *testing.T) {
+	logger, err := log.Init(t.Name())
+	require.NoError(t, err)
 	customEndpoints := `{"/metadata":".metadata.instance"}`
 
 	for name, test := range tinkerbellTests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.SetHardwareClient(mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json})
+			client := mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json}
 
 			mux := &http.ServeMux{}
 
-			err := registerCustomEndpoints(mux, datamodel.TinkServer, customEndpoints)
+			err := registerCustomEndpoints(logger, client, mux, datamodel.TinkServer, customEndpoints)
 			if err != nil {
 				t.Fatal("Error registering custom endpoints", err)
 			}
@@ -156,15 +153,16 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 
 // TestGetMetadataTinkerbellKant tests the kant specific use case in tinkerbell mode.
 func TestGetMetadataTinkerbellKant(t *testing.T) {
+	logger, err := log.Init(t.Name())
+	require.NoError(t, err)
 	customEndpoints := `{"/metadata":".metadata.instance","/components":".metadata.components","/userdata":".metadata.userdata"}`
 
 	for name, test := range tinkerbellKantTests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.SetHardwareClient(mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json})
-
+			client := mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json}
 			mux := &http.ServeMux{}
 
-			err := registerCustomEndpoints(mux, datamodel.TinkServer, customEndpoints)
+			err := registerCustomEndpoints(logger, client, mux, datamodel.TinkServer, customEndpoints)
 			if err != nil {
 				t.Fatal("Error registering custom endpoints", err)
 			}
@@ -192,9 +190,12 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 }
 
 func TestRegisterEndpoints(t *testing.T) {
+	logger, err := log.Init(t.Name())
+	require.NoError(t, err)
+
 	for name, test := range registerEndpointTests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.SetHardwareClient(mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json})
+			client := mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json}
 
 			if test.customEndpoints == "" {
 				test.customEndpoints = `{"/metadata":".metadata.instance"}`
@@ -202,7 +203,7 @@ func TestRegisterEndpoints(t *testing.T) {
 
 			mux := &http.ServeMux{}
 
-			err := registerCustomEndpoints(mux, datamodel.TinkServer, test.customEndpoints)
+			err := registerCustomEndpoints(logger, client, mux, datamodel.TinkServer, test.customEndpoints)
 			if test.error != "" {
 				if err == nil {
 					t.Fatalf("registerCustomEndpoints should have returned error: %v", test.error)
@@ -234,14 +235,17 @@ func TestRegisterEndpoints(t *testing.T) {
 }
 
 func TestEC2Endpoint(t *testing.T) {
+	logger, err := log.Init(t.Name())
+	require.NoError(t, err)
+
 	for name, test := range tinkerbellEC2Tests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.SetHardwareClient(mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json})
-
+			client := mock.HardwareClient{Model: datamodel.TinkServer, Data: test.json}
 			http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
 
-			http.HandleFunc("/2009-04-04", ec2Handler) // workaround for making trailing slash optional
-			http.HandleFunc("/2009-04-04/", ec2Handler)
+			// workaround for making trailing slash optional
+			http.Handle("/2009-04-04", EC2MetadataHandler(logger, client))
+			http.Handle("/2009-04-04/", EC2MetadataHandler(logger, client))
 
 			req, err := http.NewRequest("GET", test.url, nil)
 			if err != nil {
@@ -882,10 +886,13 @@ func TestServe(t *testing.T) {
 	}
 	mport := 52000
 
+	logger, err := log.Init(t.Name())
+	require.NoError(t, err)
+
 	customEndpoints := `{"/metadata":".metadata.instance"}`
 
 	go func() {
-		if err := Serve(context.Background(), logger, hegelServer, mport, "grev", time.Now(), "", customEndpoints, ""); err != nil {
+		if err := Serve(context.Background(), logger, mock.HardwareClient{}, &grpcserver.Server{}, mport, time.Now(), "", customEndpoints, ""); err != nil {
 			t.Errorf("Serve() error = %v", err)
 		}
 	}()

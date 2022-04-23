@@ -3,7 +3,6 @@ package mock
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/pkg/errors"
@@ -30,7 +29,6 @@ func (hg HardwareClient) IsHealthy(context.Context) bool {
 func (hg HardwareClient) ByIP(_ context.Context, ip string) (hardware.Hardware, error) {
 	switch hg.Model {
 	case datamodel.TinkServer:
-		fmt.Printf("HELLO WORLD\n")
 		if ip != UserIP {
 			return nil, errors.Errorf("received non-mock remote ip address: %v", ip)
 		}

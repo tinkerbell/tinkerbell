@@ -10,6 +10,7 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/packethost/pkg/log"
 	"github.com/packethost/xff"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -127,7 +128,7 @@ func ParseTrustedProxies(trustedProxies string) []string {
 // If allowedSubnets is nil it will look for subnets in the TRUSTED_PROXIES env var.
 // If allowedSubnets is nil and TRUSTED_PROXIES is empty then X-FORWARDED-FOR will be ignored (no proxy is trusted).
 func GRPCMiddlewares(l log.Logger, allowedSubnets []string) (grpc.StreamServerInterceptor, grpc.UnaryServerInterceptor) {
-	if allowedSubnets == nil {
+	if len(allowedSubnets) == 0 {
 		streamer := func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 			return handler(srv, ss)
 		}
@@ -154,24 +155,17 @@ func GRPCMiddlewares(l log.Logger, allowedSubnets []string) (grpc.StreamServerIn
 }
 
 // HTTPHandler creates a XFF handler if there are allowedSubnets specified.
-func HTTPHandler(l log.Logger, mux *http.ServeMux, allowedSubnets []string) http.Handler {
-	var handler http.Handler
-	if mux == nil {
-		mux = http.DefaultServeMux
+func HTTPHandler(handler http.Handler, allowedSubnets []string) (http.Handler, error) {
+	if len(allowedSubnets) == 0 {
+		return handler, nil
 	}
 
-	if len(allowedSubnets) > 0 {
-		xffmw, err := xff.New(xff.Options{
-			AllowedSubnets: allowedSubnets,
-		})
-		if err != nil {
-			l.Fatal(err, "error creating a new xff handler")
-		}
-
-		handler = xffmw.Handler(mux)
-	} else {
-		handler = mux
+	xffmw, err := xff.New(xff.Options{
+		AllowedSubnets: allowedSubnets,
+	})
+	if err != nil {
+		return nil, errors.Errorf("create forward for handler: %v", err)
 	}
 
-	return handler
+	return xffmw.Handler(handler), nil
 }

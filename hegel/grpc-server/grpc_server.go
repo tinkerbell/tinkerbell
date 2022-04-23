@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -69,23 +69,23 @@ func Serve(_ context.Context, l log.Logger, srv *Server, port int, unparsedProxi
 	xffStream, xffUnary := xff.GRPCMiddlewares(l, proxies)
 	streamLogger, unaryLogger := l.GRPCLoggers()
 	serverOpts = append(serverOpts,
-		grpc_middleware.WithUnaryServerChain(
+		grpcmiddleware.WithUnaryServerChain(
 			xffUnary,
 			unaryLogger,
-			grpc_prometheus.UnaryServerInterceptor,
+			grpcprometheus.UnaryServerInterceptor,
 			otelgrpc.UnaryServerInterceptor(),
 		),
-		grpc_middleware.WithStreamServerChain(
+		grpcmiddleware.WithStreamServerChain(
 			xffStream,
 			streamLogger,
-			grpc_prometheus.StreamServerInterceptor,
+			grpcprometheus.StreamServerInterceptor,
 			otelgrpc.StreamServerInterceptor(),
 		),
 	)
 
 	grpcServer := grpc.NewServer(serverOpts...)
 
-	grpc_prometheus.Register(grpcServer)
+	grpcprometheus.Register(grpcServer)
 
 	hegel.RegisterHegelServer(grpcServer, srv)
 
@@ -110,20 +110,12 @@ func (s *Server) Log() log.Logger {
 	return s.log
 }
 
-func (s *Server) HardwareClient() hardware.Client {
-	return s.hardwareClient
-}
-
 func (s *Server) SubLock() *sync.RWMutex {
 	return s.subLock
 }
 
 func (s *Server) Subscriptions() map[string]*Subscription {
 	return s.subscriptions
-}
-
-func (s *Server) SetHardwareClient(hc hardware.Client) {
-	s.hardwareClient = hc
 }
 
 // Try to parse out the peer IP.
@@ -165,7 +157,7 @@ func (s *Server) Subscribe(_ *hegel.SubscribeRequest, stream hegel.Hegel_Subscri
 
 	logger := s.log.With("op", "subscribe")
 
-	initError := func(err error) error {
+	handleError := func(err error) error {
 		logger.Error(err)
 		metrics.Subscriptions.WithLabelValues("initializing").Dec()
 		metrics.Errors.WithLabelValues("subscribe", "initializing").Inc()
@@ -175,7 +167,7 @@ func (s *Server) Subscribe(_ *hegel.SubscribeRequest, stream hegel.Hegel_Subscri
 
 	p, ok := peer.FromContext(stream.Context())
 	if !ok {
-		return initError(errors.New("could not get peer info from client"))
+		return handleError(errors.New("could not get peer info from client"))
 	}
 
 	ip := peerIP(p.Addr)
@@ -186,19 +178,19 @@ func (s *Server) Subscribe(_ *hegel.SubscribeRequest, stream hegel.Hegel_Subscri
 
 	hw, err := s.hardwareClient.ByIP(stream.Context(), ip)
 	if err != nil {
-		return initError(err)
+		return handleError(err)
 	}
 
 	id, err := hw.ID()
 	if err != nil {
-		return initError(err)
+		return handleError(err)
 	}
 
 	ctx, cancel := context.WithCancel(stream.Context())
 	watch, err := s.hardwareClient.Watch(ctx, id)
 	if err != nil {
 		cancel()
-		return initError(err)
+		return handleError(err)
 	}
 
 	sub := &Subscription{

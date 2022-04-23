@@ -2,30 +2,17 @@ package grpcserver
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/packethost/cacher/protos/cacher"
-	"github.com/packethost/pkg/log"
 	assert "github.com/stretchr/testify/require"
 	"github.com/tinkerbell/hegel/grpc/protos/hegel"
-	"github.com/tinkerbell/hegel/metrics"
+	_ "github.com/tinkerbell/hegel/metrics" // Initialize metrics.
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-func TestMain(m *testing.M) {
-	l, err := log.Init("github.com/tinkerbell/hegel")
-	if err != nil {
-		panic(nil)
-	}
-	metrics.Init(l)
-	x := m.Run()
-	l.Close() // not deferred because os.Exit would skip.
-	os.Exit(x)
-}
 
 func TestSubscribe(t *testing.T) {
 	t.Run("error", func(t *testing.T) {

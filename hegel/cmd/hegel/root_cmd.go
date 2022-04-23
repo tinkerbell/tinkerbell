@@ -17,7 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/tinkerbell/hegel/build"
 	"github.com/tinkerbell/hegel/datamodel"
 	grpcserver "github.com/tinkerbell/hegel/grpc-server"
 	"github.com/tinkerbell/hegel/hardware"
@@ -96,8 +95,9 @@ var _, _ = NewRootCommand()
 func NewRootCommand() (*RootCommand, error) {
 	rootCmd := &RootCommand{
 		Command: &cobra.Command{
-			Use:  os.Args[0],
-			Long: longHelp,
+			Use:          os.Args[0],
+			Long:         longHelp,
+			SilenceUsage: true,
 		},
 	}
 
@@ -136,7 +136,6 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 		return errors.Errorf("initialize logger: %v", err)
 	}
 	defer logger.Close()
-	metrics.Init(logger)
 
 	logger.Package("main").With("opts", fmt.Sprintf("%+v", c.Opts)).Info("root command options")
 
@@ -160,9 +159,9 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 			return httpserver.Serve(
 				ctx,
 				logger,
+				hardwareClient,
 				grpcServer,
 				c.Opts.HTTPPort,
-				build.GetGitRevision(),
 				time.Now(),
 				c.Opts.GetDataModel(),
 				c.Opts.HTTPCustomEndpoints,
