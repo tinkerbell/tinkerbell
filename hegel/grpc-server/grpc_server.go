@@ -2,7 +2,6 @@ package grpcserver
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -11,7 +10,6 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/packethost/pkg/env"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,12 +26,6 @@ import (
 )
 
 //go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
-
-var (
-	tlsCertPath = flag.String("tls_cert", env.Get("HEGEL_TLS_CERT"), "Path of tls certificat to use.")
-	tlsKeyPath  = flag.String("tls_key", env.Get("HEGEL_TLS_KEY"), "Path of tls key to use.")
-	useTLS      = flag.Bool("use_tls", env.Bool("HEGEL_USE_TLS", true), "Whether we should use tls or not (should be disabled for traefik)")
-)
 
 type Server struct {
 	log            log.Logger
@@ -52,32 +44,20 @@ type Subscription struct {
 	updateChan   chan []byte
 }
 
-func NewServer(l log.Logger, hc hardware.Client) (*Server, error) {
-	if hc == nil {
-		var err error
-		hc, err = hardware.NewClient()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create hegel server")
-		}
-	}
-
-	s := &Server{
+func NewServer(l log.Logger, hc hardware.Client) *Server {
+	return &Server{
 		log:            l,
 		hardwareClient: hc,
 		subLock:        &sync.RWMutex{},
 		subscriptions:  make(map[string]*Subscription),
 	}
-	return s, nil
 }
 
-func Serve(_ context.Context, l log.Logger, srv *Server) error {
-	port := env.Int("GRPC_PORT", 42115)
-
+func Serve(_ context.Context, l log.Logger, srv *Server, port int, unparsedProxies, tlsCertPath, tlsKeyPath string, useTLS bool) error {
 	serverOpts := make([]grpc.ServerOption, 0)
 
-	// setup tls credentials
-	if *useTLS {
-		creds, err := credentials.NewServerTLSFromFile(*tlsCertPath, *tlsKeyPath)
+	if useTLS {
+		creds, err := credentials.NewServerTLSFromFile(tlsCertPath, tlsKeyPath)
 		if err != nil {
 			l.Error(err, "failed to initialize server credentials")
 			panic(err)
@@ -85,8 +65,8 @@ func Serve(_ context.Context, l log.Logger, srv *Server) error {
 		serverOpts = append(serverOpts, grpc.Creds(creds))
 	}
 
-	trustedProxies := xff.ParseTrustedProxies()
-	xffStream, xffUnary := xff.GRPCMiddlewares(l, trustedProxies)
+	proxies := xff.ParseTrustedProxies(unparsedProxies)
+	xffStream, xffUnary := xff.GRPCMiddlewares(l, proxies)
 	streamLogger, unaryLogger := l.GRPCLoggers()
 	serverOpts = append(serverOpts,
 		grpc_middleware.WithUnaryServerChain(
@@ -105,7 +85,6 @@ func Serve(_ context.Context, l log.Logger, srv *Server) error {
 
 	grpcServer := grpc.NewServer(serverOpts...)
 
-	// Register grpc prometheus server
 	grpc_prometheus.Register(grpcServer)
 
 	hegel.RegisterHegelServer(grpcServer, srv)
@@ -118,7 +97,6 @@ func Serve(_ context.Context, l log.Logger, srv *Server) error {
 	}
 
 	metrics.State.Set(metrics.Ready)
-	// Serving GRPC
 	l.Info("serving grpc")
 	err = grpcServer.Serve(lis)
 	if err != nil {

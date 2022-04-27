@@ -12,6 +12,7 @@ import (
 	"github.com/packethost/pkg/grpc"
 	"github.com/packethost/pkg/log"
 	assert "github.com/stretchr/testify/require"
+	"github.com/tinkerbell/hegel/datamodel"
 	"github.com/tinkerbell/hegel/grpc/protos/hegel"
 	"github.com/tinkerbell/hegel/hardware"
 	ggrpc "google.golang.org/grpc"
@@ -103,10 +104,10 @@ func startServersAndConnectClient(t *testing.T, d map[string]string, err error) 
 	// This is a Hegel
 	name = "hegel"
 	l := log.Test(zt, name)
-	hg, err := hardware.NewCacherClient(cClient)
+	hg, err := hardware.NewCacherClient(cClient, datamodel.Cacher)
 	assert.NoError(t, err)
-	hegelServer, err := NewServer(l, hg)
-	assert.NoError(t, err)
+	hegelServer := NewServer(l, hg)
+
 	server, err := grpc.NewServer(l, func(s *grpc.Server) {
 		hegel.RegisterHegelServer(s.Server(), hegelServer)
 	})
