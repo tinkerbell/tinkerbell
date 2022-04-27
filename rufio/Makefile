@@ -115,6 +115,31 @@ ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
+##@ Release
+
+RELEASE_TAG := $(shell git describe --abbrev=0 2>/dev/null)
+RELEASE_DIR ?= out/release
+
+$(RELEASE_DIR):
+	mkdir -p $(RELEASE_DIR)/
+
+.PHONY: release-manifests
+release-manifests: manifests kustomize $(RELEASE_DIR) ## Builds the manifests to publish with a release
+	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/manifest.yaml
+
+##@ Cleanup
+
+.PHONY: clean
+clean: clean-bin clean-release ## Remove all generated files
+
+.PHONY: clean-bin
+clean-bin: ## Remove all generated binaries
+	rm -rf bin
+
+.PHONY: clean-release
+clean-release: ## Remove the release folder
+	rm -rf $(RELEASE_DIR)
+
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool

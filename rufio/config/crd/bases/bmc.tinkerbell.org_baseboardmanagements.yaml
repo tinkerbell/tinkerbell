@@ -9,9 +9,13 @@ metadata:
 spec:
   group: bmc.tinkerbell.org
   names:
+    categories:
+    - tinkerbell
     kind: BaseboardManagement
     listKind: BaseboardManagementList
     plural: baseboardmanagements
+    shortNames:
+    - bm
     singular: baseboardmanagement
   scope: Namespaced
   versions:
@@ -36,13 +40,71 @@ spec:
           spec:
             description: BaseboardManagementSpec defines the desired state of BaseboardManagement
             properties:
-              foo:
-                description: Foo is an example field of BaseboardManagement. Edit
-                  baseboardmanagement_types.go to remove/update
+              connection:
+                description: Connection represents the BaseboardManagement connectivity
+                  information.
+                properties:
+                  authSecretRef:
+                    description: AuthSecretRef is the SecretReference that contains
+                      authentication information of the BaseboardManagement. The Secret
+                      must contain username and password keys.
+                    properties:
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        type: string
+                      namespace:
+                        description: Namespace defines the space within which the
+                          secret name must be unique.
+                        type: string
+                    type: object
+                  host:
+                    description: Host is the host IP address or hostname of the BaseboardManagement.
+                    minLength: 1
+                    type: string
+                  insecureTLS:
+                    description: InsecureTLS specifies trusted TLS connections.
+                    type: boolean
+                required:
+                - authSecretRef
+                - host
+                - insecureTLS
+                type: object
+              power:
+                description: Power is the desired power state of the BaseboardManagement.
+                enum:
+                - "On"
+                - "Off"
                 type: string
+            required:
+            - connection
+            - power
             type: object
           status:
             description: BaseboardManagementStatus defines the observed state of BaseboardManagement
+            properties:
+              conditions:
+                description: Conditions represents the latest available observations
+                  of an object's current state.
+                items:
+                  properties:
+                    message:
+                      description: Message represents human readable message indicating
+                        details about last transition.
+                      type: string
+                    type:
+                      description: Type of the BaseboardManagement condition.
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
+              powerState:
+                description: Power is the current power state of the BaseboardManagement.
+                enum:
+                - "On"
+                - "Off"
+                type: string
             type: object
         type: object
     served: true

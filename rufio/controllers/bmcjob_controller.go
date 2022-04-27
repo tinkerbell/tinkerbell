@@ -27,26 +27,26 @@ import (
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 )
 
-// PowerCycleJobReconciler reconciles a PowerCycleJob object
-type PowerCycleJobReconciler struct {
+// BMCJobReconciler reconciles a BMCJob object
+type BMCJobReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=powercyclejobs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=powercyclejobs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=powercyclejobs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=bmcjobs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=bmcjobs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=bmcjobs/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the PowerCycleJob object against the actual cluster state, and then
+// the BMCJob object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *PowerCycleJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *BMCJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
@@ -55,8 +55,8 @@ func (r *PowerCycleJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *PowerCycleJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BMCJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&bmcv1alpha1.PowerCycleJob{}).
+		For(&bmcv1alpha1.BMCJob{}).
 		Complete(r)
 }

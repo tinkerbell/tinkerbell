@@ -3,4 +3,10 @@ kind: BaseboardManagement
 metadata:
   name: baseboardmanagement-sample
 spec:
-  # TODO(user): Add fields here
+  connection:
+    host: 0.0.0.0
+    authSecretRef:
+      name: bm-auth
+      namespace: sample
+    insecureTLS: false
+  power: "on"

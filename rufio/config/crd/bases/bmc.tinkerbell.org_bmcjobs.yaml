@@ -1,0 +1,157 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: bmcjobs.bmc.tinkerbell.org
+spec:
+  group: bmc.tinkerbell.org
+  names:
+    categories:
+    - tinkerbell
+    kind: BMCJob
+    listKind: BMCJobList
+    plural: bmcjobs
+    shortNames:
+    - bmj
+    singular: bmcjob
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: BMCJob is the Schema for the bmcjobs API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: BMCJobSpec defines the desired state of BMCJob
+            properties:
+              baseboardManagementRef:
+                description: BaseboardManagementRef represents the BaseboardManagement
+                  resource to execute the job. All the tasks in the job are executed
+                  for the same BaseboardManagement.
+                properties:
+                  name:
+                    description: Name is unique within a namespace to reference a
+                      BaseboardManagement resource.
+                    type: string
+                  namespace:
+                    description: Namespace defines the space within which the BaseboardManagement
+                      name must be unique.
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+              tasks:
+                description: Tasks represents a list of baseboard management actions
+                  to be executed. The tasks are executed sequentially. Controller
+                  waits for one task to complete before executing the next. If a single
+                  task fails, job execution stops and sets condition Failed. Condition
+                  Completed is set only if all the tasks were successful.
+                items:
+                  description: Task represents the action to be performed. A single
+                    task can only perform one type of action. For example either PowerAction
+                    or OneTimeBootDeviceAction.
+                  maxProperties: 1
+                  properties:
+                    oneTimeBootDeviceAction:
+                      description: OneTimeBootDeviceAction represents a baseboard
+                        management one time set boot device operation.
+                      properties:
+                        device:
+                          description: Devices represents the boot devices, in order
+                            for setting one time boot. Currently only the first device
+                            in the slice is used to set one time boot.
+                          items:
+                            description: BootDevice represents boot device of the
+                              BaseboardManagement.
+                            type: string
+                          type: array
+                        efiBoot:
+                          default: false
+                          description: EFIBoot specifies to EFI boot for the baseboard
+                            management. When true, enables options=efiboot while setting
+                            the boot device. If false, no options are passed.
+                          type: boolean
+                      required:
+                      - device
+                      type: object
+                    powerAction:
+                      description: PowerAction represents a baseboard management power
+                        operation.
+                      properties:
+                        powerControl:
+                          description: State represents the requested power state
+                            to set for the baseboard management.
+                          enum:
+                          - PowerOn
+                          - HardPowerOff
+                          - SoftPowerOff
+                          - Status
+                          - Cycle
+                          - Reset
+                          type: string
+                      required:
+                      - powerControl
+                      type: object
+                  type: object
+                type: array
+            required:
+            - baseboardManagementRef
+            - tasks
+            type: object
+          status:
+            description: BMCJobStatus defines the observed state of BMCJob
+            properties:
+              completionTime:
+                description: CompletionTime represents time when the job was completed.
+                  The completion time is only set when the job finishes successfully.
+                format: date-time
+                type: string
+              conditions:
+                description: Conditions represents the latest available observations
+                  of an object's current state.
+                items:
+                  properties:
+                    message:
+                      description: Message represents human readable message indicating
+                        details about last transition.
+                      type: string
+                    type:
+                      description: Type of the BMCJob condition.
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
+              startTime:
+                description: StartTime represents time when the BMCJob controller
+                  started processing a job.
+                format: date-time
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

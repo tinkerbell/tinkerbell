@@ -34,7 +34,7 @@ rules:
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
-  - powercyclejobs
+  - bmcjobs
   verbs:
   - create
   - delete
@@ -46,13 +46,39 @@ rules:
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
-  - powercyclejobs/finalizers
+  - bmcjobs/finalizers
   verbs:
   - update
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
-  - powercyclejobs/status
+  - bmcjobs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - bmctasks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - bmctasks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - bmctasks/status
   verbs:
   - get
   - patch
