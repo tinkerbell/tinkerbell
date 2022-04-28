@@ -1,4 +1,4 @@
-package httpserver
+package http
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tinkerbell/hegel/build"
 	"github.com/tinkerbell/hegel/datamodel"
-	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	"github.com/tinkerbell/hegel/grpc"
 	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/metrics"
 )
@@ -311,7 +311,7 @@ func jsonError(logger log.Logger, w http.ResponseWriter, status int, err error, 
 // todo(chrisdoherty4) Re-write this. It violates several laws and is dangerously fragile.
 // Also, does this work for `/subscriptions`? The writeJSON call injects a function that isn't
 // handled properly by writeJSON.
-func SubscriptionsHandler(server *grpcserver.Server, logger log.Logger) http.Handler {
+func SubscriptionsHandler(server *grpc.Server, logger log.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		getid := strings.TrimPrefix(r.URL.Path, "/subscriptions/")
 		server.SubLock().RLock()

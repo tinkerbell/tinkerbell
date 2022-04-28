@@ -18,9 +18,9 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/tinkerbell/hegel/datamodel"
-	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	"github.com/tinkerbell/hegel/grpc"
 	"github.com/tinkerbell/hegel/hardware"
-	httpserver "github.com/tinkerbell/hegel/http-server"
+	"github.com/tinkerbell/hegel/http"
 	"github.com/tinkerbell/hegel/metrics"
 )
 
@@ -149,14 +149,14 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 		return errors.Errorf("create client: %v", err)
 	}
 
-	grpcServer := grpcserver.NewServer(logger, hardwareClient)
+	grpcServer := grpc.NewServer(logger, hardwareClient)
 
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	var routines run.Group
 
 	routines.Add(
 		func() error {
-			return httpserver.Serve(
+			return http.Serve(
 				ctx,
 				logger,
 				hardwareClient,
@@ -173,7 +173,7 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 
 	routines.Add(
 		func() error {
-			return grpcserver.Serve(
+			return grpc.Serve(
 				ctx,
 				logger,
 				grpcServer,

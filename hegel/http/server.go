@@ -1,4 +1,4 @@
-package httpserver
+package http
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tinkerbell/hegel/datamodel"
-	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	"github.com/tinkerbell/hegel/grpc"
 	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/xff"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -21,7 +21,7 @@ func Serve(
 	ctx context.Context,
 	logger log.Logger,
 	client hardware.Client,
-	grpcsrv *grpcserver.Server,
+	grpcsrv *grpc.Server,
 	port int,
 	start time.Time,
 	model datamodel.DataModel,
