@@ -3,7 +3,6 @@ queue_rules:
     conditions:
       # Conditions to get out of the queue (= merged)
       - check-success=DCO
-      - check-success~=images
       - check-success=build
 
 pull_request_rules:
@@ -17,7 +16,6 @@ pull_request_rules:
       - check-success=verify
       - check-success=test
       - check-success=build
-      - check-success~=images
       - label!=do-not-merge
       - label=ready-to-merge
     actions:
