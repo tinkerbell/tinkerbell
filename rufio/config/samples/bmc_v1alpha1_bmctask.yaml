@@ -1,0 +1,8 @@
+apiVersion: bmc.tinkerbell.org/v1alpha1
+kind: BMCTask
+metadata:
+  name: bmctask-sample
+spec:
+  task:
+    powerAction:
+      powerControl: "on"

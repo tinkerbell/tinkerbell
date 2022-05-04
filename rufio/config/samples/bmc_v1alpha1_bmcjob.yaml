@@ -1,0 +1,14 @@
+apiVersion: bmc.tinkerbell.org/v1alpha1
+kind: BMCJob
+metadata:
+  name: bmcjob-sample
+spec:
+  tasks:
+    - powerAction:
+        powerControl: "off"
+    - oneTimeBootDeviceAction:
+        device:
+          - "pxe"
+        efiBoot: "false"
+    - powerAction:
+        powerControl: "on"

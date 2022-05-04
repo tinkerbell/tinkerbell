@@ -1,0 +1,12 @@
+apiVersion: bmc.tinkerbell.org/v1alpha1
+kind: BaseboardManagement
+metadata:
+  name: baseboardmanagement-sample
+spec:
+  connection:
+    host: 0.0.0.0
+    authSecretRef:
+      name: bm-auth
+      namespace: sample
+    insecureTLS: false
+  power: "on"
