@@ -55,7 +55,7 @@ type BaseboardManagementSpec struct {
 	Connection Connection `json:"connection"`
 
 	// Power is the desired power state of the BaseboardManagement.
-	// +kubebuilder:validation:Enum=On;Off
+	// +kubebuilder:validation:Enum=on;off
 	Power PowerState `json:"power"`
 }
 
@@ -75,7 +75,7 @@ type Connection struct {
 // BaseboardManagementStatus defines the observed state of BaseboardManagement
 type BaseboardManagementStatus struct {
 	// Power is the current power state of the BaseboardManagement.
-	// +kubebuilder:validation:Enum=On;Off
+	// +kubebuilder:validation:Enum=on;off
 	// +optional
 	Power PowerState `json:"powerState,omitempty"`
 
