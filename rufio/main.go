@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
@@ -33,6 +34,7 @@ import (
 
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
+	"github.com/tinkerbell/rufio/pkg/bmc/client/factory"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -78,9 +80,45 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup the context that's going to be used in controllers and for the manager.
+	ctx := ctrl.SetupSignalHandler()
+
+	// Setup controller reconcilers
+	setupReconcilers(ctx, mgr)
+
+	//+kubebuilder:scaffold:builder
+
+	err = mgr.AddHealthzCheck("healthz", healthz.Ping)
+	if err != nil {
+		setupLog.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+
+	err = mgr.AddReadyzCheck("readyz", healthz.Ping)
+	if err != nil {
+		setupLog.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
+
+	setupLog.Info("starting manager")
+	err = mgr.Start(ctx)
+	if err != nil {
+		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+}
+
+// setupReconcilers initializes the controllers with the Manager.
+func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
+	bmcClient, err := factory.GetBMCClient(factory.BMCLib)
+	if err != nil {
+		setupLog.Error(err, "unable to get bmc client")
+	}
+
 	err = (&controllers.BaseboardManagementReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		BMCClient: bmcClient,
 	}).SetupWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BaseboardManagement")
@@ -102,26 +140,6 @@ func main() {
 	}).SetupWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BMCTask")
-		os.Exit(1)
-	}
-	//+kubebuilder:scaffold:builder
-
-	err = mgr.AddHealthzCheck("healthz", healthz.Ping)
-	if err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
-	}
-
-	err = mgr.AddReadyzCheck("readyz", healthz.Ping)
-	if err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
-
-	setupLog.Info("starting manager")
-	err = mgr.Start(ctrl.SetupSignalHandler())
-	if err != nil {
-		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 }
