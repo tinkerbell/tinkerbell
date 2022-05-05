@@ -11,11 +11,11 @@ collaborators:
   # Approvers
   - username: displague
     permission: push
+  - username: jacobweinstock
+    permission: push
   - username: tstromberg
     permission: push
   # Reviewers
-  - username: jacobweinstock
-    permission: triage
   - username: splaspood
     permission: triage
 
