@@ -17,11 +17,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/tinkerbell/hegel/build"
 	"github.com/tinkerbell/hegel/datamodel"
-	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	"github.com/tinkerbell/hegel/grpc"
 	"github.com/tinkerbell/hegel/hardware"
-	httpserver "github.com/tinkerbell/hegel/http-server"
+	"github.com/tinkerbell/hegel/http"
 	"github.com/tinkerbell/hegel/metrics"
 )
 
@@ -96,8 +95,9 @@ var _, _ = NewRootCommand()
 func NewRootCommand() (*RootCommand, error) {
 	rootCmd := &RootCommand{
 		Command: &cobra.Command{
-			Use:  os.Args[0],
-			Long: longHelp,
+			Use:          os.Args[0],
+			Long:         longHelp,
+			SilenceUsage: true,
 		},
 	}
 
@@ -136,7 +136,6 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 		return errors.Errorf("initialize logger: %v", err)
 	}
 	defer logger.Close()
-	metrics.Init(logger)
 
 	logger.Package("main").With("opts", fmt.Sprintf("%+v", c.Opts)).Info("root command options")
 
@@ -150,19 +149,19 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 		return errors.Errorf("create client: %v", err)
 	}
 
-	grpcServer := grpcserver.NewServer(logger, hardwareClient)
+	grpcServer := grpc.NewServer(logger, hardwareClient)
 
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	var routines run.Group
 
 	routines.Add(
 		func() error {
-			return httpserver.Serve(
+			return http.Serve(
 				ctx,
 				logger,
+				hardwareClient,
 				grpcServer,
 				c.Opts.HTTPPort,
-				build.GetGitRevision(),
 				time.Now(),
 				c.Opts.GetDataModel(),
 				c.Opts.HTTPCustomEndpoints,
@@ -174,7 +173,7 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 
 	routines.Add(
 		func() error {
-			return grpcserver.Serve(
+			return grpc.Serve(
 				ctx,
 				logger,
 				grpcServer,
