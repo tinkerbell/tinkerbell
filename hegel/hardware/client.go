@@ -2,15 +2,11 @@ package hardware
 
 import (
 	"context"
-	"encoding/json"
 
-	cacherClient "github.com/packethost/cacher/client"
-	"github.com/packethost/cacher/protos/cacher"
+	cacher "github.com/packethost/cacher/client"
 	"github.com/pkg/errors"
 	"github.com/tinkerbell/hegel/datamodel"
-	tinkClient "github.com/tinkerbell/tink/client"
-	tpkg "github.com/tinkerbell/tink/pkg"
-	tink "github.com/tinkerbell/tink/protos/hardware"
+	tink "github.com/tinkerbell/tink/client"
 )
 
 // Client defines the behaviors for interacting with hardware data providers.
@@ -35,40 +31,6 @@ type Hardware interface {
 // Watcher is the interface for Cacher/Tink watch client types.
 type Watcher interface {
 	Recv() (Hardware, error)
-}
-
-type clientCacher struct {
-	client cacher.CacherClient
-}
-
-type clientTinkerbell struct {
-	client tink.HardwareServiceClient
-}
-
-type Cacher struct {
-	*cacher.Hardware
-}
-
-type Tinkerbell struct {
-	*tink.Hardware
-}
-
-type watcherCacher struct {
-	client cacher.Cacher_WatchClient
-}
-
-type watcherTinkerbell struct {
-	client tink.HardwareService_DeprecatedWatchClient
-}
-
-// NewCacherClient returns a new hardware Client, configured to use a provided cacher Client
-// This function is primarily used for testing.
-func NewCacherClient(cc cacher.CacherClient, model datamodel.DataModel) (Client, error) {
-	if model != "" {
-		return nil, errors.New("NewCacherClient is only valid for the cacher data model")
-	}
-
-	return clientCacher{client: cc}, nil
 }
 
 // ClientConfig is the configuration used by the NewClient func. Field requirements are based on the value of Model.
@@ -132,132 +94,17 @@ func NewClient(config ClientConfig) (Client, error) {
 		return kubeclient, nil
 
 	case datamodel.TinkServer:
-		tc, err := tinkClient.TinkHardwareClient()
+		tc, err := tink.TinkHardwareClient()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create the tink client")
 		}
 		return clientTinkerbell{client: tc}, nil
 
 	default:
-		cc, err := cacherClient.New(config.Facility)
+		cc, err := cacher.New(config.Facility)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create the cacher client")
 		}
 		return clientCacher{client: cc}, nil
 	}
-}
-
-func (hg clientCacher) IsHealthy(ctx context.Context) bool {
-	_, err := hg.client.All(ctx, &cacher.Empty{})
-	return err == nil
-}
-
-// ByIP retrieves from Cacher the piece of hardware with the specified IP.
-func (hg clientCacher) ByIP(ctx context.Context, ip string) (Hardware, error) {
-	in := &cacher.GetRequest{
-		IP: ip,
-	}
-	hw, err := hg.client.ByIP(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return &Cacher{hw}, nil
-}
-
-// Watch returns a Cacher watch client on the hardware with the specified ID.
-func (hg clientCacher) Watch(ctx context.Context, id string) (Watcher, error) {
-	in := &cacher.GetRequest{
-		ID: id,
-	}
-	w, err := hg.client.Watch(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return &watcherCacher{w}, nil
-}
-
-// All retrieves all the pieces of hardware stored in Cacher.
-func (hg clientTinkerbell) IsHealthy(ctx context.Context) bool {
-	_, err := hg.client.All(ctx, &tink.Empty{})
-	return err == nil
-}
-
-// ByIP retrieves from Tink the piece of hardware with the specified IP.
-func (hg clientTinkerbell) ByIP(ctx context.Context, ip string) (Hardware, error) {
-	in := &tink.GetRequest{
-		Ip: ip,
-	}
-	hw, err := hg.client.ByIP(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return &Tinkerbell{hw}, nil
-}
-
-// Watch returns a Tink watch client on the hardware with the specified ID.
-func (hg clientTinkerbell) Watch(ctx context.Context, id string) (Watcher, error) {
-	in := &tink.GetRequest{
-		Id: id,
-	}
-	w, err := hg.client.DeprecatedWatch(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return &watcherTinkerbell{w}, nil
-}
-
-// Export formats the piece of hardware to be returned in responses to clients.
-func (hw *Cacher) Export() ([]byte, error) {
-	exported := &ExportedCacher{}
-
-	err := json.Unmarshal([]byte(hw.JSON), exported)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(exported)
-}
-
-// ID returns the hardware ID.
-func (hw *Cacher) ID() (string, error) {
-	hwJSON := make(map[string]interface{})
-	err := json.Unmarshal([]byte(hw.JSON), &hwJSON)
-	if err != nil {
-		return "", err
-	}
-
-	hwID := hwJSON["id"]
-	id, ok := hwID.(string)
-	if !ok {
-		return "", errors.Errorf("hwID is %T, not a string", hwID)
-	}
-
-	return id, err
-}
-
-// Export formats the piece of hardware to be returned in responses to clients.
-func (hw *Tinkerbell) Export() ([]byte, error) {
-	return json.Marshal(tpkg.HardwareWrapper(*hw))
-}
-
-// ID returns the hardware ID.
-func (hw *Tinkerbell) ID() (string, error) {
-	return hw.Id, nil
-}
-
-// Recv receives a piece of hardware from the Cacher watch client.
-func (w *watcherCacher) Recv() (Hardware, error) {
-	hw, err := w.client.Recv()
-	if err != nil {
-		return nil, err
-	}
-	return &Cacher{hw}, nil
-}
-
-// Recv receives a piece of hardware from the Tink watch client.
-func (w *watcherTinkerbell) Recv() (Hardware, error) {
-	hw, err := w.client.Recv()
-	if err != nil {
-		return nil, err
-	}
-	return &Tinkerbell{hw}, nil
 }
