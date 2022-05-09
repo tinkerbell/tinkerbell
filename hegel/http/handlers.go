@@ -142,7 +142,7 @@ func GetMetadataHandler(logger log.Logger, client hardware.Client, filter string
 			return
 		}
 
-		if model == datamodel.TinkServer {
+		if model == datamodel.TinkServer || model == datamodel.Kubernetes {
 			hardware, err = filterMetadata(hardware, filter)
 			if err != nil {
 				l.With("error", err).Info("failed to filter metadata")
@@ -169,50 +169,54 @@ func EC2MetadataHandler(logger log.Logger, client hardware.Client) http.Handler 
 		logger.Debug("calling EC2MetadataHandler")
 		userIP := getIPFromRequest(r)
 		if userIP == "" {
+			logger.Info("Could not retrieve IP address")
 			return
 		}
 
 		metrics.MetadataRequests.Inc()
-		l := logger.With("userIP", userIP)
-		l.Info("got ip from request")
+		logger := logger.With("userIP", userIP)
+		logger.Info("Retrieved IP peer IP")
+
 		hw, err := client.ByIP(r.Context(), userIP)
 		if err != nil {
 			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
-			l.With("error", err).Info("failed to get hardware by ip")
+			logger.With("error", err).Info("failed to get hardware by ip")
 			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		filter, err := processEC2Query(r.URL.Path)
-		if err != nil {
-			l.With("error", err).Info("failed to process ec2 query")
-			w.WriteHeader(http.StatusNotFound)
-			_, err := w.Write([]byte("404 not found"))
-			if err != nil {
-				l.With("error", err).Info("failed to write response")
-			}
 			return
 		}
 
 		ehw, err := hw.Export()
 		if err != nil {
-			l.With("error", err).Info("failed to export hardware")
+			logger.With("error", err).Info("failed to export hardware")
 			w.WriteHeader(http.StatusInternalServerError)
 			_, err := w.Write([]byte("404 not found"))
 			if err != nil {
-				l.With("error", err).Info("failed to write response")
+				logger.With("error", err).Info("failed to write response")
 			}
 			return
 		}
-		resp, err := filterMetadata(ehw, filter)
+
+		logger.With("exported", string(ehw)).Debug("Exported hardware")
+
+		filter, err := processEC2Query(r.URL.Path)
 		if err != nil {
-			l.With("error", err).Info("failed to filter metadata")
+			logger.With("error", err).Info("failed to process ec2 query")
+			w.WriteHeader(http.StatusNotFound)
+			_, err := w.Write([]byte("404 not found"))
+			if err != nil {
+				logger.With("error", err).Info("failed to write response")
+			}
+			return
 		}
 
-		w.WriteHeader(http.StatusOK)
+		resp, err := filterMetadata(ehw, filter)
+		if err != nil {
+			logger.With("error", err).Info("failed to filter metadata")
+		}
+
 		_, err = w.Write(resp)
 		if err != nil {
-			l.With("error", err).Info("failed to write response")
+			logger.With("error", err).Info("failed to write response")
 		}
 	})
 }
@@ -264,7 +268,7 @@ func processEC2Query(url string) (string, error) {
 
 	filter, ok := ec2Filters[query]
 	if !ok {
-		return "", errors.New("invalid metadata item")
+		return "", errors.Errorf("invalid metadata item: %v", query)
 	}
 
 	return filter, nil
