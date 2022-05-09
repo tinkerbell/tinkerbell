@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"reflect"
-	"sync"
 	"testing"
 
 	"github.com/packethost/pkg/log"
@@ -287,55 +286,4 @@ var tinkerbellGrpcTests = map[string]struct {
 		json:             mock.TinkerbellNoMetadata,
 		error:            "",
 	},
-}
-
-func TestServer_SubLock(t *testing.T) {
-	var mutex sync.RWMutex
-	mutex.Lock()
-
-	tests := []struct {
-		name    string
-		subLock *sync.RWMutex
-	}{
-		{
-			name:    "test_sublock_lock_unlock",
-			subLock: &mutex,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &Server{subLock: tt.subLock}
-			retvalLock := s.SubLock()
-			if retvalLock == nil {
-				t.Errorf("Server.SubLock() lock failed")
-			}
-
-			mutex.Unlock()
-			retvalUnlock := s.SubLock()
-			if retvalUnlock == nil {
-				t.Errorf("Server.SubLock() unlock failed")
-			}
-		})
-	}
-}
-
-func TestServer_Subscriptions(t *testing.T) {
-	tests := []struct {
-		name string
-		sub  map[string]*Subscription
-	}{
-		{
-			name: "test_subscription",
-			sub:  make(map[string]*Subscription),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &Server{subscriptions: tt.sub}
-			retval := s.Subscriptions()
-			if retval == nil {
-				t.Error("Server.Subscriptions() failed")
-			}
-		})
-	}
 }
