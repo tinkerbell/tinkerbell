@@ -31,8 +31,8 @@ type Server struct {
 	log            log.Logger
 	hardwareClient hardware.Client
 
-	subLock       *sync.RWMutex
-	subscriptions map[string]*Subscription
+	subscriptionMu *sync.RWMutex
+	subscriptions  map[string]*Subscription
 }
 
 type Subscription struct {
@@ -48,7 +48,7 @@ func NewServer(l log.Logger, hc hardware.Client) *Server {
 	return &Server{
 		log:            l,
 		hardwareClient: hc,
-		subLock:        &sync.RWMutex{},
+		subscriptionMu: &sync.RWMutex{},
 		subscriptions:  make(map[string]*Subscription),
 	}
 }
@@ -106,16 +106,15 @@ func Serve(_ context.Context, l log.Logger, srv *Server, port int, unparsedProxi
 	return nil
 }
 
-func (s *Server) Log() log.Logger {
-	return s.log
-}
+func (s *Server) Subscription(id string) (*Subscription, error) {
+	s.subscriptionMu.RLock()
+	defer s.subscriptionMu.RUnlock()
 
-func (s *Server) SubLock() *sync.RWMutex {
-	return s.subLock
-}
+	if subscription, ok := s.subscriptions[id]; ok {
+		return subscription, nil
+	}
 
-func (s *Server) Subscriptions() map[string]*Subscription {
-	return s.subscriptions
+	return nil, fmt.Errorf("subscription not found: id=%v", id)
 }
 
 // Try to parse out the peer IP.
@@ -202,11 +201,11 @@ func (s *Server) Subscribe(_ *hegel.SubscribeRequest, stream hegel.Hegel_Subscri
 		updateChan:   make(chan []byte, 1),
 	}
 
-	s.subLock.Lock()
+	s.subscriptionMu.Lock()
 	// NOTE: Access to s.subscriptions must be done within this lock to avoid race conditions
 	old := s.subscriptions[id] // nolint:ifshort // variable 'old' is only used in the if-statement in :237
 	s.subscriptions[id] = sub
-	s.subLock.Unlock()
+	s.subscriptionMu.Unlock()
 
 	// Disconnect previous client if a client is already connected for this hardware id
 	if old != nil {
@@ -214,8 +213,8 @@ func (s *Server) Subscribe(_ *hegel.SubscribeRequest, stream hegel.Hegel_Subscri
 	}
 
 	defer func() {
-		s.subLock.Lock()
-		defer s.subLock.Unlock()
+		s.subscriptionMu.Lock()
+		defer s.subscriptionMu.Unlock()
 		// Check if subscription for hardware id exists.
 		// If the subscriptions exists, make sure it has not been replaced by a new connection.
 		if cSub := s.subscriptions[id]; cSub == sub {

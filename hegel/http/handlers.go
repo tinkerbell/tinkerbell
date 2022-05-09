@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"runtime"
@@ -282,53 +283,41 @@ func getIPFromRequest(r *http.Request) string {
 	return addr
 }
 
-func writeJSON(logger log.Logger, w http.ResponseWriter, status int, data interface{}) error {
-	var body []byte
-
-	body, err := json.Marshal(data)
-	if err != nil {
-		if status < 400 {
-			return jsonError(logger, w, http.StatusInternalServerError, err, "marshalling response")
-		}
-
-		status = 500
-		logger.Error(err, "failed to marshal error")
-		body = []byte(`{"error", {"comment": "Failed to marshal error"}}`)
-	}
-
-	w.WriteHeader(status)
-	_, err = w.Write(body)
-	return err
-}
-
-func jsonError(logger log.Logger, w http.ResponseWriter, status int, err error, msg string) error {
-	logger.Error(err, msg)
-	resp := map[string]interface{}{
+func writeJSONError(w http.ResponseWriter, code int, err error) error {
+	return writeJSONResponse(w, code, map[string]interface{}{
 		"error": map[string]interface{}{
 			"error":   err.Error(),
-			"comment": msg,
+			"comment": "", // Maintained for backward compatibility.
 		},
-	}
-	return writeJSON(logger, w, status, resp)
+	})
 }
 
-// todo(chrisdoherty4) Re-write this. It violates several laws and is dangerously fragile.
-// Also, does this work for `/subscriptions`? The writeJSON call injects a function that isn't
-// handled properly by writeJSON.
+func writeJSONResponse(w http.ResponseWriter, code int, payload interface{}) error {
+	w.WriteHeader(code)
+	return json.NewEncoder(w).Encode(payload)
+}
+
 func SubscriptionsHandler(server *grpc.Server, logger log.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		getid := strings.TrimPrefix(r.URL.Path, "/subscriptions/")
-		server.SubLock().RLock()
-		defer server.SubLock().RUnlock()
-		var err error
-		if getid == "" {
-			err = writeJSON(logger, w, http.StatusOK, server.Subscriptions)
-		} else if sub, ok := server.Subscriptions()[getid]; ok {
-			err = writeJSON(logger, w, http.StatusOK, sub)
-		} else {
-			err = jsonError(logger, w, http.StatusNotFound, errors.Errorf("%s not found", getid), "item not found")
+		id := strings.TrimPrefix(r.URL.Path, "/subscriptions/")
+
+		if id == "" {
+			responseErr := fmt.Errorf("missing subscription id in path: %v", r.URL.Path)
+			if err := writeJSONError(w, http.StatusNotFound, responseErr); err != nil {
+				logger.Error(err)
+			}
+			return
 		}
+
+		subscription, err := server.Subscription(id)
 		if err != nil {
+			if err := writeJSONError(w, http.StatusNotFound, err); err != nil {
+				logger.Error(err)
+			}
+			return
+		}
+
+		if err := writeJSONResponse(w, http.StatusOK, subscription); err != nil {
 			logger.Error(err)
 		}
 	})
