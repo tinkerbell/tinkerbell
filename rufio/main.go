@@ -115,11 +115,12 @@ func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to get bmc client")
 	}
 
-	err = (&controllers.BaseboardManagementReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		BMCClient: bmcClient,
-	}).SetupWithManager(mgr)
+	err = (controllers.NewBaseboardManagementReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		bmcClient,
+		ctrl.Log.WithName("controller").WithName("BaseboardManagement"),
+	)).SetupWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BaseboardManagement")
 		os.Exit(1)

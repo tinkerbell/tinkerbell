@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,7 +29,6 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	bmcclient "github.com/tinkerbell/rufio/pkg/bmc/client"
@@ -36,27 +36,37 @@ import (
 
 // BaseboardManagementReconciler reconciles a BaseboardManagement object
 type BaseboardManagementReconciler struct {
-	client.Client
-	Scheme    *runtime.Scheme
-	BMCClient bmcclient.BMCClient
+	client    client.Client
+	scheme    *runtime.Scheme
+	bmcClient bmcclient.BMCClient
+	logger    logr.Logger
+}
+
+// NewBaseboardManagementReconciler returns a new BaseboardManagementReconciler
+func NewBaseboardManagementReconciler(client client.Client, scheme *runtime.Scheme, bmcClient bmcclient.BMCClient, logger logr.Logger) *BaseboardManagementReconciler {
+	return &BaseboardManagementReconciler{
+		client:    client,
+		scheme:    scheme,
+		bmcClient: bmcClient,
+		logger:    logger,
+	}
 }
 
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
 
 // Reconcile ensures the state of a BaseboardManagement.
 // Gets the BaseboardManagement object and uses the SecretReference to initialize a BMC Client.
 // Ensures the BMC power is set to the desired state.
 // Updates the status and conditions accordingly.
 func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("BaseboardManagement", req.NamespacedName)
+	logger := r.logger.WithValues("BaseboardManagement", req.NamespacedName)
 	logger.Info("Reconciling BaseboardManagement", "name", req.NamespacedName)
 
 	// Fetch the BaseboardManagement object
 	baseboardManagement := &bmcv1alpha1.BaseboardManagement{}
-	err := r.Client.Get(ctx, req.NamespacedName, baseboardManagement)
+	err := r.client.Get(ctx, req.NamespacedName, baseboardManagement)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -75,17 +85,19 @@ func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.
 }
 
 func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("BaseboardManagement", bm.Name)
+	logger := r.logger.WithValues("BaseboardManagement", bm.Name, "Namespace", bm.Namespace)
 
 	// Fetching username, password from SecretReference
+	// Requeue if error fetching secret
 	username, password, err := r.resolveAuthSecretRef(ctx, bm.Spec.Connection.AuthSecretRef)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("resolving authentication from SecretReference: %v", err)
+		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving authentication from SecretReference: %v", err)
 	}
 
+	// TODO (pokearu): Remove port hardcoding
 	// Initializing BMC Client connection
-	r.BMCClient.InitClient(bm.Spec.Connection.Host, "623", username, password)
-	err = r.BMCClient.OpenConnection(ctx)
+	r.bmcClient.InitClient(bm.Spec.Connection.Host, "623", username, password)
+	err = r.bmcClient.OpenConnection(ctx)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
 		result, setConditionErr := r.setCondition(ctx, bm, bmcv1alpha1.ConnectionError, err.Error())
@@ -97,14 +109,13 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 
 	// Close BMC connection after reconcilation
 	defer func() {
-		err = r.BMCClient.CloseConnection(ctx)
+		err = r.bmcClient.CloseConnection(ctx)
 		if err != nil {
 			logger.Error(err, "BMC close connection failed", "host", bm.Spec.Connection.Host)
 		}
 	}()
 
-	logger.Info("Checking power status for baseboard management")
-	powerStatus, err := r.BMCClient.GetPowerStatus(ctx)
+	powerStatus, err := r.bmcClient.GetPowerStatus(ctx)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile BaseboardManagement power", "host", bm.Spec.Connection.Host)
 		return ctrl.Result{}, err
@@ -116,7 +127,7 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	}
 
 	// Setting baseboard management to desired power state
-	err = r.BMCClient.SetPowerState(ctx, string(bm.Spec.Power))
+	err = r.bmcClient.SetPowerState(ctx, string(bm.Spec.Power))
 	if err != nil {
 		logger.Error(err, "Failed to reconcile BaseboardManagement power", "host", bm.Spec.Connection.Host)
 		return ctrl.Result{}, err
@@ -167,9 +178,9 @@ func (r *BaseboardManagementReconciler) reconcileStatus(ctx context.Context, bm 
 
 // patchStatus patches the specifies patch on the BaseboardManagement.
 func (r *BaseboardManagementReconciler) patchStatus(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, patch client.Patch) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("BaseboardManagement", bm.Name)
+	logger := r.logger.WithValues("BaseboardManagement", bm.Name, "Namespace", bm.Namespace)
 
-	err := r.Client.Status().Patch(ctx, bm, patch)
+	err := r.client.Status().Patch(ctx, bm, patch)
 	if err != nil {
 		logger.Error(err, "Failed to patch BaseboardManagement status")
 		return ctrl.Result{}, fmt.Errorf("failed to patch BaseboardManagement status: %v", err)
@@ -184,7 +195,7 @@ func (r *BaseboardManagementReconciler) resolveAuthSecretRef(ctx context.Context
 	secret := &corev1.Secret{}
 	key := types.NamespacedName{Namespace: secretRef.Namespace, Name: secretRef.Name}
 
-	if err := r.Client.Get(ctx, key, secret); err != nil {
+	if err := r.client.Get(ctx, key, secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			return "", "", fmt.Errorf("secret %s not found: %v", key, err)
 		}

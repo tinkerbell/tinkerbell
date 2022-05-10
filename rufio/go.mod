@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/bmc-toolbox/bmclib v0.4.15
+	github.com/go-logr/logr v1.2.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
 	golang.org/x/tools v0.1.6-0.20210820212750-d4cc65f0b2ff
@@ -29,7 +30,6 @@ require (
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/gebn/bmc v0.0.0-20200904230046-a5643220ab2a // indirect
-	github.com/go-logr/logr v1.2.0 // indirect
 	github.com/go-logr/zapr v1.2.0 // indirect
 	github.com/go-playground/locales v0.13.0 // indirect
 	github.com/go-playground/universal-translator v0.17.0 // indirect
