@@ -52,6 +52,9 @@ func NewBaseboardManagementReconciler(client client.Client, scheme *runtime.Sche
 	}
 }
 
+// bmFieldReconciler defines a function to reconcile BaseboardManagement spec field
+type bmFieldReconciler func(context.Context, *bmcv1alpha1.BaseboardManagement) error
+
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements/finalizers,verbs=update
@@ -115,25 +118,42 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 		}
 	}()
 
-	powerStatus, err := r.bmcClient.GetPowerStatus(ctx)
-	if err != nil {
-		logger.Error(err, "Failed to reconcile BaseboardManagement power", "host", bm.Spec.Connection.Host)
-		return ctrl.Result{}, err
+	// fieldReconcilers defines BaseboardManagement spec field reconciler functions
+	fieldReconcilers := []bmFieldReconciler{
+		r.reconcilePower,
+	}
+	for _, reconiler := range fieldReconcilers {
+		err := reconiler(ctx, bm)
+		if err != nil {
+			logger.Error(err, "Failed to reconcile BaseboardManagement", "host", bm.Spec.Connection.Host)
+			return ctrl.Result{}, err
+		}
 	}
 
+	// Patch the status after each reconciliation
+	return r.reconcileStatus(ctx, bm)
+}
+
+func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement) error {
+	logger := r.logger.WithValues("BaseboardManagement", bm.Name, "Namespace", bm.Namespace)
+	powerStatus, err := r.bmcClient.GetPowerStatus(ctx)
+	if err != nil {
+		return err
+	}
+
+	// If BaseboardManagement has desired power state then return
 	if bm.Spec.Power == bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
 		logger.Info("Baseboard management in desired power state")
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	// Setting baseboard management to desired power state
 	err = r.bmcClient.SetPowerState(ctx, string(bm.Spec.Power))
 	if err != nil {
-		logger.Error(err, "Failed to reconcile BaseboardManagement power", "host", bm.Spec.Connection.Host)
-		return ctrl.Result{}, err
+		return err
 	}
 
-	return r.reconcileStatus(ctx, bm)
+	return nil
 }
 
 // setCondition updates the status.Condition if the condition type is present.
