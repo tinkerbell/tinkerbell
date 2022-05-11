@@ -4,13 +4,15 @@ binary := cmd/hegel
 all: unit-test image
 
 .PHONY: ${binary} build
-${binary}: 
+${binary}:
 build:
 	CGO_ENABLED=0 GOOS=$$GOOS go build -ldflags="-X build.gitRevision=$(shell git rev-parse --short HEAD)" -o hegel ./cmd/hegel
 
 .PHONY: unit-test
 unit-test:
 	go test $(GO_TEST_ARGS) -coverprofile=unit-test.coverage ./...
+
+IMAGE_ARGS ?= -t hegel
 
 .PHONY: image
 image:

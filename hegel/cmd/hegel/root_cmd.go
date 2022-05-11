@@ -271,8 +271,8 @@ func (c *RootCommand) validateOpts() error {
 		}
 	}
 	if c.Opts.GetDataModel() == datamodel.Kubernetes {
-		if c.Opts.Kubeconfig == "" {
-			return errors.Errorf("--data-model=%v requires --kubeconfig", datamodel.Kubernetes)
+		if c.Opts.Kubeconfig == "" && c.Opts.KubernetesAPIURL == "" {
+			return errors.Errorf("--data-model=%v requires --kubeconfig or --kubernetes", datamodel.Kubernetes)
 		}
 	}
 
