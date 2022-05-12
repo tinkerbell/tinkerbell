@@ -59,12 +59,6 @@ func (v ClientConfig) validate() error {
 		}
 	}
 
-	if v.Model == datamodel.Kubernetes {
-		if v.KubeAPI == "" && v.Kubeconfig == "" {
-			return errors.New("kubernetes data model: kubernetes API URL or kubeconfig is required")
-		}
-	}
-
 	return nil
 }
 

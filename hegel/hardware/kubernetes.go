@@ -136,17 +136,16 @@ type KubernetesClientConfig struct {
 
 // NewKubernetesClientConfig loads the kubeconfig overriding it with kubeAPI.
 func NewKubernetesClientConfig(kubeconfig, kubeAPI string) (KubernetesClientConfig, error) {
-	kubeClientCfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{
-			ExplicitPath: kubeconfig,
-		},
-		&clientcmd.ConfigOverrides{
-			ClusterInfo: clientcmdapi.Cluster{
-				Server: kubeAPI,
-			},
-		},
-	)
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = kubeconfig
 
+	overrides := &clientcmd.ConfigOverrides{
+		ClusterInfo: clientcmdapi.Cluster{
+			Server: kubeAPI,
+		},
+	}
+
+	kubeClientCfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
 	config, err := kubeClientCfg.ClientConfig()
 	if err != nil {
 		return KubernetesClientConfig{}, err
