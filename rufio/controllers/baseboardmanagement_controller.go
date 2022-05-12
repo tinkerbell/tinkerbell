@@ -31,29 +31,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
-	bmcclient "github.com/tinkerbell/rufio/pkg/bmc/client"
+	"github.com/tinkerbell/rufio/pkg/bmcclient"
 )
 
 // BaseboardManagementReconciler reconciles a BaseboardManagement object
 type BaseboardManagementReconciler struct {
-	client    client.Client
-	scheme    *runtime.Scheme
-	bmcClient bmcclient.BMCClient
-	logger    logr.Logger
+	client           client.Client
+	scheme           *runtime.Scheme
+	bmcClientFactory bmcclient.BMCClientFactory
+	logger           logr.Logger
 }
 
 // NewBaseboardManagementReconciler returns a new BaseboardManagementReconciler
-func NewBaseboardManagementReconciler(client client.Client, scheme *runtime.Scheme, bmcClient bmcclient.BMCClient, logger logr.Logger) *BaseboardManagementReconciler {
+func NewBaseboardManagementReconciler(client client.Client, scheme *runtime.Scheme, bmcClientFactory bmcclient.BMCClientFactory, logger logr.Logger) *BaseboardManagementReconciler {
 	return &BaseboardManagementReconciler{
-		client:    client,
-		scheme:    scheme,
-		bmcClient: bmcClient,
-		logger:    logger,
+		client:           client,
+		scheme:           scheme,
+		bmcClientFactory: bmcClientFactory,
+		logger:           logger,
 	}
 }
 
 // bmFieldReconciler defines a function to reconcile BaseboardManagement spec field
-type bmFieldReconciler func(context.Context, *bmcv1alpha1.BaseboardManagement) error
+type bmFieldReconciler func(context.Context, *bmcv1alpha1.BaseboardManagement, bmcclient.BMCClient) error
 
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements/status,verbs=get;update;patch
@@ -98,9 +98,9 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	}
 
 	// TODO (pokearu): Remove port hardcoding
-	// Initializing BMC Client connection
-	r.bmcClient.InitClient(bm.Spec.Connection.Host, "623", username, password)
-	err = r.bmcClient.OpenConnection(ctx)
+	// Initializing BMC Client
+	bmcClient := r.bmcClientFactory(bm.Spec.Connection.Host, "623", username, password)
+	err = bmcClient.OpenConnection(ctx)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
 		result, setConditionErr := r.setCondition(ctx, bm, bmcv1alpha1.ConnectionError, err.Error())
@@ -112,7 +112,7 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 
 	// Close BMC connection after reconcilation
 	defer func() {
-		err = r.bmcClient.CloseConnection(ctx)
+		err = bmcClient.CloseConnection(ctx)
 		if err != nil {
 			logger.Error(err, "BMC close connection failed", "host", bm.Spec.Connection.Host)
 		}
@@ -123,7 +123,7 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 		r.reconcilePower,
 	}
 	for _, reconiler := range fieldReconcilers {
-		err := reconiler(ctx, bm)
+		err := reconiler(ctx, bm, bmcClient)
 		if err != nil {
 			logger.Error(err, "Failed to reconcile BaseboardManagement", "host", bm.Spec.Connection.Host)
 			return ctrl.Result{}, err
@@ -134,21 +134,19 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	return r.reconcileStatus(ctx, bm)
 }
 
-func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement) error {
-	logger := r.logger.WithValues("BaseboardManagement", bm.Name, "Namespace", bm.Namespace)
-	powerStatus, err := r.bmcClient.GetPowerStatus(ctx)
+func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmcClient bmcclient.BMCClient) error {
+	powerStatus, err := bmcClient.GetPowerStatus(ctx)
 	if err != nil {
 		return err
 	}
 
 	// If BaseboardManagement has desired power state then return
 	if bm.Spec.Power == bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
-		logger.Info("Baseboard management in desired power state")
 		return nil
 	}
 
 	// Setting baseboard management to desired power state
-	err = r.bmcClient.SetPowerState(ctx, string(bm.Spec.Power))
+	err = bmcClient.SetPowerState(ctx, string(bm.Spec.Power))
 	if err != nil {
 		return err
 	}
