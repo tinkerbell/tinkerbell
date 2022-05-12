@@ -18,13 +18,15 @@ package main
 
 import (
 	"context"
-	"flag"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -34,7 +36,7 @@ import (
 
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
-	"github.com/tinkerbell/rufio/pkg/bmc/client/factory"
+	"github.com/tinkerbell/rufio/pkg/bmcclient"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -54,26 +56,52 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var kubeAPIServer string
+	var kubeconfig string
+	var watchNamespace string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&kubeAPIServer, "kubernetes", "", "The Kubernetes API URL, used for in-cluster client construction.")
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file.")
+	flag.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile objects.")
+
 	opts := zap.Options{
 		Development: true,
 	}
-	opts.BindFlags(flag.CommandLine)
+
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	ccfg := newClientConfig(kubeAPIServer, kubeconfig)
+
+	cfg, err := ccfg.ClientConfig()
+	if err != nil {
+		setupLog.Error(err, "unable to get client config")
+		os.Exit(1)
+	}
+
+	if watchNamespace == "" {
+		namespace, _, err := ccfg.Namespace()
+		if err != nil {
+			setupLog.Error(err, "unable to get client config namespace")
+			os.Exit(1)
+		}
+		watchNamespace = namespace
+	}
+	setupLog.Info("Watching objects in namespace for reconciliation", "namespace", watchNamespace)
+
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "e74dec1a.tinkerbell.org",
+		Namespace:              watchNamespace,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -108,17 +136,18 @@ func main() {
 	}
 }
 
+func newClientConfig(kubeAPIServer, kubeconfig string) clientcmd.ClientConfig {
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig},
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: kubeAPIServer}})
+}
+
 // setupReconcilers initializes the controllers with the Manager.
 func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
-	bmcClient, err := factory.GetBMCClient(factory.BMCLib)
-	if err != nil {
-		setupLog.Error(err, "unable to get bmc client")
-	}
-
-	err = (controllers.NewBaseboardManagementReconciler(
+	err := (controllers.NewBaseboardManagementReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
-		bmcClient,
+		bmcclient.NewBMCLibClient,
 		ctrl.Log.WithName("controller").WithName("BaseboardManagement"),
 	)).SetupWithManager(mgr)
 	if err != nil {
