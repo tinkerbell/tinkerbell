@@ -270,11 +270,6 @@ func (c *RootCommand) validateOpts() error {
 			return errors.New("--grpc-use-tls requires --grpc-tls-key")
 		}
 	}
-	if c.Opts.GetDataModel() == datamodel.Kubernetes {
-		if c.Opts.Kubeconfig == "" && c.Opts.KubernetesAPIURL == "" {
-			return errors.Errorf("--data-model=%v requires --kubeconfig or --kubernetes", datamodel.Kubernetes)
-		}
-	}
 
 	return nil
 }
