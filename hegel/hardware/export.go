@@ -31,9 +31,11 @@ type instance struct {
 
 	CryptedRootPassword string `json:"crypted_root_password,omitempty"`
 
-	Storage      *storage `json:"storage,omitempty"`
-	SSHKeys      []string `json:"ssh_keys,omitempty"`
-	NetworkReady bool     `json:"network_ready,omitempty"`
+	StorageSource string   `json:"storage_source,omitempty"`
+	Storage       *storage `json:"storage,omitempty"`
+	SSHKeys       []string `json:"ssh_keys,omitempty"`
+	NetworkReady  bool     `json:"network_ready,omitempty"`
+	BootDriveHint string   `json:"boot_drive_hint,omitempty"`
 }
 
 type operatingSystem struct {
