@@ -36,7 +36,6 @@ import (
 
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
-	"github.com/tinkerbell/rufio/pkg/bmcclient"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -147,7 +146,7 @@ func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
 	err := (controllers.NewBaseboardManagementReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
-		bmcclient.NewBMCLibClient,
+		controllers.NewBMCClientFactoryFunc(ctx),
 		ctrl.Log.WithName("controller").WithName("BaseboardManagement"),
 	)).SetupWithManager(mgr)
 	if err != nil {

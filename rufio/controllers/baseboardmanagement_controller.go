@@ -31,19 +31,37 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/rufio/pkg/bmcclient"
 )
+
+// BMCClient represents a baseboard management controller client.
+// It defines a set of methods to connect and interact with a BMC.
+type BMCClient interface {
+	// Close ends the connection with the bmc.
+	Close(ctx context.Context) error
+	// GetPowerState fetches the current power status of the bmc.
+	GetPowerState(ctx context.Context) (string, error)
+	// SetPowerState power controls the bmc to the input power state.
+	SetPowerState(ctx context.Context, state string) (bool, error)
+	// SetBootDevice sets the boot device on the bmc.
+	// Currently this sets the first boot device.
+	// setPersistent, if true will set the boot device permanently. If false, sets one time boot.
+	// efiBoot, if true passes efiboot options while setting boot device.
+	SetBootDevice(ctx context.Context, bootDevice string, setPersistent, efiBoot bool) (bool, error)
+}
+
+// BMCClientFactoryFunc defines a func that returns a BMCClient
+type BMCClientFactoryFunc func(ctx context.Context, hostIP, port, username, password string) (BMCClient, error)
 
 // BaseboardManagementReconciler reconciles a BaseboardManagement object
 type BaseboardManagementReconciler struct {
 	client           client.Client
 	scheme           *runtime.Scheme
-	bmcClientFactory bmcclient.BMCClientFactory
+	bmcClientFactory BMCClientFactoryFunc
 	logger           logr.Logger
 }
 
 // NewBaseboardManagementReconciler returns a new BaseboardManagementReconciler
-func NewBaseboardManagementReconciler(client client.Client, scheme *runtime.Scheme, bmcClientFactory bmcclient.BMCClientFactory, logger logr.Logger) *BaseboardManagementReconciler {
+func NewBaseboardManagementReconciler(client client.Client, scheme *runtime.Scheme, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *BaseboardManagementReconciler {
 	return &BaseboardManagementReconciler{
 		client:           client,
 		scheme:           scheme,
@@ -52,8 +70,8 @@ func NewBaseboardManagementReconciler(client client.Client, scheme *runtime.Sche
 	}
 }
 
-// bmFieldReconciler defines a function to reconcile BaseboardManagement spec field
-type bmFieldReconciler func(context.Context, *bmcv1alpha1.BaseboardManagement, bmcclient.BMCClient) error
+// baseboardManagementFieldReconciler defines a function to reconcile BaseboardManagement spec field
+type baseboardManagementFieldReconciler func(context.Context, *bmcv1alpha1.BaseboardManagement, BMCClient) error
 
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements/status,verbs=get;update;patch
@@ -65,7 +83,7 @@ type bmFieldReconciler func(context.Context, *bmcv1alpha1.BaseboardManagement, b
 // Updates the status and conditions accordingly.
 func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.logger.WithValues("BaseboardManagement", req.NamespacedName)
-	logger.Info("Reconciling BaseboardManagement", "name", req.NamespacedName)
+	logger.Info("Reconciling BaseboardManagement")
 
 	// Fetch the BaseboardManagement object
 	baseboardManagement := &bmcv1alpha1.BaseboardManagement{}
@@ -75,8 +93,8 @@ func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.
 			return ctrl.Result{}, nil
 		}
 
-		logger.Error(err, "Failed to get BaseboardManagement", "name", req.NamespacedName)
-		return ctrl.Result{}, fmt.Errorf("failed to get BaseboardManagement: %v", err)
+		logger.Error(err, "Failed to get BaseboardManagement")
+		return ctrl.Result{}, err
 	}
 
 	// Deletion is a noop.
@@ -84,23 +102,20 @@ func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	return r.reconcile(ctx, baseboardManagement)
+	return r.reconcile(ctx, baseboardManagement, logger)
 }
 
-func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement) (ctrl.Result, error) {
-	logger := r.logger.WithValues("BaseboardManagement", bm.Name, "Namespace", bm.Namespace)
-
+func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, logger logr.Logger) (ctrl.Result, error) {
 	// Fetching username, password from SecretReference
 	// Requeue if error fetching secret
 	username, password, err := r.resolveAuthSecretRef(ctx, bm.Spec.Connection.AuthSecretRef)
 	if err != nil {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving authentication from SecretReference: %v", err)
+		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving BaseboardManagement %s/%s SecretReference: %v", bm.Namespace, bm.Name, err)
 	}
 
 	// TODO (pokearu): Remove port hardcoding
 	// Initializing BMC Client
-	bmcClient := r.bmcClientFactory(bm.Spec.Connection.Host, "623", username, password)
-	err = bmcClient.OpenConnection(ctx)
+	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, "623", username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
 		result, setConditionErr := r.setCondition(ctx, bm, bmcv1alpha1.ConnectionError, err.Error())
@@ -112,19 +127,18 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 
 	// Close BMC connection after reconcilation
 	defer func() {
-		err = bmcClient.CloseConnection(ctx)
+		err = bmcClient.Close(ctx)
 		if err != nil {
 			logger.Error(err, "BMC close connection failed", "host", bm.Spec.Connection.Host)
 		}
 	}()
 
 	// fieldReconcilers defines BaseboardManagement spec field reconciler functions
-	fieldReconcilers := []bmFieldReconciler{
+	fieldReconcilers := []baseboardManagementFieldReconciler{
 		r.reconcilePower,
 	}
 	for _, reconiler := range fieldReconcilers {
-		err := reconiler(ctx, bm, bmcClient)
-		if err != nil {
+		if err := reconiler(ctx, bm, bmcClient); err != nil {
 			logger.Error(err, "Failed to reconcile BaseboardManagement", "host", bm.Spec.Connection.Host)
 			return ctrl.Result{}, err
 		}
@@ -134,10 +148,10 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	return r.reconcileStatus(ctx, bm)
 }
 
-func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmcClient bmcclient.BMCClient) error {
-	powerStatus, err := bmcClient.GetPowerStatus(ctx)
+func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmcClient BMCClient) error {
+	powerStatus, err := bmcClient.GetPowerState(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get power state: %v", err)
 	}
 
 	// If BaseboardManagement has desired power state then return
@@ -146,9 +160,9 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 	}
 
 	// Setting baseboard management to desired power state
-	err = bmcClient.SetPowerState(ctx, string(bm.Spec.Power))
+	_, err = bmcClient.SetPowerState(ctx, string(bm.Spec.Power))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to set power state: %v", err)
 	}
 
 	return nil
@@ -196,12 +210,9 @@ func (r *BaseboardManagementReconciler) reconcileStatus(ctx context.Context, bm 
 
 // patchStatus patches the specifies patch on the BaseboardManagement.
 func (r *BaseboardManagementReconciler) patchStatus(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, patch client.Patch) (ctrl.Result, error) {
-	logger := r.logger.WithValues("BaseboardManagement", bm.Name, "Namespace", bm.Namespace)
-
 	err := r.client.Status().Patch(ctx, bm, patch)
 	if err != nil {
-		logger.Error(err, "Failed to patch BaseboardManagement status")
-		return ctrl.Result{}, fmt.Errorf("failed to patch BaseboardManagement status: %v", err)
+		return ctrl.Result{}, fmt.Errorf("failed to patch BaseboardManagement %s/%s status: %v", bm.Namespace, bm.Name, err)
 	}
 
 	return ctrl.Result{}, nil
@@ -223,12 +234,12 @@ func (r *BaseboardManagementReconciler) resolveAuthSecretRef(ctx context.Context
 
 	username, ok := secret.Data["username"]
 	if !ok {
-		return "", "", fmt.Errorf("required secret key username not present")
+		return "", "", fmt.Errorf("'username' required in BaseboardManagement secret")
 	}
 
 	password, ok := secret.Data["password"]
 	if !ok {
-		return "", "", fmt.Errorf("required secret key password not present")
+		return "", "", fmt.Errorf("'password' required in BaseboardManagement secret")
 	}
 
 	return string(username), string(password), nil
