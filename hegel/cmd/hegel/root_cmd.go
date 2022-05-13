@@ -75,6 +75,7 @@ type RootCommandOptions struct {
 
 	KubernetesAPIURL string `mapstructure:"kubernetes"`
 	Kubeconfig       string `mapstructure:"kubeconfig"`
+	KubeNamespace    string `mapstructure:"kube-namespace"`
 }
 
 func (o RootCommandOptions) GetDataModel() datamodel.DataModel {
@@ -145,10 +146,11 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 	metrics.State.Set(metrics.Initializing)
 
 	hardwareClient, err := hardware.NewClient(hardware.ClientConfig{
-		Model:      c.Opts.GetDataModel(),
-		Facility:   c.Opts.Facility,
-		KubeAPI:    c.Opts.KubernetesAPIURL,
-		Kubeconfig: c.Opts.Kubeconfig,
+		Model:         c.Opts.GetDataModel(),
+		Facility:      c.Opts.Facility,
+		KubeAPI:       c.Opts.KubernetesAPIURL,
+		Kubeconfig:    c.Opts.Kubeconfig,
+		KubeNamespace: c.Opts.KubeNamespace,
 	})
 	if err != nil {
 		return errors.Errorf("create client: %v", err)
@@ -210,6 +212,7 @@ func (c *RootCommand) configureFlags() error {
 
 	c.Flags().String("kubeconfig", "", "Path to a kubeconfig file")
 	c.Flags().String("kubernetes", "", "URL of the Kubernetes API Server")
+	c.Flags().String("kube-namespace", "", "The Kubernetes namespace to target; defaults to the service account")
 
 	c.Flags().String("trusted-proxies", "", "A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For for both gRPC and HTTP endpoints")
 

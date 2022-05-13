@@ -44,12 +44,16 @@ type ClientConfig struct {
 	Facility string
 
 	// KubeAPI is the URL of the Kube API the Kubernetes client talks to.
-	// Required for datamodel.Kubernetes.
+	// Optional
 	KubeAPI string
 
 	// Kuberconfig is a path to a Kubeconfig file used by the Kubernetes client.
-	// Required for datamodel.Kubernetes.
+	// Optional
 	Kubeconfig string
+
+	// KubeNamespace is a namespace override to have Hegel use for reading resources.
+	// Optional
+	KubeNamespace string
 }
 
 func (v ClientConfig) validate() error {
@@ -70,7 +74,7 @@ func NewClient(config ClientConfig) (Client, error) {
 
 	switch config.Model {
 	case datamodel.Kubernetes:
-		config, err := NewKubernetesClientConfig(config.Kubeconfig, config.KubeAPI)
+		config, err := NewKubernetesClientConfig(config.Kubeconfig, config.KubeAPI, config.KubeNamespace)
 		if err != nil {
 			return nil, errors.Errorf("loading kubernetes config: %v", err)
 		}
