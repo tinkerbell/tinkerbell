@@ -24,7 +24,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -55,16 +54,14 @@ type BMCClientFactoryFunc func(ctx context.Context, hostIP, port, username, pass
 // BaseboardManagementReconciler reconciles a BaseboardManagement object
 type BaseboardManagementReconciler struct {
 	client           client.Client
-	scheme           *runtime.Scheme
 	bmcClientFactory BMCClientFactoryFunc
 	logger           logr.Logger
 }
 
 // NewBaseboardManagementReconciler returns a new BaseboardManagementReconciler
-func NewBaseboardManagementReconciler(client client.Client, scheme *runtime.Scheme, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *BaseboardManagementReconciler {
+func NewBaseboardManagementReconciler(client client.Client, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *BaseboardManagementReconciler {
 	return &BaseboardManagementReconciler{
 		client:           client,
-		scheme:           scheme,
 		bmcClientFactory: bmcClientFactory,
 		logger:           logger,
 	}

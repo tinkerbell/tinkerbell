@@ -57,7 +57,7 @@ func main() {
 	var probeAddr string
 	var kubeAPIServer string
 	var kubeconfig string
-	var watchNamespace string
+	var kubeNamespace string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -65,15 +65,11 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&kubeAPIServer, "kubernetes", "", "The Kubernetes API URL, used for in-cluster client construction.")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file.")
-	flag.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile objects.")
-
-	opts := zap.Options{
-		Development: true,
-	}
+	flag.StringVar(&kubeNamespace, "kube-namespace", "", "Namespace that the controller watches to reconcile objects.")
 
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(zap.New())
 
 	ccfg := newClientConfig(kubeAPIServer, kubeconfig)
 
@@ -83,15 +79,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	if watchNamespace == "" {
+	if kubeNamespace == "" {
 		namespace, _, err := ccfg.Namespace()
 		if err != nil {
 			setupLog.Error(err, "unable to get client config namespace")
 			os.Exit(1)
 		}
-		watchNamespace = namespace
+		kubeNamespace = namespace
 	}
-	setupLog.Info("Watching objects in namespace for reconciliation", "namespace", watchNamespace)
+	setupLog.Info("Watching objects in namespace for reconciliation", "namespace", kubeNamespace)
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                 scheme,
@@ -100,7 +96,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "e74dec1a.tinkerbell.org",
-		Namespace:              watchNamespace,
+		Namespace:              kubeNamespace,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -145,7 +141,6 @@ func newClientConfig(kubeAPIServer, kubeconfig string) clientcmd.ClientConfig {
 func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
 	err := (controllers.NewBaseboardManagementReconciler(
 		mgr.GetClient(),
-		mgr.GetScheme(),
 		controllers.NewBMCClientFactoryFunc(ctx),
 		ctrl.Log.WithName("controller").WithName("BaseboardManagement"),
 	)).SetupWithManager(mgr)
