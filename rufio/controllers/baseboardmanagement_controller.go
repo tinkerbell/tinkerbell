@@ -157,6 +157,8 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 
 	// If BaseboardManagement has desired power state then return
 	if bm.Spec.Power == bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
+		// Update status to represent current power state
+		bm.Status.Power = bm.Spec.Power
 		return nil
 	}
 
