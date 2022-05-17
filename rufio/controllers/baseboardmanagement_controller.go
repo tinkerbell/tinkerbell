@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -115,7 +116,7 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	}
 
 	// Initializing BMC Client
-	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, bm.Spec.Connection.Port, username, password)
+	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, strconv.Itoa(bm.Spec.Connection.Port), username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
 		result, setConditionErr := r.setCondition(ctx, bm, bmPatch, bmcv1alpha1.ConnectionError, err.Error())

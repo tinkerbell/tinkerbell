@@ -64,9 +64,9 @@ type Connection struct {
 	// +kubebuilder:validation:MinLength=1
 	Host string `json:"host"`
 
-	// Port is the IPMI port of the BaseboardManagement.
-	// +kubebuilder:validation:MinLength=1
-	Port string `json:"port"`
+	// Port is the port number for connecting with the BaseboardManagement.
+	// +kubebuilder:default:=623
+	Port int `json:"port"`
 
 	// AuthSecretRef is the SecretReference that contains authentication information of the BaseboardManagement.
 	// The Secret must contain username and password keys.
