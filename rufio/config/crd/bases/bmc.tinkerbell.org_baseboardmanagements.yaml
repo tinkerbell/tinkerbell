@@ -65,10 +65,15 @@ spec:
                   insecureTLS:
                     description: InsecureTLS specifies trusted TLS connections.
                     type: boolean
+                  port:
+                    description: Port is the IPMI port of the BaseboardManagement.
+                    minLength: 1
+                    type: string
                 required:
                 - authSecretRef
                 - host
                 - insecureTLS
+                - port
                 type: object
               power:
                 description: Power is the desired power state of the BaseboardManagement.

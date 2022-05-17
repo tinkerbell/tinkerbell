@@ -114,9 +114,8 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving BaseboardManagement %s/%s SecretReference: %v", bm.Namespace, bm.Name, err)
 	}
 
-	// TODO (pokearu): Remove port hardcoding
 	// Initializing BMC Client
-	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, "623", username, password)
+	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, bm.Spec.Connection.Port, username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
 		result, setConditionErr := r.setCondition(ctx, bm, bmPatch, bmcv1alpha1.ConnectionError, err.Error())

@@ -64,6 +64,10 @@ type Connection struct {
 	// +kubebuilder:validation:MinLength=1
 	Host string `json:"host"`
 
+	// Port is the IPMI port of the BaseboardManagement.
+	// +kubebuilder:validation:MinLength=1
+	Port string `json:"port"`
+
 	// AuthSecretRef is the SecretReference that contains authentication information of the BaseboardManagement.
 	// The Secret must contain username and password keys.
 	AuthSecretRef corev1.SecretReference `json:"authSecretRef"`
