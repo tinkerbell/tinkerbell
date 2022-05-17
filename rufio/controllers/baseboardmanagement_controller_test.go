@@ -32,8 +32,8 @@ func TestReconcileSetPowerSuccess(t *testing.T) {
 
 	objs := []runtime.Object{bm, authSecret}
 	scheme := runtime.NewScheme()
-	bmcv1alpha1.AddToScheme(scheme)
-	corev1.AddToScheme(scheme)
+	_ = bmcv1alpha1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
 
 	clientBuilder := fake.NewClientBuilder()
 	client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
@@ -71,8 +71,8 @@ func TestReconcileDesiredPowerStateSuccess(t *testing.T) {
 
 	objs := []runtime.Object{bm, authSecret}
 	scheme := runtime.NewScheme()
-	bmcv1alpha1.AddToScheme(scheme)
-	corev1.AddToScheme(scheme)
+	_ = bmcv1alpha1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
 
 	clientBuilder := fake.NewClientBuilder()
 	client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
@@ -107,8 +107,8 @@ func TestReconcileSecretReferenceError(t *testing.T) {
 	bm := getBaseboardManagement()
 
 	scheme := runtime.NewScheme()
-	bmcv1alpha1.AddToScheme(scheme)
-	corev1.AddToScheme(scheme)
+	_ = bmcv1alpha1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
 
 	tt := map[string]struct {
 		Secret *corev1.Secret
@@ -176,8 +176,8 @@ func TestReconcileConnectionError(t *testing.T) {
 
 	objs := []runtime.Object{bm, authSecret}
 	scheme := runtime.NewScheme()
-	bmcv1alpha1.AddToScheme(scheme)
-	corev1.AddToScheme(scheme)
+	_ = bmcv1alpha1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
 	clientBuilder := fake.NewClientBuilder()
 	client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
 
