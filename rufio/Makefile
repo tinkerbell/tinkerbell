@@ -115,6 +115,13 @@ ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
+MOCKGEN = $(shell pwd)/bin/mockgen
+.PHONY: mocks
+mocks: ## Generate mocks
+	$(call go-get-tool,$(MOCKGEN),github.com/golang/mock/mockgen@v1.6.0)
+	${MOCKGEN} -destination=controllers/mocks/bmcclient.go -package=mocks "github.com/tinkerbell/rufio/controllers" BMCClient
+
+
 ##@ Release
 
 RELEASE_TAG := $(shell git describe --abbrev=0 2>/dev/null)

@@ -3,6 +3,7 @@ doc/
 .idea
 .vscode
 coverage.txt
+cover.out
 
 # Terraform
 .terraform
