@@ -221,6 +221,7 @@ func getBaseboardManagement() *bmcv1alpha1.BaseboardManagement {
 		Spec: bmcv1alpha1.BaseboardManagementSpec{
 			Connection: bmcv1alpha1.Connection{
 				Host: "0.0.0.0",
+				Port: 623,
 				AuthSecretRef: corev1.SecretReference{
 					Name:      "test-bm-auth",
 					Namespace: "test-namespace",

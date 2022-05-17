@@ -5,6 +5,7 @@ metadata:
 spec:
   connection:
     host: 0.0.0.0
+    port: 623
     authSecretRef:
       name: bm-auth
       namespace: sample
