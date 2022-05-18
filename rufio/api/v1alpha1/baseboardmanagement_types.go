@@ -30,6 +30,9 @@ type BootDevice string
 // BaseboardManagementConditionType represents the condition of the BaseboardManagement.
 type BaseboardManagementConditionType string
 
+// BaseboardManagementConditionStatus represents the status of a BaseboardManagementCondition.
+type BaseboardManagementConditionStatus string
+
 const (
 	On  PowerState = "on"
 	Off PowerState = "off"
@@ -44,8 +47,13 @@ const (
 )
 
 const (
-	// ConnectionError represents failure to connect to the BaseboardManagement.
-	ConnectionError BaseboardManagementConditionType = "ConnectionError"
+	// Connected represents failure to connect to the BaseboardManagement.
+	Connected BaseboardManagementConditionType = "Connected"
+)
+
+const (
+	BaseboardManagementConditionTrue  BaseboardManagementConditionStatus = "True"
+	BaseboardManagementConditionFalse BaseboardManagementConditionStatus = "False"
 )
 
 // BaseboardManagementSpec defines the desired state of BaseboardManagement
@@ -91,6 +99,10 @@ type BaseboardManagementStatus struct {
 type BaseboardManagementCondition struct {
 	// Type of the BaseboardManagement condition.
 	Type BaseboardManagementConditionType `json:"type"`
+
+	// Status is the status of the BaseboardManagement condition.
+	// Can be True or False.
+	Status BaseboardManagementConditionStatus `json:"status"`
 
 	// Message represents human readable message indicating details about last transition.
 	// +optional
