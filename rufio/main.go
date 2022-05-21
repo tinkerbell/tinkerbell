@@ -150,21 +150,14 @@ func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
 		os.Exit(1)
 	}
 
-	err = (&controllers.BMCJobReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr)
+	err = (controllers.NewBMCJobReconciler(
+		mgr.GetClient(),
+		controllers.NewBMCClientFactoryFunc(ctx),
+		controllers.NewBMCTaskHandler(),
+		ctrl.Log.WithName("controller").WithName("BMCJob"),
+	)).SetupWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BMCJob")
-		os.Exit(1)
-	}
-
-	err = (&controllers.BMCTaskReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr)
-	if err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "BMCTask")
 		os.Exit(1)
 	}
 }
