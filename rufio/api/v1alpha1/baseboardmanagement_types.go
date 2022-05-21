@@ -109,6 +109,42 @@ type BaseboardManagementCondition struct {
 	Message string `json:"message,omitempty"`
 }
 
+// +kubebuilder:object:generate=false
+type BaseboardManagementSetConditionOption func(*BaseboardManagementCondition)
+
+// SetCondition updates the Condition if the condition type is present.
+// Appends if new condition is found.
+func (bmj *BaseboardManagement) SetCondition(cType BaseboardManagementConditionType, status BaseboardManagementConditionStatus, opts ...BaseboardManagementSetConditionOption) {
+	currentConditions := bmj.Status.Conditions
+	for i := range currentConditions {
+		// If condition exists, update
+		if currentConditions[i].Type == cType {
+			bmj.Status.Conditions[i].Status = status
+			for _, opt := range opts {
+				opt(&currentConditions[i])
+			}
+			return
+		}
+	}
+
+	// Append new condition to Conditions
+	condition := BaseboardManagementCondition{
+		Type:   cType,
+		Status: status,
+	}
+	for _, opt := range opts {
+		opt(&condition)
+	}
+
+	bmj.Status.Conditions = append(bmj.Status.Conditions, condition)
+}
+
+func WithJobConditionMessage(m string) BaseboardManagementSetConditionOption {
+	return func(c *BaseboardManagementCondition) {
+		c.Message = m
+	}
+}
+
 // BaseboardManagementRef defines the reference information to a BaseboardManagement resource.
 type BaseboardManagementRef struct {
 	// Name is unique within a namespace to reference a BaseboardManagement resource.
