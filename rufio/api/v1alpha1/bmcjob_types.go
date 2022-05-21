@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -42,6 +44,14 @@ const (
 	Cycle        PowerControl = "cycle"
 	Reset        PowerControl = "reset"
 	Status       PowerControl = "status"
+)
+
+// BMCJobConditionStatus represents the status of a BMCJobCondition.
+type BMCJobConditionStatus string
+
+const (
+	BMCJobConditionTrue  BMCJobConditionStatus = "True"
+	BMCJobConditionFalse BMCJobConditionStatus = "False"
 )
 
 // BMCJobSpec defines the desired state of BMCJob
@@ -77,9 +87,54 @@ type BMCJobCondition struct {
 	// Type of the BMCJob condition.
 	Type BMCJobConditionType `json:"type"`
 
+	// Status is the status of the BMCJob condition.
+	// Can be True or False.
+	Status BMCJobConditionStatus `json:"status"`
+
 	// Message represents human readable message indicating details about last transition.
 	// +optional
 	Message string `json:"message,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type BMCJobSetConditionOption func(*BMCJobCondition)
+
+// SetCondition updates the Condition if the condition type is present.
+// Appends if new condition is found.
+func (bmj *BMCJob) SetCondition(cType BMCJobConditionType, status BMCJobConditionStatus, opts ...BMCJobSetConditionOption) {
+	currentConditions := bmj.Status.Conditions
+	for i := range currentConditions {
+		// If condition exists, update
+		if currentConditions[i].Type == cType {
+			bmj.Status.Conditions[i].Status = status
+			for _, opt := range opts {
+				opt(&currentConditions[i])
+			}
+			return
+		}
+	}
+
+	// Append new condition to Conditions
+	condition := BMCJobCondition{
+		Type:   cType,
+		Status: status,
+	}
+	for _, opt := range opts {
+		opt(&condition)
+	}
+
+	bmj.Status.Conditions = append(bmj.Status.Conditions, condition)
+}
+
+func WithJobConditionMessage(m string) BMCJobSetConditionOption {
+	return func(c *BMCJobCondition) {
+		c.Message = m
+	}
+}
+
+// GetTaskName returns a BMCTask name based on BMCJob name.
+func (bmj *BMCJob) GetTaskName(taskNumber int) string {
+	return fmt.Sprintf("%s-task-%d", bmj.Name, taskNumber)
 }
 
 //+kubebuilder:object:root=true
