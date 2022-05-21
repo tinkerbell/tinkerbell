@@ -20,14 +20,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// BMCTaskConditionType represents the condition of the BMC Job.
+// BMCTaskConditionType represents the condition of the BMC Task.
 type BMCTaskConditionType string
 
 const (
 	// TaskCompleted represents successful completion of the BMC Task.
-	TaskCompleted BMCJobConditionType = "Completed"
+	TaskCompleted BMCTaskConditionType = "Completed"
 	// TaskFailed represents failure in BMC task execution.
-	TaskFailed BMCJobConditionType = "Failed"
+	TaskFailed BMCTaskConditionType = "Failed"
+)
+
+// BMCTaskConditionStatus represents the status of a BMCTaskCondition.
+type BMCTaskConditionStatus string
+
+const (
+	BMCTaskConditionTrue  BMCTaskConditionStatus = "True"
+	BMCTaskConditionFalse BMCTaskConditionStatus = "False"
 )
 
 // BMCTaskSpec defines the desired state of BMCTask
@@ -50,7 +58,7 @@ type Task struct {
 
 type PowerAction struct {
 	// State represents the requested power state to set for the baseboard management.
-	// +kubebuilder:validation:Enum=PowerOn;HardPowerOff;SoftPowerOff;Status;Cycle;Reset
+	// +kubebuilder:validation:Enum=on;off;soft;status;cycle;reset
 	PowerControl PowerControl `json:"powerControl"`
 }
 
@@ -86,9 +94,49 @@ type BMCTaskCondition struct {
 	// Type of the BMCTask condition.
 	Type BMCTaskConditionType `json:"type"`
 
+	// Status is the status of the BMCTask condition.
+	// Can be True or False.
+	Status BMCTaskConditionStatus `json:"status"`
+
 	// Message represents human readable message indicating details about last transition.
 	// +optional
 	Message string `json:"message,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type BMCTaskSetConditionOption func(*BMCTaskCondition)
+
+// SetCondition updates the Condition if the condition type is present.
+// Appends if new condition is found.
+func (bmt *BMCTask) SetCondition(cType BMCTaskConditionType, status BMCTaskConditionStatus, opts ...BMCTaskSetConditionOption) {
+	currentConditions := bmt.Status.Conditions
+	for i := range currentConditions {
+		// If condition exists, update
+		if currentConditions[i].Type == cType {
+			bmt.Status.Conditions[i].Status = status
+			for _, opt := range opts {
+				opt(&currentConditions[i])
+			}
+			return
+		}
+	}
+
+	// Append new condition to Conditions
+	condition := BMCTaskCondition{
+		Type:   cType,
+		Status: status,
+	}
+	for _, opt := range opts {
+		opt(&condition)
+	}
+
+	bmt.Status.Conditions = append(bmt.Status.Conditions, condition)
+}
+
+func WithTaskConditionMessage(m string) BMCTaskSetConditionOption {
+	return func(c *BMCTaskCondition) {
+		c.Message = m
+	}
 }
 
 //+kubebuilder:object:root=true

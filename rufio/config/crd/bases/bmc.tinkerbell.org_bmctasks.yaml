@@ -72,12 +72,12 @@ spec:
                         description: State represents the requested power state to
                           set for the baseboard management.
                         enum:
-                        - PowerOn
-                        - HardPowerOff
-                        - SoftPowerOff
-                        - Status
-                        - Cycle
-                        - Reset
+                        - "on"
+                        - "off"
+                        - soft
+                        - status
+                        - cycle
+                        - reset
                         type: string
                     required:
                     - powerControl
@@ -103,10 +103,15 @@ spec:
                       description: Message represents human readable message indicating
                         details about last transition.
                       type: string
+                    status:
+                      description: Status is the status of the BMCTask condition.
+                        Can be True or False.
+                      type: string
                     type:
                       description: Type of the BMCTask condition.
                       type: string
                   required:
+                  - status
                   - type
                   type: object
                 type: array
