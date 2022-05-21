@@ -118,7 +118,7 @@ func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.
 func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	// Fetching username, password from SecretReference
 	// Requeue if error fetching secret
-	username, password, err := r.resolveAuthSecretRef(ctx, bm.Spec.Connection.AuthSecretRef)
+	username, password, err := resolveAuthSecretRef(ctx, r.client, bm.Spec.Connection.AuthSecretRef)
 	if err != nil {
 		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving BaseboardManagement %s/%s SecretReference: %v", bm.Namespace, bm.Name, err)
 	}
@@ -208,11 +208,11 @@ func (r *BaseboardManagementReconciler) patchStatus(ctx context.Context, bm *bmc
 
 // resolveAuthSecretRef Gets the Secret from the SecretReference.
 // Returns the username and password encoded in the Secret.
-func (r *BaseboardManagementReconciler) resolveAuthSecretRef(ctx context.Context, secretRef corev1.SecretReference) (string, string, error) {
+func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef corev1.SecretReference) (string, string, error) {
 	secret := &corev1.Secret{}
 	key := types.NamespacedName{Namespace: secretRef.Namespace, Name: secretRef.Name}
 
-	if err := r.client.Get(ctx, key, secret); err != nil {
+	if err := c.Get(ctx, key, secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			return "", "", fmt.Errorf("secret %s not found: %v", key, err)
 		}

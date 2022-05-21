@@ -3,12 +3,15 @@ kind: BMCJob
 metadata:
   name: bmcjob-sample
 spec:
+  baseboardManagementRef:
+    name: baseboardmanagement-sample
+    namespace: sample
   tasks:
     - powerAction:
         powerControl: "off"
     - oneTimeBootDeviceAction:
         device:
           - "pxe"
-        efiBoot: "false"
+        efiBoot: false
     - powerAction:
         powerControl: "on"
