@@ -61,6 +61,11 @@ type BaseboardManagementReconciler struct {
 	logger           logr.Logger
 }
 
+const (
+	EventGetPowerStateFailed = "GetPowerStateFailed"
+	EventSetPowerStateFailed = "SetPowerStateFailed"
+)
+
 // NewBaseboardManagementReconciler returns a new BaseboardManagementReconciler
 func NewBaseboardManagementReconciler(client client.Client, recorder record.EventRecorder, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *BaseboardManagementReconciler {
 	return &BaseboardManagementReconciler{
@@ -122,11 +127,8 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, strconv.Itoa(bm.Spec.Connection.Port), username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
-		result, setConditionErr := r.setCondition(ctx, bm, bmPatch, bmcv1alpha1.Connected, bmcv1alpha1.BaseboardManagementConditionFalse, err.Error())
-		if setConditionErr != nil {
-			return result, utilerrors.NewAggregate([]error{fmt.Errorf("failed to set conditions: %v", setConditionErr), err})
-		}
-		return result, err
+		bm.SetCondition(bmcv1alpha1.Connected, bmcv1alpha1.BaseboardManagementConditionFalse, bmcv1alpha1.WithJobConditionMessage(err.Error()))
+		return r.patchStatus(ctx, bm, bmPatch)
 	}
 
 	// Close BMC connection after reconcilation
@@ -161,7 +163,7 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmcClient BMCClient) error {
 	powerStatus, err := bmcClient.GetPowerState(ctx)
 	if err != nil {
-		r.recorder.Event(bm, corev1.EventTypeWarning, "GetPowerState", fmt.Sprintf("failed to get power state: %v", err))
+		r.recorder.Eventf(bm, corev1.EventTypeWarning, EventGetPowerStateFailed, "failed to get power state: %v", err)
 		return fmt.Errorf("failed to get power state: %v", err)
 	}
 
@@ -175,7 +177,7 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 	// Setting baseboard management to desired power state
 	_, err = bmcClient.SetPowerState(ctx, string(bm.Spec.Power))
 	if err != nil {
-		r.recorder.Event(bm, corev1.EventTypeWarning, "SetPowerState", fmt.Sprintf("failed to set power state: %v", err))
+		r.recorder.Eventf(bm, corev1.EventTypeWarning, EventSetPowerStateFailed, "failed to set power state: %v", err)
 		return fmt.Errorf("failed to set power state: %v", err)
 	}
 
@@ -185,46 +187,12 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 	return nil
 }
 
-// setCondition updates the status.Condition if the condition type is present.
-// Appends if new condition is found.
-// Patches the BaseboardManagement status.
-func (r *BaseboardManagementReconciler) setCondition(
-	ctx context.Context,
-	bm *bmcv1alpha1.BaseboardManagement,
-	bmPatch client.Patch,
-	cType bmcv1alpha1.BaseboardManagementConditionType,
-	cStatus bmcv1alpha1.BaseboardManagementConditionStatus,
-	message string,
-) (ctrl.Result, error) {
-	// Current conditions in the BaseboardManagement Status
-	currentConditions := bm.Status.Conditions
-	for i := range currentConditions {
-		// If condition exists, update the message if different
-		if currentConditions[i].Type == cType {
-			if currentConditions[i].Message != message || currentConditions[i].Status != cStatus {
-				bm.Status.Conditions[i].Message = message
-				bm.Status.Conditions[i].Status = cStatus
-				return r.patchStatus(ctx, bm, bmPatch)
-			}
-			return ctrl.Result{}, nil
-		}
-	}
-
-	// Append new condition to Conditions
-	condition := bmcv1alpha1.BaseboardManagementCondition{
-		Type:    cType,
-		Status:  cStatus,
-		Message: message,
-	}
-	bm.Status.Conditions = append(bm.Status.Conditions, condition)
-
-	return r.patchStatus(ctx, bm, bmPatch)
-}
-
 // reconcileStatus updates the Conditions to patch BaseboardManagement status.
 func (r *BaseboardManagementReconciler) reconcileStatus(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmPatch client.Patch) (ctrl.Result, error) {
 	// Setting condition Connted to True.
-	return r.setCondition(ctx, bm, bmPatch, bmcv1alpha1.Connected, bmcv1alpha1.BaseboardManagementConditionTrue, "")
+	bm.SetCondition(bmcv1alpha1.Connected, bmcv1alpha1.BaseboardManagementConditionTrue)
+
+	return r.patchStatus(ctx, bm, bmPatch)
 }
 
 // patchStatus patches the specifies patch on the BaseboardManagement.
