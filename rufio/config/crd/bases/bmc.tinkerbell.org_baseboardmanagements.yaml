@@ -93,6 +93,11 @@ spec:
                   of an object's current state.
                 items:
                   properties:
+                    lastUpdateTime:
+                      description: Last time the BaseboardManagement condition was
+                        updated.
+                      format: date-time
+                      type: string
                     message:
                       description: Message represents human readable message indicating
                         details about last transition.
@@ -105,6 +110,7 @@ spec:
                       description: Type of the BaseboardManagement condition.
                       type: string
                   required:
+                  - lastUpdateTime
                   - status
                   - type
                   type: object

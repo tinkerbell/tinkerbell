@@ -127,7 +127,7 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, strconv.Itoa(bm.Spec.Connection.Port), username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
-		bm.SetCondition(bmcv1alpha1.Connected, bmcv1alpha1.BaseboardManagementConditionFalse, bmcv1alpha1.WithJobConditionMessage(err.Error()))
+		bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.BaseboardManagementConditionFalse, bmcv1alpha1.WithBaseboardManagementConditionMessage(err.Error()))
 		result, patchErr := r.patchStatus(ctx, bm, bmPatch)
 		if patchErr != nil {
 			return result, utilerrors.Flatten(utilerrors.NewAggregate([]error{patchErr, err}))
@@ -197,7 +197,7 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 // reconcileStatus updates the Conditions to patch BaseboardManagement status.
 func (r *BaseboardManagementReconciler) reconcileStatus(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmPatch client.Patch) (ctrl.Result, error) {
 	// Setting condition Connted to True.
-	bm.SetCondition(bmcv1alpha1.Connected, bmcv1alpha1.BaseboardManagementConditionTrue)
+	bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.BaseboardManagementConditionTrue)
 
 	return r.patchStatus(ctx, bm, bmPatch)
 }

@@ -47,8 +47,8 @@ const (
 )
 
 const (
-	// Connected represents failure to connect to the BaseboardManagement.
-	Connected BaseboardManagementConditionType = "Connected"
+	// Contactable defines that a connection can be made to the BaseboardManagement.
+	Contactable BaseboardManagementConditionType = "Contactable"
 )
 
 const (
@@ -104,6 +104,9 @@ type BaseboardManagementCondition struct {
 	// Can be True or False.
 	Status BaseboardManagementConditionStatus `json:"status"`
 
+	// Last time the BaseboardManagement condition was updated.
+	LastUpdateTime metav1.Time `json:"lastUpdateTime"`
+
 	// Message represents human readable message indicating details about last transition.
 	// +optional
 	Message string `json:"message,omitempty"`
@@ -112,34 +115,35 @@ type BaseboardManagementCondition struct {
 // +kubebuilder:object:generate=false
 type BaseboardManagementSetConditionOption func(*BaseboardManagementCondition)
 
-// SetCondition updates the Condition if the condition type is present.
-// Appends if new condition is found.
-func (bmj *BaseboardManagement) SetCondition(cType BaseboardManagementConditionType, status BaseboardManagementConditionStatus, opts ...BaseboardManagementSetConditionOption) {
-	currentConditions := bmj.Status.Conditions
-	for i := range currentConditions {
-		// If condition exists, update
-		if currentConditions[i].Type == cType {
-			bmj.Status.Conditions[i].Status = status
-			for _, opt := range opts {
-				opt(&currentConditions[i])
-			}
-			return
+// SetCondition applies the cType condition to bm. If the condition already exists,
+// it is updated.
+func (bm *BaseboardManagement) SetCondition(cType BaseboardManagementConditionType, status BaseboardManagementConditionStatus, opts ...BaseboardManagementSetConditionOption) {
+	var condition *BaseboardManagementCondition
+
+	// Check if there's an existing condition.
+	for i, c := range bm.Status.Conditions {
+		if c.Type == cType {
+			condition = &bm.Status.Conditions[i]
+			break
 		}
 	}
 
-	// Append new condition to Conditions
-	condition := BaseboardManagementCondition{
-		Type:   cType,
-		Status: status,
-	}
-	for _, opt := range opts {
-		opt(&condition)
+	// We didn't find an existing condition so create a new one and append it.
+	if condition == nil {
+		bm.Status.Conditions = append(bm.Status.Conditions, BaseboardManagementCondition{
+			Type: cType,
+		})
+		condition = &bm.Status.Conditions[len(bm.Status.Conditions)-1]
 	}
 
-	bmj.Status.Conditions = append(bmj.Status.Conditions, condition)
+	condition.Status = status
+	condition.LastUpdateTime = metav1.Now()
+	for _, opt := range opts {
+		opt(condition)
+	}
 }
 
-func WithJobConditionMessage(m string) BaseboardManagementSetConditionOption {
+func WithBaseboardManagementConditionMessage(m string) BaseboardManagementSetConditionOption {
 	return func(c *BaseboardManagementCondition) {
 		c.Message = m
 	}
