@@ -115,7 +115,7 @@ func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.
 	return r.reconcile(ctx, baseboardManagement, baseboardManagementPatch, logger)
 }
 
-func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmPatch client.Patch, logger logr.Logger) (_ ctrl.Result, reterr error) {
+func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	// Fetching username, password from SecretReference
 	// Requeue if error fetching secret
 	username, password, err := r.resolveAuthSecretRef(ctx, bm.Spec.Connection.AuthSecretRef)
@@ -128,7 +128,12 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
 		bm.SetCondition(bmcv1alpha1.Connected, bmcv1alpha1.BaseboardManagementConditionFalse, bmcv1alpha1.WithJobConditionMessage(err.Error()))
-		return r.patchStatus(ctx, bm, bmPatch)
+		result, patchErr := r.patchStatus(ctx, bm, bmPatch)
+		if patchErr != nil {
+			return result, utilerrors.Flatten(utilerrors.NewAggregate([]error{patchErr, err}))
+		}
+
+		return result, err
 	}
 
 	// Close BMC connection after reconcilation
@@ -143,20 +148,22 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	fieldReconcilers := []baseboardManagementFieldReconciler{
 		r.reconcilePower,
 	}
+
+	var aggErr utilerrors.Aggregate
 	for _, reconiler := range fieldReconcilers {
 		if err := reconiler(ctx, bm, bmcClient); err != nil {
 			logger.Error(err, "Failed to reconcile BaseboardManagement", "host", bm.Spec.Connection.Host)
-			reterr = utilerrors.NewAggregate([]error{err, reterr})
+			aggErr = utilerrors.NewAggregate([]error{err, aggErr})
 		}
 	}
 
 	// Patch the status after each reconciliation
 	result, err := r.reconcileStatus(ctx, bm, bmPatch)
 	if err != nil {
-		reterr = utilerrors.NewAggregate([]error{err, reterr})
+		aggErr = utilerrors.NewAggregate([]error{err, aggErr})
 	}
 
-	return result, reterr
+	return result, utilerrors.Flatten(aggErr)
 }
 
 // reconcilePower ensures the BaseboardManagement Power is in the desired state.
