@@ -99,31 +99,31 @@ type BMCJobCondition struct {
 // +kubebuilder:object:generate=false
 type BMCJobSetConditionOption func(*BMCJobCondition)
 
-// SetCondition updates the Condition if the condition type is present.
-// Appends if new condition is found.
+// SetCondition applies the cType condition to bmj. If the condition already exists,
+// it is updated.
 func (bmj *BMCJob) SetCondition(cType BMCJobConditionType, status BMCJobConditionStatus, opts ...BMCJobSetConditionOption) {
-	currentConditions := bmj.Status.Conditions
-	for i := range currentConditions {
-		// If condition exists, update
-		if currentConditions[i].Type == cType {
-			bmj.Status.Conditions[i].Status = status
-			for _, opt := range opts {
-				opt(&currentConditions[i])
-			}
-			return
+	var condition *BMCJobCondition
+
+	// Check if there's an existing condition.
+	for i, c := range bmj.Status.Conditions {
+		if c.Type == cType {
+			condition = &bmj.Status.Conditions[i]
+			break
 		}
 	}
 
-	// Append new condition to Conditions
-	condition := BMCJobCondition{
-		Type:   cType,
-		Status: status,
-	}
-	for _, opt := range opts {
-		opt(&condition)
+	// We didn't find an existing condition so create a new one and append it.
+	if condition == nil {
+		bmj.Status.Conditions = append(bmj.Status.Conditions, BMCJobCondition{
+			Type: cType,
+		})
+		condition = &bmj.Status.Conditions[len(bmj.Status.Conditions)-1]
 	}
 
-	bmj.Status.Conditions = append(bmj.Status.Conditions, condition)
+	condition.Status = status
+	for _, opt := range opts {
+		opt(condition)
+	}
 }
 
 func WithJobConditionMessage(m string) BMCJobSetConditionOption {

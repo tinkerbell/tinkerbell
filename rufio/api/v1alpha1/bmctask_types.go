@@ -106,31 +106,31 @@ type BMCTaskCondition struct {
 // +kubebuilder:object:generate=false
 type BMCTaskSetConditionOption func(*BMCTaskCondition)
 
-// SetCondition updates the Condition if the condition type is present.
-// Appends if new condition is found.
+// SetCondition applies the cType condition to bmt. If the condition already exists,
+// it is updated.
 func (bmt *BMCTask) SetCondition(cType BMCTaskConditionType, status BMCTaskConditionStatus, opts ...BMCTaskSetConditionOption) {
-	currentConditions := bmt.Status.Conditions
-	for i := range currentConditions {
-		// If condition exists, update
-		if currentConditions[i].Type == cType {
-			bmt.Status.Conditions[i].Status = status
-			for _, opt := range opts {
-				opt(&currentConditions[i])
-			}
-			return
+	var condition *BMCTaskCondition
+
+	// Check if there's an existing condition.
+	for i, c := range bmt.Status.Conditions {
+		if c.Type == cType {
+			condition = &bmt.Status.Conditions[i]
+			break
 		}
 	}
 
-	// Append new condition to Conditions
-	condition := BMCTaskCondition{
-		Type:   cType,
-		Status: status,
-	}
-	for _, opt := range opts {
-		opt(&condition)
+	// We didn't find an existing condition so create a new one and append it.
+	if condition == nil {
+		bmt.Status.Conditions = append(bmt.Status.Conditions, BMCTaskCondition{
+			Type: cType,
+		})
+		condition = &bmt.Status.Conditions[len(bmt.Status.Conditions)-1]
 	}
 
-	bmt.Status.Conditions = append(bmt.Status.Conditions, condition)
+	condition.Status = status
+	for _, opt := range opts {
+		opt(condition)
+	}
 }
 
 func WithTaskConditionMessage(m string) BMCTaskSetConditionOption {
