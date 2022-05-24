@@ -130,11 +130,13 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 		bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.BaseboardManagementConditionFalse, bmcv1alpha1.WithBaseboardManagementConditionMessage(err.Error()))
 		result, patchErr := r.patchStatus(ctx, bm, bmPatch)
 		if patchErr != nil {
-			return result, utilerrors.Flatten(utilerrors.NewAggregate([]error{patchErr, err}))
+			return result, utilerrors.NewAggregate([]error{patchErr, err})
 		}
 
 		return result, err
 	}
+	// Setting condition Contactable to True.
+	bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.BaseboardManagementConditionTrue)
 
 	// Close BMC connection after reconcilation
 	defer func() {
@@ -158,7 +160,7 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	}
 
 	// Patch the status after each reconciliation
-	result, err := r.reconcileStatus(ctx, bm, bmPatch)
+	result, err := r.patchStatus(ctx, bm, bmPatch)
 	if err != nil {
 		aggErr = utilerrors.NewAggregate([]error{err, aggErr})
 	}
@@ -192,14 +194,6 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 	bm.Status.Power = bm.Spec.Power
 
 	return nil
-}
-
-// reconcileStatus updates the Conditions to patch BaseboardManagement status.
-func (r *BaseboardManagementReconciler) reconcileStatus(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmPatch client.Patch) (ctrl.Result, error) {
-	// Setting condition Connted to True.
-	bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.BaseboardManagementConditionTrue)
-
-	return r.patchStatus(ctx, bm, bmPatch)
 }
 
 // patchStatus patches the specifies patch on the BaseboardManagement.
