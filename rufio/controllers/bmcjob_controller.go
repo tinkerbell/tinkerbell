@@ -25,6 +25,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -109,7 +110,12 @@ func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.BMCJo
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", baseboardManagement.Spec.Connection.Host)
 		bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.BMCJobConditionTrue, bmcv1alpha1.WithJobConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
-		return r.patchBMCJobStatus(ctx, bmj, bmjPatch)
+		result, patchErr := r.patchBMCJobStatus(ctx, bmj, bmjPatch)
+		if patchErr != nil {
+			return result, utilerrors.NewAggregate([]error{patchErr, err})
+		}
+
+		return result, err
 	}
 
 	// Close BMC connection after reconcilation
@@ -135,13 +141,20 @@ func (r *BMCJobReconciler) reconcileBMCTasks(ctx context.Context, bmj *bmcv1alph
 		return result, err
 	}
 
+	// aggErr aggregates errors
+	var aggErr utilerrors.Aggregate
 	for i, task := range bmj.Spec.Tasks {
 		bmcTask := &bmcv1alpha1.BMCTask{}
 		err := r.bmcTaskHandler.CreateBMCTaskWithOwner(ctx, r.client, task, i, bmcTask, bmj)
 		if err != nil {
 			logger.Error(err, "failed to reconcile BMCJob Tasks")
 			bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.BMCJobConditionTrue, bmcv1alpha1.WithJobConditionMessage(fmt.Sprintf("Failed to reconcile BMCJob Tasks: %v", err)))
-			return r.patchBMCJobStatus(ctx, bmj, bmjPatch)
+			result, patchErr := r.patchBMCJobStatus(ctx, bmj, bmjPatch)
+			if patchErr != nil {
+				return result, utilerrors.NewAggregate([]error{patchErr, err})
+			}
+
+			return result, err
 		}
 		// Create patch from initial BMCTask object
 		bmcTaskPatch := client.MergeFrom(bmcTask.DeepCopy())
@@ -149,14 +162,23 @@ func (r *BMCJobReconciler) reconcileBMCTasks(ctx context.Context, bmj *bmcv1alph
 		if err != nil {
 			logger.Error(err, "failed to run BMCJob Task", "Name", bmcTask.Name, "Namespace", bmcTask.Namespace)
 			bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.BMCJobConditionTrue, bmcv1alpha1.WithJobConditionMessage(fmt.Sprintf("Failed to run BMCJob Task %s/%s: %v", bmcTask.Namespace, bmcTask.Name, err)))
+			// Patch the BMCTask status
 			if taskPatchError := r.bmcTaskHandler.PatchBMCTaskStatus(ctx, r.client, bmcTask, bmcTaskPatch); taskPatchError != nil {
-				logger.Error(taskPatchError, "Patch error")
+				aggErr = utilerrors.NewAggregate([]error{taskPatchError, aggErr})
 			}
-			return r.patchBMCJobStatus(ctx, bmj, bmjPatch)
+			// Patch the BMCJob status
+			result, jobPatchErr := r.patchBMCJobStatus(ctx, bmj, bmjPatch)
+			if jobPatchErr != nil {
+				aggErr = utilerrors.NewAggregate([]error{jobPatchErr, aggErr})
+			}
+
+			return result, utilerrors.Flatten(utilerrors.NewAggregate([]error{err, aggErr}))
 		}
-		// Patch completed Task
+		// Patch BMCTask status
 		if taskPatchError := r.bmcTaskHandler.PatchBMCTaskStatus(ctx, r.client, bmcTask, bmcTaskPatch); taskPatchError != nil {
-			logger.Error(taskPatchError, "Patch error")
+			// Aggregate the errors if the Task status patch failed
+			// Continue execution of other tasks
+			aggErr = utilerrors.NewAggregate([]error{taskPatchError, aggErr})
 		}
 	}
 
@@ -164,7 +186,12 @@ func (r *BMCJobReconciler) reconcileBMCTasks(ctx context.Context, bmj *bmcv1alph
 	bmj.Status.CompletionTime = &now
 	bmj.SetCondition(bmcv1alpha1.JobCompleted, bmcv1alpha1.BMCJobConditionTrue)
 
-	return r.patchBMCJobStatus(ctx, bmj, bmjPatch)
+	result, patchErr := r.patchBMCJobStatus(ctx, bmj, bmjPatch)
+	if patchErr != nil {
+		return result, utilerrors.Flatten(utilerrors.NewAggregate([]error{patchErr, aggErr}))
+	}
+
+	return result, utilerrors.Flatten(aggErr)
 }
 
 // resolveBaseboardManagementRef Gets the BaseboardManagement from BaseboardManagementRef
