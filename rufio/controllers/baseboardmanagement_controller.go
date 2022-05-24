@@ -103,14 +103,20 @@ func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	// Create a patch from the initial BaseboardManagement object
-	// Patch is used to update Status after reconciliation
-	baseboardManagementPatch := client.MergeFrom(baseboardManagement.DeepCopy())
+	// If BaseboardManagement is paused, noop.
+	if baseboardManagement.IsReconcilePaused() {
+		logger.Info("BaseboardManagement reconciliation is paused")
+		return ctrl.Result{}, nil
+	}
 
 	// Deletion is a noop.
 	if !baseboardManagement.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
+
+	// Create a patch from the initial BaseboardManagement object
+	// Patch is used to update Status after reconciliation
+	baseboardManagementPatch := client.MergeFrom(baseboardManagement.DeepCopy())
 
 	return r.reconcile(ctx, baseboardManagement, baseboardManagementPatch, logger)
 }

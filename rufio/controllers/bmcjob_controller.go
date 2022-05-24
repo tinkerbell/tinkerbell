@@ -118,12 +118,17 @@ func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.BMCJo
 		return result, err
 	}
 
-	// Close BMC connection after reconcilation
+	// Pause BaseboardManagement reconciliation before running BMCJob tasks
+	baseboardManagement.PauseReconcile()
+
 	defer func() {
+		// Close BMC connection after reconcilation
 		err = bmcClient.Close(ctx)
 		if err != nil {
 			logger.Error(err, "BMC close connection failed", "host", baseboardManagement.Spec.Connection.Host)
 		}
+		// Delete the BaseboardManagement pause annotation
+		baseboardManagement.ClearPauseAnnotation()
 	}()
 
 	return r.reconcileBMCTasks(ctx, bmj, bmjPatch, bmcClient, logger)
