@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -55,14 +56,21 @@ type BMCClientFactoryFunc func(ctx context.Context, hostIP, port, username, pass
 // BaseboardManagementReconciler reconciles a BaseboardManagement object
 type BaseboardManagementReconciler struct {
 	client           client.Client
+	recorder         record.EventRecorder
 	bmcClientFactory BMCClientFactoryFunc
 	logger           logr.Logger
 }
 
+const (
+	EventGetPowerStateFailed = "GetPowerStateFailed"
+	EventSetPowerStateFailed = "SetPowerStateFailed"
+)
+
 // NewBaseboardManagementReconciler returns a new BaseboardManagementReconciler
-func NewBaseboardManagementReconciler(client client.Client, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *BaseboardManagementReconciler {
+func NewBaseboardManagementReconciler(client client.Client, recorder record.EventRecorder, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *BaseboardManagementReconciler {
 	return &BaseboardManagementReconciler{
 		client:           client,
+		recorder:         recorder,
 		bmcClientFactory: bmcClientFactory,
 		logger:           logger,
 	}
@@ -119,12 +127,16 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, strconv.Itoa(bm.Spec.Connection.Port), username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
-		result, setConditionErr := r.setCondition(ctx, bm, bmPatch, bmcv1alpha1.ConnectionError, err.Error())
-		if setConditionErr != nil {
-			return result, utilerrors.NewAggregate([]error{fmt.Errorf("failed to set conditions: %v", setConditionErr), err})
+		bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.BaseboardManagementConditionFalse, bmcv1alpha1.WithBaseboardManagementConditionMessage(err.Error()))
+		result, patchErr := r.patchStatus(ctx, bm, bmPatch)
+		if patchErr != nil {
+			return result, utilerrors.NewAggregate([]error{patchErr, err})
 		}
+
 		return result, err
 	}
+	// Setting condition Contactable to True.
+	bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.BaseboardManagementConditionTrue)
 
 	// Close BMC connection after reconcilation
 	defer func() {
@@ -138,20 +150,29 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	fieldReconcilers := []baseboardManagementFieldReconciler{
 		r.reconcilePower,
 	}
+
+	var aggErr utilerrors.Aggregate
 	for _, reconiler := range fieldReconcilers {
 		if err := reconiler(ctx, bm, bmcClient); err != nil {
 			logger.Error(err, "Failed to reconcile BaseboardManagement", "host", bm.Spec.Connection.Host)
+			aggErr = utilerrors.NewAggregate([]error{err, aggErr})
 		}
 	}
 
 	// Patch the status after each reconciliation
-	return r.reconcileStatus(ctx, bm, bmPatch)
+	result, err := r.patchStatus(ctx, bm, bmPatch)
+	if err != nil {
+		aggErr = utilerrors.NewAggregate([]error{err, aggErr})
+	}
+
+	return result, utilerrors.Flatten(aggErr)
 }
 
 // reconcilePower ensures the BaseboardManagement Power is in the desired state.
 func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmcClient BMCClient) error {
 	powerStatus, err := bmcClient.GetPowerState(ctx)
 	if err != nil {
+		r.recorder.Eventf(bm, corev1.EventTypeWarning, EventGetPowerStateFailed, "failed to get power state: %v", err)
 		return fmt.Errorf("failed to get power state: %v", err)
 	}
 
@@ -165,6 +186,7 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 	// Setting baseboard management to desired power state
 	_, err = bmcClient.SetPowerState(ctx, string(bm.Spec.Power))
 	if err != nil {
+		r.recorder.Eventf(bm, corev1.EventTypeWarning, EventSetPowerStateFailed, "failed to set power state: %v", err)
 		return fmt.Errorf("failed to set power state: %v", err)
 	}
 
@@ -172,42 +194,6 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 	bm.Status.Power = bm.Spec.Power
 
 	return nil
-}
-
-// setCondition updates the status.Condition if the condition type is present.
-// Appends if new condition is found.
-// Patches the BaseboardManagement status.
-func (r *BaseboardManagementReconciler) setCondition(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmPatch client.Patch, cType bmcv1alpha1.BaseboardManagementConditionType, message string) (ctrl.Result, error) {
-	currentConditions := bm.Status.Conditions
-	for i := range currentConditions {
-		// If condition exists, update the message if different
-		if currentConditions[i].Type == cType {
-			if currentConditions[i].Message != message {
-				bm.Status.Conditions[i].Message = message
-				return r.patchStatus(ctx, bm, bmPatch)
-			}
-			return ctrl.Result{}, nil
-		}
-	}
-
-	// Append new condition to Conditions
-	condition := bmcv1alpha1.BaseboardManagementCondition{
-		Type:    cType,
-		Message: message,
-	}
-	bm.Status.Conditions = append(bm.Status.Conditions, condition)
-
-	return r.patchStatus(ctx, bm, bmPatch)
-}
-
-// reconcileStatus updates the Power and Conditions and patches BaseboardManagement status.
-func (r *BaseboardManagementReconciler) reconcileStatus(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmPatch client.Patch) (ctrl.Result, error) {
-	// TODO: (pokearu) modify conditions to model current state.
-	// Add condition Status to represent if object has a condition
-	// insted of clearing the conditions.
-	bm.Status.Conditions = []bmcv1alpha1.BaseboardManagementCondition{}
-
-	return r.patchStatus(ctx, bm, bmPatch)
 }
 
 // patchStatus patches the specifies patch on the BaseboardManagement.

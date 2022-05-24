@@ -141,6 +141,7 @@ func newClientConfig(kubeAPIServer, kubeconfig string) clientcmd.ClientConfig {
 func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
 	err := (controllers.NewBaseboardManagementReconciler(
 		mgr.GetClient(),
+		mgr.GetEventRecorderFor("baseboardmanagement-controller"),
 		controllers.NewBMCClientFactoryFunc(ctx),
 		ctrl.Log.WithName("controller").WithName("BaseboardManagement"),
 	)).SetupWithManager(mgr)

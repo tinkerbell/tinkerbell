@@ -30,6 +30,9 @@ type BootDevice string
 // BaseboardManagementConditionType represents the condition of the BaseboardManagement.
 type BaseboardManagementConditionType string
 
+// BaseboardManagementConditionStatus represents the status of a BaseboardManagementCondition.
+type BaseboardManagementConditionStatus string
+
 const (
 	On  PowerState = "on"
 	Off PowerState = "off"
@@ -44,8 +47,13 @@ const (
 )
 
 const (
-	// ConnectionError represents failure to connect to the BaseboardManagement.
-	ConnectionError BaseboardManagementConditionType = "ConnectionError"
+	// Contactable defines that a connection can be made to the BaseboardManagement.
+	Contactable BaseboardManagementConditionType = "Contactable"
+)
+
+const (
+	BaseboardManagementConditionTrue  BaseboardManagementConditionStatus = "True"
+	BaseboardManagementConditionFalse BaseboardManagementConditionStatus = "False"
 )
 
 // BaseboardManagementSpec defines the desired state of BaseboardManagement
@@ -92,9 +100,53 @@ type BaseboardManagementCondition struct {
 	// Type of the BaseboardManagement condition.
 	Type BaseboardManagementConditionType `json:"type"`
 
+	// Status is the status of the BaseboardManagement condition.
+	// Can be True or False.
+	Status BaseboardManagementConditionStatus `json:"status"`
+
+	// Last time the BaseboardManagement condition was updated.
+	LastUpdateTime metav1.Time `json:"lastUpdateTime"`
+
 	// Message represents human readable message indicating details about last transition.
 	// +optional
 	Message string `json:"message,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type BaseboardManagementSetConditionOption func(*BaseboardManagementCondition)
+
+// SetCondition applies the cType condition to bm. If the condition already exists,
+// it is updated.
+func (bm *BaseboardManagement) SetCondition(cType BaseboardManagementConditionType, status BaseboardManagementConditionStatus, opts ...BaseboardManagementSetConditionOption) {
+	var condition *BaseboardManagementCondition
+
+	// Check if there's an existing condition.
+	for i, c := range bm.Status.Conditions {
+		if c.Type == cType {
+			condition = &bm.Status.Conditions[i]
+			break
+		}
+	}
+
+	// We didn't find an existing condition so create a new one and append it.
+	if condition == nil {
+		bm.Status.Conditions = append(bm.Status.Conditions, BaseboardManagementCondition{
+			Type: cType,
+		})
+		condition = &bm.Status.Conditions[len(bm.Status.Conditions)-1]
+	}
+
+	condition.Status = status
+	condition.LastUpdateTime = metav1.Now()
+	for _, opt := range opts {
+		opt(condition)
+	}
+}
+
+func WithBaseboardManagementConditionMessage(m string) BaseboardManagementSetConditionOption {
+	return func(c *BaseboardManagementCondition) {
+		c.Message = m
+	}
 }
 
 // BaseboardManagementRef defines the reference information to a BaseboardManagement resource.
