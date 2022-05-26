@@ -109,7 +109,7 @@ func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.BMCJo
 	bmcClient, err := r.bmcClientFactory(ctx, baseboardManagement.Spec.Connection.Host, strconv.Itoa(baseboardManagement.Spec.Connection.Port), username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", baseboardManagement.Spec.Connection.Host)
-		bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.BMCJobConditionTrue, bmcv1alpha1.WithJobConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
+		bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
 		result, patchErr := r.patchBMCJobStatus(ctx, bmj, bmjPatch)
 		if patchErr != nil {
 			return result, utilerrors.NewAggregate([]error{patchErr, err})
@@ -141,7 +141,7 @@ func (r *BMCJobReconciler) reconcileBMCTasks(ctx context.Context, bmj *bmcv1alph
 	now := metav1.Now()
 	bmj.Status.StartTime = &now
 	// Set the Job to Running
-	bmj.SetCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.BMCJobConditionTrue)
+	bmj.SetCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue)
 	if result, err := r.patchBMCJobStatus(ctx, bmj, bmjPatch); err != nil {
 		return result, err
 	}
@@ -153,7 +153,7 @@ func (r *BMCJobReconciler) reconcileBMCTasks(ctx context.Context, bmj *bmcv1alph
 		err := r.bmcTaskHandler.CreateBMCTaskWithOwner(ctx, r.client, task, i, bmcTask, bmj)
 		if err != nil {
 			logger.Error(err, "failed to reconcile BMCJob Tasks")
-			bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.BMCJobConditionTrue, bmcv1alpha1.WithJobConditionMessage(fmt.Sprintf("Failed to reconcile BMCJob Tasks: %v", err)))
+			bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(fmt.Sprintf("Failed to reconcile BMCJob Tasks: %v", err)))
 			result, patchErr := r.patchBMCJobStatus(ctx, bmj, bmjPatch)
 			if patchErr != nil {
 				return result, utilerrors.NewAggregate([]error{patchErr, err})
@@ -166,7 +166,7 @@ func (r *BMCJobReconciler) reconcileBMCTasks(ctx context.Context, bmj *bmcv1alph
 		err = r.bmcTaskHandler.RunBMCTask(ctx, bmcTask, bmcClient)
 		if err != nil {
 			logger.Error(err, "failed to run BMCJob Task", "Name", bmcTask.Name, "Namespace", bmcTask.Namespace)
-			bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.BMCJobConditionTrue, bmcv1alpha1.WithJobConditionMessage(fmt.Sprintf("Failed to run BMCJob Task %s/%s: %v", bmcTask.Namespace, bmcTask.Name, err)))
+			bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(fmt.Sprintf("Failed to run BMCJob Task %s/%s: %v", bmcTask.Namespace, bmcTask.Name, err)))
 			// Patch the BMCTask status
 			if taskPatchError := r.bmcTaskHandler.PatchBMCTaskStatus(ctx, r.client, bmcTask, bmcTaskPatch); taskPatchError != nil {
 				aggErr = utilerrors.NewAggregate([]error{taskPatchError, aggErr})
@@ -189,7 +189,7 @@ func (r *BMCJobReconciler) reconcileBMCTasks(ctx context.Context, bmj *bmcv1alph
 
 	now = metav1.Now()
 	bmj.Status.CompletionTime = &now
-	bmj.SetCondition(bmcv1alpha1.JobCompleted, bmcv1alpha1.BMCJobConditionTrue)
+	bmj.SetCondition(bmcv1alpha1.JobCompleted, bmcv1alpha1.ConditionTrue)
 
 	result, patchErr := r.patchBMCJobStatus(ctx, bmj, bmjPatch)
 	if patchErr != nil {

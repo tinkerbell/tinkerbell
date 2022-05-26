@@ -71,7 +71,7 @@ func (r *BMCTaskHandler) RunBMCTask(ctx context.Context, bmcTask *bmcv1alpha1.BM
 	if bmcTask.Spec.Task.PowerAction != nil {
 		_, err := bmcClient.SetPowerState(ctx, string(bmcTask.Spec.Task.PowerAction.PowerControl))
 		if err != nil {
-			bmcTask.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.BMCTaskConditionTrue, bmcv1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to perform PowerAction: %v", err)))
+			bmcTask.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to perform PowerAction: %v", err)))
 			return fmt.Errorf("failed to perform PowerAction: %v", err)
 		}
 	}
@@ -81,14 +81,14 @@ func (r *BMCTaskHandler) RunBMCTask(ctx context.Context, bmcTask *bmcv1alpha1.BM
 		// setPersistent is false.
 		_, err := bmcClient.SetBootDevice(ctx, string(bmcTask.Spec.Task.OneTimeBootDeviceAction.Devices[0]), false, bmcTask.Spec.Task.OneTimeBootDeviceAction.EFIBoot)
 		if err != nil {
-			bmcTask.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.BMCTaskConditionTrue, bmcv1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to perform OneTimeBootDeviceAction: %v", err)))
+			bmcTask.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to perform OneTimeBootDeviceAction: %v", err)))
 			return fmt.Errorf("failed to perform OneTimeBootDeviceAction: %v", err)
 		}
 	}
 
 	now = metav1.Now()
 	bmcTask.Status.CompletionTime = &now
-	bmcTask.SetCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.BMCTaskConditionTrue)
+	bmcTask.SetCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue)
 
 	return nil
 }

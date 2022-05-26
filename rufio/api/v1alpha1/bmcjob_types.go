@@ -46,14 +46,6 @@ const (
 	Status       PowerControl = "status"
 )
 
-// BMCJobConditionStatus represents the status of a BMCJobCondition.
-type BMCJobConditionStatus string
-
-const (
-	BMCJobConditionTrue  BMCJobConditionStatus = "True"
-	BMCJobConditionFalse BMCJobConditionStatus = "False"
-)
-
 // BMCJobSpec defines the desired state of BMCJob
 type BMCJobSpec struct {
 	// BaseboardManagementRef represents the BaseboardManagement resource to execute the job.
@@ -89,7 +81,7 @@ type BMCJobCondition struct {
 
 	// Status is the status of the BMCJob condition.
 	// Can be True or False.
-	Status BMCJobConditionStatus `json:"status"`
+	Status ConditionStatus `json:"status"`
 
 	// Message represents human readable message indicating details about last transition.
 	// +optional
@@ -101,7 +93,7 @@ type BMCJobSetConditionOption func(*BMCJobCondition)
 
 // SetCondition applies the cType condition to bmj. If the condition already exists,
 // it is updated.
-func (bmj *BMCJob) SetCondition(cType BMCJobConditionType, status BMCJobConditionStatus, opts ...BMCJobSetConditionOption) {
+func (bmj *BMCJob) SetCondition(cType BMCJobConditionType, status ConditionStatus, opts ...BMCJobSetConditionOption) {
 	var condition *BMCJobCondition
 
 	// Check if there's an existing condition.
@@ -126,6 +118,7 @@ func (bmj *BMCJob) SetCondition(cType BMCJobConditionType, status BMCJobConditio
 	}
 }
 
+// WithJobConditionMessage sets message m to the BMCJobCondition.
 func WithJobConditionMessage(m string) BMCJobSetConditionOption {
 	return func(c *BMCJobCondition) {
 		c.Message = m

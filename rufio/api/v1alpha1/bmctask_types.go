@@ -30,14 +30,6 @@ const (
 	TaskFailed BMCTaskConditionType = "Failed"
 )
 
-// BMCTaskConditionStatus represents the status of a BMCTaskCondition.
-type BMCTaskConditionStatus string
-
-const (
-	BMCTaskConditionTrue  BMCTaskConditionStatus = "True"
-	BMCTaskConditionFalse BMCTaskConditionStatus = "False"
-)
-
 // BMCTaskSpec defines the desired state of BMCTask
 type BMCTaskSpec struct {
 	// Task defines the specific action to be performed.
@@ -96,7 +88,7 @@ type BMCTaskCondition struct {
 
 	// Status is the status of the BMCTask condition.
 	// Can be True or False.
-	Status BMCTaskConditionStatus `json:"status"`
+	Status ConditionStatus `json:"status"`
 
 	// Message represents human readable message indicating details about last transition.
 	// +optional
@@ -108,7 +100,7 @@ type BMCTaskSetConditionOption func(*BMCTaskCondition)
 
 // SetCondition applies the cType condition to bmt. If the condition already exists,
 // it is updated.
-func (bmt *BMCTask) SetCondition(cType BMCTaskConditionType, status BMCTaskConditionStatus, opts ...BMCTaskSetConditionOption) {
+func (bmt *BMCTask) SetCondition(cType BMCTaskConditionType, status ConditionStatus, opts ...BMCTaskSetConditionOption) {
 	var condition *BMCTaskCondition
 
 	// Check if there's an existing condition.
@@ -133,6 +125,7 @@ func (bmt *BMCTask) SetCondition(cType BMCTaskConditionType, status BMCTaskCondi
 	}
 }
 
+// WithTaskConditionMessage sets message m to the BMCTaskCondition.
 func WithTaskConditionMessage(m string) BMCTaskSetConditionOption {
 	return func(c *BMCTaskCondition) {
 		c.Message = m
