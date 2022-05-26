@@ -93,7 +93,7 @@ func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.BMCJo
 	// Get BaseboardManagement object for the Job
 	// Requeue if error
 	baseboardManagement := &bmcv1alpha1.BaseboardManagement{}
-	err := r.resolveBaseboardManagementRef(ctx, bmj, baseboardManagement)
+	err := r.getBaseboardManagement(ctx, bmj.Spec.BaseboardManagementRef, baseboardManagement)
 	if err != nil {
 		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving BMCJob %s/%s BaseboardManagementRef: %v", bmj.Namespace, bmj.Name, err)
 	}
@@ -199,9 +199,9 @@ func (r *BMCJobReconciler) reconcileBMCTasks(ctx context.Context, bmj *bmcv1alph
 	return result, utilerrors.Flatten(aggErr)
 }
 
-// resolveBaseboardManagementRef Gets the BaseboardManagement from BaseboardManagementRef
-func (r *BMCJobReconciler) resolveBaseboardManagementRef(ctx context.Context, bmj *bmcv1alpha1.BMCJob, bm *bmcv1alpha1.BaseboardManagement) error {
-	key := types.NamespacedName{Namespace: bmj.Spec.BaseboardManagementRef.Namespace, Name: bmj.Spec.BaseboardManagementRef.Name}
+// getBaseboardManagement Gets the BaseboardManagement from BaseboardManagementRef
+func (r *BMCJobReconciler) getBaseboardManagement(ctx context.Context, bmRef bmcv1alpha1.BaseboardManagementRef, bm *bmcv1alpha1.BaseboardManagement) error {
+	key := types.NamespacedName{Namespace: bmRef.Namespace, Name: bmRef.Name}
 	err := r.client.Get(ctx, key, bm)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
