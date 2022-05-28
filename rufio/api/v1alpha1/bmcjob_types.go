@@ -125,9 +125,20 @@ func WithJobConditionMessage(m string) BMCJobSetConditionOption {
 	}
 }
 
-// GetTaskName returns a BMCTask name based on BMCJob name.
-func (bmj *BMCJob) GetTaskName(taskNumber int) string {
-	return fmt.Sprintf("%s-task-%d", bmj.Name, taskNumber)
+// HasCondition checks if the cType condition is present with status cStatus on a bmj.
+func (bmj *BMCJob) HasCondition(cType BMCJobConditionType, cStatus ConditionStatus) bool {
+	for _, c := range bmj.Status.Conditions {
+		if c.Type == cType {
+			return c.Status == cStatus
+		}
+	}
+
+	return false
+}
+
+// FormatTaskName returns a BMCTask name based on BMCJob name.
+func FormatTaskName(job BMCJob, n int) string {
+	return fmt.Sprintf("%s-task-%d", job.Name, n)
 }
 
 //+kubebuilder:object:root=true

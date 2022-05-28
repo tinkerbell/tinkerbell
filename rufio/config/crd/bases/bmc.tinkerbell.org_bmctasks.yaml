@@ -39,6 +39,41 @@ spec:
           spec:
             description: BMCTaskSpec defines the desired state of BMCTask
             properties:
+              connection:
+                description: Connection represents the BaseboardManagement connectivity
+                  information.
+                properties:
+                  authSecretRef:
+                    description: AuthSecretRef is the SecretReference that contains
+                      authentication information of the BaseboardManagement. The Secret
+                      must contain username and password keys.
+                    properties:
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        type: string
+                      namespace:
+                        description: Namespace defines the space within which the
+                          secret name must be unique.
+                        type: string
+                    type: object
+                  host:
+                    description: Host is the host IP address or hostname of the BaseboardManagement.
+                    minLength: 1
+                    type: string
+                  insecureTLS:
+                    description: InsecureTLS specifies trusted TLS connections.
+                    type: boolean
+                  port:
+                    default: 623
+                    description: Port is the port number for connecting with the BaseboardManagement.
+                    type: integer
+                required:
+                - authSecretRef
+                - host
+                - insecureTLS
+                - port
+                type: object
               task:
                 description: Task defines the specific action to be performed.
                 maxProperties: 1

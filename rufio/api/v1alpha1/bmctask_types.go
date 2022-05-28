@@ -34,6 +34,9 @@ const (
 type BMCTaskSpec struct {
 	// Task defines the specific action to be performed.
 	Task Task `json:"task"`
+
+	// Connection represents the BaseboardManagement connectivity information.
+	Connection Connection `json:"connection,omitempty"`
 }
 
 // Task represents the action to be performed.
@@ -130,6 +133,17 @@ func WithTaskConditionMessage(m string) BMCTaskSetConditionOption {
 	return func(c *BMCTaskCondition) {
 		c.Message = m
 	}
+}
+
+// HasCondition checks if the cType condition is present with status cStatus on a bmt.
+func (bmt *BMCTask) HasCondition(cType BMCTaskConditionType, cStatus ConditionStatus) bool {
+	for _, c := range bmt.Status.Conditions {
+		if c.Type == cType {
+			return c.Status == cStatus
+		}
+	}
+
+	return false
 }
 
 //+kubebuilder:object:root=true
