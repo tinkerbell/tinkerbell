@@ -109,7 +109,7 @@ type BaseboardManagementCondition struct {
 	Status ConditionStatus `json:"status"`
 
 	// Last time the BaseboardManagement condition was updated.
-	LastUpdateTime metav1.Time `json:"lastUpdateTime"`
+	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
 
 	// Message represents human readable message indicating details about last transition.
 	// +optional
@@ -140,8 +140,11 @@ func (bm *BaseboardManagement) SetCondition(cType BaseboardManagementConditionTy
 		condition = &bm.Status.Conditions[len(bm.Status.Conditions)-1]
 	}
 
-	condition.Status = status
-	condition.LastUpdateTime = metav1.Now()
+	if condition.Status != status {
+		condition.Status = status
+		condition.LastUpdateTime = metav1.Now()
+	}
+
 	for _, opt := range opts {
 		opt(condition)
 	}
