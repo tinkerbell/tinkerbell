@@ -48,7 +48,9 @@ func NewBMCTaskReconciler(client client.Client, bmcClientFactory BMCClientFactor
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=bmctasks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=bmctasks/finalizers,verbs=update
 
-// Reconcile is
+// Reconcile runs a BMCTask.
+// Establishes a connection to the BMC.
+// Runs the specified action in the Task.
 func (r *BMCTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.logger.WithValues("BMCTask", req.NamespacedName)
 	logger.Info("Reconciling BMCTask")
