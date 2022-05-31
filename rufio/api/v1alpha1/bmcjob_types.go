@@ -34,16 +34,16 @@ const (
 	JobRunning BMCJobConditionType = "Running"
 )
 
-// PowerControl represents the power control operation on the baseboard management.
-type PowerControl string
+// PowerAction represents the power control operation on the baseboard management.
+type PowerAction string
 
 const (
-	PowerOn      PowerControl = "on"
-	HardPowerOff PowerControl = "off"
-	SoftPowerOff PowerControl = "soft"
-	Cycle        PowerControl = "cycle"
-	Reset        PowerControl = "reset"
-	Status       PowerControl = "status"
+	PowerOn      PowerAction = "on"
+	HardPowerOff PowerAction = "off"
+	SoftPowerOff PowerAction = "soft"
+	Cycle        PowerAction = "cycle"
+	Reset        PowerAction = "reset"
+	Status       PowerAction = "status"
 )
 
 // BMCJobSpec defines the desired state of BMCJob

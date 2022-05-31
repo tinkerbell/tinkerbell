@@ -4,5 +4,4 @@ metadata:
   name: bmctask-sample
 spec:
   task:
-    powerAction:
-      powerControl: "on"
+    powerAction: "on"

@@ -45,16 +45,11 @@ type BMCTaskSpec struct {
 // +kubebuilder:validation:MaxProperties:=1
 type Task struct {
 	// PowerAction represents a baseboard management power operation.
+	// +kubebuilder:validation:Enum=on;off;soft;status;cycle;reset
 	PowerAction *PowerAction `json:"powerAction,omitempty"`
 
 	// OneTimeBootDeviceAction represents a baseboard management one time set boot device operation.
 	OneTimeBootDeviceAction *OneTimeBootDeviceAction `json:"oneTimeBootDeviceAction,omitempty"`
-}
-
-type PowerAction struct {
-	// State represents the requested power state to set for the baseboard management.
-	// +kubebuilder:validation:Enum=on;off;soft;status;cycle;reset
-	PowerControl PowerControl `json:"powerControl"`
 }
 
 type OneTimeBootDeviceAction struct {

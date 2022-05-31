@@ -102,21 +102,14 @@ spec:
                   powerAction:
                     description: PowerAction represents a baseboard management power
                       operation.
-                    properties:
-                      powerControl:
-                        description: State represents the requested power state to
-                          set for the baseboard management.
-                        enum:
-                        - "on"
-                        - "off"
-                        - soft
-                        - status
-                        - cycle
-                        - reset
-                        type: string
-                    required:
-                    - powerControl
-                    type: object
+                    enum:
+                    - "on"
+                    - "off"
+                    - soft
+                    - status
+                    - cycle
+                    - reset
+                    type: string
                 type: object
             required:
             - task

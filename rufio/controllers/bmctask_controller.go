@@ -142,7 +142,7 @@ func (r *BMCTaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.
 // runBMCTask executes the defined Task in a BMCTask
 func (r *BMCTaskReconciler) runBMCTask(ctx context.Context, task bmcv1alpha1.Task, bmcClient BMCClient) error {
 	if task.PowerAction != nil {
-		_, err := bmcClient.SetPowerState(ctx, string(task.PowerAction.PowerControl))
+		_, err := bmcClient.SetPowerState(ctx, string(*task.PowerAction))
 		if err != nil {
 			return fmt.Errorf("failed to perform PowerAction: %v", err)
 		}
