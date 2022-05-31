@@ -88,46 +88,46 @@ func (r *BMCJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// Patch is used to update Status after reconciliation
 	bmcJobPatch := client.MergeFrom(bmcJob.DeepCopy())
 
-	// Check if Job is not currently Running
-	if !bmcJob.HasCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue) {
-		// Initialize the StartTime for the Job
-		now := metav1.Now()
-		bmcJob.Status.StartTime = &now
-		// Set the Job to Running
-		bmcJob.SetCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue)
-		err = r.patchStatus(ctx, bmcJob, bmcJobPatch)
-		return ctrl.Result{}, err
-	}
-
 	return r.reconcile(ctx, bmcJob, bmcJobPatch, logger)
 }
 
 func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.BMCJob, bmjPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
+	// Check if Job is not currently Running
+	// Initialize the StartTime for the Job
+	// Set the Job to Running condition True
+	if !bmj.HasCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue) {
+		now := metav1.Now()
+		bmj.Status.StartTime = &now
+		bmj.SetCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue)
+	}
+
 	// Get BaseboardManagement object for the Job
 	// Requeue if error
 	baseboardManagement := &bmcv1alpha1.BaseboardManagement{}
 	err := r.getBaseboardManagement(ctx, bmj.Spec.BaseboardManagementRef, baseboardManagement)
 	if err != nil {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("get BMCJob %s/%s BaseboardManagementRef: %v", bmj.Namespace, bmj.Name, err)
+		return ctrl.Result{}, fmt.Errorf("get BMCJob %s/%s BaseboardManagementRef: %v", bmj.Namespace, bmj.Name, err)
 	}
 
 	// List all BMCTask owned by BMCJob
 	bmcTasks := &bmcv1alpha1.BMCTaskList{}
 	err = r.client.List(ctx, bmcTasks, client.MatchingFields{jobOwnerKey: bmj.Name})
 	if err != nil {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("failed to list owned BMCTasks for BMCJob %s/%s", bmj.Namespace, bmj.Name)
+		return ctrl.Result{}, fmt.Errorf("failed to list owned BMCTasks for BMCJob %s/%s", bmj.Namespace, bmj.Name)
 	}
 
 	completedTasksCount := 0
 	// Iterate BMCTask Items.
 	// Count the number of completed tasks.
+	// Set the Job condition Failed True if BMCTask has failed.
+	// If the BMCTask has neither Completed or Failed is noop.
 	for _, task := range bmcTasks.Items {
 		if task.HasCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue) {
-			// Increment completed tasks count
 			completedTasksCount += 1
 			continue
-		} else if task.HasCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue) {
-			// Set the Job condition Failed True
+		}
+
+		if task.HasCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue) {
 			err := fmt.Errorf("BMCTask %s/%s failed", task.Namespace, task.Name)
 			bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(err.Error()))
 			patchErr := r.patchStatus(ctx, bmj, bmjPatch)
@@ -136,19 +136,18 @@ func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.BMCJo
 			}
 
 			return ctrl.Result{}, err
-		} else {
-			// BMCTask neither Completed or Failed is noop.
-			return ctrl.Result{}, nil
 		}
+
+		return ctrl.Result{}, nil
 	}
 
 	// Check if all BMCJob tasks have Completed
+	// Set the Task CompletionTime
+	// Set Task Condition Completed True
 	if completedTasksCount == len(bmj.Spec.Tasks) {
 		bmj.SetCondition(bmcv1alpha1.JobCompleted, bmcv1alpha1.ConditionTrue)
-		// Set the Task CompletionTime
 		now := metav1.Now()
 		bmj.Status.CompletionTime = &now
-		// Set Task Condition Completed True
 		err = r.patchStatus(ctx, bmj, bmjPatch)
 		return ctrl.Result{}, err
 	}
@@ -165,7 +164,9 @@ func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.BMCJo
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	// Patch the status at the end of reconcile loop
+	err = r.patchStatus(ctx, bmj, bmjPatch)
+	return ctrl.Result{}, err
 }
 
 // getBaseboardManagement Gets the BaseboardManagement from BaseboardManagementRef
