@@ -103,14 +103,20 @@ func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	// Create a patch from the initial BaseboardManagement object
-	// Patch is used to update Status after reconciliation
-	baseboardManagementPatch := client.MergeFrom(baseboardManagement.DeepCopy())
+	// If BaseboardManagement is paused, noop.
+	if baseboardManagement.IsReconcilePaused() {
+		logger.Info("BaseboardManagement reconciliation is paused")
+		return ctrl.Result{}, nil
+	}
 
 	// Deletion is a noop.
 	if !baseboardManagement.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
+
+	// Create a patch from the initial BaseboardManagement object
+	// Patch is used to update Status after reconciliation
+	baseboardManagementPatch := client.MergeFrom(baseboardManagement.DeepCopy())
 
 	return r.reconcile(ctx, baseboardManagement, baseboardManagementPatch, logger)
 }
@@ -118,7 +124,7 @@ func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.
 func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	// Fetching username, password from SecretReference
 	// Requeue if error fetching secret
-	username, password, err := r.resolveAuthSecretRef(ctx, bm.Spec.Connection.AuthSecretRef)
+	username, password, err := resolveAuthSecretRef(ctx, r.client, bm.Spec.Connection.AuthSecretRef)
 	if err != nil {
 		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving BaseboardManagement %s/%s SecretReference: %v", bm.Namespace, bm.Name, err)
 	}
@@ -127,7 +133,7 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, strconv.Itoa(bm.Spec.Connection.Port), username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
-		bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.BaseboardManagementConditionFalse, bmcv1alpha1.WithBaseboardManagementConditionMessage(err.Error()))
+		bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.ConditionFalse, bmcv1alpha1.WithBaseboardManagementConditionMessage(err.Error()))
 		result, patchErr := r.patchStatus(ctx, bm, bmPatch)
 		if patchErr != nil {
 			return result, utilerrors.NewAggregate([]error{patchErr, err})
@@ -136,7 +142,7 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 		return result, err
 	}
 	// Setting condition Contactable to True.
-	bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.BaseboardManagementConditionTrue)
+	bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.ConditionTrue)
 
 	// Close BMC connection after reconcilation
 	defer func() {
@@ -208,11 +214,11 @@ func (r *BaseboardManagementReconciler) patchStatus(ctx context.Context, bm *bmc
 
 // resolveAuthSecretRef Gets the Secret from the SecretReference.
 // Returns the username and password encoded in the Secret.
-func (r *BaseboardManagementReconciler) resolveAuthSecretRef(ctx context.Context, secretRef corev1.SecretReference) (string, string, error) {
+func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef corev1.SecretReference) (string, string, error) {
 	secret := &corev1.Secret{}
 	key := types.NamespacedName{Namespace: secretRef.Namespace, Name: secretRef.Name}
 
-	if err := r.client.Get(ctx, key, secret); err != nil {
+	if err := c.Get(ctx, key, secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			return "", "", fmt.Errorf("secret %s not found: %v", key, err)
 		}

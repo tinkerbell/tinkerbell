@@ -20,20 +20,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// BMCTaskConditionType represents the condition of the BMC Job.
+// BMCTaskConditionType represents the condition of the BMC Task.
 type BMCTaskConditionType string
 
 const (
 	// TaskCompleted represents successful completion of the BMC Task.
-	TaskCompleted BMCJobConditionType = "Completed"
+	TaskCompleted BMCTaskConditionType = "Completed"
 	// TaskFailed represents failure in BMC task execution.
-	TaskFailed BMCJobConditionType = "Failed"
+	TaskFailed BMCTaskConditionType = "Failed"
 )
 
 // BMCTaskSpec defines the desired state of BMCTask
 type BMCTaskSpec struct {
 	// Task defines the specific action to be performed.
 	Task Task `json:"task"`
+
+	// Connection represents the BaseboardManagement connectivity information.
+	Connection Connection `json:"connection,omitempty"`
 }
 
 // Task represents the action to be performed.
@@ -42,16 +45,11 @@ type BMCTaskSpec struct {
 // +kubebuilder:validation:MaxProperties:=1
 type Task struct {
 	// PowerAction represents a baseboard management power operation.
+	// +kubebuilder:validation:Enum=on;off;soft;status;cycle;reset
 	PowerAction *PowerAction `json:"powerAction,omitempty"`
 
 	// OneTimeBootDeviceAction represents a baseboard management one time set boot device operation.
 	OneTimeBootDeviceAction *OneTimeBootDeviceAction `json:"oneTimeBootDeviceAction,omitempty"`
-}
-
-type PowerAction struct {
-	// State represents the requested power state to set for the baseboard management.
-	// +kubebuilder:validation:Enum=PowerOn;HardPowerOff;SoftPowerOff;Status;Cycle;Reset
-	PowerControl PowerControl `json:"powerControl"`
 }
 
 type OneTimeBootDeviceAction struct {
@@ -86,9 +84,61 @@ type BMCTaskCondition struct {
 	// Type of the BMCTask condition.
 	Type BMCTaskConditionType `json:"type"`
 
+	// Status is the status of the BMCTask condition.
+	// Can be True or False.
+	Status ConditionStatus `json:"status"`
+
 	// Message represents human readable message indicating details about last transition.
 	// +optional
 	Message string `json:"message,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type BMCTaskSetConditionOption func(*BMCTaskCondition)
+
+// SetCondition applies the cType condition to bmt. If the condition already exists,
+// it is updated.
+func (bmt *BMCTask) SetCondition(cType BMCTaskConditionType, status ConditionStatus, opts ...BMCTaskSetConditionOption) {
+	var condition *BMCTaskCondition
+
+	// Check if there's an existing condition.
+	for i, c := range bmt.Status.Conditions {
+		if c.Type == cType {
+			condition = &bmt.Status.Conditions[i]
+			break
+		}
+	}
+
+	// We didn't find an existing condition so create a new one and append it.
+	if condition == nil {
+		bmt.Status.Conditions = append(bmt.Status.Conditions, BMCTaskCondition{
+			Type: cType,
+		})
+		condition = &bmt.Status.Conditions[len(bmt.Status.Conditions)-1]
+	}
+
+	condition.Status = status
+	for _, opt := range opts {
+		opt(condition)
+	}
+}
+
+// WithTaskConditionMessage sets message m to the BMCTaskCondition.
+func WithTaskConditionMessage(m string) BMCTaskSetConditionOption {
+	return func(c *BMCTaskCondition) {
+		c.Message = m
+	}
+}
+
+// HasCondition checks if the cType condition is present with status cStatus on a bmt.
+func (bmt *BMCTask) HasCondition(cType BMCTaskConditionType, cStatus ConditionStatus) bool {
+	for _, c := range bmt.Status.Conditions {
+		if c.Type == cType {
+			return c.Status == cStatus
+		}
+	}
+
+	return false
 }
 
 //+kubebuilder:object:root=true

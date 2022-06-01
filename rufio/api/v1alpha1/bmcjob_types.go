@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,16 +34,16 @@ const (
 	JobRunning BMCJobConditionType = "Running"
 )
 
-// PowerControl represents the power control operation on the baseboard management.
-type PowerControl string
+// PowerAction represents the power control operation on the baseboard management.
+type PowerAction string
 
 const (
-	PowerOn      PowerControl = "on"
-	HardPowerOff PowerControl = "off"
-	SoftPowerOff PowerControl = "soft"
-	Cycle        PowerControl = "cycle"
-	Reset        PowerControl = "reset"
-	Status       PowerControl = "status"
+	PowerOn      PowerAction = "on"
+	HardPowerOff PowerAction = "off"
+	SoftPowerOff PowerAction = "soft"
+	Cycle        PowerAction = "cycle"
+	Reset        PowerAction = "reset"
+	Status       PowerAction = "status"
 )
 
 // BMCJobSpec defines the desired state of BMCJob
@@ -77,9 +79,66 @@ type BMCJobCondition struct {
 	// Type of the BMCJob condition.
 	Type BMCJobConditionType `json:"type"`
 
+	// Status is the status of the BMCJob condition.
+	// Can be True or False.
+	Status ConditionStatus `json:"status"`
+
 	// Message represents human readable message indicating details about last transition.
 	// +optional
 	Message string `json:"message,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type BMCJobSetConditionOption func(*BMCJobCondition)
+
+// SetCondition applies the cType condition to bmj. If the condition already exists,
+// it is updated.
+func (bmj *BMCJob) SetCondition(cType BMCJobConditionType, status ConditionStatus, opts ...BMCJobSetConditionOption) {
+	var condition *BMCJobCondition
+
+	// Check if there's an existing condition.
+	for i, c := range bmj.Status.Conditions {
+		if c.Type == cType {
+			condition = &bmj.Status.Conditions[i]
+			break
+		}
+	}
+
+	// We didn't find an existing condition so create a new one and append it.
+	if condition == nil {
+		bmj.Status.Conditions = append(bmj.Status.Conditions, BMCJobCondition{
+			Type: cType,
+		})
+		condition = &bmj.Status.Conditions[len(bmj.Status.Conditions)-1]
+	}
+
+	condition.Status = status
+	for _, opt := range opts {
+		opt(condition)
+	}
+}
+
+// WithJobConditionMessage sets message m to the BMCJobCondition.
+func WithJobConditionMessage(m string) BMCJobSetConditionOption {
+	return func(c *BMCJobCondition) {
+		c.Message = m
+	}
+}
+
+// HasCondition checks if the cType condition is present with status cStatus on a bmj.
+func (bmj *BMCJob) HasCondition(cType BMCJobConditionType, cStatus ConditionStatus) bool {
+	for _, c := range bmj.Status.Conditions {
+		if c.Type == cType {
+			return c.Status == cStatus
+		}
+	}
+
+	return false
+}
+
+// FormatTaskName returns a BMCTask name based on BMCJob name.
+func FormatTaskName(job BMCJob, n int) string {
+	return fmt.Sprintf("%s-task-%d", job.Name, n)
 }
 
 //+kubebuilder:object:root=true

@@ -30,8 +30,8 @@ type BootDevice string
 // BaseboardManagementConditionType represents the condition of the BaseboardManagement.
 type BaseboardManagementConditionType string
 
-// BaseboardManagementConditionStatus represents the status of a BaseboardManagementCondition.
-type BaseboardManagementConditionStatus string
+// ConditionStatus represents the status of a Condition.
+type ConditionStatus string
 
 const (
 	On  PowerState = "on"
@@ -52,9 +52,13 @@ const (
 )
 
 const (
-	BaseboardManagementConditionTrue  BaseboardManagementConditionStatus = "True"
-	BaseboardManagementConditionFalse BaseboardManagementConditionStatus = "False"
+	ConditionTrue  ConditionStatus = "True"
+	ConditionFalse ConditionStatus = "False"
 )
+
+// PausedAnnotation is an annotation that can be applied to BaseboardManagement
+// object to prevent a controller from processing a resource.
+const PausedAnnotation = "bmc.tinkerbell.org/paused"
 
 // BaseboardManagementSpec defines the desired state of BaseboardManagement
 type BaseboardManagementSpec struct {
@@ -102,10 +106,10 @@ type BaseboardManagementCondition struct {
 
 	// Status is the status of the BaseboardManagement condition.
 	// Can be True or False.
-	Status BaseboardManagementConditionStatus `json:"status"`
+	Status ConditionStatus `json:"status"`
 
 	// Last time the BaseboardManagement condition was updated.
-	LastUpdateTime metav1.Time `json:"lastUpdateTime"`
+	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
 
 	// Message represents human readable message indicating details about last transition.
 	// +optional
@@ -117,7 +121,7 @@ type BaseboardManagementSetConditionOption func(*BaseboardManagementCondition)
 
 // SetCondition applies the cType condition to bm. If the condition already exists,
 // it is updated.
-func (bm *BaseboardManagement) SetCondition(cType BaseboardManagementConditionType, status BaseboardManagementConditionStatus, opts ...BaseboardManagementSetConditionOption) {
+func (bm *BaseboardManagement) SetCondition(cType BaseboardManagementConditionType, status ConditionStatus, opts ...BaseboardManagementSetConditionOption) {
 	var condition *BaseboardManagementCondition
 
 	// Check if there's an existing condition.
@@ -136,17 +140,54 @@ func (bm *BaseboardManagement) SetCondition(cType BaseboardManagementConditionTy
 		condition = &bm.Status.Conditions[len(bm.Status.Conditions)-1]
 	}
 
-	condition.Status = status
-	condition.LastUpdateTime = metav1.Now()
+	if condition.Status != status {
+		condition.Status = status
+		condition.LastUpdateTime = metav1.Now()
+	}
+
 	for _, opt := range opts {
 		opt(condition)
 	}
 }
 
+// WithBaseboardManagementConditionMessage sets message m to the BaseboardManagementCondition.
 func WithBaseboardManagementConditionMessage(m string) BaseboardManagementSetConditionOption {
 	return func(c *BaseboardManagementCondition) {
 		c.Message = m
 	}
+}
+
+// PauseReconcile adds the pausedAnnotation to the BaseboardManagement object.
+func (bm *BaseboardManagement) PauseReconcile() {
+	if bm.Annotations == nil {
+		bm.initAnnotations()
+	}
+	bm.Annotations[PausedAnnotation] = "true"
+}
+
+// ClearPauseAnnotation deletes the pausedAnnotation from the BaseboardManagement object.
+func (bm *BaseboardManagement) ClearPauseAnnotation() {
+	if bm.Annotations != nil {
+		delete(bm.Annotations, PausedAnnotation)
+	}
+}
+
+// IsReconcilePaused checks if the pausedAnnotation is present on the BaseboardManagement object.
+func (bm *BaseboardManagement) IsReconcilePaused() bool {
+	if bm.Annotations == nil {
+		return false
+	}
+
+	if s, ok := bm.Annotations[PausedAnnotation]; ok {
+		return s == "true"
+	}
+
+	return false
+}
+
+// initAnnotations initalizes the BaseboardManagement metadata annotations.
+func (bm *BaseboardManagement) initAnnotations() {
+	bm.Annotations = map[string]string{}
 }
 
 // BaseboardManagementRef defines the reference information to a BaseboardManagement resource.

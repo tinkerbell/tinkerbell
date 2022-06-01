@@ -93,21 +93,14 @@ spec:
                     powerAction:
                       description: PowerAction represents a baseboard management power
                         operation.
-                      properties:
-                        powerControl:
-                          description: State represents the requested power state
-                            to set for the baseboard management.
-                          enum:
-                          - PowerOn
-                          - HardPowerOff
-                          - SoftPowerOff
-                          - Status
-                          - Cycle
-                          - Reset
-                          type: string
-                      required:
-                      - powerControl
-                      type: object
+                      enum:
+                      - "on"
+                      - "off"
+                      - soft
+                      - status
+                      - cycle
+                      - reset
+                      type: string
                   type: object
                 type: array
             required:
@@ -131,10 +124,15 @@ spec:
                       description: Message represents human readable message indicating
                         details about last transition.
                       type: string
+                    status:
+                      description: Status is the status of the BMCJob condition. Can
+                        be True or False.
+                      type: string
                     type:
                       description: Type of the BMCJob condition.
                       type: string
                   required:
+                  - status
                   - type
                   type: object
                 type: array
