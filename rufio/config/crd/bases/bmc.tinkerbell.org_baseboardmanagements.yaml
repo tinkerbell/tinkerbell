@@ -75,15 +75,8 @@ spec:
                 - insecureTLS
                 - port
                 type: object
-              power:
-                description: Power is the desired power state of the BaseboardManagement.
-                enum:
-                - "on"
-                - "off"
-                type: string
             required:
             - connection
-            - power
             type: object
           status:
             description: BaseboardManagementStatus defines the observed state of BaseboardManagement

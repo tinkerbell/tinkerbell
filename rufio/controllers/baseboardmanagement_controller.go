@@ -85,8 +85,7 @@ type baseboardManagementFieldReconciler func(context.Context, *bmcv1alpha1.Baseb
 
 // Reconcile ensures the state of a BaseboardManagement.
 // Gets the BaseboardManagement object and uses the SecretReference to initialize a BMC Client.
-// Ensures the BMC power is set to the desired state.
-// Updates the status and conditions accordingly.
+// Updates the Power status and conditions accordingly.
 func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.logger.WithValues("BaseboardManagement", req.NamespacedName)
 	logger.Info("Reconciling BaseboardManagement")
@@ -182,22 +181,8 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 		return fmt.Errorf("failed to get power state: %v", err)
 	}
 
-	// If BaseboardManagement has desired power state then return
-	if bm.Spec.Power == bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
-		// Update status to represent current power state
-		bm.Status.Power = bm.Spec.Power
-		return nil
-	}
-
-	// Setting baseboard management to desired power state
-	_, err = bmcClient.SetPowerState(ctx, string(bm.Spec.Power))
-	if err != nil {
-		r.recorder.Eventf(bm, corev1.EventTypeWarning, EventSetPowerStateFailed, "failed to set power state: %v", err)
-		return fmt.Errorf("failed to set power state: %v", err)
-	}
-
 	// Update status to represent current power state
-	bm.Status.Power = bm.Spec.Power
+	bm.Status.Power = bmcv1alpha1.PowerState(strings.ToLower(powerStatus))
 
 	return nil
 }
