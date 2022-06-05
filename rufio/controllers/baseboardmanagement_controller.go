@@ -102,12 +102,6 @@ func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	// If BaseboardManagement is paused, noop.
-	if baseboardManagement.IsReconcilePaused() {
-		logger.Info("BaseboardManagement reconciliation is paused")
-		return ctrl.Result{}, nil
-	}
-
 	// Deletion is a noop.
 	if !baseboardManagement.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil

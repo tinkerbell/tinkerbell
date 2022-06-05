@@ -56,10 +56,6 @@ const (
 	ConditionFalse ConditionStatus = "False"
 )
 
-// PausedAnnotation is an annotation that can be applied to BaseboardManagement
-// object to prevent a controller from processing a resource.
-const PausedAnnotation = "bmc.tinkerbell.org/paused"
-
 // BaseboardManagementSpec defines the desired state of BaseboardManagement
 type BaseboardManagementSpec struct {
 
@@ -151,39 +147,6 @@ func WithBaseboardManagementConditionMessage(m string) BaseboardManagementSetCon
 	return func(c *BaseboardManagementCondition) {
 		c.Message = m
 	}
-}
-
-// PauseReconcile adds the pausedAnnotation to the BaseboardManagement object.
-func (bm *BaseboardManagement) PauseReconcile() {
-	if bm.Annotations == nil {
-		bm.initAnnotations()
-	}
-	bm.Annotations[PausedAnnotation] = "true"
-}
-
-// ClearPauseAnnotation deletes the pausedAnnotation from the BaseboardManagement object.
-func (bm *BaseboardManagement) ClearPauseAnnotation() {
-	if bm.Annotations != nil {
-		delete(bm.Annotations, PausedAnnotation)
-	}
-}
-
-// IsReconcilePaused checks if the pausedAnnotation is present on the BaseboardManagement object.
-func (bm *BaseboardManagement) IsReconcilePaused() bool {
-	if bm.Annotations == nil {
-		return false
-	}
-
-	if s, ok := bm.Annotations[PausedAnnotation]; ok {
-		return s == "true"
-	}
-
-	return false
-}
-
-// initAnnotations initalizes the BaseboardManagement metadata annotations.
-func (bm *BaseboardManagement) initAnnotations() {
-	bm.Annotations = map[string]string{}
 }
 
 // BaseboardManagementRef defines the reference information to a BaseboardManagement resource.
