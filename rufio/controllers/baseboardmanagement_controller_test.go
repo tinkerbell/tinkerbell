@@ -21,48 +21,7 @@ import (
 	"github.com/tinkerbell/rufio/controllers/mocks"
 )
 
-func TestReconcileSetPowerSuccess(t *testing.T) {
-	g := gomega.NewWithT(t)
-
-	ctx := context.Background()
-	ctrl := gomock.NewController(t)
-	mockBMCClient := mocks.NewMockBMCClient(ctrl)
-
-	bm := getBaseboardManagement()
-	authSecret := getSecret()
-
-	objs := []runtime.Object{bm, authSecret}
-	scheme := runtime.NewScheme()
-	_ = bmcv1alpha1.AddToScheme(scheme)
-	_ = corev1.AddToScheme(scheme)
-
-	clientBuilder := fake.NewClientBuilder()
-	client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
-	fakeRecorder := record.NewFakeRecorder(2)
-
-	mockBMCClient.EXPECT().GetPowerState(ctx).Return(string(bmcv1alpha1.Off), nil)
-	mockBMCClient.EXPECT().SetPowerState(ctx, string(bmcv1alpha1.On)).Return(true, nil)
-	mockBMCClient.EXPECT().Close(ctx).Return(nil)
-
-	reconciler := controllers.NewBaseboardManagementReconciler(
-		client,
-		fakeRecorder,
-		newMockBMCClientFactoryFunc(mockBMCClient),
-		testr.New(t),
-	)
-
-	req := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: "test-namespace",
-			Name:      "test-bm",
-		},
-	}
-
-	_, err := reconciler.Reconcile(ctx, req)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-}
-
-func TestReconcileDesiredPowerStateSuccess(t *testing.T) {
+func TestReconcileGetPowerStateSuccess(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	ctx := context.Background()
@@ -207,7 +166,7 @@ func TestReconcileConnectionError(t *testing.T) {
 	g.Expect(err).To(gomega.HaveOccurred())
 }
 
-func TestReconcileSetPowerError(t *testing.T) {
+func TestReconcileGetPowerStateError(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	ctx := context.Background()
@@ -226,8 +185,7 @@ func TestReconcileSetPowerError(t *testing.T) {
 	client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
 	fakeRecorder := record.NewFakeRecorder(2)
 
-	mockBMCClient.EXPECT().GetPowerState(ctx).Return(string(bmcv1alpha1.Off), nil)
-	mockBMCClient.EXPECT().SetPowerState(ctx, string(bmcv1alpha1.On)).Return(false, errors.New("this is not allowed"))
+	mockBMCClient.EXPECT().GetPowerState(ctx).Return(string(bmcv1alpha1.Off), errors.New("this is not allowed"))
 	mockBMCClient.EXPECT().Close(ctx).Return(nil)
 
 	reconciler := controllers.NewBaseboardManagementReconciler(
@@ -279,7 +237,6 @@ func getBaseboardManagement() *bmcv1alpha1.BaseboardManagement {
 				},
 				InsecureTLS: false,
 			},
-			Power: bmcv1alpha1.On,
 		},
 	}
 }
