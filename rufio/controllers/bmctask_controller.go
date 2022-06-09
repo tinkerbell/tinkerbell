@@ -74,8 +74,9 @@ func (r *BMCTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	// Task has CompletionTime, is noop.
-	if !bmcTask.Status.CompletionTime.IsZero() {
+	// Task is Completed or Failed is noop.
+	if bmcTask.HasCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue) ||
+		bmcTask.HasCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue) {
 		return ctrl.Result{}, nil
 	}
 
@@ -118,6 +119,20 @@ func (r *BMCTaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.
 	// Task has StartTime, we check the status.
 	// Requeue if actions did not complete.
 	if !bmcTask.Status.StartTime.IsZero() {
+		jobRunningTime := time.Since(bmcTask.Status.StartTime.Time)
+		// TODO(pokearu): add timeout for tasks on API spec
+		if jobRunningTime >= 3*time.Minute {
+			timeOutErr := fmt.Errorf("bmc task timeout: %d", jobRunningTime)
+			// Set Task Condition Failed True
+			bmcTask.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(timeOutErr.Error()))
+			patchErr := r.patchStatus(ctx, bmcTask, bmcTaskPatch)
+			if patchErr != nil {
+				return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, timeOutErr})
+			}
+
+			return ctrl.Result{}, timeOutErr
+		}
+
 		result, err := r.checkBMCTaskStatus(ctx, bmcTask.Spec.Task, bmcClient)
 		if err != nil {
 			return result, fmt.Errorf("bmc task status check: %s", err)
