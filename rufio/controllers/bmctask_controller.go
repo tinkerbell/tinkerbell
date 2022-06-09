@@ -17,6 +17,8 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -72,10 +74,12 @@ func (r *BMCTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	// Task has StartTime is noop.
-	if !bmcTask.Status.StartTime.IsZero() {
+	// Task is Completed or Failed is noop.
+	if bmcTask.HasCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue) ||
+		bmcTask.HasCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue) {
 		return ctrl.Result{}, nil
 	}
+
 	// Create a patch from the initial BMCTask object
 	// Patch is used to update Status after reconciliation
 	bmcTaskPatch := client.MergeFrom(bmcTask.DeepCopy())
@@ -112,6 +116,44 @@ func (r *BMCTaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.
 		}
 	}()
 
+	// Task has StartTime, we check the status.
+	// Requeue if actions did not complete.
+	if !bmcTask.Status.StartTime.IsZero() {
+		jobRunningTime := time.Since(bmcTask.Status.StartTime.Time)
+		// TODO(pokearu): add timeout for tasks on API spec
+		if jobRunningTime >= 3*time.Minute {
+			timeOutErr := fmt.Errorf("bmc task timeout: %d", jobRunningTime)
+			// Set Task Condition Failed True
+			bmcTask.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(timeOutErr.Error()))
+			patchErr := r.patchStatus(ctx, bmcTask, bmcTaskPatch)
+			if patchErr != nil {
+				return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, timeOutErr})
+			}
+
+			return ctrl.Result{}, timeOutErr
+		}
+
+		result, err := r.checkBMCTaskStatus(ctx, bmcTask.Spec.Task, bmcClient)
+		if err != nil {
+			return result, fmt.Errorf("bmc task status check: %s", err)
+		}
+
+		if !result.IsZero() {
+			return result, nil
+		}
+
+		// Set the Task CompletionTime
+		now := metav1.Now()
+		bmcTask.Status.CompletionTime = &now
+		// Set Task Condition Completed True
+		bmcTask.SetCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue)
+		if err := r.patchStatus(ctx, bmcTask, bmcTaskPatch); err != nil {
+			return result, err
+		}
+
+		return result, nil
+	}
+
 	// Set the Task StartTime
 	now := metav1.Now()
 	bmcTask.Status.StartTime = &now
@@ -127,11 +169,6 @@ func (r *BMCTaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.
 		return ctrl.Result{}, err
 	}
 
-	// Set the Task CompletionTime
-	now = metav1.Now()
-	bmcTask.Status.CompletionTime = &now
-	// Set Task Condition Completed True
-	bmcTask.SetCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue)
 	if err := r.patchStatus(ctx, bmcTask, bmcTaskPatch); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -158,6 +195,32 @@ func (r *BMCTaskReconciler) runBMCTask(ctx context.Context, task bmcv1alpha1.Tas
 	}
 
 	return nil
+}
+
+// checkBMCTaskStatus checks if Task action completed.
+// This is currently limited only to a few PowerAction types.
+func (r *BMCTaskReconciler) checkBMCTaskStatus(ctx context.Context, task bmcv1alpha1.Task, bmcClient BMCClient) (ctrl.Result, error) {
+	// TODO(pokearu): Extend to all actions.
+	if task.PowerAction != nil {
+		powerStatus, err := bmcClient.GetPowerState(ctx)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to get power state: %v", err)
+		}
+
+		switch *task.PowerAction {
+		case bmcv1alpha1.PowerOn:
+			if bmcv1alpha1.On != bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
+				return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+			}
+		case bmcv1alpha1.HardPowerOff, bmcv1alpha1.SoftPowerOff:
+			if bmcv1alpha1.Off != bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
+				return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+			}
+		}
+	}
+
+	// Other Task action types do not support checking status. So noop.
+	return ctrl.Result{}, nil
 }
 
 // patchStatus patches the specified patch on the BMCTask.
