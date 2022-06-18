@@ -10,4 +10,3 @@ spec:
       name: bm-auth
       namespace: sample
     insecureTLS: false
-  power: "on"

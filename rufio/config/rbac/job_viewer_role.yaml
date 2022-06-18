@@ -1,24 +1,20 @@
-# permissions for end users to edit bmctasks.
+# permissions for end users to view jobs.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: bmctask-editor-role
+  name: job-viewer-role
 rules:
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
-  - bmctasks
+  - jobs
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
-  - bmctasks/status
+  - jobs/status
   verbs:
   - get

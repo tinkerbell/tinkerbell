@@ -20,30 +20,30 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// BMCTaskConditionType represents the condition of the BMC Task.
-type BMCTaskConditionType string
+// TaskConditionType represents the condition of the BMC Task.
+type TaskConditionType string
 
 const (
 	// TaskCompleted represents successful completion of the BMC Task.
-	TaskCompleted BMCTaskConditionType = "Completed"
+	TaskCompleted TaskConditionType = "Completed"
 	// TaskFailed represents failure in BMC task execution.
-	TaskFailed BMCTaskConditionType = "Failed"
+	TaskFailed TaskConditionType = "Failed"
 )
 
-// BMCTaskSpec defines the desired state of BMCTask
-type BMCTaskSpec struct {
+// TaskSpec defines the desired state of BMCTask
+type TaskSpec struct {
 	// Task defines the specific action to be performed.
-	Task Task `json:"task"`
+	Task Action `json:"task"`
 
 	// Connection represents the BaseboardManagement connectivity information.
 	Connection Connection `json:"connection,omitempty"`
 }
 
-// Task represents the action to be performed.
+// Action represents the action to be performed.
 // A single task can only perform one type of action.
 // For example either PowerAction or OneTimeBootDeviceAction.
 // +kubebuilder:validation:MaxProperties:=1
-type Task struct {
+type Action struct {
 	// PowerAction represents a baseboard management power operation.
 	// +kubebuilder:validation:Enum=on;off;soft;status;cycle;reset
 	PowerAction *PowerAction `json:"powerAction,omitempty"`
@@ -64,11 +64,11 @@ type OneTimeBootDeviceAction struct {
 	EFIBoot bool `json:"efiBoot,omitempty"`
 }
 
-// BMCTaskStatus defines the observed state of BMCTask
-type BMCTaskStatus struct {
+// TaskStatus defines the observed state of BMCTask
+type TaskStatus struct {
 	// Conditions represents the latest available observations of an object's current state.
 	// +optional
-	Conditions []BMCTaskCondition `json:"conditions,omitempty"`
+	Conditions []TaskCondition `json:"conditions,omitempty"`
 
 	// StartTime represents time when the BMCTask started processing.
 	// +optional
@@ -80,9 +80,9 @@ type BMCTaskStatus struct {
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
-type BMCTaskCondition struct {
+type TaskCondition struct {
 	// Type of the BMCTask condition.
-	Type BMCTaskConditionType `json:"type"`
+	Type TaskConditionType `json:"type"`
 
 	// Status is the status of the BMCTask condition.
 	// Can be True or False.
@@ -94,27 +94,27 @@ type BMCTaskCondition struct {
 }
 
 // +kubebuilder:object:generate=false
-type BMCTaskSetConditionOption func(*BMCTaskCondition)
+type TaskSetConditionOption func(*TaskCondition)
 
 // SetCondition applies the cType condition to bmt. If the condition already exists,
 // it is updated.
-func (bmt *BMCTask) SetCondition(cType BMCTaskConditionType, status ConditionStatus, opts ...BMCTaskSetConditionOption) {
-	var condition *BMCTaskCondition
+func (t *Task) SetCondition(cType TaskConditionType, status ConditionStatus, opts ...TaskSetConditionOption) {
+	var condition *TaskCondition
 
 	// Check if there's an existing condition.
-	for i, c := range bmt.Status.Conditions {
+	for i, c := range t.Status.Conditions {
 		if c.Type == cType {
-			condition = &bmt.Status.Conditions[i]
+			condition = &t.Status.Conditions[i]
 			break
 		}
 	}
 
 	// We didn't find an existing condition so create a new one and append it.
 	if condition == nil {
-		bmt.Status.Conditions = append(bmt.Status.Conditions, BMCTaskCondition{
+		t.Status.Conditions = append(t.Status.Conditions, TaskCondition{
 			Type: cType,
 		})
-		condition = &bmt.Status.Conditions[len(bmt.Status.Conditions)-1]
+		condition = &t.Status.Conditions[len(t.Status.Conditions)-1]
 	}
 
 	condition.Status = status
@@ -124,15 +124,15 @@ func (bmt *BMCTask) SetCondition(cType BMCTaskConditionType, status ConditionSta
 }
 
 // WithTaskConditionMessage sets message m to the BMCTaskCondition.
-func WithTaskConditionMessage(m string) BMCTaskSetConditionOption {
-	return func(c *BMCTaskCondition) {
+func WithTaskConditionMessage(m string) TaskSetConditionOption {
+	return func(c *TaskCondition) {
 		c.Message = m
 	}
 }
 
 // HasCondition checks if the cType condition is present with status cStatus on a bmt.
-func (bmt *BMCTask) HasCondition(cType BMCTaskConditionType, cStatus ConditionStatus) bool {
-	for _, c := range bmt.Status.Conditions {
+func (t *Task) HasCondition(cType TaskConditionType, cStatus ConditionStatus) bool {
+	for _, c := range t.Status.Conditions {
 		if c.Type == cType {
 			return c.Status == cStatus
 		}
@@ -143,26 +143,26 @@ func (bmt *BMCTask) HasCondition(cType BMCTaskConditionType, cStatus ConditionSt
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:path=bmctasks,scope=Namespaced,categories=tinkerbell,singular=bmctask,shortName=bmt
+//+kubebuilder:resource:path=tasks,scope=Namespaced,categories=tinkerbell,singular=task,shortName=t
 
-// BMCTask is the Schema for the bmctasks API
-type BMCTask struct {
+// Task is the Schema for the bmctasks API
+type Task struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BMCTaskSpec   `json:"spec,omitempty"`
-	Status BMCTaskStatus `json:"status,omitempty"`
+	Spec   TaskSpec   `json:"spec,omitempty"`
+	Status TaskStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// BMCTaskList contains a list of BMCTask
-type BMCTaskList struct {
+// TaskList contains a list of BMCTask
+type TaskList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []BMCTask `json:"items"`
+	Items           []Task `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&BMCTask{}, &BMCTaskList{})
+	SchemeBuilder.Register(&Task{}, &TaskList{})
 }

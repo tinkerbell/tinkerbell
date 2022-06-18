@@ -1,7 +1,7 @@
 apiVersion: bmc.tinkerbell.org/v1alpha1
-kind: BMCTask
+kind: Task
 metadata:
-  name: bmctask-sample
+  name: task-sample
 spec:
   task:
     powerAction: "on"

@@ -1,13 +1,13 @@
-# permissions for end users to edit bmcjobs.
+# permissions for end users to edit tasks.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: bmcjob-editor-role
+  name: task-editor-role
 rules:
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
-  - bmcjobs
+  - tasks
   verbs:
   - create
   - delete
@@ -19,6 +19,6 @@ rules:
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
-  - bmcjobs/status
+  - tasks/status
   verbs:
   - get
