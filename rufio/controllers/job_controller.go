@@ -50,9 +50,9 @@ func NewBMCJobReconciler(client client.Client, logger logr.Logger) *BMCJobReconc
 	}
 }
 
-//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=bmcjobs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=bmcjobs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=bmcjobs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=jobs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=jobs/finalizers,verbs=update
 
 // Reconcile runs a BMCJob.
 // Creates the individual BMCTasks on the cluster.
@@ -62,7 +62,7 @@ func (r *BMCJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	logger.Info("Reconciling BMCJob")
 
 	// Fetch the bmcJob object
-	bmcJob := &bmcv1alpha1.BMCJob{}
+	bmcJob := &bmcv1alpha1.Job{}
 	err := r.client.Get(ctx, req.NamespacedName, bmcJob)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -91,7 +91,7 @@ func (r *BMCJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return r.reconcile(ctx, bmcJob, bmcJobPatch, logger)
 }
 
-func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.BMCJob, bmjPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
+func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.Job, bmjPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	// Check if Job is not currently Running
 	// Initialize the StartTime for the Job
 	// Set the Job to Running condition True
@@ -110,7 +110,7 @@ func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.BMCJo
 	}
 
 	// List all BMCTask owned by BMCJob
-	bmcTasks := &bmcv1alpha1.BMCTaskList{}
+	bmcTasks := &bmcv1alpha1.TaskList{}
 	err = r.client.List(ctx, bmcTasks, client.MatchingFields{jobOwnerKey: bmj.Name})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to list owned BMCTasks for BMCJob %s/%s", bmj.Namespace, bmj.Name)
@@ -184,9 +184,9 @@ func (r *BMCJobReconciler) getBaseboardManagement(ctx context.Context, bmRef bmc
 }
 
 // createBMCTaskWithOwner creates a BMCTask object with an OwnerReference set to the BMCJob
-func (r *BMCJobReconciler) createBMCTaskWithOwner(ctx context.Context, bmj bmcv1alpha1.BMCJob, taskIndex int, conn bmcv1alpha1.Connection) error {
+func (r *BMCJobReconciler) createBMCTaskWithOwner(ctx context.Context, bmj bmcv1alpha1.Job, taskIndex int, conn bmcv1alpha1.Connection) error {
 	isController := true
-	bmcTask := &bmcv1alpha1.BMCTask{
+	bmcTask := &bmcv1alpha1.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      bmcv1alpha1.FormatTaskName(bmj, taskIndex),
 			Namespace: bmj.Namespace,
@@ -200,7 +200,7 @@ func (r *BMCJobReconciler) createBMCTaskWithOwner(ctx context.Context, bmj bmcv1
 				},
 			},
 		},
-		Spec: bmcv1alpha1.BMCTaskSpec{
+		Spec: bmcv1alpha1.TaskSpec{
 			Task:       bmj.Spec.Tasks[taskIndex],
 			Connection: conn,
 		},
@@ -215,7 +215,7 @@ func (r *BMCJobReconciler) createBMCTaskWithOwner(ctx context.Context, bmj bmcv1
 }
 
 // patchStatus patches the specified patch on the BMCJob.
-func (r *BMCJobReconciler) patchStatus(ctx context.Context, bmj *bmcv1alpha1.BMCJob, patch client.Patch) error {
+func (r *BMCJobReconciler) patchStatus(ctx context.Context, bmj *bmcv1alpha1.Job, patch client.Patch) error {
 	err := r.client.Status().Patch(ctx, bmj, patch)
 	if err != nil {
 		return fmt.Errorf("failed to patch BMCJob %s/%s status: %v", bmj.Namespace, bmj.Name, err)
@@ -228,7 +228,7 @@ func (r *BMCJobReconciler) patchStatus(ctx context.Context, bmj *bmcv1alpha1.BMC
 func (r *BMCJobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&bmcv1alpha1.BMCTask{},
+		&bmcv1alpha1.Task{},
 		jobOwnerKey,
 		bmcTaskOwnerIndexFunc,
 	); err != nil {
@@ -236,11 +236,11 @@ func (r *BMCJobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&bmcv1alpha1.BMCJob{}).
+		For(&bmcv1alpha1.Job{}).
 		Watches(
-			&source.Kind{Type: &bmcv1alpha1.BMCTask{}},
+			&source.Kind{Type: &bmcv1alpha1.Task{}},
 			&handler.EnqueueRequestForOwner{
-				OwnerType:    &bmcv1alpha1.BMCJob{},
+				OwnerType:    &bmcv1alpha1.Job{},
 				IsController: true,
 			}).
 		Complete(r)
@@ -248,7 +248,7 @@ func (r *BMCJobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 
 // bmcTaskOwnerIndexFunc is Indexer func which returns the owner name for obj.
 func bmcTaskOwnerIndexFunc(obj client.Object) []string {
-	task, ok := obj.(*bmcv1alpha1.BMCTask)
+	task, ok := obj.(*bmcv1alpha1.Task)
 	if !ok {
 		return nil
 	}
