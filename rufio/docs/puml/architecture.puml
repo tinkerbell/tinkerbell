@@ -1,0 +1,33 @@
+@startuml architecture
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' Tags (must be defined before use)
+AddRelTag(provides, $lineStyle=DottedLine())
+
+' System entities
+System_Boundary(rufio, "Rufio") {
+    Container(job_reconciler, "JobReconciler", "Go", "Watches for Jobs and creates sequenced Tasks from Jobs")
+    Container(task_reconciler, "TaskReconciler", "Go", "Executes Tasks on the target BMC")
+    Container(bmc_reconciler, "BMCReconciler", "Go", "Monitors BMC state and updates BMC resources to reflect state")
+}
+
+' External entities
+Person(operator, "Operator")
+System_Ext(kubernetes, "Kubernetes Cluster")
+System_Boundary(machine, "Physical Machine") {
+    Container_Ext(bmc, "Baseboard Management Controller", "", "A management controller for the physical machine")
+}
+
+' Relationships
+Rel_U(job_reconciler, kubernetes, "Watch for Jobs")
+Rel_U(task_reconciler, kubernetes, "Watch for Tasks")
+Rel(task_reconciler, bmc, "Executes tasks")
+Rel(bmc_reconciler, bmc, "Monitor physical machine state")
+Rel_U(bmc_reconciler, kubernetes, "Update BMC resource")
+Rel_R(operator, kubernetes, "Submits Jobs")
+Rel_R(job_reconciler, task_reconciler, "Creates Tasks via Kube API", "", $tags="provides")
+
+
+@enduml
