@@ -53,8 +53,8 @@ type BMCClient interface {
 // BMCClientFactoryFunc defines a func that returns a BMCClient
 type BMCClientFactoryFunc func(ctx context.Context, hostIP, port, username, password string) (BMCClient, error)
 
-// BaseboardManagementReconciler reconciles a BaseboardManagement object
-type BaseboardManagementReconciler struct {
+// MachineReconciler reconciles a Machine object
+type MachineReconciler struct {
 	client           client.Client
 	recorder         record.EventRecorder
 	bmcClientFactory BMCClientFactoryFunc
@@ -66,9 +66,9 @@ const (
 	EventSetPowerStateFailed = "SetPowerStateFailed"
 )
 
-// NewBaseboardManagementReconciler returns a new BaseboardManagementReconciler
-func NewBaseboardManagementReconciler(client client.Client, recorder record.EventRecorder, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *BaseboardManagementReconciler {
-	return &BaseboardManagementReconciler{
+// NewMachineReconciler returns a new MachineReconciler
+func NewMachineReconciler(client client.Client, recorder record.EventRecorder, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *MachineReconciler {
+	return &MachineReconciler{
 		client:           client,
 		recorder:         recorder,
 		bmcClientFactory: bmcClientFactory,
@@ -76,57 +76,57 @@ func NewBaseboardManagementReconciler(client client.Client, recorder record.Even
 	}
 }
 
-// baseboardManagementFieldReconciler defines a function to reconcile BaseboardManagement spec field
-type baseboardManagementFieldReconciler func(context.Context, *bmcv1alpha1.BaseboardManagement, BMCClient) error
+// machineFieldReconciler defines a function to reconcile Machine spec field
+type machineFieldReconciler func(context.Context, *bmcv1alpha1.Machine, BMCClient) error
 
-//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=baseboardmanagements/finalizers,verbs=update
+//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines/finalizers,verbs=update
 
-// Reconcile ensures the state of a BaseboardManagement.
-// Gets the BaseboardManagement object and uses the SecretReference to initialize a BMC Client.
+// Reconcile ensures the state of a Machine.
+// Gets the Machine object and uses the SecretReference to initialize a BMC Client.
 // Updates the Power status and conditions accordingly.
-func (r *BaseboardManagementReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.logger.WithValues("BaseboardManagement", req.NamespacedName)
-	logger.Info("Reconciling BaseboardManagement")
+func (r *MachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := r.logger.WithValues("Machine", req.NamespacedName)
+	logger.Info("Reconciling Machine")
 
-	// Fetch the BaseboardManagement object
-	baseboardManagement := &bmcv1alpha1.BaseboardManagement{}
-	err := r.client.Get(ctx, req.NamespacedName, baseboardManagement)
+	// Fetch the Machine object
+	machine := &bmcv1alpha1.Machine{}
+	err := r.client.Get(ctx, req.NamespacedName, machine)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 
-		logger.Error(err, "Failed to get BaseboardManagement")
+		logger.Error(err, "Failed to get Machine")
 		return ctrl.Result{}, err
 	}
 
 	// Deletion is a noop.
-	if !baseboardManagement.DeletionTimestamp.IsZero() {
+	if !machine.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
-	// Create a patch from the initial BaseboardManagement object
+	// Create a patch from the initial Machine object
 	// Patch is used to update Status after reconciliation
-	baseboardManagementPatch := client.MergeFrom(baseboardManagement.DeepCopy())
+	machinePatch := client.MergeFrom(machine.DeepCopy())
 
-	return r.reconcile(ctx, baseboardManagement, baseboardManagementPatch, logger)
+	return r.reconcile(ctx, machine, machinePatch, logger)
 }
 
-func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
+func (r *MachineReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.Machine, bmPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	// Fetching username, password from SecretReference
 	// Requeue if error fetching secret
 	username, password, err := resolveAuthSecretRef(ctx, r.client, bm.Spec.Connection.AuthSecretRef)
 	if err != nil {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving BaseboardManagement %s/%s SecretReference: %v", bm.Namespace, bm.Name, err)
+		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving Machine %s/%s SecretReference: %v", bm.Namespace, bm.Name, err)
 	}
 
 	// Initializing BMC Client
 	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, strconv.Itoa(bm.Spec.Connection.Port), username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
-		bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.ConditionFalse, bmcv1alpha1.WithBaseboardManagementConditionMessage(err.Error()))
+		bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.ConditionFalse, bmcv1alpha1.WithMachineConditionMessage(err.Error()))
 		result, patchErr := r.patchStatus(ctx, bm, bmPatch)
 		if patchErr != nil {
 			return result, utilerrors.NewAggregate([]error{patchErr, err})
@@ -145,15 +145,15 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 		}
 	}()
 
-	// fieldReconcilers defines BaseboardManagement spec field reconciler functions
-	fieldReconcilers := []baseboardManagementFieldReconciler{
+	// fieldReconcilers defines Machine spec field reconciler functions
+	fieldReconcilers := []machineFieldReconciler{
 		r.reconcilePower,
 	}
 
 	var aggErr utilerrors.Aggregate
 	for _, reconiler := range fieldReconcilers {
 		if err := reconiler(ctx, bm, bmcClient); err != nil {
-			logger.Error(err, "Failed to reconcile BaseboardManagement", "host", bm.Spec.Connection.Host)
+			logger.Error(err, "Failed to reconcile Machine", "host", bm.Spec.Connection.Host)
 			aggErr = utilerrors.NewAggregate([]error{err, aggErr})
 		}
 	}
@@ -167,8 +167,8 @@ func (r *BaseboardManagementReconciler) reconcile(ctx context.Context, bm *bmcv1
 	return result, utilerrors.Flatten(aggErr)
 }
 
-// reconcilePower ensures the BaseboardManagement Power is in the desired state.
-func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, bmcClient BMCClient) error {
+// reconcilePower ensures the Machine Power is in the desired state.
+func (r *MachineReconciler) reconcilePower(ctx context.Context, bm *bmcv1alpha1.Machine, bmcClient BMCClient) error {
 	powerStatus, err := bmcClient.GetPowerState(ctx)
 	if err != nil {
 		r.recorder.Eventf(bm, corev1.EventTypeWarning, EventGetPowerStateFailed, "failed to get power state: %v", err)
@@ -189,11 +189,11 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 	return nil
 }
 
-// patchStatus patches the specifies patch on the BaseboardManagement.
-func (r *BaseboardManagementReconciler) patchStatus(ctx context.Context, bm *bmcv1alpha1.BaseboardManagement, patch client.Patch) (ctrl.Result, error) {
+// patchStatus patches the specifies patch on the Machine.
+func (r *MachineReconciler) patchStatus(ctx context.Context, bm *bmcv1alpha1.Machine, patch client.Patch) (ctrl.Result, error) {
 	err := r.client.Status().Patch(ctx, bm, patch)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to patch BaseboardManagement %s/%s status: %v", bm.Namespace, bm.Name, err)
+		return ctrl.Result{}, fmt.Errorf("failed to patch Machine %s/%s status: %v", bm.Namespace, bm.Name, err)
 	}
 
 	return ctrl.Result{}, nil
@@ -215,20 +215,20 @@ func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef corev1
 
 	username, ok := secret.Data["username"]
 	if !ok {
-		return "", "", fmt.Errorf("'username' required in BaseboardManagement secret")
+		return "", "", fmt.Errorf("'username' required in Machine secret")
 	}
 
 	password, ok := secret.Data["password"]
 	if !ok {
-		return "", "", fmt.Errorf("'password' required in BaseboardManagement secret")
+		return "", "", fmt.Errorf("'password' required in Machine secret")
 	}
 
 	return string(username), string(password), nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BaseboardManagementReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&bmcv1alpha1.BaseboardManagement{}).
+		For(&bmcv1alpha1.Machine{}).
 		Complete(r)
 }

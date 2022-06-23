@@ -39,17 +39,16 @@ spec:
           spec:
             description: JobSpec defines the desired state of BMCJob
             properties:
-              baseboardManagementRef:
-                description: BaseboardManagementRef represents the BaseboardManagement
-                  resource to execute the job. All the tasks in the job are executed
-                  for the same BaseboardManagement.
+              machineRef:
+                description: MachineRef represents the Machine resource to execute
+                  the job. All the tasks in the job are executed for the same Machine.
                 properties:
                   name:
                     description: Name is unique within a namespace to reference a
-                      BaseboardManagement resource.
+                      Machine resource.
                     type: string
                   namespace:
-                    description: Namespace defines the space within which the BaseboardManagement
+                    description: Namespace defines the space within which the Machine
                       name must be unique.
                     type: string
                 required:
@@ -78,7 +77,7 @@ spec:
                             in the slice is used to set one time boot.
                           items:
                             description: BootDevice represents boot device of the
-                              BaseboardManagement.
+                              Machine.
                             type: string
                           type: array
                         efiBoot:
@@ -104,7 +103,7 @@ spec:
                   type: object
                 type: array
             required:
-            - baseboardManagementRef
+            - machineRef
             - tasks
             type: object
           status:

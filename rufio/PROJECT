@@ -10,7 +10,7 @@ resources:
   controller: true
   domain: tinkerbell.org
   group: bmc
-  kind: BaseboardManagement
+  kind: Machine
   path: github.com/tinkerbell/rufio/api/v1alpha1
   version: v1alpha1
 - api:

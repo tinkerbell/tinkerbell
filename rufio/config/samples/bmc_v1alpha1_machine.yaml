@@ -1,7 +1,7 @@
 apiVersion: bmc.tinkerbell.org/v1alpha1
-kind: BaseboardManagement
+kind: Machine
 metadata:
-  name: baseboardmanagement-sample
+  name: machine-sample
 spec:
   connection:
     host: 0.0.0.0

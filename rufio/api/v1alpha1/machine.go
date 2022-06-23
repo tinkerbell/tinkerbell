@@ -21,14 +21,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// PowerState represents power state the BaseboardManagement.
+// PowerState represents power state the Machine.
 type PowerState string
 
-// BootDevice represents boot device of the BaseboardManagement.
+// BootDevice represents boot device of the Machine.
 type BootDevice string
 
-// BaseboardManagementConditionType represents the condition of the BaseboardManagement.
-type BaseboardManagementConditionType string
+// MachineConditionType represents the condition of the Machine.
+type MachineConditionType string
 
 // ConditionStatus represents the status of a Condition.
 type ConditionStatus string
@@ -47,8 +47,8 @@ const (
 )
 
 const (
-	// Contactable defines that a connection can be made to the BaseboardManagement.
-	Contactable BaseboardManagementConditionType = "Contactable"
+	// Contactable defines that a connection can be made to the Machine.
+	Contactable MachineConditionType = "Contactable"
 )
 
 const (
@@ -56,23 +56,23 @@ const (
 	ConditionFalse ConditionStatus = "False"
 )
 
-// BaseboardManagementSpec defines the desired state of BaseboardManagement
-type BaseboardManagementSpec struct {
+// MachineSpec defines the desired state of Machine
+type MachineSpec struct {
 
-	// Connection represents the BaseboardManagement connectivity information.
+	// Connection represents the Machine connectivity information.
 	Connection Connection `json:"connection"`
 }
 
 type Connection struct {
-	// Host is the host IP address or hostname of the BaseboardManagement.
+	// Host is the host IP address or hostname of the Machine.
 	// +kubebuilder:validation:MinLength=1
 	Host string `json:"host"`
 
-	// Port is the port number for connecting with the BaseboardManagement.
+	// Port is the port number for connecting with the Machine.
 	// +kubebuilder:default:=623
 	Port int `json:"port"`
 
-	// AuthSecretRef is the SecretReference that contains authentication information of the BaseboardManagement.
+	// AuthSecretRef is the SecretReference that contains authentication information of the Machine.
 	// The Secret must contain username and password keys.
 	AuthSecretRef corev1.SecretReference `json:"authSecretRef"`
 
@@ -80,27 +80,27 @@ type Connection struct {
 	InsecureTLS bool `json:"insecureTLS"`
 }
 
-// BaseboardManagementStatus defines the observed state of BaseboardManagement
-type BaseboardManagementStatus struct {
-	// Power is the current power state of the BaseboardManagement.
+// MachineStatus defines the observed state of Machine
+type MachineStatus struct {
+	// Power is the current power state of the Machine.
 	// +kubebuilder:validation:Enum=on;off
 	// +optional
 	Power PowerState `json:"powerState,omitempty"`
 
 	// Conditions represents the latest available observations of an object's current state.
 	// +optional
-	Conditions []BaseboardManagementCondition `json:"conditions,omitempty"`
+	Conditions []MachineCondition `json:"conditions,omitempty"`
 }
 
-type BaseboardManagementCondition struct {
-	// Type of the BaseboardManagement condition.
-	Type BaseboardManagementConditionType `json:"type"`
+type MachineCondition struct {
+	// Type of the Machine condition.
+	Type MachineConditionType `json:"type"`
 
-	// Status is the status of the BaseboardManagement condition.
+	// Status is the status of the Machine condition.
 	// Can be True or False.
 	Status ConditionStatus `json:"status"`
 
-	// Last time the BaseboardManagement condition was updated.
+	// Last time the Machine condition was updated.
 	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
 
 	// Message represents human readable message indicating details about last transition.
@@ -109,12 +109,12 @@ type BaseboardManagementCondition struct {
 }
 
 // +kubebuilder:object:generate=false
-type BaseboardManagementSetConditionOption func(*BaseboardManagementCondition)
+type MachineSetConditionOption func(*MachineCondition)
 
 // SetCondition applies the cType condition to bm. If the condition already exists,
 // it is updated.
-func (bm *BaseboardManagement) SetCondition(cType BaseboardManagementConditionType, status ConditionStatus, opts ...BaseboardManagementSetConditionOption) {
-	var condition *BaseboardManagementCondition
+func (bm *Machine) SetCondition(cType MachineConditionType, status ConditionStatus, opts ...MachineSetConditionOption) {
+	var condition *MachineCondition
 
 	// Check if there's an existing condition.
 	for i, c := range bm.Status.Conditions {
@@ -126,7 +126,7 @@ func (bm *BaseboardManagement) SetCondition(cType BaseboardManagementConditionTy
 
 	// We didn't find an existing condition so create a new one and append it.
 	if condition == nil {
-		bm.Status.Conditions = append(bm.Status.Conditions, BaseboardManagementCondition{
+		bm.Status.Conditions = append(bm.Status.Conditions, MachineCondition{
 			Type: cType,
 		})
 		condition = &bm.Status.Conditions[len(bm.Status.Conditions)-1]
@@ -142,44 +142,44 @@ func (bm *BaseboardManagement) SetCondition(cType BaseboardManagementConditionTy
 	}
 }
 
-// WithBaseboardManagementConditionMessage sets message m to the BaseboardManagementCondition.
-func WithBaseboardManagementConditionMessage(m string) BaseboardManagementSetConditionOption {
-	return func(c *BaseboardManagementCondition) {
+// WithMachineConditionMessage sets message m to the MachineCondition.
+func WithMachineConditionMessage(m string) MachineSetConditionOption {
+	return func(c *MachineCondition) {
 		c.Message = m
 	}
 }
 
-// BaseboardManagementRef defines the reference information to a BaseboardManagement resource.
-type BaseboardManagementRef struct {
-	// Name is unique within a namespace to reference a BaseboardManagement resource.
+// MachineRef defines the reference information to a Machine resource.
+type MachineRef struct {
+	// Name is unique within a namespace to reference a Machine resource.
 	Name string `json:"name"`
 
-	// Namespace defines the space within which the BaseboardManagement name must be unique.
+	// Namespace defines the space within which the Machine name must be unique.
 	Namespace string `json:"namespace"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:path=baseboardmanagements,scope=Namespaced,categories=tinkerbell,singular=baseboardmanagement,shortName=bm
+//+kubebuilder:resource:path=machines,scope=Namespaced,categories=tinkerbell,singular=machine,shortName=bm
 
-// BaseboardManagement is the Schema for the baseboardmanagements API
-type BaseboardManagement struct {
+// Machine is the Schema for the machines API
+type Machine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BaseboardManagementSpec   `json:"spec,omitempty"`
-	Status BaseboardManagementStatus `json:"status,omitempty"`
+	Spec   MachineSpec   `json:"spec,omitempty"`
+	Status MachineStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// BaseboardManagementList contains a list of BaseboardManagement
-type BaseboardManagementList struct {
+// MachineList contains a list of Machine
+type MachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []BaseboardManagement `json:"items"`
+	Items           []Machine `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&BaseboardManagement{}, &BaseboardManagementList{})
+	SchemeBuilder.Register(&Machine{}, &MachineList{})
 }

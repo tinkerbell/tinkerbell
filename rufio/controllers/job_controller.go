@@ -101,12 +101,12 @@ func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.Job, 
 		bmj.SetCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue)
 	}
 
-	// Get BaseboardManagement object for the Job
+	// Get Machine object for the Job
 	// Requeue if error
-	baseboardManagement := &bmcv1alpha1.BaseboardManagement{}
-	err := r.getBaseboardManagement(ctx, bmj.Spec.BaseboardManagementRef, baseboardManagement)
+	machine := &bmcv1alpha1.Machine{}
+	err := r.getMachine(ctx, bmj.Spec.MachineRef, machine)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("get BMCJob %s/%s BaseboardManagementRef: %v", bmj.Namespace, bmj.Name, err)
+		return ctrl.Result{}, fmt.Errorf("get BMCJob %s/%s MachineRef: %v", bmj.Namespace, bmj.Name, err)
 	}
 
 	// List all BMCTask owned by BMCJob
@@ -153,7 +153,7 @@ func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.Job, 
 	}
 
 	// Create the first Task for the BMCJob
-	if err := r.createBMCTaskWithOwner(ctx, *bmj, completedTasksCount, baseboardManagement.Spec.Connection); err != nil {
+	if err := r.createBMCTaskWithOwner(ctx, *bmj, completedTasksCount, machine.Spec.Connection); err != nil {
 		// Set the Job condition Failed True
 		bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(err.Error()))
 		patchErr := r.patchStatus(ctx, bmj, bmjPatch)
@@ -169,15 +169,15 @@ func (r *BMCJobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.Job, 
 	return ctrl.Result{}, err
 }
 
-// getBaseboardManagement Gets the BaseboardManagement from BaseboardManagementRef
-func (r *BMCJobReconciler) getBaseboardManagement(ctx context.Context, bmRef bmcv1alpha1.BaseboardManagementRef, bm *bmcv1alpha1.BaseboardManagement) error {
+// getMachine Gets the Machine from MachineRef
+func (r *BMCJobReconciler) getMachine(ctx context.Context, bmRef bmcv1alpha1.MachineRef, bm *bmcv1alpha1.Machine) error {
 	key := types.NamespacedName{Namespace: bmRef.Namespace, Name: bmRef.Name}
 	err := r.client.Get(ctx, key, bm)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return fmt.Errorf("BaseboardManagement %s not found: %v", key, err)
+			return fmt.Errorf("Machine %s not found: %v", key, err)
 		}
-		return fmt.Errorf("failed to get BaseboardManagement %s: %v", key, err)
+		return fmt.Errorf("failed to get Machine %s: %v", key, err)
 	}
 
 	return nil
