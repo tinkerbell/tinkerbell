@@ -176,6 +176,14 @@ func (r *BaseboardManagementReconciler) reconcilePower(ctx context.Context, bm *
 	}
 
 	// Update status to represent current power state
+	if strings.Contains(strings.ToLower(powerStatus), "chassis power is on") || strings.ToLower(powerStatus) == "on" {
+		powerStatus = "on"
+	} else if strings.Contains(strings.ToLower(powerStatus), "chassis power is off") || strings.ToLower(powerStatus) == "off" {
+		powerStatus = "off"
+	} else {
+		return fmt.Errorf("unexpected power status returned: %v", powerStatus)
+	}
+
 	bm.Status.Power = bmcv1alpha1.PowerState(strings.ToLower(powerStatus))
 
 	return nil
