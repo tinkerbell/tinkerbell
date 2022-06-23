@@ -8,32 +8,6 @@ rules:
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
-  - baseboardmanagements
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - bmc.tinkerbell.org
-  resources:
-  - baseboardmanagements/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - bmc.tinkerbell.org
-  resources:
-  - baseboardmanagements/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - bmc.tinkerbell.org
-  resources:
   - jobs
   verbs:
   - create
@@ -53,6 +27,32 @@ rules:
   - bmc.tinkerbell.org
   resources:
   - jobs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - machines
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - machines/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - machines/status
   verbs:
   - get
   - patch

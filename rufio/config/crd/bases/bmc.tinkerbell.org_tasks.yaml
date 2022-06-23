@@ -40,13 +40,12 @@ spec:
             description: TaskSpec defines the desired state of BMCTask
             properties:
               connection:
-                description: Connection represents the BaseboardManagement connectivity
-                  information.
+                description: Connection represents the Machine connectivity information.
                 properties:
                   authSecretRef:
                     description: AuthSecretRef is the SecretReference that contains
-                      authentication information of the BaseboardManagement. The Secret
-                      must contain username and password keys.
+                      authentication information of the Machine. The Secret must contain
+                      username and password keys.
                     properties:
                       name:
                         description: Name is unique within a namespace to reference
@@ -58,7 +57,7 @@ spec:
                         type: string
                     type: object
                   host:
-                    description: Host is the host IP address or hostname of the BaseboardManagement.
+                    description: Host is the host IP address or hostname of the Machine.
                     minLength: 1
                     type: string
                   insecureTLS:
@@ -66,7 +65,7 @@ spec:
                     type: boolean
                   port:
                     default: 623
-                    description: Port is the port number for connecting with the BaseboardManagement.
+                    description: Port is the port number for connecting with the Machine.
                     type: integer
                 required:
                 - authSecretRef
@@ -87,7 +86,7 @@ spec:
                           for setting one time boot. Currently only the first device
                           in the slice is used to set one time boot.
                         items:
-                          description: BootDevice represents boot device of the BaseboardManagement.
+                          description: BootDevice represents boot device of the Machine.
                           type: string
                         type: array
                       efiBoot:

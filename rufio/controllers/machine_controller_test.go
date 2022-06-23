@@ -28,7 +28,7 @@ func TestReconcileGetPowerStateSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockBMCClient := mocks.NewMockBMCClient(ctrl)
 
-	bm := getBaseboardManagement()
+	bm := getMachine()
 	authSecret := getSecret()
 
 	objs := []runtime.Object{bm, authSecret}
@@ -43,7 +43,7 @@ func TestReconcileGetPowerStateSuccess(t *testing.T) {
 	mockBMCClient.EXPECT().GetPowerState(ctx).Return(string(bmcv1alpha1.On), nil)
 	mockBMCClient.EXPECT().Close(ctx).Return(nil)
 
-	reconciler := controllers.NewBaseboardManagementReconciler(
+	reconciler := controllers.NewMachineReconciler(
 		client,
 		fakeRecorder,
 		newMockBMCClientFactoryFunc(mockBMCClient),
@@ -68,7 +68,7 @@ func TestReconcileSecretReferenceError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockBMCClient := mocks.NewMockBMCClient(ctrl)
 
-	bm := getBaseboardManagement()
+	bm := getMachine()
 
 	scheme := runtime.NewScheme()
 	_ = bmcv1alpha1.AddToScheme(scheme)
@@ -110,7 +110,7 @@ func TestReconcileSecretReferenceError(t *testing.T) {
 			objs := []runtime.Object{bm, test.Secret}
 			clientBuilder := fake.NewClientBuilder()
 			client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
-			reconciler := controllers.NewBaseboardManagementReconciler(
+			reconciler := controllers.NewMachineReconciler(
 				client,
 				fakeRecorder,
 				newMockBMCClientFactoryFunc(mockBMCClient),
@@ -137,7 +137,7 @@ func TestReconcileConnectionError(t *testing.T) {
 
 	ctx := context.Background()
 
-	bm := getBaseboardManagement()
+	bm := getMachine()
 	authSecret := getSecret()
 
 	objs := []runtime.Object{bm, authSecret}
@@ -148,7 +148,7 @@ func TestReconcileConnectionError(t *testing.T) {
 	client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
 	fakeRecorder := record.NewFakeRecorder(2)
 
-	reconciler := controllers.NewBaseboardManagementReconciler(
+	reconciler := controllers.NewMachineReconciler(
 		client,
 		fakeRecorder,
 		newMockBMCClientFactoryFuncError(),
@@ -173,7 +173,7 @@ func TestReconcileGetPowerStateError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockBMCClient := mocks.NewMockBMCClient(ctrl)
 
-	bm := getBaseboardManagement()
+	bm := getMachine()
 	authSecret := getSecret()
 
 	objs := []runtime.Object{bm, authSecret}
@@ -188,7 +188,7 @@ func TestReconcileGetPowerStateError(t *testing.T) {
 	mockBMCClient.EXPECT().GetPowerState(ctx).Return(string(bmcv1alpha1.Off), errors.New("this is not allowed"))
 	mockBMCClient.EXPECT().Close(ctx).Return(nil)
 
-	reconciler := controllers.NewBaseboardManagementReconciler(
+	reconciler := controllers.NewMachineReconciler(
 		client,
 		fakeRecorder,
 		newMockBMCClientFactoryFunc(mockBMCClient),
@@ -221,13 +221,13 @@ func newMockBMCClientFactoryFuncError() controllers.BMCClientFactoryFunc {
 	}
 }
 
-func getBaseboardManagement() *bmcv1alpha1.BaseboardManagement {
-	return &bmcv1alpha1.BaseboardManagement{
+func getMachine() *bmcv1alpha1.Machine {
+	return &bmcv1alpha1.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-bm",
 			Namespace: "test-namespace",
 		},
-		Spec: bmcv1alpha1.BaseboardManagementSpec{
+		Spec: bmcv1alpha1.MachineSpec{
 			Connection: bmcv1alpha1.Connection{
 				Host: "0.0.0.0",
 				Port: 623,

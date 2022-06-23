@@ -35,7 +35,7 @@ type TaskSpec struct {
 	// Task defines the specific action to be performed.
 	Task Action `json:"task"`
 
-	// Connection represents the BaseboardManagement connectivity information.
+	// Connection represents the Machine connectivity information.
 	Connection Connection `json:"connection,omitempty"`
 }
 

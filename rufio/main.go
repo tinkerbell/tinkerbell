@@ -139,14 +139,14 @@ func newClientConfig(kubeAPIServer, kubeconfig string) clientcmd.ClientConfig {
 
 // setupReconcilers initializes the controllers with the Manager.
 func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
-	err := (controllers.NewBaseboardManagementReconciler(
+	err := (controllers.NewMachineReconciler(
 		mgr.GetClient(),
-		mgr.GetEventRecorderFor("baseboardmanagement-controller"),
+		mgr.GetEventRecorderFor("machine-controller"),
 		controllers.NewBMCClientFactoryFunc(ctx),
-		ctrl.Log.WithName("controller").WithName("BaseboardManagement"),
+		ctrl.Log.WithName("controller").WithName("Machine"),
 	)).SetupWithManager(mgr)
 	if err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "BaseboardManagement")
+		setupLog.Error(err, "unable to create controller", "controller", "Machine")
 		os.Exit(1)
 	}
 

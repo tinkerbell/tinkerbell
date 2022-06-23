@@ -48,9 +48,9 @@ const (
 
 // JobSpec defines the desired state of BMCJob
 type JobSpec struct {
-	// BaseboardManagementRef represents the BaseboardManagement resource to execute the job.
-	// All the tasks in the job are executed for the same BaseboardManagement.
-	BaseboardManagementRef BaseboardManagementRef `json:"baseboardManagementRef"`
+	// MachineRef represents the Machine resource to execute the job.
+	// All the tasks in the job are executed for the same Machine.
+	MachineRef MachineRef `json:"machineRef"`
 
 	// Tasks represents a list of baseboard management actions to be executed.
 	// The tasks are executed sequentially. Controller waits for one task to complete before executing the next.
