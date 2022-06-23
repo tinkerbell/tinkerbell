@@ -160,3 +160,12 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+##@ Docs
+
+puml: ## Generate PlantUML diagrams.
+	@for pml in $$(find . -name '*.puml'); do \
+		echo "Generating $$(basename $$pml)" ; \
+		filename=$$(basename $$pml .puml) ; \
+		plantuml -tpng $$pml ; \
+	done

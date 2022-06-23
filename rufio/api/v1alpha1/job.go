@@ -22,16 +22,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// BMCJobConditionType represents the condition of the BMC Job.
-type BMCJobConditionType string
+// JobConditionType represents the condition of the BMC Job.
+type JobConditionType string
 
 const (
 	// JobCompleted represents successful completion of the BMC Job tasks.
-	JobCompleted BMCJobConditionType = "Completed"
+	JobCompleted JobConditionType = "Completed"
 	// JobFailed represents failure in BMC job execution.
-	JobFailed BMCJobConditionType = "Failed"
+	JobFailed JobConditionType = "Failed"
 	// JobRunning represents a currently executing BMC job.
-	JobRunning BMCJobConditionType = "Running"
+	JobRunning JobConditionType = "Running"
 )
 
 // PowerAction represents the power control operation on the baseboard management.
@@ -46,8 +46,8 @@ const (
 	Status       PowerAction = "status"
 )
 
-// BMCJobSpec defines the desired state of BMCJob
-type BMCJobSpec struct {
+// JobSpec defines the desired state of BMCJob
+type JobSpec struct {
 	// BaseboardManagementRef represents the BaseboardManagement resource to execute the job.
 	// All the tasks in the job are executed for the same BaseboardManagement.
 	BaseboardManagementRef BaseboardManagementRef `json:"baseboardManagementRef"`
@@ -56,14 +56,14 @@ type BMCJobSpec struct {
 	// The tasks are executed sequentially. Controller waits for one task to complete before executing the next.
 	// If a single task fails, job execution stops and sets condition Failed.
 	// Condition Completed is set only if all the tasks were successful.
-	Tasks []Task `json:"tasks"`
+	Tasks []Action `json:"tasks"`
 }
 
-// BMCJobStatus defines the observed state of BMCJob
-type BMCJobStatus struct {
+// JobStatus defines the observed state of BMCJob
+type JobStatus struct {
 	// Conditions represents the latest available observations of an object's current state.
 	// +optional
-	Conditions []BMCJobCondition `json:"conditions,omitempty"`
+	Conditions []JobCondition `json:"conditions,omitempty"`
 
 	// StartTime represents time when the BMCJob controller started processing a job.
 	// +optional
@@ -75,9 +75,9 @@ type BMCJobStatus struct {
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
-type BMCJobCondition struct {
+type JobCondition struct {
 	// Type of the BMCJob condition.
-	Type BMCJobConditionType `json:"type"`
+	Type JobConditionType `json:"type"`
 
 	// Status is the status of the BMCJob condition.
 	// Can be True or False.
@@ -89,27 +89,27 @@ type BMCJobCondition struct {
 }
 
 // +kubebuilder:object:generate=false
-type BMCJobSetConditionOption func(*BMCJobCondition)
+type JobSetConditionOption func(*JobCondition)
 
 // SetCondition applies the cType condition to bmj. If the condition already exists,
 // it is updated.
-func (bmj *BMCJob) SetCondition(cType BMCJobConditionType, status ConditionStatus, opts ...BMCJobSetConditionOption) {
-	var condition *BMCJobCondition
+func (j *Job) SetCondition(cType JobConditionType, status ConditionStatus, opts ...JobSetConditionOption) {
+	var condition *JobCondition
 
 	// Check if there's an existing condition.
-	for i, c := range bmj.Status.Conditions {
+	for i, c := range j.Status.Conditions {
 		if c.Type == cType {
-			condition = &bmj.Status.Conditions[i]
+			condition = &j.Status.Conditions[i]
 			break
 		}
 	}
 
 	// We didn't find an existing condition so create a new one and append it.
 	if condition == nil {
-		bmj.Status.Conditions = append(bmj.Status.Conditions, BMCJobCondition{
+		j.Status.Conditions = append(j.Status.Conditions, JobCondition{
 			Type: cType,
 		})
-		condition = &bmj.Status.Conditions[len(bmj.Status.Conditions)-1]
+		condition = &j.Status.Conditions[len(j.Status.Conditions)-1]
 	}
 
 	condition.Status = status
@@ -119,15 +119,15 @@ func (bmj *BMCJob) SetCondition(cType BMCJobConditionType, status ConditionStatu
 }
 
 // WithJobConditionMessage sets message m to the BMCJobCondition.
-func WithJobConditionMessage(m string) BMCJobSetConditionOption {
-	return func(c *BMCJobCondition) {
+func WithJobConditionMessage(m string) JobSetConditionOption {
+	return func(c *JobCondition) {
 		c.Message = m
 	}
 }
 
 // HasCondition checks if the cType condition is present with status cStatus on a bmj.
-func (bmj *BMCJob) HasCondition(cType BMCJobConditionType, cStatus ConditionStatus) bool {
-	for _, c := range bmj.Status.Conditions {
+func (j *Job) HasCondition(cType JobConditionType, cStatus ConditionStatus) bool {
+	for _, c := range j.Status.Conditions {
 		if c.Type == cType {
 			return c.Status == cStatus
 		}
@@ -137,32 +137,32 @@ func (bmj *BMCJob) HasCondition(cType BMCJobConditionType, cStatus ConditionStat
 }
 
 // FormatTaskName returns a BMCTask name based on BMCJob name.
-func FormatTaskName(job BMCJob, n int) string {
+func FormatTaskName(job Job, n int) string {
 	return fmt.Sprintf("%s-task-%d", job.Name, n)
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:path=bmcjobs,scope=Namespaced,categories=tinkerbell,singular=bmcjob,shortName=bmj
+//+kubebuilder:resource:path=jobs,scope=Namespaced,categories=tinkerbell,singular=job,shortName=j
 
-// BMCJob is the Schema for the bmcjobs API
-type BMCJob struct {
+// Job is the Schema for the bmcjobs API
+type Job struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BMCJobSpec   `json:"spec,omitempty"`
-	Status BMCJobStatus `json:"status,omitempty"`
+	Spec   JobSpec   `json:"spec,omitempty"`
+	Status JobStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// BMCJobList contains a list of BMCJob
-type BMCJobList struct {
+// JobList contains a list of BMCJob
+type JobList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []BMCJob `json:"items"`
+	Items           []Job `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&BMCJob{}, &BMCJobList{})
+	SchemeBuilder.Register(&Job{}, &JobList{})
 }

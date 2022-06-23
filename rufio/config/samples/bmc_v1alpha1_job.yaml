@@ -1,7 +1,7 @@
 apiVersion: bmc.tinkerbell.org/v1alpha1
-kind: BMCJob
+kind: Job
 metadata:
-  name: bmcjob-sample
+  name: job-sample
 spec:
   baseboardManagementRef:
     name: baseboardmanagement-sample
