@@ -46,7 +46,7 @@ const (
 	Status       PowerAction = "status"
 )
 
-// JobSpec defines the desired state of BMCJob
+// JobSpec defines the desired state of Job
 type JobSpec struct {
 	// MachineRef represents the Machine resource to execute the job.
 	// All the tasks in the job are executed for the same Machine.
@@ -59,13 +59,13 @@ type JobSpec struct {
 	Tasks []Action `json:"tasks"`
 }
 
-// JobStatus defines the observed state of BMCJob
+// JobStatus defines the observed state of Job
 type JobStatus struct {
 	// Conditions represents the latest available observations of an object's current state.
 	// +optional
 	Conditions []JobCondition `json:"conditions,omitempty"`
 
-	// StartTime represents time when the BMCJob controller started processing a job.
+	// StartTime represents time when the Job controller started processing a job.
 	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 
@@ -76,10 +76,10 @@ type JobStatus struct {
 }
 
 type JobCondition struct {
-	// Type of the BMCJob condition.
+	// Type of the Job condition.
 	Type JobConditionType `json:"type"`
 
-	// Status is the status of the BMCJob condition.
+	// Status is the status of the Job condition.
 	// Can be True or False.
 	Status ConditionStatus `json:"status"`
 
@@ -118,7 +118,7 @@ func (j *Job) SetCondition(cType JobConditionType, status ConditionStatus, opts 
 	}
 }
 
-// WithJobConditionMessage sets message m to the BMCJobCondition.
+// WithJobConditionMessage sets message m to the JobCondition.
 func WithJobConditionMessage(m string) JobSetConditionOption {
 	return func(c *JobCondition) {
 		c.Message = m
@@ -136,7 +136,7 @@ func (j *Job) HasCondition(cType JobConditionType, cStatus ConditionStatus) bool
 	return false
 }
 
-// FormatTaskName returns a BMCTask name based on BMCJob name.
+// FormatTaskName returns a Task name based on Job name.
 func FormatTaskName(job Job, n int) string {
 	return fmt.Sprintf("%s-task-%d", job.Name, n)
 }
@@ -156,7 +156,7 @@ type Job struct {
 
 //+kubebuilder:object:root=true
 
-// JobList contains a list of BMCJob
+// JobList contains a list of Job
 type JobList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -30,7 +30,7 @@ const (
 	TaskFailed TaskConditionType = "Failed"
 )
 
-// TaskSpec defines the desired state of BMCTask
+// TaskSpec defines the desired state of Task
 type TaskSpec struct {
 	// Task defines the specific action to be performed.
 	Task Action `json:"task"`
@@ -64,13 +64,13 @@ type OneTimeBootDeviceAction struct {
 	EFIBoot bool `json:"efiBoot,omitempty"`
 }
 
-// TaskStatus defines the observed state of BMCTask
+// TaskStatus defines the observed state of Task
 type TaskStatus struct {
 	// Conditions represents the latest available observations of an object's current state.
 	// +optional
 	Conditions []TaskCondition `json:"conditions,omitempty"`
 
-	// StartTime represents time when the BMCTask started processing.
+	// StartTime represents time when the Task started processing.
 	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 
@@ -81,10 +81,10 @@ type TaskStatus struct {
 }
 
 type TaskCondition struct {
-	// Type of the BMCTask condition.
+	// Type of the Task condition.
 	Type TaskConditionType `json:"type"`
 
-	// Status is the status of the BMCTask condition.
+	// Status is the status of the Task condition.
 	// Can be True or False.
 	Status ConditionStatus `json:"status"`
 
@@ -123,7 +123,7 @@ func (t *Task) SetCondition(cType TaskConditionType, status ConditionStatus, opt
 	}
 }
 
-// WithTaskConditionMessage sets message m to the BMCTaskCondition.
+// WithTaskConditionMessage sets message m to the TaskCondition.
 func WithTaskConditionMessage(m string) TaskSetConditionOption {
 	return func(c *TaskCondition) {
 		c.Message = m
@@ -156,7 +156,7 @@ type Task struct {
 
 //+kubebuilder:object:root=true
 
-// TaskList contains a list of BMCTask
+// TaskList contains a list of Task
 type TaskList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

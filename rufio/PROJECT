@@ -19,7 +19,7 @@ resources:
   controller: true
   domain: tinkerbell.org
   group: bmc
-  kind: BMCJob
+  kind: Job
   path: github.com/tinkerbell/rufio/api/v1alpha1
   version: v1alpha1
 - api:
@@ -28,7 +28,7 @@ resources:
   controller: true
   domain: tinkerbell.org
   group: bmc
-  kind: BMCTask
+  kind: Task
   path: github.com/tinkerbell/rufio/api/v1alpha1
   version: v1alpha1
 version: "3"

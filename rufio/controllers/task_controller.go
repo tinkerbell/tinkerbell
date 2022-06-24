@@ -30,16 +30,16 @@ import (
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 )
 
-// BMCTaskReconciler reconciles a BMCTask object
-type BMCTaskReconciler struct {
+// TaskReconciler reconciles a Task object
+type TaskReconciler struct {
 	client           client.Client
 	bmcClientFactory BMCClientFactoryFunc
 	logger           logr.Logger
 }
 
-// NewBMCTaskReconciler returns a new BMCTaskReconciler
-func NewBMCTaskReconciler(client client.Client, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *BMCTaskReconciler {
-	return &BMCTaskReconciler{
+// NewTaskReconciler returns a new TaskReconciler
+func NewTaskReconciler(client client.Client, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *TaskReconciler {
+	return &TaskReconciler{
 		client:           client,
 		bmcClientFactory: bmcClientFactory,
 		logger:           logger,
@@ -50,14 +50,14 @@ func NewBMCTaskReconciler(client client.Client, bmcClientFactory BMCClientFactor
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=tasks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=tasks/finalizers,verbs=update
 
-// Reconcile runs a BMCTask.
+// Reconcile runs a Task.
 // Establishes a connection to the BMC.
 // Runs the specified action in the Task.
-func (r *BMCTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.logger.WithValues("BMCTask", req.NamespacedName)
-	logger.Info("Reconciling BMCTask")
+func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := r.logger.WithValues("Task", req.NamespacedName)
+	logger.Info("Reconciling Task")
 
-	// Fetch the BMCTask object
+	// Fetch the Task object
 	bmcTask := &bmcv1alpha1.Task{}
 	err := r.client.Get(ctx, req.NamespacedName, bmcTask)
 	if err != nil {
@@ -65,7 +65,7 @@ func (r *BMCTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, nil
 		}
 
-		logger.Error(err, "Failed to get BMCTask")
+		logger.Error(err, "Failed to get Task")
 		return ctrl.Result{}, err
 	}
 
@@ -80,19 +80,19 @@ func (r *BMCTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	// Create a patch from the initial BMCTask object
+	// Create a patch from the initial Task object
 	// Patch is used to update Status after reconciliation
 	bmcTaskPatch := client.MergeFrom(bmcTask.DeepCopy())
 
 	return r.reconcile(ctx, bmcTask, bmcTaskPatch, logger)
 }
 
-func (r *BMCTaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.Task, bmcTaskPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
+func (r *TaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.Task, bmcTaskPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	// Fetching username, password from SecretReference in Connection.
 	// Requeue if error fetching secret
 	username, password, err := resolveAuthSecretRef(ctx, r.client, bmcTask.Spec.Connection.AuthSecretRef)
 	if err != nil {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving Connection SecretReference for BMCTask %s/%s: %v", bmcTask.Namespace, bmcTask.Name, err)
+		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving Connection SecretReference for Task %s/%s: %v", bmcTask.Namespace, bmcTask.Name, err)
 	}
 
 	// Initializing BMC Client
@@ -133,7 +133,7 @@ func (r *BMCTaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.
 			return ctrl.Result{}, timeOutErr
 		}
 
-		result, err := r.checkBMCTaskStatus(ctx, bmcTask.Spec.Task, bmcClient)
+		result, err := r.checkTaskStatus(ctx, bmcTask.Spec.Task, bmcClient)
 		if err != nil {
 			return result, fmt.Errorf("bmc task status check: %s", err)
 		}
@@ -157,8 +157,8 @@ func (r *BMCTaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.
 	// Set the Task StartTime
 	now := metav1.Now()
 	bmcTask.Status.StartTime = &now
-	// run the specified Task in BMCTask
-	if err := r.runBMCTask(ctx, bmcTask.Spec.Task, bmcClient); err != nil {
+	// run the specified Task in Task
+	if err := r.runTask(ctx, bmcTask.Spec.Task, bmcClient); err != nil {
 		// Set Task Condition Failed True
 		bmcTask.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(err.Error()))
 		patchErr := r.patchStatus(ctx, bmcTask, bmcTaskPatch)
@@ -176,8 +176,8 @@ func (r *BMCTaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.
 	return ctrl.Result{}, nil
 }
 
-// runBMCTask executes the defined Task in a BMCTask
-func (r *BMCTaskReconciler) runBMCTask(ctx context.Context, task bmcv1alpha1.Action, bmcClient BMCClient) error {
+// runTask executes the defined Task in a Task
+func (r *TaskReconciler) runTask(ctx context.Context, task bmcv1alpha1.Action, bmcClient BMCClient) error {
 	if task.PowerAction != nil {
 		_, err := bmcClient.SetPowerState(ctx, string(*task.PowerAction))
 		if err != nil {
@@ -197,9 +197,9 @@ func (r *BMCTaskReconciler) runBMCTask(ctx context.Context, task bmcv1alpha1.Act
 	return nil
 }
 
-// checkBMCTaskStatus checks if Task action completed.
+// checkTaskStatus checks if Task action completed.
 // This is currently limited only to a few PowerAction types.
-func (r *BMCTaskReconciler) checkBMCTaskStatus(ctx context.Context, task bmcv1alpha1.Action, bmcClient BMCClient) (ctrl.Result, error) {
+func (r *TaskReconciler) checkTaskStatus(ctx context.Context, task bmcv1alpha1.Action, bmcClient BMCClient) (ctrl.Result, error) {
 	// TODO(pokearu): Extend to all actions.
 	if task.PowerAction != nil {
 		powerStatus, err := bmcClient.GetPowerState(ctx)
@@ -223,18 +223,18 @@ func (r *BMCTaskReconciler) checkBMCTaskStatus(ctx context.Context, task bmcv1al
 	return ctrl.Result{}, nil
 }
 
-// patchStatus patches the specified patch on the BMCTask.
-func (r *BMCTaskReconciler) patchStatus(ctx context.Context, bmcTask *bmcv1alpha1.Task, patch client.Patch) error {
+// patchStatus patches the specified patch on the Task.
+func (r *TaskReconciler) patchStatus(ctx context.Context, bmcTask *bmcv1alpha1.Task, patch client.Patch) error {
 	err := r.client.Status().Patch(ctx, bmcTask, patch)
 	if err != nil {
-		return fmt.Errorf("failed to patch BMCTask %s/%s status: %v", bmcTask.Namespace, bmcTask.Name, err)
+		return fmt.Errorf("failed to patch Task %s/%s status: %v", bmcTask.Namespace, bmcTask.Name, err)
 	}
 
 	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BMCTaskReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *TaskReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&bmcv1alpha1.Task{}).
 		Complete(r)
