@@ -37,7 +37,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: JobSpec defines the desired state of BMCJob
+            description: JobSpec defines the desired state of Job
             properties:
               machineRef:
                 description: MachineRef represents the Machine resource to execute
@@ -107,7 +107,7 @@ spec:
             - tasks
             type: object
           status:
-            description: JobStatus defines the observed state of BMCJob
+            description: JobStatus defines the observed state of Job
             properties:
               completionTime:
                 description: CompletionTime represents time when the job was completed.
@@ -124,11 +124,11 @@ spec:
                         details about last transition.
                       type: string
                     status:
-                      description: Status is the status of the BMCJob condition. Can
+                      description: Status is the status of the Job condition. Can
                         be True or False.
                       type: string
                     type:
-                      description: Type of the BMCJob condition.
+                      description: Type of the Job condition.
                       type: string
                   required:
                   - status
@@ -136,7 +136,7 @@ spec:
                   type: object
                 type: array
               startTime:
-                description: StartTime represents time when the BMCJob controller
+                description: StartTime represents time when the Job controller
                   started processing a job.
                 format: date-time
                 type: string
