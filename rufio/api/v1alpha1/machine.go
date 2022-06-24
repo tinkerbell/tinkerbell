@@ -149,15 +149,6 @@ func WithMachineConditionMessage(m string) MachineSetConditionOption {
 	}
 }
 
-// MachineRef defines the reference information to a Machine resource.
-type MachineRef struct {
-	// Name is unique within a namespace to reference a Machine resource.
-	Name string `json:"name"`
-
-	// Namespace defines the space within which the Machine name must be unique.
-	Namespace string `json:"namespace"`
-}
-
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=machines,scope=Namespaced,categories=tinkerbell,singular=machine,shortName=bm

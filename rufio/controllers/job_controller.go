@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -170,9 +171,9 @@ func (r *JobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.Job, bmj
 }
 
 // getMachine Gets the Machine from MachineRef
-func (r *JobReconciler) getMachine(ctx context.Context, bmRef bmcv1alpha1.MachineRef, bm *bmcv1alpha1.Machine) error {
-	key := types.NamespacedName{Namespace: bmRef.Namespace, Name: bmRef.Name}
-	err := r.client.Get(ctx, key, bm)
+func (r *JobReconciler) getMachine(ctx context.Context, reference corev1.ObjectReference, machine *bmcv1alpha1.Machine) error {
+	key := types.NamespacedName{Namespace: reference.Namespace, Name: reference.Name}
+	err := r.client.Get(ctx, key, machine)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return fmt.Errorf("Machine %s not found: %v", key, err)
