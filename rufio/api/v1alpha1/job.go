@@ -47,6 +47,12 @@ const (
 	Status       PowerAction = "status"
 )
 
+// Pointer provides an easy way to retrieve the power action as a pointer for use in job
+// tasks.
+func (p PowerAction) Pointer() *PowerAction {
+	return &p
+}
+
 // JobSpec defines the desired state of Job
 type JobSpec struct {
 	// MachineRef represents the Machine resource to execute the job.

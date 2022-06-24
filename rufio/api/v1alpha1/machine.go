@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// PowerState represents power state the Machine.
+// PowerState represents power state of a Machine.
 type PowerState string
 
 const (
