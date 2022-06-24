@@ -56,6 +56,8 @@ type JobSpec struct {
 	// The tasks are executed sequentially. Controller waits for one task to complete before executing the next.
 	// If a single task fails, job execution stops and sets condition Failed.
 	// Condition Completed is set only if all the tasks were successful.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:UniqueItems=false
 	Tasks []Action `json:"tasks"`
 }
 

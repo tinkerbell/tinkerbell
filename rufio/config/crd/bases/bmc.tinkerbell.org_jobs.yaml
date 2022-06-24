@@ -101,6 +101,7 @@ spec:
                       - reset
                       type: string
                   type: object
+                minItems: 1
                 type: array
             required:
             - machineRef
@@ -136,8 +137,8 @@ spec:
                   type: object
                 type: array
               startTime:
-                description: StartTime represents time when the Job controller
-                  started processing a job.
+                description: StartTime represents time when the Job controller started
+                  processing a job.
                 format: date-time
                 type: string
             type: object
