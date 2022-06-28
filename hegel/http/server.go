@@ -31,8 +31,14 @@ func Serve(
 	logger.Info("in the http serve func")
 	var mux http.ServeMux
 	mux.Handle("/metrics", promhttp.Handler())
-	mux.Handle("/_packet/healthcheck", HealthCheckHandler(logger, client, start))
-	mux.Handle("/_packet/version", VersionHandler(logger))
+
+	healthCheckHandler := HealthCheckHandler(logger, client, start)
+	mux.Handle("/_packet/healthcheck", healthCheckHandler) // deprecated
+	mux.Handle("/healthz", healthCheckHandler)
+
+	versionHandler := VersionHandler(logger)
+	mux.Handle("/_packet/version", versionHandler) // deprecated
+	mux.Handle("/versionz", versionHandler)
 
 	ec2MetadataHandler := otelhttp.WithRouteTag("/2009-04-04", EC2MetadataHandler(logger, client))
 	mux.Handle("/2009-04-04/", ec2MetadataHandler)
