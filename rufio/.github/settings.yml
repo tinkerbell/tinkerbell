@@ -8,6 +8,8 @@ collaborators:
     permission: maintain
   - username: jacobweinstock
     permission: maintain
+  - username: pokearu
+    permission: maintain
   # Approvers
   - username: joelrebel
     permission: push

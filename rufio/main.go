@@ -79,14 +79,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if kubeNamespace == "" {
-		namespace, _, err := ccfg.Namespace()
-		if err != nil {
-			setupLog.Error(err, "unable to get client config namespace")
-			os.Exit(1)
-		}
-		kubeNamespace = namespace
-	}
 	setupLog.Info("Watching objects in namespace for reconciliation", "namespace", kubeNamespace)
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
