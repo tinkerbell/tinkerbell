@@ -122,6 +122,7 @@ spec:
                       - reset
                       type: string
                   type: object
+                minItems: 1
                 type: array
             required:
             - machineRef
