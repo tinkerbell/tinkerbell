@@ -20,17 +20,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TaskConditionType represents the condition of the BMC Task.
+// TaskConditionType represents the condition type on for Tasks.
 type TaskConditionType string
 
 const (
-	// TaskCompleted represents successful completion of the BMC Task.
+	// TaskCompleted represents successful completion of the Task.
 	TaskCompleted TaskConditionType = "Completed"
-	// TaskFailed represents failure in BMC task execution.
+	// TaskFailed represents failure in Task execution.
 	TaskFailed TaskConditionType = "Failed"
 )
 
-// TaskSpec defines the desired state of Task
+// TaskSpec defines the desired state of Task.
 type TaskSpec struct {
 	// Task defines the specific action to be performed.
 	Task Action `json:"task"`
@@ -52,15 +52,13 @@ type Action struct {
 	OneTimeBootDeviceAction *OneTimeBootDeviceAction `json:"oneTimeBootDeviceAction,omitempty"`
 }
 
+// OnTimeBootDeviceAction represents a baseboard management one time set boot device operation.
 type OneTimeBootDeviceAction struct {
 	// Devices represents the boot devices, in order for setting one time boot.
 	// Currently only the first device in the slice is used to set one time boot.
 	Devices []BootDevice `json:"device"`
 
 	// EFIBoot specifies to EFI boot for the baseboard management.
-	// When true, enables options=efiboot while setting the boot device.
-	// If false, no options are passed.
-	// +kubebuilder:default=false
 	EFIBoot bool `json:"efiBoot,omitempty"`
 }
 
@@ -145,7 +143,7 @@ func (t *Task) HasCondition(cType TaskConditionType, cStatus ConditionStatus) bo
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=tasks,scope=Namespaced,categories=tinkerbell,singular=task,shortName=t
 
-// Task is the Schema for the bmctasks API
+// Task is the Schema for the Task API.
 type Task struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

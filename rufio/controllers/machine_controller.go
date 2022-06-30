@@ -34,25 +34,6 @@ import (
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 )
 
-// BMCClient represents a baseboard management controller client.
-// It defines a set of methods to connect and interact with a BMC.
-type BMCClient interface {
-	// Close ends the connection with the bmc.
-	Close(ctx context.Context) error
-	// GetPowerState fetches the current power status of the bmc.
-	GetPowerState(ctx context.Context) (string, error)
-	// SetPowerState power controls the bmc to the input power state.
-	SetPowerState(ctx context.Context, state string) (bool, error)
-	// SetBootDevice sets the boot device on the bmc.
-	// Currently this sets the first boot device.
-	// setPersistent, if true will set the boot device permanently. If false, sets one time boot.
-	// efiBoot, if true passes efiboot options while setting boot device.
-	SetBootDevice(ctx context.Context, bootDevice string, setPersistent, efiBoot bool) (bool, error)
-}
-
-// BMCClientFactoryFunc defines a func that returns a BMCClient
-type BMCClientFactoryFunc func(ctx context.Context, hostIP, port, username, password string) (BMCClient, error)
-
 // MachineReconciler reconciles a Machine object
 type MachineReconciler struct {
 	client           client.Client

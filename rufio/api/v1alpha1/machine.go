@@ -24,19 +24,13 @@ import (
 // PowerState represents power state the Machine.
 type PowerState string
 
-// BootDevice represents boot device of the Machine.
-type BootDevice string
-
-// MachineConditionType represents the condition of the Machine.
-type MachineConditionType string
-
-// ConditionStatus represents the status of a Condition.
-type ConditionStatus string
-
 const (
 	On  PowerState = "on"
 	Off PowerState = "off"
 )
+
+// BootDevice represents boot device of the Machine.
+type BootDevice string
 
 const (
 	PXE   BootDevice = "pxe"
@@ -46,23 +40,29 @@ const (
 	Safe  BootDevice = "safe"
 )
 
+// MachineConditionType represents the condition of the Machine.
+type MachineConditionType string
+
 const (
 	// Contactable defines that a connection can be made to the Machine.
 	Contactable MachineConditionType = "Contactable"
 )
+
+// ConditionStatus represents the status of a Condition.
+type ConditionStatus string
 
 const (
 	ConditionTrue  ConditionStatus = "True"
 	ConditionFalse ConditionStatus = "False"
 )
 
-// MachineSpec defines the desired state of Machine
+// MachineSpec defines desired machine state
 type MachineSpec struct {
-
-	// Connection represents the Machine connectivity information.
+	// Connection contains connection data for a Baseboard Management Controller.
 	Connection Connection `json:"connection"`
 }
 
+// Connection contains connection data for a Baseboard Management Controller.
 type Connection struct {
 	// Host is the host IP address or hostname of the Machine.
 	// +kubebuilder:validation:MinLength=1
@@ -92,18 +92,18 @@ type MachineStatus struct {
 	Conditions []MachineCondition `json:"conditions,omitempty"`
 }
 
+// MachineCondition defines an observed condition of a Machine.
 type MachineCondition struct {
 	// Type of the Machine condition.
 	Type MachineConditionType `json:"type"`
 
-	// Status is the status of the Machine condition.
-	// Can be True or False.
+	// Status of the condition.
 	Status ConditionStatus `json:"status"`
 
-	// Last time the Machine condition was updated.
+	// LastUpdateTime of the condition.
 	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
 
-	// Message represents human readable message indicating details about last transition.
+	// Message is a human readable message indicating with details of the last transition.
 	// +optional
 	Message string `json:"message,omitempty"`
 }
@@ -151,7 +151,7 @@ func WithMachineConditionMessage(m string) MachineSetConditionOption {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:path=machines,scope=Namespaced,categories=tinkerbell,singular=machine,shortName=bm
+//+kubebuilder:resource:path=machines,scope=Namespaced,categories=tinkerbell,singular=machine
 
 // Machine is the Schema for the machines API
 type Machine struct {
@@ -164,7 +164,7 @@ type Machine struct {
 
 //+kubebuilder:object:root=true
 
-// MachineList contains a list of Machine
+// MachineList contains a list of Machines.
 type MachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
