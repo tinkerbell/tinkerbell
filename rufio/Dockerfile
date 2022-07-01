@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.18 as builder
+FROM golang:1.18 AS builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -17,10 +17,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
 
 FROM alpine:3.15
 
+# Install ipmitool required by the third party BMC lib.
 RUN apk add --upgrade ipmitool=1.8.18-r10
 
-WORKDIR /
 COPY --from=builder /workspace/manager .
-USER 65532:65532
 
+USER 65532:65532
 ENTRYPOINT ["/manager"]
