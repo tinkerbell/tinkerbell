@@ -79,7 +79,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=ref,event=branch,enable=${{ startsWith(github.ref, 'refs/heads/main') != true }}
+            type=ref,event=branch,enable=${{ !startsWith(github.ref, 'refs/heads/main') }}
             type=ref,event=pr
             type=sha
 
