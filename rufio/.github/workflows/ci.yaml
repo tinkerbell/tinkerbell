@@ -54,7 +54,6 @@ jobs:
     needs:
       - verify
       - test
-      - build
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
