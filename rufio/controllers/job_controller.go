@@ -62,9 +62,9 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	logger := r.logger.WithValues("Job", req.NamespacedName)
 	logger.Info("Reconciling Job")
 
-	// Fetch the bmcJob object
-	bmcJob := &bmcv1alpha1.Job{}
-	err := r.client.Get(ctx, req.NamespacedName, bmcJob)
+	// Fetch the job object
+	job := &bmcv1alpha1.Job{}
+	err := r.client.Get(ctx, req.NamespacedName, job)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -75,46 +75,46 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Deletion is a noop.
-	if !bmcJob.DeletionTimestamp.IsZero() {
+	if !job.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
 	// Job is Completed or Failed is noop.
-	if bmcJob.HasCondition(bmcv1alpha1.JobCompleted, bmcv1alpha1.ConditionTrue) ||
-		bmcJob.HasCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue) {
+	if job.HasCondition(bmcv1alpha1.JobCompleted, bmcv1alpha1.ConditionTrue) ||
+		job.HasCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue) {
 		return ctrl.Result{}, nil
 	}
 
 	// Create a patch from the initial Job object
 	// Patch is used to update Status after reconciliation
-	bmcJobPatch := client.MergeFrom(bmcJob.DeepCopy())
+	jobPatch := client.MergeFrom(job.DeepCopy())
 
-	return r.reconcile(ctx, bmcJob, bmcJobPatch, logger)
+	return r.reconcile(ctx, job, jobPatch, logger)
 }
 
-func (r *JobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.Job, bmjPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
+func (r *JobReconciler) reconcile(ctx context.Context, job *bmcv1alpha1.Job, jobPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	// Check if Job is not currently Running
 	// Initialize the StartTime for the Job
 	// Set the Job to Running condition True
-	if !bmj.HasCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue) {
+	if !job.HasCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue) {
 		now := metav1.Now()
-		bmj.Status.StartTime = &now
-		bmj.SetCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue)
+		job.Status.StartTime = &now
+		job.SetCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue)
 	}
 
 	// Get Machine object for the Job
 	// Requeue if error
 	machine := &bmcv1alpha1.Machine{}
-	err := r.getMachine(ctx, bmj.Spec.MachineRef, machine)
+	err := r.getMachine(ctx, job.Spec.MachineRef, machine)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("get Job %s/%s MachineRef: %v", bmj.Namespace, bmj.Name, err)
+		return ctrl.Result{}, fmt.Errorf("get Job %s/%s MachineRef: %v", job.Namespace, job.Name, err)
 	}
 
 	// List all Task owned by Job
-	bmcTasks := &bmcv1alpha1.TaskList{}
-	err = r.client.List(ctx, bmcTasks, client.MatchingFields{jobOwnerKey: bmj.Name})
+	tasks := &bmcv1alpha1.TaskList{}
+	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: job.Name})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s", bmj.Namespace, bmj.Name)
+		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s", job.Namespace, job.Name)
 	}
 
 	completedTasksCount := 0
@@ -122,7 +122,7 @@ func (r *JobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.Job, bmj
 	// Count the number of completed tasks.
 	// Set the Job condition Failed True if Task has failed.
 	// If the Task has neither Completed or Failed is noop.
-	for _, task := range bmcTasks.Items {
+	for _, task := range tasks.Items {
 		if task.HasCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue) {
 			completedTasksCount += 1
 			continue
@@ -130,8 +130,8 @@ func (r *JobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.Job, bmj
 
 		if task.HasCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue) {
 			err := fmt.Errorf("Task %s/%s failed", task.Namespace, task.Name)
-			bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(err.Error()))
-			patchErr := r.patchStatus(ctx, bmj, bmjPatch)
+			job.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(err.Error()))
+			patchErr := r.patchStatus(ctx, job, jobPatch)
 			if patchErr != nil {
 				return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
 			}
@@ -145,19 +145,19 @@ func (r *JobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.Job, bmj
 	// Check if all Job tasks have Completed
 	// Set the Task CompletionTime
 	// Set Task Condition Completed True
-	if completedTasksCount == len(bmj.Spec.Tasks) {
-		bmj.SetCondition(bmcv1alpha1.JobCompleted, bmcv1alpha1.ConditionTrue)
+	if completedTasksCount == len(job.Spec.Tasks) {
+		job.SetCondition(bmcv1alpha1.JobCompleted, bmcv1alpha1.ConditionTrue)
 		now := metav1.Now()
-		bmj.Status.CompletionTime = &now
-		err = r.patchStatus(ctx, bmj, bmjPatch)
+		job.Status.CompletionTime = &now
+		err = r.patchStatus(ctx, job, jobPatch)
 		return ctrl.Result{}, err
 	}
 
 	// Create the first Task for the Job
-	if err := r.createTaskWithOwner(ctx, *bmj, completedTasksCount, machine.Spec.Connection); err != nil {
+	if err := r.createTaskWithOwner(ctx, *job, completedTasksCount, machine.Spec.Connection); err != nil {
 		// Set the Job condition Failed True
-		bmj.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(err.Error()))
-		patchErr := r.patchStatus(ctx, bmj, bmjPatch)
+		job.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(err.Error()))
+		patchErr := r.patchStatus(ctx, job, jobPatch)
 		if patchErr != nil {
 			return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
 		}
@@ -166,7 +166,7 @@ func (r *JobReconciler) reconcile(ctx context.Context, bmj *bmcv1alpha1.Job, bmj
 	}
 
 	// Patch the status at the end of reconcile loop
-	err = r.patchStatus(ctx, bmj, bmjPatch)
+	err = r.patchStatus(ctx, job, jobPatch)
 	return ctrl.Result{}, err
 }
 
@@ -185,41 +185,41 @@ func (r *JobReconciler) getMachine(ctx context.Context, reference corev1.ObjectR
 }
 
 // createTaskWithOwner creates a Task object with an OwnerReference set to the Job
-func (r *JobReconciler) createTaskWithOwner(ctx context.Context, bmj bmcv1alpha1.Job, taskIndex int, conn bmcv1alpha1.Connection) error {
+func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmcv1alpha1.Job, taskIndex int, conn bmcv1alpha1.Connection) error {
 	isController := true
-	bmcTask := &bmcv1alpha1.Task{
+	task := &bmcv1alpha1.Task{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      bmcv1alpha1.FormatTaskName(bmj, taskIndex),
-			Namespace: bmj.Namespace,
+			Name:      bmcv1alpha1.FormatTaskName(job, taskIndex),
+			Namespace: job.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: bmj.APIVersion,
-					Kind:       bmj.Kind,
-					Name:       bmj.Name,
-					UID:        bmj.ObjectMeta.UID,
+					APIVersion: job.APIVersion,
+					Kind:       job.Kind,
+					Name:       job.Name,
+					UID:        job.ObjectMeta.UID,
 					Controller: &isController,
 				},
 			},
 		},
 		Spec: bmcv1alpha1.TaskSpec{
-			Task:       bmj.Spec.Tasks[taskIndex],
+			Task:       job.Spec.Tasks[taskIndex],
 			Connection: conn,
 		},
 	}
 
-	err := r.client.Create(ctx, bmcTask)
+	err := r.client.Create(ctx, task)
 	if err != nil {
-		return fmt.Errorf("failed to create Task %s/%s: %v", bmcTask.Namespace, bmcTask.Name, err)
+		return fmt.Errorf("failed to create Task %s/%s: %v", task.Namespace, task.Name, err)
 	}
 
 	return nil
 }
 
 // patchStatus patches the specified patch on the Job.
-func (r *JobReconciler) patchStatus(ctx context.Context, bmj *bmcv1alpha1.Job, patch client.Patch) error {
-	err := r.client.Status().Patch(ctx, bmj, patch)
+func (r *JobReconciler) patchStatus(ctx context.Context, job *bmcv1alpha1.Job, patch client.Patch) error {
+	err := r.client.Status().Patch(ctx, job, patch)
 	if err != nil {
-		return fmt.Errorf("failed to patch Job %s/%s status: %v", bmj.Namespace, bmj.Name, err)
+		return fmt.Errorf("failed to patch Job %s/%s status: %v", job.Namespace, job.Name, err)
 	}
 
 	return nil
@@ -231,7 +231,7 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 		ctx,
 		&bmcv1alpha1.Task{},
 		jobOwnerKey,
-		bmcTaskOwnerIndexFunc,
+		taskOwnerIndexFunc,
 	); err != nil {
 		return err
 	}
@@ -247,8 +247,8 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 		Complete(r)
 }
 
-// bmcTaskOwnerIndexFunc is Indexer func which returns the owner name for obj.
-func bmcTaskOwnerIndexFunc(obj client.Object) []string {
+// taskOwnerIndexFunc is Indexer func which returns the owner name for obj.
+func taskOwnerIndexFunc(obj client.Object) []string {
 	task, ok := obj.(*bmcv1alpha1.Task)
 	if !ok {
 		return nil

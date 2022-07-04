@@ -58,8 +58,8 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	logger.Info("Reconciling Task")
 
 	// Fetch the Task object
-	bmcTask := &bmcv1alpha1.Task{}
-	err := r.client.Get(ctx, req.NamespacedName, bmcTask)
+	task := &bmcv1alpha1.Task{}
+	err := r.client.Get(ctx, req.NamespacedName, task)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -70,37 +70,37 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	// Deletion is a noop.
-	if !bmcTask.DeletionTimestamp.IsZero() {
+	if !task.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
 	// Task is Completed or Failed is noop.
-	if bmcTask.HasCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue) ||
-		bmcTask.HasCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue) {
+	if task.HasCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue) ||
+		task.HasCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue) {
 		return ctrl.Result{}, nil
 	}
 
 	// Create a patch from the initial Task object
 	// Patch is used to update Status after reconciliation
-	bmcTaskPatch := client.MergeFrom(bmcTask.DeepCopy())
+	taskPatch := client.MergeFrom(task.DeepCopy())
 
-	return r.reconcile(ctx, bmcTask, bmcTaskPatch, logger)
+	return r.reconcile(ctx, task, taskPatch, logger)
 }
 
-func (r *TaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.Task, bmcTaskPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
+func (r *TaskReconciler) reconcile(ctx context.Context, task *bmcv1alpha1.Task, taskPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	// Fetching username, password from SecretReference in Connection.
 	// Requeue if error fetching secret
-	username, password, err := resolveAuthSecretRef(ctx, r.client, bmcTask.Spec.Connection.AuthSecretRef)
+	username, password, err := resolveAuthSecretRef(ctx, r.client, task.Spec.Connection.AuthSecretRef)
 	if err != nil {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving Connection SecretReference for Task %s/%s: %v", bmcTask.Namespace, bmcTask.Name, err)
+		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving Connection SecretReference for Task %s/%s: %v", task.Namespace, task.Name, err)
 	}
 
 	// Initializing BMC Client
-	bmcClient, err := r.bmcClientFactory(ctx, bmcTask.Spec.Connection.Host, strconv.Itoa(bmcTask.Spec.Connection.Port), username, password)
+	bmcClient, err := r.bmcClientFactory(ctx, task.Spec.Connection.Host, strconv.Itoa(task.Spec.Connection.Port), username, password)
 	if err != nil {
-		logger.Error(err, "BMC connection failed", "host", bmcTask.Spec.Connection.Host)
-		bmcTask.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
-		patchErr := r.patchStatus(ctx, bmcTask, bmcTaskPatch)
+		logger.Error(err, "BMC connection failed", "host", task.Spec.Connection.Host)
+		task.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
+		patchErr := r.patchStatus(ctx, task, taskPatch)
 		if patchErr != nil {
 			return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
 		}
@@ -112,20 +112,20 @@ func (r *TaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.Tas
 		// Close BMC connection after reconcilation
 		err = bmcClient.Close(ctx)
 		if err != nil {
-			logger.Error(err, "BMC close connection failed", "host", bmcTask.Spec.Connection.Host)
+			logger.Error(err, "BMC close connection failed", "host", task.Spec.Connection.Host)
 		}
 	}()
 
 	// Task has StartTime, we check the status.
 	// Requeue if actions did not complete.
-	if !bmcTask.Status.StartTime.IsZero() {
-		jobRunningTime := time.Since(bmcTask.Status.StartTime.Time)
+	if !task.Status.StartTime.IsZero() {
+		jobRunningTime := time.Since(task.Status.StartTime.Time)
 		// TODO(pokearu): add timeout for tasks on API spec
 		if jobRunningTime >= 3*time.Minute {
 			timeOutErr := fmt.Errorf("bmc task timeout: %d", jobRunningTime)
 			// Set Task Condition Failed True
-			bmcTask.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(timeOutErr.Error()))
-			patchErr := r.patchStatus(ctx, bmcTask, bmcTaskPatch)
+			task.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(timeOutErr.Error()))
+			patchErr := r.patchStatus(ctx, task, taskPatch)
 			if patchErr != nil {
 				return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, timeOutErr})
 			}
@@ -133,7 +133,7 @@ func (r *TaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.Tas
 			return ctrl.Result{}, timeOutErr
 		}
 
-		result, err := r.checkTaskStatus(ctx, bmcTask.Spec.Task, bmcClient)
+		result, err := r.checkTaskStatus(ctx, task.Spec.Task, bmcClient)
 		if err != nil {
 			return result, fmt.Errorf("bmc task status check: %s", err)
 		}
@@ -144,10 +144,10 @@ func (r *TaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.Tas
 
 		// Set the Task CompletionTime
 		now := metav1.Now()
-		bmcTask.Status.CompletionTime = &now
+		task.Status.CompletionTime = &now
 		// Set Task Condition Completed True
-		bmcTask.SetCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue)
-		if err := r.patchStatus(ctx, bmcTask, bmcTaskPatch); err != nil {
+		task.SetCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue)
+		if err := r.patchStatus(ctx, task, taskPatch); err != nil {
 			return result, err
 		}
 
@@ -156,12 +156,12 @@ func (r *TaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.Tas
 
 	// Set the Task StartTime
 	now := metav1.Now()
-	bmcTask.Status.StartTime = &now
+	task.Status.StartTime = &now
 	// run the specified Task in Task
-	if err := r.runTask(ctx, bmcTask.Spec.Task, bmcClient); err != nil {
+	if err := r.runTask(ctx, task.Spec.Task, bmcClient); err != nil {
 		// Set Task Condition Failed True
-		bmcTask.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(err.Error()))
-		patchErr := r.patchStatus(ctx, bmcTask, bmcTaskPatch)
+		task.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(err.Error()))
+		patchErr := r.patchStatus(ctx, task, taskPatch)
 		if patchErr != nil {
 			return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
 		}
@@ -169,7 +169,7 @@ func (r *TaskReconciler) reconcile(ctx context.Context, bmcTask *bmcv1alpha1.Tas
 		return ctrl.Result{}, err
 	}
 
-	if err := r.patchStatus(ctx, bmcTask, bmcTaskPatch); err != nil {
+	if err := r.patchStatus(ctx, task, taskPatch); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -224,10 +224,10 @@ func (r *TaskReconciler) checkTaskStatus(ctx context.Context, task bmcv1alpha1.A
 }
 
 // patchStatus patches the specified patch on the Task.
-func (r *TaskReconciler) patchStatus(ctx context.Context, bmcTask *bmcv1alpha1.Task, patch client.Patch) error {
-	err := r.client.Status().Patch(ctx, bmcTask, patch)
+func (r *TaskReconciler) patchStatus(ctx context.Context, task *bmcv1alpha1.Task, patch client.Patch) error {
+	err := r.client.Status().Patch(ctx, task, patch)
 	if err != nil {
-		return fmt.Errorf("failed to patch Task %s/%s status: %v", bmcTask.Namespace, bmcTask.Name, err)
+		return fmt.Errorf("failed to patch Task %s/%s status: %v", task.Namespace, task.Name, err)
 	}
 
 	return nil

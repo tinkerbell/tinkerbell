@@ -22,7 +22,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Task is the Schema for the bmctasks API
+        description: Task is the Schema for the Task API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -37,7 +37,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: TaskSpec defines the desired state of Task
+            description: TaskSpec defines the desired state of Task.
             properties:
               connection:
                 description: Connection represents the Machine connectivity information.
@@ -90,10 +90,8 @@ spec:
                           type: string
                         type: array
                       efiBoot:
-                        default: false
                         description: EFIBoot specifies to EFI boot for the baseboard
-                          management. When true, enables options=efiboot while setting
-                          the boot device. If false, no options are passed.
+                          management.
                         type: boolean
                     required:
                     - device

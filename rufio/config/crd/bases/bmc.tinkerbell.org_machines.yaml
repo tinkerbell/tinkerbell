@@ -14,8 +14,6 @@ spec:
     kind: Machine
     listKind: MachineList
     plural: machines
-    shortNames:
-    - bm
     singular: machine
   scope: Namespaced
   versions:
@@ -37,10 +35,11 @@ spec:
           metadata:
             type: object
           spec:
-            description: MachineSpec defines the desired state of Machine
+            description: MachineSpec defines desired machine state
             properties:
               connection:
-                description: Connection represents the Machine connectivity information.
+                description: Connection contains connection data for a Baseboard Management
+                  Controller.
                 properties:
                   authSecretRef:
                     description: AuthSecretRef is the SecretReference that contains
@@ -83,18 +82,19 @@ spec:
                 description: Conditions represents the latest available observations
                   of an object's current state.
                 items:
+                  description: MachineCondition defines an observed condition of a
+                    Machine.
                   properties:
                     lastUpdateTime:
-                      description: Last time the Machine condition was updated.
+                      description: LastUpdateTime of the condition.
                       format: date-time
                       type: string
                     message:
-                      description: Message represents human readable message indicating
-                        details about last transition.
+                      description: Message is a human readable message indicating
+                        with details of the last transition.
                       type: string
                     status:
-                      description: Status is the status of the Machine condition.
-                        Can be True or False.
+                      description: Status of the condition.
                       type: string
                     type:
                       description: Type of the Machine condition.
