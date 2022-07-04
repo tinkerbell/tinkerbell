@@ -75,6 +75,7 @@ jobs:
         with:
           images: quay.io/tinkerbell/rufio
           tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=pr
             type=sha
 
