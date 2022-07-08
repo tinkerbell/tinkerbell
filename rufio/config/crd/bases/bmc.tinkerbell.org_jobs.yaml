@@ -102,8 +102,7 @@ spec:
                             type: string
                           type: array
                         efiBoot:
-                          description: EFIBoot specifies to EFI boot for the baseboard
-                            management.
+                          description: EFIBoot instructs the machine to use EFI boot.
                           type: boolean
                       required:
                       - device

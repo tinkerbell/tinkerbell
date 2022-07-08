@@ -38,24 +38,24 @@ func TestTaskReconciler_ReconcilePower(t *testing.T) {
 		"HardOff": {
 			configureClientCalls: func(expect *mocks.MockBMCClientMockRecorder) {
 				gomock.InOrder(
-					expect.SetPowerState(gomock.Any(), string(v1alpha1.HardPowerOff)).Return(true, nil),
+					expect.SetPowerState(gomock.Any(), string(v1alpha1.PowerHardOff)).Return(true, nil),
 					expect.Close(gomock.Any()).Return(nil),
 					expect.GetPowerState(gomock.Any()).Return("off", nil),
 					expect.Close(gomock.Any()).Return(nil),
 				)
 			},
-			action: v1alpha1.Action{PowerAction: v1alpha1.HardPowerOff.Ptr()},
+			action: v1alpha1.Action{PowerAction: v1alpha1.PowerHardOff.Ptr()},
 		},
 		"SoftOff": {
 			configureClientCalls: func(expect *mocks.MockBMCClientMockRecorder) {
 				gomock.InOrder(
-					expect.SetPowerState(gomock.Any(), string(v1alpha1.SoftPowerOff)).Return(true, nil),
+					expect.SetPowerState(gomock.Any(), string(v1alpha1.PowerSoftOff)).Return(true, nil),
 					expect.Close(gomock.Any()).Return(nil),
 					expect.GetPowerState(gomock.Any()).Return("off", nil),
 					expect.Close(gomock.Any()).Return(nil),
 				)
 			},
-			action: v1alpha1.Action{PowerAction: v1alpha1.SoftPowerOff.Ptr()},
+			action: v1alpha1.Action{PowerAction: v1alpha1.PowerSoftOff.Ptr()},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

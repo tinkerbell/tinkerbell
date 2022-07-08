@@ -210,7 +210,7 @@ func (r *TaskReconciler) checkTaskStatus(ctx context.Context, task bmcv1alpha1.A
 			if bmcv1alpha1.On != bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
 				return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
 			}
-		case bmcv1alpha1.HardPowerOff, bmcv1alpha1.SoftPowerOff:
+		case bmcv1alpha1.PowerHardOff, bmcv1alpha1.PowerSoftOff:
 			if bmcv1alpha1.Off != bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
 				return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
 			}

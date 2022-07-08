@@ -29,17 +29,6 @@ const (
 	Off PowerState = "off"
 )
 
-// BootDevice represents boot device of the Machine.
-type BootDevice string
-
-const (
-	PXE   BootDevice = "pxe"
-	Disk  BootDevice = "disk"
-	BIOS  BootDevice = "bios"
-	CDROM BootDevice = "cdrom"
-	Safe  BootDevice = "safe"
-)
-
 // MachineConditionType represents the condition of the Machine.
 type MachineConditionType string
 
