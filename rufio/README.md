@@ -8,31 +8,23 @@
 
 ## Description
 
-**R**ufio
-**U**ses
-**F**ancy
-**I**PMI
+**R**ufio 
+**U**ses 
+**F**ancy 
+**I**PMI 
 **O**perations
 
-Rufio is a Kubernetes controller for managing baseboard management state and actions.
+Rufio is a Kubernetes controller for managing baseboard management controllers in a Tinkerbell context.
 
-Goals:
+### Goals
 
-* Declaratively enforce and ensure BMC state such as:
-  * Power state
-  * Persistent boot order
-  * NTP/LDAP/TLS Cert configuration (probably future scope)
- * Declaratively enact actions such as:
-   *  Power reset
-   * Configure ephemeral boot order
-* Report state such as:
-  * Firmware version
-  * Other Redfish/Swordfish machine metadata
+* Provide baseboard management controller operations necessary for bare metal provisioning.
+* Provide insight into baseboard management information that is useful in bare metal provisioning contexts.
+* Integrate seamlessly with the Kubernetes capable components of Tinkerbell.
 
-Implementation
-* Kubernetes-based controller
-* AuthN/Z is enforced with Kubernetes Authentication/RBAC
-* BMC authentication is managed with Kubernetes Secrets
+### Non-goals
+
+* Providing non-provisioning related baseboard management controller capabilities.
 
 ## Contributing
 
