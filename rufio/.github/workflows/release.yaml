@@ -31,28 +31,25 @@ jobs:
           tags: |
             type=sha
 
-      - name: Docker manager metadata
+      - name: Generate docker tags
         id: meta
         uses: docker/metadata-action@v4
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: latest=false
           tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
 
-      # TODO(chrisdoherty4) The meta action generates Docker tags with a 7 character short sha.
-      # We need to figure out a way to generate that
-      - name: Push image
+      - name: Tag and push image
         uses: akhilerm/tag-push-action@v2.0.0
         with:
           src: ${{ steps.src.outputs.tags }}
           dst: |
             ${{ steps.meta.outputs.tags }}
 
-      - name: Generate Release Notes
+      - name: Generate release notes
         run: |
           release_notes=$(gh api repos/{owner}/{repo}/releases/generate-notes -F tag_name=${{ github.ref }} --jq .body)
           echo 'RELEASE_NOTES<<EOF' >> $GITHUB_ENV
@@ -63,7 +60,7 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           REPO: ${{ github.event.repository.name }}
 
-      - name: Create Release
+      - name: Create release
         id: create_release
         uses: actions/create-release@v1
         env:
