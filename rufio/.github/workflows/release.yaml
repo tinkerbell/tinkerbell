@@ -12,6 +12,46 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Login to quay.io
+        uses: docker/login-action@v1
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      # This action generates the source image name and should coincide with the build
+      # from the ci.yaml workflow.
+      - name: Generate source image
+        id: src
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: latest=false
+          tags: |
+            type=sha
+
+      - name: Docker manager metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: latest=false
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      # TODO(chrisdoherty4) The meta action generates Docker tags with a 7 character short sha.
+      # We need to figure out a way to generate that
+      - name: Push image
+        uses: akhilerm/tag-push-action@v2.0.0
+        with:
+          src: ${{ steps.src.outputs.tags }}
+          dst: |
+            ${{ steps.meta.outputs.tags }}
+
       - name: Generate Release Notes
         run: |
           release_notes=$(gh api repos/{owner}/{repo}/releases/generate-notes -F tag_name=${{ github.ref }} --jq .body)
@@ -22,25 +62,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OWNER: ${{ github.repository_owner }}
           REPO: ${{ github.event.repository.name }}
-
-      - name: Docker manager metadata
-        id: meta
-        uses: docker/metadata-action@v3
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: latest=false
-          tags: type=ref,event=tag
-
-      - name: Set the from image tag
-        run: echo "FROM_TAG=sha-${GITHUB_SHA::8}" >> $GITHUB_ENV
-
-      - name: Copy the image using skopeo
-        run: skopeo copy --all --dest-creds="${DST_REG_USER}":"${DST_REG_PASS}" docker://"${SRC_IMAGE}" docker://"${DST_IMAGE}"
-        env:
-          SRC_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.FROM_TAG }}
-          DST_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
-          DST_REG_USER: ${{ secrets.QUAY_USERNAME }}
-          DST_REG_PASS: ${{ secrets.QUAY_PASSWORD }}
 
       - name: Create Release
         id: create_release
