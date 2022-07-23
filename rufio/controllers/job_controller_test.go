@@ -78,8 +78,6 @@ func TestJobReconciler_UnknownMachine(t *testing.T) {
 }
 
 func TestJobReconciler_Reconcile(t *testing.T) {
-	machine := createMachine()
-	secret := createSecret()
 
 	for name, action := range map[string]bmcv1alpha1.Action{
 		"PowerAction": {PowerAction: bmcv1alpha1.PowerOn.Pointer()},
@@ -93,15 +91,12 @@ func TestJobReconciler_Reconcile(t *testing.T) {
 			g := gomega.NewWithT(t)
 			logger := mustCreateLogr(t.Name())
 
-			// We use a fake client with reduced capabilities so always create a new one.
-			builder := createKubeClientBuilder()
-			builder.WithObjects(machine, secret)
-			kubeClient := builder.Build()
-
+			machine := createMachine()
+			secret := createSecret()
 			job := createJob(name, machine)
 			job.Spec.Tasks = append(job.Spec.Tasks, action)
-			err := kubeClient.Create(context.Background(), job)
-			g.Expect(err).To(gomega.Succeed())
+
+			cluster := createKubeClientWithObjects(machine, secret, job)
 
 			request := reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -110,15 +105,13 @@ func TestJobReconciler_Reconcile(t *testing.T) {
 				},
 			}
 
-			// Create the reconciler and trigger initial reconciliation.
-			reconciler := controllers.NewJobReconciler(kubeClient, logger)
+			reconciler := controllers.NewJobReconciler(cluster, logger)
 			result, err := reconciler.Reconcile(context.Background(), request)
 			g.Expect(err).To(gomega.Succeed())
 			g.Expect(result).To(gomega.Equal(reconcile.Result{}))
 
-			// Ensure the job successfully reconciled and appropriate tasks exist.
 			var retrieved1 bmcv1alpha1.Job
-			err = kubeClient.Get(context.Background(), request.NamespacedName, &retrieved1)
+			err = cluster.Get(context.Background(), request.NamespacedName, &retrieved1)
 			g.Expect(err).To(gomega.Succeed())
 			g.Expect(retrieved1.Status.StartTime.Unix()).To(gomega.BeNumerically("~", time.Now().Unix(), 10))
 			g.Expect(retrieved1.Status.CompletionTime.IsZero()).To(gomega.BeTrue())
@@ -131,7 +124,7 @@ func TestJobReconciler_Reconcile(t *testing.T) {
 				Namespace: job.Namespace,
 				Name:      bmcv1alpha1.FormatTaskName(*job, 0),
 			}
-			err = kubeClient.Get(context.Background(), taskKey, &task)
+			err = cluster.Get(context.Background(), taskKey, &task)
 			g.Expect(err).To(gomega.Succeed())
 			g.Expect(task.Spec.Task).To(gomega.BeEquivalentTo(job.Spec.Tasks[0]))
 			g.Expect(task.OwnerReferences).To(gomega.HaveLen(1))
@@ -144,7 +137,7 @@ func TestJobReconciler_Reconcile(t *testing.T) {
 			g.Expect(result).To(gomega.Equal(reconcile.Result{}))
 
 			var retrieved2 bmcv1alpha1.Job
-			err = kubeClient.Get(context.Background(), request.NamespacedName, &retrieved2)
+			err = cluster.Get(context.Background(), request.NamespacedName, &retrieved2)
 			g.Expect(err).To(gomega.Succeed())
 			g.Expect(retrieved2).To(gomega.BeEquivalentTo(retrieved1))
 		})

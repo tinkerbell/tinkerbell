@@ -154,7 +154,6 @@ func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
 	err = (controllers.NewTaskReconciler(
 		mgr.GetClient(),
 		controllers.NewBMCClientFactoryFunc(ctx),
-		ctrl.Log.WithName("controller").WithName("Task"),
 	)).SetupWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Task")

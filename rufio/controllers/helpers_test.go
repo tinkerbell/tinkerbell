@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -26,6 +27,13 @@ func createKubeClientBuilder() *fake.ClientBuilder {
 
 	return fake.NewClientBuilder().
 		WithScheme(scheme)
+}
+
+// createKubeClientWithObjects creates a kubernetes client with the given objects.
+func createKubeClientWithObjects(objects ...client.Object) client.WithWatch {
+	return createKubeClientBuilder().
+		WithObjects(objects...).
+		Build()
 }
 
 // mustCreateLogr creates a logr.Logger implementation backed by a debug style sink. It panics
