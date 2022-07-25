@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.18 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.18 AS builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -13,7 +13,7 @@ RUN go mod download
 COPY ./ ./
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -o manager main.go
 
 FROM alpine:3.15
 
