@@ -80,7 +80,7 @@ func TestJobReconciler_UnknownMachine(t *testing.T) {
 func TestJobReconciler_Reconcile(t *testing.T) {
 
 	for name, action := range map[string]bmcv1alpha1.Action{
-		"PowerAction": {PowerAction: bmcv1alpha1.PowerOn.Pointer()},
+		"PowerAction": {PowerAction: bmcv1alpha1.PowerOn.Ptr()},
 		"OneTimeBootDeviceAction": {
 			OneTimeBootDeviceAction: &bmcv1alpha1.OneTimeBootDeviceAction{
 				Devices: []bmcv1alpha1.BootDevice{bmcv1alpha1.PXE},

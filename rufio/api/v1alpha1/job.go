@@ -47,9 +47,9 @@ const (
 	Status       PowerAction = "status"
 )
 
-// Pointer provides an easy way to retrieve the power action as a pointer for use in job
-// tasks.
-func (p PowerAction) Pointer() *PowerAction {
+// Ptr provides an easy way to retrieve the power action as a pointer avoiding the need to define an
+// addressable variable for
+func (p PowerAction) Ptr() *PowerAction {
 	return &p
 }
 

@@ -33,7 +33,7 @@ func TestTaskReconciler_ReconcilePower(t *testing.T) {
 					expect.Close(gomock.Any()).Return(nil),
 				)
 			},
-			action: v1alpha1.Action{PowerAction: v1alpha1.PowerOn.Pointer()},
+			action: v1alpha1.Action{PowerAction: v1alpha1.PowerOn.Ptr()},
 		},
 		"HardOff": {
 			configureClientCalls: func(expect *mocks.MockBMCClientMockRecorder) {
@@ -44,7 +44,7 @@ func TestTaskReconciler_ReconcilePower(t *testing.T) {
 					expect.Close(gomock.Any()).Return(nil),
 				)
 			},
-			action: v1alpha1.Action{PowerAction: v1alpha1.HardPowerOff.Pointer()},
+			action: v1alpha1.Action{PowerAction: v1alpha1.HardPowerOff.Ptr()},
 		},
 		"SoftOff": {
 			configureClientCalls: func(expect *mocks.MockBMCClientMockRecorder) {
@@ -55,7 +55,7 @@ func TestTaskReconciler_ReconcilePower(t *testing.T) {
 					expect.Close(gomock.Any()).Return(nil),
 				)
 			},
-			action: v1alpha1.Action{PowerAction: v1alpha1.SoftPowerOff.Pointer()},
+			action: v1alpha1.Action{PowerAction: v1alpha1.SoftPowerOff.Ptr()},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -244,7 +244,7 @@ func TestTaskReconciler_BMCClientErrors(t *testing.T) {
 					expect.Close(gomock.Any()).Return(nil),
 				)
 			},
-			action: v1alpha1.Action{PowerAction: v1alpha1.PowerOn.Pointer()},
+			action: v1alpha1.Action{PowerAction: v1alpha1.PowerOn.Ptr()},
 		},
 		"BootDevice": {
 			configureClientCalls: func(expect *mocks.MockBMCClientMockRecorder) {
@@ -302,7 +302,7 @@ func TestTaskReconciler_Timeout(t *testing.T) {
 	ctx = ctrl.LoggerInto(ctx, logger)
 
 	secret := createSecret()
-	task := createTask("task", v1alpha1.Action{PowerAction: v1alpha1.PowerOn.Pointer()}, secret)
+	task := createTask("task", v1alpha1.Action{PowerAction: v1alpha1.PowerOn.Ptr()}, secret)
 	cluster := createKubeClientWithObjects(task, secret)
 
 	bmc := mocks.NewMockBMCClient(gomock.NewController(t))
