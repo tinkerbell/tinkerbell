@@ -187,7 +187,7 @@ func FromK8sTinkHardware(tinkHardware *tinkv1alpha1.Hardware) *K8sHardware {
 			},
 		},
 	}
-
+	// appending all hardware IPs to the array of Addresses within the Network sub-struct
 	for _, ip := range tinkHardware.Spec.Metadata.Instance.Ips {
 		hw.Metadata.Instance.Network.Addresses = append(
 			hw.Metadata.Instance.Network.Addresses,
@@ -199,6 +199,31 @@ func FromK8sTinkHardware(tinkHardware *tinkv1alpha1.Hardware) *K8sHardware {
 		)
 	}
 
+	// appending all disk devices to the array of Disks within the Metadata struct
+	for _, disk := range tinkHardware.Spec.Disks {
+		hw.Metadata.Instance.Disks = append(
+			hw.Metadata.Instance.Disks,
+			K8sHardwareDisk{
+				Device: disk.Device,
+			},
+		)
+	}
+
+	// appending all network interface info to the array of interfaces within the Metadata sub-struct
+	for _, networkInterface := range tinkHardware.Spec.Interfaces {
+		if networkInterface.DHCP != nil {
+			hw.Metadata.Gateway = networkInterface.DHCP.IP.Gateway
+			hw.Metadata.Interfaces = append(
+				hw.Metadata.Interfaces,
+				K8sNetworkInterface{
+					MAC:     networkInterface.DHCP.MAC,
+					Address: networkInterface.DHCP.IP.Address,
+					Family:  networkInterface.DHCP.IP.Family,
+					Netmask: networkInterface.DHCP.IP.Netmask,
+				},
+			)
+		}
+	}
 	return hw
 }
 
@@ -221,9 +246,21 @@ func (h K8sHardware) ID() (string, error) {
 type K8sHardwareMetadata struct {
 	Userdata *string                     `json:"userdata,omitempty"`
 	Instance K8sHardwareMetadataInstance `json:"instance,omitempty"`
+	//+optional
+	Interfaces []K8sNetworkInterface `json:"interfaces,omitempty"`
+	Gateway    string                `json:"gateway,omitempty"`
+}
+
+type K8sNetworkInterface struct {
+	//+optional
+	MAC     string `json:"mac,omitempty"`
+	Address string `json:"address,omitempty"`
+	Netmask string `json:"netmask,omitempty"`
+	Family  int64  `json:"family,omitempty"`
 }
 
 type K8sHardwareMetadataInstance struct {
+	Disks           []K8sHardwareDisk                          `json:"disks,omitempty"`
 	ID              string                                     `json:"id,omitempty"`
 	Hostname        string                                     `json:"hostname,omitempty"`
 	Plan            string                                     `json:"plan,omitempty"`
@@ -249,4 +286,9 @@ type K8sHardwareMetadataInstanceNetworkAddress struct {
 	AddressFamily int64  `json:"address_family,omitempty"`
 	Address       string `json:"address,omitempty"`
 	Public        bool   `json:"public,omitempty"`
+}
+
+type K8sHardwareDisk struct {
+	//+optional
+	Device string `json:"device,omitempty"`
 }
