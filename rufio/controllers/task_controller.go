@@ -30,19 +30,19 @@ import (
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 )
 
+const powerActionRequeueAfter = 3 * time.Second
+
 // TaskReconciler reconciles a Task object
 type TaskReconciler struct {
 	client           client.Client
 	bmcClientFactory BMCClientFactoryFunc
-	logger           logr.Logger
 }
 
 // NewTaskReconciler returns a new TaskReconciler
-func NewTaskReconciler(client client.Client, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *TaskReconciler {
+func NewTaskReconciler(client client.Client, bmcClientFactory BMCClientFactoryFunc) *TaskReconciler {
 	return &TaskReconciler{
 		client:           client,
 		bmcClientFactory: bmcClientFactory,
-		logger:           logger,
 	}
 }
 
@@ -54,13 +54,12 @@ func NewTaskReconciler(client client.Client, bmcClientFactory BMCClientFactoryFu
 // Establishes a connection to the BMC.
 // Runs the specified action in the Task.
 func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.logger.WithValues("Task", req.NamespacedName)
+	logger := ctrl.LoggerFrom(ctx)
 	logger.Info("Reconciling Task")
 
 	// Fetch the Task object
 	task := &bmcv1alpha1.Task{}
-	err := r.client.Get(ctx, req.NamespacedName, task)
-	if err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, task); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
@@ -92,7 +91,7 @@ func (r *TaskReconciler) reconcile(ctx context.Context, task *bmcv1alpha1.Task, 
 	// Requeue if error fetching secret
 	username, password, err := resolveAuthSecretRef(ctx, r.client, task.Spec.Connection.AuthSecretRef)
 	if err != nil {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving Connection SecretReference for Task %s/%s: %v", task.Namespace, task.Name, err)
+		return ctrl.Result{}, fmt.Errorf("resolving connection secret for task %s/%s: %v", task.Namespace, task.Name, err)
 	}
 
 	// Initializing BMC Client
@@ -110,8 +109,7 @@ func (r *TaskReconciler) reconcile(ctx context.Context, task *bmcv1alpha1.Task, 
 
 	defer func() {
 		// Close BMC connection after reconcilation
-		err = bmcClient.Close(ctx)
-		if err != nil {
+		if err := bmcClient.Close(ctx); err != nil {
 			logger.Error(err, "BMC close connection failed", "host", task.Spec.Connection.Host)
 		}
 	}()
@@ -210,11 +208,11 @@ func (r *TaskReconciler) checkTaskStatus(ctx context.Context, task bmcv1alpha1.A
 		switch *task.PowerAction {
 		case bmcv1alpha1.PowerOn:
 			if bmcv1alpha1.On != bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
-				return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+				return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
 			}
 		case bmcv1alpha1.HardPowerOff, bmcv1alpha1.SoftPowerOff:
 			if bmcv1alpha1.Off != bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
-				return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+				return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
 			}
 		}
 	}

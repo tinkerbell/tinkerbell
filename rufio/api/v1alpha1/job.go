@@ -47,6 +47,12 @@ const (
 	Status       PowerAction = "status"
 )
 
+// Ptr provides an easy way to retrieve the power action as a pointer avoiding the need to define an
+// addressable variable for
+func (p PowerAction) Ptr() *PowerAction {
+	return &p
+}
+
 // JobSpec defines the desired state of Job
 type JobSpec struct {
 	// MachineRef represents the Machine resource to execute the job.

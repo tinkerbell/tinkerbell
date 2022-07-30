@@ -28,8 +28,8 @@ func TestReconcileGetPowerStateSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockBMCClient := mocks.NewMockBMCClient(ctrl)
 
-	bm := getMachine()
-	authSecret := getSecret()
+	bm := createMachine()
+	authSecret := createSecret()
 
 	objs := []runtime.Object{bm, authSecret}
 	scheme := runtime.NewScheme()
@@ -68,7 +68,7 @@ func TestReconcileSecretReferenceError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockBMCClient := mocks.NewMockBMCClient(ctrl)
 
-	bm := getMachine()
+	bm := createMachine()
 
 	scheme := runtime.NewScheme()
 	_ = bmcv1alpha1.AddToScheme(scheme)
@@ -137,8 +137,8 @@ func TestReconcileConnectionError(t *testing.T) {
 
 	ctx := context.Background()
 
-	bm := getMachine()
-	authSecret := getSecret()
+	bm := createMachine()
+	authSecret := createSecret()
 
 	objs := []runtime.Object{bm, authSecret}
 	scheme := runtime.NewScheme()
@@ -173,8 +173,8 @@ func TestReconcileGetPowerStateError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockBMCClient := mocks.NewMockBMCClient(ctrl)
 
-	bm := getMachine()
-	authSecret := getSecret()
+	bm := createMachine()
+	authSecret := createSecret()
 
 	objs := []runtime.Object{bm, authSecret}
 	scheme := runtime.NewScheme()
@@ -221,7 +221,7 @@ func newMockBMCClientFactoryFuncError() controllers.BMCClientFactoryFunc {
 	}
 }
 
-func getMachine() *bmcv1alpha1.Machine {
+func createMachine() *bmcv1alpha1.Machine {
 	return &bmcv1alpha1.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-bm",
@@ -241,7 +241,7 @@ func getMachine() *bmcv1alpha1.Machine {
 	}
 }
 
-func getSecret() *corev1.Secret {
+func createSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
