@@ -87,3 +87,4 @@ jobs:
           cache-from: type=registry,ref=quay.io/tinkerbell/rufio:latest
           tags: ${{ steps.image-meta.outputs.tags }}
           platforms: linux/amd64,linux/arm64
+          push: ${{ startsWith(github.ref, 'refs/heads/main') }}
