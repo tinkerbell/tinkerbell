@@ -35,24 +35,6 @@ const (
 	JobRunning JobConditionType = "Running"
 )
 
-// PowerAction represents the power control operation on the baseboard management.
-type PowerAction string
-
-const (
-	PowerOn      PowerAction = "on"
-	HardPowerOff PowerAction = "off"
-	SoftPowerOff PowerAction = "soft"
-	Cycle        PowerAction = "cycle"
-	Reset        PowerAction = "reset"
-	Status       PowerAction = "status"
-)
-
-// Ptr provides an easy way to retrieve the power action as a pointer avoiding the need to define an
-// addressable variable for
-func (p PowerAction) Ptr() *PowerAction {
-	return &p
-}
-
 // JobSpec defines the desired state of Job
 type JobSpec struct {
 	// MachineRef represents the Machine resource to execute the job.

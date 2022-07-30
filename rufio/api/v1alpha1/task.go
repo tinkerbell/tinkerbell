@@ -52,16 +52,6 @@ type Action struct {
 	OneTimeBootDeviceAction *OneTimeBootDeviceAction `json:"oneTimeBootDeviceAction,omitempty"`
 }
 
-// OnTimeBootDeviceAction represents a baseboard management one time set boot device operation.
-type OneTimeBootDeviceAction struct {
-	// Devices represents the boot devices, in order for setting one time boot.
-	// Currently only the first device in the slice is used to set one time boot.
-	Devices []BootDevice `json:"device"`
-
-	// EFIBoot specifies to EFI boot for the baseboard management.
-	EFIBoot bool `json:"efiBoot,omitempty"`
-}
-
 // TaskStatus defines the observed state of Task
 type TaskStatus struct {
 	// Conditions represents the latest available observations of an object's current state.
