@@ -31,6 +31,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/tinkerbell/rufio/api/v1alpha1"
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 )
 
@@ -150,22 +151,18 @@ func (r *MachineReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.Machi
 
 // reconcilePower ensures the Machine Power is in the desired state.
 func (r *MachineReconciler) reconcilePower(ctx context.Context, bm *bmcv1alpha1.Machine, bmcClient BMCClient) error {
-	powerStatus, err := bmcClient.GetPowerState(ctx)
+	rawState, err := bmcClient.GetPowerState(ctx)
 	if err != nil {
-		r.recorder.Eventf(bm, corev1.EventTypeWarning, EventGetPowerStateFailed, "failed to get power state: %v", err)
-		return fmt.Errorf("failed to get power state: %v", err)
+		r.recorder.Eventf(bm, corev1.EventTypeWarning, EventGetPowerStateFailed, "get power state: %v", err)
+		return fmt.Errorf("get power state: %v", err)
 	}
 
-	// Update status to represent current power state
-	if strings.Contains(strings.ToLower(powerStatus), "chassis power is on") || strings.ToLower(powerStatus) == "on" {
-		powerStatus = "on"
-	} else if strings.Contains(strings.ToLower(powerStatus), "chassis power is off") || strings.ToLower(powerStatus) == "off" {
-		powerStatus = "off"
-	} else {
-		return fmt.Errorf("unexpected power status returned: %v", powerStatus)
+	state, err := convertRawBMCPowerState(rawState)
+	if err != nil {
+		return err
 	}
 
-	bm.Status.Power = bmcv1alpha1.PowerState(strings.ToLower(powerStatus))
+	bm.Status.Power = state
 
 	return nil
 }
@@ -178,6 +175,22 @@ func (r *MachineReconciler) patchStatus(ctx context.Context, bm *bmcv1alpha1.Mac
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// convertRawBMCPowerState takes a raw BMC power state response and attempts to convert it to
+// a PowerState.
+func convertRawBMCPowerState(response string) (v1alpha1.PowerState, error) {
+	// Normalize the response string for comparison.
+	response = strings.ToLower(response)
+
+	switch {
+	case strings.Contains(response, "on"):
+		return v1alpha1.On, nil
+	case strings.Contains(response, "off"):
+		return v1alpha1.Off, nil
+	}
+
+	return "", fmt.Errorf("unknown bmc power state: %v", response)
 }
 
 // resolveAuthSecretRef Gets the Secret from the SecretReference.
