@@ -892,7 +892,7 @@ func TestServe(t *testing.T) {
 	customEndpoints := `{"/metadata":".metadata.instance"}`
 
 	go func() {
-		if err := Serve(context.Background(), logger, mock.HardwareClient{}, &grpc.Server{}, mport, time.Now(), "", customEndpoints, ""); err != nil {
+		if err := Serve(context.Background(), logger, mock.HardwareClient{}, &grpc.Server{}, mport, time.Now(), "", customEndpoints, "", false); err != nil {
 			t.Errorf("Serve() error = %v", err)
 		}
 	}()

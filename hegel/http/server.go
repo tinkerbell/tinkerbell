@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -27,22 +28,30 @@ func Serve(
 	model datamodel.DataModel,
 	customEndpoints string,
 	unparsedProxies string,
+	hegelAPI bool,
 ) error {
 	logger.Info("in the http serve func")
 	var mux http.ServeMux
+	var httpHandler http.Handler
+
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/_packet/healthcheck", HealthCheckHandler(logger, client, start))
+	mux.Handle("/_packet/version", VersionHandler(logger))
 
-	healthCheckHandler := HealthCheckHandler(logger, client, start)
-	mux.Handle("/_packet/healthcheck", healthCheckHandler) // deprecated
-	mux.Handle("/healthz", healthCheckHandler)
+	if !hegelAPI {
+		ec2MetadataHandler := otelhttp.WithRouteTag("/2009-04-04", EC2MetadataHandler(logger, client))
+		mux.Handle("/2009-04-04/", ec2MetadataHandler)
+		mux.Handle("/2009-04-04", ec2MetadataHandler)
 
-	versionHandler := VersionHandler(logger)
-	mux.Handle("/_packet/version", versionHandler) // deprecated
-	mux.Handle("/versionz", versionHandler)
+		httpHandler = &mux
+	} else {
+		router := gin.Default()
+		router.RedirectTrailingSlash = true
+		v0 := router.Group("/v0")
+		v0HegelMetadataHandler(logger, client, v0)
 
-	ec2MetadataHandler := otelhttp.WithRouteTag("/2009-04-04", EC2MetadataHandler(logger, client))
-	mux.Handle("/2009-04-04/", ec2MetadataHandler)
-	mux.Handle("/2009-04-04", ec2MetadataHandler)
+		httpHandler = router
+	}
 
 	subscriptionHandler := otelhttp.WithRouteTag("/subscriptions", SubscriptionsHandler(grpcsrv, logger))
 	mux.Handle("/subscriptions/", subscriptionHandler)
@@ -55,7 +64,7 @@ func Serve(
 
 	// Add an X-Forward-For middleware for proxies.
 	proxies := xff.ParseTrustedProxies(unparsedProxies)
-	handler, err := xff.HTTPHandler(&mux, proxies)
+	handler, err := xff.HTTPHandler(httpHandler, proxies)
 	if err != nil {
 		return err
 	}
