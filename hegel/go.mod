@@ -20,7 +20,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.2
-	github.com/tinkerbell/tink v0.6.1-0.20220505200929-fee17e495019
+	github.com/tinkerbell/tink v0.6.1-0.20220816162948-cf88a1f3d71d
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.26.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.28.0
 	google.golang.org/grpc v1.42.0
@@ -76,7 +76,6 @@ require (
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/rollbar/rollbar-go v1.4.2 // indirect
-	github.com/smartystreets/assertions v1.0.0 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect

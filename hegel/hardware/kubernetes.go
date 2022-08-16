@@ -170,7 +170,8 @@ func FromK8sTinkHardware(tinkHardware *tinkv1alpha1.Hardware) *K8sHardware {
 	hw := &K8sHardware{
 		Hardware: tinkHardware,
 		Metadata: K8sHardwareMetadata{
-			Userdata: tinkHardware.Spec.UserData,
+			Userdata:   tinkHardware.Spec.UserData,
+			Vendordata: tinkHardware.Spec.VendorData,
 			Instance: K8sHardwareMetadataInstance{
 				ID:        tinkHardware.Spec.Metadata.Instance.ID,
 				Hostname:  tinkHardware.Spec.Metadata.Instance.Hostname,
@@ -244,8 +245,9 @@ func (h K8sHardware) ID() (string, error) {
 }
 
 type K8sHardwareMetadata struct {
-	Userdata *string                     `json:"userdata,omitempty"`
-	Instance K8sHardwareMetadataInstance `json:"instance,omitempty"`
+	Userdata   *string                     `json:"userdata,omitempty"`
+	Vendordata *string                     `json:"vendordata,omitempty"`
+	Instance   K8sHardwareMetadataInstance `json:"instance,omitempty"`
 	//+optional
 	Interfaces []K8sNetworkInterface `json:"interfaces,omitempty"`
 	Gateway    string                `json:"gateway,omitempty"`

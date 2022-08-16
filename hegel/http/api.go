@@ -24,6 +24,9 @@ func v0HegelMetadataHandler(logger log.Logger, client hardware.Client, rg *gin.R
 	userdata := rg.Group("/user-data")
 	userdata.GET("", userdataHandler(logger, client))
 
+	vendordata := rg.Group("/vendor-data")
+	vendordata.GET("", vendordataHandler(logger, client))
+
 	metadata := rg.Group("/meta-data")
 	metadata.GET("", metadataHandler(logger, client))
 
@@ -77,7 +80,25 @@ func userdataHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc 
 		if data == nil {
 			c.String(http.StatusOK, "")
 		} else {
-			c.String(http.StatusOK, *data)
+			c.String(http.StatusOK, *data+"\n")
+		}
+	}
+	return gin.HandlerFunc(fn)
+}
+
+func vendordataHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+	fn := func(c *gin.Context) {
+		hardwareData, err := getHardware(c, client, c.ClientIP())
+		if err != nil {
+			logger.With("error", err).Info("failed to get hardware in v0 metadata handler")
+			c.JSON(http.StatusNotFound, nil)
+			return
+		}
+		data := hardwareData.Metadata.Vendordata
+		if data == nil {
+			c.String(http.StatusOK, "")
+		} else {
+			c.String(http.StatusOK, *data+"\n")
 		}
 	}
 	return gin.HandlerFunc(fn)
@@ -105,7 +126,7 @@ func metadataHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc 
 			jsonResponse.Hostname = hardwareData.Metadata.Instance.Hostname
 			jsonResponse.SSHKeys = hardwareData.Metadata.Instance.SSHKeys
 			jsonResponse.Interfaces = hardwareData.Metadata.Interfaces
-			c.JSON(http.StatusOK, jsonResponse)
+			c.IndentedJSON(http.StatusOK, jsonResponse)
 		} else {
 			c.String(http.StatusOK, "disks\nssh-public-keys\ngateway\nhostname\n:mac\n")
 		}
@@ -145,8 +166,8 @@ func diskIndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc
 		}
 		disksArray := hardwareData.Metadata.Instance.Disks
 		if index >= 0 && index < len(disksArray) {
-			disk := hardwareData.Metadata.Instance.Disks[index]
-			c.JSON(http.StatusOK, disk)
+			disk := hardwareData.Metadata.Instance.Disks[index].Device
+			c.String(http.StatusOK, disk+"\n")
 		} else {
 			c.JSON(http.StatusBadRequest, nil)
 		}
@@ -187,7 +208,7 @@ func sshIndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc 
 		sshKeys := hardwareData.Metadata.Instance.SSHKeys
 		if index >= 0 && index < len(sshKeys) {
 			ssh := hardwareData.Metadata.Instance.SSHKeys[index]
-			c.String(http.StatusOK, ssh)
+			c.String(http.StatusOK, ssh+"\n")
 		} else {
 			c.String(http.StatusBadRequest, "")
 		}
@@ -204,7 +225,7 @@ func hostnameHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc 
 			return
 		}
 		hostname := hardwareData.Metadata.Instance.Hostname
-		c.String(http.StatusOK, hostname)
+		c.String(http.StatusOK, hostname+"\n")
 	}
 	return gin.HandlerFunc(fn)
 }
@@ -218,7 +239,7 @@ func gatewayHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 			return
 		}
 		gateway := hardwareData.Metadata.Gateway
-		c.String(http.StatusOK, gateway)
+		c.String(http.StatusOK, gateway+"\n")
 	}
 	return gin.HandlerFunc(fn)
 }
@@ -279,7 +300,7 @@ func ipv4IndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc
 			if len(ipv4Networks) == 0 {
 				c.String(http.StatusNoContent, "")
 			} else {
-				c.String(http.StatusOK, "ip\nnetmask")
+				c.String(http.StatusOK, "ip\nnetmask\n")
 			}
 		}
 	}
@@ -303,7 +324,7 @@ func ipv4IPHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 				c.String(http.StatusNoContent, "")
 			} else {
 				ip := ipv4Networks[index].Address
-				c.String(http.StatusOK, ip)
+				c.String(http.StatusOK, ip+"\n")
 			}
 		}
 	}
@@ -327,7 +348,7 @@ func ipv4NetmaskHandler(logger log.Logger, client hardware.Client) gin.HandlerFu
 				c.String(http.StatusNoContent, "")
 			} else {
 				netmask := ipv4Networks[index].Netmask
-				c.String(http.StatusOK, netmask)
+				c.String(http.StatusOK, netmask+"\n")
 			}
 		}
 	}
@@ -365,7 +386,7 @@ func ipv6IndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc
 			if len(ipv6Networks) == 0 {
 				c.String(http.StatusNoContent, "")
 			} else {
-				c.String(http.StatusOK, "ip\nnetmask")
+				c.String(http.StatusOK, "ip\nnetmask\n")
 			}
 		}
 	}
@@ -389,7 +410,7 @@ func ipv6IPHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 				c.String(http.StatusNoContent, "")
 			} else {
 				ip := ipv6Networks[index].Address
-				c.String(http.StatusOK, ip)
+				c.String(http.StatusOK, ip+"\n")
 			}
 		}
 	}
@@ -413,7 +434,7 @@ func ipv6NetmaskHandler(logger log.Logger, client hardware.Client) gin.HandlerFu
 				c.String(http.StatusNoContent, "")
 			} else {
 				netmask := ipv6Networks[index].Netmask
-				c.String(http.StatusOK, netmask)
+				c.String(http.StatusOK, netmask+"\n")
 			}
 		}
 	}
