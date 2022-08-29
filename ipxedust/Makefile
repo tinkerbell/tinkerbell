@@ -1,7 +1,7 @@
-OSFLAG:=$(shell go env GOHOSTOS)
-BINARY:=ipxe
-IPXE_BUILD_SCRIPT:=binary/script/build_ipxe.sh
-IPXE_NIX_SHELL:=binary/script/shell.nix
+OSFLAG := $(shell go env GOHOSTOS)
+BINARY := ipxe
+IPXE_BUILD_SCRIPT := binary/script/build_ipxe.sh
+IPXE_NIX_SHELL := binary/script/shell.nix
 
 help: ## show this help message
 	@grep -E '^[a-zA-Z_-]+.*:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}'
