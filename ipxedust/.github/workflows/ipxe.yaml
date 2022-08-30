@@ -17,4 +17,4 @@ jobs:
       - name: Build iPXE
         env:
           GITHUB_TOKEN: ${{ secrets.Token }}
-        run: (cd binary/; ./script/build_and_pr.sh)
+        run: (cd binary/; MAKEFLAGS=-j$(nproc) ./script/build_and_pr.sh)
