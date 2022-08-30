@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/imdario/mergo"
-	"github.com/pin/tftp"
+	"github.com/pin/tftp/v3"
 	"github.com/tinkerbell/ipxedust/ihttp"
 	"github.com/tinkerbell/ipxedust/itftp"
 	"golang.org/x/sync/errgroup"

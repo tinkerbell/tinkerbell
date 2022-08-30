@@ -12,7 +12,7 @@ require (
 	github.com/imdario/mergo v0.3.12
 	github.com/peterbourgon/ff/v3 v3.1.2
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
-	github.com/pin/tftp v0.0.0-20210809155059-0161c5dd2e96
+	github.com/pin/tftp/v3 v3.0.0
 	github.com/rs/zerolog v1.26.0
 	go.opentelemetry.io/otel v1.3.0
 	go.opentelemetry.io/otel/trace v1.3.0
@@ -27,7 +27,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
-	github.com/stretchr/objx v0.2.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.3.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.3.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.3.0 // indirect
