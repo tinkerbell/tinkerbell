@@ -17,7 +17,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -200,18 +199,23 @@ func (r *TaskReconciler) runTask(ctx context.Context, task bmcv1alpha1.Action, b
 func (r *TaskReconciler) checkTaskStatus(ctx context.Context, task bmcv1alpha1.Action, bmcClient BMCClient) (ctrl.Result, error) {
 	// TODO(pokearu): Extend to all actions.
 	if task.PowerAction != nil {
-		powerStatus, err := bmcClient.GetPowerState(ctx)
+		rawState, err := bmcClient.GetPowerState(ctx)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to get power state: %v", err)
 		}
 
+		state, err := convertRawBMCPowerState(rawState)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
 		switch *task.PowerAction {
 		case bmcv1alpha1.PowerOn:
-			if bmcv1alpha1.On != bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
+			if bmcv1alpha1.On != state {
 				return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
 			}
 		case bmcv1alpha1.PowerHardOff, bmcv1alpha1.PowerSoftOff:
-			if bmcv1alpha1.Off != bmcv1alpha1.PowerState(strings.ToLower(powerStatus)) {
+			if bmcv1alpha1.Off != state {
 				return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
 			}
 		}
