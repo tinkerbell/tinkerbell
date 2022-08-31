@@ -5,10 +5,12 @@ go 1.18
 require (
 	github.com/bmc-toolbox/bmclib v0.5.3
 	github.com/go-logr/logr v1.2.3
+	github.com/go-logr/zapr v1.2.0
 	github.com/golang/mock v1.6.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
 	github.com/spf13/pflag v1.0.5
+	go.uber.org/zap v1.19.1
 	golang.org/x/tools v0.1.6-0.20210820212750-d4cc65f0b2ff
 	k8s.io/api v0.23.0
 	k8s.io/apimachinery v0.23.0
@@ -30,7 +32,6 @@ require (
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
-	github.com/go-logr/zapr v1.2.0 // indirect
 	github.com/go-playground/locales v0.13.0 // indirect
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -58,7 +59,6 @@ require (
 	github.com/stmcginnis/gofish v0.12.1-0.20220311113027-6072260f4c8d // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f // indirect
