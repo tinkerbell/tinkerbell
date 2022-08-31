@@ -64,6 +64,7 @@ type machineFieldReconciler func(context.Context, *bmcv1alpha1.Machine, BMCClien
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
 
 // Reconcile ensures the state of a Machine.
 // Gets the Machine object and uses the SecretReference to initialize a BMC Client.
