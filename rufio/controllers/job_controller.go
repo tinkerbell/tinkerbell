@@ -129,7 +129,7 @@ func (r *JobReconciler) reconcile(ctx context.Context, job *bmcv1alpha1.Job, job
 		}
 
 		if task.HasCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue) {
-			err := fmt.Errorf("Task %s/%s failed", task.Namespace, task.Name)
+			err := fmt.Errorf("task %s/%s failed", task.Namespace, task.Name)
 			job.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(err.Error()))
 			patchErr := r.patchStatus(ctx, job, jobPatch)
 			if patchErr != nil {
@@ -176,7 +176,7 @@ func (r *JobReconciler) getMachine(ctx context.Context, reference corev1.ObjectR
 	err := r.client.Get(ctx, key, machine)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return fmt.Errorf("Machine %s not found: %v", key, err)
+			return fmt.Errorf("machine %s not found: %v", key, err)
 		}
 		return fmt.Errorf("failed to get Machine %s: %v", key, err)
 	}

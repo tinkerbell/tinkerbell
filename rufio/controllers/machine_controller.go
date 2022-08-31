@@ -31,7 +31,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/tinkerbell/rufio/api/v1alpha1"
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 )
 
@@ -180,15 +179,15 @@ func (r *MachineReconciler) patchStatus(ctx context.Context, bm *bmcv1alpha1.Mac
 
 // convertRawBMCPowerState takes a raw BMC power state response and attempts to convert it to
 // a PowerState.
-func convertRawBMCPowerState(response string) (v1alpha1.PowerState, error) {
+func convertRawBMCPowerState(response string) (bmcv1alpha1.PowerState, error) {
 	// Normalize the response string for comparison.
 	response = strings.ToLower(response)
 
 	switch {
 	case strings.Contains(response, "on"):
-		return v1alpha1.On, nil
+		return bmcv1alpha1.On, nil
 	case strings.Contains(response, "off"):
-		return v1alpha1.Off, nil
+		return bmcv1alpha1.Off, nil
 	}
 
 	return "", fmt.Errorf("unknown bmc power state: %v", response)
