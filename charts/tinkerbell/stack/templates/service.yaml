@@ -2,6 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "5"
   labels:
     app: {{ .Values.service.name }}
   name: {{ .Values.service.name }}
