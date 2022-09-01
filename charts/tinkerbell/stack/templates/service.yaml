@@ -1,0 +1,36 @@
+{{- if .Values.service.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ .Values.service.name }}
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  type: LoadBalancer
+  loadBalancerClass: {{ .Values.service.lbClass }}
+  loadBalancerIP: {{ .Values.service.ip }}
+  externalTrafficPolicy: Local
+  ports:
+  - name: {{ .Values.hegelData.name }}
+    port: {{ .Values.hegelData.deployment.port }}
+    protocol: TCP
+    targetPort: {{ .Values.hegelData.deployment.portName }}
+  - name: {{ .Values.tinkData.name }}
+    port: {{ .Values.tinkData.deployment.port }}
+    protocol: TCP
+    targetPort: {{ .Values.tinkData.deployment.portName }}
+  {{- if not .Values.boots.boots.hostNetwork }}
+  {{- range .Values.bootsData.ports }}
+  - name: {{ .name }}
+    port: {{ .port }}
+    targetPort: {{ .targetPort }}
+    protocol: {{ .protocol }}
+  {{- end }}
+  {{- end }}
+  selector:
+    app: stack
+    {{- with .Values.service.selector }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end -}}

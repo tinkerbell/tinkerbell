@@ -1,0 +1,47 @@
+{{- if .Values.tinkServer.deploy }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .Values.tinkServer.name }}
+  name: {{ .Values.tinkServer.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.tinkServer.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.tinkServer.name }}
+      stack: tinkerbell
+      {{- with .Values.tinkServer.selector }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.tinkServer.name }}
+        stack: tinkerbell
+        {{- with .Values.tinkServer.selector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - args:
+            - --backend=kubernetes
+            {{- range .Values.tinkServer.args }}
+            - {{ . }}
+            {{- end }}
+          image: {{ .Values.tinkServer.image }}
+          imagePullPolicy: {{ .Values.tinkServer.imagePullPolicy }}
+          name: server
+          ports:
+            - containerPort: {{ .Values.tinkServer.deployment.port }}
+              name: {{ .Values.tinkServer.deployment.portName }}
+          resources:
+            limits:
+              cpu: {{ .Values.tinkServer.resources.limits.cpu }}
+              memory: {{ .Values.tinkServer.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.tinkServer.resources.requests.cpu }}
+              memory: {{ .Values.tinkServer.resources.requests.memory }}
+      serviceAccountName: {{ .Values.tinkServer.name }}
+{{- end }}

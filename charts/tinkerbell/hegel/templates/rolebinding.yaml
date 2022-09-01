@@ -1,0 +1,15 @@
+{{- if .Values.hegel.deploy }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.hegel.roleBindingName }}
+  namespace: {{ .Values.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.hegel.roleName }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.hegel.name }}
+    namespace: {{ .Values.namespace }}
+{{- end }}

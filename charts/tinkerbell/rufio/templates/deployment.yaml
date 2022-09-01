@@ -1,0 +1,57 @@
+{{- if .Values.rufio.deploy }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: {{ .Values.rufio.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+      stack: tinkerbell
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+        stack: tinkerbell
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+      - command:
+        - /manager
+        args:
+        - --leader-elect
+        image: {{ .Values.rufio.image }}
+        name: manager
+        securityContext:
+          allowPrivilegeEscalation: false
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        # TODO(user): Configure the resources accordingly based on the project requirements.
+        # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        resources:
+          limits:
+            cpu: {{ .Values.rufio.resources.limits.cpu }}
+            memory: {{ .Values.rufio.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.rufio.resources.requests.cpu }}
+            memory: {{ .Values.rufio.resources.requests.memory }}
+      serviceAccountName: {{ .Values.rufio.serviceAccountName }}
+      terminationGracePeriodSeconds: 10
+{{- end }}

@@ -1,0 +1,53 @@
+{{- if .Values.hegel.deploy }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .Values.hegel.name }}
+  name:  {{ .Values.hegel.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.hegel.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.hegel.name }}
+      stack: tinkerbell
+      {{- with .Values.hegel.selector }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.hegel.name }}
+        stack: tinkerbell
+        {{- with .Values.hegel.selector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - args:
+          - --data-model=kubernetes
+          - --http-port={{ .Values.hegel.deployment.port }}
+          {{- range .Values.hegel.args }}
+          - {{ . }}
+          {{- end }}
+          env:
+            {{- range $i, $env := .Values.hegel.env }}
+            - name: {{ $env.name | quote }}
+              value: {{ $env.value | quote }}
+            {{- end }}
+          image: {{ .Values.hegel.image }}
+          imagePullPolicy: {{ .Values.hegel.imagePullPolicy }}
+          name: {{ .Values.hegel.name }}
+          ports:
+            - containerPort: {{ .Values.hegel.deployment.port }}
+              name: {{ .Values.hegel.deployment.portName }}
+          resources:
+            limits:
+              cpu: {{ .Values.hegel.resources.limits.cpu }}
+              memory: {{ .Values.hegel.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.hegel.resources.requests.cpu }}
+              memory: {{ .Values.hegel.resources.requests.memory }}
+      serviceAccountName: {{ .Values.hegel.name }}
+{{- end }}

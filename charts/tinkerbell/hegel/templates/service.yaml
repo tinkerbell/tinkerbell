@@ -1,0 +1,17 @@
+{{- if .Values.hegel.deploy -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ .Values.hegel.name }}
+  name: {{ .Values.hegel.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  clusterIP: None
+  ports:
+  - port: {{ .Values.hegel.service.port }}
+    protocol: TCP
+    targetPort: {{ .Values.hegel.deployment.portName }}
+  selector:
+    app: {{ .Values.hegel.name }}
+{{- end -}}

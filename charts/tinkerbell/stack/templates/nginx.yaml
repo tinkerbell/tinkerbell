@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+  namespace: {{ .Values.namespace }}
+data:
+  nginx.conf: |
+    worker_processes 1;
+    events {
+        worker_connections  1024;
+    }
+    user root;
+
+    http {
+      server {
+        listen 80;
+        location / {
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          resolver 10.43.0.10;
+          set $boots_dns {{ .Values.bootsData.name }}.{{ .Values.namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+
+          proxy_pass http://$boots_dns;
+        }
+      }
+
+      server {
+        listen {{ .Values.hegelData.deployment.port }};
+        location / {
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          resolver 10.43.0.10;
+          set $hegel_dns {{ .Values.hegelData.name }}.{{ .Values.namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+
+          proxy_pass http://$hegel_dns:50061;
+        }
+      }
+
+      server {
+        listen {{ .Values.tinkData.deployment.port }} http2;
+        location / {
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          resolver 10.43.0.10;
+          set $tink_dns {{ .Values.tinkData.name }}.{{ .Values.namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+
+          grpc_pass grpc://$tink_dns:42113;
+        }
+      }
+    }
+
+    stream {
+      log_format logger-json escape=json '{"source": "nginx", "time": $msec, "address": "$remote_addr", "status": $status, "upstream_addr": "$upstream_addr"}';
+
+      server {
+          listen 67 udp;
+          resolver 10.43.0.10; # needed in Kubernetes for dynamic DNS resolution
+          set $boots_dns {{ .Values.bootsData.name }}.{{ .Values.namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+          proxy_pass $boots_dns:67;
+          proxy_bind $remote_addr:$remote_port transparent;
+          proxy_responses 0;
+          access_log /dev/stdout logger-json;
+      }
+      server {
+          listen 69 udp;
+          resolver 10.43.0.10;
+          set $boots_dns {{ .Values.bootsData.name }}.{{ .Values.namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+          proxy_pass $boots_dns:69;
+          proxy_timeout 1s;
+          access_log /dev/stdout logger-json;
+      }
+      server {
+          listen 514 udp;
+          resolver 10.43.0.10;
+          set $boots_dns {{ .Values.bootsData.name }}.{{ .Values.namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+          proxy_pass $boots_dns:514;
+          proxy_bind $remote_addr:$remote_port transparent;
+          proxy_responses 0;
+          access_log /dev/stdout logger-json;
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.service.name}}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- with .Values.service.selector }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        {{- with .Values.service.selector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+      - name: {{ .Values.service.name}}
+        image: {{ .Values.service.image }}
+        ports:
+        {{- range .Values.bootsData.ports }}
+        - containerPort: {{ .port}}
+          name: {{ .name }}
+          protocol: {{ .protocol }}
+        {{- end }}
+        - containerPort: {{ .Values.hegelData.deployment.port }}
+          protocol: TCP
+          name: {{ .Values.hegelData.deployment.portName }}
+        - containerPort: {{ .Values.tinkData.deployment.port }}
+          protocol: TCP
+          name: {{ .Values.tinkData.deployment.portName }}
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        volumeMounts:
+        - mountPath: /etc/nginx
+          readOnly: true
+          name: nginx-conf
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: nginx-conf
+          items:
+            - key: nginx.conf
+              path: nginx.conf

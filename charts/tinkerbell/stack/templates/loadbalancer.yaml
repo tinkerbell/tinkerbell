@@ -1,0 +1,91 @@
+{{- if .Values.kubevip.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Values.kubevip.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.kubevip.name }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.kubevip.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Values.kubevip.name }}
+    spec:
+      containers:
+      - args:
+        - manager
+        env:
+        - name: vip_arp
+          value: "true"
+        - name: vip_cidr
+          value: "32"
+        - name: svc_enable
+          value: "true"
+        - name: svc_election
+          value: "true"
+        - name: vip_interface
+          value: {{ .Values.kubevip.interface }}
+        image: {{ .Values.kubevip.image }}
+        imagePullPolicy: {{ .Values.kubevip.imagePullPolicy }}
+        name: {{ .Values.kubevip.name }}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+      hostNetwork: true
+      serviceAccountName: {{ .Values.kubevip.name }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.kubevip.name }}
+  namespace: {{ .Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: {{ .Values.kubevip.roleName }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - "services"
+      - "services/status"
+      - "nodes"
+      - "endpoints"
+    verbs:
+      - "list"
+      - "get"
+      - "watch"
+      - "update"
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - "leases"
+    verbs:
+      - "list"
+      - "get"
+      - "watch"
+      - "update"
+      - "create"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.kubevip.roleBindingName }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.kubevip.roleName }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.kubevip.name }}
+  namespace: {{ .Values.namespace }}
+---
+{{- end }}

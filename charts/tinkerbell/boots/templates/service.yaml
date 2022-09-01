@@ -1,0 +1,20 @@
+{{- if .Values.boots.deploy -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ .Values.boots.name }}
+  name: {{ .Values.boots.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  clusterIP: None
+  ports:
+  {{- range .Values.boots.ports }}
+  - name: {{ .name }}
+    port: {{ .port }}
+    targetPort: {{ .targetPort }}
+    protocol: {{ .protocol }}
+  {{- end }}
+  selector:
+    app: {{ .Values.boots.name }}
+{{- end -}}

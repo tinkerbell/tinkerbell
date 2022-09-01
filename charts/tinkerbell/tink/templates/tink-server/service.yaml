@@ -1,0 +1,17 @@
+{{- if .Values.tinkServer.deploy -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ .Values.tinkServer.name }}
+  name: {{ .Values.tinkServer.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  clusterIP: None
+  ports:
+  - port: {{ .Values.tinkServer.service.port }}
+    protocol: TCP
+    targetPort: {{ .Values.tinkServer.deployment.portName }}
+  selector:
+    app: {{ .Values.tinkServer.name }}
+{{- end -}}
