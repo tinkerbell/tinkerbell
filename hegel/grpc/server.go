@@ -53,7 +53,7 @@ func NewServer(l log.Logger, hc hardware.Client) *Server {
 	}
 }
 
-func Serve(_ context.Context, l log.Logger, srv *Server, port int, unparsedProxies, tlsCertPath, tlsKeyPath string, useTLS bool) error {
+func Serve(ctx context.Context, l log.Logger, srv *Server, port int, unparsedProxies, tlsCertPath, tlsKeyPath string, useTLS bool) error {
 	serverOpts := make([]grpc.ServerOption, 0)
 
 	if useTLS {
@@ -98,6 +98,10 @@ func Serve(_ context.Context, l log.Logger, srv *Server, port int, unparsedProxi
 
 	metrics.State.Set(metrics.Ready)
 	l.Info("serving grpc")
+	go func() {
+		<-ctx.Done()
+		grpcServer.GracefulStop()
+	}()
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		l.Fatal(err, "failed to serve grpc")
