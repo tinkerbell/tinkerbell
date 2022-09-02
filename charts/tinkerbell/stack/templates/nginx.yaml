@@ -49,7 +49,7 @@ data:
       }
 
        server {
-        listen {{ .Values.service.hook.port }};
+        listen {{ .Values.stack.hook.port }};
         location / {
           root /usr/share/nginx/html;
         }
@@ -90,25 +90,25 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.service.name}}
+  name: {{ .Values.stack.name}}
   namespace: {{ .Release.Namespace | quote }}
 spec:
   selector:
     matchLabels:
-      {{- with .Values.service.selector }}
+      {{- with .Values.stack.selector }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
   replicas: 1
   template:
     metadata:
       labels:
-        {{- with .Values.service.selector }}
+        {{- with .Values.stack.selector }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
       containers:
-      - name: {{ .Values.service.name}}
-        image: {{ .Values.service.image }}
+      - name: {{ .Values.stack.name}}
+        image: {{ .Values.stack.image }}
         ports:
         {{- range .Values.boots.ports }}
         - containerPort: {{ .port}}
@@ -121,7 +121,7 @@ spec:
         - containerPort: {{ .Values.tink.server.deployment.port }}
           protocol: TCP
           name: {{ .Values.tink.server.deployment.portName }}
-        - containerPort: {{ .Values.service.hook.port }}
+        - containerPort: {{ .Values.stack.hook.port }}
           protocol: TCP
           name: hook-http
         resources:
@@ -137,18 +137,18 @@ spec:
         - mountPath: /etc/nginx
           readOnly: true
           name: nginx-conf
-      {{- if .Values.service.hook.enabled }}
+      {{- if .Values.stack.hook.enabled }}
       initContainers:
       - name: init-hook-download
-        image: {{ .Values.service.hook.image }}
+        image: {{ .Values.stack.hook.image }}
         command: ["/bin/sh", "-c"]
-        args:
-          - apt update; apt -y install wget;
-            {{- range $index, $keys := .Values.service.hook.downloads }}
-            wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }};
-            tar -zxvf /tmp/hook{{ $index }}.tar.gz -C "/usr/share/nginx/html/";
-            rm -rf /tmp/hook{{ $index }}.tar.gz;
-            {{- end }}
+        args: # TODO(jacobweinstock): add checksum verification, TODO(jacobweinstock): make idempotent?
+        - apt update; apt -y install wget;
+          {{- range $index, $keys := .Values.stack.hook.downloads }}
+          wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }};
+          tar -zxvf /tmp/hook{{ $index }}.tar.gz -C "/usr/share/nginx/html/";
+          rm -rf /tmp/hook{{ $index }}.tar.gz;
+          {{- end }}
         volumeMounts:
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts

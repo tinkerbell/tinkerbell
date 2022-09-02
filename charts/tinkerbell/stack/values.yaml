@@ -1,5 +1,4 @@
-# service for the stack
-service:
+stack:
   enabled: true
   name: tink-stack
   selector:

@@ -1,4 +1,4 @@
-{{- if .Values.service.enabled -}}
+{{- if .Values.stack.enabled -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -6,13 +6,13 @@ metadata:
     "helm.sh/hook": "post-install,post-delete,post-rollback,post-upgrade"
     "helm.sh/hook-weight": "5"
   labels:
-    app: {{ .Values.service.name }}
-  name: {{ .Values.service.name }}
+    app: {{ .Values.stack.name }}
+  name: {{ .Values.stack.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
   type: LoadBalancer
-  loadBalancerClass: {{ .Values.service.lbClass }}
-  loadBalancerIP: {{ .Values.service.ip }}
+  loadBalancerClass: {{ .Values.stack.lbClass }}
+  loadBalancerIP: {{ .Values.stack.ip }}
   externalTrafficPolicy: Local
   ports:
   - name: {{ .Values.hegel.name }}
@@ -23,8 +23,8 @@ spec:
     port: {{ .Values.tink.server.deployment.port }}
     protocol: TCP
     targetPort: {{ .Values.tink.server.deployment.portName }}
-  - name: {{ .Values.service.hook.name }}
-    port: {{ .Values.service.hook.port }}
+  - name: {{ .Values.stack.hook.name }}
+    port: {{ .Values.stack.hook.port }}
     protocol: TCP
     targetPort: hook-http
   {{- if not .Values.boots.hostNetwork }}
@@ -37,7 +37,7 @@ spec:
   {{- end }}
   selector:
     app: stack
-    {{- with .Values.service.selector }}
+    {{- with .Values.stack.selector }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 {{- end -}}
