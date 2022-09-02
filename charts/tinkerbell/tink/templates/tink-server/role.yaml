@@ -1,9 +1,9 @@
-{{- if .Values.tinkServer.deploy }}
+{{- if .Values.tink.server.deploy }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ .Values.tinkServer.roleName }}
-  namespace: {{ .Values.namespace }}
+  name: {{ .Values.tink.server.roleName }}
+  namespace: {{ .Release.Namespace | quote }}
 rules:
   - apiGroups:
       - tinkerbell.org

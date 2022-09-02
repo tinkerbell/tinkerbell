@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ .Values.boots.roleName }}
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace | quote }}
 rules:
   - apiGroups:
       - tinkerbell.org

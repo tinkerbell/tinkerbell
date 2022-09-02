@@ -1,47 +1,47 @@
-{{- if .Values.tinkServer.deploy }}
+{{- if .Values.tink.server.deploy }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: {{ .Values.tinkServer.name }}
-  name: {{ .Values.tinkServer.name }}
-  namespace: {{ .Values.namespace }}
+    app: {{ .Values.tink.server.name }}
+  name: {{ .Values.tink.server.name }}
+  namespace: {{ .Release.Namespace | quote }}
 spec:
-  replicas: {{ .Values.tinkServer.replicas }}
+  replicas: {{ .Values.tink.server.replicas }}
   selector:
     matchLabels:
-      app: {{ .Values.tinkServer.name }}
+      app: {{ .Values.tink.server.name }}
       stack: tinkerbell
-      {{- with .Values.tinkServer.selector }}
+      {{- with .Values.tink.server.selector }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
   template:
     metadata:
       labels:
-        app: {{ .Values.tinkServer.name }}
+        app: {{ .Values.tink.server.name }}
         stack: tinkerbell
-        {{- with .Values.tinkServer.selector }}
+        {{- with .Values.tink.server.selector }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
       containers:
         - args:
             - --backend=kubernetes
-            {{- range .Values.tinkServer.args }}
+            {{- range .Values.tink.server.args }}
             - {{ . }}
             {{- end }}
-          image: {{ .Values.tinkServer.image }}
-          imagePullPolicy: {{ .Values.tinkServer.imagePullPolicy }}
+          image: {{ .Values.tink.server.image }}
+          imagePullPolicy: {{ .Values.tink.server.imagePullPolicy }}
           name: server
           ports:
-            - containerPort: {{ .Values.tinkServer.deployment.port }}
-              name: {{ .Values.tinkServer.deployment.portName }}
+            - containerPort: {{ .Values.tink.server.deployment.port }}
+              name: {{ .Values.tink.server.deployment.portName }}
           resources:
             limits:
-              cpu: {{ .Values.tinkServer.resources.limits.cpu }}
-              memory: {{ .Values.tinkServer.resources.limits.memory }}
+              cpu: {{ .Values.tink.server.resources.limits.cpu }}
+              memory: {{ .Values.tink.server.resources.limits.memory }}
             requests:
-              cpu: {{ .Values.tinkServer.resources.requests.cpu }}
-              memory: {{ .Values.tinkServer.resources.requests.memory }}
-      serviceAccountName: {{ .Values.tinkServer.name }}
+              cpu: {{ .Values.tink.server.resources.requests.cpu }}
+              memory: {{ .Values.tink.server.resources.requests.memory }}
+      serviceAccountName: {{ .Values.tink.server.name }}
 {{- end }}

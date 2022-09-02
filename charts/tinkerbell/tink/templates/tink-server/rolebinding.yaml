@@ -1,15 +1,15 @@
-{{- if .Values.tinkServer.deploy }}
+{{- if .Values.tink.server.deploy }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ .Values.tinkServer.roleBindingName }}
-  namespace: {{ .Values.namespace }}
+  name: {{ .Values.tink.server.roleBindingName }}
+  namespace: {{ .Release.Namespace | quote }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ .Values.tinkServer.roleName }}
+  name: {{ .Values.tink.server.roleName }}
 subjects:
   - kind: ServiceAccount
-    name: {{ .Values.tinkServer.name }}
-    namespace: {{ .Values.namespace }}
+    name: {{ .Values.tink.server.name }}
+    namespace: {{ .Release.Namespace | quote }}
 {{- end }}

@@ -8,23 +8,23 @@ metadata:
   labels:
     app: {{ .Values.service.name }}
   name: {{ .Values.service.name }}
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace | quote }}
 spec:
   type: LoadBalancer
   loadBalancerClass: {{ .Values.service.lbClass }}
   loadBalancerIP: {{ .Values.service.ip }}
   externalTrafficPolicy: Local
   ports:
-  - name: {{ .Values.hegelData.name }}
-    port: {{ .Values.hegelData.deployment.port }}
+  - name: {{ .Values.hegel.name }}
+    port: {{ .Values.hegel.deployment.port }}
     protocol: TCP
-    targetPort: {{ .Values.hegelData.deployment.portName }}
-  - name: {{ .Values.tinkData.name }}
-    port: {{ .Values.tinkData.deployment.port }}
+    targetPort: {{ .Values.hegel.deployment.portName }}
+  - name: {{ .Values.tink.server.name }}
+    port: {{ .Values.tink.server.deployment.port }}
     protocol: TCP
-    targetPort: {{ .Values.tinkData.deployment.portName }}
-  {{- if not .Values.boots.boots.hostNetwork }}
-  {{- range .Values.bootsData.ports }}
+    targetPort: {{ .Values.tink.server.deployment.portName }}
+  {{- if not .Values.boots.hostNetwork }}
+  {{- range .Values.boots.ports }}
   - name: {{ .name }}
     port: {{ .port }}
     targetPort: {{ .targetPort }}

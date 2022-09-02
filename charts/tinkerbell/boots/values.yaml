@@ -1,6 +1,4 @@
-namespace: tink-system
-createNamespace: false
-boots:
+boots: # a top-level key like this enables importing of all sub-keys in parent charts
   deploy: true
   hostNetwork: true
   name: boots

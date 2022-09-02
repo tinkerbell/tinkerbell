@@ -1,6 +1,4 @@
-namespace: tink-system
-createNamespace: false
-hegel:
+hegel: # a top-level key like this enables importing of all sub-keys in parent charts
   deploy: true
   env:
   - name: TRUSTED_PROXIES

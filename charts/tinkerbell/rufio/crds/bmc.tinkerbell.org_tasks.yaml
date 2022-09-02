@@ -1,4 +1,3 @@
-{{- if .Values.rufio.deploy }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -6,22 +5,24 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: machines.bmc.tinkerbell.org
+  name: tasks.bmc.tinkerbell.org
 spec:
   group: bmc.tinkerbell.org
   names:
     categories:
     - tinkerbell
-    kind: Machine
-    listKind: MachineList
-    plural: machines
-    singular: machine
+    kind: Task
+    listKind: TaskList
+    plural: tasks
+    shortNames:
+    - t
+    singular: task
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Machine is the Schema for the machines API
+        description: Task is the Schema for the Task API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -36,11 +37,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: MachineSpec defines desired machine state
+            description: TaskSpec defines the desired state of Task.
             properties:
               connection:
-                description: Connection contains connection data for a Baseboard Management
-                  Controller.
+                description: Connection represents the Machine connectivity information.
                 properties:
                   authSecretRef:
                     description: AuthSecretRef is the SecretReference that contains
@@ -73,43 +73,75 @@ spec:
                 - insecureTLS
                 - port
                 type: object
+              task:
+                description: Task defines the specific action to be performed.
+                maxProperties: 1
+                properties:
+                  oneTimeBootDeviceAction:
+                    description: OneTimeBootDeviceAction represents a baseboard management
+                      one time set boot device operation.
+                    properties:
+                      device:
+                        description: Devices represents the boot devices, in order
+                          for setting one time boot. Currently only the first device
+                          in the slice is used to set one time boot.
+                        items:
+                          description: BootDevice represents boot device of the Machine.
+                          type: string
+                        type: array
+                      efiBoot:
+                        description: EFIBoot instructs the machine to use EFI boot.
+                        type: boolean
+                    required:
+                    - device
+                    type: object
+                  powerAction:
+                    description: PowerAction represents a baseboard management power
+                      operation.
+                    enum:
+                    - "on"
+                    - "off"
+                    - soft
+                    - status
+                    - cycle
+                    - reset
+                    type: string
+                type: object
             required:
-            - connection
+            - task
             type: object
           status:
-            description: MachineStatus defines the observed state of Machine
+            description: TaskStatus defines the observed state of Task
             properties:
+              completionTime:
+                description: CompletionTime represents time when the task was completed.
+                  The completion time is only set when the task finishes successfully.
+                format: date-time
+                type: string
               conditions:
                 description: Conditions represents the latest available observations
                   of an object's current state.
                 items:
-                  description: MachineCondition defines an observed condition of a
-                    Machine.
                   properties:
-                    lastUpdateTime:
-                      description: LastUpdateTime of the condition.
-                      format: date-time
-                      type: string
                     message:
-                      description: Message is a human readable message indicating
-                        with details of the last transition.
+                      description: Message represents human readable message indicating
+                        details about last transition.
                       type: string
                     status:
-                      description: Status of the condition.
+                      description: Status is the status of the Task condition. Can
+                        be True or False.
                       type: string
                     type:
-                      description: Type of the Machine condition.
+                      description: Type of the Task condition.
                       type: string
                   required:
                   - status
                   - type
                   type: object
                 type: array
-              powerState:
-                description: Power is the current power state of the Machine.
-                enum:
-                - "on"
-                - "off"
+              startTime:
+                description: StartTime represents time when the Task started processing.
+                format: date-time
                 type: string
             type: object
         type: object
@@ -123,4 +155,3 @@ status:
     plural: ""
   conditions: []
   storedVersions: []
-{{- end }}

@@ -6,7 +6,7 @@ This chart installs the full Tinkerbell stack.
 
 ```bash
 helm dependency build stack/
-helm install stack stack/ --wait
+helm install stack stack/ --create-namespace --namespace tink-system --wait
 ```
 
 ## Prerequisites

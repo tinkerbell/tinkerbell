@@ -1,9 +1,9 @@
-{{- if .Values.tinkController.deploy }}
+{{- if .Values.tink.controller.deploy }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ .Values.tinkController.tinkLeaderElectionRoleName }}
-  namespace: {{ .Values.namespace }}
+  name: {{ .Values.tink.controller.tinkLeaderElectionRoleName }}
+  namespace: {{ .Release.Namespace | quote }}
 rules:
   - apiGroups:
       - ""
