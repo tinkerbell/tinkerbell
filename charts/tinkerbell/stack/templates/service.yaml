@@ -10,9 +10,11 @@ metadata:
   name: {{ .Values.stack.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  type: LoadBalancer
+  type: {{ .Values.stack.service.type }}
+  {{- if eq .Values.stack.service.type "LoadBalancer" }}
   loadBalancerClass: {{ .Values.stack.lbClass }}
   loadBalancerIP: {{ .Values.stack.ip }}
+  {{- end }}
   externalTrafficPolicy: Local
   ports:
   - name: {{ .Values.hegel.name }}

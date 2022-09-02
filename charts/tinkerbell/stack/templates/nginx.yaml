@@ -107,7 +107,7 @@ spec:
         {{- end }}
     spec:
       containers:
-      - name: {{ .Values.stack.name}}
+      - name: {{ .Values.stack.name }}
         image: {{ .Values.stack.image }}
         ports:
         {{- range .Values.boots.ports }}
@@ -142,9 +142,15 @@ spec:
       - name: init-hook-download
         image: {{ .Values.stack.hook.image }}
         command: ["/bin/sh", "-c"]
-        args: # TODO(jacobweinstock): add checksum verification, TODO(jacobweinstock): make idempotent?
-        - apt update; apt -y install wget;
+        args: # TODO(jacobweinstock): add checksum verification after download
+        - rm -rf /usr/share/nginx/html/checksums.txt;
+          touch /usr/share/nginx/html/checksums.txt;
           {{- range $index, $keys := .Values.stack.hook.downloads }}
+          echo -e "{{ $keys.sha512sum.kernel }}" >> /usr/share/nginx/html/checksums.txt;
+          echo -e "{{ $keys.sha512sum.initramfs }}" >> /usr/share/nginx/html/checksums.txt;
+          (cd /usr/share/nginx/html/; sha512sum -c checksums.txt && exit 0);
+          apt update; apt -y install wget;
+          echo downloading HOOK...;
           wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }};
           tar -zxvf /tmp/hook{{ $index }}.tar.gz -C "/usr/share/nginx/html/";
           rm -rf /tmp/hook{{ $index }}.tar.gz;
