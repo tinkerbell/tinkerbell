@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook": "post-install,post-delete,post-rollback,post-upgrade"
     "helm.sh/hook-weight": "5"
   labels:
     app: {{ .Values.service.name }}
@@ -23,6 +23,10 @@ spec:
     port: {{ .Values.tink.server.deployment.port }}
     protocol: TCP
     targetPort: {{ .Values.tink.server.deployment.portName }}
+  - name: {{ .Values.service.hook.name }}
+    port: {{ .Values.service.hook.port }}
+    protocol: TCP
+    targetPort: hook-http
   {{- if not .Values.boots.hostNetwork }}
   {{- range .Values.boots.ports }}
   - name: {{ .name }}

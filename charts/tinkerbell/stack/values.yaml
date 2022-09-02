@@ -8,6 +8,16 @@ service:
   ip: 192.168.2.111
   lbClass: kube-vip.io/kube-vip-class
   image: nginx:1.23.1
+  hook:
+    enabled: true
+    name: hook-files
+    port: 8080
+    image: alpine
+    downloads:
+      - url: https://github.com/tinkerbell/hook/releases/download/v0.7.0/hook_x86_64.tar.gz
+        checksum: 123
+      - url: https://github.com/tinkerbell/hook/releases/download/v0.7.0/hook_aarch64.tar.gz
+        checksum: 123
 
 kubevip:
   enabled: true
@@ -36,7 +46,9 @@ boots:
     - name: HTTP_BIND
       value: ":80"
     - name: MIRROR_BASE_URL
-      value: http://192.168.2.150:8080
+      value: http://192.168.2.111:8080
+    - name: BOOTS_OSIE_PATH_OVERRIDE
+      value: http://192.168.2.111:8080
     - name: PUBLIC_IP
       value: 192.168.2.111
     - name: PUBLIC_SYSLOG_FQDN

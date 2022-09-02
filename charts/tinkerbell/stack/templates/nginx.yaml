@@ -47,6 +47,13 @@ data:
           grpc_pass grpc://$tink_dns:42113;
         }
       }
+
+       server {
+        listen {{ .Values.service.hook.port }};
+        location / {
+          root /usr/share/nginx/html;
+        }
+      }
     }
 
     stream {
@@ -114,6 +121,9 @@ spec:
         - containerPort: {{ .Values.tink.server.deployment.port }}
           protocol: TCP
           name: {{ .Values.tink.server.deployment.portName }}
+        - containerPort: {{ .Values.service.hook.port }}
+          protocol: TCP
+          name: hook-http
         resources:
           limits:
             cpu: 500m
@@ -122,14 +132,32 @@ spec:
             cpu: 10m
             memory: 64Mi
         volumeMounts:
+        - mountPath: /usr/share/nginx/html
+          name: hook-artifacts
         - mountPath: /etc/nginx
           readOnly: true
           name: nginx-conf
+      {{- if .Values.service.hook.enabled }}
       initContainers:
       - name: init-hook-download
-        image: busybox:1.28
-        command: ['sh', '-c', "id"]
+        image: {{ .Values.service.hook.image }}
+        command: ["/bin/sh", "-c"]
+        args:
+          - apt update; apt -y install wget;
+            {{- range $index, $keys := .Values.service.hook.downloads }}
+            wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }};
+            tar -zxvf /tmp/hook{{ $index }}.tar.gz -C "/usr/share/nginx/html/";
+            rm -rf /tmp/hook{{ $index }}.tar.gz;
+            {{- end }}
+        volumeMounts:
+        - mountPath: /usr/share/nginx/html
+          name: hook-artifacts
+      {{- end }}
       volumes:
+      - name: hook-artifacts
+        hostPath:
+          path: /opt/hook
+          type: DirectoryOrCreate
       - name: nginx-conf
         configMap:
           name: nginx-conf
