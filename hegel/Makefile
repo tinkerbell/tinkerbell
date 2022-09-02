@@ -16,7 +16,7 @@ IMAGE_ARGS ?= -t hegel
 
 .PHONY: image
 image:
-	docker build $(IMAGE_ARGS) -f ./cmd/hegel/Dockerfile .
+	docker build --build-arg GOPROXY=$(GOPROXY) $(IMAGE_ARGS) -f ./cmd/hegel/Dockerfile .
 
 .PHONY: gen
 gen: grpc/protos/hegel/hegel.pb.go
