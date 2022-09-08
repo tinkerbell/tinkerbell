@@ -6,4 +6,21 @@ echo Welcome to Neverland!
 # Allow the operator to drop to a shell
 prompt --key 0x02 --timeout 2000 Press Ctrl-B for the iPXE command line... && shell ||
 
+set vlan-id ${43.116:string}
+isset ${vlan-id} && goto boot-with-vlan ||
+
+:autoboot
 autoboot
+
+:boot-with-vlan
+set idx:int32 0
+# Find the first interface that is configured
+:loop isset ${net${idx}/mac} && goto loop_done ||
+  inc idx && goto loop
+:loop_done
+
+vcreate --tag ${vlan-id} net${idx} || goto autoboot
+echo Created VLAN network interface net${idx}-${vlan-id}
+echo Booting from net${idx}-${vlan-id}...
+
+autoboot net${idx}-${vlan-id}
