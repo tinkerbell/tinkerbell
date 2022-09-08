@@ -1,5 +1,5 @@
 # Rufio
-## Whos is Rufio?
+## Who is Rufio?
 Besides being the leader of the Lost Boys after Peter Pan left Neverland, Rufio is a kubernetes controller for managing baseboard management controllers (BMC) in a Tinkerbell context. Rufio can also execute jobs to perform a set of one-off management actions to bring a machine (physical hardware) to a desired state.
 ## Architecture
 ![architecture](puml/architecture.png)
@@ -22,9 +22,9 @@ spec:
 ```
 The `connection` object contains the required fields for establising a BMC connection. Fields `host`, `port` represent the BMC IP for the physical machine and `insecureTLS` instructs weather to use insecure TLS connectivity for performing BMC API calls. Field `authSecretRef` is a `SecretReference` which points to a kubernetes secret that contains the username/password for authenticating BMC API calls.
 ### Machine controller
-When a Machine object is created on the cluster, the machine controller is responsible for updating the current state of the physical machine. It performs redfish/ipmitool API calls to the BMC on the physical machine and updates the `status` of the Machine object.
+When a Machine object is created on the cluster, the machine controller is responsible for updating the current state of the physical machine. It performs API calls to the BMC of the physical machine and updates the `status` of the Machine object.
 ### Job API
-The Job type is used to define a set of one-off operations/actions to be performed on a physical machine. These actions are performed utalizing refish/ipmitool based BMC API calls.
+The Job type is used to define a set of one-off operations/actions to be performed on a physical machine. These actions are performed utilizing BMC API calls.
 ```yaml
 apiVersion: bmc.tinkerbell.org/v1alpha1
 kind: Job
@@ -91,8 +91,8 @@ metadata:
   name: bm-auth
   namespace: sample
 data:
-  username: YWRtaW4=
-  password: MWYyZDFlMmU2N2Rm
+  username: cm9vdA==
+  password: cm9vdA==
 type: kubernetes.io/basic-auth
 ```
 Now we can modify the sample [yaml](https://github.com/tinkerbell/rufio/blob/main/config/samples/bmc_v1alpha1_machine.yaml) with the relavent connetion values and create a Machine object.
