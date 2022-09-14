@@ -59,16 +59,6 @@ data:
     stream {
       log_format logger-json escape=json '{"source": "nginx", "time": $msec, "address": "$remote_addr", "status": $status, "upstream_addr": "$upstream_addr"}';
 
-      #server {
-      #  listen 80;
-      #  resolver $POD_NAMESERVER; # needed in Kubernetes for dynamic DNS resolution
-      #  set $boots_dns {{ .Values.boots.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
-      #  proxy_pass $boots_dns:80;
-      #  proxy_bind $remote_addr:$remote_port transparent;
-      #  proxy_responses 0;
-      #  access_log /dev/stdout logger-json;
-      #}##
-
       server {
           listen 67 udp;
           resolver $POD_NAMESERVER; # needed in Kubernetes for dynamic DNS resolution

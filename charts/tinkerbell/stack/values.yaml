@@ -31,13 +31,9 @@ kubevip:
   imagePullPolicy: IfNotPresent
   roleName: kube-vip-role
   roleBindingName: kube-vip-rolebinding
-  interface: cockpitbr
+  interface: eno1
 
-tink:
-  tink:
-    controller:
-    server:
-
+# boots chart overrides
 boots:
   boots:
     env:
@@ -65,16 +61,9 @@ boots:
       value: "debug"
     - name: BOOTS_EXTRA_KERNEL_ARGS
       value: "tink_worker_image=quay.io/tinkerbell/tink-worker:sha-eeb2a454"
-    #- name: TRUSTED_PROXIES
-    #  value: 10.42.0.0/24
     hostNetwork: false
 
-
+# hegel chart overrides
 hegel:
   hegel:
-    env:
-    - name: TRUSTED_PROXIES
-      value: 10.42.0.0/24
-
-rufio:
-  rufio:
+    image: quay.io/tinkerbell/hegel:latest

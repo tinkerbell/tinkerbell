@@ -6,11 +6,11 @@ This chart installs the full Tinkerbell stack.
 
 ```bash
 helm dependency build stack/
-helm install stack stack/ --create-namespace --namespace tink-system --wait
+trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
+helm install stack stack/ --create-namespace --namespace tink-system --wait --set "boots.boots.trustedProxies=${trusted_proxies}" --set "hegel.hegel.trustedProxies=${trusted_proxies}"
 ```
 
 ## Prerequisites
 
 - Kubernetes 1.23+
 - Helm 3.9.4+
-

@@ -15,6 +15,7 @@ boots: # a top-level key like this enables importing of all sub-keys in parent c
       memory: 64Mi
   roleName: boots-role
   roleBindingName: boots-rolebinding
+  trustedProxies: 192.168.0.0/16 # comma-separated list of trusted proxies
   ports:
   - name: boots-dhcp
     port: 67
