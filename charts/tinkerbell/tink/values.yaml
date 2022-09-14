@@ -2,7 +2,7 @@ tink: # a top-level key like this enables importing of all sub-keys in parent ch
   controller:
     deploy: true
     name: tink-controller-manager
-    image: quay.io/tinkerbell/tink-controller:latest
+    image: quay.io/tinkerbell/tink-controller:sha-eeb2a454
     imagePullPolicy: IfNotPresent
     replicas: 1
     args: []
@@ -21,7 +21,7 @@ tink: # a top-level key like this enables importing of all sub-keys in parent ch
   server:
     deploy: true
     name: tink-server
-    image: quay.io/tinkerbell/tink:latest
+    image: quay.io/tinkerbell/tink:v0.7.0
     imagePullPolicy: IfNotPresent
     replicas: 1
     service:
