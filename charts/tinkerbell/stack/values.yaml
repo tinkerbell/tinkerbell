@@ -61,7 +61,7 @@ boots:
       value: "debug"
     - name: BOOTS_EXTRA_KERNEL_ARGS
       value: "tink_worker_image=quay.io/tinkerbell/tink-worker:sha-eeb2a454"
-    hostNetwork: false
+    hostNetwork: true
 
 # hegel chart overrides
 hegel:
