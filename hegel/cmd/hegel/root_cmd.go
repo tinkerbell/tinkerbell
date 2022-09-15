@@ -33,19 +33,6 @@ Examples
   --factility              HEGEL_FACILITY
   --http-port              HEGEL_HTTP_PORT
   --http-custom-endpoints  HEGEL_HTTP_CUSTOM_ENDPOINTS
-
-For backwards compatibility a set of deprecated CLI and environment variables are still supported. Behavior for
-specifying both deprecated and current forms is undefined.
-
-Deprecated CLI flags
-  Deprecated   Current
-  --http_port  --http-port
-
-Deprecated environment variables
-  Deprecated          Current
-  CUSTOM_ENDPOINTS    HEGEL_HTTP_CUSTOM_ENDPOINTS
-  DATA_MODEL_VERSION  HEGEL_DATA_MODEL
-  TRUSTED_PROXIES     HEGEL_TRUSTED_PROXIES
 `
 
 // EnvNamePrefix defines the environment variable prefix required for all environment configuration.
@@ -97,10 +84,6 @@ func NewRootCommand() (*RootCommand, error) {
 	rootCmd.vpr.SetEnvPrefix(EnvNamePrefix)
 
 	if err := rootCmd.configureFlags(); err != nil {
-		return nil, err
-	}
-
-	if err := rootCmd.configureLegacyFlags(); err != nil {
 		return nil, err
 	}
 
@@ -193,27 +176,4 @@ func (c *RootCommand) configureFlags() error {
 	})
 
 	return err
-}
-
-func (c *RootCommand) configureLegacyFlags() error {
-	c.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
-		switch name {
-		case "http_port":
-			return pflag.NormalizedName("http-port")
-		default:
-			return pflag.NormalizedName(name)
-		}
-	})
-
-	for key, envName := range map[string]string{
-		"data-model":            "DATA_MODEL_VERSION",
-		"http-custom-endpoints": "CUSTOM_ENDPOINTS",
-		"trusted-proxies":       "TRUSTED_PROXIES",
-	} {
-		if err := c.vpr.BindEnv(key, envName); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
