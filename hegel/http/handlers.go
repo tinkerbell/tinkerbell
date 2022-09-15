@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
 	"runtime"
@@ -16,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tinkerbell/hegel/build"
 	"github.com/tinkerbell/hegel/datamodel"
-	"github.com/tinkerbell/hegel/grpc"
 	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/metrics"
 )
@@ -281,44 +279,4 @@ func getIPFromRequest(r *http.Request) string {
 		addr, _, _ = net.SplitHostPort(addr)
 	}
 	return addr
-}
-
-func writeJSONError(w http.ResponseWriter, code int, err error) error {
-	return writeJSONResponse(w, code, map[string]interface{}{
-		"error": map[string]interface{}{
-			"error":   err.Error(),
-			"comment": "", // Maintained for backward compatibility.
-		},
-	})
-}
-
-func writeJSONResponse(w http.ResponseWriter, code int, payload interface{}) error {
-	w.WriteHeader(code)
-	return json.NewEncoder(w).Encode(payload)
-}
-
-func SubscriptionsHandler(server *grpc.Server, logger log.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := strings.TrimPrefix(r.URL.Path, "/subscriptions/")
-
-		if id == "" {
-			responseErr := fmt.Errorf("missing subscription id in path: %v", r.URL.Path)
-			if err := writeJSONError(w, http.StatusNotFound, responseErr); err != nil {
-				logger.Error(err)
-			}
-			return
-		}
-
-		subscription, err := server.Subscription(id)
-		if err != nil {
-			if err := writeJSONError(w, http.StatusNotFound, err); err != nil {
-				logger.Error(err)
-			}
-			return
-		}
-
-		if err := writeJSONResponse(w, http.StatusOK, subscription); err != nil {
-			logger.Error(err)
-		}
-	})
 }
