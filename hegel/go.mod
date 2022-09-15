@@ -4,10 +4,9 @@ go 1.17
 
 require (
 	github.com/equinix-labs/otel-init-go v0.0.4
-	github.com/golang/protobuf v1.5.2
-	github.com/google/uuid v1.3.0
-	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
-	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
+	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/uuid v1.3.0 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/itchyny/gojq v0.11.0
 	github.com/oklog/run v1.1.0
 	github.com/packethost/cacher v0.0.0-20211110202753-9b918bf0fe6d
@@ -21,9 +20,9 @@ require (
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.2
 	github.com/tinkerbell/tink v0.6.1-0.20220816162948-cf88a1f3d71d
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.26.1
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.26.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.28.0
-	google.golang.org/grpc v1.42.0
+	google.golang.org/grpc v1.42.0 // indirect
 	k8s.io/apimachinery v0.23.0
 	k8s.io/client-go v0.23.0
 	sigs.k8s.io/controller-runtime v0.11.1

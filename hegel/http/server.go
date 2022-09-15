@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tinkerbell/hegel/datamodel"
-	"github.com/tinkerbell/hegel/grpc"
 	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/xff"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -22,7 +21,6 @@ func Serve(
 	ctx context.Context,
 	logger log.Logger,
 	client hardware.Client,
-	grpcsrv *grpc.Server,
 	port int,
 	start time.Time,
 	model datamodel.DataModel,
@@ -52,10 +50,6 @@ func Serve(
 
 		httpHandler = router
 	}
-
-	subscriptionHandler := otelhttp.WithRouteTag("/subscriptions", SubscriptionsHandler(grpcsrv, logger))
-	mux.Handle("/subscriptions/", subscriptionHandler)
-	mux.Handle("/subscriptions", subscriptionHandler)
 
 	err := registerCustomEndpoints(logger, client, &mux, model, customEndpoints)
 	if err != nil {

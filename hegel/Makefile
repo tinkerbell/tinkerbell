@@ -18,13 +18,6 @@ IMAGE_ARGS ?= -t hegel
 image:
 	docker build --build-arg GOPROXY=$(GOPROXY) $(IMAGE_ARGS) -f ./cmd/hegel/Dockerfile .
 
-.PHONY: gen
-gen: grpc/protos/hegel/hegel.pb.go
-
-grpc/protos/hegel/hegel.pb.go: grpc/protos/hegel/hegel.proto
-	protoc --go_out=plugins=grpc:./ grpc/protos/hegel/hegel.proto
-	goimports -w $@
-
 ifeq ($(CI),drone)
 run: ${binary}
 	${binary}
