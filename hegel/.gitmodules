@@ -1,3 +1,0 @@
-[submodule "grpc/protos"]
-	path = grpc/protos
-	url = https://github.com/packethost/grpc-protos

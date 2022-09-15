@@ -16,7 +16,6 @@ import (
 	"github.com/packethost/pkg/log"
 	"github.com/stretchr/testify/require"
 	"github.com/tinkerbell/hegel/datamodel"
-	"github.com/tinkerbell/hegel/grpc"
 	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/hardware/mock"
 	_ "github.com/tinkerbell/hegel/metrics" // Initialize metrics.
@@ -892,7 +891,7 @@ func TestServe(t *testing.T) {
 	customEndpoints := `{"/metadata":".metadata.instance"}`
 
 	go func() {
-		if err := Serve(context.Background(), logger, mock.HardwareClient{}, &grpc.Server{}, mport, time.Now(), "", customEndpoints, "", false); err != nil {
+		if err := Serve(context.Background(), logger, mock.HardwareClient{}, mport, time.Now(), "", customEndpoints, "", false); err != nil {
 			t.Errorf("Serve() error = %v", err)
 		}
 	}()
