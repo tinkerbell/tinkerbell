@@ -176,6 +176,9 @@ func (c *RootCommand) configureFlags() error {
 	c.Flags().String("trusted-proxies", "", "A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For")
 
 	c.Flags().Bool("hegel-api", false, "Toggle to true to enable Hegel's new experimental API. Default is false.")
+	if err := c.Flags().MarkHidden("hegel-api"); err != nil {
+		return err
+	}
 
 	if err := c.vpr.BindPFlags(c.Flags()); err != nil {
 		return err
