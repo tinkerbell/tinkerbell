@@ -1,11 +1,19 @@
 ---
-{{- if .Values.rufio.deploy }}
+{{- if .Values.rufio.deploy }}---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: {{ .Values.rufio.managerRoleName }}
+  name: manager-role
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
