@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.stack.name}}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    matchLabels:
+      {{- with .Values.stack.selector }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- with .Values.stack.selector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+      - name: {{ .Values.stack.name }}
+        image: {{ .Values.stack.image }}
+        command: ["/bin/bash", "-c"]
+        args:
+        - export POD_NAMESERVER=$(awk 'NR==2 {print $2}' /etc/resolv.conf);
+          envsubst '$POD_NAMESERVER' < /tmp/nginx.conf.template > /etc/nginx/nginx.conf;
+          nginx -g 'daemon off;'
+        ports:
+        {{- range .Values.boots.ports }}
+        - containerPort: {{ .port}}
+          name: {{ .name }}
+          protocol: {{ .protocol }}
+        {{- end }}
+        - containerPort: {{ .Values.hegel.deployment.port }}
+          protocol: TCP
+          name: {{ .Values.hegel.deployment.portName }}
+        - containerPort: {{ .Values.tink.server.deployment.port }}
+          protocol: TCP
+          name: {{ .Values.tink.server.deployment.portName }}
+        - containerPort: {{ .Values.stack.hook.port }}
+          protocol: TCP
+          name: hook-http
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        volumeMounts:
+        - mountPath: /usr/share/nginx/html
+          name: hook-artifacts
+        - mountPath: /tmp
+          readOnly: true
+          name: nginx-conf
+      {{- if .Values.stack.hook.enabled }}
+      initContainers:
+      - name: init-hook-download
+        image: {{ .Values.stack.hook.image }}
+        command: ["/bin/sh", "-xc"]
+        args: # TODO(jacobweinstock): add checksum verification after download
+        - rm -rf /usr/share/nginx/html/checksums.txt;
+          touch /usr/share/nginx/html/checksums.txt;
+          {{- range $index, $keys := .Values.stack.hook.downloads }}
+          echo "{{ $keys.sha512sum.kernel }}" >> /usr/share/nginx/html/checksums.txt;
+          echo "{{ $keys.sha512sum.initramfs }}" >> /usr/share/nginx/html/checksums.txt;
+          {{- end }}
+          cd /usr/share/nginx/html/;
+          sha512sum -c checksums.txt && exit 0;
+          {{- range $index, $keys := .Values.stack.hook.downloads }}
+          apk add wget;
+          echo downloading HOOK...;
+          wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }};
+          tar -zxvf /tmp/hook{{ $index }}.tar.gz -C "/usr/share/nginx/html/";
+          rm -rf /tmp/hook{{ $index }}.tar.gz;
+          {{- end }}
+        volumeMounts:
+        - mountPath: /usr/share/nginx/html
+          name: hook-artifacts
+      {{- end }}
+      volumes:
+      - name: hook-artifacts
+        hostPath:
+          path: /opt/hook
+          type: DirectoryOrCreate
+      - name: nginx-conf
+        configMap:
+          name: nginx-conf
+          items:
+            - key: nginx.conf
+              path: nginx.conf.template

@@ -1,0 +1,41 @@
+tink: # a top-level key like this enables importing of all sub-keys in parent charts  
+  controller:
+    deploy: true
+    name: tink-controller-manager
+    image: quay.io/tinkerbell/tink-controller:sha-eeb2a454
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    args: []
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    roleName: tink-controller-manager-role
+    roleBindingName: tink-controller-manager-rolebinding
+    tinkLeaderElectionRoleName: tink-leader-election-role
+    tinkLeaderElectionRoleBindingName: tink-leader-election-rolebinding
+  
+  server:
+    deploy: true
+    name: tink-server
+    image: quay.io/tinkerbell/tink:v0.7.0
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    service:
+      port: 42113
+    deployment:
+      port: 42113
+      portName: tink-grpc
+    args: ["--tls=false"]
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    roleName: tink-server-role
+    roleBindingName: tink-server-rolebinding

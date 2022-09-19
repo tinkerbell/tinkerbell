@@ -1,0 +1,37 @@
+{{- if .Values.tink.controller.deploy }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .Values.tink.controller.name }}
+  name: {{ .Values.tink.controller.name }}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  replicas: {{ .Values.tink.controller.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.tink.controller.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.tink.controller.name }}
+    spec:
+      containers:
+        - image: {{ .Values.tink.controller.image }}
+          imagePullPolicy: {{ .Values.tink.controller.imagePullPolicy }}
+          {{- if .Values.tink.controller.args }}
+          args: 
+          {{- range .Values.tink.controller.args }}
+            - {{ . }}
+          {{- end }}
+          {{- end }}
+          name: {{ .Values.tink.controller.name }}
+          resources:
+            limits:
+              cpu: {{ .Values.tink.controller.resources.limits.cpu }}
+              memory: {{ .Values.tink.controller.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.tink.controller.resources.requests.cpu }}
+              memory: {{ .Values.tink.controller.resources.requests.memory }}
+      serviceAccountName: {{ .Values.tink.controller.name }}
+{{- end }}

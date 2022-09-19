@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+  namespace: {{ .Release.Namespace | quote }}
+data:
+  nginx.conf: |
+    worker_processes 1;
+    events {
+        worker_connections  1024;
+    }
+    user root;
+
+    http {
+      server {
+        listen 80;
+        location / {
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          resolver $POD_NAMESERVER;
+          set $boots_dns {{ .Values.boots.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+
+          proxy_pass http://$boots_dns;
+        }
+      }
+
+      server {
+        listen {{ .Values.hegel.deployment.port }};
+        location / {
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          resolver $POD_NAMESERVER;
+          set $hegel_dns {{ .Values.hegel.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+
+          proxy_pass http://$hegel_dns:{{ .Values.hegel.deployment.port }};
+        }
+      }
+
+      server {
+        listen {{ .Values.tink.server.deployment.port }} http2;
+        location / {
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          resolver $POD_NAMESERVER;
+          set $tink_dns {{ .Values.tink.server.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+
+          grpc_pass grpc://$tink_dns:{{ .Values.tink.server.deployment.port }};
+        }
+      }
+
+       server {
+        listen {{ .Values.stack.hook.port }};
+        location / {
+          root /usr/share/nginx/html;
+        }
+      }
+    }
+
+    stream {
+      log_format logger-json escape=json '{"source": "nginx", "time": $msec, "address": "$remote_addr", "status": $status, "upstream_addr": "$upstream_addr"}';
+
+      server {
+          listen 67 udp;
+          resolver $POD_NAMESERVER; # needed in Kubernetes for dynamic DNS resolution
+          set $boots_dns {{ .Values.boots.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+          proxy_pass $boots_dns:67;
+          proxy_bind $remote_addr:$remote_port transparent;
+          proxy_responses 0;
+          access_log /dev/stdout logger-json;
+      }
+      server {
+          listen 69 udp;
+          resolver $POD_NAMESERVER;
+          set $boots_dns {{ .Values.boots.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+          proxy_pass $boots_dns:69;
+          proxy_timeout 1s;
+          access_log /dev/stdout logger-json;
+      }
+      server {
+          listen 514 udp;
+          resolver $POD_NAMESERVER;
+          set $boots_dns {{ .Values.boots.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+          proxy_pass $boots_dns:514;
+          proxy_bind $remote_addr:$remote_port transparent;
+          proxy_responses 0;
+          access_log /dev/stdout logger-json;
+      }
+    }

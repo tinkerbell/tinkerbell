@@ -1,0 +1,19 @@
+rufio: # a top-level key like this enables importing of all sub-keys in parent charts
+  deploy: true
+  name: rufio-controller-manager
+  image: quay.io/tinkerbell/rufio:v0.1.0
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+  serviceAccountName: rufio-controller-manager
+  rufioLeaderElectionRoleName: rufio-leader-election-role
+  rufioSecretsViewerRoleName: rufio-secrets-viewer-role
+  managerRoleName: rufio-manager-role
+  rufioLeaderElectionRoleBindingName: rufio-leader-election-rolebinding
+  rufioSecretsViewerRoleBindingName: rufio-secrets-viewer-rolebinding
+  managerRoleBindingName: rufio-manager-rolebinding
+  managerConfigmapName: rufio-manager-config
