@@ -1,0 +1,52 @@
+From 61b5755a0a5af8093a804ced042997ffa7d9e384 Mon Sep 17 00:00:00 2001
+From: Jacob Weinstock <jakobweinstock@gmail.com>
+Date: Fri, 14 Oct 2022 22:52:17 +0000
+Subject: [PATCH] Revert c70b3e04e86cefca335e36f883829d89583a6921:
+
+This fixes vcreate error "Could not create VLAN device".
+https://github.com/ipxe/ipxe/issues/369
+
+Signed-off-by: Jacob Weinstock <jakobweinstock@gmail.com>
+---
+ src/interface/efi/efi_block.c  | 2 +-
+ src/interface/efi/efi_driver.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/interface/efi/efi_block.c b/src/interface/efi/efi_block.c
+index 74cf7c0c..bfcefd3c 100644
+--- a/src/interface/efi/efi_block.c
++++ b/src/interface/efi/efi_block.c
+@@ -221,7 +221,7 @@ static void efi_block_connect ( struct san_device *sandev ) {
+ 
+ 	/* Try to connect all possible drivers to this block device */
+ 	if ( ( efirc = bs->ConnectController ( block->handle, NULL,
+-					       NULL, TRUE ) ) != 0 ) {
++					       NULL, FALSE ) ) != 0 ) {
+ 		rc = -EEFI ( efirc );
+ 		DBGC ( sandev, "EFIBLK %#02x could not connect drivers: %s\n",
+ 		       sandev->drive, strerror ( rc ) );
+diff --git a/src/interface/efi/efi_driver.c b/src/interface/efi/efi_driver.c
+index 8e537d53..5200121f 100644
+--- a/src/interface/efi/efi_driver.c
++++ b/src/interface/efi/efi_driver.c
+@@ -469,7 +469,7 @@ static int efi_driver_connect ( EFI_HANDLE device ) {
+ 	DBGC ( device, "EFIDRV %s connecting new drivers\n",
+ 	       efi_handle_name ( device ) );
+ 	if ( ( efirc = bs->ConnectController ( device, drivers, NULL,
+-					       TRUE ) ) != 0 ) {
++					       FALSE ) ) != 0 ) {
+ 		rc = -EEFI_CONNECT ( efirc );
+ 		DBGC ( device, "EFIDRV %s could not connect new drivers: "
+ 		       "%s\n", efi_handle_name ( device ), strerror ( rc ) );
+@@ -519,7 +519,7 @@ static int efi_driver_reconnect ( EFI_HANDLE device ) {
+ 	EFI_BOOT_SERVICES *bs = efi_systab->BootServices;
+ 
+ 	/* Reconnect any available driver */
+-	bs->ConnectController ( device, NULL, NULL, TRUE );
++	bs->ConnectController ( device, NULL, NULL, FALSE );
+ 
+ 	return 0;
+ }
+-- 
+2.34.1
+

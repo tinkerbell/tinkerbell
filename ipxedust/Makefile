@@ -2,6 +2,7 @@ OSFLAG := $(shell go env GOHOSTOS)
 BINARY := ipxe
 IPXE_BUILD_SCRIPT := binary/script/build_ipxe.sh
 IPXE_FETCH_SCRIPT := binary/script/fetch_and_extract_ipxe.sh
+IPXE_VCREATE_PATCH := binary/script/vcreate.patch
 IPXE_NIX_SHELL := binary/script/shell.nix
 
 help: ## show this help message
@@ -23,7 +24,7 @@ ipxe_build_in_docker := $(shell if [ $(OSFLAG) = "darwin" ]; then echo true; els
 .PHONY: extract-ipxe
 extract-ipxe: $(ipxe_readme) ## Fetch and extract ipxe source
 $(ipxe_readme): binary/script/ipxe.commit
-	${IPXE_FETCH_SCRIPT} "$(ipxe_sha_or_tag)"
+	${IPXE_FETCH_SCRIPT} "$(ipxe_sha_or_tag)" ${IPXE_VCREATE_PATCH}
 	touch "$@"
 
 binary/ipxe.efi: $(ipxe_readme) ## build ipxe.efi

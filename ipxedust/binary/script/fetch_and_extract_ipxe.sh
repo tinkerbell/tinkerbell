@@ -13,7 +13,6 @@ function download_ipxe_repo() {
 	else
 		echo "already downloaded"
 	fi
-
 }
 
 # extract_ipxe_repo will extract a tarball.
@@ -31,7 +30,19 @@ function extract_ipxe_repo() {
 	fi
 }
 
+# patch_for_vcreate is needed to avoid a bug in iPXE that prevents
+# vcreate (VLAN creation) from working properly.
+# See https://github.com/ipxe/ipxe/issues/369
+function patch_for_vcreate() {
+	local archive_dir="$1"
+	local patch_file="$2"
+
+	echo "applying vcreate patching"
+	patch -s -p1 -t -d "${archive_dir}" < "${patch_file}"
+}
+
 ipxe_sha_or_tag=$1
 archive_name=ipxe-${ipxe_sha_or_tag}.tar.gz
 download_ipxe_repo "${ipxe_sha_or_tag}" "${archive_name}"
 extract_ipxe_repo "${archive_name}" "upstream-${ipxe_sha_or_tag}"
+patch_for_vcreate "upstream-${ipxe_sha_or_tag}" "$2"
