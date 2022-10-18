@@ -2,7 +2,7 @@ boots: # a top-level key like this enables importing of all sub-keys in parent c
   deploy: true
   hostNetwork: true
   name: boots
-  image: quay.io/tinkerbell/boots:v0.7.0
+  image: quay.io/tinkerbell/boots:v0.8.0
   imagePullPolicy: IfNotPresent
   replicas: 1
   args: ["-dhcp-addr=0.0.0.0:67"]
