@@ -33,6 +33,21 @@ The stack chart does not use an ingress object and controller. This is because m
 
 ## Installing the Chart
 
+You'll want to customize the IP used for the load balancer in the `values.yaml` file. The following places should all be the same IP:
+
+- `stack.loadbalancerIP`
+- `boots.boots.env[3].value` (`MIRROR_BASE_URL`)
+- `boots.boots.env[4].value` (`BOOTS_OSIE_PATH_OVERRIDE`)
+- `boots.boots.env[5].value` (`PUBLIC_IP`)
+- `boots.boots.env[6].value` (`PUBLIC_SYSLOG_FQDN`)
+- `boots.boots.env[8].value` (`TINKERBELL_GRPC_AUTHORITY`)
+
+You'll also want to customize the interface that should be used to advertize the load balancer IP.
+
+- `kubevip.interface`
+
+Now, deploy the chart.
+
 ```bash
 helm dependency build stack/
 trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
@@ -56,32 +71,31 @@ helm uninstall stack-release --namespace tink-system
 | Name | Description | Value |
 | ---- | ----------- | ----- |
 | `stack.enabled` | Enable the deployment of the Tinkerbell stack chart | `true` |
-| `stack.name` | Name of the Tinkerbell stack chart | `tink-stack` |
-| `stack.service.type` | Type of service to use for the Tinkerbell stack services | `LoadBalancer` |
-| `stack.selector.app` | Selector to use for the Tinkerbell stack services | `tink-stack` |
-| `stack.selector.lbtype` | Selector to use for the Tinkerbell stack services | `external` |
-| `stack.ip` | IP address to use for the Tinkerbell stack services | `192.168.2.111` |
-| `stack.lbClass` | Class to use for the Tinkerbell stack services | `kube-vip.io/kube-vip-class` |
-| `stack.image` | Image to use for the Tinkerbell stack services | `nginx:1.23.1` |
-| `stack.hook.enabled` | Enable the deployment of the Hook artifacts server | `true` |
-| `stack.hook.name` | Name of the Hook artifacts server | `hook-files` |
+| `stack.name` | Name for the stack chart | `tink-stack` |
+| `stack.service.type` | Type of service to use for the Tinkerbell stack services. One of the [standard](https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types) Kubernetes service types. | `LoadBalancer` |
+| `stack.selector` | Selector(s) to use for the mapping stack deployment with the service | `app: tink-stack` |
+| `stack.loadBalancerIP` | Load balancer IP address to use for the Tinkerbell stack services | `192.168.2.111` |
+| `stack.lbClass` | loadBalancerClass to use for in stack service | `kube-vip.io/kube-vip-class` |
+| `stack.image` | Image to use for the proxying to Tinkerbell services and serving artifacts | `nginx:1.23.1` |
+| `stack.hook.enabled` | Enable the deployment of the Hook artifacts | `true` |
+| `stack.hook.name` | Name for the Hook artifacts server | `hook-files` |
 | `stack.hook.port` | Port to use for the Hook artifacts server | `8080` |
 | `stack.hook.image` | Image to use for downloading the Hook artifacts | `alpine` |
 | `stack.hook.downloads` | List of Hook artifacts to download | `[]` |
-| `stack.hook.downloads[0].url` | URL of the Hook artifact to download | `""` |
-| `stack.hook.downloads[0].sha512sum.kernel` | Name of the Hook artifact to download | `""` |
-| `stack.hook.downloads[0].sha512sum.initramfs` | Name of the Hook artifact to download | `""` |
+| `stack.hook.downloads[0].url` | URL of the Hook bundle to download | `""` |
+| `stack.hook.downloads[0].sha512sum.kernel` | sha512sum, 2 spaces, and name of the Hook kernel in the bundle | `"7c..20  vmlinuz-x86_64"` |
+| `stack.hook.downloads[0].sha512sum.initramfs` | sha512sum, 2 spaces, and name of the Hook initramfs in the bundle | `""` |
 
 ### Load Balancer Parameters (kube-vip)
 
 | Name | Description | Value |
 | ---- | ----------- | ----- |
 | `kubevip.enabled` | Enable the deployment of the kube-vip load balancer | `true` |
-| `kubevip.name` | Name of the kube-vip load balancer | `kube-vip` |
+| `kubevip.name` | Name for the kube-vip load balancer service | `kube-vip` |
 | `kubevip.image` | Image to use for the kube-vip load balancer | `ghcr.io/kube-vip/kube-vip:v0.5.0` |
-| `kubevip.imagePullPolicy` | Image pull policy to use for the kube-vip load balancer | `IfNotPresent` |
-| `kubevip.roleName` | Role name to use for the kube-vip load balancer | `kube-vip-role` |
-| `kubevip.roleBindingName` | Role binding name to use for the kube-vip load balancer | `kube-vip-rolebinding` |
+| `kubevip.imagePullPolicy` | Image pull policy to use for kube-vip | `IfNotPresent` |
+| `kubevip.roleName` | Role name to use for the kube-vip load service | `kube-vip-role` |
+| `kubevip.roleBindingName` | Role binding name to use for the kube-vip load service | `kube-vip-rolebinding` |
 | `kubevip.interface` | Interface to use for advertizing the load balancer IP | `eth0` |
 
 ### Tinkerbell Services Parameters
@@ -103,3 +117,9 @@ hegel:
   hegel:
     image: quay.io/tinkerbell/hegel:latest
 ```
+
+### Boots Parameters
+
+| Name | Description | Value |
+| ---- | ----------- | ----- |
+| `boots.boots.hostNetwork` | Whether to deploy Boots using `hostNetwork` on the pod spec. When `true` Boots will be able to receive DHCP broadcast messages. If `false`, Boots will be behind the load balancer VIP and will need to receive DHCP requests via unicast. | `true` |  
