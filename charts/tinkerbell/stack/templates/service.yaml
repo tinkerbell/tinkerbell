@@ -13,7 +13,7 @@ spec:
   type: {{ .Values.stack.service.type }}
   {{- if eq .Values.stack.service.type "LoadBalancer" }}
   loadBalancerClass: {{ .Values.stack.lbClass }}
-  loadBalancerIP: {{ .Values.stack.ip }}
+  loadBalancerIP: {{ .Values.stack.loadBalancerIP }}
   {{- end }}
   externalTrafficPolicy: Local
   ports:
