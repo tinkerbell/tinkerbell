@@ -1,6 +1,6 @@
 rufio: # a top-level key like this enables importing of all sub-keys in parent charts
   deploy: true
-  name: rufio-controller-manager
+  name: rufio
   image: quay.io/tinkerbell/rufio:v0.1.0
   resources:
     limits:
