@@ -30,10 +30,10 @@ endif
 # BEGIN: lint-install --dockerfile=warn .
 # http://github.com/tinkerbell/lint-install
 
-GOLINT_VERSION ?= v1.42.0
-HADOLINT_VERSION ?= v2.7.0
+GOLINT_VERSION ?= v1.50.1
+HADOLINT_VERSION ?= v2.10.0
 
-YAMLLINT_VERSION ?= 1.26.3
+YAMLLINT_VERSION ?= 1.28.0
 LINT_OS := $(shell uname)
 LINT_ARCH := $(shell uname -m)
 LINT_ROOT := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))

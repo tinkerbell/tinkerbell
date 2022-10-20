@@ -1,6 +1,6 @@
 module github.com/tinkerbell/hegel
 
-go 1.17
+go 1.19
 
 require (
 	github.com/equinix-labs/otel-init-go v0.0.4
@@ -9,7 +9,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/itchyny/gojq v0.11.0
 	github.com/oklog/run v1.1.0
-	github.com/packethost/cacher v0.0.0-20211110202753-9b918bf0fe6d
 	github.com/packethost/pkg v0.0.0-20211110202003-387414657e83
 	github.com/packethost/xff v0.0.0-20190305172552-d3e9190c41b3
 	github.com/pkg/errors v0.9.1
