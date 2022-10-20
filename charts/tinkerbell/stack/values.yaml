@@ -5,7 +5,7 @@ stack:
     type: LoadBalancer
   selector:
     app: tink-stack
-  loadbalancerIP: 192.168.2.111
+  loadBalancerIP: 192.168.2.111
   lbClass: kube-vip.io/kube-vip-class
   image: nginx:1.23.1
   hook:
