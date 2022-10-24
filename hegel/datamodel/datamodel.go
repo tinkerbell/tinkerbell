@@ -5,7 +5,6 @@ package datamodel
 type DataModel string
 
 const (
-	Cacher     DataModel = ""
 	TinkServer DataModel = "1"
 	Kubernetes DataModel = "kubernetes"
 )

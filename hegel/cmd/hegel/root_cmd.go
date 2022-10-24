@@ -30,7 +30,6 @@ Each CLI argument has a corresponding environment variable in the form of the CL
 the flag and environment variable form are specified, the flag form takes precedence.
 
 Examples
-  --factility              HEGEL_FACILITY
   --http-port              HEGEL_HTTP_PORT
   --http-custom-endpoints  HEGEL_HTTP_CUSTOM_ENDPOINTS
 `
@@ -41,7 +40,6 @@ const EnvNamePrefix = "HEGEL"
 // RootCommandOptions encompasses all the configurability of the RootCommand.
 type RootCommandOptions struct {
 	DataModel      string `mapstructure:"data-model"`
-	Facility       string `mapstructure:"facility"`
 	TrustedProxies string `mapstructure:"trusted-proxies"`
 
 	HTTPCustomEndpoints string `mapstructure:"http-custom-endpoints"`
@@ -112,7 +110,6 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 
 	hardwareClient, err := hardware.NewClient(hardware.ClientConfig{
 		Model:         c.Opts.GetDataModel(),
-		Facility:      c.Opts.Facility,
 		KubeAPI:       c.Opts.KubernetesAPIURL,
 		Kubeconfig:    c.Opts.Kubeconfig,
 		KubeNamespace: c.Opts.KubeNamespace,
@@ -145,9 +142,7 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 }
 
 func (c *RootCommand) configureFlags() error {
-	// Alphabetically ordereed
 	c.Flags().String("data-model", string(datamodel.TinkServer), "The back-end data source: [\"1\", \"kubernetes\"] (1 indicates tink server)")
-	c.Flags().String("facility", "onprem", "The facility we are running in (mostly to connect to cacher)")
 
 	c.Flags().String("http-custom-endpoints", `{"/metadata":".metadata.instance"}`, "JSON encoded object specifying custom endpoint => metadata mappings")
 	c.Flags().Int("http-port", 50061, "Port to listen on for HTTP requests")

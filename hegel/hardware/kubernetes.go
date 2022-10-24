@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pkg/errors"
 	tinkv1alpha1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
 	tink "github.com/tinkerbell/tink/pkg/controllers"
 	"k8s.io/client-go/rest"
@@ -121,11 +120,6 @@ func (k *KubernetesClient) ByIP(ctx context.Context, ip string) (Hardware, error
 	}
 
 	return FromK8sTinkHardware(&hw.Items[0]), nil
-}
-
-// Watch is unimplemented.
-func (k *KubernetesClient) Watch(context.Context, string) (Watcher, error) {
-	return nil, errors.New("kubernetes client: watch is unimplemented")
 }
 
 // KuberneteSClientConfig used by the NewKubernetesClient function family.

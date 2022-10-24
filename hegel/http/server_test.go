@@ -16,7 +16,6 @@ import (
 	"github.com/packethost/pkg/log"
 	"github.com/stretchr/testify/require"
 	"github.com/tinkerbell/hegel/datamodel"
-	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/hardware/mock"
 	_ "github.com/tinkerbell/hegel/metrics" // Initialize metrics.
 	"github.com/tinkerbell/hegel/xff"
@@ -57,47 +56,6 @@ func TestTrustedProxies(t *testing.T) {
 					resp.Body.String(), test.resp)
 			}
 		})
-	}
-}
-
-func TestGetMetadataCacher(t *testing.T) {
-	logger, err := log.Init(t.Name())
-	require.NoError(t, err)
-
-	for name, test := range cacherTests {
-		t.Log(name)
-		client := mock.HardwareClient{Data: test.json}
-
-		req, err := http.NewRequest("GET", "/metadata", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		req.RemoteAddr = mock.UserIP
-		resp := httptest.NewRecorder()
-		http.Handle("/metadata", GetMetadataHandler(logger, client, "", datamodel.Cacher)) // filter not used in cacher mode
-
-		http.DefaultServeMux.ServeHTTP(resp, req)
-
-		if status := resp.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
-		}
-
-		hw := hardware.ExportedCacher{}
-		err = json.Unmarshal(resp.Body.Bytes(), &hw)
-		if err != nil {
-			t.Error("Error in unmarshalling hardware:", err)
-		}
-
-		if hw.ID != test.id {
-			t.Errorf("handler returned unexpected id: got %v want %v",
-				hw.ID, test.id)
-		}
-		if hw.PlanSlug != test.planSlug {
-			t.Errorf("handler returned unexpected plan slug: got %v want %v",
-				hw.PlanSlug, test.planSlug)
-		}
 	}
 }
 
@@ -458,19 +416,6 @@ var trustedProxiesTests = map[string]struct {
 		status:         200,
 		resp:           "tink-provisioner",
 		json:           mock.TinkerbellKant,
-	},
-}
-
-// test cases for TestGetMetadataCacher.
-var cacherTests = map[string]struct {
-	id       string
-	planSlug string
-	json     string
-}{
-	"cacher": {
-		id:       "8978e7d4-1a55-4845-8a66-a5259236b104",
-		planSlug: "t1.small.x86",
-		json:     mock.CacherDataModel,
 	},
 }
 

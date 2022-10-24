@@ -64,7 +64,15 @@ func Serve(
 	}
 
 	address := fmt.Sprintf(":%d", port)
-	server := &http.Server{Addr: address, Handler: handler}
+	server := &http.Server{
+		Addr:    address,
+		Handler: handler,
+
+		// Mitigate Slowloris attacks. 30 seconds is based on Apache's recommended 20-40
+		// recommendation. Hegel doesn't really have many headers so 20s should be plenty of time.
+		// https://en.wikipedia.org/wiki/Slowloris_(computer_security)
+		ReadHeaderTimeout: 20 * time.Second,
+	}
 	go func() {
 		<-ctx.Done()
 
