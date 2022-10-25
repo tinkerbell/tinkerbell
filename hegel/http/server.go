@@ -33,8 +33,8 @@ func Serve(
 	var httpHandler http.Handler
 
 	mux.Handle("/metrics", promhttp.Handler())
-	mux.Handle("/_packet/healthcheck", HealthCheckHandler(logger, client, start))
-	mux.Handle("/_packet/version", VersionHandler(logger))
+	mux.Handle("/healthz", HealthCheckHandler(logger, client, start))
+	mux.Handle("/versionz", VersionHandler(logger))
 
 	if !hegelAPI {
 		ec2MetadataHandler := otelhttp.WithRouteTag("/2009-04-04", EC2MetadataHandler(logger, client))
