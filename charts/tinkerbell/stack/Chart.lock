@@ -10,6 +10,6 @@ dependencies:
   version: 0.1.0
 - name: hegel
   repository: file://../hegel
-  version: 0.1.0
-digest: sha256:13ae461168b717e50c21db6e6f59b435c338743d2f18a2f7c172f87742c04e71
-generated: "2022-09-01T21:59:18.713740027-06:00"
+  version: 0.2.0
+digest: sha256:1722a00c8ac9f6e22db77e3ca14b27e637fe9bb7cd9fdb71064c4cffea49da2c
+generated: "2022-10-25T21:49:10.204518202Z"

@@ -44,7 +44,7 @@ dependencies:
   repository: "file://../rufio"
 - name: hegel
   #alias: hegelChart
-  version: "0.1.0"
+  version: "0.2.0"
   repository: "file://../hegel"
   import-values:
   - child: hegel
