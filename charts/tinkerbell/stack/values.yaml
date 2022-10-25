@@ -66,7 +66,7 @@ boots:
 # hegel chart overrides
 hegel:
   hegel:
-    image: quay.io/tinkerbell/hegel:v0.7.0
+    image: quay.io/tinkerbell/hegel:v0.8.0
 
 # rufio chart overrides
 rufio:
