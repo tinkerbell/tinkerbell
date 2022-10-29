@@ -2,14 +2,12 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/packethost/pkg/log"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tinkerbell/hegel/internal/datamodel"
 	"github.com/tinkerbell/hegel/internal/hardware"
@@ -24,7 +22,6 @@ func Serve(
 	port int,
 	start time.Time,
 	model datamodel.DataModel,
-	customEndpoints string,
 	unparsedProxies string,
 	hegelAPI bool,
 ) error {
@@ -41,6 +38,9 @@ func Serve(
 		mux.Handle("/2009-04-04/", ec2MetadataHandler)
 		mux.Handle("/2009-04-04", ec2MetadataHandler)
 
+		metadataHandler := otelhttp.WithRouteTag("/metadata", GetMetadataHandler(logger, client, ".metadata.instance", model))
+		mux.Handle("/metadata", metadataHandler)
+
 		httpHandler = &mux
 	} else {
 		router := gin.Default()
@@ -49,11 +49,6 @@ func Serve(
 		v0HegelMetadataHandler(logger, client, v0)
 
 		httpHandler = router
-	}
-
-	err := registerCustomEndpoints(logger, client, &mux, model, customEndpoints)
-	if err != nil {
-		return fmt.Errorf("register custom endpoints: %w", err)
 	}
 
 	// Add an X-Forward-For middleware for proxies.
@@ -87,19 +82,4 @@ func Serve(
 
 	logger.With("address", address).Info("Starting http server")
 	return server.ListenAndServe()
-}
-
-func registerCustomEndpoints(logger log.Logger, client hardware.Client, mux *http.ServeMux, model datamodel.DataModel, customEndpoints string) error {
-	endpoints := make(map[string]string)
-	err := json.Unmarshal([]byte(customEndpoints), &endpoints)
-	if err != nil {
-		return errors.Wrap(err, "error in parsing custom endpoints")
-	}
-
-	for endpoint, filter := range endpoints {
-		handler := otelhttp.WithRouteTag(endpoint, GetMetadataHandler(logger, client, filter, model))
-		mux.Handle(endpoint, handler)
-	}
-
-	return nil
 }
