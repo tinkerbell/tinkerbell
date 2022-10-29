@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/packethost/pkg/log"
-	"github.com/tinkerbell/hegel/hardware"
+	"github.com/tinkerbell/hegel/internal/hardware"
 )
 
 type metadataJSON struct {

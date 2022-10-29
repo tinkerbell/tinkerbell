@@ -1,6 +1,7 @@
 package xff
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -9,7 +10,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ParseTrustedProxies(trustedProxies string) []string {
+// Parse parses a string of comma separated trusted proxies. A trusted proxy can be a CIDR or an IP.
+func Parse(trustedProxies string) ([]string, error) {
 	var result []string
 
 	for _, cidr := range strings.Split(trustedProxies, ",") {
@@ -27,17 +29,20 @@ func ParseTrustedProxies(trustedProxies string) []string {
 					cidr += "/128"
 				}
 			} else {
-				// not an IP, panic
-				panic("invalid ip cidr in TRUSTED_PROXIES cidr=" + cidr)
+				return nil, fmt.Errorf("invalid cidr or ip: %v", cidr)
 			}
 		}
 		result = append(result, cidr)
 	}
-	return result
+
+	return result, nil
 }
 
-// HTTPHandler creates a XFF handler if there are allowedSubnets specified.
-func HTTPHandler(handler http.Handler, allowedSubnets []string) (http.Handler, error) {
+// Middleware creates an X-Forward-For middlware in the form of an an http.Handler. The middleware
+// will replace the http.Request.RemoteAddr with the X-Forward-For header address if the
+// http.Request.RemoteAddr is in the allowedSubnets. It then calls handler with the newly configured
+// http.Request.
+func Middleware(handler http.Handler, allowedSubnets []string) (http.Handler, error) {
 	if len(allowedSubnets) == 0 {
 		return handler, nil
 	}

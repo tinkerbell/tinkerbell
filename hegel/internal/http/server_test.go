@@ -15,10 +15,10 @@ import (
 
 	"github.com/packethost/pkg/log"
 	"github.com/stretchr/testify/require"
-	"github.com/tinkerbell/hegel/datamodel"
-	"github.com/tinkerbell/hegel/hardware/mock"
-	_ "github.com/tinkerbell/hegel/metrics" // Initialize metrics.
-	"github.com/tinkerbell/hegel/xff"
+	"github.com/tinkerbell/hegel/internal/datamodel"
+	"github.com/tinkerbell/hegel/internal/hardware/mock"
+	_ "github.com/tinkerbell/hegel/internal/metrics" // Initialize metrics.
+	"github.com/tinkerbell/hegel/internal/xff"
 )
 
 // TestTrustedProxies tests if the actual remote user IP is extracted correctly from the X-FORWARDED-FOR header according to the list of trusted proxies provided.
@@ -32,8 +32,12 @@ func TestTrustedProxies(t *testing.T) {
 			mux := &http.ServeMux{}
 			mux.Handle("/2009-04-04/", EC2MetadataHandler(logger, client))
 
-			trustedProxies := xff.ParseTrustedProxies(test.trustedProxies)
-			xffHandler, err := xff.HTTPHandler(mux, trustedProxies)
+			trustedProxies, err := xff.Parse(test.trustedProxies)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			xffHandler, err := xff.Middleware(mux, trustedProxies)
 			require.NoError(t, err)
 
 			req, err := http.NewRequest("GET", test.url, nil)

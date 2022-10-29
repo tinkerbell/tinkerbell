@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"github.com/pkg/errors"
-	"github.com/tinkerbell/hegel/datamodel"
-	"github.com/tinkerbell/hegel/hardware"
+	"github.com/tinkerbell/hegel/internal/datamodel"
+	"github.com/tinkerbell/hegel/internal/hardware"
 )
 
 // HardwareClient is a mock implementation of the hardwareGetter interface

@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tinkerbell/hegel/datamodel"
-	tink "github.com/tinkerbell/tink/client"
+	"github.com/tinkerbell/hegel/internal/datamodel"
+	tinkclient "github.com/tinkerbell/tink/client"
 )
 
 // Client defines the behaviors for interacting with hardware data providers.
@@ -60,7 +60,7 @@ func NewClient(config ClientConfig) (Client, error) {
 		return kubeclient, nil
 
 	case datamodel.TinkServer:
-		tc, err := tink.TinkHardwareClient()
+		tc, err := tinkclient.TinkHardwareClient()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create the tink client")
 		}

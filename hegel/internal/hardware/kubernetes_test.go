@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/tinkerbell/hegel/hardware"
-	tinkv1alpha1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
-	tink "github.com/tinkerbell/tink/pkg/controllers"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/tinkerbell/hegel/internal/hardware"
+	tinkv1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
+	tinkcontrollers "github.com/tinkerbell/tink/pkg/controllers"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -24,17 +24,17 @@ func TestKubernetesClientLists(t *testing.T) {
 	listerClient.
 		On("List", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			require.IsType(t, &tinkv1alpha1.HardwareList{}, args.Get(1))
-			hw := args.Get(1).(*tinkv1alpha1.HardwareList)
+			require.IsType(t, &tinkv1.HardwareList{}, args.Get(1))
+			hw := args.Get(1).(*tinkv1.HardwareList)
 
-			hw.Items = append(hw.Items, tinkv1alpha1.Hardware{
-				ObjectMeta: v1.ObjectMeta{Name: name},
-				Spec: tinkv1alpha1.HardwareSpec{
-					Metadata: &tinkv1alpha1.HardwareMetadata{
-						Facility: &tinkv1alpha1.MetadataFacility{},
-						Instance: &tinkv1alpha1.MetadataInstance{
-							OperatingSystem: &tinkv1alpha1.MetadataInstanceOperatingSystem{},
-							Ips:             []*tinkv1alpha1.MetadataInstanceIP{},
+			hw.Items = append(hw.Items, tinkv1.Hardware{
+				ObjectMeta: metav1.ObjectMeta{Name: name},
+				Spec: tinkv1.HardwareSpec{
+					Metadata: &tinkv1.HardwareMetadata{
+						Facility: &tinkv1.MetadataFacility{},
+						Instance: &tinkv1.MetadataInstance{
+							OperatingSystem: &tinkv1.MetadataInstanceOperatingSystem{},
+							Ips:             []*tinkv1.MetadataInstanceIP{},
 						},
 					},
 				},
@@ -50,7 +50,7 @@ func TestKubernetesClientLists(t *testing.T) {
 	require.Equal(t, len(listerClient.Calls), 1)
 	args := listerClient.Calls[0].Arguments
 
-	_, ok := args.Get(1).(*tinkv1alpha1.HardwareList)
+	_, ok := args.Get(1).(*tinkv1.HardwareList)
 	assert.True(t, ok)
 
 	opts := args.Get(2).([]crclient.ListOption)
@@ -59,8 +59,8 @@ func TestKubernetesClientLists(t *testing.T) {
 	matchingFields, ok := opts[0].(crclient.MatchingFields)
 	require.True(t, ok)
 
-	require.Contains(t, matchingFields, tink.HardwareIPAddrIndex)
-	assert.Equal(t, ip, matchingFields[tink.HardwareIPAddrIndex])
+	require.Contains(t, matchingFields, tinkcontrollers.HardwareIPAddrIndex)
+	assert.Equal(t, ip, matchingFields[tinkcontrollers.HardwareIPAddrIndex])
 
 	// todo(chrisdoherty4) Validate the returned hardware Export() has correctly serialized data.
 }
@@ -84,9 +84,9 @@ func TestKubernetesClientListWithGt1Result(t *testing.T) {
 	listerClient.
 		On("List", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			require.IsType(t, &tinkv1alpha1.HardwareList{}, args.Get(1))
-			hw := args.Get(1).(*tinkv1alpha1.HardwareList)
-			hw.Items = make([]tinkv1alpha1.Hardware, 2)
+			require.IsType(t, &tinkv1.HardwareList{}, args.Get(1))
+			hw := args.Get(1).(*tinkv1.HardwareList)
+			hw.Items = make([]tinkv1.Hardware, 2)
 		}).
 		Return((error)(nil))
 

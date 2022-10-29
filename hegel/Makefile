@@ -9,8 +9,8 @@ build:
 	CGO_ENABLED=0 GOOS=$$GOOS go build -ldflags="-X build.gitRevision=$(shell git rev-parse --short HEAD)" -o hegel ./cmd/hegel
 
 .PHONY: unit-test
-unit-test:
-	go test $(GO_TEST_ARGS) -coverprofile=unit-test.coverage ./...
+test:
+	go test $(GO_TEST_ARGS) -coverprofile=coverage.out ./...
 
 IMAGE_ARGS ?= -t hegel
 

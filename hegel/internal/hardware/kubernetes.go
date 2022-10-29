@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	tinkv1alpha1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
-	tink "github.com/tinkerbell/tink/pkg/controllers"
+	tinkcontrollers "github.com/tinkerbell/tink/pkg/controllers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -37,13 +37,13 @@ func NewKubernetesClientOrDie(config KubernetesClientConfig) *KubernetesClient {
 // between the cluster and internal caches. Consumers can wait for the initial sync using WaitForCachesync().
 // See k8s.io/client-go/tools/clientcmd for constructing *rest.Config objects.
 func NewKubernetesClient(config KubernetesClientConfig) (*KubernetesClient, error) {
-	opts := tink.GetServerOptions()
+	opts := tinkcontrollers.GetServerOptions()
 	opts.Namespace = config.Namespace
 
 	// Use a manager from the tink project so we can take advantage of the indexes and caching it configures.
 	// Once started, we don't really need any of the manager capabilities hence we don't store it in the
 	// KubernetesClient
-	manager, err := tink.NewManager(config.Config, opts)
+	manager, err := tinkcontrollers.NewManager(config.Config, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (k *KubernetesClient) IsHealthy(context.Context) bool {
 func (k *KubernetesClient) ByIP(ctx context.Context, ip string) (Hardware, error) {
 	var hw tinkv1alpha1.HardwareList
 	err := k.client.List(ctx, &hw, crclient.MatchingFields{
-		tink.HardwareIPAddrIndex: ip,
+		tinkcontrollers.HardwareIPAddrIndex: ip,
 	})
 	if err != nil {
 		return nil, err
