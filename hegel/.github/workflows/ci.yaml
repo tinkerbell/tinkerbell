@@ -73,7 +73,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ./
-          file: ./cmd/hegel/Dockerfile
           cache-from: type=registry,ref=${{ env.IMAGE }}:latest
           push: ${{ startsWith(github.ref, 'refs/heads/main') }}
           tags: ${{ steps.meta.outputs.tags }}
