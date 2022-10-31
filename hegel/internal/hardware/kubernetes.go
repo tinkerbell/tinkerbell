@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/tinkerbell/hegel/internal/datamodel"
 	tinkv1alpha1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
 	tinkcontrollers "github.com/tinkerbell/tink/pkg/controllers"
 	"k8s.io/client-go/rest"
@@ -120,6 +121,10 @@ func (k *KubernetesClient) ByIP(ctx context.Context, ip string) (Hardware, error
 	}
 
 	return FromK8sTinkHardware(&hw.Items[0]), nil
+}
+
+func (k *KubernetesClient) GetDataModel() datamodel.DataModel {
+	return datamodel.Kubernetes
 }
 
 // KuberneteSClientConfig used by the NewKubernetesClient function family.

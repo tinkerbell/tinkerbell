@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/tinkerbell/hegel/internal/datamodel"
 	tinkpkg "github.com/tinkerbell/tink/pkg"
 	"github.com/tinkerbell/tink/protos/hardware"
 )
@@ -32,6 +33,10 @@ func (hg clientTinkerbell) ByIP(ctx context.Context, ip string) (Hardware, error
 		return nil, err
 	}
 	return &Tinkerbell{hw}, nil
+}
+
+func (hg clientTinkerbell) GetDataModel() datamodel.DataModel {
+	return datamodel.TinkServer
 }
 
 // Export formats the piece of hardware to be returned in responses to clients.
