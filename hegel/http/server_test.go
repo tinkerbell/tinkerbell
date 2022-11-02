@@ -820,12 +820,12 @@ func TestServe(t *testing.T) {
 		{
 			name:    "serve_endpoint_success",
 			status:  200,
-			httpreq: "/_packet/version",
+			httpreq: "/versionz",
 		},
 		{
 			name:    "serve_endpoint_failed",
 			status:  404,
-			httpreq: "/_packet/version12",
+			httpreq: "/version12",
 		},
 	}
 	mport := 52000
