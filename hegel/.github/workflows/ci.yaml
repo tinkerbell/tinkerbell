@@ -39,7 +39,7 @@ jobs:
           go test -coverprofile=coverage.txt ./...
           bash <(curl -s https://codecov.io/bash)
 
-  images:
+  docker-images:
     runs-on: ubuntu-latest
     needs: [validation]
     steps:
