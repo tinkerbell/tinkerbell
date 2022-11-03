@@ -38,6 +38,10 @@ func (hg HardwareClient) ByIP(_ context.Context, ip string) (hardware.Hardware, 
 	return hw, nil
 }
 
+func (hg HardwareClient) GetDataModel() datamodel.DataModel {
+	return hg.Model
+}
+
 const (
 	UserIP          = "192.168.1.5" // value is completely arbitrary, as long as it's an IP to be parsed by getIPFromRequest (could even be 0.0.0.0)
 	CacherDataModel = `

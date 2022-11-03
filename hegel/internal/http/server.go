@@ -2,68 +2,19 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/packethost/pkg/log"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/tinkerbell/hegel/internal/datamodel"
-	"github.com/tinkerbell/hegel/internal/hardware"
-	"github.com/tinkerbell/hegel/internal/xff"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-func Serve(
-	ctx context.Context,
-	logger log.Logger,
-	client hardware.Client,
-	port int,
-	start time.Time,
-	model datamodel.DataModel,
-	unparsedProxies string,
-	hegelAPI bool,
-) error {
-	logger.Info("in the http serve func")
-	var mux http.ServeMux
-	var httpHandler http.Handler
-
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.Handle("/healthz", HealthCheckHandler(logger, client, start))
-	mux.Handle("/versionz", VersionHandler(logger))
-
-	if !hegelAPI {
-		ec2MetadataHandler := otelhttp.WithRouteTag("/2009-04-04", EC2MetadataHandler(logger, client))
-		mux.Handle("/2009-04-04/", ec2MetadataHandler)
-		mux.Handle("/2009-04-04", ec2MetadataHandler)
-
-		metadataHandler := otelhttp.WithRouteTag("/metadata", GetMetadataHandler(logger, client, ".metadata.instance", model))
-		mux.Handle("/metadata", metadataHandler)
-
-		httpHandler = &mux
-	} else {
-		router := gin.Default()
-		router.RedirectTrailingSlash = true
-		v0 := router.Group("/v0")
-		v0HegelMetadataHandler(logger, client, v0)
-
-		httpHandler = router
-	}
-
-	// Add an X-Forward-For middleware for proxies.
-	proxies, err := xff.Parse(unparsedProxies)
-	if err != nil {
-		return err
-	}
-
-	handler, err := xff.Middleware(httpHandler, proxies)
-	if err != nil {
-		return err
-	}
-
-	address := fmt.Sprintf(":%d", port)
-	server := &http.Server{
+// Serve is a blocking call that begins serving the provided handler on port. When ctx is cancelled
+// it will attempt to gracefully shutdown. If graceful shutdown fails, it will force shutdown
+// and return an error.
+func Serve(ctx context.Context, logger log.Logger, address string, handler http.Handler) error {
+	server := http.Server{
 		Addr:    address,
 		Handler: handler,
 
@@ -72,14 +23,30 @@ func Serve(
 		// https://en.wikipedia.org/wiki/Slowloris_(computer_security)
 		ReadHeaderTimeout: 20 * time.Second,
 	}
-	go func() {
-		<-ctx.Done()
 
-		// todo(chrisdoherty4) Refactor server construction and 'listen' to be separate so we can more gracefully
-		// shutdown and introduce a timeout before calling Close().
-		server.Close()
+	go func() {
+		logger.Info(fmt.Sprintf("Listening on %s", address))
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Info(err.Error())
+		}
 	}()
 
-	logger.With("address", address).Info("Starting http server")
-	return server.ListenAndServe()
+	// Wait until we're told to shutdown.
+	<-ctx.Done()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Attempt a graceful shutdown with timeout.
+	if err := server.Shutdown(ctx); err != nil {
+		server.Close()
+
+		if errors.Is(err, context.DeadlineExceeded) {
+			return errors.New("timed out waiting for graceful shutdown")
+		}
+
+		return err
+	}
+
+	return nil
 }

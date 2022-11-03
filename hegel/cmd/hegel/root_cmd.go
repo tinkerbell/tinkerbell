@@ -6,12 +6,10 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	_ "net/http/pprof" //nolint:gosec // G108: Profiling endpoint is automatically exposed on /debug/pprof
 
 	"github.com/equinix-labs/otel-init-go/otelinit"
-	"github.com/oklog/run"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -20,14 +18,17 @@ import (
 	"github.com/tinkerbell/hegel/internal/datamodel"
 	"github.com/tinkerbell/hegel/internal/hardware"
 	"github.com/tinkerbell/hegel/internal/http"
+	"github.com/tinkerbell/hegel/internal/http/handler"
 	"github.com/tinkerbell/hegel/internal/metrics"
+	"github.com/tinkerbell/hegel/internal/xff"
 )
 
 const longHelp = `
 Run a Hegel server.
 
-Each CLI argument has a corresponding environment variable in the form of the CLI argument prefixed with HEGEL. If both
-the flag and environment variable form are specified, the flag form takes precedence.
+Each CLI argument has a corresponding environment variable in the form of the CLI argument prefixed 
+with HEGEL. If both the flag and environment variable form are specified, the flag form takes 
+precedence.
 
 Examples
   --http-port          HEGEL_HTTP_PORT
@@ -54,6 +55,16 @@ type RootCommandOptions struct {
 
 func (o RootCommandOptions) GetDataModel() datamodel.DataModel {
 	return datamodel.DataModel(o.DataModel)
+}
+
+// GetAPI returns the API identifier for route configuration. If the --hegel-api flag is set, it
+// returns handler.Hegel, otherwise it returns handler.EC2.
+func (o RootCommandOptions) GetAPI() handler.API {
+	if o.HegelAPI {
+		return handler.Hegel
+	}
+
+	return handler.EC2
 }
 
 // RootCommand is the root command that represents the entrypoint to Hegel.
@@ -101,14 +112,14 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 	}
 	defer logger.Close()
 
-	logger.Package("main").With("opts", fmt.Sprintf("%+v", c.Opts)).Info("root command options")
+	logger.With("opts", fmt.Sprintf("%+v", c.Opts)).Info("Root command options")
 
 	ctx, otelShutdown := otelinit.InitOpenTelemetry(cmd.Context(), "hegel")
 	defer otelShutdown(ctx)
 
 	metrics.State.Set(metrics.Initializing)
 
-	hardwareClient, err := hardware.NewClient(hardware.ClientConfig{
+	backend, err := hardware.NewClient(hardware.ClientConfig{
 		Model:         c.Opts.GetDataModel(),
 		KubeAPI:       c.Opts.KubernetesAPIURL,
 		Kubeconfig:    c.Opts.Kubeconfig,
@@ -118,26 +129,27 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 		return errors.Errorf("create client: %v", err)
 	}
 
-	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
-	var routines run.Group
+	handlr, err := handler.New(logger, c.Opts.GetAPI(), backend)
+	if err != nil {
+		return err
+	}
 
-	routines.Add(
-		func() error {
-			return http.Serve(
-				ctx,
-				logger,
-				hardwareClient,
-				c.Opts.HTTPPort,
-				time.Now(),
-				c.Opts.GetDataModel(),
-				c.Opts.TrustedProxies,
-				c.Opts.HegelAPI,
-			)
-		},
-		func(error) { cancel() },
-	)
+	// Add an X-Forward-For middleware for proxies.
+	proxies, err := xff.Parse(c.Opts.TrustedProxies)
+	if err != nil {
+		return err
+	}
 
-	return routines.Run()
+	handlr, err = xff.Middleware(handlr, proxies)
+	if err != nil {
+		return err
+	}
+
+	// Listen for signals to gracefully shutdown.
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	defer cancel()
+
+	return http.Serve(ctx, logger, fmt.Sprintf(":%v", c.Opts.HTTPPort), handlr)
 }
 
 func (c *RootCommand) configureFlags() error {

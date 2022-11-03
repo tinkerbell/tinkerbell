@@ -15,6 +15,9 @@ type Client interface {
 
 	// ByIP retrieves hardware data by its IP address.
 	ByIP(ctx context.Context, ip string) (Hardware, error)
+
+	// GetDataModel returns the data model associated with the client.
+	GetDataModel() datamodel.DataModel
 }
 
 // Hardware is the interface for Cacher/Tink hardware types.

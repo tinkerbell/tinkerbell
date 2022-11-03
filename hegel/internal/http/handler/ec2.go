@@ -1,19 +1,15 @@
-package http
+package handler
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net"
 	"net/http"
-	"runtime"
 	"strings"
-	"time"
 
 	"github.com/itchyny/gojq"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
-	"github.com/tinkerbell/hegel/internal/build"
 	"github.com/tinkerbell/hegel/internal/datamodel"
 	"github.com/tinkerbell/hegel/internal/hardware"
 	"github.com/tinkerbell/hegel/internal/metrics"
@@ -49,68 +45,10 @@ var ec2Filters = map[string]string{
 	"/meta-data/local-ipv4":                                ".metadata.instance.network.addresses[]? | select(.address_family == 4 and .public == false) | .address",
 }
 
-func VersionHandler(logger log.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		payload := struct {
-			// Use git_rev to match the health endpoint reporting.
-			Revision string `json:"git_rev"`
-		}{
-			Revision: build.GetGitRevision(),
-		}
-
-		encoder := json.NewEncoder(w)
-
-		if err := encoder.Encode(payload); err != nil {
-			logger.Error(err, "marshalling version")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	})
-}
-
-// HealthChecker provide health checking behavior for services.
-type HealthChecker interface {
-	IsHealthy(context.Context) bool
-}
-
-// HealthCheckHandler provides an http handler that exposes health check information to consumers.
-// The data is exposed as a json payload containing git_rev, uptim, goroutines and hardware_client_status.
-func HealthCheckHandler(logger log.Logger, client HealthChecker, start time.Time) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		clientIsHealthy := client.IsHealthy(r.Context())
-
-		res := struct {
-			GitRev                  string  `json:"git_rev"`
-			Uptime                  float64 `json:"uptime"`
-			Goroutines              int     `json:"goroutines"`
-			HardwareClientAvailable bool    `json:"hardware_client_status"`
-		}{
-			GitRev:                  build.GetGitRevision(),
-			Uptime:                  time.Since(start).Seconds(),
-			Goroutines:              runtime.NumGoroutine(),
-			HardwareClientAvailable: clientIsHealthy,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		encoder := json.NewEncoder(w)
-
-		if err := encoder.Encode(&res); err != nil {
-			logger.Error(err, "Failed to write for healthChecker")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		if !clientIsHealthy {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	})
-}
-
 // GetMetadataHandler provides an http handler that retrieves metadata using client filtering it
 // using filter. filter should be a jq compatible processing string. Data is only filtered when
 // using the TinkServer data model.
-func GetMetadataHandler(logger log.Logger, client hardware.Client, filter string, model datamodel.DataModel) http.Handler {
+func getMetadataHandler(logger log.Logger, client hardware.Client, filter string, model datamodel.DataModel) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -158,7 +96,7 @@ func GetMetadataHandler(logger log.Logger, client hardware.Client, filter string
 	})
 }
 
-func EC2MetadataHandler(logger log.Logger, client hardware.Client) http.Handler {
+func ec2MetadataHandler(logger log.Logger, client hardware.Client) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			w.WriteHeader(http.StatusMethodNotAllowed)

@@ -4,11 +4,12 @@ go 1.19
 
 require (
 	github.com/equinix-labs/otel-init-go v0.0.4
+	github.com/gin-gonic/gin v1.8.1
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/itchyny/gojq v0.11.0
-	github.com/oklog/run v1.1.0
 	github.com/packethost/pkg v0.0.0-20211110202003-387414657e83
 	github.com/packethost/xff v0.0.0-20190305172552-d3e9190c41b3
 	github.com/pkg/errors v0.9.1
@@ -26,8 +27,6 @@ require (
 	k8s.io/client-go v0.23.0
 	sigs.k8s.io/controller-runtime v0.11.1
 )
-
-require github.com/gin-gonic/gin v1.8.1
 
 require (
 	github.com/benbjohnson/clock v1.3.0 // indirect
@@ -49,7 +48,6 @@ require (
 	github.com/goccy/go-json v0.9.10 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
