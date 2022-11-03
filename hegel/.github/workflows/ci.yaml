@@ -1,4 +1,4 @@
-name: For each commit and PR
+name: Hegel
 on:
   push:
     branches:
@@ -10,67 +10,101 @@ on:
 env:
   REGISTRY: quay.io
   IMAGE: quay.io/${{ github.repository }}
+  CGO_ENABLED: 0
 
 jobs:
-  validation:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-    env:
-      CGO_ENABLED: 0
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Install Go
-        uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
           go-version: "1.19"
+          cache: true
 
-      - name: Install goimports
+      - name: Validate imports
         run: go install golang.org/x/tools/cmd/goimports@latest && goimports -d . | (! grep .)
 
-      - name: go vet
-        run: go vet ./...
+      - run: go vet ./...
 
-      - name: lint
-        run: make lint
+      - run: make lint
 
-      - name: go test with coverage
-        run: |
-          go test -coverprofile=coverage.txt ./...
-          bash <(curl -s https://codecov.io/bash)
-
-  docker-images:
+  test:
+    name: Test
     runs-on: ubuntu-latest
-    needs: [validation]
     steps:
-      - name: Tags
-        id: meta
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: "1.19"
+          cache: true
+
+      - name: Run tests
+        run: go test -coverprofile=coverage.txt ./...
+
+      - name: Upload coverage report (codcov.io)
+        run: bash <(curl -s https://codecov.io/bash)
+
+  build:
+    name: Build
+    strategy:
+      matrix:
+        platform: [amd64, arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: "1.19"
+          cache: true
+
+      - name: Build linux/${{ matrix.platform }}
+        run: make build GOARCH=${{ matrix.platform }}
+
+      - name: Upload linux/${{ matrix.platform }} binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: hegel
+          retention-days: 1
+          path: hegel-linux-${{ matrix.platform }}
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    needs: [lint, build, test]
+    steps:
+      - uses: actions/checkout@v3
+
+      # We need to specify a name for the download action else artifacts are downloaded with
+      # whatever name they were uploaded with. Its required because the Dockerfile expects
+      # the filenames to be formatted appropriately for the platform.
+      - name: Download all binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: hegel
+
+      - name: Generate image tags
         uses: docker/metadata-action@v4
+        id: meta
         with:
           images: ${{ env.IMAGE }}
           tags: |
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Checkout code
-        uses: actions/checkout@v2
-
       - name: Login to quay.io
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         if: ${{ startsWith(github.ref, 'refs/heads/main') }}
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+      - uses: docker/setup-buildx-action@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Build and push
-        uses: docker/build-push-action@v2
+      - name: Build images and push
+        uses: docker/build-push-action@v3
         with:
           context: ./
           cache-from: type=registry,ref=${{ env.IMAGE }}:latest

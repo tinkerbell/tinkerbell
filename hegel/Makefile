@@ -1,12 +1,18 @@
-binary := cmd/hegel
+GOARCH ?= $(shell go env GOARCH)
+GOOS ?= $(shell go env GOOS)
 
 # The image recipe calls build hence build doesn't feature here.
 all: unit-test image
 
-.PHONY: ${binary} build
-${binary}:
+.PHONY: build
 build:
-	CGO_ENABLED=0 GOOS=$$GOOS go build -ldflags="-X build.gitRevision=$(shell git rev-parse --short HEAD)" -o hegel ./cmd/hegel
+	CGO_ENABLED=0 \
+	GOOS=$$GOOS \
+	GOARCH=$$GOARCH \
+	go build \
+		-ldflags="-X build.gitRevision=$(shell git rev-parse --short HEAD)" \
+		-o hegel-$(GOOS)-$(GOARCH) \
+		./cmd/hegel
 
 .PHONY: unit-test
 test:
@@ -14,18 +20,12 @@ test:
 
 IMAGE_ARGS ?= -t hegel
 
+# When we build the image its Linux based. This means we need a Linux binary hence we need to export
+# GOOS so we have compatible binary.
 .PHONY: image
-image:
+image: export GOOS=linux
+image: build
 	docker build --build-arg GOPROXY=$(GOPROXY) $(IMAGE_ARGS) .
-
-ifeq ($(CI),drone)
-run: ${binary}
-	${binary}
-
-.PHONY test
-test:
-	go test -race -coverprofile=coverage.txt -covermode=atomic ${TEST_ARGS} ./...
-endif
 
 # BEGIN: lint-install --dockerfile=warn .
 # http://github.com/tinkerbell/lint-install
