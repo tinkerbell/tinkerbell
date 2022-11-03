@@ -3,8 +3,8 @@ queue_rules:
     conditions:
       # Conditions to get out of the queue (= merged)
       - check-success=DCO
+      # The docker-images job only runs if lint, build and test all pass.
       - check-success=images
-      - check-success=validation
 
 pull_request_rules:
   - name: Automatic merge on approval
@@ -14,8 +14,8 @@ pull_request_rules:
       - "#changes-requested-reviews-by=0"
       - "#review-requested=0"
       - check-success=DCO
+      # The docker-images job only runs if lint, build and test all pass.
       - check-success=images
-      - check-success=validation
       - label!=do-not-merge
       - label=ready-to-merge
     actions:

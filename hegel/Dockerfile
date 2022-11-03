@@ -1,26 +1,15 @@
-FROM golang:1.19-alpine AS builder
-
-ARG GOPROXY=https://proxy.golang.org,direct
-
-RUN apk add --update --upgrade git make
-WORKDIR /src
-ENV GOPROXY=$GOPROXY
-
-# Copy only the go mod files so we can take advantage of image layer caching.
-COPY go.* ./
-RUN go mod download
-
-COPY . .
-RUN make build
-
 FROM alpine:3.7
 
-EXPOSE 50060
-EXPOSE 50061
-ENTRYPOINT ["/usr/bin/hegel"]
+# Define args for the target platform so we can identify the binary in the Docker context.
+# These args are populated by Docker. The values should match Go's GOOS and GOARCH values for
+# the respective os/platform.
+ARG TARGETARCH
+ARG TARGETOS
 
 RUN apk add --update --upgrade ca-certificates
+
 RUN adduser -D -u 1000 tinkerbell
 USER tinkerbell
 
-COPY --from=builder /src/hegel /usr/bin/hegel
+COPY ./hegel-$TARGETOS-$TARGETARCH /usr/bin/hegel
+ENTRYPOINT ["/usr/bin/hegel"]
