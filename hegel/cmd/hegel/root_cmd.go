@@ -30,8 +30,8 @@ Each CLI argument has a corresponding environment variable in the form of the CL
 the flag and environment variable form are specified, the flag form takes precedence.
 
 Examples
-  --http-port              HEGEL_HTTP_PORT
-  --http-custom-endpoints  HEGEL_HTTP_CUSTOM_ENDPOINTS
+  --http-port          HEGEL_HTTP_PORT
+  --trusted-proxies	   HEGEL_TRUSTED_PROXIES
 `
 
 // EnvNamePrefix defines the environment variable prefix required for all environment configuration.
@@ -42,13 +42,13 @@ type RootCommandOptions struct {
 	DataModel      string `mapstructure:"data-model"`
 	TrustedProxies string `mapstructure:"trusted-proxies"`
 
-	HTTPCustomEndpoints string `mapstructure:"http-custom-endpoints"`
-	HTTPPort            int    `mapstructure:"http-port"`
+	HTTPPort int `mapstructure:"http-port"`
 
 	KubernetesAPIURL string `mapstructure:"kubernetes"`
 	Kubeconfig       string `mapstructure:"kubeconfig"`
 	KubeNamespace    string `mapstructure:"kube-namespace"`
 
+	// Hidden CLI flags.
 	HegelAPI bool `mapstructure:"hegel-api"`
 }
 
@@ -130,7 +130,6 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 				c.Opts.HTTPPort,
 				time.Now(),
 				c.Opts.GetDataModel(),
-				c.Opts.HTTPCustomEndpoints,
 				c.Opts.TrustedProxies,
 				c.Opts.HegelAPI,
 			)
@@ -144,7 +143,6 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 func (c *RootCommand) configureFlags() error {
 	c.Flags().String("data-model", string(datamodel.TinkServer), "The back-end data source: [\"1\", \"kubernetes\"] (1 indicates tink server)")
 
-	c.Flags().String("http-custom-endpoints", `{"/metadata":".metadata.instance"}`, "JSON encoded object specifying custom endpoint => metadata mappings")
 	c.Flags().Int("http-port", 50061, "Port to listen on for HTTP requests")
 
 	c.Flags().String("kubeconfig", "", "Path to a kubeconfig file")
