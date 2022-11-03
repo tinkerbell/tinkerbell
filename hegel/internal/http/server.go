@@ -11,9 +11,9 @@ import (
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/tinkerbell/hegel/datamodel"
-	"github.com/tinkerbell/hegel/hardware"
-	"github.com/tinkerbell/hegel/xff"
+	"github.com/tinkerbell/hegel/internal/datamodel"
+	"github.com/tinkerbell/hegel/internal/hardware"
+	"github.com/tinkerbell/hegel/internal/xff"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -57,8 +57,12 @@ func Serve(
 	}
 
 	// Add an X-Forward-For middleware for proxies.
-	proxies := xff.ParseTrustedProxies(unparsedProxies)
-	handler, err := xff.HTTPHandler(httpHandler, proxies)
+	proxies, err := xff.Parse(unparsedProxies)
+	if err != nil {
+		return err
+	}
+
+	handler, err := xff.Middleware(httpHandler, proxies)
 	if err != nil {
 		return err
 	}

@@ -13,10 +13,10 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
-	"github.com/tinkerbell/hegel/build"
-	"github.com/tinkerbell/hegel/datamodel"
-	"github.com/tinkerbell/hegel/hardware"
-	"github.com/tinkerbell/hegel/metrics"
+	"github.com/tinkerbell/hegel/internal/build"
+	"github.com/tinkerbell/hegel/internal/datamodel"
+	"github.com/tinkerbell/hegel/internal/hardware"
+	"github.com/tinkerbell/hegel/internal/metrics"
 )
 
 // ec2Filters defines the query pattern and filters for the EC2 endpoint

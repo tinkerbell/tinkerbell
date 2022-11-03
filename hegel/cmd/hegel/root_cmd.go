@@ -17,10 +17,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/tinkerbell/hegel/datamodel"
-	"github.com/tinkerbell/hegel/hardware"
-	"github.com/tinkerbell/hegel/http"
-	"github.com/tinkerbell/hegel/metrics"
+	"github.com/tinkerbell/hegel/internal/datamodel"
+	"github.com/tinkerbell/hegel/internal/hardware"
+	"github.com/tinkerbell/hegel/internal/http"
+	"github.com/tinkerbell/hegel/internal/metrics"
 )
 
 const longHelp = `
