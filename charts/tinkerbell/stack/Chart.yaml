@@ -24,28 +24,28 @@ version: 0.1.2
 appVersion: "0.1.0"
 
 dependencies:
-- name: tink
-  #alias: tinkChart
-  version: "0.1.0"
-  repository: "file://../tink"
-  import-values:
-  - child: tink
-    parent: tink
-- name: boots
-  #alias: bootsChart
-  version: "0.1.0"
-  repository: "file://../boots"
-  import-values:
-  - child: boots
-    parent: boots
-- name: rufio
-  #alias: rufioChart
-  version: "0.1.0"
-  repository: "file://../rufio"
-- name: hegel
-  #alias: hegelChart
-  version: "0.2.0"
-  repository: "file://../hegel"
-  import-values:
-  - child: hegel
-    parent: hegel
+  - name: tink
+    #alias: tinkChart
+    version: "0.1.0"
+    repository: "file://../tink"
+    import-values:
+      - child: tink
+        parent: tink
+  - name: boots
+    #alias: bootsChart
+    version: "0.1.0"
+    repository: "file://../boots"
+    import-values:
+      - child: boots
+        parent: boots
+  - name: rufio
+    #alias: rufioChart
+    version: "0.1.0"
+    repository: "file://../rufio"
+  - name: hegel
+    #alias: hegelChart
+    version: "0.2.1"
+    repository: "file://../hegel"
+    import-values:
+      - child: hegel
+        parent: hegel
