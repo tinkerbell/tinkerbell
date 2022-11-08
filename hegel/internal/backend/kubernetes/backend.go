@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/tinkerbell/hegel/internal/datamodel"
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
 	tinkv1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
 	tinkcontrollers "github.com/tinkerbell/tink/pkg/controllers"
@@ -125,10 +124,6 @@ func (b *Backend) retrieveByIP(ctx context.Context, ip string) (tinkv1.Hardware,
 	}
 
 	return hw.Items[0], nil
-}
-
-func (b *Backend) GetDataModel() datamodel.DataModel {
-	return datamodel.Kubernetes
 }
 
 func toEC2Instance(tinkv1.Hardware) ec2.Instance {
