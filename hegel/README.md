@@ -1,6 +1,9 @@
-[![Build Status](https://github.com/tinkerbell/hegel/actions/workflows/ci.yaml/badge.svg)](https://github.com/tinkerbell/hegel/actions/workflows/ci.yaml)
-
 # Hegel
+
+[![Build status](https://img.shields.io/github/workflow/status/tinkerbell/hegel/Hegel?label=Build&logo=github)](https://img.shields.io/github/workflow/status/tinkerbell/hegel/Hegel?label=Hegel&logo=github) 
+[![Go version](https://img.shields.io/github/go-mod/go-version/tinkerbell/hegel?logo=go)](https://img.shields.io/github/go-mod/go-version/tinkerbell/hegel)
+[![slack](https://img.shields.io/badge/CNCF-%23tinkerbell-blue?logo=slack)](https://cloud-native.slack.com/archives/C01SRB41GMT)
+[![Docker images](https://img.shields.io/badge/Image-quay.io/tinkerbell/hegel-blue?logo=docker)](https://quay.io/repository/tinkerbell/hegel?tab=tags)
 
 Hegel is an instance metadata service used by Tinkerbell for bare metal instance initialization.
 
