@@ -19,9 +19,9 @@ import (
 	"github.com/tinkerbell/hegel/internal/backend"
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
 	hegelhttp "github.com/tinkerbell/hegel/internal/http"
-	"github.com/tinkerbell/hegel/internal/http/handler"
 	"github.com/tinkerbell/hegel/internal/metrics"
 	"github.com/tinkerbell/hegel/internal/xff"
+	"github.com/tinkerbell/hegel/internal/zpages"
 )
 
 const longHelp = `
@@ -55,20 +55,6 @@ type RootCommandOptions struct {
 
 	// Hidden CLI flags.
 	HegelAPI bool `mapstructure:"hegel-api"`
-}
-
-// GetAPI returns the API identifier for route configuration. If the --hegel-api flag is set, it
-// returns handler.Hegel, otherwise it returns handler.EC2.
-func (o RootCommandOptions) GetAPI() handler.API {
-	if o.HegelAPI {
-		return handler.Hegel
-	}
-
-	return handler.EC2
-}
-
-func (o RootCommandOptions) GetBackend() string {
-	return o.Backend
 }
 
 // RootCommand is the root command that represents the entrypoint to Hegel.
@@ -137,6 +123,8 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 	router.Use(gin.Logger(), gin.Recovery(), xffmw)
 	router.RedirectTrailingSlash = true
 
+	zpages.Configure(router, be)
+
 	// TODO(chrisdoherty4) Handle multiple frontends.
 	fe := ec2.New(be)
 	fe.Configure(router)
@@ -183,7 +171,7 @@ func (c *RootCommand) configureFlags() error {
 
 func toBackendOptions(opts RootCommandOptions) backend.Options {
 	var backndOpts backend.Options
-	switch opts.GetBackend() {
+	switch opts.Backend {
 	case "flatfile":
 		backndOpts = backend.Options{
 			Flatfile: &backend.FlatfileOptions{

@@ -38,7 +38,7 @@ func New(client Client) Frontend {
 // Configure configures router with the supported AWS EC2 instance metadata API endpoints.
 //
 // TODO(chrisdoherty4) Document unimplemented endpoints.
-func (f Frontend) Configure(router *gin.Engine) {
+func (f Frontend) Configure(router gin.IRouter) {
 	// Setup the 2009-04-04 API path prefix.
 	v20090404 := router.Group("/2009-04-04")
 
