@@ -1,27 +1,56 @@
 # Hegel
 
-[![Build Status](https://github.com/tinkerbell/hegel/workflows/For%20each%20commit%20and%20PR/badge.svg)](https://github.com/tinkerbell/hegel/actions?query=workflow%3A%22For+each+commit+and+PR%22+branch%3Amain)
-![](https://img.shields.io/badge/Stability-Experimental-red.svg)
+[![Build status](https://img.shields.io/github/workflow/status/tinkerbell/hegel/Hegel?label=Build&logo=github)](https://img.shields.io/github/workflow/status/tinkerbell/hegel/Hegel?label=Hegel&logo=github) 
+[![Go version](https://img.shields.io/github/go-mod/go-version/tinkerbell/hegel?logo=go)](https://img.shields.io/github/go-mod/go-version/tinkerbell/hegel)
+[![slack](https://img.shields.io/badge/CNCF-%23tinkerbell-blue?logo=slack)](https://cloud-native.slack.com/archives/C01SRB41GMT)
+[![Docker images](https://img.shields.io/badge/Image-quay.io/tinkerbell/hegel-blue?logo=docker)](https://quay.io/repository/tinkerbell/hegel?tab=tags)
 
-This repository is [Experimental](https://github.com/packethost/standards/blob/main/experimental-statement.md) meaning that it's based on untested ideas or techniques and not yet established or finalized or involves a radically new and innovative style! This means that support is best effort (at best!) and we strongly encourage you to NOT use this in production.
+Hegel is an instance metadata service used by Tinkerbell for bare metal instance initialization.
 
-The metadata service for Tinkerbell.
-Subscribe to changes in metadata, get notified when data is added/removed, etc.
+When bare metal machines are provisioned using the Tinkerbell stack they inevitably boot into a
+permanent OS. The permanent OS, much like the underlying hardware, needs initializing before it 
+can be used. The initialization is commonly performed by tools such as [cloud-init] or [ignition]. 
+The configuration used by these processes is provided by an instance metadata source. The source
+could be anything but is commonly an HTTP API.
 
-Full documentation can be found at [tinkerbell.org](https://github.com/tinkerbell/tink)
+Hegel exposes common instance metadata APIs for your OS intialization needs including AWS EC2 
+instance metadata.
 
+#### Version Compatibility
 
-## Self-Signed Certificates
+We follow semantic versioning and the project is currently v0 meaning compatibility is best effort.
+If you have any specific concerns don't hesitate to raise an issue.
 
-To use Hegel with TLS certificates:
+## How does it work?
 
-```shell
-mkdir ./certs
-openssl genrsa -des3 -passout pass:x -out ./certs/server.pass.key 2048
-openssl rsa -passin pass:x -in ./certs/server.pass.key -out ./certs/server.key
-openssl req -new -key ./certs/server.key -out ./certs/server.csr
-openssl x509 -req -sha256 -days 365 -in ./certs/server.csr -signkey ./certs/server.key -out ./certs/server.crt
-export HEGEL_TLS_CERT=./certs/server.crt
-export HEGEL_TLS_KEY=./certs/server.key
-go run cmd/hegel/main.go
+When Hegel receives an HTTP request it inspects the request source IP address and tries to find a
+matching instance using its configured backend. If an instance is found, it serves the data for the
+requested path.
+
+If no instance data matching the source IP was found it returns a 404 Not Found.
+
+## FAQ
+
+### How do I impersonate an instance?
+
+Sometimes its necessary to impersonate an instance so you can `curl` or otherwise debug what data 
+Hegel is serving. Hegel offers a `--trusted-proxies` CLI option (configurable as an env var with
+`HEGEL_TRUSTED_PROXIES`) that lets you specify your host IP address as trusted. Trusted IPs can
+submit requests with the `X-Forwarded-For` header set to the IP they wish to impersonate.
+
+**Example**
+
+```sh
+# Launch Hegel with the localhost address as trusted. Note this isn't a functional command 
+# as it doesn't instruct Hegel on what backend to use.
+docker run -d -e HEGEL_TRUSTED_PROXIES="127.0.0.1" quay.io/tinkerbell/hegel:v0
 ```
+
+```sh
+# cURL an endpoint specifying what address you're impersonating.
+curl -H "X-Forwarded-For: 10.10.10.10" http://localhost:50061/2009-04-04/meta-data/hostname
+```
+
+
+[cloud-init]: https://cloudinit.readthedocs.io/en/latest/
+[ignition]: https://coreos.github.io/ignition/
