@@ -30,6 +30,7 @@ var staticRoutes = []struct {
 			"public-ipv4",
 			"public-ipv6",
 			"local-ipv4",
+			"public-keys",
 			"operating-system/",
 		},
 	},
@@ -117,6 +118,12 @@ var dynamicRoutes = []struct {
 		Endpoint: "/meta-data/local-ipv4",
 		Filter: func(i Instance) string {
 			return i.Metadata.LocalIPv4
+		},
+	},
+	{
+		Endpoint: "/meta-data/public-keys",
+		Filter: func(i Instance) string {
+			return join(i.Metadata.PublicKeys)
 		},
 	},
 	{
