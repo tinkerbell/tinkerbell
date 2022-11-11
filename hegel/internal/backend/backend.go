@@ -13,6 +13,9 @@ import (
 // ErrMissingBackendConfig indicates New was called without a backend configuration.
 var ErrMissingBackendConfig = errors.New("no backend configuration specified in options")
 
+// ErrMultipleBackends indicates the backend Options contains more than one backend configuration.
+var ErrMultipleBackends = errors.New("only one backend option can be specified")
+
 // Client is an abstraction for all frontend clients. Each backend implementation should satisfy
 // this interface.
 type Client interface {
@@ -24,7 +27,7 @@ type Client interface {
 // ErrMissingBackendConfig.
 func New(ctx context.Context, opts Options) (Client, error) {
 	if err := opts.validate(); err != nil {
-		return nil, fmt.Errorf("options: %v", err)
+		return nil, err
 	}
 
 	switch {
@@ -73,7 +76,7 @@ func (o Options) validate() error {
 	}
 
 	if count > 1 {
-		return errors.New("only one backend option can be specified")
+		return ErrMultipleBackends
 	}
 
 	return nil

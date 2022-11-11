@@ -6,8 +6,6 @@ import (
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
 )
 
-var _ ec2.Client = (*Backend)(nil)
-
 // Backend is a file-based implementation of a backend. It's primary use-case is testing.
 type Backend struct {
 	// Map of IPv4 addresses to instances.
