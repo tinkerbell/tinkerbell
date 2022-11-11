@@ -31,6 +31,7 @@ linters-settings:
   errorlint:
     # these are still common in Go: for instance, exit errors.
     asserts: false
+    errorf: false
 
   exhaustive:
     default-signifies-exhaustive: true
