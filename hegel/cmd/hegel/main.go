@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/tinkerbell/hegel/internal/cmd"
 )
 
 func main() {
-	root, err := NewRootCommand()
+	root, err := cmd.NewRootCommand()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v", err)
 		os.Exit(1)
