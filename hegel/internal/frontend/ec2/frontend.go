@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/packethost/pkg/log"
 	"github.com/tinkerbell/hegel/internal/http/httperror"
 	"github.com/tinkerbell/hegel/internal/http/request"
 )
@@ -26,14 +25,12 @@ type Client interface {
 // Frontend is an EC2 HTTP API frontend. It is responsible for configuring routers with handlers
 // for the AWS EC2 instance metadata API.
 type Frontend struct {
-	log    log.Logger
 	client Client
 }
 
 // New creates a new Frontend.
-func New(logger log.Logger, client Client) Frontend {
+func New(client Client) Frontend {
 	return Frontend{
-		log:    logger,
 		client: client,
 	}
 }
@@ -90,7 +87,6 @@ func (f Frontend) Configure(router *gin.Engine) {
 func (f Frontend) getInstance(ctx context.Context, r *http.Request) (Instance, error) {
 	ip, err := request.RemoteAddrIP(r)
 	if err != nil {
-		f.log.Info("Invalid remote address", "err", err)
 		return Instance{}, httperror.New(http.StatusBadRequest, "invalid remote addr")
 	}
 

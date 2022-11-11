@@ -12,8 +12,6 @@ import (
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ ec2.Client = &Backend{}
-
 // Backend is a hardware Backend backed by a Backend cluster that contains hardware resources.
 type Backend struct {
 	client           ListerClient
