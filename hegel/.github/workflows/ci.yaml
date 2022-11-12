@@ -11,6 +11,7 @@ env:
   REGISTRY: quay.io
   IMAGE: quay.io/${{ github.repository }}
   CGO_ENABLED: 0
+  GO_VERSION: 1.19
 
 jobs:
   lint:
@@ -20,7 +21,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.19"
+          go-version: "${{ env.GO_VERSION }}"
           cache: true
 
       - name: Validate imports
@@ -37,7 +38,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.19"
+          go-version: "${{ env.GO_VERSION }}"
           cache: true
 
       - name: Run tests
@@ -56,7 +57,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.19"
+          go-version: "${{ env.GO_VERSION }}"
           cache: true
 
       - name: Build linux/${{ matrix.platform }}
@@ -69,10 +70,28 @@ jobs:
           retention-days: 1
           path: hegel-linux-${{ matrix.platform }}
 
+  e2e:
+    name: Test - E2E
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+          cache: true
+
+      - name: Run end-to-end tests
+        run: make e2e
+
+      - name: Upload coverage report (codcov.io)
+        run: bash <(curl -s https://codecov.io/bash)
+
   package:
     name: Package
     runs-on: ubuntu-latest
-    needs: [lint, build, test]
+    needs: [lint, build, test, e2e]
     steps:
       - uses: actions/checkout@v3
 
@@ -88,6 +107,7 @@ jobs:
         uses: docker/metadata-action@v4
         id: meta
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.IMAGE }}
           tags: |
             type=sha
