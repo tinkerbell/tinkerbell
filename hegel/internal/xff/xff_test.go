@@ -6,7 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/go-cmp/cmp"
+	"github.com/tinkerbell/hegel/internal/ginutil"
 	. "github.com/tinkerbell/hegel/internal/xff"
 )
 
@@ -166,18 +168,21 @@ func TestMiddleware(t *testing.T) {
 				req.Header.Set("X-Forwarded-For", tc.XFFAddr)
 			}
 
-			w := httptest.NewRecorder()
+			w := ginutil.FakeResponseWriter{ResponseRecorder: httptest.NewRecorder()}
+
+			ctx := &gin.Context{
+				Request: req,
+				Writer:  w,
+			}
 
 			// Build the middleware.
-			hndlr := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-
-			mw, err := Middleware(hndlr, tc.AllowedSubnets)
+			mw, err := Middleware(tc.AllowedSubnets)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			// Serve and check the results.
-			mw.ServeHTTP(w, req)
+			mw(ctx)
 
 			if w.Code != http.StatusOK {
 				t.Fatalf("unexpected status code: %d", w.Code)
@@ -204,9 +209,7 @@ func TestMiddlewareInvalidSubnets(t *testing.T) {
 
 	for i, subnet := range cases {
 		t.Run(fmt.Sprintf("%v", i), func(t *testing.T) {
-			hndlr := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-
-			_, err := Middleware(hndlr, []string{subnet})
+			_, err := Middleware([]string{subnet})
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}

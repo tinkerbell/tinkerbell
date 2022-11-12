@@ -1,4 +1,6 @@
-package handler
+//go:build ignore
+
+package hegel
 
 import (
 	"context"
@@ -9,18 +11,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/packethost/pkg/log"
-	"github.com/tinkerbell/hegel/internal/hardware"
 )
 
 type metadataJSON struct {
-	Interfaces []hardware.K8sNetworkInterface `json:"interfaces,omitempty"`
-	Disks      []hardware.K8sHardwareDisk     `json:"disks,omitempty"`
-	SSHKeys    []string                       `json:"ssh_keys,omitempty"`
-	Hostname   string                         `json:"hostname,omitempty"`
-	Gateway    string                         `json:"gateway,omitempty"`
+	Interfaces []K8sNetworkInterface `json:"interfaces,omitempty"`
+	Disks      []K8sHardwareDisk     `json:"disks,omitempty"`
+	SSHKeys    []string              `json:"ssh_keys,omitempty"`
+	Hostname   string                `json:"hostname,omitempty"`
+	Gateway    string                `json:"gateway,omitempty"`
 }
 
-func v0HegelMetadataHandler(logger log.Logger, client hardware.Client, rg *gin.RouterGroup) {
+func v0HegelMetadataHandler(logger log.Logger, client Client, rg *gin.RouterGroup) {
 	userdata := rg.Group("/user-data")
 	userdata.GET("", userdataHandler(logger, client))
 
@@ -50,25 +51,25 @@ func v0HegelMetadataHandler(logger log.Logger, client hardware.Client, rg *gin.R
 	metadata.GET("/:mac/ipv6/:index/netmask", ipv6NetmaskHandler(logger, client))
 }
 
-func getHardware(ctx context.Context, client hardware.Client, ip string) (hardware.K8sHardware, error) {
+func getHardware(ctx context.Context, client Client, ip string) (K8sHardware, error) {
 	hw, err := client.ByIP(ctx, ip)
 	if err != nil {
-		return hardware.K8sHardware{}, err
+		return K8sHardware{}, err
 	}
 
 	ehw, err := hw.Export()
 	if err != nil {
-		return hardware.K8sHardware{}, err
+		return K8sHardware{}, err
 	}
 
-	var reversed hardware.K8sHardware
+	var reversed K8sHardware
 	if err := json.Unmarshal(ehw, &reversed); err != nil {
-		return hardware.K8sHardware{}, err
+		return K8sHardware{}, err
 	}
 	return reversed, nil
 }
 
-func userdataHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func userdataHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		hardwareData, err := getHardware(c, client, c.ClientIP())
 		if err != nil {
@@ -86,7 +87,7 @@ func userdataHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc 
 	return gin.HandlerFunc(fn)
 }
 
-func vendordataHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func vendordataHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		hardwareData, err := getHardware(c, client, c.ClientIP())
 		if err != nil {
@@ -104,7 +105,7 @@ func vendordataHandler(logger log.Logger, client hardware.Client) gin.HandlerFun
 	return gin.HandlerFunc(fn)
 }
 
-func metadataHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func metadataHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		var acceptJSON bool
 		for _, header := range c.Request.Header["Accept"] {
@@ -134,7 +135,7 @@ func metadataHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc 
 	return gin.HandlerFunc(fn)
 }
 
-func diskHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func diskHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		hardwareData, err := getHardware(c, client, c.ClientIP())
 		if err != nil {
@@ -150,7 +151,7 @@ func diskHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 	return gin.HandlerFunc(fn)
 }
 
-func diskIndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func diskIndexHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		hardwareData, err := getHardware(c, client, c.ClientIP())
 		if err != nil {
@@ -175,7 +176,7 @@ func diskIndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc
 	return gin.HandlerFunc(fn)
 }
 
-func sshHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func sshHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		hardwareData, err := getHardware(c, client, c.ClientIP())
 		if err != nil {
@@ -191,7 +192,7 @@ func sshHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 	return gin.HandlerFunc(fn)
 }
 
-func sshIndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func sshIndexHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		hardwareData, err := getHardware(c, client, c.ClientIP())
 		if err != nil {
@@ -216,7 +217,7 @@ func sshIndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc 
 	return gin.HandlerFunc(fn)
 }
 
-func hostnameHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func hostnameHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		hardwareData, err := getHardware(c, client, c.ClientIP())
 		if err != nil {
@@ -230,7 +231,7 @@ func hostnameHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc 
 	return gin.HandlerFunc(fn)
 }
 
-func gatewayHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func gatewayHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		hardwareData, err := getHardware(c, client, c.ClientIP())
 		if err != nil {
@@ -244,7 +245,7 @@ func gatewayHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 	return gin.HandlerFunc(fn)
 }
 
-func macHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func macHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		hardwareData, err := getHardware(c, client, c.ClientIP())
 		if err != nil {
@@ -254,7 +255,7 @@ func macHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 		}
 		mac := c.Param("mac")
 		networkInterfaces := hardwareData.Metadata.Interfaces
-		var validInterface *hardware.K8sNetworkInterface
+		var validInterface *K8sNetworkInterface
 		for i := range networkInterfaces {
 			if mac == networkInterfaces[i].MAC {
 				validInterface = &networkInterfaces[i]
@@ -269,7 +270,7 @@ func macHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 	return gin.HandlerFunc(fn)
 }
 
-func ipv4Handler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func ipv4Handler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		validInterfaces := getValidNetworkInterfaces(logger, client, c)
 		if len(validInterfaces) == 0 {
@@ -290,7 +291,7 @@ func ipv4Handler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 	return gin.HandlerFunc(fn)
 }
 
-func ipv4IndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func ipv4IndexHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		validInterfaces := getValidNetworkInterfaces(logger, client, c)
 		if len(validInterfaces) == 0 {
@@ -307,7 +308,7 @@ func ipv4IndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc
 	return gin.HandlerFunc(fn)
 }
 
-func ipv4IPHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func ipv4IPHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		validInterfaces := getValidNetworkInterfaces(logger, client, c)
 		if len(validInterfaces) == 0 {
@@ -331,7 +332,7 @@ func ipv4IPHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 	return gin.HandlerFunc(fn)
 }
 
-func ipv4NetmaskHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func ipv4NetmaskHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		validInterfaces := getValidNetworkInterfaces(logger, client, c)
 		if len(validInterfaces) == 0 {
@@ -355,7 +356,7 @@ func ipv4NetmaskHandler(logger log.Logger, client hardware.Client) gin.HandlerFu
 	return gin.HandlerFunc(fn)
 }
 
-func ipv6Handler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func ipv6Handler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		validInterfaces := getValidNetworkInterfaces(logger, client, c)
 		if len(validInterfaces) == 0 {
@@ -376,7 +377,7 @@ func ipv6Handler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 	return gin.HandlerFunc(fn)
 }
 
-func ipv6IndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func ipv6IndexHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		validInterfaces := getValidNetworkInterfaces(logger, client, c)
 		if len(validInterfaces) == 0 {
@@ -393,7 +394,7 @@ func ipv6IndexHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc
 	return gin.HandlerFunc(fn)
 }
 
-func ipv6IPHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func ipv6IPHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		validInterfaces := getValidNetworkInterfaces(logger, client, c)
 		if len(validInterfaces) == 0 {
@@ -417,7 +418,7 @@ func ipv6IPHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
 	return gin.HandlerFunc(fn)
 }
 
-func ipv6NetmaskHandler(logger log.Logger, client hardware.Client) gin.HandlerFunc {
+func ipv6NetmaskHandler(logger log.Logger, client Client) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		validInterfaces := getValidNetworkInterfaces(logger, client, c)
 		if len(validInterfaces) == 0 {
@@ -441,7 +442,7 @@ func ipv6NetmaskHandler(logger log.Logger, client hardware.Client) gin.HandlerFu
 	return gin.HandlerFunc(fn)
 }
 
-func getValidNetworkInterfaces(logger log.Logger, client hardware.Client, c *gin.Context) []hardware.K8sNetworkInterface {
+func getValidNetworkInterfaces(logger log.Logger, client Client, c *gin.Context) []K8sNetworkInterface {
 	hardwareData, err := getHardware(c, client, c.ClientIP())
 	if err != nil {
 		logger.With("error", err).Info("failed to get hardware in v0 metadata handler")
@@ -450,7 +451,7 @@ func getValidNetworkInterfaces(logger log.Logger, client hardware.Client, c *gin
 	}
 	mac := c.Param("mac")
 	networkInterfaces := hardwareData.Metadata.Interfaces
-	var validInterfaces []hardware.K8sNetworkInterface
+	var validInterfaces []K8sNetworkInterface
 	for _, networkInterface := range networkInterfaces {
 		if mac == networkInterface.MAC {
 			validInterfaces = append(validInterfaces, networkInterface)
@@ -459,8 +460,8 @@ func getValidNetworkInterfaces(logger log.Logger, client hardware.Client, c *gin
 	return validInterfaces
 }
 
-func getValidAddressFamilyInterfaces(addressFamily int64, validInterfaces []hardware.K8sNetworkInterface) []hardware.K8sNetworkInterface {
-	var ipvNetworks []hardware.K8sNetworkInterface
+func getValidAddressFamilyInterfaces(addressFamily int64, validInterfaces []K8sNetworkInterface) []K8sNetworkInterface {
+	var ipvNetworks []K8sNetworkInterface
 	for _, v := range validInterfaces {
 		if v.Family == addressFamily {
 			ipvNetworks = append(ipvNetworks, v)

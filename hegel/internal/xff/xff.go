@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/packethost/xff"
 	"github.com/pkg/errors"
 )
@@ -54,15 +55,40 @@ func Parse(trustedProxies string) ([]string, error) {
 //
 // allowedSubnets is a slice of CIDR blocks. Individual IPs should be formatted with /32 or /128
 // for IPv4 and IPv6 respectively.
-func Middleware(handler http.Handler, allowedSubnets []string) (http.Handler, error) {
-	if len(allowedSubnets) == 0 {
-		return handler, nil
+func Middleware(proxies []string) (gin.HandlerFunc, error) {
+	if len(proxies) == 0 {
+		return func(_ *gin.Context) {}, nil
 	}
 
-	xffmw, err := xff.New(xff.Options{AllowedSubnets: allowedSubnets})
+	xffmw, err := xff.New(xff.Options{AllowedSubnets: proxies})
 	if err != nil {
 		return nil, errors.Errorf("create forward for handler: %v", err)
 	}
 
-	return xffmw.Handler(handler), nil
+	// The upstream xff package doesn't support Gin so we need to leverage what it does provide
+	// to create a Gin compatible middleware. The ServeHTTP satisfies a different framework
+	// but is the clearest way to call the xffmw while honoring expected Gin behavior.
+	//
+	// When we separate from packethost packages we can tidy this up with our own implementation.
+	return func(ctx *gin.Context) {
+		xffmw.ServeHTTP(
+			ctx.Writer,
+			ctx.Request,
+			http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				// Given we're a Gin middleware we need to call the next handler in the chain.
+				ctx.Next()
+			}),
+		)
+	}, nil
+}
+
+// MiddlewareFromUnparsed is a helpe that calls Parse then Middleware. proxies must conform to the
+// Parse constraints.
+func MiddlewareFromUnparsed(proxies string) (gin.HandlerFunc, error) {
+	parsed, err := Parse(proxies)
+	if err != nil {
+		return nil, err
+	}
+
+	return Middleware(parsed)
 }

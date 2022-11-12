@@ -8,6 +8,7 @@ import (
 	"github.com/tinkerbell/hegel/internal/backend/flatfile"
 	"github.com/tinkerbell/hegel/internal/backend/kubernetes"
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
+	"github.com/tinkerbell/hegel/internal/healthcheck"
 )
 
 // ErrMissingBackendConfig indicates New was called without a backend configuration.
@@ -20,6 +21,7 @@ var ErrMultipleBackends = errors.New("only one backend option can be specified")
 // this interface.
 type Client interface {
 	ec2.Client
+	healthcheck.Client
 }
 
 // New creates a backend instance for the configuration specified by opts. Consumers may only

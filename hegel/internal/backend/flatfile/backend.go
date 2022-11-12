@@ -27,6 +27,11 @@ func (b *Backend) GetEC2Instance(_ context.Context, ip string) (ec2.Instance, er
 	return toEC2Instance(hw), nil
 }
 
+// IsHealthy satisfies healthcheck.Client.
+func (b *Backend) IsHealthy(context.Context) bool {
+	return true
+}
+
 func toEC2Instance(i Instance) ec2.Instance {
 	return ec2.Instance{
 		Userdata: i.Userdata,

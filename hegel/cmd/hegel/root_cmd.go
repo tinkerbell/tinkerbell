@@ -10,17 +10,18 @@ import (
 	_ "net/http/pprof" //nolint:gosec // G108: Profiling endpoint is automatically exposed on /debug/pprof
 
 	"github.com/equinix-labs/otel-init-go/otelinit"
+	"github.com/gin-gonic/gin"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/tinkerbell/hegel/internal/datamodel"
-	"github.com/tinkerbell/hegel/internal/hardware"
-	"github.com/tinkerbell/hegel/internal/http"
-	"github.com/tinkerbell/hegel/internal/http/handler"
+	"github.com/tinkerbell/hegel/internal/backend"
+	"github.com/tinkerbell/hegel/internal/frontend/ec2"
+	hegelhttp "github.com/tinkerbell/hegel/internal/http"
 	"github.com/tinkerbell/hegel/internal/metrics"
 	"github.com/tinkerbell/hegel/internal/xff"
+	"github.com/tinkerbell/hegel/internal/zpages"
 )
 
 const longHelp = `
@@ -40,31 +41,20 @@ const EnvNamePrefix = "HEGEL"
 
 // RootCommandOptions encompasses all the configurability of the RootCommand.
 type RootCommandOptions struct {
-	DataModel      string `mapstructure:"data-model"`
 	TrustedProxies string `mapstructure:"trusted-proxies"`
 
 	HTTPPort int `mapstructure:"http-port"`
+
+	Backend string `mapstructure:"backend"`
 
 	KubernetesAPIURL string `mapstructure:"kubernetes"`
 	Kubeconfig       string `mapstructure:"kubeconfig"`
 	KubeNamespace    string `mapstructure:"kube-namespace"`
 
+	FlatfilePath string `mapstructure:"flatfile-path"`
+
 	// Hidden CLI flags.
 	HegelAPI bool `mapstructure:"hegel-api"`
-}
-
-func (o RootCommandOptions) GetDataModel() datamodel.DataModel {
-	return datamodel.DataModel(o.DataModel)
-}
-
-// GetAPI returns the API identifier for route configuration. If the --hegel-api flag is set, it
-// returns handler.Hegel, otherwise it returns handler.EC2.
-func (o RootCommandOptions) GetAPI() handler.API {
-	if o.HegelAPI {
-		return handler.Hegel
-	}
-
-	return handler.EC2
 }
 
 // RootCommand is the root command that represents the entrypoint to Hegel.
@@ -112,54 +102,50 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 	}
 	defer logger.Close()
 
-	logger.With("opts", fmt.Sprintf("%+v", c.Opts)).Info("Root command options")
+	logger.With("opts", fmt.Sprintf("%#v", c.Opts)).Info("Root command options")
 
 	ctx, otelShutdown := otelinit.InitOpenTelemetry(cmd.Context(), "hegel")
 	defer otelShutdown(ctx)
 
 	metrics.State.Set(metrics.Initializing)
 
-	backend, err := hardware.NewClient(hardware.ClientConfig{
-		Model:         c.Opts.GetDataModel(),
-		KubeAPI:       c.Opts.KubernetesAPIURL,
-		Kubeconfig:    c.Opts.Kubeconfig,
-		KubeNamespace: c.Opts.KubeNamespace,
-	})
+	be, err := backend.New(ctx, toBackendOptions(c.Opts))
 	if err != nil {
-		return errors.Errorf("create client: %v", err)
+		return errors.Errorf("initialize backend: %v", err)
 	}
 
-	handlr, err := handler.New(logger, c.Opts.GetAPI(), backend)
+	xffmw, err := xff.MiddlewareFromUnparsed(c.Opts.TrustedProxies)
 	if err != nil {
 		return err
 	}
 
-	// Add an X-Forward-For middleware for proxies.
-	proxies, err := xff.Parse(c.Opts.TrustedProxies)
-	if err != nil {
-		return err
-	}
+	router := gin.New()
+	router.Use(gin.Logger(), gin.Recovery(), xffmw)
+	router.RedirectTrailingSlash = true
 
-	handlr, err = xff.Middleware(handlr, proxies)
-	if err != nil {
-		return err
-	}
+	zpages.Configure(router, be)
+
+	// TODO(chrisdoherty4) Handle multiple frontends.
+	fe := ec2.New(be)
+	fe.Configure(router)
 
 	// Listen for signals to gracefully shutdown.
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
 
-	return http.Serve(ctx, logger, fmt.Sprintf(":%v", c.Opts.HTTPPort), handlr)
+	return hegelhttp.Serve(ctx, logger, fmt.Sprintf(":%v", c.Opts.HTTPPort), router)
 }
 
 func (c *RootCommand) configureFlags() error {
-	c.Flags().String("data-model", string(datamodel.TinkServer), "The back-end data source: [\"1\", \"kubernetes\"] (1 indicates tink server)")
-
 	c.Flags().Int("http-port", 50061, "Port to listen on for HTTP requests")
+
+	c.Flags().String("backend", "flatfile", "Backend to use for metadata. Options: flatfile, kubernetes")
 
 	c.Flags().String("kubeconfig", "", "Path to a kubeconfig file")
 	c.Flags().String("kubernetes", "", "URL of the Kubernetes API Server")
 	c.Flags().String("kube-namespace", "", "The Kubernetes namespace to target; defaults to the service account")
+
+	c.Flags().String("flatfile-path", "", "Path to the flatfile metadata")
 
 	c.Flags().String("trusted-proxies", "", "A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For")
 
@@ -181,4 +167,25 @@ func (c *RootCommand) configureFlags() error {
 	})
 
 	return err
+}
+
+func toBackendOptions(opts RootCommandOptions) backend.Options {
+	var backndOpts backend.Options
+	switch opts.Backend {
+	case "flatfile":
+		backndOpts = backend.Options{
+			Flatfile: &backend.FlatfileOptions{
+				Path: opts.FlatfilePath,
+			},
+		}
+	case "kubernetes":
+		backndOpts = backend.Options{
+			Kubernetes: &backend.KubernetesOptions{
+				KubeAPI:       opts.KubernetesAPIURL,
+				Kubeconfig:    opts.Kubeconfig,
+				KubeNamespace: opts.KubeNamespace,
+			},
+		}
+	}
+	return backndOpts
 }
