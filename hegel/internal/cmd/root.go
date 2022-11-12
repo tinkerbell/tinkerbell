@@ -7,8 +7,6 @@ import (
 	"strings"
 	"syscall"
 
-	_ "net/http/pprof" //nolint:gosec // G108: Profiling endpoint is automatically exposed on /debug/pprof
-
 	"github.com/equinix-labs/otel-init-go/otelinit"
 	"github.com/gin-gonic/gin"
 	"github.com/packethost/pkg/log"
