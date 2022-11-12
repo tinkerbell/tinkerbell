@@ -28,6 +28,10 @@ build: ## Build the Hegel binary. Use GOOS and GOARCH to set the target OS and a
 test: ## Run unit tests.
 	go test $(GO_TEST_ARGS) -coverprofile=coverage.out ./...
 
+.PHONY: test-e2e
+test-e2e:
+	go test $(GO_TEST_ARGS) -tags=e2e ./e2e
+
 # When we build the image its Linux based. This means we need a Linux binary hence we need to export
 # GOOS so we have compatible binary.
 .PHONY: image
