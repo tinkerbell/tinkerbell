@@ -20,7 +20,6 @@ build: ## Build the Hegel binary. Use GOOS and GOARCH to set the target OS and a
 	GOOS=$$GOOS \
 	GOARCH=$$GOARCH \
 	go build \
-		-ldflags="-X build.gitRevision=$(shell git rev-parse --short HEAD)" \
 		-o hegel-$(GOOS)-$(GOARCH) \
 		./cmd/hegel
 
