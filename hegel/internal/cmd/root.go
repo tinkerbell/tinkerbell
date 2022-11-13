@@ -119,7 +119,6 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery(), xffmw)
-	router.RedirectTrailingSlash = true
 
 	zpages.Configure(router, be)
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tinkerbell/hegel/internal/ginutil"
 	"github.com/tinkerbell/hegel/internal/http/httperror"
 	"github.com/tinkerbell/hegel/internal/http/request"
 )
@@ -40,9 +41,9 @@ func New(client Client) Frontend {
 // TODO(chrisdoherty4) Document unimplemented endpoints.
 func (f Frontend) Configure(router gin.IRouter) {
 	// Setup the 2009-04-04 API path prefix.
-	v20090404 := router.Group("/2009-04-04")
+	v20090404 := ginutil.TrailingSlashRouteHelper{IRouter: router.Group("/2009-04-04")}
 
-	dynamicEndpointBinder := func(router *gin.RouterGroup, endpoint string, filter filterFunc) {
+	dynamicEndpointBinder := func(router gin.IRouter, endpoint string, filter filterFunc) {
 		router.GET(endpoint, func(ctx *gin.Context) {
 			instance, err := f.getInstance(ctx, ctx.Request)
 			if err != nil {
@@ -68,7 +69,7 @@ func (f Frontend) Configure(router gin.IRouter) {
 		dynamicEndpointBinder(v20090404, route.Endpoint, route.Filter)
 	}
 
-	staticEndpointBinder := func(router *gin.RouterGroup, endpoint string, childEndpoints []string) {
+	staticEndpointBinder := func(router gin.IRouter, endpoint string, childEndpoints []string) {
 		router.GET(endpoint, func(ctx *gin.Context) {
 			ctx.String(http.StatusOK, join(childEndpoints))
 		})

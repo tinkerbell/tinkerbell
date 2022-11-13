@@ -211,29 +211,19 @@ func TestFrontendDynamicEndpoints(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			client := NewMockClient(ctrl)
-			client.EXPECT().GetEC2Instance(gomock.Any(), gomock.Any()).Return(tc.Instance, nil)
+			client.EXPECT().
+				GetEC2Instance(gomock.Any(), gomock.Any()).
+				Return(tc.Instance, nil).
+				Times(2)
 
 			router := gin.New()
 
 			fe := New(client)
 			fe.Configure(router)
 
-			w := httptest.NewRecorder()
-			r := httptest.NewRequest("GET", tc.Endpoint, nil)
-
-			// RemoteAddr must be valid for us to perform a lookup successfully. Because we're
-			// mocking the client the address value doesn't matter.
-			r.RemoteAddr = "10.10.10.10:0"
-
-			router.ServeHTTP(w, r)
-
-			if w.Code != http.StatusOK {
-				t.Fatalf("Expected: 200; Received: %d", w.Code)
-			}
-
-			if w.Body.String() != tc.Expect {
-				t.Fatalf("Expected: %s;\nReceived: %s", tc.Expect, w.Body.String())
-			}
+			// Validate both with and without a trailing slash returns the same result.
+			validate(t, router, tc.Endpoint, tc.Expect)
+			validate(t, router, tc.Endpoint+"/", tc.Expect)
 		})
 	}
 }
@@ -246,7 +236,7 @@ func TestFrontendStaticEndpoints(t *testing.T) {
 	}{
 		{
 			Name:     "Root",
-			Endpoint: "/2009-04-04/",
+			Endpoint: "/2009-04-04",
 			Expect: `meta-data/
 user-data/`,
 		},
@@ -292,23 +282,31 @@ version`,
 			fe := New(client)
 			fe.Configure(router)
 
-			w := httptest.NewRecorder()
-			r := httptest.NewRequest("GET", tc.Endpoint, nil)
-
-			// RemoteAddr must be valid for us to perform a lookup successfully. Because we're
-			// mocking the client the address value doesn't matter.
-			r.RemoteAddr = "10.10.10.10:0"
-
-			router.ServeHTTP(w, r)
-
-			if w.Code != http.StatusOK {
-				t.Fatalf("Expected: 200; Received: %d", w.Code)
-			}
-
-			if w.Body.String() != tc.Expect {
-				t.Fatalf("\nExpected:\n%s\n\nReceived:\n%s", tc.Expect, w.Body.String())
-			}
+			// Validate both with and without a trailing slash returns the same result.
+			validate(t, router, tc.Endpoint, tc.Expect)
+			validate(t, router, tc.Endpoint+"/", tc.Expect)
 		})
+	}
+}
+
+func validate(t *testing.T, router *gin.Engine, endpoint string, expect string) {
+	t.Helper()
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", endpoint, nil)
+
+	// RemoteAddr must be valid for us to perform a lookup successfully. Because we're
+	// mocking the client the address value doesn't matter.
+	r.RemoteAddr = "10.10.10.10:0"
+
+	router.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected: 200; Received: %d", w.Code)
+	}
+
+	if w.Body.String() != expect {
+		t.Fatalf("Expected: %s;\nReceived: %s", expect, w.Body.String())
 	}
 }
 
