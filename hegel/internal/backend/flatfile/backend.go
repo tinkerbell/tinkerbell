@@ -13,7 +13,7 @@ type Backend struct {
 }
 
 // New returns a new instance of Backend.
-func New(instances []Instance) *Backend {
+func NewBackend(instances []Instance) *Backend {
 	return &Backend{instances: toIPInstanceMap(instances)}
 }
 
