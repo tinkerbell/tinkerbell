@@ -51,7 +51,7 @@ func (f Frontend) Configure(router gin.IRouter) {
 				// assume its an internal server error.
 				var httpErr *httperror.E
 				if errors.As(err, &httpErr) {
-					_ = ctx.AbortWithError(httpErr.StatusCode, errors.New("foo bar"))
+					_ = ctx.AbortWithError(httpErr.StatusCode, err)
 				} else {
 					_ = ctx.AbortWithError(http.StatusInternalServerError, err)
 				}
