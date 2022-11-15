@@ -136,12 +136,14 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 func (c *RootCommand) configureFlags() error {
 	c.Flags().Int("http-port", 50061, "Port to listen on for HTTP requests")
 
-	c.Flags().String("backend", "flatfile", "Backend to use for metadata. Options: flatfile, kubernetes")
+	c.Flags().String("backend", "kubernetes", "Backend to use for metadata. Options: flatfile, kubernetes")
 
-	c.Flags().String("kubeconfig", "", "Path to a kubeconfig file")
-	c.Flags().String("kubernetes", "", "URL of the Kubernetes API Server")
-	c.Flags().String("kube-namespace", "", "The Kubernetes namespace to target; defaults to the service account")
+	// Kubernetes backend specific flags.
+	c.Flags().String("kubernetes-kubeconfig", "", "Path to a kubeconfig file")
+	c.Flags().String("kubernetes-apiserver-endpoint", "", "URL of the Kubernetes API Server")
+	c.Flags().String("kubernetes-namespace", "", "The Kubernetes namespace to target; defaults to the service account")
 
+	// Flatfile backend specific flags.
 	c.Flags().String("flatfile-path", "", "Path to the flatfile metadata")
 
 	c.Flags().String("trusted-proxies", "", "A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For")
