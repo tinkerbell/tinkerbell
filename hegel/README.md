@@ -41,8 +41,11 @@ submit requests with the `X-Forwarded-For` header set to the IP they wish to imp
 **Example**
 
 ```sh
-# Launch Hegel in host networked mode so we can trust the localhost. By default, Hegel listens
-# on port 50061.
+# Launch Hegel in host networked mode so we can trust the localhost.
+#
+# Note: 172.17.0.1 is the addressed used by Docker for NAT when exposing ports. This includes
+# Docker Desktop setups where the address won't be visible in `ip` output on the host. If you
+# customize the container network subnet this address may be different.
 #
 # If the container doesn't launch and there's no `docker run` logging remove the --rm flag 
 # so the container remains on disk and can be inspected with `docker logs`.
