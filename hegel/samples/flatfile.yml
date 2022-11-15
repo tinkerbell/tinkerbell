@@ -1,0 +1,20 @@
+- userdata: "Success! You retrieved the userdata"
+  metadata:
+    id: "Success! You retrieved the instance ID"
+    hostname: "Success! You retrieved the hostname"
+    localHostname: "Success! You retrieved the local hostname"
+    iqn: "Success! You retrieved the IQN"
+    plan: "Success! You retrieved the plan"
+    facility: "Success! You retrieved the facility"
+    tags: ["Succes", "You retrieved the tags"]
+    ipv4:
+      local: "10.10.10.11"
+      public: "10.10.10.10"
+    ipv6:
+      public: "2001:db8:0:1:1:1:1:1"
+    os:
+      slug: "Success! You retrieved the OS slug"
+      distro: "Success! You retrieved the OS distro"
+      version: "Success! You retrieved the OS version"
+      imageTag: "Success! You retrieved the OS image tag"
+      licenseActivationState: "Success! You retrieved the license activation state"

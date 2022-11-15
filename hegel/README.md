@@ -41,16 +41,29 @@ submit requests with the `X-Forwarded-For` header set to the IP they wish to imp
 **Example**
 
 ```sh
-# Launch Hegel with the localhost address as trusted. Note this isn't a functional command 
-# as it doesn't instruct Hegel on what backend to use.
-docker run -d -e HEGEL_TRUSTED_PROXIES="127.0.0.1" quay.io/tinkerbell/hegel:v0
+# Launch Hegel in host networked mode so we can trust the localhost.
+#
+# Note: 172.17.0.1 is the addressed used by Docker for NAT when exposing ports. This includes
+# Docker Desktop setups where the address won't be visible in `ip` output on the host. If you
+# customize the container network subnet this address may be different.
+#
+# If the container doesn't launch and there's no `docker run` logging remove the --rm flag 
+# so the container remains on disk and can be inspected with `docker logs`.
+docker run --rm -d --name=hegel \
+    -p 50061:50061 \
+    -v $PWD/samples/flatfile.yml:/flatfile.yml \
+    -e HEGEL_TRUSTED_PROXIES="172.17.0.1" \
+    -e HEGEL_BACKEND="flatfile" \
+    -e HEGEL_FLATFILE_PATH="/flatfile.yml" \
+    quay.io/tinkerbell/hegel:v0
 ```
 
 ```sh
 # cURL an endpoint specifying what address you're impersonating.
+# Expected response:
+# Success! You retrieved the hostname
 curl -H "X-Forwarded-For: 10.10.10.10" http://localhost:50061/2009-04-04/meta-data/hostname
 ```
-
 
 [cloud-init]: https://cloudinit.readthedocs.io/en/latest/
 [ignition]: https://coreos.github.io/ignition/
