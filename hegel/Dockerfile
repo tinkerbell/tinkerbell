@@ -11,5 +11,5 @@ RUN apk add --update --upgrade ca-certificates
 RUN adduser -D -u 1000 tinkerbell
 USER tinkerbell
 
-COPY ./hegel-$TARGETOS-$TARGETARCH /usr/bin/hegel
+COPY --chown=tinkerbell ./hegel-$TARGETOS-$TARGETARCH /usr/bin/hegel
 ENTRYPOINT ["/usr/bin/hegel"]
