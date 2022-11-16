@@ -307,7 +307,7 @@ func TestGetEC2Instance(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			lister := NewMockListerClient(ctrl)
+			lister := NewMocklisterClient(ctrl)
 			lister.EXPECT().
 				List(gomock.Any(), gomock.Any(), gomock.Any()).
 				DoAndReturn(func(_ context.Context, l *tinkv1.HardwareList, _ ...crclient.ListOption) error {
@@ -332,7 +332,7 @@ func TestGetEC2Instance(t *testing.T) {
 func TestGetEC2InstanceWithClientError(t *testing.T) {
 	expect := errors.New("foo-bar")
 	ctrl := gomock.NewController(t)
-	lister := NewMockListerClient(ctrl)
+	lister := NewMocklisterClient(ctrl)
 	lister.EXPECT().
 		List(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(expect)
@@ -347,7 +347,7 @@ func TestGetEC2InstanceWithClientError(t *testing.T) {
 
 func TestGetEC2InstanceWithGt1Result(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	lister := NewMockListerClient(ctrl)
+	lister := NewMocklisterClient(ctrl)
 	lister.EXPECT().
 		List(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, l *tinkv1.HardwareList, _ ...crclient.ListOption) error {
@@ -365,7 +365,7 @@ func TestGetEC2InstanceWithGt1Result(t *testing.T) {
 
 func TestGetEC2InstanceWithNoResults(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	lister := NewMockListerClient(ctrl)
+	lister := NewMocklisterClient(ctrl)
 	lister.EXPECT().
 		List(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil)

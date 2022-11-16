@@ -11,15 +11,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/tinkerbell/hegel/internal/backend"
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
+	"github.com/tinkerbell/hegel/internal/healthcheck"
 	hegelhttp "github.com/tinkerbell/hegel/internal/http"
 	"github.com/tinkerbell/hegel/internal/metrics"
 	"github.com/tinkerbell/hegel/internal/xff"
-	"github.com/tinkerbell/hegel/internal/zpages"
 )
 
 const longHelp = `
@@ -105,8 +106,6 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 	ctx, otelShutdown := otelinit.InitOpenTelemetry(cmd.Context(), "hegel")
 	defer otelShutdown(ctx)
 
-	metrics.State.Set(metrics.Initializing)
-
 	be, err := backend.New(ctx, toBackendOptions(c.Opts))
 	if err != nil {
 		return errors.Errorf("initialize backend: %v", err)
@@ -117,10 +116,19 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery(), xffmw)
+	registry := prometheus.NewRegistry()
 
-	zpages.Configure(router, be)
+	router := gin.New()
+	router.Use(
+		metrics.InstrumentRequestCount(registry),
+		metrics.InstrumentRequestDuration(registry),
+		gin.Recovery(),
+		gin.Logger(),
+		xffmw,
+	)
+
+	metrics.Configure(router, registry)
+	healthcheck.Configure(router, be)
 
 	// TODO(chrisdoherty4) Handle multiple frontends.
 	fe := ec2.New(be)

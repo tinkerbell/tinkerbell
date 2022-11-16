@@ -81,6 +81,10 @@ mocks: ## Generate mocks for testing.
 		-destination internal/backend/kubernetes/backend_mock_test.go \
 		-package kubernetes \
 		-source internal/backend/kubernetes/backend.go
+	$(MOCKGEN) \
+		-destination internal/healthcheck/healthcheck_mock_test.go \
+		-package healthcheck \
+		-source internal/healthcheck/health_check.go
 
 OUT_DIR 	?= $(shell pwd)/out
 BIN_DIR		?= $(OUT_DIR)/bin
