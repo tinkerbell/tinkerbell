@@ -46,11 +46,13 @@ func New(ctx context.Context, opts Options) (Client, error) {
 			return nil, fmt.Errorf("loading kubernetes config: %v", err)
 		}
 
-		kubeclient, err := kubernetes.New(config)
+		kubeclient, err := kubernetes.NewBackend(config)
 		if err != nil {
 			return nil, fmt.Errorf("kubernetes client: %v", err)
 		}
-		kubeclient.WaitForCacheSync(ctx)
+		if ok := kubeclient.WaitForCacheSync(ctx); !ok {
+			return nil, errors.New("failed to sync kubernetes cache")
+		}
 
 		return kubeclient, nil
 

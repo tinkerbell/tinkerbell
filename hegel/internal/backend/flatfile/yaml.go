@@ -17,7 +17,7 @@ func FromYAML(r io.Reader) (*Backend, error) {
 		return nil, err
 	}
 
-	return New(instances), nil
+	return NewBackend(instances), nil
 }
 
 // FromYAMLFile constructs a new Backend using data from the YAML file at path.

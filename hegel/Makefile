@@ -46,6 +46,10 @@ mocks: ## Generate mocks for testing.
 		-destination internal/frontend/ec2/frontend_mock_test.go \
 		-package ec2 \
 		-source internal/frontend/ec2/frontend.go
+	$(MOCKGEN) \
+		-destination internal/backend/kubernetes/backend_mock_test.go \
+		-package kubernetes \
+		-source internal/backend/kubernetes/backend.go
 
 # BEGIN: lint-install --dockerfile=warn .
 # http://github.com/tinkerbell/lint-install
