@@ -16,18 +16,22 @@ could be anything but is commonly an HTTP API.
 Hegel exposes common instance metadata APIs for your OS intialization needs including AWS EC2 
 instance metadata.
 
-#### Version Compatibility
-
-We follow semantic versioning and the project is currently v0 meaning compatibility is best effort.
-If you have any specific concerns don't hesitate to raise an issue.
-
 ## How does it work?
 
 When Hegel receives an HTTP request it inspects the request source IP address and tries to find a
 matching instance using its configured backend. If an instance is found, it serves the data for the
-requested path.
+requested path. If no instance data matching the source IP was found it returns a 404 Not Found.
 
-If no instance data matching the source IP was found it returns a 404 Not Found.
+## Releases
+
+Hegel releases with semantic versioning. Each release produces 3 image tags using major (M) 
+minor (m) and patch (p) numbers: `v[M].[m].[p]`, `v[M].[m]` and `v[M]`. The `v[M]` will always point
+to the latest minor release. `v[M].[m]` will always point to the latest patch release.
+
+### Version Compatibility
+
+THe project is currently v0 meaning compatibility is best effort. If you have any specific concerns 
+do not hesitate to raise an issue.
 
 ## FAQ
 
@@ -41,7 +45,7 @@ submit requests with the `X-Forwarded-For` header set to the IP they wish to imp
 **Example**
 
 ```sh
-# Launch Hegel in host networked mode so we can trust the localhost.
+# Launch Hegel trusting the Docker default gateway so we can impersonate machines.
 #
 # Note: 172.17.0.1 is the addressed used by Docker for NAT when exposing ports. This includes
 # Docker Desktop setups where the address won't be visible in `ip` output on the host. If you
