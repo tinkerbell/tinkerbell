@@ -1,9 +1,10 @@
+# The `check-success` should be specifying the final job in the CI workflow assuming it depends
+# directly or indirectly on all other jobs passing.
+
 queue_rules:
   - name: default
     conditions:
-      # Conditions to get out of the queue (= merged)
       - check-success=DCO
-      # The package job only runs if lint, build and test all pass.
       - check-success=package
 
 pull_request_rules:
@@ -12,9 +13,7 @@ pull_request_rules:
       - base=main
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
-      - "#review-requested=0"
       - check-success=DCO
-      # The package job only runs if lint, build and test all pass.
       - check-success=package
       - label!=do-not-merge
       - label=ready-to-merge
