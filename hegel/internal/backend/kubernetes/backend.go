@@ -8,6 +8,9 @@ import (
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
 	tinkv1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
 	tinkcontrollers "github.com/tinkerbell/tink/pkg/controllers"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -26,36 +29,70 @@ type Backend struct {
 // NewBackend creates a new Backend instance. It launches a goroutine to perform synchronization
 // between the cluster and internal caches. Consumers can wait for the initial sync using WaitForCachesync().
 // See k8s.io/Backend-go/tools/Backendcmd for constructing *rest.Config objects.
-func NewBackend(cfg Config) (*Backend, error) {
+func NewBackend(cfg BackendConfig) (*Backend, error) {
 	opts := tinkcontrollers.GetServerOptions()
 	opts.Namespace = cfg.Namespace
-
-	// Use a manager from the tink project so we can take advantage of the indexes and caching it configures.
-	// Once started, we don't really need any of the manager capabilities hence we don't store it in the
-	// Backend
-	manager, err := tinkcontrollers.NewManager(cfg.Config, opts)
-	if err != nil {
-		return nil, err
-	}
 
 	// Default the context.
 	if cfg.Context == nil {
 		cfg.Context = context.Background()
 	}
 
+	clientConfig := cfg.ClientConfig
+
+	// If no client was specified, build one and configure the backend with it including waiting
+	// for the caches to sync.
+	if cfg.ClientConfig == nil {
+		restConfig, err := loadConfig(cfg)
+		if err != nil {
+			return nil, err
+		}
+		clientConfig = restConfig
+	}
+
+	// Use a manager from the tink project so we can take advantage of the indexes and caching it
+	// configures. Once started, we don't really need any of the manager capabilities hence we don't
+	// store it in the Backend.
+	manager, err := tinkcontrollers.NewManager(clientConfig, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO(chrisdoherty4) Stop panicing on error. This will likely require exposing Start in
+	// some capacity and allowing the caller to handle the error.
 	go func() {
 		if err := manager.Start(cfg.Context); err != nil {
 			panic(err)
 		}
 	}()
 
-	backend := &Backend{
-		client:           manager.GetClient(),
+	return &Backend{
 		closer:           cfg.Context.Done(),
+		client:           manager.GetClient(),
 		WaitForCacheSync: manager.GetCache().WaitForCacheSync,
+	}, nil
+}
+
+func loadConfig(cfg BackendConfig) (*rest.Config, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = cfg.Kubeconfig
+
+	overrides := &clientcmd.ConfigOverrides{
+		ClusterInfo: clientcmdapi.Cluster{
+			Server: cfg.APIServerAddress,
+		},
+		Context: clientcmdapi.Context{
+			Namespace: cfg.Namespace,
+		},
 	}
 
-	return backend, nil
+	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
+	config, err := loader.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
 }
 
 // IsHealthy returns true until the context used to create the Backend is cancelled.

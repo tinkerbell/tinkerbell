@@ -45,9 +45,9 @@ type RootCommandOptions struct {
 
 	Backend string `mapstructure:"backend"`
 
-	KubernetesAPIURL string `mapstructure:"kubernetes"`
-	Kubeconfig       string `mapstructure:"kubeconfig"`
-	KubeNamespace    string `mapstructure:"kube-namespace"`
+	KubeAPIServerAddress string `mapstructure:"kubernetes"`
+	Kubeconfig           string `mapstructure:"kubeconfig"`
+	KubeNamespace        string `mapstructure:"kube-namespace"`
 
 	FlatfilePath string `mapstructure:"flatfile-path"`
 
@@ -184,9 +184,9 @@ func toBackendOptions(opts RootCommandOptions) backend.Options {
 	case "kubernetes":
 		backndOpts = backend.Options{
 			Kubernetes: &backend.KubernetesOptions{
-				KubeAPI:       opts.KubernetesAPIURL,
-				Kubeconfig:    opts.Kubeconfig,
-				KubeNamespace: opts.KubeNamespace,
+				APIServerAddress: opts.KubeAPIServerAddress,
+				Kubeconfig:       opts.Kubeconfig,
+				Namespace:        opts.KubeNamespace,
 			},
 		}
 	}

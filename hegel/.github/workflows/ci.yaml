@@ -32,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - uses: actions/setup-go@v3
         with:
           go-version: "${{ env.GO_VERSION }}"
@@ -39,6 +40,23 @@ jobs:
 
       - name: Run tests
         run: go test -coverprofile=coverage.txt ./...
+
+      - name: Upload coverage report (codcov.io)
+        run: bash <(curl -s https://codecov.io/bash)
+
+  integration:
+    name: Test - Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+          cache: true
+
+      - name: Run end-to-end tests
+        run: make test-integration
 
       - name: Upload coverage report (codcov.io)
         run: bash <(curl -s https://codecov.io/bash)
@@ -69,7 +87,7 @@ jobs:
   e2e:
     name: Test - E2E
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: [test, integration]
     steps:
       - uses: actions/checkout@v3
 

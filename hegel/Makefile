@@ -1,3 +1,6 @@
+# Configure the Make shell for recipe invocations.
+SHELL := bash
+
 # Specify the target architecture to build the binary for. (Recipes: build, image)
 GOARCH ?= $(shell go env GOARCH)
 
@@ -34,6 +37,30 @@ test: ## Run unit tests.
 .PHONY: test-e2e
 test-e2e: ## Run E2E tests.
 	go test $(GO_TEST_ARGS) -tags=e2e -coverprofile=coverage.out ./internal/e2e
+
+# Version should match with whatever we consume in sources (check the go.mod).
+SETUP_ENVTEST 			:= go run sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+ENVTEST_BIN_DIR 		:= $(shell pwd)/bin
+
+# The kubernetes version to use with envtest. Overridable when invoking make.
+# E.g. make ENVTEST_KUBE_VERSION=1.24 test-integration
+ENVTEST_KUBE_VERSION 	?= 1.25
+
+.PHONY: setup-envtest
+setup-envtest:
+	@echo Installing Kubernetes $(ENVTEST_KUBE_VERSION) binaries into $(ENVTEST_BIN_DIR); \
+	$(SETUP_ENVTEST) use --bin-dir $(ENVTEST_BIN_DIR) $(ENVTEST_KUBE_VERSION)
+
+# Integration tests are located next to unit test. This recipe will search the code base for
+# files including the "//go:build integration" build tag and build them into the test binary.
+# For packages containing both unit and integration tests its recommended to populate 
+# "//go:build !integration" in all unit test sources so as to avoid compiling them in this recipe.
+.PHONY: test-integration
+test-integration: setup-envtest
+test-integration: TEST_DIRS := $(shell grep -R --include="*.go" -l -E "//go:build.*\sintegration" . | xargs dirname | uniq)
+test-integration: ## Run integration tests.
+	source <($(SETUP_ENVTEST) use -p env --bin-dir $(ENVTEST_BIN_DIR) $(ENVTEST_KUBE_VERSION)); \
+	go test $(GO_TEST_ARGS) -tags=integration -coverprofile=coverage.out $(TEST_DIRS)
 
 # When we build the image its Linux based. This means we need a Linux binary hence we need to export
 # GOOS so we have compatible binary.

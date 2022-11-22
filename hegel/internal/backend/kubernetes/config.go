@@ -4,52 +4,27 @@ import (
 	"context"
 
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-// Config used by the NewBackend function family.
-type Config struct {
-	// Config is the Kubernetes client configuration.
-	*rest.Config
-
-	// Namespace restricts the scope of the backend such that Hardware objects are retrieved from
-	// this namespace only. Defaults to "default".
-	Namespace string
-
+// BackendConfig used by the NewBackend function family.
+type BackendConfig struct {
 	// Context is the context used by the Kubernetes client. Defaults to context.Background().
 	// When specified it controls the lifetime of the Kubernetes client by shutting the client
 	// down when it cancelled.
 	Context context.Context
-}
 
-// NewConfig loads the kubeconfig overriding it with kubeAPI.
-func NewConfig(kubeconfig, kubeAPI, namespace string) (Config, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.ExplicitPath = kubeconfig
+	// Kubeconfig is a path to a valid kubeconfig file. When in-cluster defaults to the in-cluster
+	// config. Optional.
+	Kubeconfig string
 
-	overrides := &clientcmd.ConfigOverrides{
-		ClusterInfo: clientcmdapi.Cluster{
-			Server: kubeAPI,
-		},
-		Context: clientcmdapi.Context{
-			Namespace: namespace,
-		},
-	}
+	// APIServerAddress is the address of the kubernetes cluster (https://hostname:port). Optional.
+	APIServerAddress string
 
-	kubeBackendCfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
-	config, err := kubeBackendCfg.ClientConfig()
-	if err != nil {
-		return Config{}, err
-	}
+	// Namespace restricts the scope of the backend such that Hardware objects are retrieved from
+	// this namespace only. Optional.
+	Namespace string
 
-	namespace, _, err = kubeBackendCfg.Namespace()
-	if err != nil {
-		return Config{}, err
-	}
-
-	return Config{
-		Config:    config,
-		Namespace: namespace,
-	}, nil
+	// ClientConfig is a Kubernetes client config. If specified, it will be used instead of
+	// constructing a client using the other configuration in this object. Optional.
+	ClientConfig *rest.Config
 }
