@@ -24,15 +24,21 @@ func Serve(ctx context.Context, logger log.Logger, address string, handler http.
 		ReadHeaderTimeout: 20 * time.Second,
 	}
 
+	errChan := make(chan error, 1)
 	go func() {
 		logger.Info(fmt.Sprintf("Listening on %s", address))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Info(err.Error())
+			errChan <- err
 		}
 	}()
 
 	// Wait until we're told to shutdown.
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case e := <-errChan:
+		return e
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

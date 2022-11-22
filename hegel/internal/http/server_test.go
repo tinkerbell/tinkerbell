@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/packethost/pkg/log"
 	. "github.com/tinkerbell/hegel/internal/http"
@@ -46,5 +48,28 @@ func TestServe(t *testing.T) {
 
 	if buf.String() != "Hello, world!" {
 		t.Fatal("expected body to be 'Hello, world!'")
+	}
+}
+
+func TestServerFailure(t *testing.T) {
+	logger, err := log.Init(t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	var mux http.ServeMux
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hello, world!")
+	})
+	n, err := net.Listen("tcp", ":8181")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer n.Close()
+	if err := Serve(ctx, logger, fmt.Sprintf(":%d", 8181), &mux); err == nil {
+		t.Fatal("expected error")
 	}
 }
