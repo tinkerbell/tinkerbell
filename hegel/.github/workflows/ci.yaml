@@ -83,7 +83,7 @@ jobs:
           cache: true
 
       - name: Run end-to-end tests
-        run: make e2e
+        run: make test-e2e
 
       - name: Upload coverage report (codcov.io)
         run: bash <(curl -s https://codecov.io/bash)
