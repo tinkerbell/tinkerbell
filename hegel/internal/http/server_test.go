@@ -60,16 +60,13 @@ func TestServerFailure(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	var mux http.ServeMux
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Hello, world!")
-	})
 	n, err := net.Listen("tcp", ":8181")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer n.Close()
-	if err := Serve(ctx, logger, fmt.Sprintf(":%d", 8181), &mux); err == nil {
+
+	if err := Serve(ctx, logger, fmt.Sprintf(":%d", 8181), &http.ServeMux{}); err == nil {
 		t.Fatal("expected error")
 	}
 }
