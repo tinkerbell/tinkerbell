@@ -4,7 +4,7 @@ GOARCH ?= $(shell go env GOARCH)
 # Specify the target OS to build the binary for. (Recipes: build)
 GOOS ?= $(shell go env GOOS)
 
-# Specify the GOPROXYs to use in the build of the binary. (Recipes: build, image)
+# Specify the GOPROXYs to use in the build of the binary. (Recipes: build)
 GOPROXY ?= $(shell go env GOPROXY)
 
 # Specify additional `docker build` arguments. (Recipes: image)
@@ -40,7 +40,7 @@ test-e2e: ## Run E2E tests.
 .PHONY: image
 image: export GOOS=linux
 image: build ## Build a Linux based Hegel image for the the host architecture.
-	docker build --build-arg TARGETARCH=$(GOARCH) --build-arg TARGETOS=$(GOOS) $(IMAGE_ARGS) .
+	DOCKER_BUILDKIT=1 docker build $(IMAGE_ARGS) .
 
 # The command to run mockgen.
 MOCKGEN = go run github.com/golang/mock/mockgen@v1.6
