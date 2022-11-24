@@ -6,9 +6,9 @@ FROM alpine:3.16.3
 ARG TARGETARCH
 ARG TARGETOS
 
-RUN apk add --update --upgrade ca-certificates
-
-RUN adduser -D -u 1000 tinkerbell
+# hadolint ignore=DL3018
+RUN apk add --update --upgrade --no-cache ca-certificates && \
+    adduser -D -u 1000 tinkerbell
 
 COPY ./hegel-$TARGETOS-$TARGETARCH /usr/bin/hegel
 

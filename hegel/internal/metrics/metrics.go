@@ -46,7 +46,7 @@ func init() {
 	}, []string{}).With(prometheus.Labels{})
 
 	Errors = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "hegel_errors",
+		Name: "hegel_errors_total",
 		Help: "Number of errors tracked by hegel",
 	}, []string{"op", "state"})
 
