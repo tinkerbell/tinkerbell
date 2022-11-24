@@ -55,48 +55,42 @@ mocks: ## Generate mocks for testing.
 		-package kubernetes \
 		-source internal/backend/kubernetes/backend.go
 
-# BEGIN: lint-install --dockerfile=warn .
-# http://github.com/tinkerbell/lint-install
+OUT_DIR 	?= $(shell pwd)/out
+BIN_DIR		?= $(OUT_DIR)/bin
+LINT_DIR 	?= $(OUT_DIR)/linters
 
-GOLINT_VERSION ?= v1.50.1
-HADOLINT_VERSION ?= v2.10.0
+GOLANGCI_LINT_VERSION 	?= v1.50.1
+GOLANGCI_LINT 			:= go run github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
-YAMLLINT_VERSION ?= 1.28.0
-LINT_OS := $(shell uname)
-LINT_ARCH := $(shell uname -m)
-LINT_ROOT := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+HADOLINT_VERSION 	?= v2.12.0
+HADOLINT_TARGET 	:= install/hadolint-$(HADOLINT_VERSION)
+HADOLINT 			:= $(LINT_DIR)/hadolint-$(HADOLINT_VERSION)
 
-# shellcheck and hadolint lack arm64 native binaries: rely on x86-64 emulation
-ifeq ($(LINT_OS),Darwin)
-	ifeq ($(LINT_ARCH),arm64)
-		LINT_ARCH=x86_64
-	endif
-endif
+YAMLLINT_VERSION 	?= v1.28.0
+YAMLLINT_TARGET 	:= install/yamllint-$(YAMLLINT_VERSION)
+YAMLLINT_INSTALL 	:= $(LINT_DIR)/yamllint-$(YAMLLINT_VERSION)
+# We install yamllint into a target directory to avoid installing something to the users system.
+# This makes it necessary to set the PYTHONPATH so yamllint can import its modules.
+YAMLLINT 			:= PYTHONPATH=$(YAMLLINT_INSTALL) $(YAMLLINT_INSTALL)/bin/yamllint
 
+LINT_OS 	:= $(shell uname)
+LINT_ARCH 	:= $(shell uname -m)
 
-GOLINT_CONFIG = $(LINT_ROOT)/.golangci.yml
-YAMLLINT_ROOT = out/linters/yamllint-$(YAMLLINT_VERSION)
+.PHONY: lint
+lint: SHELL := bash
+lint: $(shell mkdir -p $(LINT_DIR))
+lint: $(HADOLINT_TARGET) $(YAMLLINT_TARGET) ## Run linters.
+	$(GOLANGCI_LINT) run
+	$(HADOLINT) --no-fail $(shell find . -name "*Dockerfile")
+	$(YAMLLINT) .
 
-lint: out/linters/hadolint-$(HADOLINT_VERSION)-$(LINT_ARCH) out/linters/golangci-lint-$(GOLINT_VERSION)-$(LINT_ARCH) $(YAMLLINT_ROOT)/bin/yamllint
-	out/linters/golangci-lint-$(GOLINT_VERSION)-$(LINT_ARCH) run
-	out/linters/hadolint-$(HADOLINT_VERSION)-$(LINT_ARCH) --no-fail $(shell find . -name "*Dockerfile")
-	PYTHONPATH=$(YAMLLINT_ROOT)/lib $(YAMLLINT_ROOT)/bin/yamllint .
+.PHONY: $(HADOLINT_TARGET)
+$(HADOLINT_TARGET):
+	curl -sfL https://github.com/hadolint/hadolint/releases/download/$(HADOLINT_VERSION)/hadolint-$(LINT_OS)-$(LINT_ARCH) > $(HADOLINT);\
+	chmod u+x $(HADOLINT)
 
-fix: out/linters/golangci-lint-$(GOLINT_VERSION)-$(LINT_ARCH)
-	out/linters/golangci-lint-$(GOLINT_VERSION)-$(LINT_ARCH) run --fix
+# For simplicity, depend on pip. Its common enough to be present on most systems.
+.PHONY: $(YAMLLINT_TARGET)
+$(YAMLLINT_TARGET): $(shell mkdir -p $(YAMLLINT_INSTALL))
+	python3 -m pip install -t $(YAMLLINT_INSTALL) -qq yamllint==$(YAMLLINT_VERSION)
 
-out/linters/hadolint-$(HADOLINT_VERSION)-$(LINT_ARCH):
-	mkdir -p out/linters
-	curl -sfL https://github.com/hadolint/hadolint/releases/download/v2.6.1/hadolint-$(LINT_OS)-$(LINT_ARCH) > out/linters/hadolint-$(HADOLINT_VERSION)-$(LINT_ARCH)
-	chmod u+x out/linters/hadolint-$(HADOLINT_VERSION)-$(LINT_ARCH)
-
-out/linters/golangci-lint-$(GOLINT_VERSION)-$(LINT_ARCH):
-	mkdir -p out/linters
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b out/linters $(GOLINT_VERSION)
-	mv out/linters/golangci-lint out/linters/golangci-lint-$(GOLINT_VERSION)-$(LINT_ARCH)
-
-$(YAMLLINT_ROOT)/bin/yamllint:
-	mkdir -p $(YAMLLINT_ROOT)/lib
-	curl -sSfL https://github.com/adrienverge/yamllint/archive/refs/tags/v$(YAMLLINT_VERSION).tar.gz | tar -C out/linters -zxf -
-	cd $(YAMLLINT_ROOT) && PYTHONPATH=lib python setup.py -q install --prefix . --install-lib lib
-# END: lint-install --dockerfile=warn .
