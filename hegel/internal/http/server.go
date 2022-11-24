@@ -43,6 +43,7 @@ func Serve(ctx context.Context, logger log.Logger, address string, handler http.
 	defer cancel()
 
 	// Attempt a graceful shutdown with timeout.
+	//nolint:contextcheck // We can't derive from the original context as it's already done.
 	if err := server.Shutdown(ctx); err != nil {
 		server.Close()
 

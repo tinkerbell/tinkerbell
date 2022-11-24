@@ -84,8 +84,6 @@ lint: SHELL := bash
 lint: $(shell mkdir -p $(LINT_DIR))
 lint: $(HADOLINT_TARGET) $(YAMLLINT_TARGET) ## Run linters.
 	$(GOLANGCI_LINT) run
-	$(GOIMPORTS) -d -e . | (! grep .)
-	go vet ./...
 	$(HADOLINT) --no-fail $(shell find . -name "*Dockerfile")
 	$(YAMLLINT) .
 

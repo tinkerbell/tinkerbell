@@ -146,7 +146,11 @@ func (c *RootCommand) configureFlags() error {
 	// Flatfile backend specific flags.
 	c.Flags().String("flatfile-path", "", "Path to the flatfile metadata")
 
-	c.Flags().String("trusted-proxies", "", "A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For")
+	c.Flags().String(
+		"trusted-proxies",
+		"",
+		"A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For",
+	)
 
 	c.Flags().Bool("hegel-api", false, "Toggle to true to enable Hegel's new experimental API. Default is false.")
 	if err := c.Flags().MarkHidden("hegel-api"); err != nil {

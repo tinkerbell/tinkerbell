@@ -23,7 +23,7 @@ type Backend struct {
 	WaitForCacheSync func(context.Context) bool
 }
 
-// NewBackend creates a new Backend Backend instance. It launches a goroutine to perform synchronization
+// NewBackend creates a new Backend instance. It launches a goroutine to perform synchronization
 // between the cluster and internal caches. Consumers can wait for the initial sync using WaitForCachesync().
 // See k8s.io/Backend-go/tools/Backendcmd for constructing *rest.Config objects.
 func NewBackend(cfg Config) (*Backend, error) {

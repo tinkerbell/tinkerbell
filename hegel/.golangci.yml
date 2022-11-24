@@ -2,6 +2,68 @@ run:
   # The default runtime timeout is 1m, which doesn't work well on Github Actions.
   timeout: 4m
 
+linters:
+  # Disable everything so its clear to maintainers what we enable.
+  disable-all: true
+  enable:
+    # Default enabled linters.
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+
+    # Additional linters.
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - contextcheck
+    - cyclop
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - exhaustive
+    - exportloopref
+    - forcetypeassert
+    - gci
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gofmt
+    - gofumpt
+    - goheader
+    - goimports
+    - goprintffuncname
+    - gosec
+    - importas
+    - interfacebloat
+    - lll
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - noctx
+    - nolintlint
+    - predeclared
+    - promlinter
+    - revive
+    - stylecheck
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - whitespace
+
 # NOTE: This file is populated by the lint-install tool. Local adjustments may be overwritten.
 linters-settings:
   cyclop:
@@ -96,55 +158,6 @@ linters-settings:
 
 output:
   sort-results: true
-
-linters:
-  disable-all: true
-  enable:
-    - asciicheck
-    - bodyclose
-    - cyclop
-    - dogsled
-    - dupl
-    - durationcheck
-    - errcheck
-    - errname
-    - errorlint
-    - exhaustive
-    - exportloopref
-    - forcetypeassert
-    - gocognit
-    - goconst
-    - gocritic
-    - godot
-    - gofmt
-    - gofumpt
-    - gosec
-    - goheader
-    - goimports
-    - goprintffuncname
-    - gosimple
-    - govet
-    - importas
-    - ineffassign
-    - makezero
-    - misspell
-    - nakedret
-    - nestif
-    - nilerr
-    - noctx
-    - nolintlint
-    - predeclared
-    - promlinter
-    - revive
-    - staticcheck
-    - stylecheck
-    - thelper
-    - tparallel
-    - typecheck
-    - unconvert
-    - unparam
-    - unused
-    - whitespace
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
