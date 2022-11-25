@@ -62,9 +62,6 @@ LINT_DIR 	?= $(OUT_DIR)/linters
 GOLANGCI_LINT_VERSION 	?= v1.50.1
 GOLANGCI_LINT 			:= go run github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
-GOIMPORTS_VERSION 	?= v0.3.0
-GOIMPORTS 			:= go run golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
-
 HADOLINT_VERSION 	?= v2.12.0
 HADOLINT_TARGET 	:= install/hadolint-$(HADOLINT_VERSION)
 HADOLINT 			:= $(LINT_DIR)/hadolint-$(HADOLINT_VERSION)
