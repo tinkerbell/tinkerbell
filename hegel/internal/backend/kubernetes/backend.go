@@ -107,6 +107,7 @@ type listerClient interface {
 	List(ctx context.Context, list crclient.ObjectList, opts ...crclient.ListOption) error
 }
 
+//nolint:cyclop // This function is just mapping data with a bunch of nil checks, it's not complex.
 func toEC2Instance(hw tinkv1.Hardware) ec2.Instance {
 	var i ec2.Instance
 

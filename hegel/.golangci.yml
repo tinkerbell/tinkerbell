@@ -1,7 +1,3 @@
-run:
-  # The default runtime timeout is 1m, which doesn't work well on Github Actions.
-  timeout: 4m
-
 linters:
   # Disable everything so its clear to maintainers what we enable.
   disable-all: true
@@ -59,51 +55,16 @@ linters:
     - revive
     - stylecheck
     - thelper
-    - tparallel
     - unconvert
     - unparam
     - whitespace
 
-# NOTE: This file is populated by the lint-install tool. Local adjustments may be overwritten.
 linters-settings:
-  cyclop:
-    # NOTE: This is a very high transitional threshold
-    max-complexity: 37
-    package-average: 34.0
-    skip-tests: true
-
-  gocognit:
-    # NOTE: This is a very high transitional threshold
-    min-complexity: 98
-
-  dupl:
-    threshold: 200
-
-  goconst:
-    min-len: 4
-    min-occurrences: 5
-    ignore-tests: true
-
-  gosec:
-    excludes:
-      - G107 # Potential HTTP request made with variable url
-      - G204 # Subprocess launched with function call as argument or cmd arguments
-      - G404 # Use of weak random number generator (math/rand instead of crypto/rand
-
   errorlint:
-    # these are still common in Go: for instance, exit errors.
-    asserts: false
     errorf: false
-
-  exhaustive:
-    default-signifies-exhaustive: true
-
-  nestif:
-    min-complexity: 8
 
   nolintlint:
     require-explanation: true
-    allow-unused: false
     require-specific: true
 
   revive:
@@ -150,9 +111,6 @@ linters-settings:
       - name: unconditional-recursion
       - name: waitgroup-by-value
 
-  staticcheck:
-    go: "1.19"
-
   unused:
     go: "1.19"
 
@@ -167,6 +125,7 @@ issues:
         - dupl
         - errcheck
         - forcetypeassert
+        - goconst
         - gocyclo
         - gosec
         - noctx
@@ -184,11 +143,6 @@ issues:
 
     - path: main\.go
       text: "deep-exit"
-
-    # This check is of questionable value
-    - linters:
-        - tparallel
-      text: "call t.Parallel on the top level as well as its subtests"
 
   # Don't hide lint issues just because there are many of them
   max-same-issues: 0
