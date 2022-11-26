@@ -114,9 +114,6 @@ linters-settings:
   unused:
     go: "1.19"
 
-output:
-  sort-results: true
-
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
@@ -147,3 +144,10 @@ issues:
   # Don't hide lint issues just because there are many of them
   max-same-issues: 0
   max-issues-per-linter: 0
+
+output:
+  sort-results: true
+
+run:
+  # Default is 1m and github actions often times out.
+  timeout: 5m
