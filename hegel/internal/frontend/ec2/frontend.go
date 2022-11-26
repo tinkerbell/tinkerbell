@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"sort"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tinkerbell/hegel/internal/frontend/ec2/internal/staticroute"
 	"github.com/tinkerbell/hegel/internal/ginutil"
 	"github.com/tinkerbell/hegel/internal/http/httperror"
 	"github.com/tinkerbell/hegel/internal/http/request"
@@ -40,10 +40,11 @@ func New(client Client) Frontend {
 //
 // TODO(chrisdoherty4) Document unimplemented endpoints.
 func (f Frontend) Configure(router gin.IRouter) {
-	// Setup the 2009-04-04 API path prefix.
+	// Setup the 2009-04-04 API path prefix and use a trailing slash route helper to patch
+	// equivalent trailing slash routes.
 	v20090404 := ginutil.TrailingSlashRouteHelper{IRouter: router.Group("/2009-04-04")}
 
-	dynamicEndpointBinder := func(router gin.IRouter, endpoint string, filter filterFunc) {
+	dataEndpointBinder := func(router gin.IRouter, endpoint string, filter filterFunc) {
 		router.GET(endpoint, func(ctx *gin.Context) {
 			instance, err := f.getInstance(ctx, ctx.Request)
 			if err != nil {
@@ -63,10 +64,15 @@ func (f Frontend) Configure(router gin.IRouter) {
 		})
 	}
 
+	// Create a static route builder that we can add all data routes to which are the basis for
+	// all static routes.
+	staticRoutes := staticroute.NewBuilder()
+
 	// Configure all dynamic routes. Dynamic routes are anything that requires retrieving a specific
 	// instance and returning data from it.
-	for _, route := range dynamicRoutes {
-		dynamicEndpointBinder(v20090404, route.Endpoint, route.Filter)
+	for _, r := range dataRoutes {
+		dataEndpointBinder(v20090404, r.Endpoint, r.Filter)
+		staticRoutes.FromEndpoint(r.Endpoint)
 	}
 
 	staticEndpointBinder := func(router gin.IRouter, endpoint string, childEndpoints []string) {
@@ -75,11 +81,8 @@ func (f Frontend) Configure(router gin.IRouter) {
 		})
 	}
 
-	for _, route := range staticRoutes {
-		children := make([]string, len(route.ChildEndpoints))
-		copy(children, route.ChildEndpoints)
-		sort.Strings(children)
-		staticEndpointBinder(v20090404, route.Endpoint, children)
+	for _, r := range staticRoutes.Build() {
+		staticEndpointBinder(v20090404, r.Endpoint, r.Children)
 	}
 }
 
