@@ -28,10 +28,44 @@ Hegel releases with semantic versioning. Each release produces 3 image tags usin
 minor (m) and patch (p) numbers: `v[M].[m].[p]`, `v[M].[m]` and `v[M]`. The `v[M]` will always point
 to the latest minor release. `v[M].[m]` will always point to the latest patch release.
 
+For information on how to create a release, see [RELEASING.md][releasing].
+
 ### Version Compatibility
 
 THe project is currently v0 meaning compatibility is best effort. If you have any specific concerns 
 do not hesitate to raise an issue.
+
+## Development
+
+All builds happen via the Makefile at the root of the project. `make help` provides the set of
+most commonly used targets with short descriptions.
+
+When developing, ensure you write unit tests and leverage the various `test` Makefile targets
+to validate your code.
+
+The CI invokes little more than a Makefile target for each job. The one exception is image building
+as we optimize for cross-platform builds. In brief, we cross compile using the Go toolchain before
+constructing the image by copying the appropriate binary for the target platform.
+
+##### Quick start
+
+```sh
+# Build a Docker image for the host platform.
+make image
+```
+
+### Package Structure
+
+Given Hegel is not a library of reusable components most of its code lives in `/internal`.
+Appropriate justification will be required to create packages outside `/internal`.
+
+The `main()` func for Hegel is located in `/cmd/hegel`. It is extremely brief with the core command
+logic residing in `/internal/cmd`.
+
+Hegel is split into frontends and backends. The frontends can be thought of as the core domain
+while the backends are clients into a particular kind of backend. Frontends declare the models
+they require and the backends are responsible for retrieving and supplying the data in the required
+format. See the [frontend-backend][frontend-backend] Plant UML for a depiction.
 
 ## FAQ
 
@@ -71,3 +105,5 @@ curl -H "X-Forwarded-For: 10.10.10.10" http://localhost:50061/2009-04-04/meta-da
 
 [cloud-init]: https://cloudinit.readthedocs.io/en/latest/
 [ignition]: https://coreos.github.io/ignition/
+[releasing]: /RELEASING.md
+[frontend-backend]: /docs/design/frontend-backend.puml
