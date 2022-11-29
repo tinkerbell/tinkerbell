@@ -35,37 +35,19 @@ For information on how to create a release, see [RELEASING.md][releasing].
 THe project is currently v0 meaning compatibility is best effort. If you have any specific concerns 
 do not hesitate to raise an issue.
 
-## Development
-
-All builds happen via the Makefile at the root of the project. `make help` provides the set of
-most commonly used targets with short descriptions.
-
-When developing, ensure you write unit tests and leverage the various `test` Makefile targets
-to validate your code.
-
-The CI invokes little more than a Makefile target for each job. The one exception is image building
-as we optimize for cross-platform builds. In brief, we cross compile using the Go toolchain before
-constructing the image by copying the appropriate binary for the target platform.
-
-##### Quick start
+## Quick Start
 
 ```sh
 # Build a Docker image for the host platform.
-make image
+$ make image
+
+# See the "How to impersonate an instance?" FAQ to launch Hegel. Ensure you use `hegel:latest`
+# as the image name to use the newly built image.
 ```
 
-### Package Structure
+## Contributing
 
-Given Hegel is not a library of reusable components most of its code lives in `/internal`.
-Appropriate justification will be required to create packages outside `/internal`.
-
-The `main()` func for Hegel is located in `/cmd/hegel`. It is extremely brief with the core command
-logic residing in `/internal/cmd`.
-
-Hegel is split into frontends and backends. The frontends can be thought of as the core domain
-while the backends are clients into a particular kind of backend. Frontends declare the models
-they require and the backends are responsible for retrieving and supplying the data in the required
-format. See the [frontend-backend][frontend-backend] Plant UML for a depiction.
+See [CONTRIBUTING.md](/CONTRIBUTING.md).
 
 ## FAQ
 
