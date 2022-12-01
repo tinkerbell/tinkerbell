@@ -1,3 +1,5 @@
+//go:build !integration
+
 package kubernetes_test
 
 import (

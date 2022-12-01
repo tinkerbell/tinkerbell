@@ -1,7 +1,6 @@
-certs/
-/cmd/hegel/hegel
 .env
 out/
 /hegel-*
 .vscode
 /coverage.out
+/bin
