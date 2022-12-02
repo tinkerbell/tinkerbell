@@ -51,7 +51,7 @@ func TestHegel_EC2Frontend(t *testing.T) {
 				Name:     "StaticRoute",
 				Endpoint: "/2009-04-04",
 				Expect: `meta-data/
-user-data/`,
+user-data`,
 			},
 			{
 				Name:     "DynamicRoute",

@@ -6,51 +6,7 @@ package ec2
 
 type filterFunc func(i Instance) string
 
-var staticRoutes = []struct {
-	Endpoint       string
-	ChildEndpoints []string
-}{
-	{
-		Endpoint: "/",
-		ChildEndpoints: []string{
-			"user-data/",
-			"meta-data/",
-		},
-	},
-	{
-		Endpoint: "/meta-data",
-		ChildEndpoints: []string{
-			"instance-id",
-			"hostname",
-			"local-hostname",
-			"iqn",
-			"plan",
-			"facility",
-			"tags",
-			"public-ipv4",
-			"public-ipv6",
-			"local-ipv4",
-			"public-keys",
-			"operating-system/",
-		},
-	},
-	{
-		Endpoint: "/meta-data/operating-system",
-		ChildEndpoints: []string{
-			"slug",
-			"distro",
-			"version",
-			"image_tag",
-			"license_activation/",
-		},
-	},
-	{
-		Endpoint:       "/meta-data/operating-system/license_activation",
-		ChildEndpoints: []string{"state"},
-	},
-}
-
-var dynamicRoutes = []struct {
+var dataRoutes = []struct {
 	Endpoint string
 	Filter   filterFunc
 }{

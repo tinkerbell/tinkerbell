@@ -26,6 +26,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.13.1
 )
 
+require github.com/kr/pretty v0.3.1 // indirect
+
 require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect

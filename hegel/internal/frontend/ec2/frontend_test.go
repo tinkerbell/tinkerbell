@@ -238,7 +238,7 @@ func TestFrontendStaticEndpoints(t *testing.T) {
 			Name:     "Root",
 			Endpoint: "/2009-04-04",
 			Expect: `meta-data/
-user-data/`,
+user-data`,
 		},
 		{
 			Name:     "Metadata",
@@ -302,11 +302,11 @@ func validate(t *testing.T, router *gin.Engine, endpoint string, expect string) 
 	router.ServeHTTP(w, r)
 
 	if w.Code != http.StatusOK {
-		t.Fatalf("Expected: 200; Received: %d", w.Code)
+		t.Fatalf("\nEndpoint=%s\nExpected status: 200; Received status: %d; ", endpoint, w.Code)
 	}
 
 	if w.Body.String() != expect {
-		t.Fatalf("Expected: %s;\nReceived: %s", expect, w.Body.String())
+		t.Fatalf("\nExpected: %s;\nReceived: %s;\n(Endpoint=%s)", expect, w.Body.String(), endpoint)
 	}
 }
 
