@@ -8,7 +8,6 @@ import (
 	"github.com/onsi/gomega"
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -55,7 +54,7 @@ func TestJobReconciler_UnknownMachine(t *testing.T) {
 			Name:      "test",
 		},
 		Spec: bmcv1alpha1.JobSpec{
-			MachineRef: corev1.ObjectReference{Name: "unknown", Namespace: "default"},
+			MachineRef: bmcv1alpha1.MachineRef{Name: "unknown", Namespace: "default"},
 			Tasks:      []bmcv1alpha1.Action{},
 		},
 	}
@@ -151,7 +150,7 @@ func createJob(name string, machine *bmcv1alpha1.Machine) *bmcv1alpha1.Job {
 			Name:      name,
 		},
 		Spec: bmcv1alpha1.JobSpec{
-			MachineRef: corev1.ObjectReference{Name: machine.Name, Namespace: machine.Namespace},
+			MachineRef: bmcv1alpha1.MachineRef{Name: machine.Name, Namespace: machine.Namespace},
 			Tasks:      []bmcv1alpha1.Action{},
 		},
 	}
