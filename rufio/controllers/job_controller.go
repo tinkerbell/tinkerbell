@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -171,7 +170,7 @@ func (r *JobReconciler) reconcile(ctx context.Context, job *bmcv1alpha1.Job, job
 }
 
 // getMachine Gets the Machine from MachineRef
-func (r *JobReconciler) getMachine(ctx context.Context, reference corev1.ObjectReference, machine *bmcv1alpha1.Machine) error {
+func (r *JobReconciler) getMachine(ctx context.Context, reference bmcv1alpha1.MachineRef, machine *bmcv1alpha1.Machine) error {
 	key := types.NamespacedName{Namespace: reference.Namespace, Name: reference.Name}
 	err := r.client.Get(ctx, key, machine)
 	if err != nil {

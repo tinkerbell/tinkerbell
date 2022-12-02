@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,11 +34,20 @@ const (
 	JobRunning JobConditionType = "Running"
 )
 
+// MachineRef is used to reference a Machine object.
+type MachineRef struct {
+	// Name of the Machine.
+	Name string `json:"name"`
+
+	// Namespace the Machine resides in.
+	Namespace string `json:"namespace"`
+}
+
 // JobSpec defines the desired state of Job
 type JobSpec struct {
 	// MachineRef represents the Machine resource to execute the job.
 	// All the tasks in the job are executed for the same Machine.
-	MachineRef corev1.ObjectReference `json:"machineRef"`
+	MachineRef MachineRef `json:"machineRef"`
 
 	// Tasks represents a list of baseboard management actions to be executed.
 	// The tasks are executed sequentially. Controller waits for one task to complete before executing the next.
