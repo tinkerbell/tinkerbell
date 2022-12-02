@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bmc-toolbox/bmclib"
+	bmclib "github.com/bmc-toolbox/bmclib/v2"
 )
 
 // BMCClient represents a baseboard management controller client.
