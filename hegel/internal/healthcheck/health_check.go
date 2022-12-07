@@ -18,7 +18,8 @@ type Client interface {
 
 // NewHandler returns a gin.HandlerFunc that provides a health check endpoint behavior. On each
 // request it queries client.IsHealthy and returns a 200 if the backend is healthy, else a 500.
-func NewHandler(client Client, start time.Time) gin.HandlerFunc {
+func NewHandler(client Client) gin.HandlerFunc {
+	start := time.Now()
 	return func(ctx *gin.Context) {
 		isHealthy := client.IsHealthy(ctx)
 

@@ -12,31 +12,31 @@ import (
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// MockListerClient is a mock of ListerClient interface.
-type MockListerClient struct {
+// MocklisterClient is a mock of listerClient interface.
+type MocklisterClient struct {
 	ctrl     *gomock.Controller
-	recorder *MockListerClientMockRecorder
+	recorder *MocklisterClientMockRecorder
 }
 
-// MockListerClientMockRecorder is the mock recorder for MockListerClient.
-type MockListerClientMockRecorder struct {
-	mock *MockListerClient
+// MocklisterClientMockRecorder is the mock recorder for MocklisterClient.
+type MocklisterClientMockRecorder struct {
+	mock *MocklisterClient
 }
 
-// NewMockListerClient creates a new mock instance.
-func NewMockListerClient(ctrl *gomock.Controller) *MockListerClient {
-	mock := &MockListerClient{ctrl: ctrl}
-	mock.recorder = &MockListerClientMockRecorder{mock}
+// NewMocklisterClient creates a new mock instance.
+func NewMocklisterClient(ctrl *gomock.Controller) *MocklisterClient {
+	mock := &MocklisterClient{ctrl: ctrl}
+	mock.recorder = &MocklisterClientMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockListerClient) EXPECT() *MockListerClientMockRecorder {
+func (m *MocklisterClient) EXPECT() *MocklisterClientMockRecorder {
 	return m.recorder
 }
 
 // List mocks base method.
-func (m *MockListerClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+func (m *MocklisterClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, list}
 	for _, a := range opts {
@@ -48,8 +48,8 @@ func (m *MockListerClient) List(ctx context.Context, list client.ObjectList, opt
 }
 
 // List indicates an expected call of List.
-func (mr *MockListerClientMockRecorder) List(ctx, list interface{}, opts ...interface{}) *gomock.Call {
+func (mr *MocklisterClientMockRecorder) List(ctx, list interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, list}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockListerClient)(nil).List), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MocklisterClient)(nil).List), varargs...)
 }

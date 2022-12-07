@@ -1,98 +1,63 @@
 package metrics
 
 import (
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const (
-	Started = iota
-	Initializing
-	Ready
+	routeLabel      = "route"
+	methodLabel     = "method"
+	statusCodeLabel = "status_code"
 )
 
-var (
-	CacherConnected    prometheus.Gauge
-	CacherHealthcheck  *prometheus.CounterVec
-	InitDuration       prometheus.Observer
-	Errors             *prometheus.CounterVec
-	MetadataRequests   prometheus.Counter
-	State              prometheus.Gauge
-	Subscriptions      *prometheus.GaugeVec
-	TotalSubscriptions prometheus.Counter
-)
+// InstrumentRequestCount adds a CounterVec to registrar and returns a handler that increments
+// the count with every request.
+func InstrumentRequestCount(registrar prometheus.Registerer) gin.HandlerFunc {
+	m := promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "http_server_requests_total",
+			Help: "Count of HTTP requests",
+		},
+		[]string{methodLabel, statusCodeLabel},
+	)
 
-func init() {
-	CacherConnected = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "hegel_cacher_connected",
-		Help: "Hegel health check status for cacher, 0:not connected, 1:connected",
-	})
+	registrar.MustRegister(m)
 
-	CacherHealthcheck = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "hegel_cacher_healthchecks_total",
-		Help: "Total count of healthchecks to cacher",
-	}, []string{"success"})
-
-	labelValues := []prometheus.Labels{
-		{"success": "true"},
-		{"success": "false"},
-	}
-	initCounterLabels(CacherHealthcheck, labelValues)
-
-	InitDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "hegel_subscription_initialization_duration_seconds",
-		Help:    "Duration taken to get a response for a newly discovered request.",
-		Buckets: []float64{0.5, 1, 5, 10, 30, 60},
-	}, []string{}).With(prometheus.Labels{})
-
-	Errors = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "hegel_errors_total",
-		Help: "Number of errors tracked by hegel",
-	}, []string{"op", "state"})
-
-	labelValues = []prometheus.Labels{
-		{"op": "cacher", "state": "healthcheck"},
-		{"op": "metadata", "state": "lookup"},
-		{"op": "subscribe", "state": "active"},
-		{"op": "subscribe", "state": "initializing"},
-	}
-	initCounterLabels(Errors, labelValues)
-
-	MetadataRequests = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "hegel_metadata_requests_total",
-		Help: "Number of requests to the metadata http endpoint",
-	})
-
-	State = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "hegel_state",
-		Help: "Current state of hegel, 0:started, 1:initializing, 2:ready",
-	})
-
-	Subscriptions = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "hegel_subscriptions",
-		Help: "Number of hegel subscribers",
-	}, []string{"state"})
-
-	labelValues = []prometheus.Labels{
-		{"state": "active"},
-		{"state": "initializing"},
-	}
-	initGaugeLabels(Subscriptions, labelValues)
-
-	TotalSubscriptions = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "hegel_subscriptions_total",
-		Help: "Total number of connections hegel has handled",
-	})
-}
-
-func initCounterLabels(m *prometheus.CounterVec, l []prometheus.Labels) {
-	for _, labels := range l {
-		m.With(labels)
+	return func(ctx *gin.Context) {
+		ctx.Next()
+		m.WithLabelValues(
+			ctx.Request.Method,
+			strconv.Itoa(ctx.Writer.Status()),
+		).Inc()
 	}
 }
 
-func initGaugeLabels(m *prometheus.GaugeVec, l []prometheus.Labels) {
-	for _, labels := range l {
-		m.With(labels)
+// InstrumentReuqestDuration adds a HistogramVec to registrar and returns a handler that records
+// request durations with every request.
+func InstrumentRequestDuration(registrar prometheus.Registerer) gin.HandlerFunc {
+	m := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "http_server_request_duration_seconds",
+			Help:    "Histogram of response time for HTTP requests in seconds",
+			Buckets: []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+		},
+		[]string{routeLabel, methodLabel, statusCodeLabel},
+	)
+
+	registrar.MustRegister(m)
+
+	return func(ctx *gin.Context) {
+		start := time.Now()
+		ctx.Next()
+		m.WithLabelValues(
+			ctx.FullPath(),
+			ctx.Request.Method,
+			strconv.Itoa(ctx.Writer.Status()),
+		).Observe(time.Since(start).Seconds())
 	}
 }
