@@ -28,10 +28,26 @@ Hegel releases with semantic versioning. Each release produces 3 image tags usin
 minor (m) and patch (p) numbers: `v[M].[m].[p]`, `v[M].[m]` and `v[M]`. The `v[M]` will always point
 to the latest minor release. `v[M].[m]` will always point to the latest patch release.
 
+For information on how to create a release, see [RELEASING.md][releasing].
+
 ### Version Compatibility
 
 THe project is currently v0 meaning compatibility is best effort. If you have any specific concerns 
 do not hesitate to raise an issue.
+
+## Quick Start
+
+```sh
+# Build a Docker image for the host platform.
+$ make image
+
+# See the "How to impersonate an instance?" FAQ to launch Hegel. Ensure you use `hegel:latest`
+# as the image name to use the newly built image.
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](/CONTRIBUTING.md).
 
 ## FAQ
 
@@ -71,3 +87,5 @@ curl -H "X-Forwarded-For: 10.10.10.10" http://localhost:50061/2009-04-04/meta-da
 
 [cloud-init]: https://cloudinit.readthedocs.io/en/latest/
 [ignition]: https://coreos.github.io/ignition/
+[releasing]: /RELEASING.md
+[frontend-backend]: /docs/design/frontend-backend.puml
