@@ -8,7 +8,6 @@ import (
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
 	tinkv1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
 	tinkcontrollers "github.com/tinkerbell/tink/pkg/controllers"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,30 +29,28 @@ type Backend struct {
 // between the cluster and internal caches. Consumers can wait for the initial sync using WaitForCachesync().
 // See k8s.io/Backend-go/tools/Backendcmd for constructing *rest.Config objects.
 func NewBackend(cfg BackendConfig) (*Backend, error) {
-	opts := tinkcontrollers.GetServerOptions()
-	opts.Namespace = cfg.Namespace
-
 	// Default the context.
 	if cfg.Context == nil {
 		cfg.Context = context.Background()
 	}
 
-	clientConfig := cfg.ClientConfig
-
 	// If no client was specified, build one and configure the backend with it including waiting
 	// for the caches to sync.
 	if cfg.ClientConfig == nil {
-		restConfig, err := loadConfig(cfg)
+		var err error
+		cfg, err = loadConfig(cfg)
 		if err != nil {
 			return nil, err
 		}
-		clientConfig = restConfig
 	}
+
+	opts := tinkcontrollers.GetServerOptions()
+	opts.Namespace = cfg.Namespace
 
 	// Use a manager from the tink project so we can take advantage of the indexes and caching it
 	// configures. Once started, we don't really need any of the manager capabilities hence we don't
 	// store it in the Backend.
-	manager, err := tinkcontrollers.NewManager(clientConfig, opts)
+	manager, err := tinkcontrollers.NewManager(cfg.ClientConfig, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +70,7 @@ func NewBackend(cfg BackendConfig) (*Backend, error) {
 	}, nil
 }
 
-func loadConfig(cfg BackendConfig) (*rest.Config, error) {
+func loadConfig(cfg BackendConfig) (BackendConfig, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loadingRules.ExplicitPath = cfg.Kubeconfig
 
@@ -89,10 +86,19 @@ func loadConfig(cfg BackendConfig) (*rest.Config, error) {
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
 	config, err := loader.ClientConfig()
 	if err != nil {
-		return nil, err
+		return BackendConfig{}, err
 	}
+	cfg.ClientConfig = config
 
-	return config, nil
+	// In the event no namespace was provided for override, we need to fill it in with whatever
+	// namespace was loaded from the kubeconfig.
+	namespace, _, err := loader.Namespace()
+	if err != nil {
+		return BackendConfig{}, err
+	}
+	cfg.Namespace = namespace
+
+	return cfg, nil
 }
 
 // IsHealthy returns true until the context used to create the Backend is cancelled.

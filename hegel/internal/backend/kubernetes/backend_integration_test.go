@@ -51,6 +51,7 @@ func TestBackend(t *testing.T) {
 
 	const ip = "10.10.10.10"
 	const hostname = "foobar"
+	const device = "/dev/sda"
 
 	hw := tinkv1.Hardware{
 		ObjectMeta: metav1.ObjectMeta{
@@ -71,6 +72,33 @@ func TestBackend(t *testing.T) {
 			Metadata: &tinkv1.HardwareMetadata{
 				Instance: &tinkv1.MetadataInstance{
 					Hostname: hostname,
+					Storage: &tinkv1.MetadataInstanceStorage{
+						Disks: []*tinkv1.MetadataInstanceStorageDisk{
+							{
+								Device:    device,
+								WipeTable: true,
+								Partitions: []*tinkv1.MetadataInstanceStorageDiskPartition{
+									{
+										Label:  "root",
+										Number: 0,
+										Size:   123,
+									},
+								},
+							},
+						},
+						Filesystems: []*tinkv1.MetadataInstanceStorageFilesystem{
+							{
+								Mount: &tinkv1.MetadataInstanceStorageMount{
+									Device: device,
+									Format: "ext4",
+									Create: &tinkv1.MetadataInstanceStorageMountFilesystemOptions{
+										Options: []string{"-L", "root"},
+									},
+									Point: "/",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -90,12 +118,21 @@ func TestBackend(t *testing.T) {
 	}
 	backend.WaitForCacheSync(ctx)
 
-	instance, err := backend.GetEC2Instance(ctx, ip)
+	ec2instance, err := backend.GetEC2Instance(ctx, ip)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if instance.Metadata.Hostname != hostname {
-		t.Fatalf("Expected Hostname: %s; Received Hostname: %s\n", instance.Metadata.Hostname, hostname)
+	if ec2instance.Metadata.Hostname != hostname {
+		t.Fatalf("Expected Hostname: %s; Received Hostname: %s\n", ec2instance.Metadata.Hostname, hostname)
+	}
+
+	hackInstance, err := backend.GetHackInstance(ctx, ip)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if hackInstance.Metadata.Instance.Storage.Disks[0].Device != device {
+		t.Fatalf("Expected Device: %s; Received Device: %s\n", hackInstance.Metadata.Instance.Storage.Disks[0].Device, device)
 	}
 }
