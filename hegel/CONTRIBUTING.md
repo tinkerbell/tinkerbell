@@ -1,48 +1,56 @@
-## Hello Contributors!
+# Contributing
 
-Thanks for your interest!
-We're so glad you're here.
+## Expectations
 
-### Important Resources
+When contributing you must adhere to the [Code of Conduct](coc). All contributions must be signed 
+off in accordance with the [Developer Certificate of Origin](dco).
 
-#### bugs: [https://github.com/tinkerbell/hegel/issues](https://github.com/tinkerbell/hegel/issues)
+## Developing
 
-### Code of Conduct
+### Pre-requisits
 
-Please read and understand the code of conduct found [here](https://github.com/tinkerbell/.github/blob/main/CODE_OF_CONDUCT.md).
+- Make
+- [Docker](https://www.docker.com/)
+- [Go](https://go.dev/) installed at the version specified in the [CI workflow](ci-workflow)
+- [Python 3](https://www.python.org/) installed and available on the path as `python3`
+- [Pip](https://pypi.org/project/pip/) for Python 3
+- [cURL](https://curl.se/)
 
-### DCO Sign Off
+### Developer workflow
 
-Please read and understand the DCO found [here](docs/DCO.md).
+All builds happen via the Makefile at the root of the project. `make help` provides the set of
+most commonly used targets with short descriptions.
 
-### Environment Details
+When developing, ensure you write unit tests and leverage the various `test` Makefile targets
+to validate your code.
 
-#### Nix
+The CI invokes little more than a Makefile target for each job. The one exception is image building
+as we optimize for cross-platform builds. In brief, we cross compile using the Go toolchain before
+constructing the image by copying the appropriate binary for the target platform.
 
-This repo's build environment can be reproduced using `nix`.
 
-##### Install Nix
+### Package structure
 
-Follow the [Nix installation](https://nixos.org/download.html) guide to setup Nix on your box.
+Given Hegel is not a library of reusable components most of its code lives in `/internal`.
+Appropriate justification will be required to create packages outside `/internal`.
 
-##### Load Dependencies
+The `main()` func for Hegel is located in `/cmd/hegel`. It is extremely short with the core command
+logic residing in `/internal/cmd`.
 
-Loading build dependencies is as simple as running `nix-shell` or using [lorri](https://github.com/nix-community/lorri).
-If you have `direnv` installed the included `.envrc` will make that step automatic.
+Hegel is split into frontends and backends. The frontends are the core domain logic while the 
+backends are clients into a particular kind of backend. Frontends declare the models they require 
+and the backends are responsible for retrieving and supplying the data in the required format. 
+See the [frontend-backend][frontend-backend] Plant UML for a depiction.
 
-### How to Submit Change Requests
+## How to submit change requests
 
-Please submit change requests and / or features via [Issues](https://github.com/tinkerbell/hegel/issues).
-There's no guarantee it'll be changed, but you never know until you try.
-We'll try to add comments as soon as possible, though.
+Please submit change requests and features via [Issues].
 
-### How to Report a Bug
+## How to report bugs
 
-Bugs are problems in code, in the functionality of an application or in its UI design; you can submit them through [Issues](https://github.com/tinkerbell/hegel/issues).
+Please submit bugs via [Issues].
 
-## Code Style Guides
-
-#### Protobuf
-
-Please ensure protobuf related files are generated along with _any_ change to a protobuf file.
-In the future CI will enforce this, but for the time being does not.
+[issues]: https://github.com/tinkerbell/hegel/issues
+[coc]: https://github.com/tinkerbell/.github/blob/main/CODE_OF_CONDUCT.md
+[dco]: /docs/DCO.md
+[ci-workflow}]: /.github/workflows/ci.yaml
