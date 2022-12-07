@@ -37,16 +37,12 @@ func New(ctx context.Context, opts Options) (Client, error) {
 		return flatfile.FromYAMLFile(opts.Flatfile.Path)
 
 	case opts.Kubernetes != nil:
-		config, err := kubernetes.NewConfig(
-			opts.Kubernetes.Kubeconfig,
-			opts.Kubernetes.KubeAPI,
-			opts.Kubernetes.KubeNamespace,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("loading kubernetes config: %v", err)
-		}
-
-		kubeclient, err := kubernetes.NewBackend(config)
+		kubeclient, err := kubernetes.NewBackend(kubernetes.BackendConfig{
+			Kubeconfig:       opts.Kubernetes.Kubeconfig,
+			APIServerAddress: opts.Kubernetes.APIServerAddress,
+			Namespace:        opts.Kubernetes.Namespace,
+			Context:          ctx,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("kubernetes client: %v", err)
 		}
@@ -94,9 +90,9 @@ type FlatfileOptions struct {
 
 // KubernetesOptions is the configuration for a Kubernetes backend.
 type KubernetesOptions struct {
-	// KubeAPI is the URL of the Kube API the Kubernetes client talks to.
+	// APIServerAddress is the URL of the Kube API the Kubernetes client talks to.
 	// Optional
-	KubeAPI string
+	APIServerAddress string
 
 	// Kuberconfig is a path to a Kubeconfig file used by the Kubernetes client.
 	// Optional
@@ -104,5 +100,5 @@ type KubernetesOptions struct {
 
 	// KubeNamespace is a namespace override to have Hegel use for reading resources.
 	// Optional
-	KubeNamespace string
+	Namespace string
 }

@@ -45,9 +45,9 @@ type RootCommandOptions struct {
 
 	Backend string `mapstructure:"backend"`
 
-	KubernetesAPIURL string `mapstructure:"kubernetes"`
-	Kubeconfig       string `mapstructure:"kubeconfig"`
-	KubeNamespace    string `mapstructure:"kube-namespace"`
+	KubernetesAPIServer  string `mapstructure:"kubernetes-apiserver"`
+	KubernetesKubeconfig string `mapstructure:"kubernetes-kubeconfig"`
+	KubernetesNamespace  string `mapstructure:"kubernetes-namespace"`
 
 	FlatfilePath string `mapstructure:"flatfile-path"`
 
@@ -140,7 +140,7 @@ func (c *RootCommand) configureFlags() error {
 
 	// Kubernetes backend specific flags.
 	c.Flags().String("kubernetes-kubeconfig", "", "Path to a kubeconfig file")
-	c.Flags().String("kubernetes-apiserver-endpoint", "", "URL of the Kubernetes API Server")
+	c.Flags().String("kubernetes-apiserver", "", "URL of the Kubernetes API Server")
 	c.Flags().String("kubernetes-namespace", "", "The Kubernetes namespace to target; defaults to the service account")
 
 	// Flatfile backend specific flags.
@@ -184,9 +184,9 @@ func toBackendOptions(opts RootCommandOptions) backend.Options {
 	case "kubernetes":
 		backndOpts = backend.Options{
 			Kubernetes: &backend.KubernetesOptions{
-				KubeAPI:       opts.KubernetesAPIURL,
-				Kubeconfig:    opts.Kubeconfig,
-				KubeNamespace: opts.KubeNamespace,
+				APIServerAddress: opts.KubernetesAPIServer,
+				Kubeconfig:       opts.KubernetesKubeconfig,
+				Namespace:        opts.KubernetesNamespace,
 			},
 		}
 	}

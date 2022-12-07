@@ -1,3 +1,5 @@
+//go:build integration
+
 package http_test
 
 import (
@@ -31,6 +33,8 @@ func TestServe(t *testing.T) {
 	})
 
 	go Serve(ctx, logger, fmt.Sprintf(":%d", 8080), &mux)
+
+	time.Sleep(50 * time.Millisecond)
 
 	resp, err := http.Get("http://localhost:8080")
 	if err != nil {
