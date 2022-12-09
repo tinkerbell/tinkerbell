@@ -8,6 +8,7 @@ import (
 	"github.com/tinkerbell/hegel/internal/backend/flatfile"
 	"github.com/tinkerbell/hegel/internal/backend/kubernetes"
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
+	"github.com/tinkerbell/hegel/internal/frontend/hack"
 	"github.com/tinkerbell/hegel/internal/healthcheck"
 )
 
@@ -21,6 +22,7 @@ var ErrMultipleBackends = errors.New("only one backend option can be specified")
 // this interface.
 type Client interface {
 	ec2.Client
+	hack.Client
 	healthcheck.Client
 }
 
