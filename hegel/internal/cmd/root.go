@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tinkerbell/hegel/internal/backend"
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
+	"github.com/tinkerbell/hegel/internal/frontend/hack"
 	"github.com/tinkerbell/hegel/internal/healthcheck"
 	hegelhttp "github.com/tinkerbell/hegel/internal/http"
 	"github.com/tinkerbell/hegel/internal/metrics"
@@ -51,6 +52,9 @@ type RootCommandOptions struct {
 	KubernetesNamespace  string `mapstructure:"kubernetes-namespace"`
 
 	FlatfilePath string `mapstructure:"flatfile-path"`
+
+	// Debug enables debug mode that maximizes logging.
+	Debug bool `mapstructure:"debug"`
 
 	// Hidden CLI flags.
 	HegelAPI bool `mapstructure:"hegel-api"`
@@ -101,6 +105,10 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 	}
 	defer logger.Close()
 
+	if !c.Opts.Debug {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	logger.With("opts", fmt.Sprintf("%#v", c.Opts)).Info("Root command options")
 
 	ctx, otelShutdown := otelinit.InitOpenTelemetry(cmd.Context(), "hegel")
@@ -134,6 +142,8 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 	fe := ec2.New(be)
 	fe.Configure(router)
 
+	hack.Configure(router, be)
+
 	// Listen for signals to gracefully shutdown.
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
@@ -142,6 +152,12 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 }
 
 func (c *RootCommand) configureFlags() error {
+	c.Flags().String(
+		"trusted-proxies",
+		"",
+		"A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For",
+	)
+
 	c.Flags().Int("http-port", 50061, "Port to listen on for HTTP requests")
 
 	c.Flags().String("backend", "kubernetes", "Backend to use for metadata. Options: flatfile, kubernetes")
@@ -154,11 +170,7 @@ func (c *RootCommand) configureFlags() error {
 	// Flatfile backend specific flags.
 	c.Flags().String("flatfile-path", "", "Path to the flatfile metadata")
 
-	c.Flags().String(
-		"trusted-proxies",
-		"",
-		"A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For",
-	)
+	c.Flags().Bool("debug", false, "Enable debug logging")
 
 	c.Flags().Bool("hegel-api", false, "Toggle to true to enable Hegel's new experimental API. Default is false.")
 	if err := c.Flags().MarkHidden("hegel-api"); err != nil {

@@ -13,7 +13,7 @@ import (
 	"github.com/tinkerbell/hegel/internal/cmd"
 )
 
-func TestHegel_EC2Frontend(t *testing.T) {
+func TestHegel(t *testing.T) {
 	// Build the root command so we can launch it as if a main() func would.
 	root, err := cmd.NewRootCommand()
 	if err != nil {
@@ -39,7 +39,7 @@ func TestHegel_EC2Frontend(t *testing.T) {
 	// and begins listening. Slower machines may need a longer delay.
 	time.Sleep(50 * time.Millisecond)
 
-	t.Run("APIs", func(t *testing.T) {
+	t.Run("EC2", func(t *testing.T) {
 		// We have unit tests to validate the APIs serve correct data. These tests are to validate
 		// a static endpoint and a dynamic endpoint work as expected.
 		cases := []struct {
