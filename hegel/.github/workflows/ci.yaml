@@ -129,7 +129,7 @@ jobs:
 
       - name: Login to quay.io
         uses: docker/login-action@v2
-        if: ${{ startsWith(github.ref, 'refs/heads/main') }}
+        if: ${{ startsWith(github.ref, 'refs/heads/main') || startsWith(github.ref, 'refs/heads/v') }}
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.QUAY_USERNAME }}
@@ -142,6 +142,6 @@ jobs:
         with:
           context: ./
           cache-from: type=registry,ref=${{ env.IMAGE }}:latest
-          push: ${{ startsWith(github.ref, 'refs/heads/main') }}
+          push: ${{ startsWith(github.ref, 'refs/heads/main') || startsWith(github.ref, 'refs/heads/v') }}
           tags: ${{ steps.meta.outputs.tags }}
           platforms: linux/amd64,linux/arm64
