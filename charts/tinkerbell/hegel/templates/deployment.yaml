@@ -26,14 +26,14 @@ spec:
     spec:
       containers:
         - args:
-          - --data-model=kubernetes
+          - --backend=kubernetes
           - --http-port={{ .Values.hegel.deployment.port }}
           {{- range .Values.hegel.args }}
           - {{ . }}
           {{- end }}
           env:
             - name: HEGEL_TRUSTED_PROXIES
-              value: {{ .Values.hegel.trustedProxies }}
+              value: {{ required "missing hegel.trustedProxies" .Values.hegel.trustedProxies }}
             {{- range $i, $env := .Values.hegel.env }}
             - name: {{ $env.name | quote }}
               value: {{ $env.value | quote }}
