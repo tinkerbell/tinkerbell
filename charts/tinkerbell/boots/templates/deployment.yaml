@@ -34,16 +34,12 @@ spec:
           {{- end }}
           {{- end }}
           env:
-            {{ with .Values.boots.trustedProxies }}
             - name: TRUSTED_PROXIES
-              value: {{ . | quote }}
-            {{- end }}
-          {{- if .Values.boots.env }}
+              value: {{ required "missing boots.trustedProxies" .Values.boots.trustedProxies | quote }}
             {{- range $i, $env := .Values.boots.env }}
             - name: {{ $env.name | quote }}
               value: {{ $env.value | quote }}
             {{- end }}
-          {{- end }}
           {{- if not .Values.boots.hostNetwork }}
           ports:
             {{- range .Values.boots.ports }}
