@@ -1,17 +1,17 @@
-{{- if .Values.tink.server.deploy -}}
+{{- if .Values.server.deploy -}}
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: {{ .Values.tink.server.name }}
-  name: {{ .Values.tink.server.name }}
+    app: {{ .Values.server.name }}
+  name: {{ .Values.server.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
   clusterIP: None
   ports:
-  - port: {{ .Values.tink.server.service.port }}
+  - port: {{ .Values.server.service.port }}
     protocol: TCP
-    targetPort: {{ .Values.tink.server.deployment.portName }}
+    targetPort: {{ .Values.server.deployment.portName }}
   selector:
-    app: {{ .Values.tink.server.name }}
+    app: {{ .Values.server.name }}
 {{- end -}}

@@ -1,16 +1,16 @@
-{{- if .Values.rufio.deploy }}
+{{- if .Values.deploy }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: {{ .Values.rufio.name }}
+    app: {{ .Values.name }}
     control-plane: controller-manager
-  name: {{ .Values.rufio.name }}
+  name: {{ .Values.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
   selector:
     matchLabels:
-      app: {{ .Values.rufio.name }}
+      app: {{ .Values.name }}
       control-plane: controller-manager
       stack: tinkerbell
   replicas: 1
@@ -19,7 +19,7 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
-        app: {{ .Values.rufio.name }}
+        app: {{ .Values.name }}
         control-plane: controller-manager
         stack: tinkerbell
     spec:
@@ -30,7 +30,7 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: {{ .Values.rufio.image }}
+        image: {{ .Values.image }}
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
@@ -50,11 +50,11 @@ spec:
         # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
           limits:
-            cpu: {{ .Values.rufio.resources.limits.cpu }}
-            memory: {{ .Values.rufio.resources.limits.memory }}
+            cpu: {{ .Values.resources.limits.cpu }}
+            memory: {{ .Values.resources.limits.memory }}
           requests:
-            cpu: {{ .Values.rufio.resources.requests.cpu }}
-            memory: {{ .Values.rufio.resources.requests.memory }}
-      serviceAccountName: {{ .Values.rufio.serviceAccountName }}
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
+      serviceAccountName: {{ .Values.serviceAccountName }}
       terminationGracePeriodSeconds: 10
 {{- end }}

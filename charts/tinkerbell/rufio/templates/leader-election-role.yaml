@@ -1,8 +1,8 @@
-{{- if .Values.rufio.deploy }}
+{{- if .Values.deploy }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ .Values.rufio.rufioLeaderElectionRoleName }}
+  name: {{ .Values.rufioLeaderElectionRoleName }}
   namespace: {{ .Release.Namespace | quote }}
 rules:
 - apiGroups:

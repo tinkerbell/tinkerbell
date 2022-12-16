@@ -1,8 +1,8 @@
-{{- if .Values.boots.deploy }}
+{{- if .Values.deploy }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ .Values.boots.roleName }}
+  name: {{ .Values.roleName }}
   namespace: {{ .Release.Namespace | quote }}
 rules:
   - apiGroups:
