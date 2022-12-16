@@ -27,9 +27,9 @@ spec:
           value: "true"
         - name: svc_election
           value: "true"
-        {{- if .Values.stack.kubevip.interface }}
+        {{- with .Values.stack.kubevip.interface }}
         - name: vip_interface
-          value: {{ .Values.stack.kubevip.interface }}
+          value: {{ . }}
         {{- end }}
         image: {{ .Values.stack.kubevip.image }}
         imagePullPolicy: {{ .Values.stack.kubevip.imagePullPolicy }}
