@@ -32,8 +32,10 @@ spec:
           - {{ . }}
           {{- end }}
           env:
+            {{- with .Values.hegel.trustedProxies }}
             - name: HEGEL_TRUSTED_PROXIES
-              value: {{ required "missing hegel.trustedProxies" .Values.hegel.trustedProxies }}
+              value: {{ . | quote }}
+            {{- end }}
             {{- range $i, $env := .Values.hegel.env }}
             - name: {{ $env.name | quote }}
               value: {{ $env.value | quote }}

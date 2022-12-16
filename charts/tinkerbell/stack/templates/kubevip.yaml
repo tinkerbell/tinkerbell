@@ -1,19 +1,19 @@
-{{- if .Values.kubevip.enabled }}
+{{- if and .Values.stack.enabled .Values.stack.kubevip.enabled }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ .Values.kubevip.name }}
+  name: {{ .Values.stack.kubevip.name }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    app.kubernetes.io/name: {{ .Values.kubevip.name }}
+    app.kubernetes.io/name: {{ .Values.stack.kubevip.name }}
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ .Values.kubevip.name }}
+      app.kubernetes.io/name: {{ .Values.stack.kubevip.name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ .Values.kubevip.name }}
+        app.kubernetes.io/name: {{ .Values.stack.kubevip.name }}
     spec:
       containers:
       - args:
@@ -28,22 +28,22 @@ spec:
         - name: svc_election
           value: "true"
         - name: vip_interface
-          value: {{ .Values.kubevip.interface }}
-        image: {{ .Values.kubevip.image }}
-        imagePullPolicy: {{ .Values.kubevip.imagePullPolicy }}
-        name: {{ .Values.kubevip.name }}
+          value: {{ .Values.stack.kubevip.interface }}
+        image: {{ .Values.stack.kubevip.image }}
+        imagePullPolicy: {{ .Values.stack.kubevip.imagePullPolicy }}
+        name: {{ .Values.stack.kubevip.name }}
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
             - NET_RAW
       hostNetwork: true
-      serviceAccountName: {{ .Values.kubevip.name }}
+      serviceAccountName: {{ .Values.stack.kubevip.name }}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ .Values.kubevip.name }}
+  name: {{ .Values.stack.kubevip.name }}
   namespace: {{ .Release.Namespace | quote }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -51,7 +51,7 @@ kind: ClusterRole
 metadata:
   annotations:
     rbac.authorization.kubernetes.io/autoupdate: "true"
-  name: {{ .Values.kubevip.roleName }}
+  name: {{ .Values.stack.kubevip.roleName }}
 rules:
   - apiGroups: [""]
     resources:
@@ -78,14 +78,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ .Values.kubevip.roleBindingName }}
+  name: {{ .Values.stack.kubevip.roleBindingName }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ .Values.kubevip.roleName }}
+  name: {{ .Values.stack.kubevip.roleName }}
 subjects:
 - kind: ServiceAccount
-  name: {{ .Values.kubevip.name }}
+  name: {{ .Values.stack.kubevip.name }}
   namespace: {{ .Release.Namespace | quote }}
----
 {{- end }}
