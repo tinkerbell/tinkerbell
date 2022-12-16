@@ -34,8 +34,10 @@ spec:
           {{- end }}
           {{- end }}
           env:
+            {{ with .Values.boots.trustedProxies }}
             - name: TRUSTED_PROXIES
-              value: {{ .Values.boots.trustedProxies }}
+              value: {{ . | quote }}
+            {{- end }}
           {{- if .Values.boots.env }}
             {{- range $i, $env := .Values.boots.env }}
             - name: {{ $env.name | quote }}

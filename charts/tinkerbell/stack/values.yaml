@@ -22,15 +22,14 @@ stack:
         sha512sum:
           kernel: "2f1bdbf64380e281288f54c6ddd29221d8a007d29b40f405da0592ed32ef6e52695fc5071e05b2db3f075122943d62a2c266704d154a16ffb7b278c70538e7da  vmlinuz-aarch64"
           initramfs: "5adc51798c8699f5f257599aabb999e2c2f65a07c9f8607c65510e57122b3e5c53196819e7ececdcda7b8fef47ba597ea7c4b53f2f4a92e236b20e355443eefe  initramfs-aarch64"
-
-kubevip:
-  enabled: true
-  name: kube-vip
-  image: ghcr.io/kube-vip/kube-vip:v0.5.0
-  imagePullPolicy: IfNotPresent
-  roleName: kube-vip-role
-  roleBindingName: kube-vip-rolebinding
-  interface: eno1
+  kubevip:
+    enabled: true
+    name: kube-vip
+    image: ghcr.io/kube-vip/kube-vip:v0.5.0
+    imagePullPolicy: IfNotPresent
+    roleName: kube-vip-role
+    roleBindingName: kube-vip-rolebinding
+    interface: eno1
 
 # boots chart overrides
 boots:

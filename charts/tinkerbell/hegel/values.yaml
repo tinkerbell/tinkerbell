@@ -1,6 +1,6 @@
 hegel: # a top-level key like this enables importing of all sub-keys in parent charts
   deploy: true
-  trustedProxies: "" # comma-separated list of trusted proxies
+  trustedProxies: ""
   name: hegel
   image: quay.io/tinkerbell/hegel:v0.10.1
   imagePullPolicy: IfNotPresent
