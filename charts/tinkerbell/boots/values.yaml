@@ -1,57 +1,56 @@
-boots: # a top-level key like this enables importing of all sub-keys in parent charts
-  deploy: true
-  hostNetwork: true
-  name: boots
-  image: quay.io/tinkerbell/boots:v0.8.0
-  imagePullPolicy: IfNotPresent
-  replicas: 1
-  args: ["-dhcp-addr=0.0.0.0:67"]
-  resources:
-    limits:
-      cpu: 500m
-      memory: 128Mi
-    requests:
-      cpu: 10m
-      memory: 64Mi
-  roleName: boots-role
-  roleBindingName: boots-rolebinding
-  deployment:
-    strategy:
-      type: Recreate
-  trustedProxies: ""
-  ports:
-  - name: boots-dhcp
-    port: 67
-    protocol: UDP
-    targetPort: 67
-  - name: boots-http
-    port: 80
-    protocol: TCP
-    targetPort: 80
-  - name: boots-syslog
-    port: 514
-    protocol: UDP
-    targetPort: 514
-  - name: boots-tftp
-    port: 69
-    protocol: UDP
-    targetPort: 69
-  env:
-  - name: DATA_MODEL_VERSION
-    value: "kubernetes"
-  - name: FACILITY_CODE
-    value: "lab1"
-  - name: HTTP_BIND
-    value: ":80"
-  - name: MIRROR_BASE_URL
-    value: http://192.168.1.94:8080
-  - name: PUBLIC_IP
-    value: 192.168.1.94
-  - name: PUBLIC_SYSLOG_FQDN
-    value: 192.168.1.94
-  - name: SYSLOG_BIND
-    value: 0.0.0.0:514
-  - name: TINKERBELL_GRPC_AUTHORITY
-    value: 192.168.1.94:42113
-  - name: TINKERBELL_TLS
-    value: "false"
+deploy: true
+hostNetwork: true
+name: boots
+image: quay.io/tinkerbell/boots:v0.8.0
+imagePullPolicy: IfNotPresent
+replicas: 1
+args: ["-dhcp-addr=0.0.0.0:67"]
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+roleName: boots-role
+roleBindingName: boots-rolebinding
+deployment:
+  strategy:
+    type: Recreate
+trustedProxies: ""
+ports:
+- name: boots-dhcp
+  port: 67
+  protocol: UDP
+  targetPort: 67
+- name: boots-http
+  port: 80
+  protocol: TCP
+  targetPort: 80
+- name: boots-syslog
+  port: 514
+  protocol: UDP
+  targetPort: 514
+- name: boots-tftp
+  port: 69
+  protocol: UDP
+  targetPort: 69
+env:
+- name: DATA_MODEL_VERSION
+  value: "kubernetes"
+- name: FACILITY_CODE
+  value: "lab1"
+- name: HTTP_BIND
+  value: ":80"
+- name: MIRROR_BASE_URL
+  value: http://192.168.1.94:8080
+- name: PUBLIC_IP
+  value: 192.168.1.94
+- name: PUBLIC_SYSLOG_FQDN
+  value: 192.168.1.94
+- name: SYSLOG_BIND
+  value: 0.0.0.0:514
+- name: TINKERBELL_GRPC_AUTHORITY
+  value: 192.168.1.94:42113
+- name: TINKERBELL_TLS
+  value: "false"

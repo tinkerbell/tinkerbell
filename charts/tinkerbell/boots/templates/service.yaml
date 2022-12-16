@@ -1,20 +1,20 @@
-{{- if .Values.boots.deploy -}}
+{{- if .Values.deploy -}}
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: {{ .Values.boots.name }}
-  name: {{ .Values.boots.name }}
+    app: {{ .Values.name }}
+  name: {{ .Values.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
   clusterIP: None
   ports:
-  {{- range .Values.boots.ports }}
+  {{- range .Values.ports }}
   - name: {{ .name }}
     port: {{ .port }}
     targetPort: {{ .targetPort }}
     protocol: {{ .protocol }}
   {{- end }}
   selector:
-    app: {{ .Values.boots.name }}
+    app: {{ .Values.name }}
 {{- end -}}

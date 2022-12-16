@@ -1,8 +1,8 @@
-{{- if .Values.hegel.deploy }}
+{{- if .Values.deploy }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ .Values.hegel.roleName }}
+  name: {{ .Values.roleName }}
   namespace: {{ .Release.Namespace | quote }}
 rules:
   - apiGroups:

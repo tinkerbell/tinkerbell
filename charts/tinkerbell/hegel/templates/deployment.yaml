@@ -1,55 +1,55 @@
-{{- if .Values.hegel.deploy }}
+{{- if .Values.deploy }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: {{ .Values.hegel.name }}
-  name:  {{ .Values.hegel.name }}
+    app: {{ .Values.name }}
+  name:  {{ .Values.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  replicas: {{ .Values.hegel.replicas }}
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      app: {{ .Values.hegel.name }}
+      app: {{ .Values.name }}
       stack: tinkerbell
-      {{- with .Values.hegel.selector }}
+      {{- with .Values.selector }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
   template:
     metadata:
       labels:
-        app: {{ .Values.hegel.name }}
+        app: {{ .Values.name }}
         stack: tinkerbell
-        {{- with .Values.hegel.selector }}
+        {{- with .Values.selector }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
       containers:
         - args:
           - --backend=kubernetes
-          - --http-port={{ .Values.hegel.deployment.port }}
-          {{- range .Values.hegel.args }}
+          - --http-port={{ .Values.deployment.port }}
+          {{- range .Values.args }}
           - {{ . }}
           {{- end }}
           env:
             - name: HEGEL_TRUSTED_PROXIES
-              value: {{ required "missing hegel.trustedProxies" .Values.hegel.trustedProxies | quote }}
-            {{- range $i, $env := .Values.hegel.env }}
+              value: {{ required "missing trustedProxies" .Values.trustedProxies | quote }}
+            {{- range $i, $env := .Values.env }}
             - name: {{ $env.name | quote }}
               value: {{ $env.value | quote }}
             {{- end }}
-          image: {{ .Values.hegel.image }}
-          imagePullPolicy: {{ .Values.hegel.imagePullPolicy }}
-          name: {{ .Values.hegel.name }}
+          image: {{ .Values.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          name: {{ .Values.name }}
           ports:
-            - containerPort: {{ .Values.hegel.deployment.port }}
-              name: {{ .Values.hegel.deployment.portName }}
+            - containerPort: {{ .Values.deployment.port }}
+              name: {{ .Values.deployment.portName }}
           resources:
             limits:
-              cpu: {{ .Values.hegel.resources.limits.cpu }}
-              memory: {{ .Values.hegel.resources.limits.memory }}
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
             requests:
-              cpu: {{ .Values.hegel.resources.requests.cpu }}
-              memory: {{ .Values.hegel.resources.requests.memory }}
-      serviceAccountName: {{ .Values.hegel.name }}
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+      serviceAccountName: {{ .Values.name }}
 {{- end }}

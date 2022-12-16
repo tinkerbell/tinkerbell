@@ -1,37 +1,37 @@
-{{- if .Values.tink.controller.deploy }}
+{{- if .Values.controller.deploy }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: {{ .Values.tink.controller.name }}
-  name: {{ .Values.tink.controller.name }}
+    app: {{ .Values.controller.name }}
+  name: {{ .Values.controller.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  replicas: {{ .Values.tink.controller.replicas }}
+  replicas: {{ .Values.controller.replicas }}
   selector:
     matchLabels:
-      app: {{ .Values.tink.controller.name }}
+      app: {{ .Values.controller.name }}
   template:
     metadata:
       labels:
-        app: {{ .Values.tink.controller.name }}
+        app: {{ .Values.controller.name }}
     spec:
       containers:
-        - image: {{ .Values.tink.controller.image }}
-          imagePullPolicy: {{ .Values.tink.controller.imagePullPolicy }}
-          {{- if .Values.tink.controller.args }}
+        - image: {{ .Values.controller.image }}
+          imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
+          {{- if .Values.controller.args }}
           args: 
-          {{- range .Values.tink.controller.args }}
+          {{- range .Values.controller.args }}
             - {{ . }}
           {{- end }}
           {{- end }}
-          name: {{ .Values.tink.controller.name }}
+          name: {{ .Values.controller.name }}
           resources:
             limits:
-              cpu: {{ .Values.tink.controller.resources.limits.cpu }}
-              memory: {{ .Values.tink.controller.resources.limits.memory }}
+              cpu: {{ .Values.controller.resources.limits.cpu }}
+              memory: {{ .Values.controller.resources.limits.memory }}
             requests:
-              cpu: {{ .Values.tink.controller.resources.requests.cpu }}
-              memory: {{ .Values.tink.controller.resources.requests.memory }}
-      serviceAccountName: {{ .Values.tink.controller.name }}
+              cpu: {{ .Values.controller.resources.requests.cpu }}
+              memory: {{ .Values.controller.resources.requests.memory }}
+      serviceAccountName: {{ .Values.controller.name }}
 {{- end }}

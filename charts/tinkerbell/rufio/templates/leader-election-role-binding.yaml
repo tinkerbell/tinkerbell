@@ -1,15 +1,15 @@
-{{- if .Values.rufio.deploy }}
+{{- if .Values.deploy }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ .Values.rufio.rufioLeaderElectionRoleBindingName }}
+  name: {{ .Values.rufioLeaderElectionRoleBindingName }}
   namespace: {{ .Release.Namespace | quote }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ .Values.rufio.rufioLeaderElectionRoleName }}
+  name: {{ .Values.rufioLeaderElectionRoleName }}
 subjects:
 - kind: ServiceAccount
-  name: {{ .Values.rufio.serviceAccountName }}
+  name: {{ .Values.serviceAccountName }}
   namespace: {{ .Release.Namespace | quote }}
 {{- end }}

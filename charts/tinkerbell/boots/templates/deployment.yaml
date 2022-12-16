@@ -1,65 +1,65 @@
-{{- if .Values.boots.deploy }}
+{{- if .Values.deploy }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: {{ .Values.boots.name }}
-  name:  {{ .Values.boots.name }}
+    app: {{ .Values.name }}
+  name:  {{ .Values.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  replicas: {{ .Values.boots.replicas }}
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      app: {{ .Values.boots.name }}
+      app: {{ .Values.name }}
       stack: tinkerbell
-      {{- with .Values.boots.selector }}
+      {{- with .Values.selector }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
   strategy:
-    type: {{ .Values.boots.deployment.strategy.type }}
+    type: {{ .Values.deployment.strategy.type }}
   template:
     metadata:
       labels:
-        app: {{ .Values.boots.name }}
+        app: {{ .Values.name }}
         stack: tinkerbell
-        {{- with .Values.boots.selector }}
+        {{- with .Values.selector }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
       containers:
-        - image: {{ .Values.boots.image }}
-          imagePullPolicy: {{ .Values.boots.imagePullPolicy }}
-          {{- if .Values.boots.args }}
+        - image: {{ .Values.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          {{- if .Values.args }}
           args: 
-          {{- range .Values.boots.args }}
+          {{- range .Values.args }}
             - {{ . }}
           {{- end }}
           {{- end }}
           env:
             - name: TRUSTED_PROXIES
-              value: {{ required "missing boots.trustedProxies" .Values.boots.trustedProxies | quote }}
-            {{- range $i, $env := .Values.boots.env }}
+              value: {{ required "missing trustedProxies" .Values.trustedProxies | quote }}
+            {{- range $i, $env := .Values.env }}
             - name: {{ $env.name | quote }}
               value: {{ $env.value | quote }}
             {{- end }}
-          {{- if not .Values.boots.hostNetwork }}
+          {{- if not .Values.hostNetwork }}
           ports:
-            {{- range .Values.boots.ports }}
+            {{- range .Values.ports }}
             - containerPort: {{ .targetPort }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
-          name: {{ .Values.boots.name }}
+          name: {{ .Values.name }}
           resources:
             limits:
-              cpu: {{ .Values.boots.resources.limits.cpu }}
-              memory: {{ .Values.boots.resources.limits.memory }}
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
             requests:
-              cpu: {{ .Values.boots.resources.requests.cpu }}
-              memory: {{ .Values.boots.resources.requests.memory }}
-      serviceAccountName: {{ .Values.boots.name }}
-      {{- if .Values.boots.hostNetwork }}
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+      serviceAccountName: {{ .Values.name }}
+      {{- if .Values.hostNetwork }}
       hostNetwork: true
       {{- end }}
 {{- end }}
