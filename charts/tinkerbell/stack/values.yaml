@@ -25,11 +25,10 @@ stack:
   kubevip:
     enabled: true
     name: kube-vip
-    image: ghcr.io/kube-vip/kube-vip:v0.5.0
+    image: ghcr.io/kube-vip/kube-vip:v0.5.7
     imagePullPolicy: IfNotPresent
     roleName: kube-vip-role
     roleBindingName: kube-vip-rolebinding
-    interface: eno1
 
 # boots chart overrides
 boots:
