@@ -4,12 +4,12 @@ dependencies:
   version: 0.1.0
 - name: boots
   repository: file://../boots
-  version: 0.1.0
+  version: 0.1.1
 - name: rufio
   repository: file://../rufio
   version: 0.1.0
 - name: hegel
   repository: file://../hegel
   version: 0.2.2
-digest: sha256:09ae69ca35720def262697293436452b5f95760ae66e42f7955a4ac7de148efe
-generated: "2022-12-15T17:41:41.395251-06:00"
+digest: sha256:7ce3dc41aa43fd4e9fb09bc698bbd67ad94d38f189970a7726002ec32873aea3
+generated: "2022-12-16T12:32:07.338972972-07:00"
