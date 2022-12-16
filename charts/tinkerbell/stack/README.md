@@ -7,7 +7,7 @@ This chart installs the full Tinkerbell stack.
 ```bash
 helm dependency build stack/
 trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
-helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "boots.boots.trustedProxies=${trusted_proxies}" --set "hegel.hegel.trustedProxies=${trusted_proxies}"
+helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "boots.trustedProxies=${trusted_proxies}" --set "hegel.trustedProxies=${trusted_proxies}"
 ```
 
 ## Introduction
@@ -36,11 +36,11 @@ The stack chart does not use an ingress object and controller. This is because m
 You'll want to customize the IP used for the load balancer in the `values.yaml` file. The following places should all be the same IP:
 
 - `stack.loadbalancerIP`
-- `boots.boots.env[3].value` (`MIRROR_BASE_URL`)
-- `boots.boots.env[4].value` (`BOOTS_OSIE_PATH_OVERRIDE`)
-- `boots.boots.env[5].value` (`PUBLIC_IP`)
-- `boots.boots.env[6].value` (`PUBLIC_SYSLOG_FQDN`)
-- `boots.boots.env[8].value` (`TINKERBELL_GRPC_AUTHORITY`)
+- `boots.env[3].value` (`MIRROR_BASE_URL`)
+- `boots.env[4].value` (`BOOTS_OSIE_PATH_OVERRIDE`)
+- `boots.env[5].value` (`PUBLIC_IP`)
+- `boots.env[6].value` (`PUBLIC_SYSLOG_FQDN`)
+- `boots.env[8].value` (`TINKERBELL_GRPC_AUTHORITY`)
 
 You'll also want to customize the interface that should be used to advertize the load balancer IP.
 
@@ -51,7 +51,7 @@ Now, deploy the chart.
 ```bash
 helm dependency build stack/
 trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
-helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "boots.boots.trustedProxies=${trusted_proxies}" --set "hegel.hegel.trustedProxies=${trusted_proxies}"
+helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "boots.trustedProxies=${trusted_proxies}" --set "hegel.trustedProxies=${trusted_proxies}"
 ```
 
 These commands install the Tinkerbell Stack chart in the `tink-system` namespace with the release name of `stack-release`.
@@ -122,4 +122,4 @@ hegel:
 
 | Name | Description | Value |
 | ---- | ----------- | ----- |
-| `boots.boots.hostNetwork` | Whether to deploy Boots using `hostNetwork` on the pod spec. When `true` Boots will be able to receive DHCP broadcast messages. If `false`, Boots will be behind the load balancer VIP and will need to receive DHCP requests via unicast. | `true` |  
+| `boots.hostNetwork` | Whether to deploy Boots using `hostNetwork` on the pod spec. When `true` Boots will be able to receive DHCP broadcast messages. If `false`, Boots will be behind the load balancer VIP and will need to receive DHCP requests via unicast. | `true` |  
