@@ -25,14 +25,14 @@ appVersion: "0.2.0"
 
 dependencies:
   - name: tink
-    version: "0.1.0"
+    version: "0.2.0"
     repository: "file://../tink"
   - name: boots
-    version: "0.1.1"
+    version: "0.2.0"
     repository: "file://../boots"
   - name: rufio
-    version: "0.1.0"
+    version: "0.2.0"
     repository: "file://../rufio"
   - name: hegel
-    version: "0.2.2"
+    version: "0.3.0"
     repository: "file://../hegel"
