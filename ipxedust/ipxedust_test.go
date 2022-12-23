@@ -2,38 +2,30 @@ package ipxedust
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net"
-	"net/http"
+	"net/netip"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
-	"inet.af/netaddr"
 )
 
 func TestListenAndServe(t *testing.T) {
 	tests := []struct {
-		name    string
-		tftp    ServerSpec
-		http    ServerSpec
-		wantErr error
+		name   string
+		tftp   ServerSpec
+		http   ServerSpec
+		nilErr bool
 	}{
 		{
-			name:    "success",
-			tftp:    ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 6969), Timeout: 5 * time.Second},
-			wantErr: nil,
+			name:   "success",
+			tftp:   ServerSpec{Addr: netip.AddrPortFrom(netip.IPv4Unspecified(), 6969), Timeout: 5 * time.Second},
+			nilErr: true,
 		},
 		{
-			name: "fail",
-			tftp: ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 69), Timeout: 5 * time.Second},
-			wantErr: &net.OpError{
-				Op:   "listen",
-				Net:  "udp",
-				Addr: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 69},
-				Err:  fmt.Errorf("bind: permission denied"),
-			},
+			name:   "fail bind permission denied",
+			tftp:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 69), Timeout: 5 * time.Second},
+			nilErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -46,9 +38,8 @@ func TestListenAndServe(t *testing.T) {
 			ctx, cn := context.WithCancel(context.Background())
 			go time.AfterFunc(time.Millisecond, cn)
 			err := s.ListenAndServe(ctx)
-
-			if !errors.Is(err, tt.wantErr) && !errors.As(err, &tt.wantErr) {
-				t.Errorf("got c.ListenAndServe(ctx) = %v, type: %[1]T", err)
+			if (err != nil) == tt.nilErr {
+				t.Errorf("got: ListenAndServe() = %v, err should be nil: %v", err, tt.nilErr)
 			}
 		})
 	}
@@ -58,26 +49,25 @@ func TestServe(t *testing.T) {
 	tests := []struct {
 		name       string
 		tftp       ServerSpec
-		http       ServerSpec
-		wantErr    error
+		nilErr     bool
 		wantTCPErr bool
 		wantUDPErr bool
 	}{
 		{
-			name:    "success",
-			tftp:    ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 6868), Timeout: 5 * time.Second},
-			wantErr: http.ErrServerClosed,
+			name:   "success",
+			tftp:   ServerSpec{Addr: netip.AddrPortFrom(netip.IPv4Unspecified(), 6868), Timeout: 5 * time.Second},
+			nilErr: false,
 		},
 		{
 			name:       "fail tcp listener",
-			tftp:       ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 69), Timeout: 5 * time.Second},
-			wantErr:    fmt.Errorf("tcp listener must not be nil"),
+			tftp:       ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 69), Timeout: 5 * time.Second},
+			nilErr:     false,
 			wantTCPErr: true,
 		},
 		{
 			name:       "fail udp listener",
-			tftp:       ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 69), Timeout: 5 * time.Second},
-			wantErr:    fmt.Errorf("udp conn must not be nil"),
+			tftp:       ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 69), Timeout: 5 * time.Second},
+			nilErr:     false,
 			wantUDPErr: true,
 		},
 	}
@@ -112,7 +102,8 @@ func TestServe(t *testing.T) {
 			go time.AfterFunc(time.Millisecond, cn)
 			err = c.Serve(ctx, conn, uconn)
 
-			if !errors.Is(err, tt.wantErr) && !errors.As(err, &tt.wantErr) {
+			if (err != nil) == tt.nilErr {
+				t.Errorf("got: ListenAndServe() = %v, err should be nil: %v", err, tt.nilErr)
 				t.Errorf("got c.Serve(ctx, tcpConn, udpConn) = %v, type: %[1]T", err)
 			}
 		})
@@ -121,24 +112,19 @@ func TestServe(t *testing.T) {
 
 func TestListenAndServeHTTP(t *testing.T) {
 	tests := []struct {
-		name    string
-		attr    ServerSpec
-		wantErr error
+		name   string
+		attr   ServerSpec
+		nilErr bool
 	}{
 		{
-			name: "fail net.OpError",
-			attr: ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 80), Timeout: 5 * time.Second},
-			wantErr: &net.OpError{
-				Op:   "listen",
-				Net:  "tcp",
-				Addr: &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 80},
-				Err:  fmt.Errorf("bind: permission denied"),
-			},
+			name:   "fail net.OpError",
+			attr:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 80), Timeout: 5 * time.Second},
+			nilErr: false,
 		},
 		{
-			name:    "success Server Closed",
-			attr:    ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 8080), Timeout: 5 * time.Second},
-			wantErr: nil,
+			name:   "success Server Closed",
+			attr:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 8080), Timeout: 5 * time.Second},
+			nilErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -148,7 +134,7 @@ func TestListenAndServeHTTP(t *testing.T) {
 			go time.AfterFunc(time.Millisecond, cancel)
 			err := c.listenAndServeHTTP(ctx)
 
-			if !errors.Is(err, tt.wantErr) && !errors.As(err, &tt.wantErr) {
+			if (err != nil) == tt.nilErr {
 				t.Errorf("got c.listenAndServeHTTP(ctx) = %v, type: %[1]T", err)
 			}
 		})
@@ -159,17 +145,17 @@ func TestServeHTTP(t *testing.T) {
 	tests := []struct {
 		name        string
 		attr        ServerSpec
-		wantErr     error
+		nilErr      bool
 		nilListener bool
 	}{
 		{
-			name:    "success Server Closed",
-			attr:    ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 9090)},
-			wantErr: http.ErrServerClosed,
+			name:   "success Server Closed",
+			attr:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 9090)},
+			nilErr: false,
 		},
 		{
 			name:        "fail nil conn",
-			wantErr:     errNilListener,
+			nilErr:      false,
 			nilListener: true,
 		},
 	}
@@ -177,8 +163,8 @@ func TestServeHTTP(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Server{TFTP: tt.attr, Log: logr.Discard()}
 			addr := tt.attr.Addr.String()
-			if tt.attr.Addr.IsZero() {
-				addr = netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 9090).String()
+			if (tt.attr.Addr == netip.AddrPort{}) {
+				addr = netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 9090).String()
 			}
 			conn, err := net.Listen("tcp", addr)
 			if err != nil {
@@ -190,7 +176,7 @@ func TestServeHTTP(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			go time.AfterFunc(time.Millisecond, cancel)
 			err = c.serveHTTP(ctx, conn)
-			if !errors.Is(err, tt.wantErr) {
+			if (err != nil) == tt.nilErr {
 				t.Fatalf("expected error, got: %T: %[1]v", err)
 			}
 		})
@@ -199,32 +185,24 @@ func TestServeHTTP(t *testing.T) {
 
 func TestListenAndServeTFTP(t *testing.T) {
 	tests := []struct {
-		name    string
-		attr    ServerSpec
-		wantErr error
+		name   string
+		attr   ServerSpec
+		nilErr bool
 	}{
 		{
-			name: "fail net.OpError",
-			attr: ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 80), Timeout: 5 * time.Second},
-			wantErr: &net.OpError{
-				Op:   "listen",
-				Net:  "udp",
-				Addr: &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 80},
-				Err:  fmt.Errorf("bind: permission denied"),
-			},
+			name:   "fail net.OpError",
+			attr:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 80), Timeout: 5 * time.Second},
+			nilErr: false,
 		},
 		{
-			name:    "success Server Closed",
-			attr:    ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 8080), Timeout: 5 * time.Second},
-			wantErr: nil,
+			name:   "success Server Closed",
+			attr:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 8080), Timeout: 5 * time.Second},
+			nilErr: true,
 		},
 		{
-			name: "fail bad address",
-			attr: ServerSpec{},
-			wantErr: &net.AddrError{
-				Err:  "missing port in address",
-				Addr: "invalid IPPort",
-			},
+			name:   "fail bad address",
+			attr:   ServerSpec{},
+			nilErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -233,7 +211,7 @@ func TestListenAndServeTFTP(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			go time.AfterFunc(time.Millisecond, cancel)
 			err := c.listenAndServeTFTP(ctx)
-			if !errors.Is(err, tt.wantErr) && !errors.As(err, &tt.wantErr) {
+			if (err != nil) == tt.nilErr {
 				t.Errorf("got c.listenAndServeTFTP(ctx) = %v, type: %[1]T", err)
 			}
 		})
@@ -242,25 +220,25 @@ func TestListenAndServeTFTP(t *testing.T) {
 
 func TestServeTFTP(t *testing.T) {
 	tests := []struct {
-		name    string
-		attr    ServerSpec
-		wantErr error
+		name   string
+		attr   ServerSpec
+		nilErr bool
 	}{
 		{
-			name:    "success Server Closed",
-			attr:    ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 9090)},
-			wantErr: nil,
+			name:   "success Server Closed",
+			attr:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 9090)},
+			nilErr: true,
 		},
 		{
-			name:    "fail nil conn",
-			wantErr: fmt.Errorf("conn must not be nil"),
+			name:   "fail nil conn",
+			nilErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Server{TFTP: tt.attr, Log: logr.Discard()}
 			var uconn *net.UDPConn
-			if tt.wantErr == nil {
+			if tt.nilErr {
 				a, err := net.ResolveUDPAddr("udp", tt.attr.Addr.String())
 				if err != nil {
 					t.Fatal(err)
@@ -274,7 +252,7 @@ func TestServeTFTP(t *testing.T) {
 			go time.AfterFunc(time.Millisecond, cancel)
 			err := c.serveTFTP(ctx, uconn)
 
-			if !errors.Is(err, tt.wantErr) && !errors.As(err, &tt.wantErr) {
+			if (err != nil) == tt.nilErr {
 				t.Errorf("got c.serveTFTP(ctx, uconn) = %v, type: %[1]T", err)
 			}
 		})

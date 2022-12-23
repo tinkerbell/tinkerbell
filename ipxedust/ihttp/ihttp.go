@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -17,7 +18,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	"inet.af/netaddr"
 )
 
 // Handler is the struct that implements the http.Handler interface.
@@ -31,7 +31,7 @@ type Handler struct {
 //
 // ListenAndServe always returns a non-nil error. After Shutdown or Close,
 // the returned error is http.ErrServerClosed.
-func ListenAndServe(ctx context.Context, addr netaddr.IPPort, h *http.Server) error {
+func ListenAndServe(ctx context.Context, addr netip.AddrPort, h *http.Server) error {
 	conn, err := net.Listen("tcp", addr.String())
 	if err != nil {
 		return err

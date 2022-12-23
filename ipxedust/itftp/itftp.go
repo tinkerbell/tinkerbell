@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
@@ -19,7 +20,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	"inet.af/netaddr"
 )
 
 // Handler is the struct that implements the TFTP read and write function handlers.
@@ -28,7 +28,7 @@ type Handler struct {
 }
 
 // ListenAndServe sets up the listener on the given address and serves TFTP requests.
-func ListenAndServe(ctx context.Context, addr netaddr.IPPort, s *tftp.Server) error {
+func ListenAndServe(ctx context.Context, addr netip.AddrPort, s *tftp.Server) error {
 	a, err := net.ResolveUDPAddr("udp", addr.String())
 	if err != nil {
 		return err
