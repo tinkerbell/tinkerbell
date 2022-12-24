@@ -1,6 +1,6 @@
 # Hegel
 
-[![Build status](https://img.shields.io/github/workflow/status/tinkerbell/hegel/Hegel?label=Build&logo=github)](https://img.shields.io/github/workflow/status/tinkerbell/hegel/Hegel?label=Hegel&logo=github) 
+[![Build status](https://img.shields.io/github/actions/workflow/status/tinkerbell/hegel/ci.yaml?branch=main)](https://img.shields.io/github/actions/workflow/status/tinkerbell/hegel/ci.yaml?branch=main) 
 [![Go version](https://img.shields.io/github/go-mod/go-version/tinkerbell/hegel?logo=go)](https://img.shields.io/github/go-mod/go-version/tinkerbell/hegel)
 [![slack](https://img.shields.io/badge/CNCF-%23tinkerbell-blue?logo=slack)](https://cloud-native.slack.com/archives/C01SRB41GMT)
 [![Docker images](https://img.shields.io/badge/Image-quay.io/tinkerbell/hegel-blue?logo=docker)](https://quay.io/repository/tinkerbell/hegel?tab=tags)
@@ -24,15 +24,15 @@ requested path. If no instance data matching the source IP was found it returns 
 
 ## Releases
 
-Hegel releases with semantic versioning. Each release produces 3 image tags using major (M) 
-minor (m) and patch (p) numbers: `v[M].[m].[p]`, `v[M].[m]` and `v[M]`. The `v[M]` will always point
-to the latest minor release. `v[M].[m]` will always point to the latest patch release.
+Hegel releases with [semantic versioning v2][semver]. Each release produces 3 image tags using major (M) 
+minor (m) and patch (p) numbers: `vM.m.p`, `vM.m` and `vM`. The `vM` will always point
+to the latest minor release. `vM.m` will always point to the latest patch release.
 
 For information on how to create a release, see [RELEASING.md][releasing].
 
 ### Version Compatibility
 
-THe project is currently v0 meaning compatibility is best effort. If you have any specific concerns 
+The project is currently v0 meaning compatibility is best effort. If you have any specific concerns 
 do not hesitate to raise an issue.
 
 ## Quick Start
@@ -44,6 +44,9 @@ $ make image
 # See the "How to impersonate an instance?" FAQ to launch Hegel. Ensure you use `hegel:latest`
 # as the image name to use the newly built image.
 ```
+
+See ["How do I Impersonate an Instance?"](#how-do-i-impersonate-an-instance) to launch Hegel and
+ensure you use the `hegel:latest` image.
 
 ## Contributing
 
@@ -85,7 +88,21 @@ docker run --rm -d --name=hegel \
 curl -H "X-Forwarded-For: 10.10.10.10" http://localhost:50061/2009-04-04/meta-data/hostname
 ```
 
+### What is the difference between `/metadata` and `/2009-04-04/meta-data`?
+
+The `/metadata` endpoint historically servced [Equinix Metal metadata][equinix-metadata]. It has 
+since been reduced to the minimum required to satisfy known [Tinkerbell Hub Actions][hub] that
+rely on the data to perform their function.
+
+The `/2009-04-04/meta-data` endpoint is an [EC2 Instance Metadata][ec2-im] endpoint that servces a set of
+additional endpoints that can be queried for data. The EC2 Instance Metadata support Hegel provides
+enables integration with other tooling.
+
 [cloud-init]: https://cloudinit.readthedocs.io/en/latest/
 [ignition]: https://coreos.github.io/ignition/
 [releasing]: /RELEASING.md
 [frontend-backend]: /docs/design/frontend-backend.puml
+[semver]: https://semver.org/
+[equinix-metadata]: https://deploy.equinix.com/developers/docs/metal/server-metadata/metadata/
+[hub]: https://github.com/tinkerbell/hub
+[ec2-im]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-categories.html
