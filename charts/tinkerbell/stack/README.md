@@ -96,7 +96,7 @@ helm uninstall stack-release --namespace tink-system
 | `kubevip.imagePullPolicy` | Image pull policy to use for kube-vip | `IfNotPresent` |
 | `kubevip.roleName` | Role name to use for the kube-vip load service | `kube-vip-role` |
 | `kubevip.roleBindingName` | Role binding name to use for the kube-vip load service | `kube-vip-rolebinding` |
-| `kubevip.interface` | Interface to use for advertizing the load balancer IP | `eth0` |
+| `kubevip.interface` | Interface to use for advertizing the load balancer IP. Leaving it unset to allow Kubevip to auto discover the interface to use. | `""` |
 
 ### Tinkerbell Services Parameters
 
@@ -122,4 +122,4 @@ hegel:
 
 | Name | Description | Value |
 | ---- | ----------- | ----- |
-| `boots.hostNetwork` | Whether to deploy Boots using `hostNetwork` on the pod spec. When `true` Boots will be able to receive DHCP broadcast messages. If `false`, Boots will be behind the load balancer VIP and will need to receive DHCP requests via unicast. | `true` |  
+| `boots.hostNetwork` | Whether to deploy Boots using `hostNetwork` on the pod spec. When `true` Boots will be able to receive DHCP broadcast messages. If `false`, Boots will be behind the load balancer VIP and will need to receive DHCP requests via unicast. | `true` |
