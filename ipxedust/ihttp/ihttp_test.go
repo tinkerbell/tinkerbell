@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"testing"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/ipxedust/binary"
 	"go.opentelemetry.io/otel/trace"
-	"inet.af/netaddr"
 )
 
 type fakeResponse struct {
@@ -60,7 +60,7 @@ func TestListenAndServeHTTP(t *testing.T) {
 	srv := &http.Server{Handler: router}
 	type args struct {
 		ctx  context.Context
-		addr netaddr.IPPort
+		addr netip.AddrPort
 		h    *http.Server
 	}
 	tests := []struct {
@@ -72,7 +72,7 @@ func TestListenAndServeHTTP(t *testing.T) {
 			name: "fail",
 			args: args{
 				ctx:  context.Background(),
-				addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 80),
+				addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 80),
 				h:    &http.Server{},
 			},
 			wantErr: fmt.Errorf("listen tcp 127.0.0.1:80: bind: permission denied"),
@@ -81,7 +81,7 @@ func TestListenAndServeHTTP(t *testing.T) {
 			name: "success",
 			args: args{
 				ctx:  context.Background(),
-				addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 9999),
+				addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 9999),
 				h:    srv,
 			},
 			wantErr: fmt.Errorf("http: Server closed"),

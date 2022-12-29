@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"reflect"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/tinkerbell/ipxedust/ihttp"
 	"github.com/tinkerbell/ipxedust/itftp"
 	"golang.org/x/sync/errgroup"
-	"inet.af/netaddr"
 )
 
 // Server holds the details for configuring the iPXE service.
@@ -44,7 +44,7 @@ type Server struct {
 // ServerSpec holds details used to configure a server.
 type ServerSpec struct {
 	// Addr is the address:port to listen on for requests.
-	Addr netaddr.IPPort
+	Addr netip.AddrPort
 	// Timeout is the timeout for serving individual requests.
 	Timeout time.Duration
 	// Disabled allows a server to be disabled. Useful, for example, to disable TFTP.
@@ -65,8 +65,8 @@ var errNilListener = fmt.Errorf("listener must not be nil")
 // See binary/binary.go for the iPXE files that are served.
 func (c *Server) ListenAndServe(ctx context.Context) error {
 	defaults := Server{
-		TFTP: ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 69), Timeout: 5 * time.Second},
-		HTTP: ServerSpec{Addr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 8080), Timeout: 5 * time.Second},
+		TFTP: ServerSpec{Addr: netip.AddrPortFrom(netip.IPv4Unspecified(), 69), Timeout: 5 * time.Second},
+		HTTP: ServerSpec{Addr: netip.AddrPortFrom(netip.IPv4Unspecified(), 8080), Timeout: 5 * time.Second},
 		Log:  logr.Discard(),
 	}
 
@@ -221,7 +221,7 @@ func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
 	return itftp.Serve(ctx, conn, ts)
 }
 
-// Transformer for merging the netaddr.IPPort and logr.Logger structs.
+// Transformer for merging the netip.IPPort and logr.Logger structs.
 func (c *Server) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
 	switch typ {
 	case reflect.TypeOf(logr.Logger{}):
@@ -235,12 +235,11 @@ func (c *Server) Transformer(typ reflect.Type) func(dst, src reflect.Value) erro
 			}
 			return nil
 		}
-	case reflect.TypeOf(netaddr.IPPort{}):
+	case reflect.TypeOf(netip.AddrPort{}):
 		return func(dst, src reflect.Value) error {
 			if dst.CanSet() {
-				isZero := dst.MethodByName("IsZero")
-				result := isZero.Call([]reflect.Value{})
-				if result[0].Bool() {
+				v, ok := dst.Interface().(netip.AddrPort)
+				if ok && (v == netip.AddrPort{}) {
 					dst.Set(src)
 				}
 			}

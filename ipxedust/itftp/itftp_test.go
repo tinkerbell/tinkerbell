@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"testing"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/pin/tftp/v3"
 	"github.com/tinkerbell/ipxedust/binary"
 	"go.opentelemetry.io/otel/trace"
-	"inet.af/netaddr"
 )
 
 type fakeReaderFrom struct {
@@ -47,7 +47,7 @@ func TestListenAndServeTFTP(t *testing.T) {
 	srv := tftp.NewServer(ht.HandleRead, ht.HandleWrite)
 	type args struct {
 		ctx  context.Context
-		addr netaddr.IPPort
+		addr netip.AddrPort
 		h    *tftp.Server
 	}
 	tests := []struct {
@@ -59,7 +59,7 @@ func TestListenAndServeTFTP(t *testing.T) {
 			name: "fail",
 			args: args{
 				ctx:  context.Background(),
-				addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 80),
+				addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 80),
 				h:    nil,
 			},
 			wantErr: &net.OpError{},
@@ -68,7 +68,7 @@ func TestListenAndServeTFTP(t *testing.T) {
 			name: "success",
 			args: args{
 				ctx:  context.Background(),
-				addr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 9999),
+				addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 9999),
 				h:    srv,
 			},
 			wantErr: interface{}(nil),

@@ -1,6 +1,6 @@
 module github.com/tinkerbell/ipxedust
 
-go 1.17
+go 1.19
 
 require (
 	github.com/equinix-labs/otel-init-go v0.0.5
@@ -17,7 +17,6 @@ require (
 	go.opentelemetry.io/otel v1.3.0
 	go.opentelemetry.io/otel/trace v1.3.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	inet.af/netaddr v0.0.0-20211027220019-c74959edd3b6
 )
 
 require (
@@ -32,8 +31,6 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.3.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.3.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.11.0 // indirect
-	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
-	go4.org/unsafe/assume-no-moving-gc v0.0.0-20211027215541-db492cf91b37 // indirect
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
 	golang.org/x/net v0.0.0-20211123203042-d83791d6bcd9 // indirect
 	golang.org/x/sys v0.0.0-20210921065528-437939a70204 // indirect

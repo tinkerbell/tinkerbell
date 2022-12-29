@@ -3,6 +3,7 @@ package ipxedust
 import (
 	"context"
 	"flag"
+	"net/netip"
 	"os"
 	"time"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/rs/zerolog"
-	"inet.af/netaddr"
 )
 
 // Command represents the ipxe command.
@@ -84,11 +84,11 @@ func (c *Command) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	tAddr, err := netaddr.ParseIPPort(c.TFTPAddr)
+	tAddr, err := netip.ParseAddrPort(c.TFTPAddr)
 	if err != nil {
 		return err
 	}
-	hAddr, err := netaddr.ParseIPPort(c.HTTPAddr)
+	hAddr, err := netip.ParseAddrPort(c.HTTPAddr)
 	if err != nil {
 		return err
 	}
