@@ -12,6 +12,7 @@
 #define SANBOOT_PROTO_HTTP    /* HTTP SAN protocol */
 #define VLAN_CMD              /* VLAN commands */
 #define DOWNLOAD_PROTO_NFS    /* NFS */
+#define ROUTE_CMD             /* Routing table management commands */
 
 #undef CRYPTO_80211_WEP       /* WEP encryption (deprecated and insecure!) */
 #undef CRYPTO_80211_WPA2      /* Add support for stronger WPA cryptography */
@@ -23,7 +24,6 @@
 #undef IWMGMT_CMD             /* Wireless interface management commands */
 #undef NET_PROTO_LACP         /* Link Aggregation control protocol */
 #undef NET_PROTO_STP          /* Spanning Tree protocol */
-#undef ROUTE_CMD              /* Routing table management commands */
 #undef VNIC_IPOIB             /* Infiniband IPoIB virtual NICs */
 
 //defined in config/defaults/{efi,pcbios}.h and we don't want
