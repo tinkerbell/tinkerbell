@@ -24,7 +24,8 @@ import (
 
 // Handler is the struct that implements the http.Handler interface.
 type Handler struct {
-	Log logr.Logger
+	Log   logr.Logger
+	Patch []byte
 }
 
 // ListenAndServe is a patterned after http.ListenAndServe.
@@ -97,6 +98,14 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 		http.NotFound(w, req)
 		span.SetStatus(codes.Error, "requested file not found")
 
+		return
+	}
+
+	file, err = binary.Patch(file, s.Patch)
+	if err != nil {
+		log.Error(err, "error patching file")
+		w.WriteHeader(http.StatusInternalServerError)
+		span.SetStatus(codes.Error, err.Error())
 		return
 	}
 
