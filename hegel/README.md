@@ -54,6 +54,14 @@ See [CONTRIBUTING.md](/CONTRIBUTING.md).
 
 ## FAQ
 
+### What does variable X accept?
+
+All variables are explained in the help output of Hegel.
+
+```
+docker run --rm quay.io/tinkerbell/hegel:latest -h
+```
+
 ### How do I impersonate an instance?
 
 Sometimes its necessary to impersonate an instance so you can `curl` or otherwise debug what data 
@@ -66,9 +74,9 @@ submit requests with the `X-Forwarded-For` header set to the IP they wish to imp
 ```sh
 # Launch Hegel trusting the Docker default gateway so we can impersonate machines.
 #
-# Note: 172.17.0.1 is the addressed used by Docker for NAT when exposing ports. This includes
-# Docker Desktop setups where the address won't be visible in `ip` output on the host. If you
-# customize the container network subnet this address may be different.
+# 172.17.0.1 is the addressed used by Docker for NAT when exposing ports. This includes Docker
+# Desktop setups where the address won't be visible in `ip` output on the host. If you customize
+# the container network subnet this address may be different.
 #
 # If the container doesn't launch and there's no `docker run` logging remove the --rm flag 
 # so the container remains on disk and can be inspected with `docker logs`.
@@ -78,7 +86,7 @@ docker run --rm -d --name=hegel \
     -e HEGEL_TRUSTED_PROXIES="172.17.0.1" \
     -e HEGEL_BACKEND="flatfile" \
     -e HEGEL_FLATFILE_PATH="/flatfile.yml" \
-    quay.io/tinkerbell/hegel:v0
+    quay.io/tinkerbell/hegel:latest
 ```
 
 ```sh
