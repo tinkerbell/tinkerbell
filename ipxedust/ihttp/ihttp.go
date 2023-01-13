@@ -2,6 +2,7 @@
 package ihttp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/ipxedust/binary"
@@ -97,17 +99,10 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 
 		return
 	}
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(file)))
-	if req.Method == http.MethodGet {
-		b, err := w.Write(file)
-		if err != nil {
-			log.Error(err, "error serving file")
-			w.WriteHeader(http.StatusInternalServerError)
-			span.SetStatus(codes.Error, err.Error())
 
-			return
-		}
-		log.Info("file served", "bytesSent", b, "fileSize", len(file))
+	http.ServeContent(w, req, filename, time.Now(), bytes.NewReader(file))
+	if req.Method == http.MethodGet {
+		log.Info("file served", "name", filename, "fileSize", len(file))
 	} else if req.Method == http.MethodHead {
 		log.Info("HEAD method requested", "fileSize", len(file))
 	}
