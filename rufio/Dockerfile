@@ -13,6 +13,12 @@ RUN go mod download
 # Copy the go source
 COPY ./ ./
 
+# Define args for the target platform so we can identify the binary in the Docker context.
+# These args are populated by Docker. The values should match Go's GOOS and GOARCH values for
+# the respective os/platform.
+ARG TARGETARCH
+ARG TARGETOS
+
 # Build
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -o manager main.go
 
