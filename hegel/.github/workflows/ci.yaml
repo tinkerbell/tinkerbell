@@ -117,6 +117,10 @@ jobs:
         with:
           name: hegel
 
+      # The upload/download actions do not preserve permissions so they need explicitly setting.
+      - name: Fix binary permissions
+        run: chmod +x hegel-linux-*
+
       - name: Generate image tags
         uses: docker/metadata-action@v4
         id: meta
