@@ -127,9 +127,9 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.IMAGE }}
+          flavor: latest=false
           tags: |
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Login to quay.io
         uses: docker/login-action@v2
