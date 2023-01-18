@@ -1,5 +1,5 @@
 #!ipxe
-  
+
 set user-class Tinkerbell
 echo Welcome to Neverland!
 
@@ -14,10 +14,17 @@ isset ${vlan-id} && goto boot-with-vlan ||
 :autoboot
 autoboot
 
-# ${ifname} will give us the interface name (net0, for example) that was used by the original vendor
-# PXE DHCP request. We then use that to create a VLAN interface.
-vcreate --tag ${vlan-id} ${ifname} || goto autoboot
-echo Created VLAN network interface ${ifname}-${vlan-id}
-echo Booting from ${ifname}-${vlan-id}...
+:boot-with-vlan
+set idx:int32 0
+# Find the interface that is configured with an IP, this will be the iPXE auto created vlan interface.
+:loop isset ${net${idx}-${vlan-id}/ip} && goto loop_done ||
+  iseq ${idx} 50 && goto error ||
+  inc idx && goto loop
 
-autoboot ${ifname}-${vlan-id}
+:loop_done
+echo Booting from net${idx}-${vlan-id}...
+autoboot net${idx}-${vlan-id}
+
+:error
+echo Failed to find the vlan interface
+shell
