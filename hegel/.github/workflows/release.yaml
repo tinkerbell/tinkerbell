@@ -22,8 +22,8 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
-      # This action generates the source image name and should coincide with the build
-      # from the ci.yaml workflow.
+      # This step generates the source image name and should coincide with the build from the
+      # ci.yaml workflow.
       - name: Generate source image name
         id: src
         uses: docker/metadata-action@v4
