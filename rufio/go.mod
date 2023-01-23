@@ -3,7 +3,7 @@ module github.com/tinkerbell/rufio
 go 1.18
 
 require (
-	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20221202150410-31e3dc1a1588
+	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230123132352-e982ba834c64
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.3
 	github.com/golang/mock v1.6.0
