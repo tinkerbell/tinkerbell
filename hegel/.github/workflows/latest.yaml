@@ -1,0 +1,25 @@
+# Latest updates the :latest tag for the quay.io/tinkerbell/hegel image to the latest release.
+# The latest release is controlled by maintainers as defined by Github's 'latest release' flag
+# on releases and can be generally defined as the latest major.minor.patch.
+#
+# Given this workflow is triggered when a release is published or edited, it is susceptible
+# to being overtriggered. The workflow operates on the assumption that a published release has
+# an associated docker image.
+name: Latest
+on:
+  release:
+    types: [published, edited]
+
+env:
+  IMAGE: quay.io/${{ github.repository }}
+
+jobs:
+  latest:
+    name: Update latest image tag
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          LATEST=$(curl -H "Accept: application/json" https://api.github.com/repos/tinkerbell/hegel/releases/latest | jq .name -r)
+          docker pull {{ env.IMAGE }}:$LATEST
+          docker tag {{ env.IMAGE }}:$LATEST {{ env.IMAGE }}:latest
+          docker push {{ env.IMAGE }}:latest
