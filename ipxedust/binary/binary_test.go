@@ -11,7 +11,7 @@ func TestBinariesContainMagicString(t *testing.T) {
 			continue // undionly.kpxe does not support binary patching
 		}
 
-		count := bytes.Count(data, MagicString)
+		count := bytes.Count(data, magicString)
 		if count == 0 {
 			t.Errorf("%s binary does not contain magic string", file)
 		} else if count > 1 {

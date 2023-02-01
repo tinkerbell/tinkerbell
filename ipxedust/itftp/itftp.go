@@ -25,6 +25,7 @@ import (
 // Handler is the struct that implements the TFTP read and write function handlers.
 type Handler struct {
 	Log logr.Logger
+	Patch []byte
 }
 
 // ListenAndServe sets up the listener on the given address and serves TFTP requests.
@@ -91,6 +92,14 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
+
+	content, err = binary.Patch(content, t.Patch)
+	if err != nil {
+		log.Error(err, "failed to patch binary")
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
 	ct := bytes.NewReader(content)
 	b, err := rf.ReadFrom(ct)
 	if err != nil {
