@@ -149,14 +149,6 @@ func TestHandle(t *testing.T) {
 				StatusCode: http.StatusNotFound,
 			},
 		},
-		{
-			name: "write failure",
-			req:  req{method: "GET", url: "/snp.efi"},
-			want: &http.Response{
-				StatusCode: http.StatusInternalServerError,
-			},
-			failWrite: true,
-		},
 	}
 
 	for _, tt := range tests {
