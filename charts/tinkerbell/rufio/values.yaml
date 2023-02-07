@@ -1,6 +1,6 @@
 deploy: true
 name: rufio
-image: quay.io/tinkerbell/rufio:v0.1.0
+image: quay.io/tinkerbell/rufio:v0.2.1
 resources:
   limits:
     cpu: 500m
