@@ -1,5 +1,4 @@
 deploy: true
-trustedProxies: ""
 name: hegel
 image: quay.io/tinkerbell/hegel:v0.10.1
 imagePullPolicy: IfNotPresent
@@ -18,3 +17,7 @@ resources:
     memory: 64Mi
 roleName: hegel-role
 roleBindingName: hegel-rolebinding
+
+# Trusted proxies defines a list of IP or CIDR ranges that are allowed to set the X-Forwarded-For
+# header. This typically requires all Pod CIDRs in the cluster.
+trustedProxies: []
