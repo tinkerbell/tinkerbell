@@ -43,7 +43,8 @@ boots:
   image: quay.io/tinkerbell/boots:v0.8.0
   tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.8.0
   trustedProxies: []
-  remoteIp: 192.168.1.94
+  # In most cases this value will be the same as `stack.loadBalancerIP`.
+  remoteIp: 192.168.2.111
 
 hegel:
   image: quay.io/tinkerbell/hegel:v0.10.1
