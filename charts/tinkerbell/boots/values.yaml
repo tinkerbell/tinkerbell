@@ -1,10 +1,17 @@
+# Toggle deployment of the service.
 deploy: true
-hostNetwork: true
+
+# Name of the service used as the deployment name and label selectors.
 name: boots
+
+# The image used to launch the container.
 image: quay.io/tinkerbell/boots:v0.8.0
 imagePullPolicy: IfNotPresent
+
+# The number of pods to run.
 replicas: 1
-args: ["-dhcp-addr=0.0.0.0:67"]
+
+# Resources bounds applied to the container.
 resources:
   limits:
     cpu: 500m
@@ -12,45 +19,97 @@ resources:
   requests:
     cpu: 10m
     memory: 64Mi
+
 roleName: boots-role
 roleBindingName: boots-rolebinding
+
 deployment:
   strategy:
     type: Recreate
-trustedProxies: ""
-ports:
-- name: boots-dhcp
+
+# The log level for the container.
+logLevel: "info"
+
+# The network mode to launch the boots container. When true, the boots container will use the
+# host network.
+hostNetwork: true
+
+# DHCP server configuration. Name is an identifier used across Kubernetes manifests for port
+# identification, ip is the IP address to bind to, and port is the port to bind to.
+dhcp:
+  name: boots-dhcp
+  ip: 0.0.0.0
   port: 67
-  protocol: UDP
-  targetPort: 67
-- name: boots-http
-  port: 80
-  protocol: TCP
-  targetPort: 80
-- name: boots-syslog
-  port: 514
-  protocol: UDP
-  targetPort: 514
-- name: boots-tftp
+
+# TFTP server configuration used to serve iPXE binaries. Name is an identifier used across
+# Kubernetes manifests for port identification, ip is the IP address to bind to, and port is the
+# port to bind to.
+tftp:
+  name: boots-tftp
+  ip: 0.0.0.0
   port: 69
-  protocol: UDP
-  targetPort: 69
-env:
-- name: DATA_MODEL_VERSION
-  value: "kubernetes"
-- name: FACILITY_CODE
-  value: "lab1"
-- name: HTTP_BIND
-  value: ":80"
-- name: MIRROR_BASE_URL
-  value: http://192.168.1.94:8080
-- name: PUBLIC_IP
-  value: 192.168.1.94
-- name: PUBLIC_SYSLOG_FQDN
-  value: 192.168.1.94
-- name: SYSLOG_BIND
-  value: 0.0.0.0:514
-- name: TINKERBELL_GRPC_AUTHORITY
-  value: 192.168.1.94:42113
-- name: TINKERBELL_TLS
-  value: "false"
+
+# HTTP server configuration used to serve iPXE scripts. Name is an identifier used across
+# Kubernetes manifests for port identification, ip is the IP address to bind to, and port is the
+# port to bind to.
+http:
+  name: boots-http
+  ip: 0.0.0.0
+  # -- WARNING: Customization of the HTTP port is not supported.
+  # -- See https://github.com/tinkerbell/boots/issues/317
+  port: 80
+
+# Syslog server configuration for the boots hosted syslog server. Name is an identifier used across
+# Kubernetes manifests for port identification, ip is the IP address to bind to, and port is the
+# port to bind to.
+syslog:
+  name: boots-syslog
+  ip: 0.0.0.0
+  port: 514
+
+# The default remote IP used for DHCP, TFTP, HTTP, Syslog, OSIE base URL, and Tink Server.
+# Each of these can be overridden individually below.
+remoteIp: 192.168.1.94
+
+# The DHCP address passed to the netboot client for retrieving DHCP configuration. Typically the
+# address of the boots DHCP server.
+remoteDhcpIp: ""
+
+# The Syslog address passed to the netboot client for retrieving logs. Typically the address
+# of the boots Syslog server.
+remoteSyslogIp: ""
+
+# Trusted proxies defines a list of IP or CIDR ranges that are allowed to set the X-Forwarded-For
+# header. This typically requires all Pod CIDRs in the cluster.
+trustedProxies: []
+
+# The base URL used to construct URLs for OSIE artifacts (typically Hook).
+osieBase:
+  protocol: http
+  ip: ""
+  port: 8080
+
+# The Tink Worker image passed to OSIE as a kernel arg for launching.
+tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.8.0
+
+# Tink Server configuration passed to the Tink Worker to establish a gRPC connection.
+tinkServer:
+  ip: ""
+  port: 42113
+  tls: false
+
+# Additional kernel arguments to pass to the OSIE.
+additionlKernelArgs: []
+
+# Additional arguments to pass to the boots container. Some arguments are already defined - refer
+# to the deployment.yaml template for details.
+additionalArgs: []
+
+# Additional environment variables to pass to the boots container. Each entry is expected to have a
+# name and value key. Some keys are already defined - refer to the deployment.yaml template for
+# details.
+#
+# Example
+#   - name: MY_ENV_VAR
+#     value: my-value
+additionalEnv: []

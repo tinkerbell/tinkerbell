@@ -29,46 +29,29 @@ stack:
     imagePullPolicy: IfNotPresent
     roleName: kube-vip-role
     roleBindingName: kube-vip-rolebinding
+    # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the
+    # interface.
+    #interface: eth0
 
-# boots chart overrides
+# -- Overrides
+# The values defined here override those in the individual charts. Some of them require tweaking
+# before deployment as they are environment dependent; others are surfaced for convenience.
+#
+# See individual chart documentation for additional detail.
+
 boots:
   image: quay.io/tinkerbell/boots:v0.8.0
-  env:
-    - name: DATA_MODEL_VERSION
-      value: "kubernetes"
-    - name: FACILITY_CODE
-      value: "lab1"
-    - name: HTTP_BIND
-      value: ":80"
-    - name: MIRROR_BASE_URL
-      value: http://192.168.2.111:8080
-    - name: BOOTS_OSIE_PATH_OVERRIDE
-      value: http://192.168.2.111:8080
-    - name: PUBLIC_IP
-      value: 192.168.2.111
-    - name: PUBLIC_SYSLOG_FQDN
-      value: 192.168.2.111
-    - name: SYSLOG_BIND
-      value: :514
-    - name: TINKERBELL_GRPC_AUTHORITY
-      value: 192.168.2.111:42113
-    - name: TINKERBELL_TLS
-      value: "false"
-    - name: BOOTS_LOG_LEVEL
-      value: "debug"
-    - name: BOOTS_EXTRA_KERNEL_ARGS
-      value: "tink_worker_image=quay.io/tinkerbell/tink-worker:v0.8.0"
-  hostNetwork: true
+  tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.8.0
+  trustedProxies: []
+  remoteIp: 192.168.1.94
 
-# hegel chart overrides
 hegel:
   image: quay.io/tinkerbell/hegel:v0.10.1
+  trustedProxies: []
 
-# rufio chart overrides
 rufio:
   image: quay.io/tinkerbell/rufio:v0.1.0
 
-# tink chart overrides
 tink:
   controller:
     image: quay.io/tinkerbell/tink-controller:v0.8.0

@@ -16,14 +16,14 @@ data:
 
     http {
       server {
-        listen 80;
+        listen {{ .Values.boots.http.port }};
         location / {
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           resolver $POD_NAMESERVER;
           set $boots_dns {{ .Values.boots.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
 
-          proxy_pass http://$boots_dns;
+          proxy_pass http://$boots_dns:{{ .Values.boots.http.port }};
         }
       }
 
@@ -63,27 +63,27 @@ data:
       log_format logger-json escape=json '{"source": "nginx", "time": $msec, "address": "$remote_addr", "status": $status, "upstream_addr": "$upstream_addr"}';
 
       server {
-          listen 67 udp;
+          listen {{ .Values.boots.dhcp.port }} udp;
           resolver $POD_NAMESERVER; # needed in Kubernetes for dynamic DNS resolution
           set $boots_dns {{ .Values.boots.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
-          proxy_pass $boots_dns:67;
+          proxy_pass $boots_dns:{{ .Values.boots.dhcp.port }};
           proxy_bind $remote_addr:$remote_port transparent;
           proxy_responses 0;
           access_log /dev/stdout logger-json;
       }
       server {
-          listen 69 udp;
+          listen {{ .Values.boots.tftp.port }} udp;
           resolver $POD_NAMESERVER;
           set $boots_dns {{ .Values.boots.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
-          proxy_pass $boots_dns:69;
+          proxy_pass $boots_dns:{{ .Values.boots.tftp.port }};
           proxy_timeout 1s;
           access_log /dev/stdout logger-json;
       }
       server {
-          listen 514 udp;
+          listen {{ .Values.boots.syslog.port }} udp;
           resolver $POD_NAMESERVER;
           set $boots_dns {{ .Values.boots.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
-          proxy_pass $boots_dns:514;
+          proxy_pass $boots_dns:{{ .Values.boots.syslog.port }};
           proxy_bind $remote_addr:$remote_port transparent;
           proxy_responses 0;
           access_log /dev/stdout logger-json;

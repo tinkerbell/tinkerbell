@@ -9,12 +9,7 @@ metadata:
 spec:
   clusterIP: None
   ports:
-  {{- range .Values.ports }}
-  - name: {{ .name }}
-    port: {{ .port }}
-    targetPort: {{ .targetPort }}
-    protocol: {{ .protocol }}
-  {{- end }}
+  {{- include "boots.ports" ( merge ( dict "PortKey" "port" ) .Values  ) | indent 2 }}
   selector:
     app: {{ .Values.name }}
 {{- end -}}

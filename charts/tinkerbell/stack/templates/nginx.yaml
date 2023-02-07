@@ -29,10 +29,8 @@ spec:
           envsubst '$POD_NAMESERVER' < /tmp/nginx.conf.template > /etc/nginx/nginx.conf;
           nginx -g 'daemon off;'
         ports:
-        {{- range .Values.boots.ports }}
-        - containerPort: {{ .port}}
-          name: {{ .name }}
-          protocol: {{ .protocol }}
+        {{- if not .Values.boots.hostNetwork }}
+        {{- include "boots.ports" ( merge ( dict "PortKey" "containerPort" ) .Values.boots  ) | indent 8 }}
         {{- end }}
         - containerPort: {{ .Values.hegel.deployment.port }}
           protocol: TCP
@@ -114,22 +112,14 @@ spec:
   - name: {{ .Values.hegel.name }}
     port: {{ .Values.hegel.deployment.port }}
     protocol: TCP
-    targetPort: {{ .Values.hegel.deployment.portName }}
   - name: {{ .Values.tink.server.name }}
     port: {{ .Values.tink.server.deployment.port }}
     protocol: TCP
-    targetPort: {{ .Values.tink.server.deployment.portName }}
   - name: {{ .Values.stack.hook.name }}
     port: {{ .Values.stack.hook.port }}
     protocol: TCP
-    targetPort: hook-http
   {{- if not .Values.boots.hostNetwork }}
-  {{- range .Values.boots.ports }}
-  - name: {{ .name }}
-    port: {{ .port }}
-    targetPort: {{ .targetPort }}
-    protocol: {{ .protocol }}
-  {{- end }}
+  {{- include "boots.ports" ( merge ( dict "PortKey" "port" ) .Values.boots  ) | indent 2 }}
   {{- end }}
   selector:
     app: stack
