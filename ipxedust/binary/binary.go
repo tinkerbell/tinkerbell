@@ -5,7 +5,7 @@ package binary
 import (
 	"bytes"
 	_ "embed"
-	"fmt"
+	"errors"
 )
 
 // IpxeEFI is the UEFI iPXE binary for x86 architectures.
@@ -32,6 +32,8 @@ var Files = map[string][]byte{
 	"snp.efi":       SNP,
 }
 
+var ErrPatchTooLong = errors.New("patch string is too long")
+
 func Patch(content, patch []byte) ([]byte, error) {
 	// Noop when no patch is passed.
 	if len(patch) == 0 {
@@ -45,7 +47,7 @@ func Patch(content, patch []byte) ([]byte, error) {
 	}
 
 	if len(patch) >= len(magicString) {
-		return nil, fmt.Errorf("patch string is too long")
+		return nil, ErrPatchTooLong
 	}
 
 	// Duplicate the content before applying the patch so we don't overwrite
