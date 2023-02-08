@@ -21,9 +21,7 @@ func TestJobReconciler_TasklessJob(t *testing.T) {
 	secret := createSecret()
 	job := createJob("test", machine)
 
-	builder := createKubeClientBuilder()
-	builder.WithObjects(machine, secret, job)
-	kubeClient := builder.Build()
+	kubeClient := createKubeClientWithObjectsForJobController(machine, secret, job)
 
 	reconciler := controllers.NewJobReconciler(kubeClient, logger)
 
@@ -77,7 +75,6 @@ func TestJobReconciler_UnknownMachine(t *testing.T) {
 }
 
 func TestJobReconciler_Reconcile(t *testing.T) {
-
 	for name, action := range map[string]bmcv1alpha1.Action{
 		"PowerAction": {PowerAction: bmcv1alpha1.PowerOn.Ptr()},
 		"OneTimeBootDeviceAction": {
@@ -95,7 +92,7 @@ func TestJobReconciler_Reconcile(t *testing.T) {
 			job := createJob(name, machine)
 			job.Spec.Tasks = append(job.Spec.Tasks, action)
 
-			cluster := createKubeClientWithObjects(machine, secret, job)
+			cluster := createKubeClientWithObjectsForJobController(machine, secret, job)
 
 			request := reconcile.Request{
 				NamespacedName: types.NamespacedName{
