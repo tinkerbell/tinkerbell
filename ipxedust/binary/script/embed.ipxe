@@ -6,6 +6,10 @@ echo Welcome to Neverland!
 # Allow the operator to drop to a shell
 prompt --key 0x02 --timeout 2000 Press Ctrl-B for the iPXE command line... && shell ||
 
+# Random string to enable binary patching
+#a8b7e61f1075c37a793f2f92cee89f7bba00c4a8d7842ce3d40b5889032d8881
+#ddd16a4fc4926ecefdfb6941e33c44ed3647133638f5e84021ea44d3152e7f97
+
 # This is possible because the DHCP options from the original vendor PXE DHCP request
 # are available to chainloaded iPXE binaries. See https://github.com/ipxe/ipxe/issues/188
 set vlan-id ${43.116:string}
