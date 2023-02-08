@@ -26,12 +26,13 @@ spec:
       securityContext:
         runAsNonRoot: true
       containers:
-      - command:
+      - name: manager
+        image: {{ .Values.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        command:
         - /manager
         args:
         - --leader-elect
-        image: {{ .Values.image }}
-        name: manager
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
@@ -46,8 +47,6 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
-        # TODO(user): Configure the resources accordingly based on the project requirements.
-        # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
           limits:
             cpu: {{ .Values.resources.limits.cpu }}
