@@ -33,18 +33,11 @@ The stack chart does not use an ingress object and controller. This is because m
 
 ## Installing the Chart
 
-You'll want to customize the IP used for the load balancer in the `values.yaml` file. The following places should all be the same IP:
+Before installing the chart you'll want to customize the IP used for the load balancer (`stack.loadBalancerIP`). This IP provides ingress for Hegel, Tink, and Boots (TFTP, HTTP, and SYSLOG endpoints as well as unicast DHCP requests).
 
-- `stack.loadbalancerIP`
-- `boots.env[3].value` (`MIRROR_BASE_URL`)
-- `boots.env[4].value` (`BOOTS_OSIE_PATH_OVERRIDE`)
-- `boots.env[5].value` (`PUBLIC_IP`)
-- `boots.env[6].value` (`PUBLIC_SYSLOG_FQDN`)
-- `boots.env[8].value` (`TINKERBELL_GRPC_AUTHORITY`)
+You'll also want to set the IP used in DHCP packets for option 54, the location of the iPXE binaries, the `auto.ipxe` script, the syslog IP, and the IP for downloading Hook files (`boots.remoteIp`).
 
-You'll also want to customize the interface that should be used to advertize the load balancer IP.
-
-- `kubevip.interface`
+The vast majority of the time,these 2 (`stack.loadBalancerIP` and `boots.remoteIp`) IPs will be the same.
 
 Now, deploy the chart.
 
@@ -104,18 +97,16 @@ All dependent services(Boots, Hegel, Rufio, Tink) can have their values overridd
 
 ```yaml
 <service name>:
-  <service name>:
-    <key to override>: <value>
-    <array key to override>:
-      - <key>: <value>
+  <key to override>: <value>
+  <array key to override>:
+    - <key>: <value>
 ```
 
 Example:
 
 ```yaml
 hegel:
-  hegel:
-    image: quay.io/tinkerbell/hegel:latest
+  image: quay.io/tinkerbell/hegel:latest
 ```
 
 ### Boots Parameters
