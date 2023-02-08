@@ -7,9 +7,9 @@ dependencies:
   version: 0.2.0
 - name: rufio
   repository: file://../rufio
-  version: 0.2.1
+  version: 0.2.2
 - name: hegel
   repository: file://../hegel
   version: 0.3.0
-digest: sha256:48158d72205c17567c138a1fd933115887bb19c5220dba5b9d51177bc44a1ed6
-generated: "2023-02-07T13:37:55.912873-06:00"
+digest: sha256:de1b66eb9572ca3603e281748c66ab91841525c54a5a148f3905737a8183cd02
+generated: "2023-02-07T20:58:38.707077-06:00"
