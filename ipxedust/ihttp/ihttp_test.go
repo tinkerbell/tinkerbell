@@ -167,7 +167,7 @@ func TestHandle(t *testing.T) {
 			want: &http.Response{
 				StatusCode: http.StatusInternalServerError,
 			},
-			patch: make([]byte, 131),
+			patch: make([]byte, 132),
 		},
 	}
 

@@ -56,7 +56,7 @@ func TestPatch(t *testing.T) {
 			name:    "patch",
 			content: []byte("foo\n"+string(magicString)),
 			patch:   []byte("baz"),
-			want:    []byte("foo\nbaz#"+string(magicString[4:])),
+			want:    []byte("foo\nbaz"+string(magicStringPadding[3:])),
 		},
 	}
 	for _, tt := range tests {

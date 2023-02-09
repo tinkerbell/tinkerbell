@@ -25,6 +25,8 @@ var SNP []byte
 var magicString = []byte(`#a8b7e61f1075c37a793f2f92cee89f7bba00c4a8d7842ce3d40b5889032d8881
 #ddd16a4fc4926ecefdfb6941e33c44ed3647133638f5e84021ea44d3152e7f97`)
 
+var magicStringPadding = bytes.Repeat([]byte{' '}, len(magicString))
+
 // Files is the mapping to the embedded iPXE binaries.
 var Files = map[string][]byte{
 	"undionly.kpxe": Undionly,
@@ -46,7 +48,7 @@ func Patch(content, patch []byte) ([]byte, error) {
 		return content, nil
 	}
 
-	if len(patch) >= len(magicString) {
+	if len(patch) > len(magicString) {
 		return nil, ErrPatchTooLong
 	}
 
@@ -54,8 +56,8 @@ func Patch(content, patch []byte) ([]byte, error) {
 	// the underlying array.
 	dup := make([]byte, len(content))
 	copy(dup, content)
+	copy(dup[i:], magicStringPadding)
 	copy(dup[i:], patch)
-	dup[i+len(patch)] = '#'
 
 	return dup, nil
 }
