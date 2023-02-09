@@ -45,6 +45,8 @@ boots:
   trustedProxies: []
   # In most cases this value will be the same as `stack.loadBalancerIP`.
   remoteIp: 192.168.2.111
+  # hostNetwork: true is already the default in the Boots chart, but is included here for clarity.
+  hostNetwork: true
 
 hegel:
   image: quay.io/tinkerbell/hegel:v0.10.1
