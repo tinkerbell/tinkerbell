@@ -36,6 +36,9 @@ var Files = map[string][]byte{
 
 var ErrPatchTooLong = errors.New("patch string is too long")
 
+// Replace the magic string in the content with the patch. Returns the original content
+// when the patch is empty or the magic string is not found, and returns an error when
+// the patch is too long.
 func Patch(content, patch []byte) ([]byte, error) {
 	// Noop when no patch is passed.
 	if len(patch) == 0 {
