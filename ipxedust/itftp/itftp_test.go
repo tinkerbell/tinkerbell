@@ -97,6 +97,7 @@ func TestHandleRead(t *testing.T) {
 	tests := []struct {
 		name     string
 		fileName string
+		patch    []byte
 		want     []byte
 		wantErr  error
 	}{
@@ -125,11 +126,17 @@ func TestHandleRead(t *testing.T) {
 			fileName: "snp.efi",
 			wantErr:  net.ErrClosed,
 		},
+		{
+			name:     "failure - bad patch",
+			fileName: "snp.efi",
+			patch:    make([]byte, 500),
+			wantErr:  binary.ErrPatchTooLong,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ht := &Handler{Log: logr.Discard()}
+			ht := &Handler{Log: logr.Discard(), Patch: tt.patch}
 			rf := &fakeReaderFrom{
 				addr:    net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999},
 				content: make([]byte, len(tt.want)),

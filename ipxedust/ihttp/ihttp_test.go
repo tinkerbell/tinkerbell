@@ -100,6 +100,8 @@ func TestListenAndServeHTTP(t *testing.T) {
 }
 
 func TestHandle(t *testing.T) {
+	patched_binary, _ := binary.Patch(binary.Files["snp.efi"], []byte("echo 'hello world'"))
+
 	type req struct {
 		method string
 		url    string
@@ -109,6 +111,7 @@ func TestHandle(t *testing.T) {
 		name      string
 		req       req
 		want      *http.Response
+		patch     []byte
 		failWrite bool
 	}{
 		{
@@ -149,6 +152,23 @@ func TestHandle(t *testing.T) {
 				StatusCode: http.StatusNotFound,
 			},
 		},
+		{
+			name: "patch",
+			req: req{method: "GET", url: "/30:23:03:73:a5:a7/snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01"},
+			want: &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       ioutil.NopCloser(bytes.NewBuffer(patched_binary)),
+			},
+			patch: []byte("echo 'hello world'"),
+		},
+		{
+			name: "bad patch",
+			req: req{method: "GET", url: "/30:23:03:73:a5:a7/snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01"},
+			want: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+			patch: make([]byte, 132),
+		},
 	}
 
 	for _, tt := range tests {
@@ -158,12 +178,12 @@ func TestHandle(t *testing.T) {
 			var resp *http.Response
 			if tt.failWrite {
 				w := newFakeResponse()
-				h := Handler{Log: logger}
+				h := Handler{Log: logger, Patch: tt.patch}
 				h.Handle(w, req)
 				resp = w.Result()
 			} else {
 				w := httptest.NewRecorder()
-				h := Handler{Log: logger}
+				h := Handler{Log: logger, Patch: tt.patch}
 				h.Handle(w, req)
 				resp = w.Result()
 			}

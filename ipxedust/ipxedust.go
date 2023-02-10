@@ -49,6 +49,8 @@ type ServerSpec struct {
 	Timeout time.Duration
 	// Disabled allows a server to be disabled. Useful, for example, to disable TFTP.
 	Disabled bool
+	// The patch to apply to the iPXE binary.
+	Patch []byte
 }
 
 var errNilListener = fmt.Errorf("listener must not be nil")
@@ -133,7 +135,7 @@ func (c *Server) Serve(ctx context.Context, tcpConn net.Listener, udpConn net.Pa
 }
 
 func (c *Server) listenAndServeHTTP(ctx context.Context) error {
-	s := ihttp.Handler{Log: c.Log}
+	s := ihttp.Handler{Log: c.Log, Patch: c.HTTP.Patch}
 	router := http.NewServeMux()
 	router.HandleFunc("/", s.Handle)
 	hs := &http.Server{
@@ -158,7 +160,7 @@ func (c *Server) serveHTTP(ctx context.Context, l net.Listener) error {
 	if l == nil || reflect.ValueOf(l).IsNil() {
 		return errNilListener
 	}
-	s := ihttp.Handler{Log: c.Log}
+	s := ihttp.Handler{Log: c.Log, Patch: c.HTTP.Patch}
 	router := http.NewServeMux()
 	router.HandleFunc("/", s.Handle)
 	hs := &http.Server{
@@ -185,7 +187,7 @@ func (c *Server) listenAndServeTFTP(ctx context.Context) error {
 		return err
 	}
 
-	h := &itftp.Handler{Log: c.Log}
+	h := &itftp.Handler{Log: c.Log, Patch: c.TFTP.Patch}
 	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
 	ts.SetTimeout(c.TFTP.Timeout)
 	if c.EnableTFTPSinglePort {
@@ -205,7 +207,7 @@ func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
 		return errors.New("conn must not be nil")
 	}
 
-	h := &itftp.Handler{Log: c.Log}
+	h := &itftp.Handler{Log: c.Log, Patch: c.TFTP.Patch}
 	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
 	ts.SetTimeout(c.TFTP.Timeout)
 	if c.EnableTFTPSinglePort {
