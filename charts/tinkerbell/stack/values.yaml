@@ -2,6 +2,7 @@ stack:
   enabled: true
   name: tink-stack
   service:
+    enabled: true
     type: LoadBalancer
   selector:
     app: tink-stack
