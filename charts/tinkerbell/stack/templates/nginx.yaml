@@ -20,6 +20,10 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      {{- if eq .Values.stack.service.enabled false }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
       containers:
       - name: {{ .Values.stack.name }}
         image: {{ .Values.stack.image }}
@@ -91,6 +95,7 @@ spec:
             - key: nginx.conf
               path: nginx.conf.template
 ---
+{{- if .Values.stack.service.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -118,12 +123,11 @@ spec:
   - name: {{ .Values.stack.hook.name }}
     port: {{ .Values.stack.hook.port }}
     protocol: TCP
-  {{- if not .Values.boots.hostNetwork }}
   {{- include "boots.ports" ( merge ( dict "PortKey" "port" ) .Values.boots  ) | indent 2 }}
-  {{- end }}
   selector:
     app: stack
     {{- with .Values.stack.selector }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+{{- end -}}
 {{- end -}}
