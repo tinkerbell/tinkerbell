@@ -70,6 +70,10 @@ function copy_custom_files() {
     bin-arm64-efi/snp.efi)
     	cp binary/script/ipxe-customizations/general.efi.h "${ipxe_dir}"/src/config/local/general.h
     	;;
+    bin-x86_64-efi/ipxe.iso)
+    	cp binary/script/ipxe-customizations/general.efi.h "${ipxe_dir}"/src/config/local/general.h
+    	cp binary/script/ipxe-customizations/isa.h "${ipxe_dir}"/src/config/local/isa.h
+    	;;
     *) echo "unknown binary: ${ipxe_bin}" >&2 && exit 1 ;;
     esac
 }
