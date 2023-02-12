@@ -1,5 +1,4 @@
 {{- if and .Values.stack.enabled .Values.stack.relay.enabled -}}
----
 {{- $sourceInterface := ( required "sourceInterface must be specified" .Values.stack.relay.sourceInterface ) }}
 {{- $macvlanInterfaceName := printf "%s%s" "macvlan" (randNumeric 2) -}}
 apiVersion: apps/v1

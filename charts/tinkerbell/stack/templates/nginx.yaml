@@ -94,8 +94,8 @@ spec:
           items:
             - key: nginx.conf
               path: nginx.conf.template
+{{- if .Values.stack.service.enabled -}}
 ---
-{{- if .Values.stack.service.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
