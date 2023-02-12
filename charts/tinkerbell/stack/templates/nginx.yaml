@@ -62,7 +62,7 @@ spec:
       initContainers:
       - name: init-hook-download
         image: {{ .Values.stack.hook.image }}
-        command: ["/bin/sh", "-xc"]
+        command: ["/bin/sh", "-xec"]
         args: # TODO(jacobweinstock): add checksum verification after download
         - rm -rf /usr/share/nginx/html/checksums.txt;
           touch /usr/share/nginx/html/checksums.txt;
@@ -73,8 +73,8 @@ spec:
           cd /usr/share/nginx/html/;
           sha512sum -c checksums.txt && exit 0;
           {{- range $index, $keys := .Values.stack.hook.downloads }}
-          apk add wget;
           echo downloading HOOK...;
+          apt-get update && apt-get install -y wget;
           wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }};
           tar -zxvf /tmp/hook{{ $index }}.tar.gz -C "/usr/share/nginx/html/";
           rm -rf /tmp/hook{{ $index }}.tar.gz;
@@ -99,9 +99,6 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    "helm.sh/hook": "post-install,post-delete,post-rollback,post-upgrade"
-    "helm.sh/hook-weight": "5"
   labels:
     app: {{ .Values.stack.name }}
   name: {{ .Values.stack.name }}

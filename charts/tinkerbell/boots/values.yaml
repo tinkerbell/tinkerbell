@@ -25,14 +25,14 @@ roleBindingName: boots-rolebinding
 
 deployment:
   strategy:
-    type: Recreate
+    type: RollingUpdate
 
 # The log level for the container.
 logLevel: "info"
 
 # The network mode to launch the boots container. When true, the boots container will use the
 # host network.
-hostNetwork: true
+hostNetwork: false
 
 # DHCP server configuration. Name is an identifier used across Kubernetes manifests for port
 # identification, ip is the IP address to bind to, and port is the port to bind to.

@@ -7,7 +7,6 @@ metadata:
   name: {{ .Values.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  clusterIP: None
   ports:
   {{- include "boots.ports" ( merge ( dict "PortKey" "port" ) .Values  ) | indent 2 }}
   selector:

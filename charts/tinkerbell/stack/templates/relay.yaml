@@ -1,0 +1,55 @@
+{{- if and .Values.stack.enabled .Values.stack.relay.enabled -}}
+---
+{{- $sourceInterface := ( required "sourceInterface must be specified" .Values.stack.relay.sourceInterface ) }}
+{{- $macvlanInterfaceName := printf "%s%s" "macvlan" (randNumeric 2) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.stack.name}}-relay
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.stack.name }}-relay
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.stack.name }}-relay
+    spec:
+      containers:
+      - name: {{ .Values.stack.name }}-relay
+        image: {{ .Values.stack.relay.image }}
+        args: ["-m", "append", "-c", "{{ .Values.stack.relay.maxHopCount }}", "-id", "{{ $macvlanInterfaceName }}", "-iu", "eth0", "-U", "eth0", "boots.{{ .Release.Namespace }}.svc.cluster.local."]
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+      hostPID: true
+      initContainers:
+        - command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              # TODO: make this more resilient so that if the interface name is already taken we handle it, of if any commands fail after
+              # the interface is created we clean up the interface
+              # Create a macvlan interface
+              nsenter -t1 -n ip link add {{ $macvlanInterfaceName }} link {{ $sourceInterface }} type macvlan mode bridge
+              # Move the interface into the POD
+              pid=$(echo $$)
+              nsenter -t1 -n ip link set {{ $macvlanInterfaceName }} netns ${pid}
+              # Set the macvlan interface up
+              ip link set {{ $macvlanInterfaceName }} up
+              # Set the IP address
+              ip addr add {{ .Values.stack.relay.sourceIP }} dev {{ $macvlanInterfaceName }}
+          image: alpine
+          name: macvlan-interface
+          securityContext:
+            privileged: true
+{{- end -}}
