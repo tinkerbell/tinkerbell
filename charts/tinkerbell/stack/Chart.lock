@@ -1,15 +1,15 @@
 dependencies:
 - name: tink
   repository: file://../tink
-  version: 0.2.0
+  version: 0.2.1
 - name: boots
   repository: file://../boots
-  version: 0.2.0
+  version: 0.2.1
 - name: rufio
   repository: file://../rufio
   version: 0.2.3
 - name: hegel
   repository: file://../hegel
-  version: 0.3.0
-digest: sha256:ddb8f3784b830a75e28ec62f105b01836846de478c292ac5a5df86a8204585dc
-generated: "2023-02-16T09:15:54.932213-06:00"
+  version: 0.3.1
+digest: sha256:38c51531d71414a28b0cf0f0fb2a0d90ef79c59d022f2bb77bd65e1f5d3c72bd
+generated: "2023-02-11T23:29:04.146691294-07:00"
