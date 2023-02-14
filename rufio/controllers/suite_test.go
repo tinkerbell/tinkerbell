@@ -19,16 +19,18 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/config"
+	"github.com/onsi/ginkgo/types"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -48,7 +50,7 @@ func TestAPIs(t *testing.T) {
 
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Controller Suite",
-		[]Reporter{printer.NewlineReporter{}})
+		[]Reporter{newlineReporter{}})
 }
 
 var _ = BeforeSuite(func() {
@@ -73,7 +75,6 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-
 }, 60)
 
 var _ = AfterSuite(func() {
@@ -81,3 +82,29 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+// newlineReporter is Reporter that Prints a newline after the default Reporter output so that the results
+// are correctly parsed by test automation.
+// See issue https://github.com/jstemmer/go-junit-report/issues/31
+// This is copied from sigs.k8s.io/controller-runtime/pkg/envtest/printer since controller-runtime
+// doesn't include this starting with version v0.14.0
+type newlineReporter struct{}
+
+// SpecSuiteWillBegin implements ginkgo.Reporter.
+func (newlineReporter) SpecSuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
+}
+
+// BeforeSuiteDidRun implements ginkgo.Reporter.
+func (newlineReporter) BeforeSuiteDidRun(setupSummary *types.SetupSummary) {}
+
+// AfterSuiteDidRun implements ginkgo.Reporter.
+func (newlineReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) {}
+
+// SpecWillRun implements ginkgo.Reporter.
+func (newlineReporter) SpecWillRun(specSummary *types.SpecSummary) {}
+
+// SpecDidComplete implements ginkgo.Reporter.
+func (newlineReporter) SpecDidComplete(specSummary *types.SpecSummary) {}
+
+// SpecSuiteDidEnd Prints a newline between "35 Passed | 0 Failed | 0 Pending | 0 Skipped" and "--- PASS:".
+func (newlineReporter) SpecSuiteDidEnd(summary *types.SuiteSummary) { fmt.Printf("\n") }

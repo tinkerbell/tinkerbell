@@ -113,7 +113,7 @@ func (r *JobReconciler) reconcile(ctx context.Context, job *bmcv1alpha1.Job, job
 	tasks := &bmcv1alpha1.TaskList{}
 	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: job.Name})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s", job.Namespace, job.Name)
+		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s: %v", job.Namespace, job.Name, err)
 	}
 
 	completedTasksCount := 0
@@ -230,7 +230,7 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 		ctx,
 		&bmcv1alpha1.Task{},
 		jobOwnerKey,
-		taskOwnerIndexFunc,
+		TaskOwnerIndexFunc,
 	); err != nil {
 		return err
 	}
@@ -246,8 +246,8 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 		Complete(r)
 }
 
-// taskOwnerIndexFunc is Indexer func which returns the owner name for obj.
-func taskOwnerIndexFunc(obj client.Object) []string {
+// TaskOwnerIndexFunc is Indexer func which returns the owner name for obj.
+func TaskOwnerIndexFunc(obj client.Object) []string {
 	task, ok := obj.(*bmcv1alpha1.Task)
 	if !ok {
 		return nil

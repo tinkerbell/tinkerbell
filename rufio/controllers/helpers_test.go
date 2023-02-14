@@ -3,7 +3,9 @@ package controllers_test
 import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
+	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	rufiov1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
+	"github.com/tinkerbell/rufio/controllers"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +35,15 @@ func createKubeClientBuilder() *fake.ClientBuilder {
 func createKubeClientWithObjects(objects ...client.Object) client.WithWatch {
 	return createKubeClientBuilder().
 		WithObjects(objects...).
+		Build()
+}
+
+// createKubeClientWithObjectsForJobController creates a kubernetes client with the given objects
+// and the indexes required by the Job controller.
+func createKubeClientWithObjectsForJobController(objects ...client.Object) client.WithWatch {
+	return createKubeClientBuilder().
+		WithObjects(objects...).
+		WithIndex(&bmcv1alpha1.Task{}, ".metadata.controller", controllers.TaskOwnerIndexFunc).
 		Build()
 }
 
