@@ -21,6 +21,8 @@ type BMCClient interface {
 	// setPersistent, if true will set the boot device permanently. If false, sets one time boot.
 	// efiBoot, if true passes efiboot options while setting boot device.
 	SetBootDevice(ctx context.Context, bootDevice string, setPersistent, efiBoot bool) (bool, error)
+	// SetVirtualMedia inserts/ejects virtual media on the bmc.
+	SetVirtualMedia(ctx context.Context, kind string, mediaUrl string) (bool, error)
 }
 
 // BMCClientFactoryFunc defines a func that returns a BMCClient

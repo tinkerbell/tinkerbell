@@ -50,6 +50,9 @@ type Action struct {
 
 	// OneTimeBootDeviceAction represents a baseboard management one time set boot device operation.
 	OneTimeBootDeviceAction *OneTimeBootDeviceAction `json:"oneTimeBootDeviceAction,omitempty"`
+
+	// VirtualMediaAction represents a baseboard management virtual media insert/eject.
+	VirtualMediaAction *VirtualMediaAction `json:"virtualMediaAction,omitempty"`
 }
 
 // TaskStatus defines the observed state of Task

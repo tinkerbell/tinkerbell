@@ -38,3 +38,19 @@ type OneTimeBootDeviceAction struct {
 	// EFIBoot instructs the machine to use EFI boot.
 	EFIBoot bool `json:"efiBoot,omitempty"`
 }
+
+type VirtualMediaKind string
+
+const (
+	// VirtualMediaCD represents a virtual CD-ROM.
+	VirtualMediaCD VirtualMediaKind = "CD"
+)
+
+// VirtualMediaAction represents a virtual media action.
+type VirtualMediaAction struct {
+	// mediaURL represents the URL of the image to be inserted into the virtual media, or empty to
+	// eject media.
+	MediaURL string `json:"mediaURL,omitempty"`
+
+	Kind VirtualMediaKind `json:"kind"`
+}

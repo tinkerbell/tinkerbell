@@ -3,7 +3,7 @@ module github.com/tinkerbell/rufio
 go 1.18
 
 require (
-	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230123132352-e982ba834c64
+	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230212165211-bac64498b8ba
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.3
 	github.com/golang/mock v1.6.0
@@ -62,6 +62,7 @@ require (
 	github.com/stmcginnis/gofish v0.13.1-0.20221107140645-5cc43fad050f // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
+	golang.org/x/exp v0.0.0-20230127130021-4ca2cb1a16b7 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/net v0.3.1-0.20221206200815-1e63c2f08a10 // indirect

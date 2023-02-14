@@ -95,6 +95,25 @@ spec:
                       - cycle
                       - reset
                       type: string
+                    virtualMediaAction:
+                      description: VirtualMediaAction represents a baseboard virtual media
+                        insert or eject operation.
+                      properties:
+                        kind:
+                          description: Kind indicates what kind of virtual media to operate on.
+                          enum:
+                          - CD
+                          - DVD
+                          - Floppy
+                          - USBStick
+                          type: string
+                        mediaURL:
+                          description: MediaURL is the URL to load the virtual media from or empty
+                            to indicate that the virtual media should be ejected.
+                          type: string
+                      required:
+                      - kind
+                      type: object
                   type: object
                 minItems: 1
                 type: array

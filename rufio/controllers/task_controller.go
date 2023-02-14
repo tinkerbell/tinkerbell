@@ -191,6 +191,13 @@ func (r *TaskReconciler) runTask(ctx context.Context, task bmcv1alpha1.Action, b
 		}
 	}
 
+	if task.VirtualMediaAction != nil {
+		_, err := bmcClient.SetVirtualMedia(ctx, string(task.VirtualMediaAction.Kind), task.VirtualMediaAction.MediaURL)
+		if err != nil {
+			return fmt.Errorf("failed to perform SetVirtualMedia: %v", err)
+		}
+	}
+
 	return nil
 }
 
