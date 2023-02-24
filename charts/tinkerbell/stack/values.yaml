@@ -6,7 +6,7 @@ stack:
     type: LoadBalancer
   selector:
     app: tink-stack
-  loadBalancerIP: 192.168.2.111
+  loadBalancerIP: 192.168.2.112
   lbClass: kube-vip.io/kube-vip-class
   image: nginx:1.23.1
   hook:
@@ -15,10 +15,10 @@ stack:
     port: 8080
     image: ubuntu
     downloads:
-      - url: https://github.com/tinkerbell/hook/releases/download/v0.7.0/hook_x86_64.tar.gz
+      - url: https://github.com/tinkerbell/hook/releases/download/latest/hook_x86_64.tar.gz
         sha512sum:
-          kernel: "7c35042d35c003ae1f424e503ad6edf21854bc70b24b37006e810c3c8a92543420eed129c14e364769b0f32c27bdf4c61299fce8f8156af7477cac6a43931a20  vmlinuz-x86_64"
-          initramfs: "be7c3d57e2d73bfa4e41a2b5740c722b1c83722e4388b3cff9017192fce43ede360221e3095c800e511d7b4bce6065f2906883421409dd6d983412418a8d903e  initramfs-x86_64"
+          kernel: "45a83dc747ff05fda09dc7a3b376fca3d82079fbfe99927d9f1c935f2070b5ac6469a41387fefd9e2eeb51062959846900583274a5d02e4131f37162a6167b28  vmlinuz-x86_64"
+          initramfs: "93117aa2a7b4c1eabf95bc4582a41ea7e896b3a871bdf8e3048c5dba42558add6520989f507aeb245ac7ad929b408eba2b4f7af87afd0c888645e9fa1afa4327  initramfs-x86_64"
       - url: https://github.com/tinkerbell/hook/releases/download/v0.7.0/hook_aarch64.tar.gz
         sha512sum:
           kernel: "2f1bdbf64380e281288f54c6ddd29221d8a007d29b40f405da0592ed32ef6e52695fc5071e05b2db3f075122943d62a2c266704d154a16ffb7b278c70538e7da  vmlinuz-aarch64"
@@ -32,14 +32,14 @@ stack:
     roleBindingName: kube-vip-rolebinding
     # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the
     # interface.
-    #interface: eth0
+    #interface: enp0s8
   relay:
+    name: dhcp-relay
     enabled: true
     image: ghcr.io/jacobweinstock/dhcrelay
     maxHopCount: 10
     # sourceInterface is the host/node interface to listen on for DHCP broadcast packets.
-    sourceInterface: eno1
-    sourceIP: 192.168.2.63/24
+    sourceInterface: eno1 # TODO(jacobweinstock): investigate autodetecting a default
 
 # -- Overrides
 # The values defined here override those in the individual charts. Some of them require tweaking
@@ -51,8 +51,15 @@ boots:
   image: quay.io/tinkerbell/boots:v0.8.0
   tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.8.0
   trustedProxies: []
-  # In most cases this value will be the same as `stack.loadBalancerIP`.
-  remoteIp: 192.168.2.111
+  # This will be the IP address that machines use to reach Boots for netbooting. It should be a unused IP address in your network.
+  remoteIp: 192.168.2.113
+  # Once the Kubernetes Gateway API is more stable, we will use that and be able to require only a single IP for all Tinkerbell services.
+  tinkServer:
+    # This should be the same as `stack.loadBalancerIP`.
+    ip: 192.168.2.112
+  osieBase:
+    # This should be the same as `stack.loadBalancerIP`.
+    ip: 192.168.2.112
 
 hegel:
   image: quay.io/tinkerbell/hegel:v0.10.1

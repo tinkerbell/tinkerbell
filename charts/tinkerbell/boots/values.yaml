@@ -27,6 +27,12 @@ deployment:
   strategy:
     type: RollingUpdate
 
+service:
+  enabled: true
+  type: LoadBalancer
+  class: kube-vip.io/kube-vip-class
+  loadBalancerIP: ""
+
 # The log level for the container.
 logLevel: "info"
 
