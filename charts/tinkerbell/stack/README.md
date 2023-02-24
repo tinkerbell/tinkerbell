@@ -91,6 +91,16 @@ helm uninstall stack-release --namespace tink-system
 | `kubevip.roleBindingName` | Role binding name to use for the kube-vip load service | `kube-vip-rolebinding` |
 | `kubevip.interface` | Interface to use for advertizing the load balancer IP. Leaving it unset to allow Kubevip to auto discover the interface to use. | `""` |
 
+### DHCP Relay Parameters
+
+| Name | Description | Value |
+| ---- | ----------- | ----- |
+| `stack.relay.name` | Name for the relay service | `dhcp-relay` |
+| `stack.relay.enabled` | Enable the deployment of the DHCP relay service | `true` |
+| `stack.relay.image` | Image to use for the DHCP relay service | `ghcr.io/jacobweinstock/dhcrelay` |
+| `stack.relay.maxHopCount` | Maximum number of hops to allow for DHCP relay | `10` |
+| `stack.relay.sourceInterface` | Host/Node interface to use for listening for DHCP broadcast packets | `eno1` |
+
 ### Tinkerbell Services Parameters
 
 All dependent services(Boots, Hegel, Rufio, Tink) can have their values overridden here. The following format is used to accomplish this.

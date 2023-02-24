@@ -33,12 +33,13 @@ stack:
     # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the
     # interface.
     #interface: enp0s8
-  relay:
+  relay: # relay allows us to listen and respond to layer broadcast DHCP requests
     name: dhcp-relay
     enabled: true
+    # This image (ghcr.io/jacobweinstock/dhcrelay) is used because `dhcrelay` doesn't respect signals properly when run as PID 1.
     image: ghcr.io/jacobweinstock/dhcrelay
     maxHopCount: 10
-    # sourceInterface is the host/node interface to listen on for DHCP broadcast packets.
+    # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
     sourceInterface: eno1 # TODO(jacobweinstock): investigate autodetecting a default
 
 # -- Overrides
@@ -51,7 +52,7 @@ boots:
   image: quay.io/tinkerbell/boots:v0.8.0
   tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.8.0
   trustedProxies: []
-  # This will be the IP address that machines use to reach Boots for netbooting. It should be a unused IP address in your network.
+  # This will be the IP address that machines use to reach Boots (via unicast for DHCP) for netbooting. It should be a unused IP address in your network.
   remoteIp: 192.168.2.113
   # Once the Kubernetes Gateway API is more stable, we will use that and be able to require only a single IP for all Tinkerbell services.
   tinkServer:
