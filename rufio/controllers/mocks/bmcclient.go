@@ -92,3 +92,18 @@ func (mr *MockBMCClientMockRecorder) SetPowerState(arg0, arg1 interface{}) *gomo
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPowerState", reflect.TypeOf((*MockBMCClient)(nil).SetPowerState), arg0, arg1)
 }
+
+// SetVirtualMedia mocks base method.
+func (m *MockBMCClient) SetVirtualMedia(arg0 context.Context, arg1, arg2 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetVirtualMedia", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetVirtualMedia indicates an expected call of SetVirtualMedia.
+func (mr *MockBMCClientMockRecorder) SetVirtualMedia(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVirtualMedia", reflect.TypeOf((*MockBMCClient)(nil).SetVirtualMedia), arg0, arg1, arg2)
+}

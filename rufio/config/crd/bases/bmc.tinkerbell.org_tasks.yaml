@@ -106,6 +106,19 @@ spec:
                     - cycle
                     - reset
                     type: string
+                  virtualMediaAction:
+                    description: VirtualMediaAction represents a baseboard management
+                      virtual media insert/eject.
+                    properties:
+                      kind:
+                        type: string
+                      mediaURL:
+                        description: mediaURL represents the URL of the image to be
+                          inserted into the virtual media, or empty to eject media.
+                        type: string
+                    required:
+                    - kind
+                    type: object
                 type: object
             required:
             - task

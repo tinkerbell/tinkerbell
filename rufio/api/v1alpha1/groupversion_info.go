@@ -15,8 +15,8 @@ limitations under the License.
 */
 
 // Package v1alpha1 contains API Schema definitions for the bmc v1alpha1 API group
-//+kubebuilder:object:generate=true
-//+groupName=bmc.tinkerbell.org
+// +kubebuilder:object:generate=true
+// +groupName=bmc.tinkerbell.org
 package v1alpha1
 
 import (
