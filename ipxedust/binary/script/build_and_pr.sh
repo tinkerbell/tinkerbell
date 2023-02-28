@@ -4,6 +4,8 @@ set -uxo pipefail
 
 # tracked_files defines the files that will cause the iPXE binaries to be rebuilt.
 tracked_files=(
+    "./script/build_ipxe.sh"
+    "./script/build_and_pr.sh"
     "./script/ipxe-customizations/console.h"
     "./script/ipxe-customizations/isa.h"
     "./script/ipxe-customizations/colour.h"
@@ -16,6 +18,7 @@ tracked_files=(
     "./ipxe.efi"
     "./snp.efi"
     "./undionly.kpxe"
+    "./ipxe.iso"
 )
 
 # binaries defines the files that will be built if any tracked_files changes are detected.
@@ -24,6 +27,7 @@ binaries=(
     "snp.efi"
     "ipxe.efi"
     "undionly.kpxe"
+    "ipxe.iso"
 )
 
 git_email="github-actions[bot]@users.noreply.github.com"
@@ -112,7 +116,7 @@ function create_branch() {
 # shellcheck disable=SC2086
 # commit changes to git
 function commit_changes() {
-    local files="${1:-script/sha512sum.txt snp.efi ipxe.efi undionly.kpxe}"
+    local files="${1:-script/sha512sum.txt snp.efi ipxe.efi undionly.kpxe ipxe.iso}"
     local message="${2:-Updated iPXE}"
 
     # commit changes

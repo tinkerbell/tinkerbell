@@ -10,7 +10,7 @@ help: ## show this help message
 include lint.mk
 
 .PHONY: binary
-binary: binary/ipxe.efi binary/snp.efi binary/undionly.kpxe ## build all upstream ipxe binaries
+binary: binary/ipxe.efi binary/snp.efi binary/undionly.kpxe binary/ipxe.iso ## build all upstream ipxe binaries
 
 # ipxe_sha_or_tag := v1.21.1 # could not get this tag to build ipxe.efi
 # https://github.com/ipxe/ipxe/tree/2265a65191d76ce367913a61c97752ab88ab1a59
@@ -35,9 +35,12 @@ binary/undionly.kpxe: $(ipxe_readme) ## build undionly.kpxe
 binary/snp.efi: $(ipxe_readme) ## build snp.efi
 	+${IPXE_BUILD_SCRIPT} bin-arm64-efi/snp.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@  "${IPXE_NIX_SHELL}" "CROSS_COMPILE=aarch64-unknown-linux-gnu-"
 
+binary/ipxe.iso: $(ipxe_readme) ## build ipxe.iso
+	+${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.iso "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@  "${IPXE_NIX_SHELL}"
+
 .PHONY: binary/clean
 binary/clean: ## clean ipxe binaries, upstream ipxe source code directory, and ipxe source tarball
-	rm -rf binary/ipxe.efi binary/snp.efi binary/undionly.kpxe
+	rm -rf binary/ipxe.efi binary/snp.efi binary/undionly.kpxe binary/ipxe.iso
 	rm -rf upstream-*
 	rm -rf ipxe-*
 
