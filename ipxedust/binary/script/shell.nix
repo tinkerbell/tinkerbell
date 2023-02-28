@@ -24,6 +24,7 @@ in
             gnused
             go
             perl
+            xorriso
             xz
           ]
           ++ lib.optionals stdenv.isLinux [
