@@ -3,6 +3,7 @@ BINARY := ipxe
 IPXE_BUILD_SCRIPT := binary/script/build_ipxe.sh
 IPXE_FETCH_SCRIPT := binary/script/fetch_and_extract_ipxe.sh
 IPXE_NIX_SHELL := binary/script/shell.nix
+IPXE_ISO_BUILD_PATCH := binary/script/iso.patch
 
 help: ## show this help message
 	@grep -E '^[a-zA-Z_-]+.*:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}'
@@ -23,7 +24,7 @@ ipxe_build_in_docker := $(shell if [ $(OSFLAG) = "darwin" ]; then echo true; els
 .PHONY: extract-ipxe
 extract-ipxe: $(ipxe_readme) ## Fetch and extract ipxe source
 $(ipxe_readme): binary/script/ipxe.commit
-	${IPXE_FETCH_SCRIPT} "$(ipxe_sha_or_tag)"
+	${IPXE_FETCH_SCRIPT} "$(ipxe_sha_or_tag)" ${IPXE_ISO_BUILD_PATCH}
 	touch "$@"
 
 binary/ipxe.efi: $(ipxe_readme) ## build ipxe.efi

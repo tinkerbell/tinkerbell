@@ -24,6 +24,7 @@ in
             gnused
             go
             perl
+            syslinux
             xorriso
             xz
           ]
