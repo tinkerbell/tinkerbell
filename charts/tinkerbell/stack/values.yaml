@@ -6,14 +6,14 @@ stack:
     type: LoadBalancer
   selector:
     app: tink-stack
-  loadBalancerIP: 192.168.2.111
+  loadBalancerIP: 192.168.2.112
   lbClass: kube-vip.io/kube-vip-class
   image: nginx:1.23.1
   hook:
     enabled: true
     name: hook-files
     port: 8080
-    image: alpine
+    image: ubuntu
     downloads:
       - url: https://github.com/tinkerbell/hook/releases/download/v0.7.0/hook_x86_64.tar.gz
         sha512sum:
@@ -32,7 +32,15 @@ stack:
     roleBindingName: kube-vip-rolebinding
     # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the
     # interface.
-    #interface: eth0
+    #interface: enp0s8
+  relay: # relay allows us to listen and respond to layer broadcast DHCP requests
+    name: dhcp-relay
+    enabled: true
+    # This image (ghcr.io/jacobweinstock/dhcrelay) is used because `dhcrelay` doesn't respect signals properly when run as PID 1.
+    image: ghcr.io/jacobweinstock/dhcrelay
+    maxHopCount: 10
+    # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
+    sourceInterface: eno1 # TODO(jacobweinstock): investigate autodetecting a default
 
 # -- Overrides
 # The values defined here override those in the individual charts. Some of them require tweaking
@@ -44,10 +52,15 @@ boots:
   image: quay.io/tinkerbell/boots:v0.8.0
   tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.8.0
   trustedProxies: []
-  # In most cases this value will be the same as `stack.loadBalancerIP`.
-  remoteIp: 192.168.2.111
-  # hostNetwork: true is already the default in the Boots chart, but is included here for clarity.
-  hostNetwork: true
+  # This will be the IP address that machines use to reach Boots (via unicast for DHCP) for netbooting. It should be a unused IP address in your network.
+  remoteIp: 192.168.2.113
+  # Once the Kubernetes Gateway API is more stable, we will use that and be able to require only a single IP for all Tinkerbell services.
+  tinkServer:
+    # This should be the same as `stack.loadBalancerIP`.
+    ip: 192.168.2.112
+  osieBase:
+    # This should be the same as `stack.loadBalancerIP`.
+    ip: 192.168.2.112
 
 hegel:
   image: quay.io/tinkerbell/hegel:v0.10.1

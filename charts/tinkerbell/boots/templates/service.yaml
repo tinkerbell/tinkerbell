@@ -1,4 +1,5 @@
-{{- if .Values.deploy -}}
+{{- if and .Values.deploy .Values.service.enabled -}}
+{{- $loadBalancerIP := default .Values.remoteIp .Values.service.loadBalancerIP }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -7,7 +8,12 @@ metadata:
   name: {{ .Values.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  clusterIP: None
+  type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  loadBalancerClass: {{ .Values.service.class }}
+  loadBalancerIP: {{ $loadBalancerIP }}
+  {{- end }}
+  externalTrafficPolicy: Local
   ports:
   {{- include "boots.ports" ( merge ( dict "PortKey" "port" ) .Values  ) | indent 2 }}
   selector:

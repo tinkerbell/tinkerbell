@@ -21,11 +21,11 @@ spec:
         env:
         - name: vip_arp
           value: "true"
-        - name: vip_cidr
-          value: "32"
         - name: svc_enable
           value: "true"
         - name: svc_election
+          value: "true"
+        - name: enableServicesElection
           value: "true"
         {{- with .Values.stack.kubevip.interface }}
         - name: vip_interface

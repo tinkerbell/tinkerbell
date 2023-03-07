@@ -16,4 +16,5 @@ jobs:
           version: v3.9.4
 
       - name: Helm lint
+        # run `helm dependency update tinkerbell/stack`` if this fails
         run: helm dependency build tinkerbell/stack/ && helm lint tinkerbell/{boots,hegel,stack,tink}

@@ -7,7 +7,6 @@ metadata:
   name: {{ .Values.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  clusterIP: None
   ports:
   - port: {{ .Values.service.port }}
     protocol: TCP

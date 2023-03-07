@@ -1,4 +1,4 @@
-{{- if .Values.stack.enabled -}}
+{{- if .Values.stack.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,7 +20,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- if eq .Values.stack.service.enabled false }}
+      {{- if not .Values.stack.service.enabled }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
@@ -33,9 +33,6 @@ spec:
           envsubst '$POD_NAMESERVER' < /tmp/nginx.conf.template > /etc/nginx/nginx.conf;
           nginx -g 'daemon off;'
         ports:
-        {{- if not .Values.boots.hostNetwork }}
-        {{- include "boots.ports" ( merge ( dict "PortKey" "containerPort" ) .Values.boots  ) | indent 8 }}
-        {{- end }}
         - containerPort: {{ .Values.hegel.deployment.port }}
           protocol: TCP
           name: {{ .Values.hegel.deployment.portName }}
@@ -62,7 +59,7 @@ spec:
       initContainers:
       - name: init-hook-download
         image: {{ .Values.stack.hook.image }}
-        command: ["/bin/sh", "-xc"]
+        command: ["/bin/sh", "-xec"]
         args: # TODO(jacobweinstock): add checksum verification after download
         - rm -rf /usr/share/nginx/html/checksums.txt;
           touch /usr/share/nginx/html/checksums.txt;
@@ -73,8 +70,8 @@ spec:
           cd /usr/share/nginx/html/;
           sha512sum -c checksums.txt && exit 0;
           {{- range $index, $keys := .Values.stack.hook.downloads }}
-          apk add wget;
           echo downloading HOOK...;
+          apt-get update && apt-get install -y wget;
           wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }};
           tar -zxvf /tmp/hook{{ $index }}.tar.gz -C "/usr/share/nginx/html/";
           rm -rf /tmp/hook{{ $index }}.tar.gz;
@@ -94,14 +91,11 @@ spec:
           items:
             - key: nginx.conf
               path: nginx.conf.template
----
 {{- if .Values.stack.service.enabled }}
+---
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    "helm.sh/hook": "post-install,post-delete,post-rollback,post-upgrade"
-    "helm.sh/hook-weight": "5"
   labels:
     app: {{ .Values.stack.name }}
   name: {{ .Values.stack.name }}
@@ -123,11 +117,10 @@ spec:
   - name: {{ .Values.stack.hook.name }}
     port: {{ .Values.stack.hook.port }}
     protocol: TCP
-  {{- include "boots.ports" ( merge ( dict "PortKey" "port" ) .Values.boots  ) | indent 2 }}
   selector:
     app: stack
     {{- with .Values.stack.selector }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-{{- end -}}
-{{- end -}}
+{{- end }}
+{{- end }}
