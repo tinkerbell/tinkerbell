@@ -23,6 +23,7 @@ in
             gnumake
             gnused
             go
+            mtools
             perl
             syslinux
             xorriso
