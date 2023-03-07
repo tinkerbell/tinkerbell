@@ -140,6 +140,8 @@ function push_changes() {
 
     # push changes
     echo "Pushing changes"
+    # increase the postBuffer size to allow for large commits. ipxe.iso is 2mb in size.
+    git config --global http.postBuffer 157286400
     if ! git push https://"${git_actor}":"${token}"@github.com/"${repository}".git HEAD:"${branch}"; then
         echo "Failed to push changes" 1>&2
         exit 1
