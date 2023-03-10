@@ -31,7 +31,7 @@ dependencies:
     version: "0.2.1"
     repository: "file://../boots"
   - name: rufio
-    version: "0.2.3"
+    version: "0.2.4"
     repository: "file://../rufio"
   - name: hegel
     version: "0.3.1"
