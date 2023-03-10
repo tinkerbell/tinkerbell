@@ -20,6 +20,10 @@ var Undionly []byte
 //go:embed snp.efi
 var SNP []byte
 
+// IpxeISO is the iPXE ISO image.
+//go:embed ipxe.iso
+var IpxeISO []byte
+
 // MagicString is included in each iPXE binary within the embedded script. It
 // can be overwritten to change the behavior at startup.
 var magicString = []byte(`#a8b7e61f1075c37a793f2f92cee89f7bba00c4a8d7842ce3d40b5889032d8881
@@ -32,6 +36,7 @@ var Files = map[string][]byte{
 	"undionly.kpxe": Undionly,
 	"ipxe.efi":      IpxeEFI,
 	"snp.efi":       SNP,
+	"ipxe.iso":      IpxeISO,
 }
 
 var ErrPatchTooLong = errors.New("patch string is too long")
