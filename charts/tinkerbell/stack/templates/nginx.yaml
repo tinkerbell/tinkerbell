@@ -50,8 +50,10 @@ spec:
             cpu: 10m
             memory: 64Mi
         volumeMounts:
+        {{- if .Values.stack.hook.enabled }}
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts
+        {{- end }}
         - mountPath: /tmp
           readOnly: true
           name: nginx-conf
@@ -81,10 +83,12 @@ spec:
           name: hook-artifacts
       {{- end }}
       volumes:
+      {{- if .Values.stack.hook.enabled }}
       - name: hook-artifacts
         hostPath:
           path: /opt/hook
           type: DirectoryOrCreate
+      {{- end }}
       - name: nginx-conf
         configMap:
           name: nginx-conf
