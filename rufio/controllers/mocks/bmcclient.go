@@ -8,6 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	bmc "github.com/bmc-toolbox/bmclib/v2/bmc"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -46,6 +47,20 @@ func (m *MockBMCClient) Close(arg0 context.Context) error {
 func (mr *MockBMCClientMockRecorder) Close(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockBMCClient)(nil).Close), arg0)
+}
+
+// GetMetadata mocks base method.
+func (m *MockBMCClient) GetMetadata() bmc.Metadata {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMetadata")
+	ret0, _ := ret[0].(bmc.Metadata)
+	return ret0
+}
+
+// GetMetadata indicates an expected call of GetMetadata.
+func (mr *MockBMCClientMockRecorder) GetMetadata() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockBMCClient)(nil).GetMetadata))
 }
 
 // GetPowerState mocks base method.

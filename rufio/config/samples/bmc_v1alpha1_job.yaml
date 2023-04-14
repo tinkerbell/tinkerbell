@@ -5,11 +5,11 @@ metadata:
 spec:
   machineRef:
     name: machine-sample
-    namespace: sample
+    namespace: rufio-system
   tasks:
     - powerAction: "off"
-    - oneTimeBootDeviceAction:
-        device:
-          - "pxe"
-        efiBoot: false
-    - powerAction: "on"
+    #- oneTimeBootDeviceAction:
+    #    device:
+    #      - "pxe"
+    #    efiBoot: false
+    #- powerAction: "on"

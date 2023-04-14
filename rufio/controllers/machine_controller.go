@@ -39,7 +39,6 @@ type MachineReconciler struct {
 	client           client.Client
 	recorder         record.EventRecorder
 	bmcClientFactory BMCClientFactoryFunc
-	logger           logr.Logger
 }
 
 const (
@@ -48,12 +47,11 @@ const (
 )
 
 // NewMachineReconciler returns a new MachineReconciler
-func NewMachineReconciler(client client.Client, recorder record.EventRecorder, bmcClientFactory BMCClientFactoryFunc, logger logr.Logger) *MachineReconciler {
+func NewMachineReconciler(client client.Client, recorder record.EventRecorder, bmcClientFactory BMCClientFactoryFunc) *MachineReconciler {
 	return &MachineReconciler{
 		client:           client,
 		recorder:         recorder,
 		bmcClientFactory: bmcClientFactory,
-		logger:           logger,
 	}
 }
 
@@ -69,7 +67,7 @@ type machineFieldReconciler func(context.Context, *bmcv1alpha1.Machine, BMCClien
 // Gets the Machine object and uses the SecretReference to initialize a BMC Client.
 // Updates the Power status and conditions accordingly.
 func (r *MachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.logger.WithValues("Machine", req.NamespacedName)
+	logger := ctrl.LoggerFrom(ctx).WithName("controllers/Machine").WithValues("Machine", req.NamespacedName)
 	logger.Info("Reconciling Machine")
 
 	// Fetch the Machine object
@@ -105,7 +103,7 @@ func (r *MachineReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.Machi
 	}
 
 	// Initializing BMC Client
-	bmcClient, err := r.bmcClientFactory(ctx, bm.Spec.Connection.Host, strconv.Itoa(bm.Spec.Connection.Port), username, password)
+	bmcClient, err := r.bmcClientFactory(ctx, logger, bm.Spec.Connection.Host, strconv.Itoa(bm.Spec.Connection.Port), username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
 		bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.ConditionFalse, bmcv1alpha1.WithMachineConditionMessage(err.Error()))
@@ -116,16 +114,21 @@ func (r *MachineReconciler) reconcile(ctx context.Context, bm *bmcv1alpha1.Machi
 
 		return result, err
 	}
-	// Setting condition Contactable to True.
-	bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.ConditionTrue)
 
 	// Close BMC connection after reconcilation
 	defer func() {
-		err = bmcClient.Close(ctx)
-		if err != nil {
-			logger.Error(err, "BMC close connection failed", "host", bm.Spec.Connection.Host)
+		if err := bmcClient.Close(ctx); err != nil {
+			md := bmcClient.GetMetadata()
+			logger.Error(err, "BMC close connection failed", "host", bm.Spec.Connection.Host, "providersAttempted", md.ProvidersAttempted)
+
+			return
 		}
+		md := bmcClient.GetMetadata()
+		logger.Info("BMC connection closed", "host", bm.Spec.Connection.Host, "successfulCloseConns", md.SuccessfulCloseConns, "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider)
 	}()
+
+	// Setting condition Contactable to True.
+	bm.SetCondition(bmcv1alpha1.Contactable, bmcv1alpha1.ConditionTrue)
 
 	// fieldReconcilers defines Machine spec field reconciler functions
 	fieldReconcilers := []machineFieldReconciler{

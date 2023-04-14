@@ -27,13 +27,15 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zerologr"
+	"github.com/rs/zerolog"
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
@@ -50,6 +52,26 @@ func init() {
 
 	utilruntime.Must(bmcv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
+}
+
+// defaultLogger is a zerolog logr implementation.
+func defaultLogger(level string) logr.Logger {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	zerologr.NameFieldName = "logger"
+	zerologr.NameSeparator = "/"
+
+	zl := zerolog.New(os.Stdout)
+	zl = zl.With().Caller().Timestamp().Logger()
+	var l zerolog.Level
+	switch level {
+	case "debug":
+		l = zerolog.DebugLevel
+	default:
+		l = zerolog.InfoLevel
+	}
+	zl = zl.Level(l)
+
+	return zerologr.New(&zl)
 }
 
 func main() {
@@ -72,7 +94,7 @@ func main() {
 
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New())
+	ctrl.SetLogger(defaultLogger("debug"))
 
 	ccfg := newClientConfig(kubeAPIServer, kubeconfig)
 
@@ -136,12 +158,10 @@ func newClientConfig(kubeAPIServer, kubeconfig string) clientcmd.ClientConfig {
 
 // setupReconcilers initializes the controllers with the Manager.
 func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory controllers.BMCClientFactoryFunc) {
-
 	err := (controllers.NewMachineReconciler(
 		mgr.GetClient(),
 		mgr.GetEventRecorderFor("machine-controller"),
 		bmcClientFactory,
-		ctrl.Log.WithName("controller").WithName("Machine"),
 	)).SetupWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Machine")
@@ -150,7 +170,6 @@ func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory co
 
 	err = (controllers.NewJobReconciler(
 		mgr.GetClient(),
-		ctrl.Log.WithName("controller").WithName("Job"),
 	)).SetupWithManager(ctx, mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Job")

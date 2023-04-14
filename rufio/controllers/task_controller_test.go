@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bmc-toolbox/bmclib/v2/bmc"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -28,9 +30,12 @@ func TestTaskReconciler_ReconcilePower(t *testing.T) {
 			configureClientCalls: func(expect *mocks.MockBMCClientMockRecorder) {
 				gomock.InOrder(
 					expect.SetPowerState(gomock.Any(), string(v1alpha1.PowerOn)).Return(true, nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.GetPowerState(gomock.Any()).Return("on", nil),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 				)
 			},
 			action: v1alpha1.Action{PowerAction: v1alpha1.PowerOn.Ptr()},
@@ -39,9 +44,12 @@ func TestTaskReconciler_ReconcilePower(t *testing.T) {
 			configureClientCalls: func(expect *mocks.MockBMCClientMockRecorder) {
 				gomock.InOrder(
 					expect.SetPowerState(gomock.Any(), string(v1alpha1.PowerHardOff)).Return(true, nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.GetPowerState(gomock.Any()).Return("off", nil),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 				)
 			},
 			action: v1alpha1.Action{PowerAction: v1alpha1.PowerHardOff.Ptr()},
@@ -50,9 +58,12 @@ func TestTaskReconciler_ReconcilePower(t *testing.T) {
 			configureClientCalls: func(expect *mocks.MockBMCClientMockRecorder) {
 				gomock.InOrder(
 					expect.SetPowerState(gomock.Any(), string(v1alpha1.PowerSoftOff)).Return(true, nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.GetPowerState(gomock.Any()).Return("off", nil),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 				)
 			},
 			action: v1alpha1.Action{PowerAction: v1alpha1.PowerSoftOff.Ptr()},
@@ -120,7 +131,9 @@ func TestTaskReconciler_ReconcileBootDevice(t *testing.T) {
 						SetBootDevice(gomock.Any(), string(v1alpha1.PXE), false, gomock.Any()).
 						Return(true, nil),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 				)
 			},
 			action: v1alpha1.Action{
@@ -136,7 +149,9 @@ func TestTaskReconciler_ReconcileBootDevice(t *testing.T) {
 						SetBootDevice(gomock.Any(), string(v1alpha1.BIOS), false, gomock.Any()).
 						Return(true, nil),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 				)
 			},
 			action: v1alpha1.Action{
@@ -150,7 +165,9 @@ func TestTaskReconciler_ReconcileBootDevice(t *testing.T) {
 				gomock.InOrder(
 					expect.SetBootDevice(gomock.Any(), string(v1alpha1.PXE), false, true).Return(true, nil),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 				)
 			},
 			action: v1alpha1.Action{
@@ -242,6 +259,7 @@ func TestTaskReconciler_BMCClientErrors(t *testing.T) {
 						SetPowerState(gomock.Any(), gomock.Any()).
 						Return(false, errors.New("power on error")),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 				)
 			},
 			action: v1alpha1.Action{PowerAction: v1alpha1.PowerOn.Ptr()},
@@ -253,6 +271,7 @@ func TestTaskReconciler_BMCClientErrors(t *testing.T) {
 						SetBootDevice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 						Return(false, errors.New("boot device error")),
 					expect.Close(gomock.Any()).Return(nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 				)
 			},
 			action: v1alpha1.Action{OneTimeBootDeviceAction: &v1alpha1.OneTimeBootDeviceAction{
@@ -297,22 +316,24 @@ func TestTaskReconciler_BMCClientErrors(t *testing.T) {
 
 func TestTaskReconciler_Timeout(t *testing.T) {
 	g := gomega.NewWithT(t)
-	logger := mustCreateLogr(t.Name())
 	ctx := context.Background()
-	ctx = ctrl.LoggerInto(ctx, logger)
+	ctx = ctrl.LoggerInto(ctx, logr.Discard())
 
 	secret := createSecret()
 	task := createTask("task", v1alpha1.Action{PowerAction: v1alpha1.PowerOn.Ptr()}, secret)
 	cluster := createKubeClientWithObjects(task, secret)
 
-	bmc := mocks.NewMockBMCClient(gomock.NewController(t))
+	client := mocks.NewMockBMCClient(gomock.NewController(t))
 	gomock.InOrder(
-		bmc.EXPECT().SetPowerState(gomock.Any(), string(v1alpha1.PowerOn)).Return(true, nil),
-		bmc.EXPECT().Close(gomock.Any()).Return(nil),
-		bmc.EXPECT().Close(gomock.Any()).Return(nil),
+		client.EXPECT().SetPowerState(gomock.Any(), string(v1alpha1.PowerOn)).Return(true, nil),
+		client.EXPECT().GetMetadata().Return(bmc.Metadata{}),
+		client.EXPECT().Close(gomock.Any()).Return(nil),
+		client.EXPECT().GetMetadata().Return(bmc.Metadata{}),
+		client.EXPECT().Close(gomock.Any()).Return(nil),
+		client.EXPECT().GetMetadata().Return(bmc.Metadata{}),
 	)
 
-	reconciler := controllers.NewTaskReconciler(cluster, mockBMCClientFactoryFunc(bmc))
+	reconciler := controllers.NewTaskReconciler(cluster, mockBMCClientFactoryFunc(client))
 
 	request := reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -361,13 +382,13 @@ func createTask(name string, action v1alpha1.Action, secret *corev1.Secret) *v1a
 }
 
 func mockBMCClientFactoryFunc(m *mocks.MockBMCClient) controllers.BMCClientFactoryFunc {
-	return func(_ context.Context, hostIP, port, username, password string) (controllers.BMCClient, error) {
+	return func(_ context.Context, log logr.Logger, hostIP, port, username, password string) (controllers.BMCClient, error) {
 		return m, nil
 	}
 }
 
 func erroringBMCClientFactoryFunc() controllers.BMCClientFactoryFunc {
-	return func(_ context.Context, hostIP, port, username, password string) (controllers.BMCClient, error) {
+	return func(_ context.Context, log logr.Logger, hostIP, port, username, password string) (controllers.BMCClient, error) {
 		return nil, errors.New("error")
 	}
 }

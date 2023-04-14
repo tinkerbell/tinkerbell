@@ -4,9 +4,9 @@ metadata:
   name: machine-sample
 spec:
   connection:
-    host: 0.0.0.0
+    host: 10.80.12.52
     port: 623
     authSecretRef:
-      name: bm-auth
-      namespace: sample
-    insecureTLS: false
+      name: sample-machine-auth
+      namespace: rufio-system
+    insecureTLS: true
