@@ -107,7 +107,9 @@ metadata:
 spec:
   type: {{ .Values.stack.service.type }}
   {{- if eq .Values.stack.service.type "LoadBalancer" }}
+  {{- if .Values.stack.lbClass }}
   loadBalancerClass: {{ .Values.stack.lbClass }}
+  {{- end }}
   loadBalancerIP: {{ .Values.stack.loadBalancerIP }}
   {{- end }}
   externalTrafficPolicy: Local
