@@ -130,6 +130,7 @@ func TestTaskReconciler_ReconcileBootDevice(t *testing.T) {
 					expect.
 						SetBootDevice(gomock.Any(), string(v1alpha1.PXE), false, gomock.Any()).
 						Return(true, nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
 					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
@@ -148,6 +149,7 @@ func TestTaskReconciler_ReconcileBootDevice(t *testing.T) {
 					expect.
 						SetBootDevice(gomock.Any(), string(v1alpha1.BIOS), false, gomock.Any()).
 						Return(true, nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
 					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
@@ -164,6 +166,7 @@ func TestTaskReconciler_ReconcileBootDevice(t *testing.T) {
 			configureClientCalls: func(expect *mocks.MockBMCClientMockRecorder) {
 				gomock.InOrder(
 					expect.SetBootDevice(gomock.Any(), string(v1alpha1.PXE), false, true).Return(true, nil),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
 					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
@@ -258,6 +261,7 @@ func TestTaskReconciler_BMCClientErrors(t *testing.T) {
 					expect.
 						SetPowerState(gomock.Any(), gomock.Any()).
 						Return(false, errors.New("power on error")),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
 					expect.GetMetadata().Return(bmc.Metadata{}),
 				)
@@ -270,6 +274,7 @@ func TestTaskReconciler_BMCClientErrors(t *testing.T) {
 					expect.
 						SetBootDevice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 						Return(false, errors.New("boot device error")),
+					expect.GetMetadata().Return(bmc.Metadata{}),
 					expect.Close(gomock.Any()).Return(nil),
 					expect.GetMetadata().Return(bmc.Metadata{}),
 				)
