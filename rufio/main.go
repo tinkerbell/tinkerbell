@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"os"
 	"time"
 
@@ -29,8 +30,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zerologr"
+	"github.com/peterbourgon/ff/v3"
+	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/rs/zerolog"
-	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -40,6 +42,10 @@ import (
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
 	//+kubebuilder:scaffold:imports
+)
+
+const (
+	appName = "rufio"
 )
 
 var (
@@ -82,17 +88,24 @@ func main() {
 	var kubeconfig string
 	var kubeNamespace string
 	var bmcConnectTimeout time.Duration
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+	fs := flag.NewFlagSet(appName, flag.ExitOnError)
+	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&kubeAPIServer, "kubernetes", "", "The Kubernetes API URL, used for in-cluster client construction.")
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file.")
-	flag.StringVar(&kubeNamespace, "kube-namespace", "", "Namespace that the controller watches to reconcile objects.")
-	flag.DurationVar(&bmcConnectTimeout, "bmc-connect-timeout", 60*time.Second, "Timeout for establishing a connection to BMCs.")
+	fs.StringVar(&kubeAPIServer, "kubernetes", "", "The Kubernetes API URL, used for in-cluster client construction.")
+	fs.StringVar(&kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file.")
+	fs.StringVar(&kubeNamespace, "kube-namespace", "", "Namespace that the controller watches to reconcile objects.")
+	fs.DurationVar(&bmcConnectTimeout, "bmc-connect-timeout", 60*time.Second, "Timeout for establishing a connection to BMCs.")
+	cli := &ffcli.Command{
+		Name:       appName,
+		ShortUsage: "Run Boots server for provisioning",
+		FlagSet:    fs,
+		Options:    []ff.Option{ff.WithEnvVarPrefix(appName)},
+	}
 
-	flag.Parse()
+	_ = cli.Parse(os.Args[1:])
 
 	ctrl.SetLogger(defaultLogger("debug"))
 
