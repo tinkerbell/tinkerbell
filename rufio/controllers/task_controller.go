@@ -81,12 +81,12 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// Create a patch from the initial Task object
 	// Patch is used to update Status after reconciliation
 	taskPatch := client.MergeFrom(task.DeepCopy())
+	logger = logger.WithValues("action", task.Spec.Task, "host", task.Spec.Connection.Host)
 
 	return r.reconcile(ctx, task, taskPatch, logger)
 }
 
 func (r *TaskReconciler) reconcile(ctx context.Context, task *bmcv1alpha1.Task, taskPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
-	logger = logger.WithValues("host", task.Spec.Connection.Host)
 	// Fetching username, password from SecretReference in Connection.
 	// Requeue if error fetching secret
 	username, password, err := resolveAuthSecretRef(ctx, r.client, task.Spec.Connection.AuthSecretRef)
@@ -156,7 +156,6 @@ func (r *TaskReconciler) reconcile(ctx context.Context, task *bmcv1alpha1.Task, 
 		return result, nil
 	}
 
-	logger = logger.WithValues("action", task.Spec.Task)
 	logger.Info("new task run")
 
 	// Set the Task StartTime
@@ -164,6 +163,8 @@ func (r *TaskReconciler) reconcile(ctx context.Context, task *bmcv1alpha1.Task, 
 	task.Status.StartTime = &now
 	// run the specified Task in Task
 	if err := r.runTask(ctx, logger, task.Spec.Task, bmcClient); err != nil {
+		md := bmcClient.GetMetadata()
+		logger.Info("failed to perform action", "providersAttempted", md.ProvidersAttempted, "action", task.Spec.Task)
 		// Set Task Condition Failed True
 		task.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(err.Error()))
 		patchErr := r.patchStatus(ctx, task, taskPatch)
@@ -189,23 +190,27 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 			return fmt.Errorf("failed to perform PowerAction: %v", err)
 		}
 		md := bmcClient.GetMetadata()
-		logger.Info("BMC power state set", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
+		logger.Info("power state set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
 	}
 
 	if task.OneTimeBootDeviceAction != nil {
 		// OneTimeBootDeviceAction currently sets the first boot device from Devices.
 		// setPersistent is false.
-		_, err := bmcClient.SetBootDevice(ctx, string(task.OneTimeBootDeviceAction.Devices[0]), false, task.OneTimeBootDeviceAction.EFIBoot)
+		ok, err := bmcClient.SetBootDevice(ctx, string(task.OneTimeBootDeviceAction.Devices[0]), false, task.OneTimeBootDeviceAction.EFIBoot)
 		if err != nil {
 			return fmt.Errorf("failed to perform OneTimeBootDeviceAction: %v", err)
 		}
+		md := bmcClient.GetMetadata()
+		logger.Info("one time boot device set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
 	}
 
 	if task.VirtualMediaAction != nil {
-		_, err := bmcClient.SetVirtualMedia(ctx, string(task.VirtualMediaAction.Kind), task.VirtualMediaAction.MediaURL)
+		ok, err := bmcClient.SetVirtualMedia(ctx, string(task.VirtualMediaAction.Kind), task.VirtualMediaAction.MediaURL)
 		if err != nil {
 			return fmt.Errorf("failed to perform SetVirtualMedia: %v", err)
 		}
+		md := bmcClient.GetMetadata()
+		logger.Info("virtual media set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
 	}
 
 	return nil
