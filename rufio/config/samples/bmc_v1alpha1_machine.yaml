@@ -4,7 +4,7 @@ metadata:
   name: machine-sample
 spec:
   connection:
-    host: 10.80.12.52
+    host: 0.0.0.0
     port: 623
     authSecretRef:
       name: sample-machine-auth

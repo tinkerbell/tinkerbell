@@ -4,4 +4,4 @@ metadata:
   name: task-sample
 spec:
   task:
-    powerAction: "off"
+    powerAction: "on"
