@@ -100,7 +100,6 @@ func main() {
 	fs.DurationVar(&bmcConnectTimeout, "bmc-connect-timeout", 60*time.Second, "Timeout for establishing a connection to BMCs.")
 	cli := &ffcli.Command{
 		Name:       appName,
-		ShortUsage: "Run Boots server for provisioning",
 		FlagSet:    fs,
 		Options:    []ff.Option{ff.WithEnvVarPrefix(appName)},
 	}
