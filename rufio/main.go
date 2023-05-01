@@ -99,9 +99,9 @@ func main() {
 	fs.StringVar(&kubeNamespace, "kube-namespace", "", "Namespace that the controller watches to reconcile objects.")
 	fs.DurationVar(&bmcConnectTimeout, "bmc-connect-timeout", 60*time.Second, "Timeout for establishing a connection to BMCs.")
 	cli := &ffcli.Command{
-		Name:       appName,
-		FlagSet:    fs,
-		Options:    []ff.Option{ff.WithEnvVarPrefix(appName)},
+		Name:    appName,
+		FlagSet: fs,
+		Options: []ff.Option{ff.WithEnvVarPrefix(appName)},
 	}
 
 	_ = cli.Parse(os.Args[1:])
