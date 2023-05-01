@@ -240,8 +240,7 @@ func (r *TaskReconciler) checkTaskStatus(ctx context.Context, log logr.Logger, t
 				return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
 			}
 		case bmcv1alpha1.PowerHardOff, bmcv1alpha1.PowerSoftOff:
-			if state != bmcv1alpha1.Off {
-				log.Info("requeuing task", "requeueAfter", powerActionRequeueAfter)
+			if bmcv1alpha1.Off != state {
 				return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
 			}
 		}
