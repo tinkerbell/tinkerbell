@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -58,6 +59,7 @@ func main() {
 	var kubeAPIServer string
 	var kubeconfig string
 	var kubeNamespace string
+	var bmcConnectTimeout time.Duration
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -66,6 +68,7 @@ func main() {
 	flag.StringVar(&kubeAPIServer, "kubernetes", "", "The Kubernetes API URL, used for in-cluster client construction.")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file.")
 	flag.StringVar(&kubeNamespace, "kube-namespace", "", "Namespace that the controller watches to reconcile objects.")
+	flag.DurationVar(&bmcConnectTimeout, "bmc-connect-timeout", 60*time.Second, "Timeout for establishing a connection to BMCs.")
 
 	flag.Parse()
 
@@ -98,8 +101,10 @@ func main() {
 	// Setup the context that's going to be used in controllers and for the manager.
 	ctx := ctrl.SetupSignalHandler()
 
+	bmcClientFactory := controllers.NewBMCClientFactoryFunc(bmcConnectTimeout)
+
 	// Setup controller reconcilers
-	setupReconcilers(ctx, mgr)
+	setupReconcilers(ctx, mgr, bmcClientFactory)
 
 	//+kubebuilder:scaffold:builder
 
@@ -130,11 +135,12 @@ func newClientConfig(kubeAPIServer, kubeconfig string) clientcmd.ClientConfig {
 }
 
 // setupReconcilers initializes the controllers with the Manager.
-func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
+func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory controllers.BMCClientFactoryFunc) {
+
 	err := (controllers.NewMachineReconciler(
 		mgr.GetClient(),
 		mgr.GetEventRecorderFor("machine-controller"),
-		controllers.NewBMCClientFactoryFunc(ctx),
+		bmcClientFactory,
 		ctrl.Log.WithName("controller").WithName("Machine"),
 	)).SetupWithManager(mgr)
 	if err != nil {
@@ -153,7 +159,7 @@ func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
 
 	err = (controllers.NewTaskReconciler(
 		mgr.GetClient(),
-		controllers.NewBMCClientFactoryFunc(ctx),
+		bmcClientFactory,
 	)).SetupWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Task")
