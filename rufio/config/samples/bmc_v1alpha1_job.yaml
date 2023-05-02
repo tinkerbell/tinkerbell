@@ -5,7 +5,7 @@ metadata:
 spec:
   machineRef:
     name: machine-sample
-    namespace: sample
+    namespace: rufio-system
   tasks:
     - powerAction: "off"
     - oneTimeBootDeviceAction:

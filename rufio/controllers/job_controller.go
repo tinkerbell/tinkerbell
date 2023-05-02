@@ -39,14 +39,12 @@ const jobOwnerKey = ".metadata.controller"
 // JobReconciler reconciles a Job object
 type JobReconciler struct {
 	client client.Client
-	logger logr.Logger
 }
 
 // NewJobReconciler returns a new JobReconciler
-func NewJobReconciler(client client.Client, logger logr.Logger) *JobReconciler {
+func NewJobReconciler(client client.Client) *JobReconciler {
 	return &JobReconciler{
 		client: client,
-		logger: logger,
 	}
 }
 
@@ -58,7 +56,7 @@ func NewJobReconciler(client client.Client, logger logr.Logger) *JobReconciler {
 // Creates the individual Tasks on the cluster.
 // Watches for Task and creates next Job Task based on conditions.
 func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.logger.WithValues("Job", req.NamespacedName)
+	logger := ctrl.LoggerFrom(ctx).WithName("controllers/Job").WithValues("job", req.NamespacedName)
 	logger.Info("Reconciling Job")
 
 	// Fetch the job object
