@@ -15,7 +15,6 @@ import (
 
 func TestJobReconciler_TasklessJob(t *testing.T) {
 	g := gomega.NewWithT(t)
-	logger := mustCreateLogr()
 
 	machine := createMachine()
 	secret := createSecret()
@@ -23,7 +22,7 @@ func TestJobReconciler_TasklessJob(t *testing.T) {
 
 	kubeClient := createKubeClientWithObjectsForJobController(machine, secret, job)
 
-	reconciler := controllers.NewJobReconciler(kubeClient, logger)
+	reconciler := controllers.NewJobReconciler(kubeClient)
 
 	request := reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -43,7 +42,6 @@ func TestJobReconciler_TasklessJob(t *testing.T) {
 
 func TestJobReconciler_UnknownMachine(t *testing.T) {
 	g := gomega.NewWithT(t)
-	logger := mustCreateLogr()
 
 	secret := createSecret()
 	job := &bmcv1alpha1.Job{
@@ -61,7 +59,7 @@ func TestJobReconciler_UnknownMachine(t *testing.T) {
 	builder.WithObjects(secret, job)
 	kubeClient := builder.Build()
 
-	reconciler := controllers.NewJobReconciler(kubeClient, logger)
+	reconciler := controllers.NewJobReconciler(kubeClient)
 
 	request := reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -85,7 +83,6 @@ func TestJobReconciler_Reconcile(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
-			logger := mustCreateLogr(t.Name())
 
 			machine := createMachine()
 			secret := createSecret()
@@ -101,7 +98,7 @@ func TestJobReconciler_Reconcile(t *testing.T) {
 				},
 			}
 
-			reconciler := controllers.NewJobReconciler(cluster, logger)
+			reconciler := controllers.NewJobReconciler(cluster)
 			result, err := reconciler.Reconcile(context.Background(), request)
 			g.Expect(err).To(gomega.Succeed())
 			g.Expect(result).To(gomega.Equal(reconcile.Result{}))

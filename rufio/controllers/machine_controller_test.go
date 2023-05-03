@@ -5,7 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-logr/logr/testr"
+	"github.com/bmc-toolbox/bmclib/v2/bmc"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -42,12 +43,12 @@ func TestReconcileGetPowerStateSuccess(t *testing.T) {
 
 	mockBMCClient.EXPECT().GetPowerState(ctx).Return(string(bmcv1alpha1.On), nil)
 	mockBMCClient.EXPECT().Close(ctx).Return(nil)
+	mockBMCClient.EXPECT().GetMetadata().Return(bmc.Metadata{})
 
 	reconciler := controllers.NewMachineReconciler(
 		client,
 		fakeRecorder,
 		newMockBMCClientFactoryFunc(mockBMCClient),
-		testr.New(t),
 	)
 
 	req := reconcile.Request{
@@ -114,7 +115,6 @@ func TestReconcileSecretReferenceError(t *testing.T) {
 				client,
 				fakeRecorder,
 				newMockBMCClientFactoryFunc(mockBMCClient),
-				testr.New(t),
 			)
 
 			req := reconcile.Request{
@@ -152,7 +152,6 @@ func TestReconcileConnectionError(t *testing.T) {
 		client,
 		fakeRecorder,
 		newMockBMCClientFactoryFuncError(),
-		testr.New(t),
 	)
 
 	req := reconcile.Request{
@@ -187,12 +186,12 @@ func TestReconcileGetPowerStateError(t *testing.T) {
 
 	mockBMCClient.EXPECT().GetPowerState(ctx).Return(string(bmcv1alpha1.Off), errors.New("this is not allowed"))
 	mockBMCClient.EXPECT().Close(ctx).Return(nil)
+	mockBMCClient.EXPECT().GetMetadata().Return(bmc.Metadata{})
 
 	reconciler := controllers.NewMachineReconciler(
 		client,
 		fakeRecorder,
 		newMockBMCClientFactoryFunc(mockBMCClient),
-		testr.New(t),
 	)
 
 	req := reconcile.Request{
@@ -209,14 +208,14 @@ func TestReconcileGetPowerStateError(t *testing.T) {
 
 // newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc
 func newMockBMCClientFactoryFunc(mockBMCClient *mocks.MockBMCClient) controllers.BMCClientFactoryFunc {
-	return func(ctx context.Context, hostIP, port, username, password string) (controllers.BMCClient, error) {
+	return func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (controllers.BMCClient, error) {
 		return mockBMCClient, nil
 	}
 }
 
 // newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc
 func newMockBMCClientFactoryFuncError() controllers.BMCClientFactoryFunc {
-	return func(ctx context.Context, hostIP, port, username, password string) (controllers.BMCClient, error) {
+	return func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (controllers.BMCClient, error) {
 		return nil, errors.New("connection failed")
 	}
 }
