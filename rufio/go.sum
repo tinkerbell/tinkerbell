@@ -48,10 +48,6 @@ github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
-github.com/bmc-toolbox/bmclib/v2 v2.0.0 h1:4iYc/TMErQ2a7geubO1W/pJZk/MhORLieQvk9m3AWLg=
-github.com/bmc-toolbox/bmclib/v2 v2.0.0/go.mod h1:J8VqwJ83ciXbN4IimBYS/voa6+8GjJhzKFOXK4mLJdw=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230322115300-44558f07562d h1:BtQvbMJqv6f7ZcyBmATuV/c2WcpiVos3F6KVukEBhuI=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230322115300-44558f07562d/go.mod h1:iRhgD8P0gvy95wYXA3FDCKbo/aRiKBaodBBgoUG/+Qg=
 github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230427101248-b5cdfa3ffe02 h1:VZeHC0my+M+JdSyiOQ5718/DTy3g6HfL3JxQm1bR6nw=
 github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230427101248-b5cdfa3ffe02/go.mod h1:uEhvOjJcKX0zjSL4ExkDBNnYosSA+DFtsqpUPQeWOlQ=
 github.com/bmc-toolbox/common v0.0.0-20230220061748-93ff001f4a1d h1:cQ30Wa8mhLzK1TSOG+g3FlneIsXtFgun61mmPwVPmD0=
@@ -100,8 +96,8 @@ github.com/go-logfmt/logfmt v0.5.0/go.mod h1:wCYkCAKZfumFQihp8CzCvQ3paCTfi41vtzG
 github.com/go-logfmt/logfmt v0.5.1/go.mod h1:WYhtIu8zTZfxdn5+rREduYbwxfcBr/Vr6KEVveWlfTs=
 github.com/go-logr/logr v1.2.0/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
-github.com/go-logr/logr v1.2.3 h1:2DntVwHkVopvECVRSlL5PSo9eG+cAkDCuckLubN+rq0=
-github.com/go-logr/logr v1.2.3/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
+github.com/go-logr/logr v1.2.4 h1:g01GSCwiDw2xSZfjJ2/T9M+S6pFdcNtFYsp+Y43HYDQ=
+github.com/go-logr/logr v1.2.4/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/zapr v1.2.3 h1:a9vnzlIBPQBBkeaR9IuMUfmVOrQlkoC4YfPoFkX3T7A=
 github.com/go-logr/zapr v1.2.3/go.mod h1:eIauM6P8qSvTw5o2ez6UEAfGjQKrxQTl5EoK+Qa2oG4=
 github.com/go-logr/zerologr v1.2.3 h1:up5N9vcH9Xck3jJkXzgyOxozT14R47IyDODz8LM1KSs=
