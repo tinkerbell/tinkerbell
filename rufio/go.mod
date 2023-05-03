@@ -4,14 +4,13 @@ go 1.18
 
 require (
 	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230427101248-b5cdfa3ffe02
-	github.com/go-logr/logr v1.2.3
+	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zerologr v1.2.3
 	github.com/golang/mock v1.6.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.24.1
 	github.com/peterbourgon/ff/v3 v3.3.0
 	github.com/rs/zerolog v1.29.1
-	github.com/spf13/pflag v1.0.5
 	golang.org/x/tools v0.3.0
 	k8s.io/api v0.26.1
 	k8s.io/apimachinery v0.26.1
@@ -62,6 +61,7 @@ require (
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stmcginnis/gofish v0.14.0 // indirect
 	github.com/stretchr/testify v1.8.1 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
