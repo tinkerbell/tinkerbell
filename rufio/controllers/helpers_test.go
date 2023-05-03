@@ -1,12 +1,9 @@
 package controllers_test
 
 import (
-	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	rufiov1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,19 +42,4 @@ func createKubeClientWithObjectsForJobController(objects ...client.Object) clien
 		WithObjects(objects...).
 		WithIndex(&bmcv1alpha1.Task{}, ".metadata.controller", controllers.TaskOwnerIndexFunc).
 		Build()
-}
-
-// mustCreateLogr creates a logr.Logger implementation backed by a debug style sink. It panics
-// if the logger fails to create.
-func mustCreateLogr(name ...string) logr.Logger {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		panic(err)
-	}
-
-	if len(name) == 1 {
-		logger = logger.Named(name[0])
-	}
-
-	return zapr.NewLogger(logger)
 }

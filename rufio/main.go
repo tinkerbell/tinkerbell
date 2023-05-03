@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"os"
 	"time"
 
@@ -27,17 +28,24 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	flag "github.com/spf13/pflag"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zerologr"
+	"github.com/peterbourgon/ff/v3"
+	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/rs/zerolog"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
 	//+kubebuilder:scaffold:imports
+)
+
+const (
+	appName = "rufio"
 )
 
 var (
@@ -52,6 +60,26 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+// defaultLogger is a zerolog logr implementation.
+func defaultLogger(level string) logr.Logger {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	zerologr.NameFieldName = "logger"
+	zerologr.NameSeparator = "/"
+
+	zl := zerolog.New(os.Stdout)
+	zl = zl.With().Caller().Timestamp().Logger()
+	var l zerolog.Level
+	switch level {
+	case "debug":
+		l = zerolog.DebugLevel
+	default:
+		l = zerolog.InfoLevel
+	}
+	zl = zl.Level(l)
+
+	return zerologr.New(&zl)
+}
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
@@ -60,19 +88,25 @@ func main() {
 	var kubeconfig string
 	var kubeNamespace string
 	var bmcConnectTimeout time.Duration
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+	fs := flag.NewFlagSet(appName, flag.ExitOnError)
+	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&kubeAPIServer, "kubernetes", "", "The Kubernetes API URL, used for in-cluster client construction.")
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file.")
-	flag.StringVar(&kubeNamespace, "kube-namespace", "", "Namespace that the controller watches to reconcile objects.")
-	flag.DurationVar(&bmcConnectTimeout, "bmc-connect-timeout", 60*time.Second, "Timeout for establishing a connection to BMCs.")
+	fs.StringVar(&kubeAPIServer, "kubernetes", "", "The Kubernetes API URL, used for in-cluster client construction.")
+	fs.StringVar(&kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file.")
+	fs.StringVar(&kubeNamespace, "kube-namespace", "", "Namespace that the controller watches to reconcile objects.")
+	fs.DurationVar(&bmcConnectTimeout, "bmc-connect-timeout", 60*time.Second, "Timeout for establishing a connection to BMCs.")
+	cli := &ffcli.Command{
+		Name:    appName,
+		FlagSet: fs,
+		Options: []ff.Option{ff.WithEnvVarPrefix(appName)},
+	}
 
-	flag.Parse()
+	_ = cli.Parse(os.Args[1:])
 
-	ctrl.SetLogger(zap.New())
+	ctrl.SetLogger(defaultLogger("debug"))
 
 	ccfg := newClientConfig(kubeAPIServer, kubeconfig)
 
@@ -136,12 +170,10 @@ func newClientConfig(kubeAPIServer, kubeconfig string) clientcmd.ClientConfig {
 
 // setupReconcilers initializes the controllers with the Manager.
 func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory controllers.BMCClientFactoryFunc) {
-
 	err := (controllers.NewMachineReconciler(
 		mgr.GetClient(),
 		mgr.GetEventRecorderFor("machine-controller"),
 		bmcClientFactory,
-		ctrl.Log.WithName("controller").WithName("Machine"),
 	)).SetupWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Machine")
@@ -150,7 +182,6 @@ func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory co
 
 	err = (controllers.NewJobReconciler(
 		mgr.GetClient(),
-		ctrl.Log.WithName("controller").WithName("Job"),
 	)).SetupWithManager(ctx, mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Job")
