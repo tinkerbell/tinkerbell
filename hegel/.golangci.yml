@@ -112,7 +112,7 @@ linters-settings:
       - name: waitgroup-by-value
 
   unused:
-    go: "1.19"
+    go: "1.20"
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
