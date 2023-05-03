@@ -3,19 +3,18 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "sunday"
-      time: "05:00"
+      interval: "daily"
       timezone: "America/New_York"
+    reviewers:
+      - chrisdoherty4
 
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "sunday"
-      time: "05:00"
+      interval: "daily"
       timezone: "America/New_York"
-    open-pull-requests-limit: 10
+    reviewers:
+      - chrisdoherty4
 
   - package-ecosystem: "docker"
     directory: "/"
@@ -24,3 +23,5 @@ updates:
       day: "sunday"
       time: "05:00"
       timezone: "America/New_York"
+    reviewers:
+      - chrisdoherty4
