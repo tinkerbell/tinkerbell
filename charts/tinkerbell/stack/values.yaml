@@ -15,14 +15,14 @@ stack:
     port: 8080
     image: ubuntu
     downloads:
-      - url: https://github.com/tinkerbell/hook/releases/download/v0.7.0/hook_x86_64.tar.gz
+      - url: https://github.com/tinkerbell/hook/releases/download/v0.8.0/hook_x86_64.tar.gz
         sha512sum:
-          kernel: "7c35042d35c003ae1f424e503ad6edf21854bc70b24b37006e810c3c8a92543420eed129c14e364769b0f32c27bdf4c61299fce8f8156af7477cac6a43931a20  vmlinuz-x86_64"
-          initramfs: "be7c3d57e2d73bfa4e41a2b5740c722b1c83722e4388b3cff9017192fce43ede360221e3095c800e511d7b4bce6065f2906883421409dd6d983412418a8d903e  initramfs-x86_64"
-      - url: https://github.com/tinkerbell/hook/releases/download/v0.7.0/hook_aarch64.tar.gz
+          kernel: "45a83dc747ff05fda09dc7a3b376fca3d82079fbfe99927d9f1c935f2070b5ac6469a41387fefd9e2eeb51062959846900583274a5d02e4131f37162a6167b28  vmlinuz-x86_64"
+          initramfs: "17ca45318762975464e7abd8f09316d96a658cbbf38c46a47b1ff6f712cffc23d035091883e7e94c21a3b54d8f67c4a982e1fac206449d79f86773ea8c6b7ec6  initramfs-x86_64"
+      - url: https://github.com/tinkerbell/hook/releases/download/v0.8.0/hook_aarch64.tar.gz
         sha512sum:
-          kernel: "2f1bdbf64380e281288f54c6ddd29221d8a007d29b40f405da0592ed32ef6e52695fc5071e05b2db3f075122943d62a2c266704d154a16ffb7b278c70538e7da  vmlinuz-aarch64"
-          initramfs: "5adc51798c8699f5f257599aabb999e2c2f65a07c9f8607c65510e57122b3e5c53196819e7ececdcda7b8fef47ba597ea7c4b53f2f4a92e236b20e355443eefe  initramfs-aarch64"
+          kernel: "80c14e9b2407aabe59b40d7d60e0b96cb2b8812a13d9c278ad1f042aea510d6ff0e4de3c42e39ed049fda871564744cd9f2559d72c3f010331dde62c18af2c77  vmlinuz-aarch64"
+          initramfs: "5a4eaea8c77c0e574ae3264ddec25a35e758205a75931a61a7911d2b5ac7151e2711a3633b08c05ffc89ab26f81224ea60bb420dab65fd1ccd0b77990db0361a  initramfs-aarch64"
   kubevip:
     enabled: true
     name: kube-vip
