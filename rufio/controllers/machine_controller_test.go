@@ -5,10 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/bmc-toolbox/bmclib/v2/bmc"
-	"github.com/go-logr/logr"
-	"github.com/golang/mock/gomock"
-	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,102 +15,57 @@ import (
 
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
-	"github.com/tinkerbell/rufio/controllers/mocks"
 )
 
-func TestReconcileGetPowerStateSuccess(t *testing.T) {
-	g := gomega.NewWithT(t)
-
-	ctx := context.Background()
-	ctrl := gomock.NewController(t)
-	mockBMCClient := mocks.NewMockBMCClient(ctrl)
-
-	bm := createMachine()
-	authSecret := createSecret()
-
-	objs := []runtime.Object{bm, authSecret}
-	scheme := runtime.NewScheme()
-	_ = bmcv1alpha1.AddToScheme(scheme)
-	_ = corev1.AddToScheme(scheme)
-
-	clientBuilder := fake.NewClientBuilder()
-	client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
-	fakeRecorder := record.NewFakeRecorder(2)
-
-	mockBMCClient.EXPECT().GetPowerState(ctx).Return(string(bmcv1alpha1.On), nil)
-	mockBMCClient.EXPECT().Close(ctx).Return(nil)
-	mockBMCClient.EXPECT().GetMetadata().Return(bmc.Metadata{})
-
-	reconciler := controllers.NewMachineReconciler(
-		client,
-		fakeRecorder,
-		newMockBMCClientFactoryFunc(mockBMCClient),
-	)
-
-	req := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: "test-namespace",
-			Name:      "test-bm",
-		},
-	}
-
-	_, err := reconciler.Reconcile(ctx, req)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-}
-
-func TestReconcileSecretReferenceError(t *testing.T) {
-	g := gomega.NewWithT(t)
-
-	ctx := context.Background()
-	ctrl := gomock.NewController(t)
-	mockBMCClient := mocks.NewMockBMCClient(ctrl)
-
-	bm := createMachine()
-
-	scheme := runtime.NewScheme()
-	_ = bmcv1alpha1.AddToScheme(scheme)
-	_ = corev1.AddToScheme(scheme)
-	fakeRecorder := record.NewFakeRecorder(2)
-
-	tt := map[string]struct {
-		Secret *corev1.Secret
+func TestMachineReconcile(t *testing.T) {
+	tests := map[string]struct {
+		provider  *testProvider
+		shouldErr bool
+		secret    *corev1.Secret
 	}{
-		"secret not found": {
-			Secret: &corev1.Secret{},
-		},
-		"username not found": {
-			Secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-bm-auth",
-				},
-				Data: map[string][]byte{
-					"password": []byte("test"),
-				},
+		"success power on":      {provider: &testProvider{Powerstate: "on"}, secret: createSecret()},
+		"success power off":     {provider: &testProvider{Powerstate: "off"}, secret: createSecret()},
+		"fail on open":          {provider: &testProvider{ErrOpen: errors.New("failed to open connection")}, shouldErr: true, secret: createSecret()},
+		"fail on power get":     {provider: &testProvider{ErrPowerStateGet: errors.New("failed to set power state")}, shouldErr: true, secret: createSecret()},
+		"fail bad power state":  {provider: &testProvider{Powerstate: "bad"}, shouldErr: true, secret: createSecret()},
+		"fail on close":         {provider: &testProvider{ErrClose: errors.New("failed to close connection")}, shouldErr: true, secret: createSecret()},
+		"fail secret not found": {provider: &testProvider{Powerstate: "on"}, shouldErr: true, secret: &corev1.Secret{}},
+		"fail secret username not found": {provider: &testProvider{Powerstate: "on"}, shouldErr: true, secret: &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+				Name:      "test-bm-auth",
 			},
-		},
-		"password not found": {
-			Secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-bm-auth",
-				},
-				Data: map[string][]byte{
-					"username": []byte("test"),
-				},
+			Data: map[string][]byte{
+				"password": []byte("test"),
 			},
-		},
+		}},
+		"fail secret password not found": {provider: &testProvider{Powerstate: "on"}, shouldErr: true, secret: &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+				Name:      "test-bm-auth",
+			},
+			Data: map[string][]byte{
+				"username": []byte("test"),
+			},
+		}},
 	}
 
-	for name, test := range tt {
+	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			objs := []runtime.Object{bm, test.Secret}
+			scheme := runtime.NewScheme()
+			_ = bmcv1alpha1.AddToScheme(scheme)
+			_ = corev1.AddToScheme(scheme)
+
 			clientBuilder := fake.NewClientBuilder()
+			bm := createMachine()
+			objs := []runtime.Object{bm, tt.secret}
 			client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+			fakeRecorder := record.NewFakeRecorder(2)
+
 			reconciler := controllers.NewMachineReconciler(
 				client,
 				fakeRecorder,
-				newMockBMCClientFactoryFunc(mockBMCClient),
+				newTestClient(tt.provider),
 			)
 
 			req := reconcile.Request{
@@ -124,99 +75,14 @@ func TestReconcileSecretReferenceError(t *testing.T) {
 				},
 			}
 
-			_, err := reconciler.Reconcile(ctx, req)
-			g.Expect(err).To(gomega.HaveOccurred())
+			_, err := reconciler.Reconcile(context.Background(), req)
+			if !tt.shouldErr && err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if tt.shouldErr && err == nil {
+				t.Fatal("expected error, got nil")
+			}
 		})
-
-	}
-
-}
-
-func TestReconcileConnectionError(t *testing.T) {
-	g := gomega.NewWithT(t)
-
-	ctx := context.Background()
-
-	bm := createMachine()
-	authSecret := createSecret()
-
-	objs := []runtime.Object{bm, authSecret}
-	scheme := runtime.NewScheme()
-	_ = bmcv1alpha1.AddToScheme(scheme)
-	_ = corev1.AddToScheme(scheme)
-	clientBuilder := fake.NewClientBuilder()
-	client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
-	fakeRecorder := record.NewFakeRecorder(2)
-
-	reconciler := controllers.NewMachineReconciler(
-		client,
-		fakeRecorder,
-		newMockBMCClientFactoryFuncError(),
-	)
-
-	req := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: "test-namespace",
-			Name:      "test-bm",
-		},
-	}
-
-	_, err := reconciler.Reconcile(ctx, req)
-	g.Expect(err).To(gomega.HaveOccurred())
-}
-
-func TestReconcileGetPowerStateError(t *testing.T) {
-	g := gomega.NewWithT(t)
-
-	ctx := context.Background()
-	ctrl := gomock.NewController(t)
-	mockBMCClient := mocks.NewMockBMCClient(ctrl)
-
-	bm := createMachine()
-	authSecret := createSecret()
-
-	objs := []runtime.Object{bm, authSecret}
-	scheme := runtime.NewScheme()
-	_ = bmcv1alpha1.AddToScheme(scheme)
-	_ = corev1.AddToScheme(scheme)
-
-	clientBuilder := fake.NewClientBuilder()
-	client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
-	fakeRecorder := record.NewFakeRecorder(2)
-
-	mockBMCClient.EXPECT().GetPowerState(ctx).Return(string(bmcv1alpha1.Off), errors.New("this is not allowed"))
-	mockBMCClient.EXPECT().Close(ctx).Return(nil)
-	mockBMCClient.EXPECT().GetMetadata().Return(bmc.Metadata{})
-
-	reconciler := controllers.NewMachineReconciler(
-		client,
-		fakeRecorder,
-		newMockBMCClientFactoryFunc(mockBMCClient),
-	)
-
-	req := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: "test-namespace",
-			Name:      "test-bm",
-		},
-	}
-
-	_, err := reconciler.Reconcile(ctx, req)
-	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(fakeRecorder.Events).NotTo(gomega.BeEmpty())
-}
-
-// newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc
-func newMockBMCClientFactoryFunc(mockBMCClient *mocks.MockBMCClient) controllers.BMCClientFactoryFunc {
-	return func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (controllers.BMCClient, error) {
-		return mockBMCClient, nil
-	}
-}
-
-// newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc
-func newMockBMCClientFactoryFuncError() controllers.BMCClientFactoryFunc {
-	return func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (controllers.BMCClient, error) {
-		return nil, errors.New("connection failed")
 	}
 }
 

@@ -6,10 +6,10 @@ import (
 	"time"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
-	"github.com/bmc-toolbox/bmclib/v2/bmc"
 	"github.com/go-logr/logr"
 )
 
+/*
 // BMCClient represents a baseboard management controller client. It defines a set of methods to
 // connect and interact with a BMC.
 type BMCClient interface {
@@ -33,17 +33,18 @@ type BMCClient interface {
 	// GetMetadata returns the metadata of the bmc client.
 	GetMetadata() bmc.Metadata
 }
+*/
 
-// BMCClientFactoryFunc defines a func that returns a BMCClient
-type BMCClientFactoryFunc func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (BMCClient, error)
+// ClientFunc defines a func that returns a bmclib.Client.
+type ClientFunc func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (*bmclib.Client, error)
 
-// NewBMCClientFactoryFunc returns a new BMCClientFactoryFunc. The timeout parameter determines the
+// NewClientFunc returns a new BMCClientFactoryFunc. The timeout parameter determines the
 // maximum time to probe for compatible interfaces.
-func NewBMCClientFactoryFunc(timeout time.Duration) BMCClientFactoryFunc {
+func NewClientFunc(timeout time.Duration) ClientFunc {
 	// Initializes a bmclib client based on input host and credentials
 	// Establishes a connection with the bmc with client.Open
 	// Returns a BMCClient
-	return func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (BMCClient, error) {
+	return func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (*bmclib.Client, error) {
 		client := bmclib.NewClient(hostIP, port, username, password)
 		log = log.WithValues("host", hostIP, "port", port, "username", username)
 
@@ -55,7 +56,7 @@ func NewBMCClientFactoryFunc(timeout time.Duration) BMCClientFactoryFunc {
 		if err := client.Open(ctx); err != nil {
 			md := client.GetMetadata()
 			log.Info("Failed to open connection to BMC", "error", err, "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulOpenConns)
-			return nil, fmt.Errorf("failed to open connection to BMC: %v", err)
+			return nil, fmt.Errorf("failed to open connection to BMC: %w", err)
 		}
 		md := client.GetMetadata()
 		log.Info("Connected to BMC", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulOpenConns)

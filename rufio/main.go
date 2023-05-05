@@ -135,7 +135,7 @@ func main() {
 	// Setup the context that's going to be used in controllers and for the manager.
 	ctx := ctrl.SetupSignalHandler()
 
-	bmcClientFactory := controllers.NewBMCClientFactoryFunc(bmcConnectTimeout)
+	bmcClientFactory := controllers.NewClientFunc(bmcConnectTimeout)
 
 	// Setup controller reconcilers
 	setupReconcilers(ctx, mgr, bmcClientFactory)
@@ -169,7 +169,7 @@ func newClientConfig(kubeAPIServer, kubeconfig string) clientcmd.ClientConfig {
 }
 
 // setupReconcilers initializes the controllers with the Manager.
-func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory controllers.BMCClientFactoryFunc) {
+func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory controllers.ClientFunc) {
 	err := (controllers.NewMachineReconciler(
 		mgr.GetClient(),
 		mgr.GetEventRecorderFor("machine-controller"),

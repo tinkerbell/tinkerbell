@@ -43,7 +43,7 @@ type MachineRef struct {
 	Namespace string `json:"namespace"`
 }
 
-// JobSpec defines the desired state of Job
+// JobSpec defines the desired state of Job.
 type JobSpec struct {
 	// MachineRef represents the Machine resource to execute the job.
 	// All the tasks in the job are executed for the same Machine.
@@ -58,7 +58,7 @@ type JobSpec struct {
 	Tasks []Action `json:"tasks"`
 }
 
-// JobStatus defines the observed state of Job
+// JobStatus defines the observed state of Job.
 type JobStatus struct {
 	// Conditions represents the latest available observations of an object's current state.
 	// +optional
@@ -144,9 +144,9 @@ func FormatTaskName(job Job, n int) string {
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=jobs,scope=Namespaced,categories=tinkerbell,singular=job,shortName=j
 
-// Job is the Schema for the bmcjobs API
+// Job is the Schema for the bmcjobs API.
 type Job struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta   `json:""`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   JobSpec   `json:"spec,omitempty"`
@@ -155,9 +155,9 @@ type Job struct {
 
 //+kubebuilder:object:root=true
 
-// JobList contains a list of Job
+// JobList contains a list of Job.
 type JobList struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta `json:""`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Job `json:"items"`
 }

@@ -124,7 +124,7 @@ spec:
             - task
             type: object
           status:
-            description: TaskStatus defines the observed state of Task
+            description: TaskStatus defines the observed state of Task.
             properties:
               completionTime:
                 description: CompletionTime represents time when the task was completed.

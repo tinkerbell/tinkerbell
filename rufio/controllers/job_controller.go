@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,18 +32,18 @@ import (
 	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
 )
 
-// Index key for Job Owner Name
+// Index key for Job Owner Name.
 const jobOwnerKey = ".metadata.controller"
 
-// JobReconciler reconciles a Job object
+// JobReconciler reconciles a Job object.
 type JobReconciler struct {
 	client client.Client
 }
 
-// NewJobReconciler returns a new JobReconciler
-func NewJobReconciler(client client.Client) *JobReconciler {
+// NewJobReconciler returns a new JobReconciler.
+func NewJobReconciler(c client.Client) *JobReconciler {
 	return &JobReconciler{
-		client: client,
+		client: c,
 	}
 }
 
@@ -86,10 +85,10 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// Patch is used to update Status after reconciliation
 	jobPatch := client.MergeFrom(job.DeepCopy())
 
-	return r.reconcile(ctx, job, jobPatch, logger)
+	return r.doReconcile(ctx, job, jobPatch)
 }
 
-func (r *JobReconciler) reconcile(ctx context.Context, job *bmcv1alpha1.Job, jobPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
+func (r *JobReconciler) doReconcile(ctx context.Context, job *bmcv1alpha1.Job, jobPatch client.Patch) (ctrl.Result, error) {
 	// Check if Job is not currently Running
 	// Initialize the StartTime for the Job
 	// Set the Job to Running condition True
@@ -104,14 +103,14 @@ func (r *JobReconciler) reconcile(ctx context.Context, job *bmcv1alpha1.Job, job
 	machine := &bmcv1alpha1.Machine{}
 	err := r.getMachine(ctx, job.Spec.MachineRef, machine)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("get Job %s/%s MachineRef: %v", job.Namespace, job.Name, err)
+		return ctrl.Result{}, fmt.Errorf("get Job %s/%s MachineRef: %w", job.Namespace, job.Name, err)
 	}
 
 	// List all Task owned by Job
 	tasks := &bmcv1alpha1.TaskList{}
 	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: job.Name})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s: %v", job.Namespace, job.Name, err)
+		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s: %w", job.Namespace, job.Name, err)
 	}
 
 	completedTasksCount := 0
@@ -121,7 +120,7 @@ func (r *JobReconciler) reconcile(ctx context.Context, job *bmcv1alpha1.Job, job
 	// If the Task has neither Completed or Failed is noop.
 	for _, task := range tasks.Items {
 		if task.HasCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue) {
-			completedTasksCount += 1
+			completedTasksCount++
 			continue
 		}
 
@@ -167,21 +166,21 @@ func (r *JobReconciler) reconcile(ctx context.Context, job *bmcv1alpha1.Job, job
 	return ctrl.Result{}, err
 }
 
-// getMachine Gets the Machine from MachineRef
+// getMachine Gets the Machine from MachineRef.
 func (r *JobReconciler) getMachine(ctx context.Context, reference bmcv1alpha1.MachineRef, machine *bmcv1alpha1.Machine) error {
 	key := types.NamespacedName{Namespace: reference.Namespace, Name: reference.Name}
 	err := r.client.Get(ctx, key, machine)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return fmt.Errorf("machine %s not found: %v", key, err)
+			return fmt.Errorf("machine %s not found: %w", key, err)
 		}
-		return fmt.Errorf("failed to get Machine %s: %v", key, err)
+		return fmt.Errorf("failed to get Machine %s: %w", key, err)
 	}
 
 	return nil
 }
 
-// createTaskWithOwner creates a Task object with an OwnerReference set to the Job
+// createTaskWithOwner creates a Task object with an OwnerReference set to the Job.
 func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmcv1alpha1.Job, taskIndex int, conn bmcv1alpha1.Connection) error {
 	isController := true
 	task := &bmcv1alpha1.Task{
@@ -206,7 +205,7 @@ func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmcv1alpha1
 
 	err := r.client.Create(ctx, task)
 	if err != nil {
-		return fmt.Errorf("failed to create Task %s/%s: %v", task.Namespace, task.Name, err)
+		return fmt.Errorf("failed to create Task %s/%s: %w", task.Namespace, task.Name, err)
 	}
 
 	return nil
@@ -216,7 +215,7 @@ func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmcv1alpha1
 func (r *JobReconciler) patchStatus(ctx context.Context, job *bmcv1alpha1.Job, patch client.Patch) error {
 	err := r.client.Status().Patch(ctx, job, patch)
 	if err != nil {
-		return fmt.Errorf("failed to patch Job %s/%s status: %v", job.Namespace, job.Name, err)
+		return fmt.Errorf("failed to patch Job %s/%s status: %w", job.Namespace, job.Name, err)
 	}
 
 	return nil
