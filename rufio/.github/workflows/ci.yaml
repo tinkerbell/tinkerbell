@@ -27,10 +27,8 @@ jobs:
       - name: make vet
         run: make vet
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          args: -v
+      - name: lint
+        run: make lint
 
   test:
     runs-on: ubuntu-latest
