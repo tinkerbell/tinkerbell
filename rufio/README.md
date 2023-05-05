@@ -1,6 +1,7 @@
 # Rufio
 
 ![For each commit and PR](https://github.com/tinkerbell/rufio/workflows/For%20each%20commit%20and%20PR/badge.svg)
+[![codecov](https://codecov.io/gh/tinkerbell/rufio/branch/main/graph/badge.svg)](https://codecov.io/gh/tinkerbell/rufio)
 
 ## Description
 
