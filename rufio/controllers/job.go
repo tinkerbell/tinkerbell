@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
+	"github.com/tinkerbell/rufio/api/v1alpha1"
 )
 
 // Index key for Job Owner Name.
@@ -59,7 +59,7 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	logger.Info("Reconciling Job")
 
 	// Fetch the job object
-	job := &bmcv1alpha1.Job{}
+	job := &v1alpha1.Job{}
 	err := r.client.Get(ctx, req.NamespacedName, job)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -76,8 +76,8 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Job is Completed or Failed is noop.
-	if job.HasCondition(bmcv1alpha1.JobCompleted, bmcv1alpha1.ConditionTrue) ||
-		job.HasCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue) {
+	if job.HasCondition(v1alpha1.JobCompleted, v1alpha1.ConditionTrue) ||
+		job.HasCondition(v1alpha1.JobFailed, v1alpha1.ConditionTrue) {
 		return ctrl.Result{}, nil
 	}
 
@@ -88,26 +88,26 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	return r.doReconcile(ctx, job, jobPatch)
 }
 
-func (r *JobReconciler) doReconcile(ctx context.Context, job *bmcv1alpha1.Job, jobPatch client.Patch) (ctrl.Result, error) {
+func (r *JobReconciler) doReconcile(ctx context.Context, job *v1alpha1.Job, jobPatch client.Patch) (ctrl.Result, error) {
 	// Check if Job is not currently Running
 	// Initialize the StartTime for the Job
 	// Set the Job to Running condition True
-	if !job.HasCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue) {
+	if !job.HasCondition(v1alpha1.JobRunning, v1alpha1.ConditionTrue) {
 		now := metav1.Now()
 		job.Status.StartTime = &now
-		job.SetCondition(bmcv1alpha1.JobRunning, bmcv1alpha1.ConditionTrue)
+		job.SetCondition(v1alpha1.JobRunning, v1alpha1.ConditionTrue)
 	}
 
 	// Get Machine object for the Job
 	// Requeue if error
-	machine := &bmcv1alpha1.Machine{}
+	machine := &v1alpha1.Machine{}
 	err := r.getMachine(ctx, job.Spec.MachineRef, machine)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("get Job %s/%s MachineRef: %w", job.Namespace, job.Name, err)
 	}
 
 	// List all Task owned by Job
-	tasks := &bmcv1alpha1.TaskList{}
+	tasks := &v1alpha1.TaskList{}
 	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: job.Name})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s: %w", job.Namespace, job.Name, err)
@@ -119,14 +119,14 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmcv1alpha1.Job, j
 	// Set the Job condition Failed True if Task has failed.
 	// If the Task has neither Completed or Failed is noop.
 	for _, task := range tasks.Items {
-		if task.HasCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue) {
+		if task.HasCondition(v1alpha1.TaskCompleted, v1alpha1.ConditionTrue) {
 			completedTasksCount++
 			continue
 		}
 
-		if task.HasCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue) {
+		if task.HasCondition(v1alpha1.TaskFailed, v1alpha1.ConditionTrue) {
 			err := fmt.Errorf("task %s/%s failed", task.Namespace, task.Name)
-			job.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(err.Error()))
+			job.SetCondition(v1alpha1.JobFailed, v1alpha1.ConditionTrue, v1alpha1.WithJobConditionMessage(err.Error()))
 			patchErr := r.patchStatus(ctx, job, jobPatch)
 			if patchErr != nil {
 				return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
@@ -142,7 +142,7 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmcv1alpha1.Job, j
 	// Set the Task CompletionTime
 	// Set Task Condition Completed True
 	if completedTasksCount == len(job.Spec.Tasks) {
-		job.SetCondition(bmcv1alpha1.JobCompleted, bmcv1alpha1.ConditionTrue)
+		job.SetCondition(v1alpha1.JobCompleted, v1alpha1.ConditionTrue)
 		now := metav1.Now()
 		job.Status.CompletionTime = &now
 		err = r.patchStatus(ctx, job, jobPatch)
@@ -152,7 +152,7 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmcv1alpha1.Job, j
 	// Create the first Task for the Job
 	if err := r.createTaskWithOwner(ctx, *job, completedTasksCount, machine.Spec.Connection); err != nil {
 		// Set the Job condition Failed True
-		job.SetCondition(bmcv1alpha1.JobFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithJobConditionMessage(err.Error()))
+		job.SetCondition(v1alpha1.JobFailed, v1alpha1.ConditionTrue, v1alpha1.WithJobConditionMessage(err.Error()))
 		patchErr := r.patchStatus(ctx, job, jobPatch)
 		if patchErr != nil {
 			return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
@@ -167,7 +167,7 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmcv1alpha1.Job, j
 }
 
 // getMachine Gets the Machine from MachineRef.
-func (r *JobReconciler) getMachine(ctx context.Context, reference bmcv1alpha1.MachineRef, machine *bmcv1alpha1.Machine) error {
+func (r *JobReconciler) getMachine(ctx context.Context, reference v1alpha1.MachineRef, machine *v1alpha1.Machine) error {
 	key := types.NamespacedName{Namespace: reference.Namespace, Name: reference.Name}
 	err := r.client.Get(ctx, key, machine)
 	if err != nil {
@@ -181,11 +181,11 @@ func (r *JobReconciler) getMachine(ctx context.Context, reference bmcv1alpha1.Ma
 }
 
 // createTaskWithOwner creates a Task object with an OwnerReference set to the Job.
-func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmcv1alpha1.Job, taskIndex int, conn bmcv1alpha1.Connection) error {
+func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job v1alpha1.Job, taskIndex int, conn v1alpha1.Connection) error {
 	isController := true
-	task := &bmcv1alpha1.Task{
+	task := &v1alpha1.Task{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      bmcv1alpha1.FormatTaskName(job, taskIndex),
+			Name:      v1alpha1.FormatTaskName(job, taskIndex),
 			Namespace: job.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -197,7 +197,7 @@ func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmcv1alpha1
 				},
 			},
 		},
-		Spec: bmcv1alpha1.TaskSpec{
+		Spec: v1alpha1.TaskSpec{
 			Task:       job.Spec.Tasks[taskIndex],
 			Connection: conn,
 		},
@@ -212,7 +212,7 @@ func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmcv1alpha1
 }
 
 // patchStatus patches the specified patch on the Job.
-func (r *JobReconciler) patchStatus(ctx context.Context, job *bmcv1alpha1.Job, patch client.Patch) error {
+func (r *JobReconciler) patchStatus(ctx context.Context, job *v1alpha1.Job, patch client.Patch) error {
 	err := r.client.Status().Patch(ctx, job, patch)
 	if err != nil {
 		return fmt.Errorf("failed to patch Job %s/%s status: %w", job.Namespace, job.Name, err)
@@ -225,7 +225,7 @@ func (r *JobReconciler) patchStatus(ctx context.Context, job *bmcv1alpha1.Job, p
 func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&bmcv1alpha1.Task{},
+		&v1alpha1.Task{},
 		jobOwnerKey,
 		TaskOwnerIndexFunc,
 	); err != nil {
@@ -233,11 +233,11 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&bmcv1alpha1.Job{}).
+		For(&v1alpha1.Job{}).
 		Watches(
-			&source.Kind{Type: &bmcv1alpha1.Task{}},
+			&source.Kind{Type: &v1alpha1.Task{}},
 			&handler.EnqueueRequestForOwner{
-				OwnerType:    &bmcv1alpha1.Job{},
+				OwnerType:    &v1alpha1.Job{},
 				IsController: true,
 			}).
 		Complete(r)
@@ -245,7 +245,7 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 
 // TaskOwnerIndexFunc is Indexer func which returns the owner name for obj.
 func TaskOwnerIndexFunc(obj client.Object) []string {
-	task, ok := obj.(*bmcv1alpha1.Task)
+	task, ok := obj.(*v1alpha1.Task)
 	if !ok {
 		return nil
 	}
@@ -256,7 +256,7 @@ func TaskOwnerIndexFunc(obj client.Object) []string {
 	}
 
 	// Check if owner is Job
-	if owner.Kind != "Job" || owner.APIVersion != bmcv1alpha1.GroupVersion.String() {
+	if owner.Kind != "Job" || owner.APIVersion != v1alpha1.GroupVersion.String() {
 		return nil
 	}
 

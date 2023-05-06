@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
+	"github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
 )
 
@@ -53,7 +53,7 @@ func TestMachineReconcile(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			scheme := runtime.NewScheme()
-			_ = bmcv1alpha1.AddToScheme(scheme)
+			_ = v1alpha1.AddToScheme(scheme)
 			_ = corev1.AddToScheme(scheme)
 
 			clientBuilder := fake.NewClientBuilder()
@@ -86,14 +86,14 @@ func TestMachineReconcile(t *testing.T) {
 	}
 }
 
-func createMachine() *bmcv1alpha1.Machine {
-	return &bmcv1alpha1.Machine{
+func createMachine() *v1alpha1.Machine {
+	return &v1alpha1.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-bm",
 			Namespace: "test-namespace",
 		},
-		Spec: bmcv1alpha1.MachineSpec{
-			Connection: bmcv1alpha1.Connection{
+		Spec: v1alpha1.MachineSpec{
+			Connection: v1alpha1.Connection{
 				Host: "0.0.0.0",
 				Port: 623,
 				AuthSecretRef: corev1.SecretReference{

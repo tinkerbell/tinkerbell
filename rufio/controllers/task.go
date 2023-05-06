@@ -27,7 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
+	"github.com/tinkerbell/rufio/api/v1alpha1"
 )
 
 const powerActionRequeueAfter = 3 * time.Second
@@ -58,7 +58,7 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	logger.Info("Reconciling Task")
 
 	// Fetch the Task object
-	task := &bmcv1alpha1.Task{}
+	task := &v1alpha1.Task{}
 	if err := r.client.Get(ctx, req.NamespacedName, task); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -74,8 +74,8 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	// Task is Completed or Failed is noop.
-	if task.HasCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue) ||
-		task.HasCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue) {
+	if task.HasCondition(v1alpha1.TaskFailed, v1alpha1.ConditionTrue) ||
+		task.HasCondition(v1alpha1.TaskCompleted, v1alpha1.ConditionTrue) {
 		return ctrl.Result{}, nil
 	}
 
@@ -87,7 +87,7 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	return r.doReconcile(ctx, task, taskPatch, logger)
 }
 
-func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmcv1alpha1.Task, taskPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
+func (r *TaskReconciler) doReconcile(ctx context.Context, task *v1alpha1.Task, taskPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	// Fetching username, password from SecretReference in Connection.
 	// Requeue if error fetching secret
 	username, password, err := resolveAuthSecretRef(ctx, r.client, task.Spec.Connection.AuthSecretRef)
@@ -99,7 +99,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmcv1alpha1.Task
 	bmcClient, err := r.bmcClientFactory(ctx, logger, task.Spec.Connection.Host, strconv.Itoa(task.Spec.Connection.Port), username, password)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", task.Spec.Connection.Host)
-		task.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
+		task.SetCondition(v1alpha1.TaskFailed, v1alpha1.ConditionTrue, v1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
 		patchErr := r.patchStatus(ctx, task, taskPatch)
 		if patchErr != nil {
 			return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
@@ -127,7 +127,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmcv1alpha1.Task
 		if jobRunningTime >= 10*time.Minute {
 			timeOutErr := fmt.Errorf("bmc task timeout: %d", jobRunningTime)
 			// Set Task Condition Failed True
-			task.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(timeOutErr.Error()))
+			task.SetCondition(v1alpha1.TaskFailed, v1alpha1.ConditionTrue, v1alpha1.WithTaskConditionMessage(timeOutErr.Error()))
 			patchErr := r.patchStatus(ctx, task, taskPatch)
 			if patchErr != nil {
 				return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, timeOutErr})
@@ -149,7 +149,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmcv1alpha1.Task
 		now := metav1.Now()
 		task.Status.CompletionTime = &now
 		// Set Task Condition Completed True
-		task.SetCondition(bmcv1alpha1.TaskCompleted, bmcv1alpha1.ConditionTrue)
+		task.SetCondition(v1alpha1.TaskCompleted, v1alpha1.ConditionTrue)
 		if err := r.patchStatus(ctx, task, taskPatch); err != nil {
 			return result, err
 		}
@@ -167,7 +167,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmcv1alpha1.Task
 		md := bmcClient.GetMetadata()
 		logger.Info("failed to perform action", "providersAttempted", md.ProvidersAttempted, "action", task.Spec.Task)
 		// Set Task Condition Failed True
-		task.SetCondition(bmcv1alpha1.TaskFailed, bmcv1alpha1.ConditionTrue, bmcv1alpha1.WithTaskConditionMessage(err.Error()))
+		task.SetCondition(v1alpha1.TaskFailed, v1alpha1.ConditionTrue, v1alpha1.WithTaskConditionMessage(err.Error()))
 		patchErr := r.patchStatus(ctx, task, taskPatch)
 		if patchErr != nil {
 			return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
@@ -184,7 +184,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmcv1alpha1.Task
 }
 
 // runTask executes the defined Task in a Task.
-func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task bmcv1alpha1.Action, bmcClient *bmclib.Client) error {
+func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task v1alpha1.Action, bmcClient *bmclib.Client) error {
 	if task.PowerAction != nil {
 		ok, err := bmcClient.SetPowerState(ctx, string(*task.PowerAction))
 		if err != nil {
@@ -219,7 +219,7 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 
 // checkTaskStatus checks if Task action completed.
 // This is currently limited only to a few PowerAction types.
-func (r *TaskReconciler) checkTaskStatus(ctx context.Context, log logr.Logger, task bmcv1alpha1.Action, bmcClient *bmclib.Client) (ctrl.Result, error) {
+func (r *TaskReconciler) checkTaskStatus(ctx context.Context, log logr.Logger, task v1alpha1.Action, bmcClient *bmclib.Client) (ctrl.Result, error) {
 	// TODO(pokearu): Extend to all actions.
 	if task.PowerAction != nil {
 		rawState, err := bmcClient.GetPowerState(ctx)
@@ -235,13 +235,13 @@ func (r *TaskReconciler) checkTaskStatus(ctx context.Context, log logr.Logger, t
 		}
 
 		switch *task.PowerAction { //nolint:exhaustive // we only support a few power actions right now.
-		case bmcv1alpha1.PowerOn:
-			if state != bmcv1alpha1.On {
+		case v1alpha1.PowerOn:
+			if state != v1alpha1.On {
 				log.Info("requeuing task", "requeueAfter", powerActionRequeueAfter)
 				return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
 			}
-		case bmcv1alpha1.PowerHardOff, bmcv1alpha1.PowerSoftOff:
-			if bmcv1alpha1.Off != state {
+		case v1alpha1.PowerHardOff, v1alpha1.PowerSoftOff:
+			if v1alpha1.Off != state {
 				return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
 			}
 		}
@@ -252,7 +252,7 @@ func (r *TaskReconciler) checkTaskStatus(ctx context.Context, log logr.Logger, t
 }
 
 // patchStatus patches the specified patch on the Task.
-func (r *TaskReconciler) patchStatus(ctx context.Context, task *bmcv1alpha1.Task, patch client.Patch) error {
+func (r *TaskReconciler) patchStatus(ctx context.Context, task *v1alpha1.Task, patch client.Patch) error {
 	err := r.client.Status().Patch(ctx, task, patch)
 	if err != nil {
 		return fmt.Errorf("failed to patch Task %s/%s status: %w", task.Namespace, task.Name, err)
@@ -264,6 +264,6 @@ func (r *TaskReconciler) patchStatus(ctx context.Context, task *bmcv1alpha1.Task
 // SetupWithManager sets up the controller with the Manager.
 func (r *TaskReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&bmcv1alpha1.Task{}).
+		For(&v1alpha1.Task{}).
 		Complete(r)
 }
