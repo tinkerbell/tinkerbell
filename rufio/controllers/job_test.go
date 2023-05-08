@@ -21,9 +21,20 @@ func TestJobReconcile(t *testing.T) {
 		shouldErr bool
 		testAll   bool
 	}{
-		"success taskless job":    {machine: createMachine(), secret: createSecret(), job: createJob("test", createMachine())},
-		"failure unknown machine": {machine: &v1alpha1.Machine{}, secret: createSecret(), job: createJob("test", createMachine()), shouldErr: true},
-		"success power on job":    {machine: createMachine(), secret: createSecret(), job: createJob("test", createMachine(), getAction("PowerOn")), testAll: true},
+		"success taskless job": {
+			machine: createMachine(),
+			secret:  createSecret(),
+			job:     createJob("test", createMachine()),
+		},
+		"failure unknown machine": {
+			machine: &v1alpha1.Machine{},
+			secret:  createSecret(),
+			job:     createJob("test", createMachine()), shouldErr: true},
+		"success power on job": {
+			machine: createMachine(),
+			secret:  createSecret(),
+			job:     createJob("test", createMachine(), getAction("PowerOn")),
+			testAll: true},
 	}
 
 	for name, tt := range tests {
