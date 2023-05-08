@@ -27,11 +27,14 @@ spec:
       containers:
       - name: {{ .Values.stack.name }}
         image: {{ .Values.stack.image }}
-        command: ["/bin/bash", "-c"]
+        command: ["/bin/bash", "-xeuc"]
         args:
-        - export POD_NAMESERVER=$(awk 'NR==2 {print $2}' /etc/resolv.conf);
-          envsubst '$POD_NAMESERVER' < /tmp/nginx.conf.template > /etc/nginx/nginx.conf;
-          nginx -g 'daemon off;'
+        - |
+          POD_NAMESERVER=$(awk 'NR==2 {print $2}' /etc/resolv.conf) \
+            envsubst '$POD_NAMESERVER' \
+            </tmp/nginx.conf.template \
+            >/etc/nginx/nginx.conf
+          exec nginx -g 'daemon off;'
         ports:
         - containerPort: {{ .Values.hegel.deployment.port }}
           protocol: TCP
