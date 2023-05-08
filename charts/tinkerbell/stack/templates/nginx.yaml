@@ -64,23 +64,24 @@ spec:
       initContainers:
       - name: init-hook-download
         image: {{ .Values.stack.hook.image }}
-        command: ["/bin/sh", "-xec"]
-        args: # TODO(jacobweinstock): add checksum verification after download
-        - rm -rf /usr/share/nginx/html/checksums.txt;
-          touch /usr/share/nginx/html/checksums.txt;
+        command: ["/bin/bash", "-xeuc"]
+        args:
+        - |
+          apt-get update
+          apt-get install -y wget
+          cd /usr/share/nginx/html
           {{- range $index, $keys := .Values.stack.hook.downloads }}
-          echo "{{ $keys.sha512sum.kernel }}" >> /usr/share/nginx/html/checksums.txt;
-          echo "{{ $keys.sha512sum.initramfs }}" >> /usr/share/nginx/html/checksums.txt;
+          wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }}
+          tar -zxvf /tmp/hook{{ $index }}.tar.gz
+          rm /tmp/hook{{ $index }}.tar.gz
           {{- end }}
-          cd /usr/share/nginx/html/;
-          sha512sum -c checksums.txt && exit 0;
+          cat >checksums.txt <<'EOF'
           {{- range $index, $keys := .Values.stack.hook.downloads }}
-          echo downloading HOOK...;
-          apt-get update && apt-get install -y wget;
-          wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }};
-          tar -zxvf /tmp/hook{{ $index }}.tar.gz -C "/usr/share/nginx/html/";
-          rm -rf /tmp/hook{{ $index }}.tar.gz;
+          {{ $keys.sha512sum.kernel }}
+          {{ $keys.sha512sum.initramfs }}
           {{- end }}
+          EOF
+          sha512sum --check checksums.txt
         volumeMounts:
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts
