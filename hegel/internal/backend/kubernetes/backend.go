@@ -7,13 +7,22 @@ import (
 
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
 	tinkv1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
-	tinkcontrollers "github.com/tinkerbell/tink/pkg/controllers"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
 )
 
 var errNotFound = errors.New("no hardware found")
+
+// Build the scheme as a package variable so we don't need to perform error checks.
+var scheme = kubescheme.Scheme
+
+func init() {
+	utilruntime.Must(tinkv1.AddToScheme(scheme))
+}
 
 // Backend is a hardware Backend backed by a Backend cluster that contains hardware resources.
 type Backend struct {
@@ -28,12 +37,7 @@ type Backend struct {
 // NewBackend creates a new Backend instance. It launches a goroutine to perform synchronization
 // between the cluster and internal caches. Consumers can wait for the initial sync using WaitForCachesync().
 // See k8s.io/Backend-go/tools/Backendcmd for constructing *rest.Config objects.
-func NewBackend(cfg BackendConfig) (*Backend, error) {
-	// Default the context.
-	if cfg.Context == nil {
-		cfg.Context = context.Background()
-	}
-
+func NewBackend(ctx context.Context, cfg BackendConfig) (*Backend, error) {
 	// If no client was specified, build one and configure the backend with it including waiting
 	// for the caches to sync.
 	if cfg.ClientConfig == nil {
@@ -44,29 +48,38 @@ func NewBackend(cfg BackendConfig) (*Backend, error) {
 		}
 	}
 
-	opts := tinkcontrollers.GetServerOptions()
-	opts.Namespace = cfg.Namespace
+	conf := func(opts *cluster.Options) {
+		opts.Scheme = scheme
+		opts.Namespace = cfg.Namespace
+	}
 
-	// Use a manager from the tink project so we can take advantage of the indexes and caching it
-	// configures. Once started, we don't really need any of the manager capabilities hence we don't
-	// store it in the Backend.
-	manager, err := tinkcontrollers.NewManager(cfg.ClientConfig, opts)
+	clstr, err := cluster.New(cfg.ClientConfig, conf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create cluster: %v", err)
+	}
+
+	err = clstr.GetFieldIndexer().IndexField(
+		ctx,
+		&tinkv1.Hardware{},
+		hardwareIPAddrIndex,
+		hardwareIPIndexFunc,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("register index: %v", err)
 	}
 
 	// TODO(chrisdoherty4) Stop panicing on error. This will likely require exposing Start in
 	// some capacity and allowing the caller to handle the error.
 	go func() {
-		if err := manager.Start(cfg.Context); err != nil {
+		if err := clstr.Start(ctx); err != nil {
 			panic(err)
 		}
 	}()
 
 	return &Backend{
-		closer:           cfg.Context.Done(),
-		client:           manager.GetClient(),
-		WaitForCacheSync: manager.GetCache().WaitForCacheSync,
+		closer:           ctx.Done(),
+		client:           clstr.GetClient(),
+		WaitForCacheSync: clstr.GetCache().WaitForCacheSync,
 	}, nil
 }
 
@@ -128,7 +141,7 @@ func (b *Backend) GetEC2Instance(ctx context.Context, ip string) (ec2.Instance, 
 func (b *Backend) retrieveByIP(ctx context.Context, ip string) (tinkv1.Hardware, error) {
 	var hw tinkv1.HardwareList
 	err := b.client.List(ctx, &hw, crclient.MatchingFields{
-		tinkcontrollers.HardwareIPAddrIndex: ip,
+		hardwareIPAddrIndex: ip,
 	})
 	if err != nil {
 		return tinkv1.Hardware{}, err
