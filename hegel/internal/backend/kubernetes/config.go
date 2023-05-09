@@ -1,18 +1,11 @@
 package kubernetes
 
 import (
-	"context"
-
 	"k8s.io/client-go/rest"
 )
 
 // BackendConfig used by the NewBackend function family.
 type BackendConfig struct {
-	// Context is the context used by the Kubernetes client. Defaults to context.Background().
-	// When specified it controls the lifetime of the Kubernetes client by shutting the client
-	// down when it cancelled.
-	Context context.Context
-
 	// Kubeconfig is a path to a valid kubeconfig file. When in-cluster defaults to the in-cluster
 	// config. Optional.
 	Kubeconfig string
