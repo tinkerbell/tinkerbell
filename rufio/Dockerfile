@@ -22,10 +22,10 @@ ARG TARGETOS
 # Build
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -o manager main.go
 
-FROM alpine:3.16
+FROM alpine:3.17
 
 # Install ipmitool required by the third party BMC lib.
-RUN apk add --upgrade ipmitool=1.8.18-r10
+RUN apk add --upgrade ipmitool=1.8.19-r0
 
 COPY --from=builder /workspace/manager .
 
