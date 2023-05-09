@@ -7,17 +7,7 @@ collaborators:
   - username: chrisdoherty4
     permission: maintain
   # Approvers
-  - username: mmlb
-    permission: push
   # Reviewers
-  - username: nshalman
-    permission: triage
-  - username: Raj-Dharwadkar
-    permission: triage
-  - username: rgl
-    permission: triage
-  - username: stephen-fox
-    permission: triage
 
   # Note: `permission` is only valid on organization-owned repositories.
   # The permission to grant the collaborator. Can be one of:
