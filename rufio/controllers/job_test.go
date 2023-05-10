@@ -29,12 +29,14 @@ func TestJobReconcile(t *testing.T) {
 		"failure unknown machine": {
 			machine: &v1alpha1.Machine{},
 			secret:  createSecret(),
-			job:     createJob("test", createMachine()), shouldErr: true},
+			job:     createJob("test", createMachine()), shouldErr: true,
+		},
 		"success power on job": {
 			machine: createMachine(),
 			secret:  createSecret(),
 			job:     createJob("test", createMachine(), getAction("PowerOn")),
-			testAll: true},
+			testAll: true,
+		},
 	}
 
 	for name, tt := range tests {
