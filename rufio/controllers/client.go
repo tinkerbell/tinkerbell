@@ -17,16 +17,16 @@ type ClientFunc func(ctx context.Context, log logr.Logger, hostIP, port, usernam
 func NewClientFunc(timeout time.Duration) ClientFunc {
 	// Initializes a bmclib client based on input host and credentials
 	// Establishes a connection with the bmc with client.Open
-	// Returns a BMCClient
+	// Returns a bmclib.Client.
 	return func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (*bmclib.Client, error) {
-		client := bmclib.NewClient(hostIP, port, username, password)
+		client := bmclib.NewClient(hostIP, username, password)
 		log = log.WithValues("host", hostIP, "port", port, "username", username)
 
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 
 		// TODO (pokearu): Make an option
-		client.Registry.Drivers = client.Registry.PreferDriver("gofish")
+		client.Registry.Drivers = client.Registry.PreferProtocol("redfish")
 		if err := client.Open(ctx); err != nil {
 			md := client.GetMetadata()
 			log.Info("Failed to open connection to BMC", "error", err, "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulOpenConns)

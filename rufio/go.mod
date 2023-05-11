@@ -3,7 +3,7 @@ module github.com/tinkerbell/rufio
 go 1.18
 
 require (
-	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230427101248-b5cdfa3ffe02
+	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230511130410-5f3cb3510c90
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zerologr v1.2.3
 	github.com/google/go-cmp v0.5.9
@@ -40,7 +40,7 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
-	github.com/jacobweinstock/iamt v0.0.0-20230304043040-a6b4a1001123 // indirect
+	github.com/jacobweinstock/iamt v0.0.0-20230502042727-d7cdbe67d9ef // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect

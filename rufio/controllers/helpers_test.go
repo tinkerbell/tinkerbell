@@ -116,7 +116,7 @@ func newTestClient(provider *testProvider) controllers.ClientFunc {
 	return func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (*bmclib.Client, error) {
 		reg := registrar.NewRegistry(registrar.WithLogger(log))
 		reg.Register(provider.Name(), provider.Protocol(), provider.Features(), nil, provider)
-		cl := bmclib.NewClient(hostIP, port, username, password, bmclib.WithLogger(log), bmclib.WithRegistry(reg))
+		cl := bmclib.NewClient(hostIP, username, password, bmclib.WithLogger(log), bmclib.WithRegistry(reg))
 		return cl, cl.Open(ctx)
 	}
 }
