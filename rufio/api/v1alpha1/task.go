@@ -55,7 +55,7 @@ type Action struct {
 	VirtualMediaAction *VirtualMediaAction `json:"virtualMediaAction,omitempty"`
 }
 
-// TaskStatus defines the observed state of Task
+// TaskStatus defines the observed state of Task.
 type TaskStatus struct {
 	// Conditions represents the latest available observations of an object's current state.
 	// +optional
@@ -138,7 +138,7 @@ func (t *Task) HasCondition(cType TaskConditionType, cStatus ConditionStatus) bo
 
 // Task is the Schema for the Task API.
 type Task struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta   `json:""`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   TaskSpec   `json:"spec,omitempty"`
@@ -147,9 +147,9 @@ type Task struct {
 
 //+kubebuilder:object:root=true
 
-// TaskList contains a list of Task
+// TaskList contains a list of Task.
 type TaskList struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta `json:""`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Task `json:"items"`
 }

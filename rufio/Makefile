@@ -17,9 +17,6 @@ endif
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-.PHONY: all
-all: build
-
 ##@ General
 
 # The help target prints out all targets with their descriptions organized
@@ -36,6 +33,11 @@ all: build
 .PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+include lint.mk
+
+.PHONY: all
+all: build
 
 ##@ Development
 
@@ -57,7 +59,11 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate ## Run unit tests.
-	go test ./... -coverprofile cover.out
+	go test -v ./... -coverprofile cover.out
+
+.PHONY: cover
+cover: test ## Run unit tests with coverage report
+	go tool cover -func=cover.out
 
 .PHONY: integration-test
 integration-test: manifests generate fmt vet envtest ## Run integration tests.
@@ -118,13 +124,6 @@ ENVTEST = $(shell pwd)/bin/setup-envtest
 .PHONY: envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
-
-MOCKGEN = $(shell pwd)/bin/mockgen
-.PHONY: mocks
-mocks: ## Generate mocks
-	$(call go-get-tool,$(MOCKGEN),github.com/golang/mock/mockgen@v1.6.0)
-	${MOCKGEN} -destination=controllers/mocks/bmcclient.go -package=mocks "github.com/tinkerbell/rufio/controllers" BMCClient
-
 
 ##@ Release
 

@@ -45,7 +45,7 @@ const (
 	ConditionFalse ConditionStatus = "False"
 )
 
-// MachineSpec defines desired machine state
+// MachineSpec defines desired machine state.
 type MachineSpec struct {
 	// Connection contains connection data for a Baseboard Management Controller.
 	Connection Connection `json:"connection"`
@@ -69,7 +69,7 @@ type Connection struct {
 	InsecureTLS bool `json:"insecureTLS"`
 }
 
-// MachineStatus defines the observed state of Machine
+// MachineStatus defines the observed state of Machine.
 type MachineStatus struct {
 	// Power is the current power state of the Machine.
 	// +kubebuilder:validation:Enum=on;off
@@ -142,9 +142,9 @@ func WithMachineConditionMessage(m string) MachineSetConditionOption {
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=machines,scope=Namespaced,categories=tinkerbell,singular=machine
 
-// Machine is the Schema for the machines API
+// Machine is the Schema for the machines API.
 type Machine struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta   `json:""`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   MachineSpec   `json:"spec,omitempty"`
@@ -155,7 +155,7 @@ type Machine struct {
 
 // MachineList contains a list of Machines.
 type MachineList struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta `json:""`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Machine `json:"items"`
 }

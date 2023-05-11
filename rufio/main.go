@@ -39,7 +39,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
-	bmcv1alpha1 "github.com/tinkerbell/rufio/api/v1alpha1"
+	"github.com/tinkerbell/rufio/api/v1alpha1"
 	"github.com/tinkerbell/rufio/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -56,7 +56,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(bmcv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -135,7 +135,7 @@ func main() {
 	// Setup the context that's going to be used in controllers and for the manager.
 	ctx := ctrl.SetupSignalHandler()
 
-	bmcClientFactory := controllers.NewBMCClientFactoryFunc(bmcConnectTimeout)
+	bmcClientFactory := controllers.NewClientFunc(bmcConnectTimeout)
 
 	// Setup controller reconcilers
 	setupReconcilers(ctx, mgr, bmcClientFactory)
@@ -169,7 +169,7 @@ func newClientConfig(kubeAPIServer, kubeconfig string) clientcmd.ClientConfig {
 }
 
 // setupReconcilers initializes the controllers with the Manager.
-func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory controllers.BMCClientFactoryFunc) {
+func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory controllers.ClientFunc) {
 	err := (controllers.NewMachineReconciler(
 		mgr.GetClient(),
 		mgr.GetEventRecorderFor("machine-controller"),
