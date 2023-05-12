@@ -1,0 +1,12 @@
+apiVersion: bmc.tinkerbell.org/v1alpha1
+kind: Machine
+metadata:
+  name: machine-sample
+spec:
+  connection:
+    host: 127.0.0.1
+    port: 623
+    authSecretRef:
+      name: sample-machine-auth
+      namespace: rufio-system
+    insecureTLS: true
