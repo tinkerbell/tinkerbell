@@ -7,6 +7,7 @@
 # an associated docker image.
 name: Latest
 on:
+  workflow_dispatch: {}
   release:
     types: [published, edited]
 
@@ -20,6 +21,6 @@ jobs:
     steps:
       - run: |
           LATEST=$(curl -H "Accept: application/json" https://api.github.com/repos/tinkerbell/hegel/releases/latest | jq .name -r)
-          docker pull {{ env.IMAGE }}:$LATEST
-          docker tag {{ env.IMAGE }}:$LATEST {{ env.IMAGE }}:latest
-          docker push {{ env.IMAGE }}:latest
+          docker pull ${{ env.IMAGE }}:$LATEST
+          docker tag ${{ env.IMAGE }}:$LATEST ${{ env.IMAGE }}:latest
+          docker push ${{ env.IMAGE }}:latest
