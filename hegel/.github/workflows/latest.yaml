@@ -12,6 +12,7 @@ on:
     types: [published, edited]
 
 env:
+  REGISTRY: quay.io
   IMAGE: quay.io/${{ github.repository }}
 
 jobs:
