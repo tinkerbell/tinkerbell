@@ -19,6 +19,8 @@ jobs:
   latest:
     name: Update latest image tag
     runs-on: ubuntu-latest
+    container:
+      image: alpine:latest
     steps:
       - name: Login to quay.io
         uses: docker/login-action@v2
@@ -27,9 +29,12 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
+      - name: Install skopeo
+        run: |
+          apk update
+          apk add skopeo
+
       - name: Tag and push
         run: |
-          LATEST=$(curl -H "Accept: application/json" https://api.github.com/repos/tinkerbell/hegel/releases/latest | jq .name -r)
-          docker pull ${{ env.IMAGE }}:$LATEST
-          docker tag ${{ env.IMAGE }}:$LATEST ${{ env.IMAGE }}:latest
-          docker push ${{ env.IMAGE }}:latest
+          LATEST_RELEASE=$(curl -H "Accept: application/json" https://api.github.com/repos/tinkerbell/hegel/releases/latest | jq .name -r)
+          skopeo copy docker://${{ env.IMAGE }}:$LATEST_RELEASE docker://${{ env.IMAGE }}:latest
