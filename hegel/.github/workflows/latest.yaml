@@ -29,12 +29,9 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
-      - name: Install skopeo
-        run: |
-          apk update
-          apk add skopeo
+      - uses: docker/setup-buildx-action@v2
 
       - name: Tag and push
         run: |
           LATEST_RELEASE=$(curl -H "Accept: application/json" https://api.github.com/repos/tinkerbell/hegel/releases/latest | jq .name -r)
-          skopeo copy docker://${{ env.IMAGE }}:$LATEST_RELEASE docker://${{ env.IMAGE }}:latest
+          docker buildx imagetools create --tag ${{ env.IMAGE }}:latest ${{ env.IMAGE }}:$LATEST_RELEASE
