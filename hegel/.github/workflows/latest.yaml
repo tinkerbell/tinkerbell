@@ -19,8 +19,6 @@ jobs:
   latest:
     name: Update latest image tag
     runs-on: ubuntu-latest
-    container:
-      image: alpine:latest
     steps:
       - name: Login to quay.io
         uses: docker/login-action@v2
