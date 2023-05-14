@@ -124,7 +124,6 @@ spec:
     port: {{ .Values.stack.hook.port }}
     protocol: TCP
   selector:
-    app: stack
     {{- with .Values.stack.selector }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
