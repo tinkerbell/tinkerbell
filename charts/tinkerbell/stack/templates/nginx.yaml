@@ -27,11 +27,14 @@ spec:
       containers:
       - name: {{ .Values.stack.name }}
         image: {{ .Values.stack.image }}
-        command: ["/bin/bash", "-c"]
+        command: ["/bin/bash", "-xeuc"]
         args:
-        - export POD_NAMESERVER=$(awk 'NR==2 {print $2}' /etc/resolv.conf);
-          envsubst '$POD_NAMESERVER' < /tmp/nginx.conf.template > /etc/nginx/nginx.conf;
-          nginx -g 'daemon off;'
+        - |
+          POD_NAMESERVER=$(awk 'NR==2 {print $2}' /etc/resolv.conf) \
+            envsubst '$POD_NAMESERVER' \
+            </tmp/nginx.conf.template \
+            >/etc/nginx/nginx.conf
+          exec nginx -g 'daemon off;'
         ports:
         - containerPort: {{ .Values.hegel.deployment.port }}
           protocol: TCP
@@ -61,22 +64,21 @@ spec:
       initContainers:
       - name: init-hook-download
         image: {{ .Values.stack.hook.image }}
-        command: ["/bin/sh", "-xec"]
-        args: # TODO(jacobweinstock): add checksum verification after download
-        - rm -rf /usr/share/nginx/html/checksums.txt;
-          touch /usr/share/nginx/html/checksums.txt;
+        command: ["/bin/bash", "-xeuc"]
+        args:
+        - |
+          apt-get update
+          apt-get install -y wget
+          cd /usr/share/nginx/html
           {{- range $index, $keys := .Values.stack.hook.downloads }}
-          echo "{{ $keys.sha512sum.kernel }}" >> /usr/share/nginx/html/checksums.txt;
-          echo "{{ $keys.sha512sum.initramfs }}" >> /usr/share/nginx/html/checksums.txt;
-          {{- end }}
-          cd /usr/share/nginx/html/;
-          sha512sum -c checksums.txt && exit 0;
-          {{- range $index, $keys := .Values.stack.hook.downloads }}
-          echo downloading HOOK...;
-          apt-get update && apt-get install -y wget;
-          wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }};
-          tar -zxvf /tmp/hook{{ $index }}.tar.gz -C "/usr/share/nginx/html/";
-          rm -rf /tmp/hook{{ $index }}.tar.gz;
+          p=/tmp/hook{{ $index }}.tar.gz
+          rm -f $p
+          wget -O $p {{ $keys.url }}
+          sha512sum --check <<EOF
+          {{ $keys.sha512sum }} $p
+          EOF
+          tar -zxvf $p
+          rm -f $p
           {{- end }}
         volumeMounts:
         - mountPath: /usr/share/nginx/html

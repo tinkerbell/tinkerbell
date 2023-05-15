@@ -76,8 +76,7 @@ helm uninstall stack-release --namespace tink-system
 | `stack.hook.image` | Image to use for downloading the Hook artifacts | `alpine` |
 | `stack.hook.downloads` | List of Hook artifacts to download | `[]` |
 | `stack.hook.downloads[0].url` | URL of the Hook bundle to download | `""` |
-| `stack.hook.downloads[0].sha512sum.kernel` | sha512sum, 2 spaces, and name of the Hook kernel in the bundle | `"7c..20  vmlinuz-x86_64"` |
-| `stack.hook.downloads[0].sha512sum.initramfs` | sha512sum, 2 spaces, and name of the Hook initramfs in the bundle | `""` |
+| `stack.hook.downloads[0].sha512sum` | sha512sum of the Hook bundle | `""` |
 
 ### Load Balancer Parameters (kube-vip)
 
