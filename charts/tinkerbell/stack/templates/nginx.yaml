@@ -71,17 +71,15 @@ spec:
           apt-get install -y wget
           cd /usr/share/nginx/html
           {{- range $index, $keys := .Values.stack.hook.downloads }}
-          wget -O /tmp/hook{{ $index }}.tar.gz {{ $keys.url }}
-          tar -zxvf /tmp/hook{{ $index }}.tar.gz
-          rm /tmp/hook{{ $index }}.tar.gz
-          {{- end }}
-          cat >checksums.txt <<'EOF'
-          {{- range $index, $keys := .Values.stack.hook.downloads }}
-          {{ $keys.sha512sum.kernel }}
-          {{ $keys.sha512sum.initramfs }}
-          {{- end }}
+          p=/tmp/hook{{ $index }}.tar.gz
+          rm -f $p
+          wget -O $p {{ $keys.url }}
+          sha512sum --check <<EOF
+          {{ $keys.sha512sum }} $p
           EOF
-          sha512sum --check checksums.txt
+          tar -zxvf $p
+          rm -f $p
+          {{- end }}
         volumeMounts:
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts
