@@ -1,6 +1,6 @@
 module github.com/tinkerbell/rufio
 
-go 1.18
+go 1.20
 
 require (
 	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230511130410-5f3cb3510c90
