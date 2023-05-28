@@ -15,6 +15,15 @@ prompt --key 0x02 --timeout 2000 Press Ctrl-B for the iPXE command line... && sh
 set vlan-id ${43.116:string}
 isset ${vlan-id} && goto boot-with-vlan ||
 
+:iterate-interfaces
+set idx:int32 0
+:interfaces-loop
+isset ${net${idx}/ip} && goto interfaces-loop-done || iseq ${idx} 50 && goto autoboot || inc idx && goto interfaces-loop
+
+:interfaces-loop-done
+echo Booting from net${idx}...
+autoboot net${idx}
+
 :autoboot
 autoboot
 
