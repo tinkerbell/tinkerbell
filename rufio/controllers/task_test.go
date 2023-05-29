@@ -41,23 +41,81 @@ func TestTaskReconcile(t *testing.T) {
 		shouldErr  bool
 		timeoutErr bool
 	}{
-		"success power on":           {taskName: "PowerOn", action: getAction("PowerOn"), provider: &testProvider{Powerstate: "on", PowerSetOK: true}},
-		"success hard off":           {taskName: "HardOff", action: getAction("HardOff"), provider: &testProvider{Powerstate: "off", PowerSetOK: true}},
-		"success soft off":           {taskName: "SoftOff", action: getAction("SoftOff"), provider: &testProvider{Powerstate: "off", PowerSetOK: true}},
-		"success boot pxe":           {taskName: "BootPXE", action: getAction("BootPXE"), provider: &testProvider{BootdeviceOK: true}},
-		"success virtual media":      {taskName: "VirtualMedia", action: getAction("VirtualMedia"), provider: &testProvider{VirtualMediaOK: true}},
-		"failure on bmc open":        {taskName: "PowerOn", action: getAction("PowerOn"), provider: &testProvider{ErrOpen: errors.New("failed to open")}, shouldErr: true},
-		"failure on bmc power on":    {taskName: "PowerOn", action: getAction("PowerOn"), provider: &testProvider{ErrPowerStateSet: errors.New("failed to set power state")}, shouldErr: true},
-		"failure on set boot device": {taskName: "BootPXE", action: getAction("BootPXE"), provider: &testProvider{ErrBootDeviceSet: errors.New("failed to set boot device")}, shouldErr: true},
-		"failure on virtual media":   {taskName: "VirtualMedia", action: getAction("VirtualMedia"), provider: &testProvider{ErrVirtualMediaInsert: errors.New("failed to set virtual media")}, shouldErr: true},
-		"failure timeout":            {taskName: "PowerOn", action: getAction("PowerOn"), provider: &testProvider{Powerstate: "off", PowerSetOK: true}, timeoutErr: true},
+		"success power on": {
+			taskName: "PowerOn",
+			action:   getAction("PowerOn"),
+			provider: &testProvider{Powerstate: "on", PowerSetOK: true},
+		},
+
+		"success hard off": {
+			taskName: "HardOff",
+			action:   getAction("HardOff"),
+			provider: &testProvider{Powerstate: "off", PowerSetOK: true},
+		},
+
+		"success soft off": {
+			taskName: "SoftOff",
+			action:   getAction("SoftOff"),
+			provider: &testProvider{Powerstate: "off", PowerSetOK: true},
+		},
+
+		"success boot pxe": {
+			taskName: "BootPXE",
+			action:   getAction("BootPXE"),
+			provider: &testProvider{BootdeviceOK: true},
+		},
+
+		"success virtual media": {
+			taskName: "VirtualMedia",
+			action:   getAction("VirtualMedia"),
+			provider: &testProvider{VirtualMediaOK: true},
+		},
+
+		"failure on bmc open": {
+			taskName: "PowerOn", action: getAction("PowerOn"),
+			provider:  &testProvider{ErrOpen: errors.New("failed to open")},
+			shouldErr: true,
+		},
+
+		"failure on bmc power on": {
+			taskName:  "PowerOn",
+			action:    getAction("PowerOn"),
+			provider:  &testProvider{ErrPowerStateSet: errors.New("failed to set power state")},
+			shouldErr: true,
+		},
+
+		"failure on set boot device": {
+			taskName:  "BootPXE",
+			action:    getAction("BootPXE"),
+			provider:  &testProvider{ErrBootDeviceSet: errors.New("failed to set boot device")},
+			shouldErr: true,
+		},
+
+		"failure on virtual media": {
+			taskName:  "VirtualMedia",
+			action:    getAction("VirtualMedia"),
+			provider:  &testProvider{ErrVirtualMediaInsert: errors.New("failed to set virtual media")},
+			shouldErr: true,
+		},
+
+		"failure timeout": {
+			taskName:   "PowerOn",
+			action:     getAction("PowerOn"),
+			provider:   &testProvider{Powerstate: "off", PowerSetOK: true},
+			timeoutErr: true,
+		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			secret := createSecret()
 			task := createTask(tt.taskName, tt.action, secret)
-			cluster := createKubeClientWithObjects(task, secret)
+
+			cluster := newClientBuilder().
+				WithObjects(task, secret).
+				WithStatusSubresource(task).
+				Build()
+
 			reconciler := controllers.NewTaskReconciler(cluster, newTestClient(tt.provider))
 			request := reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -96,7 +154,7 @@ func TestTaskReconcile(t *testing.T) {
 			if tt.timeoutErr {
 				expired := metav1.NewTime(retrieved.Status.StartTime.Add(-time.Hour))
 				retrieved.Status.StartTime = &expired
-				if err = cluster.Update(context.Background(), &retrieved); err != nil {
+				if err = cluster.Status().Update(context.Background(), &retrieved); err != nil {
 					t.Fatalf("expected nil err, got: %v", err)
 				}
 

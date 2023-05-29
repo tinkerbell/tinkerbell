@@ -41,9 +41,13 @@ func TestJobReconcile(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			kubeClient := createKubeClientWithObjectsForJobController(tt.machine, tt.secret, tt.job)
+			clnt := newClientBuilder().
+				WithObjects(tt.job, tt.machine, tt.secret).
+				WithStatusSubresource(tt.job, tt.machine).
+				WithIndex(&v1alpha1.Task{}, ".metadata.controller", controllers.TaskOwnerIndexFunc).
+				Build()
 
-			reconciler := controllers.NewJobReconciler(kubeClient)
+			reconciler := controllers.NewJobReconciler(clnt)
 
 			request := reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -63,7 +67,7 @@ func TestJobReconcile(t *testing.T) {
 				return
 			}
 			var retrieved1 v1alpha1.Job
-			if err = kubeClient.Get(context.Background(), request.NamespacedName, &retrieved1); err != nil {
+			if err = clnt.Get(context.Background(), request.NamespacedName, &retrieved1); err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
 			// TODO: g.Expect(retrieved1.Status.StartTime.Unix()).To(gomega.BeNumerically("~", time.Now().Unix(), 10))
@@ -85,7 +89,7 @@ func TestJobReconcile(t *testing.T) {
 				Namespace: tt.job.Namespace,
 				Name:      v1alpha1.FormatTaskName(*tt.job, 0),
 			}
-			if err = kubeClient.Get(context.Background(), taskKey, &task); err != nil {
+			if err = clnt.Get(context.Background(), taskKey, &task); err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
 			if diff := cmp.Diff(task.Spec.Task, tt.job.Spec.Tasks[0]); diff != "" {
@@ -111,7 +115,7 @@ func TestJobReconcile(t *testing.T) {
 			}
 
 			var retrieved2 v1alpha1.Job
-			if err = kubeClient.Get(context.Background(), request.NamespacedName, &retrieved2); err != nil {
+			if err = clnt.Get(context.Background(), request.NamespacedName, &retrieved2); err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
 			if diff := cmp.Diff(retrieved1, retrieved2); diff != "" {
