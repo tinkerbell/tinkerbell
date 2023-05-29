@@ -7,10 +7,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/tinkerbell/rufio/api/v1alpha1"
@@ -23,43 +21,84 @@ func TestMachineReconcile(t *testing.T) {
 		shouldErr bool
 		secret    *corev1.Secret
 	}{
-		"success power on":      {provider: &testProvider{Powerstate: "on"}, secret: createSecret()},
-		"success power off":     {provider: &testProvider{Powerstate: "off"}, secret: createSecret()},
-		"fail on open":          {provider: &testProvider{ErrOpen: errors.New("failed to open connection")}, shouldErr: true, secret: createSecret()},
-		"fail on power get":     {provider: &testProvider{ErrPowerStateGet: errors.New("failed to set power state")}, shouldErr: true, secret: createSecret()},
-		"fail bad power state":  {provider: &testProvider{Powerstate: "bad"}, shouldErr: true, secret: createSecret()},
-		"fail on close":         {provider: &testProvider{ErrClose: errors.New("failed to close connection")}, shouldErr: true, secret: createSecret()},
-		"fail secret not found": {provider: &testProvider{Powerstate: "on"}, shouldErr: true, secret: &corev1.Secret{}},
-		"fail secret username not found": {provider: &testProvider{Powerstate: "on"}, shouldErr: true, secret: &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "test-namespace",
-				Name:      "test-bm-auth",
+		"success power on": {
+			provider: &testProvider{Powerstate: "on"},
+			secret:   createSecret(),
+		},
+
+		"success power off": {
+			provider: &testProvider{Powerstate: "off"},
+			secret:   createSecret(),
+		},
+
+		"fail on open": {
+			provider:  &testProvider{ErrOpen: errors.New("failed to open connection")},
+			shouldErr: true,
+			secret:    createSecret(),
+		},
+
+		"fail on power get": {
+			provider:  &testProvider{ErrPowerStateGet: errors.New("failed to set power state")},
+			shouldErr: true,
+			secret:    createSecret(),
+		},
+
+		"fail bad power state": {
+			provider:  &testProvider{Powerstate: "bad"},
+			shouldErr: true,
+			secret:    createSecret(),
+		},
+
+		"fail on close": {
+			provider:  &testProvider{ErrClose: errors.New("failed to close connection")},
+			shouldErr: true,
+			secret:    createSecret(),
+		},
+
+		"fail secret not found": {
+			provider:  &testProvider{Powerstate: "on"},
+			shouldErr: true,
+			secret:    &corev1.Secret{},
+		},
+
+		"fail secret username not found": {
+			provider:  &testProvider{Powerstate: "on"},
+			shouldErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+					Name:      "test-bm-auth",
+				},
+				Data: map[string][]byte{
+					"password": []byte("test"),
+				},
 			},
-			Data: map[string][]byte{
-				"password": []byte("test"),
+		},
+
+		"fail secret password not found": {
+			provider:  &testProvider{Powerstate: "on"},
+			shouldErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+					Name:      "test-bm-auth",
+				},
+				Data: map[string][]byte{
+					"username": []byte("test"),
+				},
 			},
-		}},
-		"fail secret password not found": {provider: &testProvider{Powerstate: "on"}, shouldErr: true, secret: &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "test-namespace",
-				Name:      "test-bm-auth",
-			},
-			Data: map[string][]byte{
-				"username": []byte("test"),
-			},
-		}},
+		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			scheme := runtime.NewScheme()
-			_ = v1alpha1.AddToScheme(scheme)
-			_ = corev1.AddToScheme(scheme)
-
-			clientBuilder := fake.NewClientBuilder()
 			bm := createMachine()
-			objs := []runtime.Object{bm, tt.secret}
-			client := clientBuilder.WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+			client := newClientBuilder().
+				WithObjects(bm, tt.secret).
+				WithStatusSubresource(bm).
+				Build()
+
 			fakeRecorder := record.NewFakeRecorder(2)
 
 			reconciler := controllers.NewMachineReconciler(

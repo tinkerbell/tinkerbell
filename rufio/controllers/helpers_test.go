@@ -18,9 +18,9 @@ import (
 // This source file is currently a bucket of stuff. If it grows too big, consider breaking it
 // into more granular helper sources.
 
-// createKubeClientBuilder creates a fake kube client builder loaded with Rufio's and Kubernetes'
+// newClientBuilder creates a fake kube client builder loaded with Rufio's and Kubernetes'
 // corev1 schemes.
-func createKubeClientBuilder() *fake.ClientBuilder {
+func newClientBuilder() *fake.ClientBuilder {
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		panic(err)
@@ -35,7 +35,7 @@ func createKubeClientBuilder() *fake.ClientBuilder {
 
 // createKubeClientWithObjects creates a kubernetes client with the given objects.
 func createKubeClientWithObjects(objects ...client.Object) client.WithWatch {
-	return createKubeClientBuilder().
+	return newClientBuilder().
 		WithObjects(objects...).
 		Build()
 }
@@ -43,7 +43,7 @@ func createKubeClientWithObjects(objects ...client.Object) client.WithWatch {
 // createKubeClientWithObjectsForJobController creates a kubernetes client with the given objects
 // and the indexes required by the Job controller.
 func createKubeClientWithObjectsForJobController(objects ...client.Object) client.WithWatch {
-	return createKubeClientBuilder().
+	return newClientBuilder().
 		WithObjects(objects...).
 		WithIndex(&v1alpha1.Task{}, ".metadata.controller", controllers.TaskOwnerIndexFunc).
 		Build()

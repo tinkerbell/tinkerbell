@@ -27,7 +27,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/tinkerbell/rufio/api/v1alpha1"
 )
@@ -235,11 +234,14 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Job{}).
 		Watches(
-			&source.Kind{Type: &v1alpha1.Task{}},
-			&handler.EnqueueRequestForOwner{
-				OwnerType:    &v1alpha1.Job{},
-				IsController: true,
-			}).
+			&v1alpha1.Task{},
+			handler.EnqueueRequestForOwner(
+				mgr.GetScheme(),
+				mgr.GetRESTMapper(),
+				&v1alpha1.Job{},
+				handler.OnlyControllerOwner(),
+			),
+		).
 		Complete(r)
 }
 
