@@ -10,7 +10,7 @@ require (
 	github.com/jacobweinstock/registrar v0.4.7
 	github.com/peterbourgon/ff/v3 v3.3.1
 	github.com/rs/zerolog v1.29.1
-	golang.org/x/tools v0.9.1
+	golang.org/x/tools v0.9.3
 	k8s.io/api v0.27.2
 	k8s.io/apimachinery v0.27.2
 	k8s.io/client-go v0.27.2
