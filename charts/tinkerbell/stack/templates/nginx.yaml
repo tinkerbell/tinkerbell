@@ -86,7 +86,7 @@ spec:
       {{- if .Values.stack.hook.enabled }}
       - name: hook-artifacts
         hostPath:
-          path: /opt/hook
+          path: {{ .Values.stack.hook.downloadsDest }}
           type: DirectoryOrCreate
       {{- end }}
       - name: nginx-conf
