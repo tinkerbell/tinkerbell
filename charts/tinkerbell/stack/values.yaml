@@ -13,7 +13,7 @@ stack:
     enabled: true
     name: hook-files
     port: 8080
-    image: ubuntu
+    image: alpine
     downloads:
       - url: https://github.com/tinkerbell/hook/releases/download/v0.8.0/hook_x86_64.tar.gz
         sha512sum: 498cccba921c019d4526a2a562bd2d9c8efba709ab760fa9d38bd8de1efeefc8e499c9249af9571aa28a1e371e6c928d5175fa70d5d7addcf3dd388caeff1a45
