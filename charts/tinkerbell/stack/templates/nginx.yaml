@@ -64,17 +64,15 @@ spec:
       initContainers:
       - name: init-hook-download
         image: {{ .Values.stack.hook.image }}
-        command: ["/bin/bash", "-xeuc"]
+        command: ["/bin/sh", "-xeuc"]
         args:
         - |
-          apt-get update
-          apt-get install -y wget
           cd /usr/share/nginx/html
           {{- range $index, $keys := .Values.stack.hook.downloads }}
           p=/tmp/hook{{ $index }}.tar.gz
           rm -f $p
           wget -O $p {{ $keys.url }}
-          sha512sum --check <<EOF
+          sha512sum -c <<EOF
           {{ $keys.sha512sum }} $p
           EOF
           tar -zxvf $p
