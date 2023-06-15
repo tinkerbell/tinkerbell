@@ -13,7 +13,7 @@ require (
 	github.com/packethost/pkg v0.0.0-20211110202003-387414657e83
 	github.com/packethost/xff v0.0.0-20190305172552-d3e9190c41b3
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.15.1
+	github.com/prometheus/client_golang v1.16.0
 	github.com/rollbar/rollbar-go/errors v0.0.0-20211129211054-6380fe0f262a // indirect
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
@@ -71,7 +71,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/rollbar/rollbar-go v1.4.2 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
