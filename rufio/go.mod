@@ -12,7 +12,7 @@ require (
 	github.com/rs/zerolog v1.29.1
 	golang.org/x/tools v0.11.0
 	k8s.io/api v0.27.2
-	k8s.io/apimachinery v0.27.2
+	k8s.io/apimachinery v0.27.3
 	k8s.io/client-go v0.27.2
 	sigs.k8s.io/controller-runtime v0.15.0
 )
