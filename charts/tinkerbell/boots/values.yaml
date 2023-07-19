@@ -5,7 +5,7 @@ deploy: true
 name: boots
 
 # The image used to launch the container.
-image: quay.io/tinkerbell/boots:v0.8.0
+image: quay.io/tinkerbell/boots:v0.9.0
 imagePullPolicy: IfNotPresent
 
 # The number of pods to run.
@@ -29,7 +29,7 @@ deployment:
 
 service:
   enabled: true
-  type: LoadBalancer
+  type: ClusterIP
   class: kube-vip.io/kube-vip-class
   loadBalancerIP: ""
 
@@ -96,7 +96,7 @@ osieBase:
   port: 8080
 
 # The Tink Worker image passed to OSIE as a kernel arg for launching.
-tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.8.0
+tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.9.0
 
 # Tink Server configuration passed to the Tink Worker to establish a gRPC connection.
 tinkServer:

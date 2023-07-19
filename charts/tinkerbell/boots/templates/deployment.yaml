@@ -38,7 +38,7 @@ spec:
             - -ipxe-tftp-addr={{ printf "%v:%v" .Values.tftp.ip .Values.tftp.port }}
             - -http-addr={{ printf "%v:%v" .Values.http.ip .Values.http.port }}
             - -syslog-addr={{ printf "%v:%v" .Values.syslog.ip .Values.syslog.port }}
-            - -osie-path-override={{ printf "%v://%v:%v" .Values.osieBase.protocol $osieBaseIp .Values.osieBase.port }}
+            - -osie-url={{ printf "%v://%v:%v" .Values.osieBase.protocol $osieBaseIp .Values.osieBase.port }}
           {{- range .Values.additionalArgs }}
             - {{ . }}
           {{- end }}
