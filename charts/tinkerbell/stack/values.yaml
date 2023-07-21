@@ -6,7 +6,7 @@ stack:
     type: LoadBalancer
   selector:
     app: tink-stack
-  loadBalancerIP: 192.168.2.112
+  loadBalancerIP: &publicIP 192.168.2.112
   lbClass: kube-vip.io/kube-vip-class
   # Once the Kubernetes Gateway API is more stable, we will use that for all services instead of nginx.
   image: nginx:1.25.1
@@ -34,11 +34,13 @@ stack:
   relay: # relay allows us to listen and respond to layer broadcast DHCP requests
     name: dhcp-relay
     enabled: true
-    # This image (ghcr.io/jacobweinstock/dhcrelay) is used because `dhcrelay` doesn't respect signals properly when run as PID 1.
+    # This image (ghcr.io/jacobweinstock/dhcrelay) is used because the other public dhcprelay images out there (`modem7/dhcprelay`)
+    # doesn't respect signals properly when run as PID 1.
     image: ghcr.io/jacobweinstock/dhcrelay
     maxHopCount: 10
     # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
-    sourceInterface: eno1 # TODO(jacobweinstock): investigate autodetecting a default
+    # When unset, the interface from the default route will be used.
+    # sourceInterface: eno1
 
 # -- Overrides
 # The values defined here override those in the individual charts. Some of them require tweaking
@@ -52,20 +54,20 @@ boots:
   trustedProxies: []
   # This will be the IP address that machines use to reach Boots (via unicast for DHCP) for netbooting.
   # This should be the same as `stack.loadBalancerIP`.
-  remoteIp: 192.168.2.112
+  remoteIp: *publicIP
   tinkServer:
     # This should be the same as `stack.loadBalancerIP`.
-    ip: 192.168.2.112
+    ip: *publicIP
   osieBase:
     # This should be the same as `stack.loadBalancerIP`.
-    ip: 192.168.2.112
+    ip: *publicIP
 
 hegel:
   image: quay.io/tinkerbell/hegel:v0.11.0
   trustedProxies: []
 
 rufio:
-  image: quay.io/tinkerbell/rufio:v0.3.0
+  image: quay.io/tinkerbell/rufio:v0.3.1
 
 tink:
   controller:
