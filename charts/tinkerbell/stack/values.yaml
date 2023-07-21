@@ -17,10 +17,10 @@ stack:
     image: alpine
     downloadsDest: /opt/hook
     downloads:
-      - url: https://github.com/tinkerbell/hook/releases/download/v0.8.0/hook_x86_64.tar.gz
-        sha512sum: 498cccba921c019d4526a2a562bd2d9c8efba709ab760fa9d38bd8de1efeefc8e499c9249af9571aa28a1e371e6c928d5175fa70d5d7addcf3dd388caeff1a45
-      - url: https://github.com/tinkerbell/hook/releases/download/v0.8.0/hook_aarch64.tar.gz
-        sha512sum: 56e3959722c9ae85aec6c214448108e2dc1d581d2c884ca7a23265c1ae28489589481730fbb941fac8239f6222f9b5bb757987a5238f20194e184ae7e83b6a5b
+      - url: https://github.com/tinkerbell/hook/releases/download/v0.8.1/hook_x86_64.tar.gz
+        sha512sum: 29d8cf6991272eea20499d757252b07deba824eb778368192f9ab88b215a0dafa584e83422dac08feeb43ddce65f485557ad66210f005a81ab95fb53b7d8d424
+      - url: https://github.com/tinkerbell/hook/releases/download/v0.8.1/hook_aarch64.tar.gz
+        sha512sum: f740af6941b2b7d4edcded3f0ae19985ef160fb5cb82995c7e6ce528ad8171a6e0b49920bdc2c58242efed84e9000bcfb53bf1c004cf13190092a1501eaa9dd6
   kubevip:
     enabled: true
     name: kube-vip
