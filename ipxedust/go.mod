@@ -8,7 +8,7 @@ require (
 	github.com/go-logr/stdr v1.2.0
 	github.com/go-logr/zerologr v1.2.1
 	github.com/go-playground/validator/v10 v10.9.0
-	github.com/google/go-cmp v0.5.6
+	github.com/google/go-cmp v0.5.9
 	github.com/imdario/mergo v0.3.12
 	github.com/peterbourgon/ff/v3 v3.1.2
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
@@ -35,8 +35,7 @@ require (
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
-	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
-	google.golang.org/grpc v1.44.0 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
+	google.golang.org/grpc v1.53.0 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 )
