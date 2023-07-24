@@ -8,7 +8,7 @@ require (
 	github.com/go-logr/zerologr v1.2.3
 	github.com/google/go-cmp v0.5.9
 	github.com/jacobweinstock/registrar v0.4.7
-	github.com/peterbourgon/ff/v3 v3.3.2
+	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/rs/zerolog v1.29.1
 	golang.org/x/tools v0.11.0
 	k8s.io/api v0.27.4
