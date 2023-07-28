@@ -9,9 +9,10 @@ import (
 
 	"github.com/equinix-labs/otel-init-go/otelinit"
 	"github.com/gin-gonic/gin"
-	"github.com/packethost/pkg/log"
+	"github.com/go-logr/zerologr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -20,6 +21,7 @@ import (
 	"github.com/tinkerbell/hegel/internal/frontend/hack"
 	"github.com/tinkerbell/hegel/internal/healthcheck"
 	hegelhttp "github.com/tinkerbell/hegel/internal/http"
+	hegellogger "github.com/tinkerbell/hegel/internal/logger"
 	"github.com/tinkerbell/hegel/internal/metrics"
 	"github.com/tinkerbell/hegel/internal/xff"
 )
@@ -99,17 +101,14 @@ func (c *RootCommand) PreRun(*cobra.Command, []string) error {
 
 // Run executes Hegel.
 func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
-	logger, err := log.Init("github.com/tinkerbell/hegel")
-	if err != nil {
-		return errors.Errorf("initialize logger: %v", err)
-	}
-	defer logger.Close()
+	zl := zerolog.New(os.Stdout).With().Timestamp().Caller().Logger()
+	logger := zerologr.New(&zl)
 
 	if !c.Opts.Debug {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	logger.With("opts", fmt.Sprintf("%#v", c.Opts)).Info("Root command options")
+	logger.Info("Root command options", "opts", fmt.Sprintf("%#v", c.Opts))
 
 	ctx, otelShutdown := otelinit.InitOpenTelemetry(cmd.Context(), "hegel")
 	defer otelShutdown(ctx)
@@ -131,7 +130,7 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 		metrics.InstrumentRequestCount(registry),
 		metrics.InstrumentRequestDuration(registry),
 		gin.Recovery(),
-		gin.Logger(),
+		hegellogger.Middleware(logger),
 		xffmw,
 	)
 
