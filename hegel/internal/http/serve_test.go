@@ -9,20 +9,20 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/packethost/pkg/log"
+	"github.com/go-logr/zerologr"
+	"github.com/rs/zerolog"
 	. "github.com/tinkerbell/hegel/internal/http"
 )
 
 // TestServe validates the Serve function does in-fact serve a functional HTTP server with the
 // desired handler.
 func TestServe(t *testing.T) {
-	logger, err := log.Init(t.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
+	zl := zerolog.New(os.Stdout).With().Timestamp().Caller().Logger()
+	logger := zerologr.New(&zl)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -56,10 +56,8 @@ func TestServe(t *testing.T) {
 }
 
 func TestServerFailure(t *testing.T) {
-	logger, err := log.Init(t.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
+	zl := zerolog.New(os.Stdout).With().Timestamp().Caller().Logger()
+	logger := zerologr.New(&zl)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
