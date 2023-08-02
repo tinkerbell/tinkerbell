@@ -17,8 +17,8 @@ stack:
     image: alpine
     downloadsDest: /opt/hook
     downloads:
-      - url: https://github.com/tinkerbell/hook/releases/download/v0.8.1/hook_x86_64.tar.gz
-        sha512sum: 29d8cf6991272eea20499d757252b07deba824eb778368192f9ab88b215a0dafa584e83422dac08feeb43ddce65f485557ad66210f005a81ab95fb53b7d8d424
+      - url: https://github.com/tinkerbell/hook/releases/download/latest/hook_x86_64.tar.gz
+        sha512sum: 78142a130d0b4cfc22037619e79b5bca9a3b9db03f29bcafb02b13276daaefd0b6b22c88d12a9d2f4c5a4ff4fdf84b5c4a1486e91618c8c2cf626383a0cd20cd
       - url: https://github.com/tinkerbell/hook/releases/download/v0.8.1/hook_aarch64.tar.gz
         sha512sum: f740af6941b2b7d4edcded3f0ae19985ef160fb5cb82995c7e6ce528ad8171a6e0b49920bdc2c58242efed84e9000bcfb53bf1c004cf13190092a1501eaa9dd6
   kubevip:
