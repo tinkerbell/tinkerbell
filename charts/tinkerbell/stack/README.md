@@ -43,8 +43,8 @@ Now, deploy the chart.
 
 ```bash
 helm dependency build stack/
-trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
-helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "boots.trustedProxies=${trusted_proxies}" --set "hegel.trustedProxies=${trusted_proxies}"
+trusted_proxies=$(kubectl get nodes -o go-template-file=stack/kubectl.go-template)
+helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "boots.trustedProxies={${trusted_proxies}}" --set "hegel.trustedProxies={${trusted_proxies}}"
 ```
 
 These commands install the Tinkerbell Stack chart in the `tink-system` namespace with the release name of `stack-release`.
@@ -55,6 +55,14 @@ To uninstall/delete the `stack-release` deployment:
 
 ```bash
 helm uninstall stack-release --namespace tink-system
+```
+
+## Upgrading the Chart
+
+To upgrade the `stack-release` deployment:
+
+```bash
+helm upgrade stack-release stack/ --namespace tink-system --wait
 ```
 
 ## Parameters
