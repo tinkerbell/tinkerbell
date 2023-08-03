@@ -28,7 +28,7 @@ dependencies:
     version: "0.2.1"
     repository: "file://../tink"
   - name: boots
-    version: "0.2.1"
+    version: "0.2.2"
     repository: "file://../boots"
   - name: rufio
     version: "0.2.4"
