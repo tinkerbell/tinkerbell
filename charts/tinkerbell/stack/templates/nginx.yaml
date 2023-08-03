@@ -123,7 +123,6 @@ spec:
   - name: {{ .Values.stack.hook.name }}
     port: {{ .Values.stack.hook.port }}
     protocol: TCP
-  {{- include "boots.ports" ( merge ( dict "PortKey" "port" ) .Values.boots  ) | indent 2 }}
   selector:
     {{- with .Values.stack.selector }}
     {{- toYaml . | nindent 4 }}
