@@ -6,8 +6,8 @@ This chart installs the full Tinkerbell stack.
 
 ```bash
 helm dependency build stack/
-trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
-helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "boots.trustedProxies=${trusted_proxies}" --set "hegel.trustedProxies=${trusted_proxies}"
+trusted_proxies=$(kubectl get nodes -o go-template-file=stack/kubectl.go-template)
+helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "boots.trustedProxies={${trusted_proxies}}" --set "hegel.trustedProxies={${trusted_proxies}}"
 ```
 
 ## Introduction
