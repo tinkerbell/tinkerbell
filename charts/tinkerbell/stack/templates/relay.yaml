@@ -1,5 +1,5 @@
 {{- if and .Values.stack.enabled .Values.stack.relay.enabled -}}
-{{- $sourceInterface := ( required "sourceInterface must be specified" .Values.stack.relay.sourceInterface ) }}
+{{- $sourceInterface := .Values.stack.relay.sourceInterface -}}
 {{- $macvlanInterfaceName := printf "%s%s" "macvlan" (randNumeric 2) -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -43,8 +43,13 @@ spec:
             # This is used instead of `hostNetwork: true` because the dhcp relay requires clear paths for listening for broadcast traffic
             # and sending/receiving unicast traffic to/from Boots.
             set -xe
+            # if sourceInterface is not set use the interface from the default route
+            srcInterface="{{ $sourceInterface }}"
+            if [ -z "$srcInterface" ]; then
+              srcInterface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}')
+            fi
             # Create a macvlan interface. TODO: If this fails, try again with a different name?
-            nsenter -t1 -n ip link add {{ $macvlanInterfaceName }} link {{ $sourceInterface }} type macvlan mode bridge
+            nsenter -t1 -n ip link add {{ $macvlanInterfaceName }} link ${srcInterface} type macvlan mode bridge
             # Move the interface into the POD.
             pid=$(echo $$)
             nsenter -t1 -n ip link set {{ $macvlanInterfaceName }} netns ${pid} || nsenter -t1 -n ip link delete {{ $macvlanInterfaceName }}

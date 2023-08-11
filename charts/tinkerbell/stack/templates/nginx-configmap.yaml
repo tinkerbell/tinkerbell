@@ -16,26 +16,27 @@ data:
 
     http {
       server {
-        listen {{ .Values.hegel.deployment.port }};
+        listen {{ .Values.hegel.service.port }};
         location / {
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           resolver $POD_NAMESERVER;
           set $hegel_dns {{ .Values.hegel.name }}.{{ .Release.Namespace }}.svc.cluster.local.; # needed in Kubernetes for dynamic DNS resolution
 
-          proxy_pass http://$hegel_dns:{{ .Values.hegel.deployment.port }};
+          proxy_pass http://$hegel_dns:{{ .Values.hegel.service.port }};
         }
       }
 
       server {
-        listen {{ .Values.tink.server.deployment.port }} http2;
+        listen {{ .Values.tink.server.service.port }};
+        http2 on;
         location / {
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           resolver $POD_NAMESERVER;
           set $tink_dns {{ .Values.tink.server.name }}.{{ .Release.Namespace }}.svc.cluster.local.; # needed in Kubernetes for dynamic DNS resolution
 
-          grpc_pass grpc://$tink_dns:{{ .Values.tink.server.deployment.port }};
+          grpc_pass grpc://$tink_dns:{{ .Values.tink.server.service.port }};
         }
       }
 

@@ -14,8 +14,8 @@ spec:
   loadBalancerClass: {{ .Values.service.class }}
   {{- end }}
   loadBalancerIP: {{ $loadBalancerIP }}
-  {{- end }}
   externalTrafficPolicy: Local
+  {{- end }}
   ports:
   {{- include "boots.ports" ( merge ( dict "PortKey" "port" ) .Values  ) | indent 2 }}
   selector:
