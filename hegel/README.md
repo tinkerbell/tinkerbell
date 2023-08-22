@@ -37,12 +37,17 @@ do not hesitate to raise an issue.
 
 ## Quick Start
 
+**Pre-requisits**
+- Make
+- Go
+- Docker with BuildKit
+
 ```sh
 # Build a Docker image for the host platform.
 $ make image
 
-# See the "How to impersonate an instance?" FAQ to launch Hegel. Ensure you use `hegel:latest`
-# as the image name to use the newly built image.
+# To test the image see the "How to impersonate an instance?" FAQ to launch Hegel. Ensure you use
+# hegel:latest as the image name to use the newly built image.
 ```
 
 See ["How do I Impersonate an Instance?"](#how-do-i-impersonate-an-instance) to launch Hegel and
@@ -74,16 +79,15 @@ submit requests with the `X-Forwarded-For` header set to the IP they wish to imp
 ```sh
 # Launch Hegel trusting the Docker default gateway so we can impersonate machines.
 #
-# 172.17.0.1 is the addressed used by Docker for NAT when exposing ports. This includes Docker
-# Desktop setups where the address won't be visible in `ip` output on the host. If you customize
-# the container network subnet this address may be different.
+# The trusted proxy 0.0.0.0/0 causes Hegel to trust all requesters. The sample flatfile.yml is
+# configured to output success messages on when the API calls are successful.
 #
 # If the container doesn't launch and there's no `docker run` logging remove the --rm flag 
 # so the container remains on disk and can be inspected with `docker logs`.
 docker run --rm -d --name=hegel \
     -p 50061:50061 \
     -v $PWD/samples/flatfile.yml:/flatfile.yml \
-    -e HEGEL_TRUSTED_PROXIES="172.17.0.1" \
+    -e HEGEL_TRUSTED_PROXIES="0.0.0.0/0" \
     -e HEGEL_BACKEND="flatfile" \
     -e HEGEL_FLATFILE_PATH="/flatfile.yml" \
     quay.io/tinkerbell/hegel:latest
