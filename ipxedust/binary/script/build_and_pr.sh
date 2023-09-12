@@ -19,6 +19,7 @@ tracked_files=(
     "./snp.efi"
     "./undionly.kpxe"
     "./ipxe.iso"
+    "./ipxe-efi.img"
 )
 
 # binaries defines the files that will be built if any tracked_files changes are detected.
@@ -28,6 +29,7 @@ binaries=(
     "ipxe.efi"
     "undionly.kpxe"
     "ipxe.iso"
+    "ipxe-efi.img"
 )
 
 git_email="github-actions[bot]@users.noreply.github.com"

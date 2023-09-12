@@ -4,6 +4,7 @@ IPXE_BUILD_SCRIPT := binary/script/build_ipxe.sh
 IPXE_FETCH_SCRIPT := binary/script/fetch_and_extract_ipxe.sh
 IPXE_NIX_SHELL := binary/script/shell.nix
 IPXE_ISO_BUILD_PATCH := binary/script/iso.patch
+BINARIES := binary/ipxe.efi binary/snp.efi binary/undionly.kpxe binary/ipxe.iso binary/ipxe-efi.img
 
 help: ## show this help message
 	@grep -E '^[a-zA-Z_-]+.*:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}'
@@ -11,7 +12,7 @@ help: ## show this help message
 include lint.mk
 
 .PHONY: binary
-binary: binary/ipxe.efi binary/snp.efi binary/undionly.kpxe binary/ipxe.iso ## build all upstream ipxe binaries
+binary: $(BINARIES) ## build all upstream ipxe binaries
 
 # ipxe_sha_or_tag := v1.21.1 # could not get this tag to build ipxe.efi
 # https://github.com/ipxe/ipxe/tree/2265a65191d76ce367913a61c97752ab88ab1a59
@@ -39,9 +40,17 @@ binary/snp.efi: $(ipxe_readme) ## build snp.efi
 binary/ipxe.iso: $(ipxe_readme) ## build ipxe.iso
 	+${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.iso "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@  "${IPXE_NIX_SHELL}"
 
+binary/ipxe-efi.img: binary/ipxe.efi
+	qemu-img create -f raw $@.t 1440K
+	mkfs.vfat --mbr=y -F 12 -n IPXE $@.t
+	mmd -i $@.t ::/EFI
+	mmd -i $@.t ::/EFI/BOOT
+	mcopy -i $@.t $< ::/EFI/BOOT/BOOTX64.efi
+	mv $@.t $@
+
 .PHONY: binary/clean
 binary/clean: ## clean ipxe binaries, upstream ipxe source code directory, and ipxe source tarball
-	rm -rf binary/ipxe.efi binary/snp.efi binary/undionly.kpxe binary/ipxe.iso
+	rm -rf $(BINARIES)
 	rm -rf upstream-*
 	rm -rf ipxe-*
 
