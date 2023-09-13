@@ -24,7 +24,7 @@ import (
 
 // Handler is the struct that implements the TFTP read and write function handlers.
 type Handler struct {
-	Log logr.Logger
+	Log   logr.Logger
 	Patch []byte
 }
 

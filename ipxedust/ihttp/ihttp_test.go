@@ -100,7 +100,7 @@ func TestListenAndServeHTTP(t *testing.T) {
 }
 
 func TestHandle(t *testing.T) {
-	patched_binary, _ := binary.Patch(binary.Files["snp.efi"], []byte("echo 'hello world'"))
+	patched, _ := binary.Patch(binary.Files["snp.efi"], []byte("echo 'hello world'"))
 
 	type req struct {
 		method string
@@ -154,16 +154,16 @@ func TestHandle(t *testing.T) {
 		},
 		{
 			name: "patch",
-			req: req{method: "GET", url: "/30:23:03:73:a5:a7/snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01"},
+			req:  req{method: "GET", url: "/30:23:03:73:a5:a7/snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01"},
 			want: &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(bytes.NewBuffer(patched_binary)),
+				Body:       ioutil.NopCloser(bytes.NewBuffer(patched)),
 			},
 			patch: []byte("echo 'hello world'"),
 		},
 		{
 			name: "bad patch",
-			req: req{method: "GET", url: "/30:23:03:73:a5:a7/snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01"},
+			req:  req{method: "GET", url: "/30:23:03:73:a5:a7/snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01"},
 			want: &http.Response{
 				StatusCode: http.StatusInternalServerError,
 			},
