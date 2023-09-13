@@ -9,19 +9,13 @@ set -eux
 function build_ipxe() {
     local ipxe_dir="$1"
     local ipxe_bin="$2"
-    local run_in_docker="$3"
-    local env_opts="$4"
-    local embed_path="$5"
-    local nix_shell="$6"
+    local env_opts="$3"
+    local embed_path="$4"
 
-    if [ "${run_in_docker}" = true ]; then
-        if [ ! -f "${ipxe_dir}/src/${ipxe_bin}" ]; then
-            echo "running in docker"
-            docker run -it --rm -v "${PWD}":/code -w /code nixos/nix nix-shell "${nix_shell}" --run "${env_opts} make -C ${ipxe_dir}/src EMBED=${embed_path} ${ipxe_bin}"
-        fi
+    if [ -z "${env_opts}" ]; then
+        make -C "${ipxe_dir}"/src EMBED="${embed_path}" "${ipxe_bin}"
     else
-        echo "running locally"
-        nix-shell "${nix_shell}" --run "${env_opts} make -C ${ipxe_dir}/src EMBED=${embed_path} ${ipxe_bin}"
+        make -C "${ipxe_dir}"/src "${env_opts}" EMBED="${embed_path}" "${ipxe_bin}"
     fi
 }
 
@@ -104,9 +98,9 @@ function hasType() {
     fi
 }
 
-function hasDocker() {
-    if [ -z "$(type docker)" ]; then
-        echo "docker command not found"
+function hasUname() {
+    if [ -z "$(type uname)" ]; then
+        echo "uname command not found"
         return 1
     fi
 }
@@ -114,13 +108,6 @@ function hasDocker() {
 function hasNixShell() {
     if [ -z "$(type nix-shell)" ]; then
         echo "nix-shell command not found"
-        return 1
-    fi
-}
-
-function hasUname() {
-    if [ -z "$(type uname)" ]; then
-        echo "uname command not found"
         return 1
     fi
 }
@@ -137,21 +124,16 @@ function setup_build_dir() {
 function main() {
     local bin_path=${1}
     local ipxe_sha_or_tag=${2}
-    local ipxe_build_in_docker=${3}
-    local final_path=${4}
-    local nix_shell=${5}
-    local env_opts=${6}
-    local embed_path=${7}
+    local final_path=${3}
+    local env_opts=${4}
+    local embed_path=${5}
 
     # check for prerequisites
     hasType
-    hasNixShell
     hasUname
-    local OS_TEST
-    OS_TEST=$(uname | tr '[:upper:]' '[:lower:]')
-    if [[ "${OS_TEST}" != *"linux"* ]]; then
-        hasDocker
-    fi
+    # while nix-shell is not used in this script,
+    # we should be in nix-shell for the iPXE build.
+    hasNixShell
 
     local ipxe_src=upstream-${ipxe_sha_or_tag}
     local build_dir=${ipxe_src}-${final_path##*/}
@@ -160,8 +142,8 @@ function main() {
     mv_embed_into_build "${embed_path}" "${build_dir}"
     customize "${build_dir}" "${bin_path}"
 
-    build_ipxe "${build_dir}" "${bin_path}" "${ipxe_build_in_docker}" "${env_opts}" "embed.ipxe" "${nix_shell}"
+    build_ipxe "${build_dir}" "${bin_path}" "${env_opts}" "embed.ipxe"
     cp -a "${build_dir}/src/${bin_path}" "${final_path}"
 }
 
-main "$1" "$2" "$3" "$4" "$5" "${6:-}" "${7:-binary/script/embed.ipxe}"
+main "$1" "$2" "$3" "${4:-}" "${5:-binary/script/embed.ipxe}"

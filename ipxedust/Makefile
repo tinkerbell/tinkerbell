@@ -11,6 +11,10 @@ help: ## show this help message
 
 include lint.mk
 
+# building iPXE on a Mac is troublesome and difficult to get working. It is recommended to build in Docker.
+in-docker: ## Run nix Docker container
+	docker run --rm -v $(shell pwd):/ipxedust -w /ipxedust -it nixos/nix nix-shell binary/script/shell.nix
+
 .PHONY: binary
 binary: $(BINARIES) ## build all upstream ipxe binaries
 
@@ -19,9 +23,6 @@ binary: $(BINARIES) ## build all upstream ipxe binaries
 ipxe_sha_or_tag := $(shell cat binary/script/ipxe.commit)
 ipxe_readme := upstream-$(ipxe_sha_or_tag)/README
 
-# building iPXE on a Mac is troublesome and difficult to get working. For that reason, on a Mac, we build the iPXE binary using Docker.
-ipxe_build_in_docker := $(shell if [ $(OSFLAG) = "darwin" ]; then echo true; else echo false; fi)
-
 .PHONY: extract-ipxe
 extract-ipxe: $(ipxe_readme) ## Fetch and extract ipxe source
 $(ipxe_readme): binary/script/ipxe.commit
@@ -29,18 +30,18 @@ $(ipxe_readme): binary/script/ipxe.commit
 	touch "$@"
 
 binary/ipxe.efi: $(ipxe_readme) ## build ipxe.efi
-	+${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
+	+${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.efi "$(ipxe_sha_or_tag)" $@
 
 binary/undionly.kpxe: $(ipxe_readme) ## build undionly.kpxe
-	+${IPXE_BUILD_SCRIPT} bin/undionly.kpxe "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@ "${IPXE_NIX_SHELL}"
+	+${IPXE_BUILD_SCRIPT} bin/undionly.kpxe "$(ipxe_sha_or_tag)" $@
 
 binary/snp.efi: $(ipxe_readme) ## build snp.efi
-	+${IPXE_BUILD_SCRIPT} bin-arm64-efi/snp.efi "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@  "${IPXE_NIX_SHELL}" "CROSS_COMPILE=aarch64-unknown-linux-gnu-"
+	+${IPXE_BUILD_SCRIPT} bin-arm64-efi/snp.efi "$(ipxe_sha_or_tag)" $@ "CROSS_COMPILE=aarch64-unknown-linux-gnu-"
 
 binary/ipxe.iso: $(ipxe_readme) ## build ipxe.iso
-	+${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.iso "$(ipxe_sha_or_tag)" $(ipxe_build_in_docker) $@  "${IPXE_NIX_SHELL}"
+	+${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.iso "$(ipxe_sha_or_tag)" $@
 
-binary/ipxe-efi.img: binary/ipxe.efi
+binary/ipxe-efi.img: binary/ipxe.efi ## build ipxe-efi.img
 	qemu-img create -f raw $@.t 1440K
 	mkfs.vfat --mbr=y -F 12 -n IPXE $@.t
 	mmd -i $@.t ::/EFI
