@@ -6,19 +6,40 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// Config defines the configuration for sending rpc notifications.
-type OptRPC struct {
+// RedfishOptions contains the redfish provider specific options.
+type RedfishOptions struct {
+	// Port that redfish will use for calls.
+	Port int `json:"port"`
+}
+
+// IPMITOOLOptions contains the ipmitool provider specific options.
+type IPMITOOLOptions struct {
+	// Port that ipmitool will use for calls.
+	Port int `json:"port"`
+	// CipherSuite that ipmitool will use for calls.
+	CipherSuite string `json:"cipherSuite"`
+}
+
+// IntelAMTOptions contains the intelAMT provider specific options.
+type IntelAMTOptions struct {
+	// Port that intelAMT will use for calls.
+	Port int `json:"port"`
+}
+
+// RPCAlgorithm is a type for HMAC algorithms.
+type RPCAlgorithm string
+
+// RPCSecrets holds per Algorithm slice secrets.
+// These secrets will be used to create HMAC signatures.
+type RPCSecrets map[RPCAlgorithm][]corev1.SecretReference
+
+// RPCOptions defines the configurable options to use when sending rpc notifications.
+type RPCOptions struct {
 	// ConsumerURL is the URL where an rpc consumer/listener is running
 	// and to which we will send and receive all notifications.
 	ConsumerURL string `json:"consumerURL"`
 	// LogNotificationsDisabled determines whether responses from rpc consumer/listeners will be logged or not.
 	LogNotificationsDisabled bool `json:"logNotificationsDisabled"`
-	// Opts are the options for the rpc provider.
-	Opts Opts `json:"opts"`
-}
-
-// Opts are the options for the rpc provider.
-type Opts struct {
 	// Request is the options used to create the rpc HTTP request.
 	Request RequestOpts `json:"request"`
 	// Signature is the options used for adding an HMAC signature to an HTTP request.
@@ -26,10 +47,10 @@ type Opts struct {
 	// HMAC is the options used to create a HMAC signature.
 	HMAC HMACOpts `json:"hmac"`
 	// Experimental options.
-	Experimental Experimental `json:"experimental"`
+	Experimental ExperimentalOpts `json:"experimental"`
 }
 
-// RequestOpts are the options used to create the rpc HTTP request.
+// RequestOpts are the options used when creating an HTTP request.
 type RequestOpts struct {
 	// HTTPContentType is the content type to use for the rpc request notification.
 	HTTPContentType string `json:"httpContentType"`
@@ -56,41 +77,18 @@ type SignatureOpts struct {
 	IncludedPayloadHeaders []string `json:"includedPayloadHeaders"`
 }
 
-// HMACOpts are the options used to create a HMAC signature.
+// HMACOpts are the options used to create an HMAC signature.
 type HMACOpts struct {
 	// PrefixSigDisabled determines whether the algorithm will be prefixed to the signature. Example: sha256=abc123
 	PrefixSigDisabled bool `json:"prefixSigDisabled"`
 	// Secrets are a map of algorithms to secrets used for signing.
-	Secrets Secrets `json:"secrets"`
+	Secrets RPCSecrets `json:"secrets"`
 }
 
-// Experimental options.
-type Experimental struct {
+// ExperimentalOpts are options we're still learning about and should be used carefully.
+type ExperimentalOpts struct {
 	// CustomRequestPayload must be in json.
 	CustomRequestPayload string `json:"customRequestPayload"`
-	// DotPath is the path to where the bmclib RequestPayload{} will be embedded. For example: object.data.body
+	// DotPath is the path to the json object where the bmclib RequestPayload{} struct will be embedded. For example: object.data.body
 	DotPath string `json:"dotPath"`
-}
-
-// Algorithm is the type for HMAC algorithms.
-type Algorithm string
-
-// Secrets hold per algorithm slice secrets.
-// These secrets will be used to create HMAC signatures.
-type Secrets map[Algorithm][]corev1.SecretReference
-
-// OptRedfish contains redfish provider options.
-type OptRedfish struct {
-	Port int `json:"port"`
-}
-
-// OptIPMITOOL contains ipmitool provider options.
-type OptIPMITOOL struct {
-	Port        int    `json:"port"`
-	CipherSuite string `json:"cipherSuite"`
-}
-
-// OptIntelAMT contains intel amt provider options.
-type OptIntelAMT struct {
-	Port int `json:"port"`
 }
