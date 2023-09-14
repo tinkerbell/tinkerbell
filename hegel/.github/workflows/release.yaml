@@ -26,7 +26,7 @@ jobs:
       # ci.yaml workflow.
       - name: Generate source image name
         id: src
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.IMAGE }}
@@ -35,7 +35,7 @@ jobs:
 
       - name: Generate image release tags
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.IMAGE }}
