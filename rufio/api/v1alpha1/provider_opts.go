@@ -26,12 +26,12 @@ type IntelAMTOptions struct {
 	Port int `json:"port"`
 }
 
-// RPCAlgorithm is a type for HMAC algorithms.
-type RPCAlgorithm string
+// HMACAlgorithm is a type for HMAC algorithms.
+type HMACAlgorithm string
 
-// RPCSecrets holds per Algorithm slice secrets.
+// HMACSecrets holds per Algorithm slice secrets.
 // These secrets will be used to create HMAC signatures.
-type RPCSecrets map[RPCAlgorithm][]corev1.SecretReference
+type HMACSecrets map[HMACAlgorithm][]corev1.SecretReference
 
 // RPCOptions defines the configurable options to use when sending rpc notifications.
 type RPCOptions struct {
@@ -82,7 +82,7 @@ type HMACOpts struct {
 	// PrefixSigDisabled determines whether the algorithm will be prefixed to the signature. Example: sha256=abc123
 	PrefixSigDisabled bool `json:"prefixSigDisabled"`
 	// Secrets are a map of algorithms to secrets used for signing.
-	Secrets RPCSecrets `json:"secrets"`
+	Secrets HMACSecrets `json:"secrets"`
 }
 
 // ExperimentalOpts are options we're still learning about and should be used carefully.
