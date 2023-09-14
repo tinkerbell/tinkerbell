@@ -132,7 +132,7 @@ jobs:
             type=sha
 
       - name: Login to quay.io
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         if: ${{ startsWith(github.ref, 'refs/heads/main') || startsWith(github.ref, 'refs/heads/v') }}
         with:
           registry: ${{ env.REGISTRY }}
