@@ -108,12 +108,11 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *v1alpha1.Machin
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
 		bm.SetCondition(v1alpha1.Contactable, v1alpha1.ConditionFalse, v1alpha1.WithMachineConditionMessage(err.Error()))
-		result, patchErr := r.patchStatus(ctx, bm, bmPatch)
-		if patchErr != nil {
-			return result, utilerrors.NewAggregate([]error{patchErr, err})
+		if patchErr := r.patchStatus(ctx, bm, bmPatch); patchErr != nil {
+			return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
 		}
 
-		return result, err
+		return ctrl.Result{}, err
 	}
 
 	// Close BMC connection after reconciliation
@@ -145,12 +144,11 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *v1alpha1.Machin
 	}
 
 	// Patch the status after each reconciliation
-	result, err := r.patchStatus(ctx, bm, bmPatch)
-	if err != nil {
+	if err := r.patchStatus(ctx, bm, bmPatch); err != nil {
 		aggErr = utilerrors.NewAggregate([]error{err, aggErr})
 	}
 
-	return result, utilerrors.Flatten(aggErr)
+	return ctrl.Result{}, utilerrors.Flatten(aggErr)
 }
 
 // reconcilePower ensures the Machine Power is in the desired state.
@@ -172,13 +170,13 @@ func (r *MachineReconciler) reconcilePower(ctx context.Context, bm *v1alpha1.Mac
 }
 
 // patchStatus patches the specifies patch on the Machine.
-func (r *MachineReconciler) patchStatus(ctx context.Context, bm *v1alpha1.Machine, patch client.Patch) (ctrl.Result, error) {
+func (r *MachineReconciler) patchStatus(ctx context.Context, bm *v1alpha1.Machine, patch client.Patch) error {
 	err := r.client.Status().Patch(ctx, bm, patch)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to patch Machine %s/%s status: %w", bm.Namespace, bm.Name, err)
+		return fmt.Errorf("failed to patch Machine %s/%s status: %w", bm.Namespace, bm.Name, err)
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // convertRawBMCPowerState takes a raw BMC power state response and attempts to convert it to

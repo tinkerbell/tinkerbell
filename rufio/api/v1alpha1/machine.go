@@ -49,6 +49,28 @@ const (
 type MachineSpec struct {
 	// Connection contains connection data for a Baseboard Management Controller.
 	Connection Connection `json:"connection"`
+
+	// ProviderOptions contains provider specific options.
+	// +optional
+	ProviderOptions ProviderOptions `json:"providerOptions,omitempty"`
+}
+
+type ProviderOptions struct {
+	// IntelAMT contains the options to customize the IntelAMT provider.
+	// +optional
+	IntelAMT *IntelAMTOptions `json:"intelAMT"`
+
+	// IPMITOOL contains the options to customize the Ipmitool provider.
+	// +optional
+	IPMITOOL *IPMITOOLOptions `json:"ipmitool"`
+
+	// Redfish contains the options to customize the Redfish provider.
+	// +optional
+	Redfish *RedfishOptions `json:"redfish"`
+
+	// RPC contains the options to customize the RPC provider.
+	// +optional
+	RPC *RPCOptions `json:"rpc"`
 }
 
 // Connection contains connection data for a Baseboard Management Controller.
