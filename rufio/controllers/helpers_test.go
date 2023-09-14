@@ -11,7 +11,6 @@ import (
 	"github.com/tinkerbell/rufio/controllers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -31,22 +30,6 @@ func newClientBuilder() *fake.ClientBuilder {
 
 	return fake.NewClientBuilder().
 		WithScheme(scheme)
-}
-
-// createKubeClientWithObjects creates a kubernetes client with the given objects.
-func createKubeClientWithObjects(objects ...client.Object) client.WithWatch {
-	return newClientBuilder().
-		WithObjects(objects...).
-		Build()
-}
-
-// createKubeClientWithObjectsForJobController creates a kubernetes client with the given objects
-// and the indexes required by the Job controller.
-func createKubeClientWithObjectsForJobController(objects ...client.Object) client.WithWatch {
-	return newClientBuilder().
-		WithObjects(objects...).
-		WithIndex(&v1alpha1.Task{}, ".metadata.controller", controllers.TaskOwnerIndexFunc).
-		Build()
 }
 
 type testProvider struct {
