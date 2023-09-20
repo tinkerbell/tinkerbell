@@ -93,13 +93,7 @@ func (r *MachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *MachineReconciler) doReconcile(ctx context.Context, bm *v1alpha1.Machine, bmPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
-	// Fetching username, password from SecretReference
-	// Requeue if error fetching secret
-	username, password, err := resolveAuthSecretRef(ctx, r.client, bm.Spec.Connection.AuthSecretRef)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("resolving Machine %s/%s SecretReference: %w", bm.Namespace, bm.Name, err)
-	}
-
+	var username, password string
 	opts := &BMCOptions{}
 	if bm.Spec.Connection.ProviderOptions != nil && bm.Spec.Connection.ProviderOptions.RPC != nil {
 		opts.ProviderOptions = bm.Spec.Connection.ProviderOptions
@@ -109,6 +103,14 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *v1alpha1.Machin
 				return ctrl.Result{}, fmt.Errorf("unable to get hmac secrets: %w", err)
 			}
 			opts.rpcSecrets = se
+		}
+	} else {
+		// Fetching username, password from SecretReference
+		// Requeue if error fetching secret
+		var err error
+		username, password, err = resolveAuthSecretRef(ctx, r.client, bm.Spec.Connection.AuthSecretRef)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("resolving Machine %s/%s SecretReference: %w", bm.Namespace, bm.Name, err)
 		}
 	}
 

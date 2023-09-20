@@ -97,9 +97,11 @@ func (t *testProvider) SetVirtualMedia(_ context.Context, _ string, _ string) (o
 // newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc.
 func newTestClient(provider *testProvider) controller.ClientFunc {
 	return func(ctx context.Context, log logr.Logger, hostIP, username, password string, opts *controller.BMCOptions) (*bmclib.Client, error) {
+		o := opts.Translate(hostIP)
 		reg := registrar.NewRegistry(registrar.WithLogger(log))
 		reg.Register(provider.Name(), provider.Protocol(), provider.Features(), nil, provider)
-		cl := bmclib.NewClient(hostIP, username, password, bmclib.WithLogger(log), bmclib.WithRegistry(reg))
+		o = append(o, bmclib.WithLogger(log), bmclib.WithRegistry(reg))
+		cl := bmclib.NewClient(hostIP, username, password, o...)
 		return cl, cl.Open(ctx)
 	}
 }

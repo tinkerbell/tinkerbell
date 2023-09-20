@@ -23,7 +23,7 @@ func NewClientFunc(timeout time.Duration) ClientFunc {
 	// Establishes a connection with the bmc with client.Open
 	// Returns a bmclib.Client.
 	return func(ctx context.Context, log logr.Logger, hostIP, username, password string, opts *BMCOptions) (*bmclib.Client, error) {
-		o := opts.translate(hostIP)
+		o := opts.Translate(hostIP)
 		log = log.WithValues("host", hostIP, "username", username)
 		o = append(o, bmclib.WithLogger(log))
 		client := bmclib.NewClient(hostIP, username, password, o...)
@@ -51,7 +51,7 @@ type BMCOptions struct {
 	rpcSecrets map[rpc.Algorithm][]string
 }
 
-func (b BMCOptions) translate(host string) []bmclib.Option {
+func (b BMCOptions) Translate(host string) []bmclib.Option {
 	o := []bmclib.Option{}
 
 	if b.ProviderOptions == nil {

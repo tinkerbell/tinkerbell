@@ -20,7 +20,9 @@ func TestMachineReconcile(t *testing.T) {
 		provider  *testProvider
 		shouldErr bool
 		secret    *corev1.Secret
+		machine   *v1alpha1.Machine
 	}{
+
 		"success power on": {
 			provider: &testProvider{Powerstate: "on"},
 			secret:   createSecret(),
@@ -29,6 +31,26 @@ func TestMachineReconcile(t *testing.T) {
 		"success power off": {
 			provider: &testProvider{Powerstate: "off"},
 			secret:   createSecret(),
+		},
+
+		"success power on with RPC provider": {
+			provider: &testProvider{Powerstate: "on", Proto: "rpc"},
+			secret:   createHMACSecret(),
+			machine:  createMachineWithRPC(createHMACSecret()),
+		},
+
+		"fail to find secret with RPC provider": {
+			provider:  &testProvider{Powerstate: "on", Proto: "rpc"},
+			secret:    createHMACSecret(),
+			shouldErr: true,
+			machine: createMachineWithRPC(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+					Name:      "test-bm-auths",
+				},
+				Data: map[string][]byte{
+					"secret": []byte("test"),
+				}}),
 		},
 
 		"fail on open": {
@@ -88,7 +110,12 @@ func TestMachineReconcile(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			bm := createMachine()
+			var bm *v1alpha1.Machine
+			if tt.machine != nil {
+				bm = tt.machine
+			} else {
+				bm = createMachine()
+			}
 
 			client := newClientBuilder().
 				WithObjects(bm, tt.secret).
@@ -118,6 +145,36 @@ func TestMachineReconcile(t *testing.T) {
 				t.Fatal("expected error, got nil")
 			}
 		})
+	}
+}
+
+func createMachineWithRPC(secret *corev1.Secret) *v1alpha1.Machine {
+	return &v1alpha1.Machine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-bm",
+			Namespace: "test-namespace",
+		},
+		Spec: v1alpha1.MachineSpec{
+			Connection: v1alpha1.Connection{
+				Host:        "127.1.1.1",
+				InsecureTLS: false,
+				ProviderOptions: &v1alpha1.ProviderOptions{
+					RPC: &v1alpha1.RPCOptions{
+						ConsumerURL: "http://127.0.0.1:7777",
+						HMAC: v1alpha1.HMACOpts{
+							Secrets: v1alpha1.HMACSecrets{
+								"sha256": []corev1.SecretReference{
+									{
+										Name:      secret.Name,
+										Namespace: secret.Namespace,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -155,6 +212,18 @@ func createSecret() *corev1.Secret {
 		Data: map[string][]byte{
 			"username": []byte("test"),
 			"password": []byte("test"),
+		},
+	}
+}
+
+func createHMACSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-namespace",
+			Name:      "test-bm-hmac",
+		},
+		Data: map[string][]byte{
+			"secret": []byte("superSecret1"),
 		},
 	}
 }
