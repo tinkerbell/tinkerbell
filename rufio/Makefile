@@ -50,8 +50,9 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: fmt
-fmt: ## Run go fmt against code.
+fmt: goimports ## Run go fmt against code.
 	go fmt ./...
+	$(GOIMPORTS) -w .
 
 .PHONY: vet
 vet: ## Run go vet against code.
@@ -124,6 +125,11 @@ ENVTEST = $(shell pwd)/bin/setup-envtest
 .PHONY: envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+GOIMPORTS = $(shell pwd)/bin/goimports
+.PHONY: goimports
+goimports: ## Download goimports locally if necessary.
+	$(call go-get-tool,$(GOIMPORTS),golang.org/x/tools/cmd/goimports@latest)
 
 ##@ Release
 
