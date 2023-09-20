@@ -9,5 +9,3 @@ spec:
       name: sample-machine-auth
       namespace: rufio-system
     insecureTLS: true
-
-
