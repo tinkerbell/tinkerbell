@@ -43,7 +43,8 @@ spec:
                   authSecretRef:
                     description: AuthSecretRef is the SecretReference that contains
                       authentication information of the Machine. The Secret must contain
-                      username and password keys.
+                      username and password keys. This is optional as it is not required
+                      when using the RPC provider.
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -215,7 +216,6 @@ spec:
                         type: object
                     type: object
                 required:
-                - authSecretRef
                 - host
                 - insecureTLS
                 type: object

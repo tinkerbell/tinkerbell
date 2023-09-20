@@ -82,7 +82,9 @@ type Connection struct {
 	Port int `json:"port"`
 
 	// AuthSecretRef is the SecretReference that contains authentication information of the Machine.
-	// The Secret must contain username and password keys.
+	// The Secret must contain username and password keys. This is optional as it is not required when using
+	// the RPC provider.
+	// +optional
 	AuthSecretRef corev1.SecretReference `json:"authSecretRef"`
 
 	// InsecureTLS specifies trusted TLS connections.
