@@ -138,5 +138,3 @@ func (b BMCOptions) translateRPC(host string) rpc.Provider {
 
 	return o
 }
-
-// func (r BMCOptions)
