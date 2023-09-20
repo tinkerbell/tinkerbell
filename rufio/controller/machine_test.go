@@ -22,7 +22,6 @@ func TestMachineReconcile(t *testing.T) {
 		secret    *corev1.Secret
 		machine   *v1alpha1.Machine
 	}{
-
 		"success power on": {
 			provider: &testProvider{Powerstate: "on"},
 			secret:   createSecret(),
@@ -50,7 +49,8 @@ func TestMachineReconcile(t *testing.T) {
 				},
 				Data: map[string][]byte{
 					"secret": []byte("test"),
-				}}),
+				},
+			}),
 		},
 
 		"fail on open": {
