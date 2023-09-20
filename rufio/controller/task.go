@@ -94,8 +94,20 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *v1alpha1.Task, t
 		return ctrl.Result{}, fmt.Errorf("resolving connection secret for task %s/%s: %w", task.Namespace, task.Name, err)
 	}
 
+	opts := &BMCOptions{}
+	if task.Spec.Connection.ProviderOptions != nil && task.Spec.Connection.ProviderOptions.RPC != nil {
+		opts.ProviderOptions = task.Spec.Connection.ProviderOptions
+		if len(task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
+			se, err := retrieveHMACSecrets(ctx, r.client, task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("unable to get hmac secrets: %w", err)
+			}
+			opts.rpcSecrets = se
+		}
+	}
+
 	// Initializing BMC Client
-	bmcClient, err := r.bmcClientFactory(ctx, logger, task.Spec.Connection.Host, username, password, nil)
+	bmcClient, err := r.bmcClientFactory(ctx, logger, task.Spec.Connection.Host, username, password, opts)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", task.Spec.Connection.Host)
 		task.SetCondition(v1alpha1.TaskFailed, v1alpha1.ConditionTrue, v1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
