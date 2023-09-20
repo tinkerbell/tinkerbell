@@ -219,6 +219,11 @@ func createTask(name string, action v1alpha1.Action, secret *corev1.Secret) *v1a
 					Name:      secret.Name,
 					Namespace: secret.Namespace,
 				},
+				ProviderOptions: &v1alpha1.ProviderOptions{
+					Redfish: &v1alpha1.RedfishOptions{
+						Port: 443,
+					},
+				},
 			},
 		},
 	}

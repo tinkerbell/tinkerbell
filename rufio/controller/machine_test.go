@@ -136,6 +136,11 @@ func createMachine() *v1alpha1.Machine {
 					Namespace: "test-namespace",
 				},
 				InsecureTLS: false,
+				ProviderOptions: &v1alpha1.ProviderOptions{
+					Redfish: &v1alpha1.RedfishOptions{
+						Port: 443,
+					},
+				},
 			},
 		},
 	}
