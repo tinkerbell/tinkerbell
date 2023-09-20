@@ -38,9 +38,10 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/rufio/controllers"
+	"github.com/tinkerbell/rufio/controller"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -62,16 +63,12 @@ func init() {
 
 // defaultLogger is a zerolog logr implementation.
 func defaultLogger(level string) logr.Logger {
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
-	zerologr.NameFieldName = "logger"
-	zerologr.NameSeparator = "/"
-
 	zl := zerolog.New(os.Stdout)
 	zl = zl.With().Caller().Timestamp().Logger()
 	var l zerolog.Level
 	switch level {
 	case "debug":
-		l = zerolog.DebugLevel
+		l = zerolog.TraceLevel
 	default:
 		l = zerolog.InfoLevel
 	}
@@ -119,13 +116,15 @@ func main() {
 	setupLog.Info("Watching objects in namespace for reconciliation", "namespace", kubeNamespace)
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "e74dec1a.tinkerbell.org",
-		Namespace:              kubeNamespace,
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: metricsAddr,
+		},
+		// Port:                   9443,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "e74dec1a.tinkerbell.org",
+		LeaderElectionNamespace: kubeNamespace,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -135,7 +134,7 @@ func main() {
 	// Setup the context that's going to be used in controllers and for the manager.
 	ctx := ctrl.SetupSignalHandler()
 
-	bmcClientFactory := controllers.NewClientFunc(bmcConnectTimeout)
+	bmcClientFactory := controller.NewClientFunc(bmcConnectTimeout)
 
 	// Setup controller reconcilers
 	setupReconcilers(ctx, mgr, bmcClientFactory)
@@ -169,8 +168,8 @@ func newClientConfig(kubeAPIServer, kubeconfig string) clientcmd.ClientConfig {
 }
 
 // setupReconcilers initializes the controllers with the Manager.
-func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory controllers.ClientFunc) {
-	err := (controllers.NewMachineReconciler(
+func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory controller.ClientFunc) {
+	err := (controller.NewMachineReconciler(
 		mgr.GetClient(),
 		mgr.GetEventRecorderFor("machine-controller"),
 		bmcClientFactory,
@@ -180,7 +179,7 @@ func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory co
 		os.Exit(1)
 	}
 
-	err = (controllers.NewJobReconciler(
+	err = (controller.NewJobReconciler(
 		mgr.GetClient(),
 	)).SetupWithManager(ctx, mgr)
 	if err != nil {
@@ -188,7 +187,7 @@ func setupReconcilers(ctx context.Context, mgr ctrl.Manager, bmcClientFactory co
 		os.Exit(1)
 	}
 
-	err = (controllers.NewTaskReconciler(
+	err = (controller.NewTaskReconciler(
 		mgr.GetClient(),
 		bmcClientFactory,
 	)).SetupWithManager(mgr)

@@ -1,4 +1,4 @@
-package controllers_test
+package controller_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/rufio/controllers"
+	"github.com/tinkerbell/rufio/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -116,7 +116,7 @@ func TestTaskReconcile(t *testing.T) {
 				WithStatusSubresource(task).
 				Build()
 
-			reconciler := controllers.NewTaskReconciler(cluster, newTestClient(tt.provider))
+			reconciler := controller.NewTaskReconciler(cluster, newTestClient(tt.provider))
 			request := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: task.Namespace,

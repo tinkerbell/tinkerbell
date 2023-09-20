@@ -11,12 +11,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controller
 
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
@@ -96,7 +95,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *v1alpha1.Task, t
 	}
 
 	// Initializing BMC Client
-	bmcClient, err := r.bmcClientFactory(ctx, logger, task.Spec.Connection.Host, strconv.Itoa(task.Spec.Connection.Port), username, password)
+	bmcClient, err := r.bmcClientFactory(ctx, logger, task.Spec.Connection.Host, username, password, nil)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", task.Spec.Connection.Host)
 		task.SetCondition(v1alpha1.TaskFailed, v1alpha1.ConditionTrue, v1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
@@ -229,10 +228,7 @@ func (r *TaskReconciler) checkTaskStatus(ctx context.Context, log logr.Logger, t
 		log = log.WithValues("currentPowerState", rawState)
 		log.Info("power state check")
 
-		state, err := convertRawBMCPowerState(rawState)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+		state := toPowerState(rawState)
 
 		switch *task.PowerAction { //nolint:exhaustive // we only support a few power actions right now.
 		case v1alpha1.PowerOn:

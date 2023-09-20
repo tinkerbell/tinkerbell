@@ -1,4 +1,4 @@
-package controllers_test
+package controller_test
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/rufio/controllers"
+	"github.com/tinkerbell/rufio/controller"
 )
 
 func TestMachineReconcile(t *testing.T) {
@@ -32,27 +32,23 @@ func TestMachineReconcile(t *testing.T) {
 		},
 
 		"fail on open": {
-			provider:  &testProvider{ErrOpen: errors.New("failed to open connection")},
-			shouldErr: true,
-			secret:    createSecret(),
+			provider: &testProvider{ErrOpen: errors.New("failed to open connection")},
+			secret:   createSecret(),
 		},
 
 		"fail on power get": {
-			provider:  &testProvider{ErrPowerStateGet: errors.New("failed to set power state")},
-			shouldErr: true,
-			secret:    createSecret(),
+			provider: &testProvider{ErrPowerStateGet: errors.New("failed to set power state")},
+			secret:   createSecret(),
 		},
 
 		"fail bad power state": {
-			provider:  &testProvider{Powerstate: "bad"},
-			shouldErr: true,
-			secret:    createSecret(),
+			provider: &testProvider{Powerstate: "bad"},
+			secret:   createSecret(),
 		},
 
 		"fail on close": {
-			provider:  &testProvider{ErrClose: errors.New("failed to close connection")},
-			shouldErr: true,
-			secret:    createSecret(),
+			provider: &testProvider{ErrClose: errors.New("failed to close connection")},
+			secret:   createSecret(),
 		},
 
 		"fail secret not found": {
@@ -101,7 +97,7 @@ func TestMachineReconcile(t *testing.T) {
 
 			fakeRecorder := record.NewFakeRecorder(2)
 
-			reconciler := controllers.NewMachineReconciler(
+			reconciler := controller.NewMachineReconciler(
 				client,
 				fakeRecorder,
 				newTestClient(tt.provider),

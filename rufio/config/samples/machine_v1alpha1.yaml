@@ -5,8 +5,9 @@ metadata:
 spec:
   connection:
     host: 127.0.0.1
-    port: 623
     authSecretRef:
       name: sample-machine-auth
       namespace: rufio-system
     insecureTLS: true
+
+
