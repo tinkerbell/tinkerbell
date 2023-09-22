@@ -24,6 +24,7 @@ in
             gnumake
             gnused
             go
+            gptfdisk
             mtools
             perl
             qemu-utils
