@@ -143,7 +143,7 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *v1alpha1.Machin
 	contactable := v1alpha1.ConditionTrue
 	conditionMsg := v1alpha1.WithMachineConditionMessage("")
 	multiErr := []error{}
-	pErr := r.powerState(ctx, bm, bmcClient)
+	pErr := r.updatePowerState(ctx, bm, bmcClient)
 	if pErr != nil {
 		logger.Error(pErr, "failed to get Machine power state", "host", bm.Spec.Connection.Host)
 		contactable = v1alpha1.ConditionFalse
@@ -163,8 +163,8 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *v1alpha1.Machin
 	return ctrl.Result{RequeueAfter: machineRequeueInterval}, nil
 }
 
-// powerState gets the current power state of the machine.
-func (r *MachineReconciler) powerState(ctx context.Context, bm *v1alpha1.Machine, bmcClient *bmclib.Client) error {
+// updatePowerState gets the current power state of the machine.
+func (r *MachineReconciler) updatePowerState(ctx context.Context, bm *v1alpha1.Machine, bmcClient *bmclib.Client) error {
 	rawState, err := bmcClient.GetPowerState(ctx)
 	if err != nil {
 		bm.Status.Power = v1alpha1.Unknown
