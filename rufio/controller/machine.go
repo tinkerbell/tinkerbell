@@ -43,7 +43,6 @@ type MachineReconciler struct {
 }
 
 const (
-	eventGetPowerStateFailed = "GetPowerStateFailed"
 	// machineRequeueInterval is the interval at which the machine's power state is reconciled.
 	// This should only be used when the power state was successfully retrieved.
 	machineRequeueInterval = 3 * time.Minute
@@ -168,7 +167,7 @@ func (r *MachineReconciler) updatePowerState(ctx context.Context, bm *v1alpha1.M
 	rawState, err := bmcClient.GetPowerState(ctx)
 	if err != nil {
 		bm.Status.Power = v1alpha1.Unknown
-		r.recorder.Eventf(bm, corev1.EventTypeWarning, eventGetPowerStateFailed, "get power state: %v", err)
+		r.recorder.Eventf(bm, corev1.EventTypeWarning, "GetPowerStateFailed", "get power state: %v", err)
 		return fmt.Errorf("get power state: %w", err)
 	}
 
