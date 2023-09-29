@@ -11,12 +11,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controller
 
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
@@ -88,15 +87,29 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 }
 
 func (r *TaskReconciler) doReconcile(ctx context.Context, task *v1alpha1.Task, taskPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
-	// Fetching username, password from SecretReference in Connection.
-	// Requeue if error fetching secret
-	username, password, err := resolveAuthSecretRef(ctx, r.client, task.Spec.Connection.AuthSecretRef)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("resolving connection secret for task %s/%s: %w", task.Namespace, task.Name, err)
+	var username, password string
+	opts := &BMCOptions{}
+	if task.Spec.Connection.ProviderOptions != nil && task.Spec.Connection.ProviderOptions.RPC != nil {
+		opts.ProviderOptions = task.Spec.Connection.ProviderOptions
+		if len(task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
+			se, err := retrieveHMACSecrets(ctx, r.client, task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("unable to get hmac secrets: %w", err)
+			}
+			opts.rpcSecrets = se
+		}
+	} else {
+		// Fetching username, password from SecretReference in Connection.
+		// Requeue if error fetching secret
+		var err error
+		username, password, err = resolveAuthSecretRef(ctx, r.client, task.Spec.Connection.AuthSecretRef)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("resolving connection secret for task %s/%s: %w", task.Namespace, task.Name, err)
+		}
 	}
 
 	// Initializing BMC Client
-	bmcClient, err := r.bmcClientFactory(ctx, logger, task.Spec.Connection.Host, strconv.Itoa(task.Spec.Connection.Port), username, password)
+	bmcClient, err := r.bmcClientFactory(ctx, logger, task.Spec.Connection.Host, username, password, opts)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", task.Spec.Connection.Host)
 		task.SetCondition(v1alpha1.TaskFailed, v1alpha1.ConditionTrue, v1alpha1.WithTaskConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
@@ -229,10 +242,7 @@ func (r *TaskReconciler) checkTaskStatus(ctx context.Context, log logr.Logger, t
 		log = log.WithValues("currentPowerState", rawState)
 		log.Info("power state check")
 
-		state, err := convertRawBMCPowerState(rawState)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+		state := toPowerState(rawState)
 
 		switch *task.PowerAction { //nolint:exhaustive // we only support a few power actions right now.
 		case v1alpha1.PowerOn:

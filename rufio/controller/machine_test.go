@@ -1,4 +1,4 @@
-package controllers_test
+package controller_test
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/rufio/controllers"
+	"github.com/tinkerbell/rufio/controller"
 )
 
 func TestMachineReconcile(t *testing.T) {
@@ -20,6 +20,7 @@ func TestMachineReconcile(t *testing.T) {
 		provider  *testProvider
 		shouldErr bool
 		secret    *corev1.Secret
+		machine   *v1alpha1.Machine
 	}{
 		"success power on": {
 			provider: &testProvider{Powerstate: "on"},
@@ -31,28 +32,45 @@ func TestMachineReconcile(t *testing.T) {
 			secret:   createSecret(),
 		},
 
-		"fail on open": {
-			provider:  &testProvider{ErrOpen: errors.New("failed to open connection")},
+		"success power on with RPC provider": {
+			provider: &testProvider{Powerstate: "on", Proto: "rpc"},
+			secret:   createHMACSecret(),
+			machine:  createMachineWithRPC(createHMACSecret()),
+		},
+
+		"fail to find secret with RPC provider": {
+			provider:  &testProvider{Powerstate: "on", Proto: "rpc"},
+			secret:    createHMACSecret(),
 			shouldErr: true,
-			secret:    createSecret(),
+			machine: createMachineWithRPC(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+					Name:      "test-bm-auths",
+				},
+				Data: map[string][]byte{
+					"secret": []byte("test"),
+				},
+			}),
+		},
+
+		"fail on open": {
+			provider: &testProvider{ErrOpen: errors.New("failed to open connection")},
+			secret:   createSecret(),
 		},
 
 		"fail on power get": {
-			provider:  &testProvider{ErrPowerStateGet: errors.New("failed to set power state")},
-			shouldErr: true,
-			secret:    createSecret(),
+			provider: &testProvider{ErrPowerStateGet: errors.New("failed to set power state")},
+			secret:   createSecret(),
 		},
 
 		"fail bad power state": {
-			provider:  &testProvider{Powerstate: "bad"},
-			shouldErr: true,
-			secret:    createSecret(),
+			provider: &testProvider{Powerstate: "bad"},
+			secret:   createSecret(),
 		},
 
 		"fail on close": {
-			provider:  &testProvider{ErrClose: errors.New("failed to close connection")},
-			shouldErr: true,
-			secret:    createSecret(),
+			provider: &testProvider{ErrClose: errors.New("failed to close connection")},
+			secret:   createSecret(),
 		},
 
 		"fail secret not found": {
@@ -92,7 +110,12 @@ func TestMachineReconcile(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			bm := createMachine()
+			var bm *v1alpha1.Machine
+			if tt.machine != nil {
+				bm = tt.machine
+			} else {
+				bm = createMachine()
+			}
 
 			client := newClientBuilder().
 				WithObjects(bm, tt.secret).
@@ -101,7 +124,7 @@ func TestMachineReconcile(t *testing.T) {
 
 			fakeRecorder := record.NewFakeRecorder(2)
 
-			reconciler := controllers.NewMachineReconciler(
+			reconciler := controller.NewMachineReconciler(
 				client,
 				fakeRecorder,
 				newTestClient(tt.provider),
@@ -125,6 +148,36 @@ func TestMachineReconcile(t *testing.T) {
 	}
 }
 
+func createMachineWithRPC(secret *corev1.Secret) *v1alpha1.Machine {
+	return &v1alpha1.Machine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-bm",
+			Namespace: "test-namespace",
+		},
+		Spec: v1alpha1.MachineSpec{
+			Connection: v1alpha1.Connection{
+				Host:        "127.1.1.1",
+				InsecureTLS: false,
+				ProviderOptions: &v1alpha1.ProviderOptions{
+					RPC: &v1alpha1.RPCOptions{
+						ConsumerURL: "http://127.0.0.1:7777",
+						HMAC: &v1alpha1.HMACOpts{
+							Secrets: v1alpha1.HMACSecrets{
+								"sha256": []corev1.SecretReference{
+									{
+										Name:      secret.Name,
+										Namespace: secret.Namespace,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func createMachine() *v1alpha1.Machine {
 	return &v1alpha1.Machine{
 		ObjectMeta: metav1.ObjectMeta{
@@ -140,6 +193,11 @@ func createMachine() *v1alpha1.Machine {
 					Namespace: "test-namespace",
 				},
 				InsecureTLS: false,
+				ProviderOptions: &v1alpha1.ProviderOptions{
+					Redfish: &v1alpha1.RedfishOptions{
+						Port: 443,
+					},
+				},
 			},
 		},
 	}
@@ -154,6 +212,18 @@ func createSecret() *corev1.Secret {
 		Data: map[string][]byte{
 			"username": []byte("test"),
 			"password": []byte("test"),
+		},
+	}
+}
+
+func createHMACSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-namespace",
+			Name:      "test-bm-hmac",
+		},
+		Data: map[string][]byte{
+			"secret": []byte("superSecret1"),
 		},
 	}
 }

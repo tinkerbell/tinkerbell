@@ -1,4 +1,4 @@
-package controllers_test
+package controller_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/rufio/controllers"
+	"github.com/tinkerbell/rufio/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,6 +38,8 @@ func TestTaskReconcile(t *testing.T) {
 		taskName   string
 		action     v1alpha1.Action
 		provider   *testProvider
+		secret     *corev1.Secret
+		task       *v1alpha1.Task
 		shouldErr  bool
 		timeoutErr bool
 	}{
@@ -69,6 +71,14 @@ func TestTaskReconcile(t *testing.T) {
 			taskName: "VirtualMedia",
 			action:   getAction("VirtualMedia"),
 			provider: &testProvider{VirtualMediaOK: true},
+		},
+
+		"success power on with rpc provider": {
+			taskName: "PowerOn",
+			action:   getAction("PowerOn"),
+			provider: &testProvider{Powerstate: "on", PowerSetOK: true, Proto: "rpc"},
+			secret:   createHMACSecret(),
+			task:     createTaskWithRPC("PowerOn", getAction("PowerOn"), createHMACSecret()),
 		},
 
 		"failure on bmc open": {
@@ -104,19 +114,38 @@ func TestTaskReconcile(t *testing.T) {
 			provider:   &testProvider{Powerstate: "off", PowerSetOK: true},
 			timeoutErr: true,
 		},
+
+		"fail to find secret": {
+			taskName:  "PowerOn",
+			action:    getAction("PowerOn"),
+			provider:  &testProvider{Powerstate: "off", PowerSetOK: true},
+			secret:    &corev1.Secret{},
+			task:      createTask("PowerOn", getAction("PowerOn"), &corev1.Secret{}),
+			shouldErr: true,
+		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			secret := createSecret()
-			task := createTask(tt.taskName, tt.action, secret)
+			var secret *corev1.Secret
+			if tt.secret != nil {
+				secret = tt.secret
+			} else {
+				secret = createSecret()
+			}
+			var task *v1alpha1.Task
+			if tt.task != nil {
+				task = tt.task
+			} else {
+				task = createTask(tt.taskName, tt.action, secret)
+			}
 
 			cluster := newClientBuilder().
 				WithObjects(task, secret).
 				WithStatusSubresource(task).
 				Build()
 
-			reconciler := controllers.NewTaskReconciler(cluster, newTestClient(tt.provider))
+			reconciler := controller.NewTaskReconciler(cluster, newTestClient(tt.provider))
 			request := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: task.Namespace,
@@ -218,6 +247,46 @@ func createTask(name string, action v1alpha1.Action, secret *corev1.Secret) *v1a
 				AuthSecretRef: corev1.SecretReference{
 					Name:      secret.Name,
 					Namespace: secret.Namespace,
+				},
+				ProviderOptions: &v1alpha1.ProviderOptions{
+					Redfish: &v1alpha1.RedfishOptions{
+						Port: 443,
+					},
+				},
+			},
+		},
+	}
+}
+
+func createTaskWithRPC(name string, action v1alpha1.Action, secret *corev1.Secret) *v1alpha1.Task {
+	return &v1alpha1.Task{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: v1alpha1.TaskSpec{
+			Task: action,
+			Connection: v1alpha1.Connection{
+				Host: "host",
+				Port: 22,
+				AuthSecretRef: corev1.SecretReference{
+					Name:      secret.Name,
+					Namespace: secret.Namespace,
+				},
+				ProviderOptions: &v1alpha1.ProviderOptions{
+					RPC: &v1alpha1.RPCOptions{
+						ConsumerURL: "http://127.0.0.1:7777",
+						HMAC: &v1alpha1.HMACOpts{
+							Secrets: v1alpha1.HMACSecrets{
+								"sha256": []corev1.SecretReference{
+									{
+										Name:      secret.Name,
+										Namespace: secret.Namespace,
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

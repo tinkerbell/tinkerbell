@@ -14,15 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controller
 
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
+	"time"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
+	"github.com/bmc-toolbox/bmclib/v2/providers/rpc"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,49 +37,45 @@ import (
 
 // MachineReconciler reconciles a Machine object.
 type MachineReconciler struct {
-	client           client.Client
-	recorder         record.EventRecorder
-	bmcClientFactory ClientFunc
+	client    client.Client
+	recorder  record.EventRecorder
+	bmcClient ClientFunc
 }
 
 const (
-	EventGetPowerStateFailed = "GetPowerStateFailed"
-	EventSetPowerStateFailed = "SetPowerStateFailed"
+	// machineRequeueInterval is the interval at which the machine's power state is reconciled.
+	// This should only be used when the power state was successfully retrieved.
+	machineRequeueInterval = 3 * time.Minute
 )
 
 // NewMachineReconciler returns a new MachineReconciler.
 func NewMachineReconciler(c client.Client, recorder record.EventRecorder, bmcClientFactory ClientFunc) *MachineReconciler {
 	return &MachineReconciler{
-		client:           c,
-		recorder:         recorder,
-		bmcClientFactory: bmcClientFactory,
+		client:    c,
+		recorder:  recorder,
+		bmcClient: bmcClientFactory,
 	}
 }
-
-// machineFieldReconciler defines a function to reconcile Machine spec field.
-type machineFieldReconciler func(context.Context, *v1alpha1.Machine, *bmclib.Client) error
 
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
 
-// Reconcile ensures the state of a Machine.
-// Gets the Machine object and uses the SecretReference to initialize a BMC Client.
+// Reconcile reports on the state of a Machine. It does not change the state of the Machine in any way.
 // Updates the Power status and conditions accordingly.
 func (r *MachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := ctrl.LoggerFrom(ctx).WithName("controllers/Machine").WithValues("Machine", req.NamespacedName)
-	logger.Info("Reconciling Machine")
+	logger := ctrl.LoggerFrom(ctx).WithName("controllers/Machine")
+	logger.Info("reconciling machine")
 
 	// Fetch the Machine object
 	machine := &v1alpha1.Machine{}
-	err := r.client.Get(ctx, req.NamespacedName, machine)
-	if err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, machine); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 
-		logger.Error(err, "Failed to get Machine")
+		logger.Error(err, "failed to get Machine from KubeAPI")
 		return ctrl.Result{}, err
 	}
 
@@ -96,23 +92,39 @@ func (r *MachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *MachineReconciler) doReconcile(ctx context.Context, bm *v1alpha1.Machine, bmPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
-	// Fetching username, password from SecretReference
-	// Requeue if error fetching secret
-	username, password, err := resolveAuthSecretRef(ctx, r.client, bm.Spec.Connection.AuthSecretRef)
-	if err != nil {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("resolving Machine %s/%s SecretReference: %w", bm.Namespace, bm.Name, err)
+	var username, password string
+	opts := &BMCOptions{}
+	if bm.Spec.Connection.ProviderOptions != nil && bm.Spec.Connection.ProviderOptions.RPC != nil {
+		opts.ProviderOptions = bm.Spec.Connection.ProviderOptions
+		if len(bm.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
+			se, err := retrieveHMACSecrets(ctx, r.client, bm.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("unable to get hmac secrets: %w", err)
+			}
+			opts.rpcSecrets = se
+		}
+	} else {
+		// Fetching username, password from SecretReference
+		// Requeue if error fetching secret
+		var err error
+		username, password, err = resolveAuthSecretRef(ctx, r.client, bm.Spec.Connection.AuthSecretRef)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("resolving Machine %s/%s SecretReference: %w", bm.Namespace, bm.Name, err)
+		}
 	}
 
-	// Initializing BMC Client
-	bmcClient, err := r.bmcClientFactory(ctx, logger, bm.Spec.Connection.Host, strconv.Itoa(bm.Spec.Connection.Port), username, password)
+	// Initializing BMC Client and Open the connection.
+	bmcClient, err := r.bmcClient(ctx, logger, bm.Spec.Connection.Host, username, password, opts)
 	if err != nil {
 		logger.Error(err, "BMC connection failed", "host", bm.Spec.Connection.Host)
 		bm.SetCondition(v1alpha1.Contactable, v1alpha1.ConditionFalse, v1alpha1.WithMachineConditionMessage(err.Error()))
+		bm.Status.Power = v1alpha1.Unknown
 		if patchErr := r.patchStatus(ctx, bm, bmPatch); patchErr != nil {
 			return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
 		}
 
-		return ctrl.Result{}, err
+		// requeue as bmc connections can be transient.
+		return ctrl.Result{RequeueAfter: machineRequeueInterval}, nil
 	}
 
 	// Close BMC connection after reconciliation
@@ -127,99 +139,72 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *v1alpha1.Machin
 		logger.Info("BMC connection closed", "host", bm.Spec.Connection.Host, "successfulCloseConns", md.SuccessfulCloseConns, "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider)
 	}()
 
-	// Setting condition Contactable to True.
-	bm.SetCondition(v1alpha1.Contactable, v1alpha1.ConditionTrue)
-
-	// fieldReconcilers defines Machine spec field reconciler functions
-	fieldReconcilers := []machineFieldReconciler{
-		r.reconcilePower,
+	contactable := v1alpha1.ConditionTrue
+	conditionMsg := v1alpha1.WithMachineConditionMessage("")
+	multiErr := []error{}
+	pErr := r.updatePowerState(ctx, bm, bmcClient)
+	if pErr != nil {
+		logger.Error(pErr, "failed to get Machine power state", "host", bm.Spec.Connection.Host)
+		contactable = v1alpha1.ConditionFalse
+		conditionMsg = v1alpha1.WithMachineConditionMessage(pErr.Error())
+		multiErr = append(multiErr, pErr)
 	}
 
-	var aggErr utilerrors.Aggregate
-	for _, reconiler := range fieldReconcilers {
-		if err := reconiler(ctx, bm, bmcClient); err != nil {
-			logger.Error(err, "Failed to reconcile Machine", "host", bm.Spec.Connection.Host)
-			aggErr = utilerrors.NewAggregate([]error{err, aggErr})
-		}
-	}
+	// Set condition.
+	bm.SetCondition(v1alpha1.Contactable, contactable, conditionMsg)
 
 	// Patch the status after each reconciliation
 	if err := r.patchStatus(ctx, bm, bmPatch); err != nil {
-		aggErr = utilerrors.NewAggregate([]error{err, aggErr})
+		multiErr = append(multiErr, err)
+		return ctrl.Result{}, utilerrors.NewAggregate(multiErr)
 	}
 
-	return ctrl.Result{}, utilerrors.Flatten(aggErr)
+	return ctrl.Result{RequeueAfter: machineRequeueInterval}, nil
 }
 
-// reconcilePower ensures the Machine Power is in the desired state.
-func (r *MachineReconciler) reconcilePower(ctx context.Context, bm *v1alpha1.Machine, bmcClient *bmclib.Client) error {
+// updatePowerState gets the current power state of the machine.
+func (r *MachineReconciler) updatePowerState(ctx context.Context, bm *v1alpha1.Machine, bmcClient *bmclib.Client) error {
 	rawState, err := bmcClient.GetPowerState(ctx)
 	if err != nil {
-		r.recorder.Eventf(bm, corev1.EventTypeWarning, EventGetPowerStateFailed, "get power state: %v", err)
+		bm.Status.Power = v1alpha1.Unknown
+		r.recorder.Eventf(bm, corev1.EventTypeWarning, "GetPowerStateFailed", "get power state: %v", err)
 		return fmt.Errorf("get power state: %w", err)
 	}
 
-	state, err := convertRawBMCPowerState(rawState)
-	if err != nil {
-		return err
-	}
-
-	bm.Status.Power = state
+	bm.Status.Power = toPowerState(rawState)
 
 	return nil
 }
 
 // patchStatus patches the specifies patch on the Machine.
 func (r *MachineReconciler) patchStatus(ctx context.Context, bm *v1alpha1.Machine, patch client.Patch) error {
-	err := r.client.Status().Patch(ctx, bm, patch)
-	if err != nil {
+	if err := r.client.Status().Patch(ctx, bm, patch); err != nil {
 		return fmt.Errorf("failed to patch Machine %s/%s status: %w", bm.Namespace, bm.Name, err)
 	}
 
 	return nil
 }
 
-// convertRawBMCPowerState takes a raw BMC power state response and attempts to convert it to
-// a PowerState.
-func convertRawBMCPowerState(response string) (v1alpha1.PowerState, error) {
-	// Normalize the response string for comparison.
-	response = strings.ToLower(response)
+func retrieveHMACSecrets(ctx context.Context, c client.Client, hmacSecrets v1alpha1.HMACSecrets) (rpc.Secrets, error) {
+	sec := rpc.Secrets{}
+	for k, v := range hmacSecrets {
+		for _, s := range v {
+			secret := &corev1.Secret{}
+			key := types.NamespacedName{Namespace: s.Namespace, Name: s.Name}
 
-	switch {
-	case strings.Contains(response, "on"):
-		return v1alpha1.On, nil
-	case strings.Contains(response, "off"):
-		return v1alpha1.Off, nil
-	}
+			if err := c.Get(ctx, key, secret); err != nil {
+				if apierrors.IsNotFound(err) {
+					return nil, fmt.Errorf("secret %s not found: %w", key, err)
+				}
 
-	return "", fmt.Errorf("unknown bmc power state: %v", response)
-}
+				return nil, fmt.Errorf("failed to retrieve secret %s : %w", s, err)
+			}
 
-// resolveAuthSecretRef Gets the Secret from the SecretReference.
-// Returns the username and password encoded in the Secret.
-func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef corev1.SecretReference) (string, string, error) {
-	secret := &corev1.Secret{}
-	key := types.NamespacedName{Namespace: secretRef.Namespace, Name: secretRef.Name}
-
-	if err := c.Get(ctx, key, secret); err != nil {
-		if apierrors.IsNotFound(err) {
-			return "", "", fmt.Errorf("secret %s not found: %w", key, err)
+			sec[rpc.Algorithm(k)] = append(sec[rpc.Algorithm(k)], string(secret.Data["secret"]))
 		}
-
-		return "", "", fmt.Errorf("failed to retrieve secret %s : %w", secretRef, err)
 	}
 
-	username, ok := secret.Data["username"]
-	if !ok {
-		return "", "", fmt.Errorf("'username' required in Machine secret")
-	}
-
-	password, ok := secret.Data["password"]
-	if !ok {
-		return "", "", fmt.Errorf("'password' required in Machine secret")
-	}
-
-	return string(username), string(password), nil
+	return sec, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

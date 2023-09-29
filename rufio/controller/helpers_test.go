@@ -1,4 +1,4 @@
-package controllers_test
+package controller_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jacobweinstock/registrar"
 	"github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/rufio/controllers"
+	"github.com/tinkerbell/rufio/controller"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -95,11 +95,13 @@ func (t *testProvider) SetVirtualMedia(_ context.Context, _ string, _ string) (o
 }
 
 // newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc.
-func newTestClient(provider *testProvider) controllers.ClientFunc {
-	return func(ctx context.Context, log logr.Logger, hostIP, port, username, password string) (*bmclib.Client, error) {
+func newTestClient(provider *testProvider) controller.ClientFunc {
+	return func(ctx context.Context, log logr.Logger, hostIP, username, password string, opts *controller.BMCOptions) (*bmclib.Client, error) {
+		o := opts.Translate(hostIP)
 		reg := registrar.NewRegistry(registrar.WithLogger(log))
 		reg.Register(provider.Name(), provider.Protocol(), provider.Features(), nil, provider)
-		cl := bmclib.NewClient(hostIP, username, password, bmclib.WithLogger(log), bmclib.WithRegistry(reg))
+		o = append(o, bmclib.WithLogger(log), bmclib.WithRegistry(reg))
+		cl := bmclib.NewClient(hostIP, username, password, o...)
 		return cl, cl.Open(ctx)
 	}
 }

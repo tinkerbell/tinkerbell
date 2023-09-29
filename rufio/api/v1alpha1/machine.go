@@ -25,8 +25,9 @@ import (
 type PowerState string
 
 const (
-	On  PowerState = "on"
-	Off PowerState = "off"
+	On      PowerState = "on"
+	Off     PowerState = "off"
+	Unknown PowerState = "unknown"
 )
 
 // MachineConditionType represents the condition of the Machine.
@@ -49,10 +50,6 @@ const (
 type MachineSpec struct {
 	// Connection contains connection data for a Baseboard Management Controller.
 	Connection Connection `json:"connection"`
-
-	// ProviderOptions contains provider specific options.
-	// +optional
-	ProviderOptions ProviderOptions `json:"providerOptions,omitempty"`
 }
 
 type ProviderOptions struct {
@@ -81,20 +78,27 @@ type Connection struct {
 
 	// Port is the port number for connecting with the Machine.
 	// +kubebuilder:default:=623
+	// +optional
 	Port int `json:"port"`
 
 	// AuthSecretRef is the SecretReference that contains authentication information of the Machine.
-	// The Secret must contain username and password keys.
+	// The Secret must contain username and password keys. This is optional as it is not required when using
+	// the RPC provider.
+	// +optional
 	AuthSecretRef corev1.SecretReference `json:"authSecretRef"`
 
 	// InsecureTLS specifies trusted TLS connections.
 	InsecureTLS bool `json:"insecureTLS"`
+
+	// ProviderOptions contains provider specific options.
+	// +optional
+	ProviderOptions *ProviderOptions `json:"providerOptions,omitempty"`
 }
 
 // MachineStatus defines the observed state of Machine.
 type MachineStatus struct {
 	// Power is the current power state of the Machine.
-	// +kubebuilder:validation:Enum=on;off
+	// +kubebuilder:validation:Enum=on;off;unknown
 	// +optional
 	Power PowerState `json:"powerState,omitempty"`
 

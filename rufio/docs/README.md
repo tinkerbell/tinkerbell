@@ -181,3 +181,120 @@ default        job-sample-task-0      8s
 default        job-sample-task-1      5s
 default        job-sample-task-2      3s
 ```
+
+### Provider Options
+
+Options per provider can be defined in the `spec.connection.providerOptions` field of a `Machine` or `Task` object.
+
+> Note: when the `rpc` provider options are specified:  
+    1. the `authSecretRef` is not required, otherwise it is required.  
+    2. under the hood, no other providers will be tried/used.
+
+`Machine` CR example:
+
+> Note: The provider options below are not comprehensive. See the [spec](../api/v1alpha1/) for all available options.
+
+```yaml
+apiVersion: bmc.tinkerbell.org/v1alpha1
+kind: Machine
+metadata:
+  name: machine-sample-with-opts
+spec:
+  connection:
+    host: 127.0.0.1
+    insecureTLS: true
+    authSecretRef:
+      name: sample-machine-auth
+      namespace: rufio-system
+    providerOptions:
+      redfish:
+        port: 443
+      ipmitool:
+        cipherSuite: 3
+        port: 623
+      intelAMT:
+        port: 16992
+      rpc:
+        consumerURL: "https://example.com/rpc"
+        hmac:
+          secrets:
+            sha256:
+              - name: secret1
+                namespace: default
+              - name: secret2
+                namespace: default
+            sha512:
+              - name: secret1
+                namespace: default
+              - name: secret2
+                namespace: default
+```
+
+`Task` CR example with all providers defined in the options section:
+
+```yaml
+apiVersion: bmc.tinkerbell.org/v1alpha1
+kind: Task
+metadata:
+  name: task-sample
+spec:
+  connection:
+    host: 127.0.0.1
+    insecureTLS: true
+    authSecretRef:
+      name: sample-machine-auth
+      namespace: rufio-system
+    providerOptions:
+      redfish:
+        port: 443
+      ipmitool:
+        cipherSuite: 3
+        port: 623
+      intelAMT:
+        port: 16992
+      rpc:
+        consumerURL: "https://example.com/rpc"
+        hmac:
+          secrets:
+            sha256:
+              - name: secret1
+                namespace: default
+              - name: secret2
+                namespace: default
+            sha512:
+              - name: secret1
+                namespace: default
+              - name: secret2
+                namespace: default
+  task:
+    powerAction: "off"
+```
+
+### Secrets
+
+There are two options for secrets.
+
+Option 1: A standard username/password. This is defined in a secret with `data.username` and `data.password`.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sample-machine-auth
+type: Opaque
+data: # admin/t0p-Secret; echo -n 'admin' | base64; echo -n 't0p-Secret' | base64
+  username: YWRtaW4=
+  password: dDBwLVNlY3JldA==
+```
+
+Option 2: When using the RPC provider, define a secret with `data.secret`.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret1
+type: Opaque
+data: # echo -n 'superSecret1' | base64;
+  secret: c3VwZXJTZWNyZXQx
+```
