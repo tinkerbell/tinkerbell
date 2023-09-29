@@ -110,31 +110,99 @@ func (b BMCOptions) translateRPC(host string) rpc.Provider {
 	o := rpc.Provider{
 		ConsumerURL: b.RPC.ConsumerURL,
 		Host:        host,
-		Opts: rpc.Opts{
-			Request: rpc.RequestOpts{
-				HTTPContentType: b.RPC.Request.HTTPContentType,
-				HTTPMethod:      b.RPC.Request.HTTPMethod,
-				StaticHeaders:   b.RPC.Request.StaticHeaders,
-				TimestampFormat: b.RPC.Request.TimestampFormat,
-				TimestampHeader: b.RPC.Request.TimestampHeader,
-			},
-			Signature: rpc.SignatureOpts{
-				HeaderName:                 b.RPC.Signature.HeaderName,
-				AppendAlgoToHeaderDisabled: b.RPC.Signature.AppendAlgoToHeaderDisabled,
-				IncludedPayloadHeaders:     b.RPC.Signature.IncludedPayloadHeaders,
-			},
-			HMAC: rpc.HMACOpts{
-				PrefixSigDisabled: b.RPC.HMAC.PrefixSigDisabled,
-				Secrets:           s,
-			},
-			Experimental: rpc.Experimental{
-				CustomRequestPayload: []byte(b.RPC.Experimental.CustomRequestPayload),
-				DotPath:              b.RPC.Experimental.DotPath,
-			},
-		},
+		Opts:        toRPCOpts(b.RPC),
+	}
+	if len(s) > 0 {
+		o.Opts.HMAC.Secrets = s
 	}
 
 	_ = mergo.Merge(&o, &defaults, mergo.WithOverride, mergo.WithTransformers(&rpc.Provider{}))
 
 	return o
+}
+
+func toRPCOpts(r *v1alpha1.RPCOptions) rpc.Opts {
+	opt := rpc.Opts{}
+
+	if r == nil {
+		return opt
+	}
+	opt.Request = toRequestOpts(r.Request)
+	opt.Signature = toSignatureOpts(r.Signature)
+	opt.HMAC = toHMACOpts(r.HMAC)
+	opt.Experimental = toExperimentalOpts(r.Experimental)
+
+	return opt
+}
+
+func toRequestOpts(r *v1alpha1.RequestOpts) rpc.RequestOpts {
+	opt := rpc.RequestOpts{}
+	if r == nil {
+		return opt
+	}
+	if r.HTTPContentType != "" {
+		opt.HTTPContentType = r.HTTPContentType
+	}
+	if r.HTTPMethod != "" {
+		opt.HTTPMethod = r.HTTPMethod
+	}
+	if len(r.StaticHeaders) > 0 {
+		opt.StaticHeaders = r.StaticHeaders
+	}
+	if r.TimestampFormat != "" {
+		opt.TimestampFormat = r.TimestampFormat
+	}
+	if r.TimestampHeader != "" {
+		opt.TimestampHeader = r.TimestampHeader
+	}
+
+	return opt
+}
+
+func toSignatureOpts(s *v1alpha1.SignatureOpts) rpc.SignatureOpts {
+	opt := rpc.SignatureOpts{}
+
+	if s == nil {
+		return opt
+	}
+	if s.HeaderName != "" {
+		opt.HeaderName = s.HeaderName
+	}
+	if s.AppendAlgoToHeaderDisabled {
+		opt.AppendAlgoToHeaderDisabled = s.AppendAlgoToHeaderDisabled
+	}
+	if len(s.IncludedPayloadHeaders) > 0 {
+		opt.IncludedPayloadHeaders = s.IncludedPayloadHeaders
+	}
+
+	return opt
+}
+
+func toHMACOpts(h *v1alpha1.HMACOpts) rpc.HMACOpts {
+	opt := rpc.HMACOpts{}
+
+	if h == nil {
+		return opt
+	}
+	if h.PrefixSigDisabled {
+		opt.PrefixSigDisabled = h.PrefixSigDisabled
+	}
+
+	return opt
+}
+
+func toExperimentalOpts(e *v1alpha1.ExperimentalOpts) rpc.Experimental {
+	opt := rpc.Experimental{}
+
+	if e == nil {
+		return opt
+	}
+	if e.CustomRequestPayload != "" {
+		opt.CustomRequestPayload = []byte(e.CustomRequestPayload)
+	}
+	if e.DotPath != "" {
+		opt.DotPath = e.DotPath
+	}
+
+	return opt
 }
