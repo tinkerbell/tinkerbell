@@ -116,18 +116,23 @@ func main() {
 
 	setupLog.Info("Watching objects in namespace for reconciliation", "namespace", kubeNamespace)
 
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+	opts := ctrl.Options{
 		Scheme: scheme,
-		Cache: cache.Options{
-			DefaultNamespaces: map[string]cache.Config{kubeNamespace: {}},
-		},
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
 		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "e74dec1a.tinkerbell.org",
-	})
+	}
+	// If a namespace is specified, only watch that namespace. Otherwise, watch all namespaces.
+	if kubeNamespace != "" {
+		opts.Cache = cache.Options{
+			DefaultNamespaces: map[string]cache.Config{kubeNamespace: {}},
+		}
+	}
+
+	mgr, err := ctrl.NewManager(cfg, opts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
