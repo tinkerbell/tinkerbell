@@ -69,7 +69,8 @@ function clean_iPXE() {
 function build_iPXE() {
     # build iPXE
     echo "Building iPXE"
-    if ! (cd "$(git rev-parse --show-toplevel)"; make binary); then
+    top_level_dir="$(git rev-parse --show-toplevel)"
+    if ! (cd "${top_level_dir}"; nix-shell "${top_level_dir}/binary/script/shell.nix" --run 'make binary'); then
         echo "Failed to build iPXE" 1>&2
         exit 1
     fi

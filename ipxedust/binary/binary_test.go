@@ -30,9 +30,9 @@ func TestPatch(t *testing.T) {
 	}{
 		{
 			name:    "no patch",
-			content: []byte("foo\n"+string(magicString)),
+			content: []byte("foo\n" + string(magicString)),
 			patch:   []byte(""),
-			want:    []byte("foo\n"+string(magicString)),
+			want:    []byte("foo\n" + string(magicString)),
 		},
 		{
 			name:    "nil patch",
@@ -48,15 +48,15 @@ func TestPatch(t *testing.T) {
 		},
 		{
 			name:    "patch too long",
-			content: []byte("foo\n"+string(magicString)),
+			content: []byte("foo\n" + string(magicString)),
 			patch:   make([]byte, 1024),
 			wantErr: true,
 		},
 		{
 			name:    "patch",
-			content: []byte("foo\n"+string(magicString)),
+			content: []byte("foo\n" + string(magicString)),
 			patch:   []byte("baz"),
-			want:    []byte("foo\nbaz"+string(magicStringPadding[3:])),
+			want:    []byte("foo\nbaz" + string(magicStringPadding[3:])),
 		},
 	}
 	for _, tt := range tests {

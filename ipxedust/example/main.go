@@ -55,7 +55,7 @@ func listenAndServe(ctx context.Context, logger logr.Logger) error {
 }
 
 func serve(ctx context.Context, logger logr.Logger) error {
-	conn, err := net.Listen("tcp", "0.0.0.0:0") // nolint: gosec // this is just example code
+	conn, err := net.Listen("tcp", "0.0.0.0:0") //nolint: gosec // this is just example code
 	if err != nil {
 		return err
 	}
