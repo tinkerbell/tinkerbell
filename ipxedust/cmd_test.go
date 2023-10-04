@@ -23,6 +23,7 @@ func TestCommand_RegisterFlags(t *testing.T) {
 			c := &Command{}
 			fs := flag.NewFlagSet("ipxe", flag.ExitOnError)
 			fs.StringVar(&c.TFTPAddr, "tftp-addr", "0.0.0.0:69", "TFTP server address")
+			fs.IntVar(&c.TFTPBlockSize, "tftp-blocksize", 512, "TFTP server maximum block size")
 			fs.DurationVar(&c.TFTPTimeout, "tftp-timeout", time.Second*5, "TFTP server timeout")
 			fs.StringVar(&c.HTTPAddr, "http-addr", "0.0.0.0:8080", "HTTP server address")
 			fs.DurationVar(&c.HTTPTimeout, "http-timeout", time.Second*5, "HTTP server timeout")
@@ -87,19 +88,21 @@ func TestCommand_Validate(t *testing.T) {
 		wantErr error
 	}{
 		{"success", &Command{
-			TFTPAddr:    "0.0.0.0:69",
-			TFTPTimeout: 5 * time.Second,
-			HTTPAddr:    "0.0.0.0:8080",
-			HTTPTimeout: 5 * time.Second,
-			Log:         logr.Discard(),
-			LogLevel:    "info",
+			TFTPAddr:      "0.0.0.0:69",
+			TFTPBlockSize: 512,
+			TFTPTimeout:   5 * time.Second,
+			HTTPAddr:      "0.0.0.0:8080",
+			HTTPTimeout:   5 * time.Second,
+			Log:           logr.Discard(),
+			LogLevel:      "info",
 		}, nil},
 		{"fail", &Command{
-			TFTPTimeout: 5 * time.Second,
-			HTTPAddr:    "0.0.0.0:8080",
-			HTTPTimeout: 5 * time.Second,
-			Log:         logr.Discard(),
-			LogLevel:    "info",
+			TFTPBlockSize: 512,
+			TFTPTimeout:   5 * time.Second,
+			HTTPAddr:      "0.0.0.0:8080",
+			HTTPTimeout:   5 * time.Second,
+			Log:           logr.Discard(),
+			LogLevel:      "info",
 		}, fmt.Errorf(`Key: 'Command.TFTPAddr' Error:Field validation for 'TFTPAddr' failed on the 'required' tag`)},
 	}
 	for _, tt := range tests {

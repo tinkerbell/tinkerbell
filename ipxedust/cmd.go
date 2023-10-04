@@ -20,6 +20,8 @@ import (
 type Command struct {
 	// TFTPAddr is the TFTP server address:port.
 	TFTPAddr string `validate:"required,hostname_port"`
+	// TFTPBlockSize is the maximum block size for serving individual TFTP requests.
+	TFTPBlockSize int `validate:"required,gte=512"`
 	// TFTPTimeout is the timeout for serving individual TFTP requests.
 	TFTPTimeout time.Duration `validate:"required,gte=1s"`
 	// HTTPAddr is the HTTP server address:port.
@@ -72,12 +74,13 @@ func Execute(ctx context.Context, args []string) error {
 // Run listens and serves the TFTP and HTTP services.
 func (c *Command) Run(ctx context.Context) error {
 	defaults := Command{
-		TFTPAddr:    "0.0.0.0:69",
-		TFTPTimeout: 5 * time.Second,
-		HTTPAddr:    "0.0.0.0:8080",
-		HTTPTimeout: 5 * time.Second,
-		Log:         logr.Discard(),
-		LogLevel:    "info",
+		TFTPAddr:      "0.0.0.0:69",
+		TFTPBlockSize: 512,
+		TFTPTimeout:   5 * time.Second,
+		HTTPAddr:      "0.0.0.0:8080",
+		HTTPTimeout:   5 * time.Second,
+		Log:           logr.Discard(),
+		LogLevel:      "info",
 	}
 
 	err := mergo.Merge(c, defaults)
@@ -94,8 +97,9 @@ func (c *Command) Run(ctx context.Context) error {
 	}
 	srv := Server{
 		TFTP: ServerSpec{
-			Addr:    tAddr,
-			Timeout: c.TFTPTimeout,
+			Addr:      tAddr,
+			BlockSize: c.TFTPBlockSize,
+			Timeout:   c.TFTPTimeout,
 		},
 		HTTP: ServerSpec{
 			Addr:    hAddr,
@@ -110,6 +114,7 @@ func (c *Command) Run(ctx context.Context) error {
 // RegisterFlags registers a flag set for the ipxe command.
 func (c *Command) RegisterFlags(f *flag.FlagSet) {
 	f.StringVar(&c.TFTPAddr, "tftp-addr", "0.0.0.0:69", "TFTP server address")
+	f.IntVar(&c.TFTPBlockSize, "tftp-blocksize", 512, "TFTP server maximum block size")
 	f.DurationVar(&c.TFTPTimeout, "tftp-timeout", time.Second*5, "TFTP server timeout")
 	f.StringVar(&c.HTTPAddr, "http-addr", "0.0.0.0:8080", "HTTP server address")
 	f.DurationVar(&c.HTTPTimeout, "http-timeout", time.Second*5, "HTTP server timeout")
