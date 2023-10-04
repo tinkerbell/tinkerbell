@@ -8,8 +8,8 @@ github.com/VictorLowther/soap v0.0.0-20150314151524-8e36fca84b22 h1:a0MBqYm44o0N
 github.com/VictorLowther/soap v0.0.0-20150314151524-8e36fca84b22/go.mod h1:/B7V22rcz4860iDqstGvia/2+IYWXf3/JdQCVd/1D2A=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230920073854-44c296132a03 h1:++XvytvtWPaiWVJC5wq2VzHneXDfl1dH3ASYEL2spEk=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230920073854-44c296132a03/go.mod h1:+4Rf1p0klRc//ktZQVZ0Nj/t9Sls9JwX7qUGpRxZKXE=
+github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20231003090246-b6af04244cad h1:W08iYd1kxVQVgd1tEkRT493vMRmwuj2DWfEJvFnoZWk=
+github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20231003090246-b6af04244cad/go.mod h1:hRe0RhyHbyQDFULc6HQFBIwdBOFYnm+8rHeO9UBnxAU=
 github.com/bmc-toolbox/common v0.0.0-20230220061748-93ff001f4a1d h1:cQ30Wa8mhLzK1TSOG+g3FlneIsXtFgun61mmPwVPmD0=
 github.com/bmc-toolbox/common v0.0.0-20230220061748-93ff001f4a1d/go.mod h1:SY//n1PJjZfbFbmAsB6GvEKbc7UXz3d30s3kWxfJQ/c=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
@@ -130,8 +130,8 @@ github.com/satori/go.uuid v1.2.0/go.mod h1:dA0hQrYB0VpLJoorglMZABFdXlWrHn1NEOzdh
 github.com/sirupsen/logrus v1.9.0 h1:trlNQbNUG3OdDrDil03MCb1H2o9nJ1x4/5LYw7byDE0=
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=
 github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
-github.com/stmcginnis/gofish v0.14.0 h1:geECNAiG33JDB2x2xDkerpOOuXFqxp5YP3EFE3vd5iM=
-github.com/stmcginnis/gofish v0.14.0/go.mod h1:BLDSFTp8pDlf/xDbLZa+F7f7eW0E/CHCboggsu8CznI=
+github.com/stmcginnis/gofish v0.14.1-0.20230920133920-77490fd98fa2 h1:R0N4G786trm1dHBwJftzaupRrwhY1T+rBrTBC8eqiRQ=
+github.com/stmcginnis/gofish v0.14.1-0.20230920133920-77490fd98fa2/go.mod h1:BLDSFTp8pDlf/xDbLZa+F7f7eW0E/CHCboggsu8CznI=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
