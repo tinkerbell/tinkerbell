@@ -49,6 +49,8 @@ type ServerSpec struct {
 	Timeout time.Duration
 	// Disabled allows a server to be disabled. Useful, for example, to disable TFTP.
 	Disabled bool
+	// BlockSize allows setting a larger maximum block size for TFTP
+	BlockSize int
 	// The patch to apply to the iPXE binary.
 	Patch []byte
 }
@@ -59,6 +61,8 @@ var errNilListener = fmt.Errorf("listener must not be nil")
 //
 // Default TFTP listen address is ":69".
 //
+// Default TFTP block size is 512.
+//
 // Default HTTP listen address is ":8080".
 //
 // Default request timeout for both is 5 seconds.
@@ -67,7 +71,7 @@ var errNilListener = fmt.Errorf("listener must not be nil")
 // See binary/binary.go for the iPXE files that are served.
 func (c *Server) ListenAndServe(ctx context.Context) error {
 	defaults := Server{
-		TFTP: ServerSpec{Addr: netip.AddrPortFrom(netip.IPv4Unspecified(), 69), Timeout: 5 * time.Second},
+		TFTP: ServerSpec{Addr: netip.AddrPortFrom(netip.IPv4Unspecified(), 69), Timeout: 5 * time.Second, BlockSize: 512},
 		HTTP: ServerSpec{Addr: netip.AddrPortFrom(netip.IPv4Unspecified(), 8080), Timeout: 5 * time.Second},
 		Log:  logr.Discard(),
 	}
@@ -190,10 +194,11 @@ func (c *Server) listenAndServeTFTP(ctx context.Context) error {
 	h := &itftp.Handler{Log: c.Log, Patch: c.TFTP.Patch}
 	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
 	ts.SetTimeout(c.TFTP.Timeout)
+	ts.SetBlockSize(c.TFTP.BlockSize)
 	if c.EnableTFTPSinglePort {
 		ts.EnableSinglePort()
 	}
-	c.Log.Info("serving iPXE binaries via TFTP", "addr", c.TFTP.Addr, "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
+	c.Log.Info("serving iPXE binaries via TFTP", "addr", c.TFTP.Addr, "blocksize", c.TFTP.BlockSize, "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
 	go func() {
 		<-ctx.Done()
 		conn.Close()
@@ -210,10 +215,11 @@ func (c *Server) serveTFTP(ctx context.Context, conn net.PacketConn) error {
 	h := &itftp.Handler{Log: c.Log, Patch: c.TFTP.Patch}
 	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
 	ts.SetTimeout(c.TFTP.Timeout)
+	ts.SetBlockSize(c.TFTP.BlockSize)
 	if c.EnableTFTPSinglePort {
 		ts.EnableSinglePort()
 	}
-	c.Log.Info("serving iPXE binaries via TFTP", "addr", conn.LocalAddr().String(), "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
+	c.Log.Info("serving iPXE binaries via TFTP", "addr", conn.LocalAddr().String(), "blocksize", c.TFTP.BlockSize, "timeout", c.TFTP.Timeout, "singlePortEnabled", c.EnableTFTPSinglePort)
 	go func() {
 		<-ctx.Done()
 		conn.Close()
