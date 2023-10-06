@@ -7,10 +7,10 @@ import (
 	"os"
 	"time"
 
+	"dario.cat/mergo"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zerologr"
 	"github.com/go-playground/validator/v10"
-	"github.com/imdario/mergo"
 	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/rs/zerolog"
