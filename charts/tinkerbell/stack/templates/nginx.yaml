@@ -69,14 +69,17 @@ spec:
         - |
           cd /usr/share/nginx/html
           rm -f *.tar.gz checksum.txt vmlinuz* initramfs*
-          base_loc="{{ .Values.stack.hook.downloadURL}}"
+          base_loc="https://github.com/tinkerbell/hook/releases/download/latest"
           files="$base_loc/hook_aarch64.tar.gz $base_loc/hook_x86_64.tar.gz $base_loc/checksum.txt"
-          for f in $files; do
-            echo "$f"
-            wget "$f"
+          tmp_dir=$(mktemp -d)
+          for f in ${files}; do
+            echo "${f}"
+            wget -P "${tmp_dir}" "${f}"
           done
-          sha512sum -c checksum.txt
-          for f in *.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "$f" && rm -f "$f"; done
+          (cd "${tmp_dir}" && sha512sum -c checksum.txt)
+          mv "${tmp_dir}"/checksum.txt .
+          for f in ${tmp_dir}/*.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "${f}" && rm -f "${f}"; done
+          rm -rf "${tmp_dir}"
         volumeMounts:
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts
