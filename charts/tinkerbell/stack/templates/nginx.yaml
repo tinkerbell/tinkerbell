@@ -64,20 +64,22 @@ spec:
       initContainers:
       - name: init-hook-download
         image: {{ .Values.stack.hook.image }}
-        command: ["/bin/sh", "-xeuc"]
+        command: ["bash", "-xeuc"]
         args:
         - |
           cd /usr/share/nginx/html
-          {{- range $index, $keys := .Values.stack.hook.downloads }}
-          p=/tmp/hook{{ $index }}.tar.gz
-          rm -f $p
-          wget -O $p {{ $keys.url }}
-          sha512sum -c <<EOF
-          {{ $keys.sha512sum }} $p
-          EOF
-          tar -zxvf $p
-          rm -f $p
-          {{- end }}
+          rm -f *.tar.gz checksum.txt vmlinuz* initramfs*
+          base_loc="https://github.com/tinkerbell/hook/releases/download/latest"
+          files="$base_loc/hook_aarch64.tar.gz $base_loc/hook_x86_64.tar.gz $base_loc/checksum.txt"
+          tmp_dir=$(mktemp -d)
+          for f in ${files}; do
+            echo "${f}"
+            wget -P "${tmp_dir}" "${f}"
+          done
+          (cd "${tmp_dir}" && sha512sum -c checksum.txt)
+          mv "${tmp_dir}"/checksum.txt .
+          for f in ${tmp_dir}/*.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "${f}" && rm -f "${f}"; done
+          rm -rf "${tmp_dir}"
         volumeMounts:
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts
