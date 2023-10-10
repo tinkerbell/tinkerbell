@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/tinkerbell/hegel/internal/backend"
+	"github.com/tinkerbell/hegel/internal/backend/kubernetes"
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
 	"github.com/tinkerbell/hegel/internal/frontend/hack"
 	"github.com/tinkerbell/hegel/internal/healthcheck"
@@ -29,8 +30,8 @@ import (
 const longHelp = `
 Run a Hegel server.
 
-Each CLI argument has a corresponding environment variable in the form of the CLI argument prefixed 
-with HEGEL. If both the flag and environment variable form are specified, the flag form takes 
+Each CLI argument has a corresponding environment variable in the form of the CLI argument prefixed
+with HEGEL. If both the flag and environment variable form are specified, the flag form takes
 precedence.
 
 Examples
@@ -196,13 +197,13 @@ func toBackendOptions(opts RootCommandOptions) backend.Options {
 	switch opts.Backend {
 	case "flatfile":
 		backndOpts = backend.Options{
-			Flatfile: &backend.FlatfileOptions{
+			Flatfile: &backend.Flatfile{
 				Path: opts.FlatfilePath,
 			},
 		}
 	case "kubernetes":
 		backndOpts = backend.Options{
-			Kubernetes: &backend.KubernetesOptions{
+			Kubernetes: &kubernetes.Config{
 				APIServerAddress: opts.KubernetesAPIServer,
 				Kubeconfig:       opts.KubernetesKubeconfig,
 				Namespace:        opts.KubernetesNamespace,
