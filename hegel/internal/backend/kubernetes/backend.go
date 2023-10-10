@@ -37,7 +37,7 @@ type Backend struct {
 // NewBackend creates a new Backend instance. It launches a goroutine to perform synchronization
 // between the cluster and internal caches. Consumers can wait for the initial sync using WaitForCachesync().
 // See k8s.io/Backend-go/tools/Backendcmd for constructing *rest.Config objects.
-func NewBackend(ctx context.Context, cfg BackendConfig) (*Backend, error) {
+func NewBackend(ctx context.Context, cfg Config) (*Backend, error) {
 	// If no client was specified, build one and configure the backend with it including waiting
 	// for the caches to sync.
 	if cfg.ClientConfig == nil {
@@ -83,7 +83,7 @@ func NewBackend(ctx context.Context, cfg BackendConfig) (*Backend, error) {
 	}, nil
 }
 
-func loadConfig(cfg BackendConfig) (BackendConfig, error) {
+func loadConfig(cfg Config) (Config, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loadingRules.ExplicitPath = cfg.Kubeconfig
 
@@ -99,7 +99,7 @@ func loadConfig(cfg BackendConfig) (BackendConfig, error) {
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
 	config, err := loader.ClientConfig()
 	if err != nil {
-		return BackendConfig{}, err
+		return Config{}, err
 	}
 	cfg.ClientConfig = config
 
@@ -107,7 +107,7 @@ func loadConfig(cfg BackendConfig) (BackendConfig, error) {
 	// namespace was loaded from the kubeconfig.
 	namespace, _, err := loader.Namespace()
 	if err != nil {
-		return BackendConfig{}, err
+		return Config{}, err
 	}
 	cfg.Namespace = namespace
 

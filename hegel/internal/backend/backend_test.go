@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	. "github.com/tinkerbell/hegel/internal/backend"
+	"github.com/tinkerbell/hegel/internal/backend/kubernetes"
 )
 
 func TestNew(t *testing.T) {
@@ -17,8 +18,8 @@ func TestNew(t *testing.T) {
 		{
 			Name: "OnlyOneBackend",
 			Options: Options{
-				Flatfile:   &FlatfileOptions{},
-				Kubernetes: &KubernetesOptions{},
+				Flatfile:   &Flatfile{},
+				Kubernetes: &kubernetes.Config{},
 			},
 			Error: ErrMultipleBackends,
 		},
