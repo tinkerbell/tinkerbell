@@ -7,7 +7,7 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20231003090246-b6af04244cad
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zerologr v1.2.3
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/jacobweinstock/registrar v0.4.7
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/rs/zerolog v1.31.0
