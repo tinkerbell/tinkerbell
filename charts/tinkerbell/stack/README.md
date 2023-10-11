@@ -35,10 +35,6 @@ The stack chart does not use an ingress object and controller. This is because m
 
 Before installing the chart you'll want to customize the IP used for the load balancer (`stack.loadBalancerIP`). This IP provides ingress for Hegel, Tink, and Boots (TFTP, HTTP, and SYSLOG endpoints as well as unicast DHCP requests).
 
-You'll also want to set the IP used in DHCP packets for option 54, the location of the iPXE binaries, the `auto.ipxe` script, the syslog IP, and the IP for downloading Hook files (`smee.remoteIp`).
-
-The vast majority of the time,these 2 (`stack.loadBalancerIP` and `smee.remoteIp`) IPs will be the same.
-
 Now, deploy the chart.
 
 ```bash
@@ -82,9 +78,8 @@ helm upgrade stack-release stack/ --namespace tink-system --wait
 | `stack.hook.name` | Name for the Hook artifacts server | `hook-files` |
 | `stack.hook.port` | Port to use for the Hook artifacts server | `8080` |
 | `stack.hook.image` | Image to use for downloading the Hook artifacts | `alpine` |
-| `stack.hook.downloads` | List of Hook artifacts to download | `[]` |
-| `stack.hook.downloads[0].url` | URL of the Hook bundle to download | `""` |
-| `stack.hook.downloads[0].sha512sum` | sha512sum of the Hook bundle | `""` |
+| `stack.hook.downloadsDest` | The directory on disk to where Hook artifacts will downloaded  | `/opt/hook` |
+| `stack.hook.downloadURL` | The base URL where all Hook tarballs and checksum.txt file exist for downloading | `https://github.com/tinkerbell/hook/releases/download/latest` |
 
 ### Load Balancer Parameters (kube-vip)
 
