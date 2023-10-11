@@ -9,7 +9,7 @@ require (
 	github.com/go-logr/stdr v1.2.2
 	github.com/go-logr/zerologr v1.2.3
 	github.com/go-playground/validator/v10 v10.15.5
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pin/tftp/v3 v3.0.0
