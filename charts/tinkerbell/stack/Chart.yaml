@@ -28,7 +28,7 @@ dependencies:
     version: "0.2.2"
     repository: "file://../tink"
   - name: smee
-    version: "0.2.2"
+    version: "0.3.0"
     repository: "file://../smee"
   - name: rufio
     version: "0.2.5"
