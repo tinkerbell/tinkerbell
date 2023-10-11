@@ -1,0 +1,87 @@
+{{- if .Values.deploy }}
+{{- $_ := set .Values.dhcp "syslogIp" (default .Values.oneIP .Values.dhcp.syslogIp) }}
+{{- $_ := set .Values.dhcp "ipForPacket" (default .Values.oneIP .Values.dhcp.ipForPacket) }}
+{{- $_ := set .Values.dhcp "tftpIp" (default .Values.oneIP .Values.dhcp.tftpIp) }}
+{{- $_ := set .Values.dhcp.httpIPXE.binaryUrl "host" (default .Values.oneIP .Values.dhcp.httpIPXE.binaryUrl.host) }}
+{{- $_ := set .Values.dhcp.httpIPXE.scriptUrl "host" (default .Values.oneIP .Values.dhcp.httpIPXE.scriptUrl.host) }}
+{{- $_ := set .Values.http.tinkServer "ip" (default .Values.oneIP .Values.http.tinkServer.ip) }}
+{{- $_ := set .Values.http.osieUrl "host" (default .Values.oneIP .Values.http.osieUrl.host) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .Values.name }}
+  name: {{ .Values.name }}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+      stack: tinkerbell
+      {{- with .Values.selector }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  strategy:
+    type: {{ .Values.deployment.strategy.type }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+        stack: tinkerbell
+        {{- with .Values.selector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - image: {{ .Values.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - -log-level={{ .Values.logLevel }}
+            - -backend-kube-namespace={{ .Release.Namespace }}
+            - -dhcp-addr={{ printf "%v:%v" .Values.dhcp.ip .Values.dhcp.port }}
+            - -dhcp-enabled={{ .Values.dhcp.enabled }}
+            - -dhcp-http-ipxe-binary-url={{include "urlJoiner" (dict "urlDict" .Values.dhcp.httpIPXE.binaryUrl)}}
+            - -dhcp-http-ipxe-script-url={{include "urlJoiner" (dict "urlDict" .Values.dhcp.httpIPXE.scriptUrl)}}
+            - -dhcp-ip-for-packet={{ .Values.dhcp.ipForPacket }}
+            - -dhcp-syslog-ip={{ .Values.dhcp.syslogIp }}
+            - -dhcp-tftp-ip={{ .Values.dhcp.tftpIp }}:69
+            - -extra-kernel-args={{ join " " ( append .Values.http.additionlKernelArgs ( printf "tink_worker_image=%s" ( required "missing tinkWorkerImage" .Values.tinkWorkerImage ) ) ) }}
+            - -http-addr={{ printf "%v:%v" .Values.http.ip .Values.http.port }}
+            - -http-ipxe-binary-enabled={{ .Values.http.ipxeBinaryEnabled }}
+            - -http-ipxe-script-enabled={{ .Values.http.ipxeScriptEnabled }}
+            - -osie-url={{include "urlJoiner" (dict "urlDict" .Values.http.osieUrl)}}
+            - -tink-server={{ printf "%v:%v" .Values.http.tinkServer.ip .Values.http.tinkServer.port }}
+            - -tink-server-tls={{ .Values.http.tinkServer.tls }}
+            - -trusted-proxies={{ required "missing trustedProxies" ( join "," .Values.trustedProxies ) }}
+            - -syslog-addr={{ printf "%v:%v" .Values.syslog.ip .Values.syslog.port }}
+            - -syslog-enabled={{ .Values.syslog.enabled }}
+            - -ipxe-script-patch={{ .Values.ipxeScriptPatch }}
+            - -tftp-addr={{ printf "%v:%v" .Values.tftp.ip .Values.tftp.port }}
+            - -tftp-enabled={{ .Values.tftp.enabled }}
+            - -tftp-timeout={{ .Values.tftp.timeout }}
+          {{- range .Values.additionalArgs }}
+            - {{ . }}
+          {{- end }}
+          env:
+            {{- range .Values.additionalEnv }}
+            - name: {{ .name | quote }}
+              value: {{ .value | quote }}
+            {{- end }}
+          {{- if not .Values.hostNetwork }}
+          ports:
+            {{- include "smee.ports" ( merge ( dict "PortKey" "containerPort" ) .Values  ) | indent 12 }}
+          {{- end }}
+          name: {{ .Values.name }}
+          resources:
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+      serviceAccountName: {{ .Values.name }}
+      {{- if .Values.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
+{{- end }}

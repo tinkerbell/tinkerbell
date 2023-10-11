@@ -1,4 +1,6 @@
 {{- if .Values.stack.enabled }}
+{{- $sourceInterface := .Values.stack.relay.sourceInterface -}}
+{{- $macvlanInterfaceName := printf "%s%s" "macvlan" (randNumeric 2) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -24,7 +26,26 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
+      hostPID: true
       containers:
+      - name: {{ .Values.stack.relay.name }}
+        image: {{ .Values.stack.relay.image }}
+        args: ["-m", "append", "-c", "{{ .Values.stack.relay.maxHopCount }}", "-id", "{{ $macvlanInterfaceName }}", "-iu", "eth0", "-U", "eth0", "smee.{{ .Release.Namespace }}.svc.cluster.local."]
+        ports:
+        - containerPort: 67
+          protocol: UDP
+          name: dhcp
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          capabilities:
+            add:
+              - NET_RAW
       - name: {{ .Values.stack.name }}
         image: {{ .Values.stack.image }}
         command: ["/bin/bash", "-xeuc"]
@@ -45,6 +66,15 @@ spec:
         - containerPort: {{ .Values.stack.hook.port }}
           protocol: TCP
           name: hook-http
+        - containerPort: {{ .Values.smee.http.port }}
+          protocol: TCP
+          name: {{ .Values.smee.http.name }}
+        - containerPort: {{ .Values.smee.tftp.port }}
+          protocol: UDP
+          name: {{ .Values.smee.tftp.name }}
+        - containerPort: {{ .Values.smee.syslog.port }}
+          protocol: UDP
+          name: {{ .Values.smee.syslog.name }}
         resources:
           limits:
             cpu: 500m
@@ -62,6 +92,32 @@ spec:
           name: nginx-conf
       {{- if .Values.stack.hook.enabled }}
       initContainers:
+      - name: relay-macvlan-interface
+        command:
+          - /bin/sh
+          - -c
+          - |
+            # This script allows us to listen and respond to DHCP requests on a host network interface and interact with Boots properly.
+            # This is used instead of `hostNetwork: true` because the dhcp relay requires clear paths for listening for broadcast traffic
+            # and sending/receiving unicast traffic to/from Boots.
+            set -xe
+            # if sourceInterface is not set use the interface from the default route
+            srcInterface="{{ $sourceInterface }}"
+            if [ -z "$srcInterface" ]; then
+              srcInterface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}')
+            fi
+            # Create a macvlan interface. TODO: If this fails, try again with a different name?
+            nsenter -t1 -n ip link add {{ $macvlanInterfaceName }} link ${srcInterface} type macvlan mode bridge
+            # Move the interface into the POD.
+            pid=$(echo $$)
+            nsenter -t1 -n ip link set {{ $macvlanInterfaceName }} netns ${pid} || nsenter -t1 -n ip link delete {{ $macvlanInterfaceName }}
+            # Set the macvlan interface up
+            ip link set {{ $macvlanInterfaceName }} up
+            # Set the IP address
+            ip addr add {{ .Values.stack.loadBalancerIP }}/32 dev {{ $macvlanInterfaceName }} noprefixroute
+        image: alpine
+        securityContext:
+          privileged: true
       - name: init-hook-download
         image: {{ .Values.stack.hook.image }}
         command: ["bash", "-xeuc"]
@@ -125,6 +181,18 @@ spec:
   - name: {{ .Values.stack.hook.name }}
     port: {{ .Values.stack.hook.port }}
     protocol: TCP
+  - port: {{ .Values.smee.http.port }}
+    protocol: TCP
+    name: {{ .Values.smee.http.name }}
+  - port: {{ .Values.smee.tftp.port }}
+    protocol: UDP
+    name: {{ .Values.smee.tftp.name }}
+  - port: {{ .Values.smee.syslog.port }}
+    protocol: UDP
+    name: {{ .Values.smee.syslog.name }}
+  - port: 67
+    protocol: UDP
+    name: dhcp
   selector:
     {{- with .Values.stack.selector }}
     {{- toYaml . | nindent 4 }}

@@ -48,21 +48,11 @@ stack:
 #
 # See individual chart documentation for additional detail.
 
-boots:
-  image: quay.io/tinkerbell/boots:v0.9.0
+smee:
+  image: quay.io/tinkerbell/smee:v0.10.0
   tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.9.0
   trustedProxies: []
-  # This will be the IP address that machines use to reach Boots (via unicast for DHCP and for tftp/http of ipxe binaries/scripts) for netbooting.
-  # It should be a unused IP address in your network.
-  # Once the Kubernetes Gateway API and an implementation is available that can implements HTTP(S), UDP, GRPC, and transparent proxying, we will use that
-  # and be able to require only a single IP for all Tinkerbell services.
-  remoteIp: 192.168.2.113
-  tinkServer:
-    # This should be the same as `stack.loadBalancerIP`.
-    ip: *publicIP
-  osieBase:
-    # This should be the same as `stack.loadBalancerIP`.
-    ip: *publicIP
+  oneIP: *publicIP
 
 hegel:
   image: quay.io/tinkerbell/hegel:v0.11.1
