@@ -8,7 +8,7 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zerologr v1.2.3
 	github.com/golang/mock v1.6.0
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/packethost/xff v0.0.0-20190305172552-d3e9190c41b3
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
