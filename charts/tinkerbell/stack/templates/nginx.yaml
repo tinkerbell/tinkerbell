@@ -83,14 +83,26 @@ spec:
             cpu: 10m
             memory: 64Mi
         volumeMounts:
+        - mountPath: /tmp
+          readOnly: true
+          name: nginx-conf
         {{- if .Values.stack.hook.enabled }}
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts
         {{- end }}
-        - mountPath: /tmp
-          readOnly: true
+      volumes:
+      - name: nginx-conf
+        configMap:
           name: nginx-conf
+          items:
+            - key: nginx.conf
+              path: nginx.conf.template
       {{- if .Values.stack.hook.enabled }}
+      - name: hook-artifacts
+        hostPath:
+          path: {{ .Values.stack.hook.downloadsDest }}
+          type: DirectoryOrCreate
+      {{- end }}
       initContainers:
       - name: relay-macvlan-interface
         command:
@@ -118,41 +130,6 @@ spec:
         image: alpine
         securityContext:
           privileged: true
-      - name: init-hook-download
-        image: {{ .Values.stack.hook.image }}
-        command: ["bash", "-xeuc"]
-        args:
-        - |
-          cd /usr/share/nginx/html
-          rm -f *.tar.gz checksum.txt vmlinuz* initramfs*
-          base_loc="https://github.com/tinkerbell/hook/releases/download/latest"
-          files="$base_loc/hook_aarch64.tar.gz $base_loc/hook_x86_64.tar.gz $base_loc/checksum.txt"
-          tmp_dir=$(mktemp -d)
-          for f in ${files}; do
-            echo "${f}"
-            wget -P "${tmp_dir}" "${f}"
-          done
-          (cd "${tmp_dir}" && sha512sum -c checksum.txt)
-          mv "${tmp_dir}"/checksum.txt .
-          for f in ${tmp_dir}/*.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "${f}" && rm -f "${f}"; done
-          rm -rf "${tmp_dir}"
-        volumeMounts:
-        - mountPath: /usr/share/nginx/html
-          name: hook-artifacts
-      {{- end }}
-      volumes:
-      {{- if .Values.stack.hook.enabled }}
-      - name: hook-artifacts
-        hostPath:
-          path: {{ .Values.stack.hook.downloadsDest }}
-          type: DirectoryOrCreate
-      {{- end }}
-      - name: nginx-conf
-        configMap:
-          name: nginx-conf
-          items:
-            - key: nginx.conf
-              path: nginx.conf.template
 {{- if .Values.stack.service.enabled }}
 ---
 apiVersion: v1
@@ -169,8 +146,8 @@ spec:
   loadBalancerClass: {{ .Values.stack.lbClass }}
   {{- end }}
   loadBalancerIP: {{ .Values.stack.loadBalancerIP }}
-  {{- end }}
   externalTrafficPolicy: Local
+  {{- end }}
   ports:
   - name: {{ .Values.hegel.name }}
     port: {{ .Values.hegel.deployment.port }}

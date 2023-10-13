@@ -24,7 +24,7 @@ stack:
   kubevip:
     enabled: true
     name: kube-vip
-    image: ghcr.io/kube-vip/kube-vip:v0.5.12
+    image: ghcr.io/kube-vip/kube-vip:v0.6.3
     imagePullPolicy: IfNotPresent
     roleName: kube-vip-role
     roleBindingName: kube-vip-rolebinding
@@ -41,6 +41,7 @@ stack:
     # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
     # When unset, the interface from the default route will be used.
     # sourceInterface: eno1
+    # TODO(jacobweinstock): add feature to be able to disable listening for broadcast traffic.
 
 # -- Overrides
 # The values defined here override those in the individual charts. Some of them require tweaking
@@ -52,7 +53,7 @@ smee:
   image: quay.io/tinkerbell/smee:v0.10.0
   tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.9.0
   trustedProxies: []
-  oneIP: *publicIP
+  publicIP: *publicIP
 
 hegel:
   image: quay.io/tinkerbell/hegel:v0.11.1
