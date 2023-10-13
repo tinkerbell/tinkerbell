@@ -112,7 +112,7 @@ func TestBackend(t *testing.T) {
 	defer cancel()
 
 	// Construct the backend and attempt to retrieve our test Hardware resource.
-	backend, err := NewBackend(ctx, BackendConfig{ClientConfig: cfg})
+	backend, err := NewBackend(ctx, Config{ClientConfig: cfg})
 	if err != nil {
 		t.Fatal(err)
 	}

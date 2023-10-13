@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/packethost/pkg/log"
+	"github.com/go-logr/logr"
 )
 
 // Serve is a blocking call that begins serving the provided handler on port. When ctx is cancelled
 // it will attempt to gracefully shutdown. If graceful shutdown fails, it will force shutdown
 // and return an error.
-func Serve(ctx context.Context, logger log.Logger, address string, handler http.Handler) error {
+func Serve(ctx context.Context, logger logr.Logger, address string, handler http.Handler) error {
 	server := http.Server{
 		Addr:    address,
 		Handler: handler,

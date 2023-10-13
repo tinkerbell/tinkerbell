@@ -4,8 +4,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// BackendConfig used by the NewBackend function family.
-type BackendConfig struct {
+// Config used by the NewBackend function family.
+type Config struct {
 	// Kubeconfig is a path to a valid kubeconfig file. When in-cluster defaults to the in-cluster
 	// config. Optional.
 	Kubeconfig string
