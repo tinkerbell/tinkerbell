@@ -65,7 +65,7 @@ boots:
     ip: *publicIP
 
 hegel:
-  image: quay.io/tinkerbell/hegel:v0.11.0
+  image: quay.io/tinkerbell/hegel:v0.11.1
   trustedProxies: []
 
 rufio:
