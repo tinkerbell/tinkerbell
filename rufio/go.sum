@@ -8,8 +8,8 @@ github.com/VictorLowther/soap v0.0.0-20150314151524-8e36fca84b22 h1:a0MBqYm44o0N
 github.com/VictorLowther/soap v0.0.0-20150314151524-8e36fca84b22/go.mod h1:/B7V22rcz4860iDqstGvia/2+IYWXf3/JdQCVd/1D2A=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20231003090246-b6af04244cad h1:W08iYd1kxVQVgd1tEkRT493vMRmwuj2DWfEJvFnoZWk=
-github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20231003090246-b6af04244cad/go.mod h1:hRe0RhyHbyQDFULc6HQFBIwdBOFYnm+8rHeO9UBnxAU=
+github.com/bmc-toolbox/bmclib/v2 v2.1.0 h1:4zC8/ODEeO8uWiBJGUO8u2HgGJWtoDZfSEBFYrd5RHA=
+github.com/bmc-toolbox/bmclib/v2 v2.1.0/go.mod h1:hRe0RhyHbyQDFULc6HQFBIwdBOFYnm+8rHeO9UBnxAU=
 github.com/bmc-toolbox/common v0.0.0-20230220061748-93ff001f4a1d h1:cQ30Wa8mhLzK1TSOG+g3FlneIsXtFgun61mmPwVPmD0=
 github.com/bmc-toolbox/common v0.0.0-20230220061748-93ff001f4a1d/go.mod h1:SY//n1PJjZfbFbmAsB6GvEKbc7UXz3d30s3kWxfJQ/c=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
