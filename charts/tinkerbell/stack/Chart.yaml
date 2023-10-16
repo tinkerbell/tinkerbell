@@ -27,9 +27,9 @@ dependencies:
   - name: tink
     version: "0.2.2"
     repository: "file://../tink"
-  - name: boots
-    version: "0.2.2"
-    repository: "file://../boots"
+  - name: smee
+    version: "0.3.0"
+    repository: "file://../smee"
   - name: rufio
     version: "0.2.5"
     repository: "file://../rufio"

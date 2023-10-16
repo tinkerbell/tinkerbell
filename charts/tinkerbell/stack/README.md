@@ -7,14 +7,14 @@ This chart installs the full Tinkerbell stack.
 ```bash
 helm dependency build stack/
 trusted_proxies=$(kubectl get nodes -o go-template-file=stack/kubectl.go-template)
-helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "boots.trustedProxies={${trusted_proxies}}" --set "hegel.trustedProxies={${trusted_proxies}}"
+helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "smee.trustedProxies={${trusted_proxies}}" --set "hegel.trustedProxies={${trusted_proxies}}"
 ```
 
 ## Introduction
 
-This chart bootstraps a full Tinkerbell stack on a Kubernetes cluster using the Helm package manager. The Tinkerbell stack consists of the following components:
+This chart smeetraps a full Tinkerbell stack on a Kubernetes cluster using the Helm package manager. The Tinkerbell stack consists of the following components:
 
-- [Boots](https://github.com/tinkerbell/boots)
+- [Boots](https://github.com/tinkerbell/smee)
 - [Hegel](https://github.com/tinkerbell/hegel)
 - [Tink](https://github.com/tinkerbell/tink)
 - [Rufio](https://github.com/tinkerbell/rufio)
@@ -35,16 +35,12 @@ The stack chart does not use an ingress object and controller. This is because m
 
 Before installing the chart you'll want to customize the IP used for the load balancer (`stack.loadBalancerIP`). This IP provides ingress for Hegel, Tink, and Boots (TFTP, HTTP, and SYSLOG endpoints as well as unicast DHCP requests).
 
-You'll also want to set the IP used in DHCP packets for option 54, the location of the iPXE binaries, the `auto.ipxe` script, the syslog IP, and the IP for downloading Hook files (`boots.remoteIp`).
-
-The vast majority of the time,these 2 (`stack.loadBalancerIP` and `boots.remoteIp`) IPs will be the same.
-
 Now, deploy the chart.
 
 ```bash
 helm dependency build stack/
 trusted_proxies=$(kubectl get nodes -o go-template-file=stack/kubectl.go-template)
-helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "boots.trustedProxies={${trusted_proxies}}" --set "hegel.trustedProxies={${trusted_proxies}}"
+helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "smee.trustedProxies={${trusted_proxies}}" --set "hegel.trustedProxies={${trusted_proxies}}"
 ```
 
 These commands install the Tinkerbell Stack chart in the `tink-system` namespace with the release name of `stack-release`.
@@ -82,9 +78,8 @@ helm upgrade stack-release stack/ --namespace tink-system --wait
 | `stack.hook.name` | Name for the Hook artifacts server | `hook-files` |
 | `stack.hook.port` | Port to use for the Hook artifacts server | `8080` |
 | `stack.hook.image` | Image to use for downloading the Hook artifacts | `alpine` |
-| `stack.hook.downloads` | List of Hook artifacts to download | `[]` |
-| `stack.hook.downloads[0].url` | URL of the Hook bundle to download | `""` |
-| `stack.hook.downloads[0].sha512sum` | sha512sum of the Hook bundle | `""` |
+| `stack.hook.downloadsDest` | The directory on disk to where Hook artifacts will downloaded  | `/opt/hook` |
+| `stack.hook.downloadURL` | The base URL where all Hook tarballs and checksum.txt file exist for downloading | `https://github.com/tinkerbell/hook/releases/download/latest` |
 
 ### Load Balancer Parameters (kube-vip)
 
@@ -130,4 +125,4 @@ hegel:
 
 | Name | Description | Value |
 | ---- | ----------- | ----- |
-| `boots.hostNetwork` | Whether to deploy Boots using `hostNetwork` on the pod spec. When `true` Boots will be able to receive DHCP broadcast messages. If `false`, Boots will be behind the load balancer VIP and will need to receive DHCP requests via unicast. | `true` |
+| `smee.hostNetwork` | Whether to deploy Boots using `hostNetwork` on the pod spec. When `true` Boots will be able to receive DHCP broadcast messages. If `false`, Boots will be behind the load balancer VIP and will need to receive DHCP requests via unicast. | `true` |
