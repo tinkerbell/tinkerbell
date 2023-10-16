@@ -44,20 +44,14 @@ const EnvNamePrefix = "HEGEL"
 
 // RootCommandOptions encompasses all the configurability of the RootCommand.
 type RootCommandOptions struct {
-	TrustedProxies string `mapstructure:"trusted-proxies"`
-
-	HTTPPort int `mapstructure:"http-port"`
-
-	Backend string `mapstructure:"backend"`
-
+	TrustedProxies       string `mapstructure:"trusted-proxies"`
+	HTTPAddr             string `mapstructure:"http-addr"`
+	Backend              string `mapstructure:"backend"`
 	KubernetesAPIServer  string `mapstructure:"kubernetes-apiserver"`
 	KubernetesKubeconfig string `mapstructure:"kubernetes-kubeconfig"`
 	KubernetesNamespace  string `mapstructure:"kubernetes-namespace"`
-
-	FlatfilePath string `mapstructure:"flatfile-path"`
-
-	// Debug enables debug mode that maximizes logging.
-	Debug bool `mapstructure:"debug"`
+	FlatfilePath         string `mapstructure:"flatfile-path"`
+	Debug                bool   `mapstructure:"debug"`
 
 	// Hidden CLI flags.
 	HegelAPI bool `mapstructure:"hegel-api"`
@@ -148,7 +142,7 @@ func (c *RootCommand) Run(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
 
-	return hegelhttp.Serve(ctx, logger, fmt.Sprintf(":%v", c.Opts.HTTPPort), router)
+	return hegelhttp.Serve(ctx, logger, c.Opts.HTTPAddr, router)
 }
 
 func (c *RootCommand) configureFlags() error {
@@ -158,7 +152,7 @@ func (c *RootCommand) configureFlags() error {
 		"A commma separated list of allowed peer IPs and/or CIDR blocks to replace with X-Forwarded-For",
 	)
 
-	c.Flags().Int("http-port", 50061, "Port to listen on for HTTP requests")
+	c.Flags().String("http-addr", ":50061", "Port to listen on for HTTP requests")
 
 	c.Flags().String("backend", "kubernetes", "Backend to use for metadata. Options: flatfile, kubernetes")
 
