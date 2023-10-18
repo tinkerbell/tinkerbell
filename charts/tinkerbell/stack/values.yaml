@@ -18,8 +18,8 @@ stack:
     port: 8080
     image: bash
     downloadsDest: /opt/hook
-    # downloadURL only works with the > 0.8.1 Hook release.
-    # This is because previous Hook versions didn't provide a checksum file.
+    # downloadURL only works with the > 0.8.1 Hook release because
+    # previous Hook versions didn't provide a checksum file.
     downloadURL: https://github.com/tinkerbell/hook/releases/download/latest
   kubevip:
     enabled: true
@@ -28,9 +28,8 @@ stack:
     imagePullPolicy: IfNotPresent
     roleName: kube-vip-role
     roleBindingName: kube-vip-rolebinding
-    # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the
-    # interface.
-    #interface: enp0s8
+    # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
+    # interface: enp0s8
   relay: # relay allows us to listen and respond to layer broadcast DHCP requests
     name: dhcp-relay
     enabled: true
@@ -60,7 +59,7 @@ hegel:
   trustedProxies: []
 
 rufio:
-  image: quay.io/tinkerbell/rufio:v0.3.1
+  image: quay.io/tinkerbell/rufio:v0.3.2
 
 tink:
   controller:
