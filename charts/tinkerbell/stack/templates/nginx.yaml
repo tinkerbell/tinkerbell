@@ -116,7 +116,7 @@ spec:
             # if sourceInterface is not set use the interface from the default route
             srcInterface="{{ $sourceInterface }}"
             if [ -z "$srcInterface" ]; then
-              srcInterface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}')
+              srcInterface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}' | head -n1)
             fi
             # Create a macvlan interface. TODO: If this fails, try again with a different name?
             nsenter -t1 -n ip link add {{ $macvlanInterfaceName }} link ${srcInterface} type macvlan mode bridge
