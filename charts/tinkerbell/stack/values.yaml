@@ -17,6 +17,20 @@ stack:
   lbClass: kube-vip.io/kube-vip-class
   # Once the Kubernetes Gateway API is more stable, we will use that for all services instead of nginx.
   image: nginx:1.25.1
+  persistence:
+    enabled: true
+    # type hostpath or pvc
+    type: hostpath
+    # When type is pvc
+    # storageClassName: default
+    accessModes:
+      - ReadWriteMany
+    size: 1Gi
+    # annotations: {}
+    # selectorLabels: {}
+    # existingClaim:
+    extraPvcLabels: {}
+
   hook:
     enabled: true
     name: hook-files

@@ -123,9 +123,20 @@ spec:
       {{- end }}
       {{- if .Values.stack.hook.enabled }}
       - name: hook-artifacts
+        {{- if .Values.stack.persistence.enabled }}
+        {{- if eq .Values.stack.persistence.type "hostpath" }}
         hostPath:
           path: {{ .Values.stack.hook.downloadsDest }}
           type: DirectoryOrCreate
+        {{- else if eq .Values.stack.persistence.type "pvc" }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.stack.persistence.existingClaim | default "hook-artifacts" }}
+        {{- else }}
+        {{- fail "value for .Values.stack.persistence.type is not as expected" }}
+        {{- end }}
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
       {{- end }}
       {{- if and .Values.stack.relay.enabled $listenBroadcast }}
       initContainers:

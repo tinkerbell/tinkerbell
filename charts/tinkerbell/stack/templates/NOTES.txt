@@ -1,0 +1,7 @@
+{{- if eq (include "stack.hookDownloadJobEnabled" .) "false" }}
+Warning:
+
+You are using no persistence or ReadWriteOnce access modes on PersistentVolumeClaim, Job `download-hook` is disabled.
+You will need to manage hooks artifacts manually.
+Also stack Deployment is not scalable.
+{{- end }}
