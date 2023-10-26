@@ -55,6 +55,8 @@ data:
        server {
         listen {{ .Values.stack.hook.port }};
         location / {
+          sendfile           on;
+          sendfile_max_chunk 1m;
           root /usr/share/nginx/html;
         }
       }
