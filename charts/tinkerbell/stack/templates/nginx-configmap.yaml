@@ -21,7 +21,7 @@ data:
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           resolver $POD_NAMESERVER;
-          set $smee_dns {{ .Values.smee.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+          set $smee_dns {{ .Values.smee.name }}.{{ .Release.Namespace }}.svc.cluster.local.; # needed in Kubernetes for dynamic DNS resolution
 
           proxy_pass http://$smee_dns:{{ .Values.smee.http.port }};
         }
@@ -66,15 +66,14 @@ data:
       server {
           listen {{ .Values.smee.tftp.port }} udp;
           resolver $POD_NAMESERVER;
-          set $smee_dns {{ .Values.smee.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+          set $smee_dns {{ .Values.smee.name }}.{{ .Release.Namespace }}.svc.cluster.local.; # needed in Kubernetes for dynamic DNS resolution
           proxy_pass $smee_dns:{{ .Values.smee.tftp.port }};
-          proxy_timeout 1s;
           access_log /dev/stdout logger-json;
       }
       server {
           listen {{ .Values.smee.syslog.port }} udp;
           resolver $POD_NAMESERVER;
-          set $smee_dns {{ .Values.smee.name }}.{{ .Release.Namespace }}.svc.cluster.local; # needed in Kubernetes for dynamic DNS resolution
+          set $smee_dns {{ .Values.smee.name }}.{{ .Release.Namespace }}.svc.cluster.local.; # needed in Kubernetes for dynamic DNS resolution
           proxy_pass $smee_dns:{{ .Values.smee.syslog.port }};
           access_log /dev/stdout logger-json;
       }
