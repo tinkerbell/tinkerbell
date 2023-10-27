@@ -52,16 +52,16 @@ spec:
       volumes:
         - name: hook-artifacts
           {{- if .Values.stack.hook.persistence.enabled }}
-          {{- if eq .Values.stack.hook.persistence.type "hostpath" }}
+            {{- if eq .Values.stack.hook.persistence.type "hostpath" }}
           hostPath:
             path: {{ .Values.stack.hook.downloadsDest }}
             type: DirectoryOrCreate
-          {{- else if eq .Values.stack.hook.persistence.type "pvc" }}
+            {{- else if eq .Values.stack.hook.persistence.type "pvc" }}
           persistentVolumeClaim:
             claimName: {{ .Values.stack.hook.persistence.existingClaim | default "hook-artifacts" }}
-          {{- else }}
-          {{- fail "value for .Values.stack.hook.persistence.type is not as expected" }}
-          {{- end }}
+            {{- else }}
+              {{- fail "value for .Values.stack.hook.persistence.type is not as expected" }}
+            {{- end }}
           {{- else }}
           emptyDir: {}
           {{- end }}
