@@ -1,11 +1,14 @@
 {{- define "stack.hookDownloadJobEnabled" -}}
-{{- $result := .Values.stack.persistence.enabled }}
-{{- if and .Values.stack.persistence.enabled (eq .Values.stack.persistence.type "pvc") }}
-  {{- range .Values.stack.persistence.accessModes }}
-    {{- if eq . "ReadWriteOnce" }}
-      {{- $result = false}}
+  {{- $result := false }}
+  {{- if and .Values.stack.hook.enabled .Values.stack.hook.persistence.enabled -}}
+    {{- $result = true -}}
+    {{- if and .Values.stack.hook.persistence.enabled (eq .Values.stack.hook.persistence.type "pvc") }}
+      {{- range .Values.stack.hook.persistence.accessModes }}
+        {{- if eq . "ReadWriteOnce" }}
+          {{- $result = false}}
+        {{- end }}
+      {{- end }}
     {{- end }}
-  {{- end }}
-{{- end }}
-{{- $result }}
+  {{- end -}}
+  {{- $result }}
 {{- end -}}

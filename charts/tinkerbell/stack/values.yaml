@@ -17,19 +17,7 @@ stack:
   lbClass: kube-vip.io/kube-vip-class
   # Once the Kubernetes Gateway API is more stable, we will use that for all services instead of nginx.
   image: nginx:1.25.1
-  persistence:
-    enabled: true
-    # type hostpath or pvc
-    type: hostpath
-    # When type is pvc
-    # storageClassName: default
-    accessModes:
-      - ReadWriteMany
-    size: 1Gi
-    # annotations: {}
-    # selectorLabels: {}
-    # existingClaim:
-    extraPvcLabels: {}
+  
 
   hook:
     enabled: true
@@ -40,6 +28,24 @@ stack:
     # downloadURL only works with the > 0.8.1 Hook release because
     # previous Hook versions didn't provide a checksum file.
     downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.9.1
+    persistence:
+      enabled: true
+      ## type hostpath or pvc
+      # hostpath : only works on a single worker node cluster
+      type: hostpath
+      ## When type is pvc
+      # storageClassName: default
+
+      ## PVC accessModes : 
+      # Require ReadWriteMany in order to download Hook and scale up kubernetes tink-stack Deployment resource.
+      # If ReadWriteOnce is used, you will need to download manually Hook into stack Pod (/usr/share/nginx/html/).
+      accessModes:
+        - ReadWriteMany
+      size: 1Gi
+      # annotations: {}
+      # selectorLabels: {}
+      # existingClaim:
+      extraPvcLabels: {}
   kubevip:
     enabled: true
     name: kube-vip

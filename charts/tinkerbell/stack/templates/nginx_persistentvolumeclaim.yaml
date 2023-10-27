@@ -1,28 +1,28 @@
-{{- if and .Values.stack.persistence.enabled (not .Values.stack.persistence.existingClaim) (eq .Values.stack.persistence.type "pvc") }}
+{{- if and .Values.stack.hook.enabled .Values.stack.hook.persistence.enabled (not .Values.stack.hook.persistence.existingClaim) (eq .Values.stack.hook.persistence.type "pvc") }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: hook-artifacts
   labels:
-    {{- with .Values.stack.persistence.extraPvcLabels }}
+    {{- with .Values.stack.hook.persistence.extraPvcLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- with .Values.stack.persistence.annotations  }}
+  {{- with .Values.stack.hook.persistence.annotations  }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   accessModes:
-    {{- range .Values.stack.persistence.accessModes }}
+    {{- range .Values.stack.hook.persistence.accessModes }}
     - {{ . | quote }}
     {{- end }}
   resources:
     requests:
-      storage: {{ .Values.stack.persistence.size | quote }}
-  {{- with .Values.stack.persistence.storageClassName }}
+      storage: {{ .Values.stack.hook.persistence.size | quote }}
+  {{- with .Values.stack.hook.persistence.storageClassName }}
   storageClassName: {{ . }}
   {{- end }}
-  {{- with .Values.stack.persistence.selectorLabels }}
+  {{- with .Values.stack.hook.persistence.selectorLabels }}
   selector:
     matchLabels:
     {{- toYaml . | nindent 6 }}
