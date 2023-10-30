@@ -5,7 +5,7 @@ go 1.20
 require (
 	dario.cat/mergo v1.0.0
 	github.com/bmc-toolbox/bmclib/v2 v2.1.1-0.20231017114451-153e11d62a71
-	github.com/go-logr/logr v1.2.4
+	github.com/go-logr/logr v1.3.0
 	github.com/go-logr/zerologr v1.2.3
 	github.com/google/go-cmp v0.6.0
 	github.com/jacobweinstock/registrar v0.4.7
