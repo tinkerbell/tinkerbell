@@ -109,9 +109,9 @@ spec:
           - /bin/sh
           - -c
           - |
-            # This script allows us to listen and respond to DHCP requests on a host network interface and interact with Boots properly.
+            # This script allows us to listen and respond to DHCP requests on a host network interface and interact with Smee properly.
             # This is used instead of `hostNetwork: true` because the dhcp relay requires clear paths for listening for broadcast traffic
-            # and sending/receiving unicast traffic to/from Boots.
+            # and sending/receiving unicast traffic to/from Smee.
             set -xe
             # if sourceInterface is not set use the interface from the default route
             srcInterface="{{ $sourceInterface }}"

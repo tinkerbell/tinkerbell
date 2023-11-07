@@ -14,7 +14,7 @@ helm install stack-release stack/ --create-namespace --namespace tink-system --w
 
 This chart smeetraps a full Tinkerbell stack on a Kubernetes cluster using the Helm package manager. The Tinkerbell stack consists of the following components:
 
-- [Boots](https://github.com/tinkerbell/smee)
+- [Smee](https://github.com/tinkerbell/smee)
 - [Hegel](https://github.com/tinkerbell/hegel)
 - [Tink](https://github.com/tinkerbell/tink)
 - [Rufio](https://github.com/tinkerbell/rufio)
@@ -23,7 +23,7 @@ This chart also installs a load balancer ([kube-vip](https://kube-vip.io/)) in o
 
 ## Design details
 
-The stack chart does not use an ingress object and controller. This is because most ingress controllers do not support UDP. Boots uses UDP for DHCP, TFTP, and Syslog services. The ingress controllers that do support UDP require a lot of extra configuration, custom resources, etc. The stack chart deploys a very light weight Nginx deployment with a straightforward configuration that accommodates all the Tinkerbell stack services and serving Hook artifacts.
+The stack chart does not use an ingress object and controller. This is because most ingress controllers do not support UDP. Smee uses UDP for DHCP, TFTP, and Syslog services. The ingress controllers that do support UDP require a lot of extra configuration, custom resources, etc. The stack chart deploys a very light weight Nginx deployment with a straightforward configuration that accommodates all the Tinkerbell stack services and serving Hook artifacts.
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ The stack chart does not use an ingress object and controller. This is because m
 
 ## Installing the Chart
 
-Before installing the chart you'll want to customize the IP used for the load balancer (`stack.loadBalancerIP`). This IP provides ingress for Hegel, Tink, and Boots (TFTP, HTTP, and SYSLOG endpoints as well as unicast DHCP requests).
+Before installing the chart you'll want to customize the IP used for the load balancer (`stack.loadBalancerIP`). This IP provides ingress for Hegel, Tink, and Smee (TFTP, HTTP, and SYSLOG endpoints as well as unicast DHCP requests).
 
 Now, deploy the chart.
 
@@ -105,7 +105,7 @@ helm upgrade stack-release stack/ --namespace tink-system --wait
 
 ### Tinkerbell Services Parameters
 
-All dependent services(Boots, Hegel, Rufio, Tink) can have their values overridden here. The following format is used to accomplish this.
+All dependent services(Smee, Hegel, Rufio, Tink) can have their values overridden here. The following format is used to accomplish this.
 
 ```yaml
 <service name>:
@@ -121,8 +121,8 @@ hegel:
   image: quay.io/tinkerbell/hegel:latest
 ```
 
-### Boots Parameters
+### Smee Parameters
 
 | Name | Description | Value |
 | ---- | ----------- | ----- |
-| `smee.hostNetwork` | Whether to deploy Boots using `hostNetwork` on the pod spec. When `true` Boots will be able to receive DHCP broadcast messages. If `false`, Boots will be behind the load balancer VIP and will need to receive DHCP requests via unicast. | `true` |
+| `smee.hostNetwork` | Whether to deploy Smee using `hostNetwork` on the pod spec. When `true` Smee will be able to receive DHCP broadcast messages. If `false`, Smee will be behind the load balancer VIP and will need to receive DHCP requests via unicast. | `true` |
