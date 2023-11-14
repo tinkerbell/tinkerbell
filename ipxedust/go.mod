@@ -12,7 +12,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
-	github.com/pin/tftp/v3 v3.0.0
+	github.com/pin/tftp/v3 v3.1.0
 	github.com/rs/zerolog v1.31.0
 	go.opentelemetry.io/otel v1.19.0
 	go.opentelemetry.io/otel/trace v1.19.0
