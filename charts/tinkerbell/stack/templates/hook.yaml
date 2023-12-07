@@ -58,9 +58,9 @@ spec:
             type: DirectoryOrCreate
             {{- else if eq .Values.stack.hook.persistence.type "pvc" }}
           persistentVolumeClaim:
-            claimName: {{ .Values.stack.hook.persistence.existingClaim | default "hook-artifacts" }}
+            claimName: {{ .Values.stack.hook.persistence.pvc.existingClaim | default "hook-artifacts" }}
             {{- else }}
-              {{- fail "value for .Values.stack.hook.persistence.type is not as expected" }}
+              {{- fail "value for .Values.stack.hook.persistence.type is unsupported" }}
             {{- end }}
           {{- else }}
           emptyDir: {}

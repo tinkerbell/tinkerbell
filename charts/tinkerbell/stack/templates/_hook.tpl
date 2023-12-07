@@ -3,7 +3,7 @@
   {{- if and .Values.stack.hook.enabled .Values.stack.hook.persistence.enabled -}}
     {{- $result = true -}}
     {{- if and .Values.stack.hook.persistence.enabled (eq .Values.stack.hook.persistence.type "pvc") }}
-      {{- range .Values.stack.hook.persistence.accessModes }}
+      {{- range .Values.stack.hook.persistence.pvc.accessModes }}
         {{- if eq . "ReadWriteOnce" }}
           {{- $result = false}}
         {{- end }}

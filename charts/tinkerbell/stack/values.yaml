@@ -30,22 +30,36 @@ stack:
     downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.9.1
     persistence:
       enabled: true
-      ## type hostpath or pvc
-      # hostpath : only works on a single worker node cluster
+      # type must be either "hostpath" or "pvc"
+      # hostpath: only works on a single worker node cluster
+      # https://kubernetes.io/docs/concepts/storage/volumes/#hostpath
       type: hostpath
-      ## When type is pvc
+
+      # The PVC storage class to use. Only valid with type=pvc.
       # storageClassName: default
 
-      ## PVC accessModes : 
-      # Require ReadWriteMany in order to download Hook and scale up kubernetes tink-stack Deployment resource.
-      # If ReadWriteOnce is used, you will need to download manually Hook into stack Pod (/usr/share/nginx/html/).
-      accessModes:
-        - ReadWriteMany
-      size: 1Gi
-      # annotations: {}
-      # selectorLabels: {}
-      # existingClaim:
-      extraPvcLabels: {}
+      pvc:
+        # PVC accessModes : 
+        # If you include only ReadWriteMany access mode it will allow to download Hook artifacts,
+        # it will also allow to scale up stack deployment on multinode cluster.
+        # If ReadWriteOnce is included, you will need to download manually Hook artifacts into
+        # stack Pod (/usr/share/nginx/html/).
+        # https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
+        accessModes:
+          - ReadWriteMany
+        size: 1Gi
+        # Annotations to include on the PVC object.
+        annotations: {}
+
+        # An optional selector to narrow the Volumes considered for binding to the PVC.
+        # Should be structured the same as a raw PVC selector (see documentation for more info).
+        #
+        # https://kubernetes.io/docs/concepts/storage/persistent-volumes/#selector.
+        selector: {}
+
+        # existingClaim:
+        extraLabels: {}
+
   kubevip:
     enabled: true
     name: kube-vip
