@@ -35,9 +35,6 @@ stack:
       # https://kubernetes.io/docs/concepts/storage/volumes/#hostpath
       type: hostpath
 
-      # The PVC storage class to use. Only valid with type=pvc.
-      # storageClassName: default
-
       pvc:
         # PVC accessModes : 
         # If you include only ReadWriteMany access mode it will allow to download Hook artifacts,
@@ -48,6 +45,7 @@ stack:
         accessModes:
           - ReadWriteMany
         size: 1Gi
+        # storageClassName: default
         # Annotations to include on the PVC object.
         annotations: {}
 
