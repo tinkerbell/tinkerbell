@@ -4,6 +4,10 @@
 
 set -eux
 
+#XXX Workaround for https://github.com/ipxe/ipxe/issues/606
+CERT=ca.pem,isrgrootx1.pem,lets-encrypt-r3.pem
+TRUST=ca.pem,isrgrootx1.pem,lets-encrypt-r3.pem
+
 # build_ipxe will run the make target in the upstream ipxe source
 # that will build an ipxe binary.
 function build_ipxe() {
@@ -13,9 +17,9 @@ function build_ipxe() {
     local embed_path="$4"
 
     if [ -z "${env_opts}" ]; then
-        make -C "${ipxe_dir}"/src EMBED="${embed_path}" "${ipxe_bin}"
+        make -C "${ipxe_dir}"/src EMBED="${embed_path}" CERT="${CERT}" TRUST="${TRUST}" "${ipxe_bin}"
     else
-        make -C "${ipxe_dir}"/src "${env_opts}" EMBED="${embed_path}" "${ipxe_bin}"
+        make -C "${ipxe_dir}"/src "${env_opts}" EMBED="${embed_path}" CERT="${CERT}" TRUST="${TRUST}" "${ipxe_bin}"
     fi
 }
 
@@ -43,6 +47,8 @@ function copy_common_files() {
     cp -a binary/script/ipxe-customizations/common.h "${ipxe_dir}"/src/config/local/
     cp -a binary/script/ipxe-customizations/console.h "${ipxe_dir}"/src/config/local/
     cp -a binary/script/ipxe-customizations/crypto.h "${ipxe_dir}"/src/config/local/
+    #XXX Workaround for https://github.com/ipxe/ipxe/issues/606
+    cp -a binary/script/ipxe-customizations/{ca.pem,isrgrootx1.pem,lets-encrypt-r3.pem} "${ipxe_dir}"/src
 }
 
 # copy_custom_files will copy in any custom header files based on a requested ipxe binary.

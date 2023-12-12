@@ -6,6 +6,9 @@ set -uxo pipefail
 tracked_files=(
     "./script/build_ipxe.sh"
     "./script/build_and_pr.sh"
+    "./script/ipxe-customizations/ca.pem"
+    "./script/ipxe-customizations/isrgrootx1.pem"
+    "./script/ipxe-customizations/lets-encrypt-r3.pem"
     "./script/ipxe-customizations/console.h"
     "./script/ipxe-customizations/isa.h"
     "./script/ipxe-customizations/colour.h"
