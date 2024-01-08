@@ -93,7 +93,9 @@ func (r *MachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *MachineReconciler) doReconcile(ctx context.Context, bm *v1alpha1.Machine, bmPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	var username, password string
-	opts := &BMCOptions{}
+	opts := &BMCOptions{
+		ProviderOptions: bm.Spec.Connection.ProviderOptions,
+	}
 	if bm.Spec.Connection.ProviderOptions != nil && bm.Spec.Connection.ProviderOptions.RPC != nil {
 		opts.ProviderOptions = bm.Spec.Connection.ProviderOptions
 		if len(bm.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
