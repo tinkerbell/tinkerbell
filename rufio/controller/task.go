@@ -88,7 +88,9 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 func (r *TaskReconciler) doReconcile(ctx context.Context, task *v1alpha1.Task, taskPatch client.Patch, logger logr.Logger) (ctrl.Result, error) {
 	var username, password string
-	opts := &BMCOptions{}
+	opts := &BMCOptions{
+		ProviderOptions: task.Spec.Connection.ProviderOptions,
+	}
 	if task.Spec.Connection.ProviderOptions != nil && task.Spec.Connection.ProviderOptions.RPC != nil {
 		opts.ProviderOptions = task.Spec.Connection.ProviderOptions
 		if len(task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
