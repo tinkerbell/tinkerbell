@@ -28,24 +28,6 @@ spec:
       {{- end }}
       hostPID: true
       containers:
-      - name: {{ .Values.stack.relay.name }}
-        image: {{ .Values.stack.relay.image }}
-        args: ["-m", "append", "-c", "{{ .Values.stack.relay.maxHopCount }}", "-id", "{{ $macvlanInterfaceName }}", "-iu", "eth0", "-U", "eth0", "smee.{{ .Release.Namespace }}.svc.cluster.local."]
-        ports:
-        - containerPort: 67
-          protocol: UDP
-          name: dhcp
-        resources:
-          limits:
-            cpu: 500m
-            memory: 128Mi
-          requests:
-            cpu: 10m
-            memory: 64Mi
-        securityContext:
-          capabilities:
-            add:
-              - NET_RAW
       - name: {{ .Values.stack.name }}
         image: {{ .Values.stack.image }}
         command: ["/bin/bash", "-xeuc"]
@@ -90,6 +72,24 @@ spec:
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts
         {{- end }}
+      - name: {{ .Values.stack.relay.name }}
+        image: {{ .Values.stack.relay.image }}
+        args: ["-m", "append", "-c", "{{ .Values.stack.relay.maxHopCount }}", "-id", "{{ $macvlanInterfaceName }}", "-iu", "eth0", "-U", "eth0", "smee.{{ .Release.Namespace }}.svc.cluster.local."]
+        ports:
+        - containerPort: 67
+          protocol: UDP
+          name: dhcp
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          capabilities:
+            add:
+              - NET_RAW
       volumes:
       - name: nginx-conf
         configMap:
