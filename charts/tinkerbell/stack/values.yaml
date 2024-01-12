@@ -30,11 +30,12 @@ stack:
     roleBindingName: kube-vip-rolebinding
     # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
     # interface: enp0s8
-  relay: # relay allows us to listen and respond to layer broadcast DHCP requests
+  # Relay allows us to listen and respond to layer broadcast DHCP requests
+  relay:
     name: dhcp-relay
     enabled: true
     # This image (ghcr.io/jacobweinstock/dhcrelay) is used because the other public dhcprelay images out there (`modem7/dhcprelay`)
-    # doesn't respect signals properly when run as PID 1.
+    # don't respect signals properly when run as PID 1.
     image: ghcr.io/jacobweinstock/dhcrelay
     maxHopCount: 10
     # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
