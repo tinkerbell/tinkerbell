@@ -78,9 +78,9 @@ jobs:
         run: make build GOARCH=${{ matrix.platform }}
 
       - name: Upload linux/${{ matrix.platform }} binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: hegel
+          name: ${{ matrix.platform }}
           retention-days: 1
           path: hegel-linux-${{ matrix.platform }}
 
@@ -113,9 +113,9 @@ jobs:
       # whatever name they were uploaded with. Its required because the Dockerfile expects
       # the filenames to be formatted appropriately for the platform.
       - name: Download all binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: hegel
+          merge-multiple: true
 
       # The upload/download actions do not preserve permissions so they need explicitly setting.
       - name: Fix binary permissions
@@ -148,4 +148,5 @@ jobs:
           cache-from: type=registry,ref=${{ env.IMAGE }}:latest
           push: ${{ startsWith(github.ref, 'refs/heads/main') || startsWith(github.ref, 'refs/heads/v') }}
           tags: ${{ steps.meta.outputs.tags }}
+
           platforms: linux/amd64,linux/arm64
