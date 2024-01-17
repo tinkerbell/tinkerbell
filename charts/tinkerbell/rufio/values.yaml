@@ -1,6 +1,6 @@
 deploy: true
 name: rufio
-image: quay.io/tinkerbell/rufio:v0.3.2
+image: quay.io/tinkerbell/rufio:v0.3.3
 imagePullPolicy: IfNotPresent
 resources:
   requests:
