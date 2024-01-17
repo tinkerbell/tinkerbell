@@ -60,7 +60,7 @@ hegel:
   trustedProxies: []
 
 rufio:
-  image: quay.io/tinkerbell/rufio:v0.3.2
+  image: quay.io/tinkerbell/rufio:v0.3.3
 
 tink:
   controller:
