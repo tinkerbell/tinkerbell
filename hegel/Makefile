@@ -32,7 +32,7 @@ help:
 
 # -- Tooling
 
-GOLANGCI_LINT_VERSION 	?= v1.51.2
+GOLANGCI_LINT_VERSION 	?= v1.55.2
 GOLANGCI_LINT 			:= $(TOOLS_DIR)/golangci-lint
 $(GOLANGCI_LINT):
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
@@ -74,7 +74,7 @@ tools: $(GOLANGCI_LINT) $(MOCKGEN) $(SETUP_ENVTEST) $(HADOLINT) $(YAMLLINT_BIN) 
 
 .PHONY: clean-tools
 clean-tools: ## Remove tools installed for development.
-	chmod -R +w $(TOOLS_DIR)/envtest
+	@chmod -R +w $(TOOLS_DIR)/envtest &> /dev/null || true
 	rm -rf $(TOOLS_DIR)
 
 # -- Everything else
@@ -115,7 +115,7 @@ setup-envtest: $(SETUP_ENVTEST)
 
 # Integration tests are located next to unit test. This recipe will search the code base for
 # files including the "//go:build integration" build tag and build them into the test binary.
-# For packages containing both unit and integration tests its recommended to populate 
+# For packages containing both unit and integration tests its recommended to populate
 # "//go:build !integration" in all unit test sources so as to avoid compiling them in this recipe.
 .PHONY: test-integration
 test-integration: ## Run integration tests.
@@ -134,7 +134,7 @@ image: build
 	DOCKER_BUILDKIT=1 docker build $(IMAGE_ARGS) .
 
 mocks: ## Generate mocks for testing.
-mocks: $(MOCKGEN) 
+mocks: $(MOCKGEN)
 	$(MOCKGEN) \
 		-destination internal/frontend/ec2/frontend_mock_test.go \
 		-package ec2 \

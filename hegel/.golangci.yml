@@ -83,6 +83,7 @@ linters-settings:
       - name: range-val-in-closure
       - name: range-val-address
       - name: dot-imports
+        disabled: true # Disable until dot-import is allowed in test files.
       - name: error-naming
       - name: error-return
       - name: error-strings
@@ -112,7 +113,7 @@ linters-settings:
       - name: waitgroup-by-value
 
   unused:
-    go: "1.20"
+    go: "1.21"
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
