@@ -83,6 +83,7 @@ linters-settings:
       - name: range-val-in-closure
       - name: range-val-address
       - name: dot-imports
+        disabled: true # Disable until dot-import is allowed in test files.
       - name: error-naming
       - name: error-return
       - name: error-strings
