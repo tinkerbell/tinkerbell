@@ -101,8 +101,8 @@ func TestJobReconcile(t *testing.T) {
 			if task.OwnerReferences[0].Name != tt.job.Name {
 				t.Fatalf("expected owner reference name %v, got %v", tt.job.Name, task.OwnerReferences[0].Name)
 			}
-			if diff := cmp.Diff(task.OwnerReferences[0].Kind, "Job"); diff != "" {
-				t.Fatal(diff)
+			if task.OwnerReferences[0].Kind != "Job" {
+				t.Fatalf("expected OwnerReferences[0].Kind = 'Job', got '%v'", task.OwnerReferences[0].Kind)
 			}
 
 			// Ensure re-reconciling a job does nothing given the task is still outstanding.
@@ -131,6 +131,10 @@ func createJob(name string, machine *v1alpha1.Machine, t ...v1alpha1.Action) *v1
 		tasks = t
 	}
 	return &v1alpha1.Job{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1alpha1.GroupVersion.String(),
+			Kind:       "Job",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      name,

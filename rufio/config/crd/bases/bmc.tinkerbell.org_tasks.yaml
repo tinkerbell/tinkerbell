@@ -3,7 +3,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
   name: tasks.bmc.tinkerbell.org
 spec:
   group: bmc.tinkerbell.org
@@ -56,7 +57,6 @@ spec:
                           secret name must be unique.
                         type: string
                     type: object
-                    x-kubernetes-map-type: atomic
                   host:
                     description: Host is the host IP address or hostname of the Machine.
                     minLength: 1
@@ -148,7 +148,6 @@ spec:
                                           which the secret name must be unique.
                                         type: string
                                     type: object
-                                    x-kubernetes-map-type: atomic
                                   type: array
                                 description: Secrets are a map of algorithms to secrets
                                   used for signing.
@@ -309,3 +308,9 @@ spec:
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
