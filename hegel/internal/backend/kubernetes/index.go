@@ -1,7 +1,7 @@
 package kubernetes
 
 import (
-	"github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
+	"github.com/tinkerbell/tink/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/tinkerbell/hegel/internal/frontend/hack"
-	tinkv1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
+	tinkv1 "github.com/tinkerbell/tink/api/v1alpha1"
 )
 
 func (b *Backend) GetHackInstance(ctx context.Context, ip string) (hack.Instance, error) {
