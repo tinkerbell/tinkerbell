@@ -56,7 +56,7 @@ smee:
   publicIP: *publicIP
 
 hegel:
-  image: quay.io/tinkerbell/hegel:v0.11.1
+  image: quay.io/tinkerbell/hegel:v0.12.0
   trustedProxies: []
 
 rufio:
