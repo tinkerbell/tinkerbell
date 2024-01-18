@@ -252,6 +252,66 @@ func TestGetEC2Instance(t *testing.T) {
 			},
 		},
 		{
+			Name: "PublicThenPrivateIPv4s",
+			Hardware: tinkv1.Hardware{
+				Spec: tinkv1.HardwareSpec{
+					Metadata: &tinkv1.HardwareMetadata{
+						Instance: &tinkv1.MetadataInstance{
+							Ips: []*tinkv1.MetadataInstanceIP{
+								{
+									Address: "10.10.10.10",
+									Family:  4,
+									Public:  true,
+								},
+								{
+									Address: "172.15.0.1",
+									Family:  4,
+									// Zero value is false but we want to be explicit.
+									Public: false,
+								},
+							},
+						},
+					},
+				},
+			},
+			ExpectedInstance: ec2.Instance{
+				Metadata: ec2.Metadata{
+					PublicIPv4: "10.10.10.10",
+					LocalIPv4:  "172.15.0.1",
+				},
+			},
+		},
+		{
+			Name: "PrivateThenPublicIPv4s",
+			Hardware: tinkv1.Hardware{
+				Spec: tinkv1.HardwareSpec{
+					Metadata: &tinkv1.HardwareMetadata{
+						Instance: &tinkv1.MetadataInstance{
+							Ips: []*tinkv1.MetadataInstanceIP{
+								{
+									Address: "10.10.10.10",
+									Family:  4,
+									// Zero value is false but we want to be explicit.
+									Public: false,
+								},
+								{
+									Address: "172.15.0.1",
+									Family:  4,
+									Public:  true,
+								},
+							},
+						},
+					},
+				},
+			},
+			ExpectedInstance: ec2.Instance{
+				Metadata: ec2.Metadata{
+					PublicIPv4: "172.15.0.1",
+					LocalIPv4:  "10.10.10.10",
+				},
+			},
+		},
+		{
 			Name: "PublicIPv6",
 			Hardware: tinkv1.Hardware{
 				Spec: tinkv1.HardwareSpec{

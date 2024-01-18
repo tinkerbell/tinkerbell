@@ -186,17 +186,17 @@ func toEC2Instance(hw tinkv1.Hardware) ec2.Instance {
 		for _, ip := range hw.Spec.Metadata.Instance.Ips {
 			// Public IPv4
 			if ip.Family == 4 && ip.Public && i.Metadata.PublicIPv4 == "" {
-				i.Metadata.PublicIPv4 = hw.Spec.Metadata.Instance.Ips[0].Address
+				i.Metadata.PublicIPv4 = ip.Address
 			}
 
 			// Private IPv4
 			if ip.Family == 4 && !ip.Public && i.Metadata.LocalIPv4 == "" {
-				i.Metadata.LocalIPv4 = hw.Spec.Metadata.Instance.Ips[0].Address
+				i.Metadata.LocalIPv4 = ip.Address
 			}
 
 			// Public IPv6
 			if ip.Family == 6 && i.Metadata.PublicIPv6 == "" {
-				i.Metadata.PublicIPv6 = hw.Spec.Metadata.Instance.Ips[0].Address
+				i.Metadata.PublicIPv6 = ip.Address
 			}
 		}
 	}
