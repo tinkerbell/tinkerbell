@@ -11,6 +11,7 @@ import (
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 )
@@ -50,7 +51,7 @@ func NewBackend(ctx context.Context, cfg Config) (*Backend, error) {
 
 	conf := func(opts *cluster.Options) {
 		opts.Scheme = scheme
-		opts.Namespace = cfg.Namespace
+		opts.Cache.DefaultNamespaces = map[string]cache.Config{cfg.Namespace: {}}
 	}
 
 	clstr, err := cluster.New(cfg.ClientConfig, conf)
