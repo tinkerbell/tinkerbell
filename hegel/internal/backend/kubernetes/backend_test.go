@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	. "github.com/tinkerbell/hegel/internal/backend/kubernetes"
 	"github.com/tinkerbell/hegel/internal/frontend/ec2"
-	tinkv1 "github.com/tinkerbell/tink/pkg/apis/core/v1alpha1"
+	tinkv1 "github.com/tinkerbell/tink/api/v1alpha1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
