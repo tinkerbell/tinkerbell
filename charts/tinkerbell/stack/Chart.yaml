@@ -34,5 +34,5 @@ dependencies:
     version: "0.2.8"
     repository: "file://../rufio"
   - name: hegel
-    version: "0.3.3"
+    version: "0.3.4"
     repository: "file://../hegel"

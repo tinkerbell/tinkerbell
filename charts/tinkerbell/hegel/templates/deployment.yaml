@@ -27,7 +27,7 @@ spec:
       containers:
         - args:
           - --backend=kubernetes
-          - --http-port={{ .Values.deployment.port }}
+          - --http-addr=:{{ .Values.deployment.port }}
           {{- range .Values.args }}
           - {{ . }}
           {{- end }}
