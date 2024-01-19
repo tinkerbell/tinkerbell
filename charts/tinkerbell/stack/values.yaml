@@ -50,7 +50,7 @@ stack:
 # See individual chart documentation for additional detail.
 
 smee:
-  image: quay.io/tinkerbell/smee:v0.10.1
+  image: quay.io/tinkerbell/smee:v0.11.0
   tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.9.0
   trustedProxies: []
   publicIP: *publicIP
