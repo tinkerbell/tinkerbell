@@ -1,7 +1,7 @@
 dependencies:
 - name: tink
   repository: file://../tink
-  version: 0.2.2
+  version: 0.2.3
 - name: smee
   repository: file://../smee
   version: 0.3.2
@@ -11,5 +11,5 @@ dependencies:
 - name: hegel
   repository: file://../hegel
   version: 0.3.4
-digest: sha256:130a4fb5ba20f90cf53a817a6982e940816486fdf95efab29ee29b3a1f0d4779
-generated: "2024-01-19T09:59:37.58462298-07:00"
+digest: sha256:39fca33324ba76f85f489fe43dd533f7d87e5b1011e55ca483fda47a049188c9
+generated: "2024-01-21T16:18:17.211889842-07:00"
