@@ -51,7 +51,7 @@ stack:
 
 smee:
   image: quay.io/tinkerbell/smee:v0.11.0
-  tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.9.0
+  tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.10.0
   trustedProxies: []
   publicIP: *publicIP
 
@@ -64,6 +64,6 @@ rufio:
 
 tink:
   controller:
-    image: quay.io/tinkerbell/tink-controller:v0.9.0
+    image: quay.io/tinkerbell/tink-controller:v0.10.0
   server:
-    image: quay.io/tinkerbell/tink:v0.9.0
+    image: quay.io/tinkerbell/tink:v0.10.0
