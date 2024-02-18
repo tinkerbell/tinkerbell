@@ -36,7 +36,7 @@ stack:
     enabled: true
     # This image (ghcr.io/jacobweinstock/dhcrelay) is used because the other public dhcprelay images out there (`modem7/dhcprelay`)
     # don't respect signals properly when run as PID 1.
-    image: ghcr.io/jacobweinstock/dhcrelay
+    image: ghcr.io/jacobweinstock/dhcprelay # dhcprelay is a multiarch-enabled version of dhcrelay
     maxHopCount: 10
     # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
     # When unset, the interface from the default route will be used.
