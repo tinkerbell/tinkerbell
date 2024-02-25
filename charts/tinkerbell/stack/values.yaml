@@ -38,6 +38,12 @@ stack:
     # don't respect signals properly when run as PID 1.
     image: ghcr.io/jacobweinstock/dhcprelay # dhcprelay is a multiarch-enabled version of dhcrelay
     maxHopCount: 10
+    # The presentGiaddrAction pertains to the course of action when the giaddr field appears in the DHCP packet.
+    # In situations where another DHCP relay agent is already in operation within the environment,
+    # maintaining option (82) in its received state from the dhcrelay might be essential.
+    # This behavior can be regulated by configuring the presentGiaddrAction as "forward."
+    # Additional information is available at: https://linux.die.net/man/8/dhcrelay
+    presentGiaddrAction: append
     # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
     # When unset, the interface from the default route will be used.
     # sourceInterface: eno1

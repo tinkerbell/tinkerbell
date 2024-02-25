@@ -74,7 +74,7 @@ spec:
         {{- end }}
       - name: {{ .Values.stack.relay.name }}
         image: {{ .Values.stack.relay.image }}
-        args: ["-m", "append", "-c", "{{ .Values.stack.relay.maxHopCount }}", "-id", "{{ $macvlanInterfaceName }}", "-iu", "eth0", "-U", "eth0", "smee.{{ .Release.Namespace }}.svc.cluster.local."]
+        args: ["-m", "{{ .Values.stack.relay.presentGiaddrAction }}", "-c", "{{ .Values.stack.relay.maxHopCount }}", "-id", "{{ $macvlanInterfaceName }}", "-iu", "eth0", "-U", "eth0", "smee.{{ .Release.Namespace }}.svc.cluster.local."]
         ports:
         - containerPort: 67
           protocol: UDP
