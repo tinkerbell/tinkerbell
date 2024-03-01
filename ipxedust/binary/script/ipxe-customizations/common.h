@@ -38,4 +38,9 @@
 #undef USB_HCD_XHCI           /* xHCI USB host controller */
 #undef USB_KEYBOARD           /* USB keyboards */
 
+//Workaround for Mellanox issue
+// https://github.com/tinkerbell/ipxedust/issues/115
+// https://github.com/ipxe/ipxe/issues/1091#issuecomment-1946152615
+#undef NET_PROTO_EAPOL
+
 #define MAX_MODULES 17
