@@ -102,6 +102,7 @@ helm upgrade stack-release stack/ --namespace tink-system --wait
 | `stack.relay.image` | Image to use for the DHCP relay service | `ghcr.io/jacobweinstock/dhcrelay` |
 | `stack.relay.maxHopCount` | Maximum number of hops to allow for DHCP relay | `10` |
 | `stack.relay.sourceInterface` | Host/Node interface to use for listening for DHCP broadcast packets | `eno1` |
+| `stack.relay.presentGiaddrAction` | Control the handling of incoming DHCPv4 packets which already contain relay agent options | `append` |
 
 ### Tinkerbell Services Parameters
 
