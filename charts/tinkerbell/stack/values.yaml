@@ -6,6 +6,8 @@ stack:
     type: LoadBalancer
   selector:
     app: tink-stack
+  # stack needs to resolve DNS names in the cluster (in .svc.clusterDomain)
+  clusterDomain: cluster.local
   # &publicIP is a YAML anchor. It allows us to define a value once and reference it multiple times.
   # https://helm.sh/docs/chart_template_guide/yaml_techniques/#yaml-anchors
   loadBalancerIP: &publicIP 192.168.2.112
