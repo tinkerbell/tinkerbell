@@ -12,12 +12,15 @@ helm install stack-release stack/ --create-namespace --namespace tink-system --w
 
 ## Introduction
 
-This chart smeetraps a full Tinkerbell stack on a Kubernetes cluster using the Helm package manager. The Tinkerbell stack consists of the following components:
+This chart boootraps a full Tinkerbell stack on a Kubernetes cluster using the Helm package manager. The Tinkerbell stack consists of the following components:
 
 - [Smee](https://github.com/tinkerbell/smee)
 - [Hegel](https://github.com/tinkerbell/hegel)
 - [Tink](https://github.com/tinkerbell/tink)
 - [Rufio](https://github.com/tinkerbell/rufio)
+- [Hook](https://github.com/tinkerbell/hook)
+- Reverse proxy server
+- DHCP relay agent
 
 This chart also installs a load balancer ([kube-vip](https://kube-vip.io/)) in order to be able to provide a service type loadBalancer IP for the Tinkerbell stack services and an Nginx server for handling proxying to the Tinkerbell service and for serving the Hook artifacts.
 
