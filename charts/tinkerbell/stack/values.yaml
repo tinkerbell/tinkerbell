@@ -26,7 +26,7 @@ stack:
   kubevip:
     enabled: true
     name: kube-vip
-    image: ghcr.io/kube-vip/kube-vip:v0.6.3
+    image: ghcr.io/kube-vip/kube-vip:v0.7.2
     imagePullPolicy: IfNotPresent
     roleName: kube-vip-role
     roleBindingName: kube-vip-rolebinding
@@ -50,6 +50,9 @@ stack:
     # When unset, the interface from the default route will be used.
     # sourceInterface: eno1
     # TODO(jacobweinstock): add feature to be able to disable listening for broadcast traffic.
+    # interfaceMode determines how we create the interface needed to listen for DHCP broadcast traffic.
+    # by default macvlan is used. ipvlan is the only other option.
+    # interfaceMode: ipvlan
 
 # -- Overrides
 # The values defined here override those in the individual charts. Some of them require tweaking
