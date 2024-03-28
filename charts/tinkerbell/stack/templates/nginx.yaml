@@ -1,8 +1,9 @@
 {{- if .Values.stack.enabled }}
 {{- $sourceInterface := .Values.stack.relay.sourceInterface -}}
 {{- $ifaceModes := dict "ipvlan" "" "macvlan" "" -}}
-{{- if not hasKey $ifaceModes .Values.stack.relay.interfaceMode -}}
-  {{- fail "invalid value in .stack.relay.interfaceMode: valid modes include ipvlan and macvlan" -}}
+{{- $dhcpInterfaceType := default "macvlan" .Values.stack.relay.interfaceMode -}}
+{{- if not (hasKey $ifaceModes $dhcpInterfaceType) -}}
+  {{- fail "invalid value at .stack.relay.interfaceMode: valid modes include ipvlan and macvlan" -}}
 {{- end -}}
 {{- $dhcpInterfaceName := printf "%s0" $dhcpInterfaceType -}}
 apiVersion: apps/v1
