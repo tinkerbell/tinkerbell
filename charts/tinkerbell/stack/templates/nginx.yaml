@@ -1,7 +1,7 @@
 {{- if .Values.stack.enabled }}
 {{- $sourceInterface := .Values.stack.relay.sourceInterface -}}
 {{- $ifaceModes := dict "ipvlan" "" "macvlan" "" -}}
-{{- $dhcpInterfaceType := default "macvlan" .Values.stack.relay.interfaceMode -}}
+{{- $dhcpInterfaceType := .Values.stack.relay.interfaceMode -}}
 {{- if not (hasKey $ifaceModes $dhcpInterfaceType) -}}
   {{- fail "invalid value at .stack.relay.interfaceMode: valid modes include ipvlan and macvlan" -}}
 {{- end -}}
@@ -117,7 +117,7 @@ spec:
       {{- end }}
       {{- if $listenBroadcast }}
       initContainers:
-      - name: relay-macvlan-interface
+      - name: relay-broadcast-interface
         command:
           - /bin/sh
           - -c
@@ -131,7 +131,7 @@ spec:
             if [ -z "$srcInterface" ]; then
               srcInterface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}' | head -n1)
             fi
-            # Create a macvlan interface. TODO: If this fails, try again with a different name?
+            # Create the interface. TODO: If this fails, try again with a different name?
             {{- if eq $dhcpInterfaceType "ipvlan" }}
             nsenter -t1 -n ip link add {{ $dhcpInterfaceName }} link ${srcInterface} type ipvlan mode l2
             {{- else }}
@@ -140,7 +140,7 @@ spec:
             # Move the interface into the POD.
             pid=$(echo $$)
             nsenter -t1 -n ip link set {{ $dhcpInterfaceName }} netns ${pid} || nsenter -t1 -n ip link delete {{ $dhcpInterfaceName }}
-            # Set the macvlan interface up
+            # Set the interface up
             ip link set {{ $dhcpInterfaceName }} up
             # Set the IP address
             ip addr add 127.1.1.1/32 dev {{ $dhcpInterfaceName }} noprefixroute

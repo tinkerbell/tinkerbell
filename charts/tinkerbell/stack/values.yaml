@@ -54,7 +54,7 @@ stack:
     listenBroadcastTraffic: true
     # interfaceMode determines how we create the interface needed to listen for DHCP broadcast traffic.
     # by default macvlan is used. ipvlan is the only other option.
-    # interfaceMode: ipvlan
+    interfaceMode: macvlan
 
 # -- Overrides
 # The values defined here override those in the individual charts. Some of them require tweaking
