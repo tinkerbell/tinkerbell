@@ -6,6 +6,13 @@
   {{- fail "invalid value at .stack.relay.interfaceMode: valid modes include ipvlan and macvlan" -}}
 {{- end -}}
 {{- $dhcpInterfaceName := printf "%s0" $dhcpInterfaceType -}}
+{{- $listenBroadcast := true -}}
+{{- if not (quote .Values.stack.relay.listenBroadcastTraffic | empty) -}}
+  {{- $listenBroadcast = .Values.stack.relay.listenBroadcastTraffic -}}
+{{- end -}}
+{{- if not $listenBroadcast -}}
+  {{- $dhcpInterfaceName = "eth0" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -108,6 +115,7 @@ spec:
           path: {{ .Values.stack.hook.downloadsDest }}
           type: DirectoryOrCreate
       {{- end }}
+      {{- if $listenBroadcast }}
       initContainers:
       - name: relay-macvlan-interface
         command:
@@ -139,6 +147,7 @@ spec:
         image: alpine
         securityContext:
           privileged: true
+      {{- end }}
 {{- if .Values.stack.service.enabled }}
 ---
 apiVersion: v1
