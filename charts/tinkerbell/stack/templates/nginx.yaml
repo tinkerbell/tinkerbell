@@ -1,6 +1,18 @@
 {{- if .Values.stack.enabled }}
 {{- $sourceInterface := .Values.stack.relay.sourceInterface -}}
-{{- $macvlanInterfaceName := printf "%s%s" "macvlan" (randNumeric 2) -}}
+{{- $ifaceModes := dict "ipvlan" "" "macvlan" "" -}}
+{{- $dhcpInterfaceType := .Values.stack.relay.interfaceMode -}}
+{{- if not (hasKey $ifaceModes $dhcpInterfaceType) -}}
+  {{- fail "invalid value at .stack.relay.interfaceMode: valid modes include ipvlan and macvlan" -}}
+{{- end -}}
+{{- $dhcpInterfaceName := printf "%s0" $dhcpInterfaceType -}}
+{{- $listenBroadcast := true -}}
+{{- if not (quote .Values.stack.relay.listenBroadcastTraffic | empty) -}}
+  {{- $listenBroadcast = .Values.stack.relay.listenBroadcastTraffic -}}
+{{- end -}}
+{{- if not $listenBroadcast -}}
+  {{- $dhcpInterfaceName = "eth0" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -74,7 +86,7 @@ spec:
         {{- end }}
       - name: {{ .Values.stack.relay.name }}
         image: {{ .Values.stack.relay.image }}
-        args: ["-m", "{{ .Values.stack.relay.presentGiaddrAction }}", "-c", "{{ .Values.stack.relay.maxHopCount }}", "-id", "{{ $macvlanInterfaceName }}", "-iu", "eth0", "-U", "eth0", "smee.{{ .Release.Namespace }}.svc.{{ .Values.stack.clusterDomain }}."]
+        args: ["-m", "{{ .Values.stack.relay.presentGiaddrAction }}", "-c", "{{ .Values.stack.relay.maxHopCount }}", "-id", "{{ $dhcpInterfaceName }}", "-iu", "eth0", "-U", "eth0", "smee.{{ .Release.Namespace }}.svc.{{ .Values.stack.clusterDomain }}."]
         ports:
         - containerPort: 67
           protocol: UDP
@@ -103,8 +115,9 @@ spec:
           path: {{ .Values.stack.hook.downloadsDest }}
           type: DirectoryOrCreate
       {{- end }}
+      {{- if $listenBroadcast }}
       initContainers:
-      - name: relay-macvlan-interface
+      - name: relay-broadcast-interface
         command:
           - /bin/sh
           - -c
@@ -118,18 +131,23 @@ spec:
             if [ -z "$srcInterface" ]; then
               srcInterface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}' | head -n1)
             fi
-            # Create a macvlan interface. TODO: If this fails, try again with a different name?
-            nsenter -t1 -n ip link add {{ $macvlanInterfaceName }} link ${srcInterface} type macvlan mode bridge
+            # Create the interface. TODO: If this fails, try again with a different name?
+            {{- if eq $dhcpInterfaceType "ipvlan" }}
+            nsenter -t1 -n ip link add {{ $dhcpInterfaceName }} link ${srcInterface} type ipvlan mode l2
+            {{- else }}
+            nsenter -t1 -n ip link add {{ $dhcpInterfaceName }} link ${srcInterface} type macvlan mode bridge
+            {{- end }}
             # Move the interface into the POD.
             pid=$(echo $$)
-            nsenter -t1 -n ip link set {{ $macvlanInterfaceName }} netns ${pid} || nsenter -t1 -n ip link delete {{ $macvlanInterfaceName }}
-            # Set the macvlan interface up
-            ip link set {{ $macvlanInterfaceName }} up
+            nsenter -t1 -n ip link set {{ $dhcpInterfaceName }} netns ${pid} || nsenter -t1 -n ip link delete {{ $dhcpInterfaceName }}
+            # Set the interface up
+            ip link set {{ $dhcpInterfaceName }} up
             # Set the IP address
-            ip addr add {{ .Values.stack.loadBalancerIP }}/32 dev {{ $macvlanInterfaceName }} noprefixroute
+            ip addr add 127.1.1.1/32 dev {{ $dhcpInterfaceName }} noprefixroute
         image: alpine
         securityContext:
           privileged: true
+      {{- end }}
 {{- if .Values.stack.service.enabled }}
 ---
 apiVersion: v1
