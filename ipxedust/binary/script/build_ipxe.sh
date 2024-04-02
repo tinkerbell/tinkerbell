@@ -63,6 +63,7 @@ function copy_custom_files() {
     	;;
     bin-arm64-efi/snp.efi)
     	cp binary/script/ipxe-customizations/general.efi.h "${ipxe_dir}"/src/config/local/general.h
+    	cp binary/script/ipxe-customizations/nap.h "${ipxe_dir}"/src/config/local/nap.h
     	;;
     bin-x86_64-efi/ipxe.iso)
     	cp binary/script/ipxe-customizations/general.efi.h "${ipxe_dir}"/src/config/local/general.h
