@@ -143,8 +143,16 @@ spec:
             # Set the interface up
             ip link set {{ $dhcpInterfaceName }} up
             # Set the IP address
-            ip addr add 127.1.1.1/32 dev {{ $dhcpInterfaceName }} noprefixroute
-        image: alpine
+            ip addr add 127.1.1.1/32 dev {{ $dhcpInterfaceName }} noprefixroute || true
+            {{- if eq $dhcpInterfaceType "ipvlan" }}
+            # There is an issue with ipvlan interfaces. They do not start receiving broadcast packets after creation.
+            # This is a workaround to get broadcast packets flowing.
+            # TODO(jacobweinstock): Investigate this deeper and see if this is a kernel bug.
+            nsenter -t1 -n ip link del {{ $dhcpInterfaceName }}-wa || true
+            nsenter -t1 -n nmap --script broadcast-dhcp-discover
+            nsenter -t1 -n ip link add {{ $dhcpInterfaceName }}-wa link ${srcInterface} type ipvlan mode l2 bridge || true
+            {{- end }}
+        image: ghcr.io/jacobweinstock/relay-init:v0.1.0
         securityContext:
           privileged: true
       {{- end }}
