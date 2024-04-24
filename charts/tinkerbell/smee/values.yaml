@@ -91,7 +91,7 @@ http:
     port: 8080
     path: ""
   # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
-  additionlKernelArgs: []
+  additionalKernelArgs: []
   # enable iPXE HTTP binary server
   ipxeBinaryEnabled: true
   # enable iPXE HTTP script server
