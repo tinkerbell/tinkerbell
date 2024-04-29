@@ -41,14 +41,18 @@ jobs:
       - name: Run tests
         run: go test -coverprofile=coverage.txt ./...
 
-      - name: Upload coverage report (codcov.io)
-        run: bash <(curl -s https://codecov.io/bash)
+      - name: Upload codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   integration:
     name: Test - Integration
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
 
       - uses: actions/setup-go@v5
         with:
@@ -58,8 +62,10 @@ jobs:
       - name: Run integration tests
         run: make test-integration
 
-      - name: Upload coverage report (codcov.io)
-        run: bash <(curl -s https://codecov.io/bash)
+      - name: Upload codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   build:
     name: Build
@@ -90,6 +96,8 @@ jobs:
     needs: [test, integration]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
 
       - uses: actions/setup-go@v5
         with:
@@ -99,8 +107,10 @@ jobs:
       - name: Run end-to-end tests
         run: make test-e2e
 
-      - name: Upload coverage report (codcov.io)
-        run: bash <(curl -s https://codecov.io/bash)
+      - name: Upload codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   package:
     name: Package
