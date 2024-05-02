@@ -19,7 +19,9 @@ data:
       echo "${f}"
       wget -P "${tmp_dir}" "${f}"
     done
-    (cd "${tmp_dir}" && sha512sum -c checksum.txt)
+    # releases of HookOS > 0.8.1 provide more binaries.
+    # We only need the hook_aarch64 and hook_x86_64 binaries so we filter out the rest.
+    (cd "${tmp_dir}" && sed -i '/hook_x86_64\|hook_aarch64/!d' checksum.txt && sha512sum -c checksum.txt)
     mv "${tmp_dir}"/checksum.txt .
     for f in ${tmp_dir}/*.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "${f}" && rm -f "${f}"; done
     rm -rf "${tmp_dir}"
