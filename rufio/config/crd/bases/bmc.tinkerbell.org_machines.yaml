@@ -74,6 +74,14 @@ spec:
                         description: IntelAMT contains the options to customize the
                           IntelAMT provider.
                         properties:
+                          hostScheme:
+                            default: http
+                            description: UseHttp determines whether to use http or
+                              https for intelAMT calls.
+                            enum:
+                            - http
+                            - https
+                            type: string
                           port:
                             description: Port that intelAMT will use for calls.
                             type: integer
