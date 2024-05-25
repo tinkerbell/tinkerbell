@@ -26,6 +26,12 @@ type IPMITOOLOptions struct {
 type IntelAMTOptions struct {
 	// Port that intelAMT will use for calls.
 	Port int `json:"port"`
+
+	// HostScheme determines whether to use http or https for intelAMT calls.
+	// +optional
+	// +kubebuilder:validation:Enum=http;https
+	// +kubebuilder:default:=http
+	HostScheme string `json:"hostScheme"`
 }
 
 // HMACAlgorithm is a type for HMAC algorithms.
