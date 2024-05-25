@@ -27,7 +27,7 @@ type IntelAMTOptions struct {
 	// Port that intelAMT will use for calls.
 	Port int `json:"port"`
 
-	// UseHttp determines whether to use http or https for intelAMT calls.
+	// HostScheme determines whether to use http or https for intelAMT calls.
 	// +optional
 	// +kubebuilder:validation:Enum=http;https
 	// +kubebuilder:default:=http
