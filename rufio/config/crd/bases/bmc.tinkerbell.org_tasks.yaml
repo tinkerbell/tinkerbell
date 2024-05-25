@@ -77,7 +77,7 @@ spec:
                         properties:
                           hostScheme:
                             default: http
-                            description: UseHttp determines whether to use http or
+                            description: HostScheme determines whether to use http or
                               https for intelAMT calls.
                             enum:
                             - http
