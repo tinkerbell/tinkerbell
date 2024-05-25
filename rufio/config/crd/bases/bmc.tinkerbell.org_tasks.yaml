@@ -78,7 +78,7 @@ spec:
                           hostScheme:
                             default: http
                             description: HostScheme determines whether to use http or
-                              https for intelAMT calls.
+                              https for IntelAMT calls.
                             enum:
                             - http
                             - https
