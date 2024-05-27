@@ -5,7 +5,7 @@ go 1.19
 require (
 	dario.cat/mergo v1.0.0
 	github.com/equinix-labs/otel-init-go v0.0.9
-	github.com/go-logr/logr v1.4.1
+	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/stdr v1.2.2
 	github.com/go-logr/zerologr v1.2.3
 	github.com/go-playground/validator/v10 v10.20.0
