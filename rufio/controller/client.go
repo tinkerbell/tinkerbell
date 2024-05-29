@@ -77,8 +77,9 @@ func (b BMCOptions) Translate(host string) []bmclib.Option {
 
 	// intelAmt options
 	if b.IntelAMT != nil {
-		amt := bmclib.WithIntelAMTPort(uint32(b.IntelAMT.Port))
-		o = append(o, amt)
+		amtPort := bmclib.WithIntelAMTPort(uint32(b.IntelAMT.Port))
+		amtScheme := bmclib.WithIntelAMTHostScheme(b.IntelAMT.HostScheme)
+		o = append(o, amtPort, amtScheme)
 	}
 
 	// rpc options
