@@ -160,6 +160,14 @@ spec:
         securityContext:
           privileged: true
       {{- end }}
+      {{- if .Values.stack.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      tolerations:
+      {{- include "singleNodeClusterConfig" . | indent 6 }}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- include "preferWorkerNodes" (dict "nodeAffinityWeight" .Values.stack.singleNodeClusterConfig.nodeAffinityWeight) | indent 10 }}
+      {{- end }}
 {{- if .Values.stack.service.enabled }}
 ---
 apiVersion: v1

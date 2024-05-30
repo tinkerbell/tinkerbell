@@ -56,4 +56,12 @@ spec:
               cpu: {{ .Values.resources.requests.cpu }}
               memory: {{ .Values.resources.requests.memory }}
       serviceAccountName: {{ .Values.name }}
+      {{- if .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      tolerations:
+      {{- include "singleNodeClusterConfig" . | indent 6 }}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- include "preferWorkerNodes" (dict "nodeAffinityWeight" .Values.singleNodeClusterConfig.nodeAffinityWeight) | indent 10 }}
+      {{- end }}
 {{- end }}

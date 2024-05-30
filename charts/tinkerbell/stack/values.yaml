@@ -67,6 +67,10 @@ stack:
     # interfaceMode determines how we create the interface needed to listen for DHCP broadcast traffic.
     # by default macvlan is used. ipvlan is the only other option.
     interfaceMode: macvlan
+  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+  singleNodeClusterConfig:
+    controlPlaneTolerationsEnabled: false
+    nodeAffinityWeight: 1
 
 # -- Overrides
 # The values defined here override those in the individual charts. Some of them require tweaking
