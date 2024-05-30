@@ -84,6 +84,7 @@ spec:
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts
         {{- end }}
+      {{- if .Values.stack.relay.enabled }}
       - name: {{ .Values.stack.relay.name }}
         image: {{ .Values.stack.relay.image }}
         args: ["-m", "{{ .Values.stack.relay.presentGiaddrAction }}", "-c", "{{ .Values.stack.relay.maxHopCount }}", "-id", "{{ $dhcpInterfaceName }}", "-iu", "eth0", "-U", "eth0", "smee.{{ .Release.Namespace }}.svc.{{ .Values.stack.clusterDomain }}."]
@@ -102,6 +103,7 @@ spec:
           capabilities:
             add:
               - NET_RAW
+      {{- end }}
       volumes:
       - name: nginx-conf
         configMap:
@@ -115,7 +117,7 @@ spec:
           path: {{ .Values.stack.hook.downloadsDest }}
           type: DirectoryOrCreate
       {{- end }}
-      {{- if $listenBroadcast }}
+      {{- if and .Values.stack.relay.enabled $listenBroadcast }}
       initContainers:
       - name: relay-broadcast-interface
         command:
