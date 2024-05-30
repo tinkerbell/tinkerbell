@@ -39,6 +39,8 @@ stack:
     # This image (ghcr.io/jacobweinstock/dhcrelay) is used because the other public dhcprelay images out there (`modem7/dhcprelay`)
     # don't respect signals properly when run as PID 1.
     image: ghcr.io/jacobweinstock/dhcprelay # dhcprelay is a multiarch-enabled version of dhcrelay
+    # if `interfaceMode: ipvlan`, then ghcr.io/jacobweinstock/relay-init:v0.1.0 (has nmap and nmap-scripts) is required. Otherwise, alpine can be used. 
+    initImage: ghcr.io/jacobweinstock/relay-init:v0.1.0
     maxHopCount: 10
     # The presentGiaddrAction pertains to the course of action when the giaddr field appears in the DHCP packet.
     # In situations where another DHCP relay agent is already in operation within the environment,

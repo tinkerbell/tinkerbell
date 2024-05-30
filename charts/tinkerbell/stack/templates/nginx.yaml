@@ -152,7 +152,7 @@ spec:
             nsenter -t1 -n nmap --script broadcast-dhcp-discover
             nsenter -t1 -n ip link add {{ $dhcpInterfaceName }}-wa link ${srcInterface} type ipvlan mode l2 bridge || true
             {{- end }}
-        image: ghcr.io/jacobweinstock/relay-init:v0.1.0
+        image: {{ .Values.stack.relay.initImage }}
         securityContext:
           privileged: true
       {{- end }}
