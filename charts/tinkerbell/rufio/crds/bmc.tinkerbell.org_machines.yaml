@@ -5,6 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
   name: machines.bmc.tinkerbell.org
+  labels:
+    clusterctl.cluster.x-k8s.io: ""
+    clusterctl.cluster.x-k8s.io/move: ""
 spec:
   group: bmc.tinkerbell.org
   names:
