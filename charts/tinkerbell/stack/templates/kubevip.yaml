@@ -27,6 +27,10 @@ spec:
           value: "true"
         - name: enableServicesElection
           value: "true"
+        {{- range .Values.stack.kubevip.additionalEnv }}
+        - name: {{ .name | quote }}
+          value: {{ .value | quote }}
+        {{- end }}
         {{- with .Values.stack.kubevip.interface }}
         - name: vip_interface
           value: {{ . }}

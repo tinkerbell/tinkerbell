@@ -33,6 +33,15 @@ stack:
     roleBindingName: kube-vip-rolebinding
     # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
     # interface: enp0s8
+
+    # Additional environment variables to pass to the kubevip container. Each entry is expected to have a
+    # name and value key. Some keys are already defined - refer to the deployment.yaml template for
+    # details.
+    #
+    # Example
+    #   - name: MY_ENV_VAR
+    #     value: my-value
+    additionalEnv: []
   # Relay allows us to listen and respond to layer broadcast DHCP requests
   relay:
     name: dhcp-relay
