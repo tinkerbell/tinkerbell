@@ -16,6 +16,7 @@ controller:
   roleBindingName: tink-controller-manager-rolebinding
   tinkLeaderElectionRoleName: tink-leader-election-role
   tinkLeaderElectionRoleBindingName: tink-leader-election-rolebinding
+  nodeSelector: {}
 
 server:
   deploy: true
@@ -37,3 +38,4 @@ server:
       memory: 64Mi
   roleName: tink-server-role
   roleBindingName: tink-server-rolebinding
+  nodeSelector: {}

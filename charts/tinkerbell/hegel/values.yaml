@@ -17,6 +17,7 @@ resources:
     memory: 64Mi
 roleName: hegel-role
 roleBindingName: hegel-rolebinding
+nodeSelector: {}
 
 # Trusted proxies defines a list of IP or CIDR ranges that are allowed to set the X-Forwarded-For
 # header. This typically requires all Pod CIDRs in the cluster.
