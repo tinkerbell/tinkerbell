@@ -1,15 +1,15 @@
 dependencies:
 - name: tink
   repository: file://../tink
-  version: 0.2.3
+  version: 0.2.4
 - name: smee
   repository: file://../smee
-  version: 0.3.3
+  version: 0.3.4
 - name: rufio
   repository: file://../rufio
-  version: 0.2.8
+  version: 0.2.9
 - name: hegel
   repository: file://../hegel
-  version: 0.3.4
-digest: sha256:3c3ee0743e457ff4990ab5d6546deba0d53658a148085989f5e6a85f15251284
-generated: "2024-04-23T18:03:55.743243719-06:00"
+  version: 0.3.5
+digest: sha256:8adf6b3a5dea3c6a5ccb1cd5a32619a6fa9f79d0ac23d8601b95687dd63aac59
+generated: "2024-06-04T15:48:10.744939275-06:00"
