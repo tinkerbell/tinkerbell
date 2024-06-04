@@ -16,6 +16,10 @@ spec:
       labels:
         app: {{ .Values.controller.name }}
     spec:
+      {{- with .Values.controller.nodeSelector }}
+      nodeSelector: 
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - image: {{ .Values.controller.image }}
           imagePullPolicy: {{ .Values.controller.imagePullPolicy }}

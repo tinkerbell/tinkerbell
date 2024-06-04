@@ -23,6 +23,10 @@ spec:
         control-plane: controller-manager
         stack: tinkerbell
     spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector: 
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
       containers:
