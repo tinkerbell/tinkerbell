@@ -15,4 +15,3 @@ managerRoleName: rufio-manager-role
 rufioLeaderElectionRoleBindingName: rufio-leader-election-rolebinding
 managerRoleBindingName: rufio-manager-rolebinding
 nodeSelector: {}
-hostNetwork: false

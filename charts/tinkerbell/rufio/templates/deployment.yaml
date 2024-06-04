@@ -23,10 +23,6 @@ spec:
         control-plane: controller-manager
         stack: tinkerbell
     spec:
-      {{- if .Values.hostNetwork }}
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
-      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector: 
         {{- toYaml . | nindent 8 }}
