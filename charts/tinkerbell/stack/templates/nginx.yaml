@@ -60,6 +60,7 @@ spec:
         - containerPort: {{ .Values.stack.hook.port }}
           protocol: TCP
           name: hook-http
+        {{- if not .Values.smee.hostNetwork }}
         - containerPort: {{ .Values.smee.http.port }}
           protocol: TCP
           name: {{ .Values.smee.http.name }}
@@ -69,6 +70,7 @@ spec:
         - containerPort: {{ .Values.smee.syslog.port }}
           protocol: UDP
           name: {{ .Values.smee.syslog.name }}
+        {{- end }}
         resources:
           limits:
             cpu: 500m

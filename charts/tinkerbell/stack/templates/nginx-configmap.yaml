@@ -15,6 +15,7 @@ data:
     user root;
 
     http {
+      {{- if not .Values.smee.hostNetwork }}
       server {
         listen {{ .Values.smee.http.port }};
         location / {
@@ -26,6 +27,7 @@ data:
           proxy_pass http://$smee_dns:{{ .Values.smee.http.port }};
         }
       }
+      {{- end }}
 
       server {
         listen {{ .Values.hegel.service.port }};
@@ -65,6 +67,7 @@ data:
     stream {
       log_format logger-json escape=json '{"source": "nginx", "time": $msec, "address": "$remote_addr", "status": $status, "upstream_addr": "$upstream_addr"}';
 
+      {{- if not .Values.smee.hostNetwork }}
       server {
           listen {{ .Values.smee.tftp.port }} udp;
           resolver $POD_NAMESERVER;
@@ -79,5 +82,6 @@ data:
           proxy_pass $smee_dns:{{ .Values.smee.syslog.port }};
           access_log /dev/stdout logger-json;
       }
+      {{- end }}
     }
 {{- end }}
