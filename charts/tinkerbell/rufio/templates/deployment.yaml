@@ -37,6 +37,9 @@ spec:
         - /manager
         args:
         - --leader-elect
+        {{- range .Values.additionalArgs }}
+        - {{ . }}
+        {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:

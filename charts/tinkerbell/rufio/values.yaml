@@ -9,6 +9,7 @@ resources:
   limits:
     cpu: 500m
     memory: 128Mi
+additionalArgs: []
 serviceAccountName: rufio-controller-manager
 rufioLeaderElectionRoleName: rufio-leader-election-role
 managerRoleName: rufio-manager-role

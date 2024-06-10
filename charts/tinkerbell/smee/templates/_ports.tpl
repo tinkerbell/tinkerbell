@@ -14,7 +14,11 @@
 {{- end }}
 
 {{- define "urlJoiner" }}
+{{- if .urlDict.port }}
 {{- $host := printf "%v:%v" .urlDict.host .urlDict.port }}
 {{- $newDict := set .urlDict "host" $host }}
 {{- print (urlJoin $newDict) }}
+{{- else }}
+{{- print (urlJoin .urlDict) }}
+{{- end }}
 {{- end }}
