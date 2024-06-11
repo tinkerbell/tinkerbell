@@ -11,6 +11,7 @@ rules:
   - secrets
   verbs:
   - get
+  - list
   - watch
 - apiGroups:
   - bmc.tinkerbell.org
