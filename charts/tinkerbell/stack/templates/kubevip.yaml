@@ -45,6 +45,10 @@ spec:
             - NET_RAW
       hostNetwork: true
       serviceAccountName: {{ .Values.stack.kubevip.name }}
+      {{- if .Values.stack.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      tolerations:
+      {{- include "singleNodeClusterConfig" (dict "nodeAffinityWeight" .Values.stack.singleNodeClusterConfig.nodeAffinityWeight) | indent 6 }}
+      {{- end }}
 ---
 apiVersion: v1
 kind: ServiceAccount

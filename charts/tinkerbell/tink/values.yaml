@@ -17,6 +17,10 @@ controller:
   tinkLeaderElectionRoleName: tink-leader-election-role
   tinkLeaderElectionRoleBindingName: tink-leader-election-rolebinding
   nodeSelector: {}
+  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+  singleNodeClusterConfig:
+    controlPlaneTolerationsEnabled: false
+    weight: 1
 
 server:
   deploy: true
@@ -39,3 +43,7 @@ server:
   roleName: tink-server-role
   roleBindingName: tink-server-rolebinding
   nodeSelector: {}
+  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+  singleNodeClusterConfig:
+    controlPlaneTolerationsEnabled: false
+    nodeAffinityWeight: 1

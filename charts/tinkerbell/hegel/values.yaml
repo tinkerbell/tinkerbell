@@ -22,3 +22,8 @@ nodeSelector: {}
 # Trusted proxies defines a list of IP or CIDR ranges that are allowed to set the X-Forwarded-For
 # header. This typically requires all Pod CIDRs in the cluster.
 trustedProxies: []
+
+# singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+singleNodeClusterConfig:
+  controlPlaneTolerationsEnabled: false
+  nodeAffinityWeight: 1

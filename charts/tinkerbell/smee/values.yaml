@@ -129,3 +129,8 @@ additionalArgs: []
 #   - name: MY_ENV_VAR
 #     value: my-value
 additionalEnv: []
+
+# singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+singleNodeClusterConfig:
+  controlPlaneTolerationsEnabled: false
+  nodeAffinityWeight: 1
