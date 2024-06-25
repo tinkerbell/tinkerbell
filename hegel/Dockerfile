@@ -1,4 +1,4 @@
-FROM alpine:3.20.0
+FROM alpine:3.20.1
 
 # Define args for the target platform so we can identify the binary in the Docker context.
 # These args are populated by Docker. The values should match Go's GOOS and GOARCH values for
