@@ -62,7 +62,7 @@ spec:
         - containerPort: {{ .Values.stack.hook.port }}
           protocol: TCP
           name: hook-http
-        {{- if not .Values.smee.hostNetwork }}
+        {{- if or (not .Values.smee.hostNetwork) (not .Values.smee.deploy) }}
         - containerPort: {{ .Values.smee.http.port }}
           protocol: TCP
           name: {{ .Values.smee.http.name }}
