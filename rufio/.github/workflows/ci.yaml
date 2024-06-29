@@ -79,7 +79,7 @@ jobs:
             type=sha
 
       - name: Docker build quay.io/tinkerbell/rufio
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./Dockerfile
