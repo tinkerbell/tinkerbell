@@ -8,7 +8,7 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/stdr v1.2.2
 	github.com/go-logr/zerologr v1.2.3
-	github.com/go-playground/validator/v10 v10.20.0
+	github.com/go-playground/validator/v10 v10.22.0
 	github.com/google/go-cmp v0.6.0
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
