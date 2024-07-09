@@ -51,6 +51,7 @@ dhcp:
   port: 67
   ipForPacket: ""
   tftpIp: ""
+  tftpPort: 69
   syslogIp: ""
   httpIPXE:
       binaryUrl: # http://<host>:<port>/ipxe
