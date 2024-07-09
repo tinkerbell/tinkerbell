@@ -70,6 +70,7 @@ spec:
             - -osie-url={{include "urlJoiner" (dict "urlDict" .Values.http.osieUrl)}}
             - -tink-server={{ printf "%v:%v" .Values.http.tinkServer.ip .Values.http.tinkServer.port }}
             - -tink-server-tls={{ .Values.http.tinkServer.tls }}
+            - -tink-server-insecure-tls={{ .Values.http.tinkServer.insecureTLS }}
             - -trusted-proxies={{ required "missing trustedProxies" ( join "," $trustedProxies ) }}
             - -syslog-enabled={{ .Values.syslog.enabled }}
             - -ipxe-script-patch={{ .Values.ipxeScriptPatch }}
