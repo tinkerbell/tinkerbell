@@ -134,3 +134,16 @@ additionalEnv: []
 singleNodeClusterConfig:
   controlPlaneTolerationsEnabled: false
   nodeAffinityWeight: 1
+
+# Additional volumes on the output Deployment definition.
+additionalVolumes: [ ]
+#  - name: foo
+#    secret:
+#      secretName: mysecret
+#      optional: false
+
+# Additional volumeMounts on the Smee container
+additionalVolumeMounts: [ ]
+#  - name: foo
+#    mountPath: "/etc/foo"
+#    readOnly: true
