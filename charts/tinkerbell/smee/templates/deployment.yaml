@@ -45,25 +45,37 @@ spec:
             - -backend-kube-namespace={{ .Release.Namespace }}
             - -dhcp-addr={{ printf "%v:%v" .Values.dhcp.ip .Values.dhcp.port }}
             - -dhcp-enabled={{ .Values.dhcp.enabled }}
-            - -dhcp-http-ipxe-binary-url={{include "urlJoiner" (dict "urlDict" .Values.dhcp.httpIPXE.binaryUrl)}}
-            - -dhcp-http-ipxe-script-url={{include "urlJoiner" (dict "urlDict" .Values.dhcp.httpIPXE.scriptUrl)}}
-            - -dhcp-ip-for-packet={{ .Values.dhcp.ipForPacket }}
-            - -dhcp-syslog-ip={{ .Values.dhcp.syslogIp }}
-            - -dhcp-tftp-ip={{ .Values.dhcp.tftpIp }}:69
+            - -dhcp-tftp-port={{ .Values.dhcp.tftpPort }}
+            - -dhcp-http-ipxe-binary-path={{ .Values.dhcp.httpIPXE.binaryUrl.path }}
+            - -dhcp-http-ipxe-binary-port={{ .Values.dhcp.httpIPXE.binaryUrl.port }}
+            - -dhcp-http-ipxe-binary-scheme={{ .Values.dhcp.httpIPXE.binaryUrl.scheme }}
+            - -dhcp-http-ipxe-script-path={{ .Values.dhcp.httpIPXE.scriptUrl.path }}
+            - -dhcp-http-ipxe-script-port={{ .Values.dhcp.httpIPXE.scriptUrl.port }}
+            - -dhcp-http-ipxe-script-scheme={{ .Values.dhcp.httpIPXE.scriptUrl.scheme }}
             - -extra-kernel-args={{ join " " ( append .Values.http.additionalKernelArgs ( printf "tink_worker_image=%s" ( required "missing tinkWorkerImage" .Values.tinkWorkerImage ) ) ) }}
-            - -http-addr={{ printf "%v:%v" .Values.http.ip .Values.http.port }}
             - -http-ipxe-binary-enabled={{ .Values.http.ipxeBinaryEnabled }}
             - -http-ipxe-script-enabled={{ .Values.http.ipxeScriptEnabled }}
+            - -http-port={{ .Values.http.port }}
             - -osie-url={{include "urlJoiner" (dict "urlDict" .Values.http.osieUrl)}}
             - -tink-server={{ printf "%v:%v" .Values.http.tinkServer.ip .Values.http.tinkServer.port }}
             - -tink-server-tls={{ .Values.http.tinkServer.tls }}
             - -trusted-proxies={{ required "missing trustedProxies" ( join "," .Values.trustedProxies ) }}
-            - -syslog-addr={{ printf "%v:%v" .Values.syslog.ip .Values.syslog.port }}
             - -syslog-enabled={{ .Values.syslog.enabled }}
             - -ipxe-script-patch={{ .Values.ipxeScriptPatch }}
-            - -tftp-addr={{ printf "%v:%v" .Values.tftp.ip .Values.tftp.port }}
             - -tftp-enabled={{ .Values.tftp.enabled }}
             - -tftp-timeout={{ .Values.tftp.timeout }}
+            - -tftp-port={{ .Values.tftp.port }}
+            - -syslog-port={{ .Values.syslog.port }}
+            {{- if not .Values.hostNetwork }}
+            - -http-addr={{ .Values.http.ip }}
+            - -syslog-addr={{ .Values.syslog.ip }}
+            - -tftp-addr={{ .Values.tftp.ip }}
+            - -dhcp-http-ipxe-binary-host={{ .Values.dhcp.httpIPXE.binaryUrl.host}}
+            - -dhcp-http-ipxe-script-host={{ .Values.dhcp.httpIPXE.scriptUrl.host }}
+            - -dhcp-syslog-ip={{ .Values.dhcp.syslogIp }}
+            - -dhcp-tftp-ip={{ .Values.dhcp.tftpIp }}
+            - -dhcp-ip-for-packet={{ .Values.dhcp.ipForPacket }}
+            {{- end }}
           {{- range .Values.additionalArgs }}
             - {{ . }}
           {{- end }}

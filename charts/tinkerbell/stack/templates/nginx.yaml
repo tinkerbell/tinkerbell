@@ -25,6 +25,8 @@ spec:
       {{- toYaml . | nindent 6 }}
       {{- end }}
   replicas: 1
+  strategy:
+    type: {{ .Values.stack.deployment.strategy.type }}
   template:
     metadata:
       annotations:
@@ -60,7 +62,7 @@ spec:
         - containerPort: {{ .Values.stack.hook.port }}
           protocol: TCP
           name: hook-http
-        {{- if not .Values.smee.hostNetwork }}
+        {{- if or (not .Values.smee.hostNetwork) (not .Values.smee.deploy) }}
         - containerPort: {{ .Values.smee.http.port }}
           protocol: TCP
           name: {{ .Values.smee.http.name }}
@@ -113,6 +115,12 @@ spec:
           items:
             - key: nginx.conf
               path: nginx.conf.template
+      {{- if and .Values.stack.relay.enabled $listenBroadcast }}
+      - name: script
+        configMap:
+          name: host-interface-script
+          defaultMode: 0500
+      {{- end }}
       {{- if .Values.stack.hook.enabled }}
       - name: hook-artifacts
         hostPath:
@@ -122,41 +130,11 @@ spec:
       {{- if and .Values.stack.relay.enabled $listenBroadcast }}
       initContainers:
       - name: relay-broadcast-interface
-        command:
-          - /bin/sh
-          - -c
-          - |
-            # This script allows us to listen and respond to DHCP requests on a host network interface and interact with Smee properly.
-            # This is used instead of `hostNetwork: true` because the dhcp relay requires clear paths for listening for broadcast traffic
-            # and sending/receiving unicast traffic to/from Smee.
-            set -xe
-            # if sourceInterface is not set use the interface from the default route
-            srcInterface="{{ $sourceInterface }}"
-            if [ -z "$srcInterface" ]; then
-              srcInterface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}' | head -n1)
-            fi
-            # Create the interface. TODO: If this fails, try again with a different name?
-            {{- if eq $dhcpInterfaceType "ipvlan" }}
-            nsenter -t1 -n ip link add {{ $dhcpInterfaceName }} link ${srcInterface} type ipvlan mode l2
-            {{- else }}
-            nsenter -t1 -n ip link add {{ $dhcpInterfaceName }} link ${srcInterface} type macvlan mode bridge
-            {{- end }}
-            # Move the interface into the POD.
-            pid=$(echo $$)
-            nsenter -t1 -n ip link set {{ $dhcpInterfaceName }} netns ${pid} || nsenter -t1 -n ip link delete {{ $dhcpInterfaceName }}
-            # Set the interface up
-            ip link set {{ $dhcpInterfaceName }} up
-            # Set the IP address
-            ip addr add 127.1.1.1/32 dev {{ $dhcpInterfaceName }} noprefixroute || true
-            {{- if eq $dhcpInterfaceType "ipvlan" }}
-            # There is an issue with ipvlan interfaces. They do not start receiving broadcast packets after creation.
-            # This is a workaround to get broadcast packets flowing.
-            # TODO(jacobweinstock): Investigate this deeper and see if this is a kernel bug.
-            nsenter -t1 -n ip link del {{ $dhcpInterfaceName }}-wa || true
-            nsenter -t1 -n nmap --script broadcast-dhcp-discover
-            nsenter -t1 -n ip link add {{ $dhcpInterfaceName }}-wa link ${srcInterface} type ipvlan mode l2 bridge || true
-            {{- end }}
         image: {{ .Values.stack.relay.initImage }}
+        command: ["/script/host_interface.sh", "-s", "{{ $sourceInterface }}", "-t", "{{ $dhcpInterfaceType }}"]
+        volumeMounts:
+            - name: script
+              mountPath: "/script"
         securityContext:
           privileged: true
       {{- end }}
