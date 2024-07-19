@@ -7,6 +7,9 @@ stack:
   selector:
     app: tink-stack
   nodeSelector: {}
+  deployment:
+    strategy:
+      type: RollingUpdate
   # stack needs to resolve DNS names in the cluster (in .svc.clusterDomain)
   clusterDomain: cluster.local
   # &publicIP is a YAML anchor. It allows us to define a value once and reference it multiple times.
