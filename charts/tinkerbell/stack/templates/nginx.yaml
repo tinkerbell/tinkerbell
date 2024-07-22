@@ -63,7 +63,7 @@ spec:
         - containerPort: {{ .Values.stack.hook.port }}
           protocol: TCP
           name: hook-http
-        {{- if or (not .Values.smee.hostNetwork) (not .Values.smee.deploy) }}
+        {{- if and (not .Values.smee.hostNetwork) (.Values.smee.deploy) }}
         - containerPort: {{ .Values.smee.http.port }}
           protocol: TCP
           name: {{ .Values.smee.http.name }}
@@ -192,6 +192,7 @@ spec:
   - name: {{ .Values.stack.hook.name }}
     port: {{ .Values.stack.hook.port }}
     protocol: TCP
+{{- if and (not .Values.smee.hostNetwork) (.Values.smee.deploy) }}
   - port: {{ .Values.smee.http.port }}
     protocol: TCP
     name: {{ .Values.smee.http.name }}
@@ -201,9 +202,12 @@ spec:
   - port: {{ .Values.smee.syslog.port }}
     protocol: UDP
     name: {{ .Values.smee.syslog.name }}
+{{- end }}
+{{- if .Values.stack.relay.enabled }}
   - port: 67
     protocol: UDP
     name: dhcp
+{{- end }}
   selector:
     {{- with .Values.stack.selector }}
     {{- toYaml . | nindent 4 }}
