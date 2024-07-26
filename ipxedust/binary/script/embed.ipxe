@@ -22,10 +22,22 @@ isset ${net${idx}/ip} && goto interfaces-loop-done || iseq ${idx} 50 && goto aut
 
 :interfaces-loop-done
 echo Booting from net${idx}...
-autoboot net${idx}
+set retry-max:int32 10
+set count:int32 1
+:retry-loop1
+echo trying dhcp ( attempt ${count}/${retry-max} )
+dhcp net${idx} && goto done1 || iseq ${count} ${retry-max} || inc count && goto retry-loop1
+:done1
+autoboot net${idx} || exit
 
 :autoboot
-autoboot
+set retry-max:int32 10
+set count:int32 1
+:retry-loop2
+echo trying dhcp ( attempt ${count}/${retry-max} )
+dhcp && goto done2 || iseq ${count} ${retry-max} || inc count && goto retry-loop2
+:done2
+autoboot || exit
 
 :boot-with-vlan
 set idx:int32 0
