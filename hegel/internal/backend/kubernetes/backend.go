@@ -51,7 +51,9 @@ func NewBackend(ctx context.Context, cfg Config) (*Backend, error) {
 
 	conf := func(opts *cluster.Options) {
 		opts.Scheme = scheme
-		opts.Cache.DefaultNamespaces = map[string]cache.Config{cfg.Namespace: {}}
+		if cfg.Namespace != "" {
+			opts.Cache.DefaultNamespaces = map[string]cache.Config{cfg.Namespace: {}}
+		}
 	}
 
 	clstr, err := cluster.New(cfg.ClientConfig, conf)
@@ -103,14 +105,6 @@ func loadConfig(cfg Config) (Config, error) {
 		return Config{}, err
 	}
 	cfg.ClientConfig = config
-
-	// In the event no namespace was provided for override, we need to fill it in with whatever
-	// namespace was loaded from the kubeconfig.
-	namespace, _, err := loader.Namespace()
-	if err != nil {
-		return Config{}, err
-	}
-	cfg.Namespace = namespace
 
 	return cfg, nil
 }
