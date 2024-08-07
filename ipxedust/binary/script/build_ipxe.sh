@@ -86,7 +86,7 @@ function customize_aarch_build() {
 # https://github.com/ipxe/ipxe/issues/1023#issuecomment-1898585257
 function patch_bnxt_rx_buffers() {
     local ipxe_dir="$1"
-    sed -i.bak 's/\(#define NUM_RX_BUFFERS \).*/\12/' "${ipxe_dir}"/src/drivers/net/bnxt/bnxt.h
+    sed -i 's/\(#define NUM_RX_BUFFERS \).*/\12/' "${ipxe_dir}"/src/drivers/net/bnxt/bnxt.h
 }
 
 # customize orchestrates the process for adding custom headers to an ipxe compile.
