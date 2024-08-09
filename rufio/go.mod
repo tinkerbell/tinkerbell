@@ -14,8 +14,8 @@ require (
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/rs/zerolog v1.33.0
 	golang.org/x/tools v0.23.0
-	k8s.io/api v0.30.2
-	k8s.io/apimachinery v0.30.2
+	k8s.io/api v0.30.3
+	k8s.io/apimachinery v0.30.3
 	k8s.io/client-go v0.30.2
 	sigs.k8s.io/controller-runtime v0.18.4
 )
