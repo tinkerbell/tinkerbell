@@ -26,7 +26,7 @@ stack:
     downloadsDest: /opt/hook
     # downloadURL only works with the > 0.8.1 Hook release because
     # previous Hook versions didn't provide a checksum file.
-    downloadURL: https://github.com/tinkerbell/hook/releases/download/latest
+    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.9.0
   kubevip:
     enabled: true
     name: kube-vip
