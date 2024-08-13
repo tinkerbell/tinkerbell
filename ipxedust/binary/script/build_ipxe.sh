@@ -81,6 +81,14 @@ function customize_aarch_build() {
     sed -i.bak '/^WORKAROUND_CFLAGS/ s|^|#|' "${ipxe_dir}"/src/arch/arm64/Makefile
 }
 
+# Workaround for Broadcom NetXtreme driver bug that causes a hang when
+# trying to download large files. See this iPXE issue for more detail:
+# https://github.com/ipxe/ipxe/issues/1023#issuecomment-1898585257
+function patch_bnxt_rx_buffers() {
+    local ipxe_dir="$1"
+    sed -i 's/\(#define NUM_RX_BUFFERS \).*/\12/' "${ipxe_dir}"/src/drivers/net/bnxt/bnxt.h
+}
+
 # customize orchestrates the process for adding custom headers to an ipxe compile.
 function customize() {
     local ipxe_dir="$1"
@@ -90,6 +98,7 @@ function customize() {
     copy_common_files "${ipxe_dir}"
     copy_custom_files "${ipxe_dir}" "${ipxe_bin}"
     customize_aarch_build "${ipxe_dir}"
+    patch_bnxt_rx_buffers "${ipxe_dir}"
 }
 
 function hasType() {
