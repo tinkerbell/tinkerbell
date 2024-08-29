@@ -88,13 +88,13 @@ helm upgrade stack-release stack/ --namespace tink-system --wait
 
 | Name | Description | Value |
 | ---- | ----------- | ----- |
-| `kubevip.enabled` | Enable the deployment of the kube-vip load balancer | `true` |
-| `kubevip.name` | Name for the kube-vip load balancer service | `kube-vip` |
-| `kubevip.image` | Image to use for the kube-vip load balancer | `ghcr.io/kube-vip/kube-vip:v0.5.0` |
-| `kubevip.imagePullPolicy` | Image pull policy to use for kube-vip | `IfNotPresent` |
-| `kubevip.roleName` | Role name to use for the kube-vip load service | `kube-vip-role` |
-| `kubevip.roleBindingName` | Role binding name to use for the kube-vip load service | `kube-vip-rolebinding` |
-| `kubevip.interface` | Interface to use for advertizing the load balancer IP. Leaving it unset to allow Kubevip to auto discover the interface to use. | `""` |
+| `stack.kubevip.enabled` | Enable the deployment of the kube-vip load balancer | `true` |
+| `stack.kubevip.name` | Name for the kube-vip load balancer service | `kube-vip` |
+| `stack.kubevip.image` | Image to use for the kube-vip load balancer | `ghcr.io/kube-vip/kube-vip:v0.5.0` |
+| `stack.kubevip.imagePullPolicy` | Image pull policy to use for kube-vip | `IfNotPresent` |
+| `stack.kubevip.roleName` | Role name to use for the kube-vip load service | `kube-vip-role` |
+| `stack.kubevip.roleBindingName` | Role binding name to use for the kube-vip load service | `kube-vip-rolebinding` |
+| `stack.kubevip.interface` | Interface to use for advertizing the load balancer IP. Leaving it unset to allow Kubevip to auto discover the interface to use. | `""` |
 
 ### DHCP Relay Parameters
 
