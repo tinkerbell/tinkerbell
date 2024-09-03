@@ -52,6 +52,7 @@ spec:
             - -dhcp-http-ipxe-script-path={{ .Values.dhcp.httpIPXE.scriptUrl.path }}
             - -dhcp-http-ipxe-script-port={{ .Values.dhcp.httpIPXE.scriptUrl.port }}
             - -dhcp-http-ipxe-script-scheme={{ .Values.dhcp.httpIPXE.scriptUrl.scheme }}
+            - -dhcp-mode={{ .Values.dhcp.mode }}
             - -extra-kernel-args={{ join " " ( append .Values.http.additionalKernelArgs ( printf "tink_worker_image=%s" ( required "missing tinkWorkerImage" .Values.tinkWorkerImage ) ) ) }}
             - -http-ipxe-binary-enabled={{ .Values.http.ipxeBinaryEnabled }}
             - -http-ipxe-script-enabled={{ .Values.http.ipxeScriptEnabled }}
