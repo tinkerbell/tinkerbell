@@ -60,7 +60,7 @@ stack:
     # maintaining option (82) in its received state from the dhcrelay might be essential.
     # This behavior can be regulated by configuring the presentGiaddrAction as "forward."
     # Additional information is available at: https://linux.die.net/man/8/dhcrelay
-    presentGiaddrAction: append
+    presentGiaddrAction: forward
     # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
     # When unset, the interface from the default route will be used.
     # sourceInterface: eno1
