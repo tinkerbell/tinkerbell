@@ -1,4 +1,4 @@
-{{- if and .Values.stack.hook.enabled .Values.stack.hook.persistence.enabled (not .Values.stack.hook.persistence.pvc.existingClaim) (eq .Values.stack.hook.persistence.type "pvc") }}
+{{- if and .Values.stack.hook.enabled (not .Values.stack.hook.persistence.pvc.existingClaim) (eq .Values.stack.hook.persistence.type "pvc") }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

@@ -1,5 +1,4 @@
-{{- $hookDownloadJobEnabled := eq (include "stack.hookDownloadJobEnabled" .) "true" -}}
-{{- if and .Values.stack.hook.enabled $hookDownloadJobEnabled }}
+{{- if .Values.stack.hook.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -51,7 +50,6 @@ spec:
       restartPolicy: OnFailure
       volumes:
         - name: hook-artifacts
-          {{- if .Values.stack.hook.persistence.enabled }}
             {{- if eq .Values.stack.hook.persistence.type "hostpath" }}
           hostPath:
             path: {{ .Values.stack.hook.downloadsDest }}
@@ -62,9 +60,6 @@ spec:
             {{- else }}
               {{- fail "value for .Values.stack.hook.persistence.type is unsupported" }}
             {{- end }}
-          {{- else }}
-          emptyDir: {}
-          {{- end }}
         - name: configmap-volume
           configMap:
             defaultMode: 0700

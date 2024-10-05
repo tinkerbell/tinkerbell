@@ -123,7 +123,6 @@ spec:
       {{- end }}
       {{- if .Values.stack.hook.enabled }}
       - name: hook-artifacts
-        {{- if .Values.stack.hook.persistence.enabled }}
           {{- if eq .Values.stack.hook.persistence.type "hostpath" }}
         hostPath:
           path: {{ .Values.stack.hook.downloadsDest }}
@@ -134,9 +133,6 @@ spec:
           {{- else }}
             {{- fail "value for .Values.stack.hook.persistence.type is not as expected" }}
           {{- end }}
-        {{- else }}
-        emptyDir: {}
-        {{- end }}
       {{- end }}
       {{- if and .Values.stack.relay.enabled $listenBroadcast }}
       initContainers:

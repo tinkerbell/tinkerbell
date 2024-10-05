@@ -29,7 +29,6 @@ stack:
     # previous Hook versions didn't provide a checksum file.
     downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.9.1
     persistence:
-      enabled: true
       # type must be either "hostpath" or "pvc"
       # hostpath: only works on a single worker node cluster
       # https://kubernetes.io/docs/concepts/storage/volumes/#hostpath
