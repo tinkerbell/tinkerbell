@@ -9,6 +9,7 @@ import (
 	"dario.cat/mergo"
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	"github.com/bmc-toolbox/bmclib/v2/providers/rpc"
+	"github.com/ccoveille/go-safecast"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/rufio/api/v1alpha1"
 )
@@ -77,7 +78,12 @@ func (b BMCOptions) Translate(host string) []bmclib.Option {
 
 	// intelAmt options
 	if b.IntelAMT != nil {
-		amtPort := bmclib.WithIntelAMTPort(uint32(b.IntelAMT.Port))
+		// must not be negative, must not be greater than the uint32 max value
+		p, err := safecast.ToUint32(b.IntelAMT.Port)
+		if err != nil {
+			p = 16992
+		}
+		amtPort := bmclib.WithIntelAMTPort(p)
 		amtScheme := bmclib.WithIntelAMTHostScheme(b.IntelAMT.HostScheme)
 		o = append(o, amtPort, amtScheme)
 	}
