@@ -16,57 +16,7 @@ rules:
   - bmc.tinkerbell.org
   resources:
   - jobs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - bmc.tinkerbell.org
-  resources:
-  - jobs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - bmc.tinkerbell.org
-  resources:
-  - jobs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - bmc.tinkerbell.org
-  resources:
   - machines
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - bmc.tinkerbell.org
-  resources:
-  - machines/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - bmc.tinkerbell.org
-  resources:
-  - machines/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - bmc.tinkerbell.org
-  resources:
   - tasks
   verbs:
   - create
@@ -79,12 +29,16 @@ rules:
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
+  - jobs/finalizers
+  - machines/finalizers
   - tasks/finalizers
   verbs:
   - update
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
+  - jobs/status
+  - machines/status
   - tasks/status
   verbs:
   - get
