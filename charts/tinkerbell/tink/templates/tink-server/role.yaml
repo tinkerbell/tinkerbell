@@ -1,14 +1,19 @@
-{{- if .Values.deploy }}
+{{- if .Values.server.deploy }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: {{ .Values.server.rbac.type }}
 metadata:
-  name: {{ .Values.roleName }}
+  name: {{ .Values.server.rbac.name }}
+  {{- if eq .Values.server.rbac.type "Role"  }}
+  namespace: {{ .Release.Namespace | quote }}
+  {{- end }}
 rules:
   - apiGroups:
       - tinkerbell.org
     resources:
       - hardware
       - hardware/status
+      - templates
+      - templates/status
     verbs:
       - get
       - list
@@ -21,5 +26,7 @@ rules:
     verbs:
       - get
       - list
+      - patch
+      - update
       - watch
 {{- end }}

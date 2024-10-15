@@ -12,12 +12,15 @@ resources:
 additionalArgs: []
 serviceAccountName: rufio-controller-manager
 rufioLeaderElectionRoleName: rufio-leader-election-role
-managerRoleName: rufio-manager-role
 rufioLeaderElectionRoleBindingName: rufio-leader-election-rolebinding
-managerRoleBindingName: rufio-manager-rolebinding
 nodeSelector: {}
 hostNetwork: false
 # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
 singleNodeClusterConfig:
   controlPlaneTolerationsEnabled: false
   nodeAffinityWeight: 1
+
+rbac:
+  type: Role # or ClusterRole
+  name: rufio-role # or rufio-cluster-role
+  bindingName: rufio-rolebinding # or rufio-cluster-rolebinding

@@ -1,0 +1,267 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "$comment": "This file was generated and then modified.",
+    "properties": {
+      "controller": {
+        "type": "object",
+        "properties": {
+          "deploy": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "imagePullPolicy": {
+            "type": "string"
+          },
+          "replicas": {
+            "type": "integer"
+          },
+          "args": {
+            "type": "array",
+            "items": {}
+          },
+          "resources": {
+            "type": "object",
+            "properties": {
+              "limits": {
+                "type": "object",
+                "properties": {
+                  "cpu": {
+                    "type": "string"
+                  },
+                  "memory": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "cpu",
+                  "memory"
+                ]
+              },
+              "requests": {
+                "type": "object",
+                "properties": {
+                  "cpu": {
+                    "type": "string"
+                  },
+                  "memory": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "cpu",
+                  "memory"
+                ]
+              }
+            },
+            "required": [
+              "limits",
+              "requests"
+            ]
+          },
+          "tinkLeaderElectionRoleName": {
+            "type": "string"
+          },
+          "tinkLeaderElectionRoleBindingName": {
+            "type": "string"
+          },
+          "nodeSelector": {
+            "type": "object"
+          },
+          "singleNodeClusterConfig": {
+            "type": "object",
+            "properties": {
+              "controlPlaneTolerationsEnabled": {
+                "type": "boolean"
+              },
+              "weight": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "controlPlaneTolerationsEnabled",
+              "weight"
+            ]
+          },
+          "rbac": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "bindingName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "name",
+              "bindingName"
+            ]
+          }
+        },
+        "required": [
+          "deploy",
+          "name",
+          "image",
+          "imagePullPolicy",
+          "replicas",
+          "args",
+          "resources",
+          "tinkLeaderElectionRoleName",
+          "tinkLeaderElectionRoleBindingName",
+          "nodeSelector",
+          "singleNodeClusterConfig",
+          "rbac"
+        ]
+      },
+      "server": {
+        "type": "object",
+        "properties": {
+          "deploy": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "imagePullPolicy": {
+            "type": "string"
+          },
+          "replicas": {
+            "type": "integer"
+          },
+          "service": {
+            "type": "object",
+            "properties": {
+              "port": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "port"
+            ]
+          },
+          "deployment": {
+            "type": "object",
+            "properties": {
+              "port": {
+                "type": "integer"
+              },
+              "portName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "port",
+              "portName"
+            ]
+          },
+          "resources": {
+            "type": "object",
+            "properties": {
+              "limits": {
+                "type": "object",
+                "properties": {
+                  "cpu": {
+                    "type": "string"
+                  },
+                  "memory": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "cpu",
+                  "memory"
+                ]
+              },
+              "requests": {
+                "type": "object",
+                "properties": {
+                  "cpu": {
+                    "type": "string"
+                  },
+                  "memory": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "cpu",
+                  "memory"
+                ]
+              }
+            },
+            "required": [
+              "limits",
+              "requests"
+            ]
+          },
+          "nodeSelector": {
+            "type": "object"
+          },
+          "singleNodeClusterConfig": {
+            "type": "object",
+            "properties": {
+              "controlPlaneTolerationsEnabled": {
+                "type": "boolean"
+              },
+              "nodeAffinityWeight": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "controlPlaneTolerationsEnabled",
+              "nodeAffinityWeight"
+            ]
+          },
+          "rbac": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["Role", "ClusterRole"]
+              },
+              "name": {
+                "type": "string"
+              },
+              "bindingName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "name",
+              "bindingName"
+            ]
+          }
+        },
+        "required": [
+          "deploy",
+          "name",
+          "image",
+          "imagePullPolicy",
+          "replicas",
+          "service",
+          "deployment",
+          "resources",
+          "nodeSelector",
+          "singleNodeClusterConfig",
+          "rbac"
+        ]
+      }
+    },
+    "required": [
+      "controller",
+      "server"
+    ]
+  }

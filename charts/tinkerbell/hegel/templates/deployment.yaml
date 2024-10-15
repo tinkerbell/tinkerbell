@@ -32,6 +32,9 @@ spec:
         - args:
           - --backend=kubernetes
           - --http-addr=:{{ .Values.deployment.port }}
+          {{- if eq .Values.rbac.type "Role"}}
+          - --kubernetes-namespace={{ .Release.Namespace }}
+          {{- end }}
           {{- range .Values.args }}
           - {{ . }}
           {{- end }}

@@ -12,8 +12,6 @@ controller:
     requests:
       cpu: 10m
       memory: 64Mi
-  roleName: tink-controller-manager-role
-  roleBindingName: tink-controller-manager-rolebinding
   tinkLeaderElectionRoleName: tink-leader-election-role
   tinkLeaderElectionRoleBindingName: tink-leader-election-rolebinding
   nodeSelector: {}
@@ -21,6 +19,10 @@ controller:
   singleNodeClusterConfig:
     controlPlaneTolerationsEnabled: false
     weight: 1
+  rbac:
+    type: Role # or ClusterRole
+    name: tink-controller-role # or tink-controller-cluster-role
+    bindingName: tink-controller-rolebinding # or tink-controller-cluster-rolebinding
 
 server:
   deploy: true
@@ -40,10 +42,12 @@ server:
     requests:
       cpu: 10m
       memory: 64Mi
-  roleName: tink-server-role
-  roleBindingName: tink-server-rolebinding
   nodeSelector: {}
   # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
   singleNodeClusterConfig:
     controlPlaneTolerationsEnabled: false
     nodeAffinityWeight: 1
+  rbac:
+    type: Role # or ClusterRole
+    name: tink-server-role # or tink-server-cluster-role
+    bindingName: tink-server-rolebinding # or tink-server-cluster-rolebinding

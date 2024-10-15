@@ -1,12 +1,15 @@
 {{- if .Values.deploy }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: {{ printf "%sBinding" .Values.rbac.type }}
 metadata:
-  name: {{ .Values.managerRoleBindingName }}
+  name: {{ .Values.rbac.bindingName }}
+  {{- if eq .Values.rbac.type "Role"  }}
+  namespace: {{ .Release.Namespace | quote }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{ .Values.managerRoleName }}
+  kind: {{ .Values.rbac.type }}
+  name: {{ .Values.rbac.name }}
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.serviceAccountName }}

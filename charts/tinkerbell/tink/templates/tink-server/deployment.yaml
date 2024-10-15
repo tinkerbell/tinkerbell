@@ -31,6 +31,9 @@ spec:
       containers:
         - args:
             - --backend=kubernetes
+            {{- if eq .Values.server.rbac.type "Role"}}
+            - --kube-namespace={{ .Release.Namespace }}
+            {{- end }}
             {{- range .Values.server.args }}
             - {{ . }}
             {{- end }}

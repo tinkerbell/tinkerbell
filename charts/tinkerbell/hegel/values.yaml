@@ -15,8 +15,10 @@ resources:
   requests:
     cpu: 10m
     memory: 64Mi
-roleName: hegel-role
-roleBindingName: hegel-rolebinding
+rbac:
+  type: Role # or ClusterRole
+  name: hegel-role # or hegel-cluster-role
+  bindingName: hegel-rolebinding # or hegel-cluster-rolebinding
 nodeSelector: {}
 
 # Trusted proxies defines a list of IP or CIDR ranges that are allowed to set the X-Forwarded-For

@@ -41,6 +41,9 @@ spec:
         - /manager
         args:
         - --leader-elect
+        {{- if eq .Values.rbac.type "Role" }}
+        - -kube-namespace={{ .Release.Namespace }}
+        {{- end }}
         {{- range .Values.additionalArgs }}
         - {{ . }}
         {{- end }}

@@ -20,9 +20,6 @@ resources:
     cpu: 10m
     memory: 64Mi
 
-roleName: smee-role
-roleBindingName: smee-rolebinding
-
 deployment:
   strategy:
     type: RollingUpdate
@@ -149,3 +146,8 @@ additionalVolumeMounts: [ ]
 #  - name: foo
 #    mountPath: "/etc/foo"
 #    readOnly: true
+
+rbac:
+  type: Role # or ClusterRole
+  name: smee-role # or smee-cluster-role
+  bindingName: smee-rolebinding # or smee-cluster-rolebinding

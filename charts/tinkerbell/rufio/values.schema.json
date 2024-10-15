@@ -1,0 +1,126 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "properties": {
+      "deploy": {
+        "type": "boolean"
+      },
+      "name": {
+        "type": "string"
+      },
+      "image": {
+        "type": "string"
+      },
+      "imagePullPolicy": {
+        "type": "string"
+      },
+      "resources": {
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "object",
+            "properties": {
+              "cpu": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "cpu",
+              "memory"
+            ]
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "cpu": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "cpu",
+              "memory"
+            ]
+          }
+        },
+        "required": [
+          "requests",
+          "limits"
+        ]
+      },
+      "additionalArgs": {
+        "type": "array",
+        "items": {}
+      },
+      "serviceAccountName": {
+        "type": "string"
+      },
+      "rufioLeaderElectionRoleName": {
+        "type": "string"
+      },
+      "rufioLeaderElectionRoleBindingName": {
+        "type": "string"
+      },
+      "nodeSelector": {
+        "type": "object"
+      },
+      "hostNetwork": {
+        "type": "boolean"
+      },
+      "singleNodeClusterConfig": {
+        "type": "object",
+        "properties": {
+          "controlPlaneTolerationsEnabled": {
+            "type": "boolean"
+          },
+          "nodeAffinityWeight": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "controlPlaneTolerationsEnabled",
+          "nodeAffinityWeight"
+        ]
+      },
+      "rbac": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Role", "ClusterRole"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "bindingName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "bindingName"
+        ]
+      }
+    },
+    "required": [
+      "deploy",
+      "name",
+      "image",
+      "imagePullPolicy",
+      "resources",
+      "additionalArgs",
+      "serviceAccountName",
+      "rufioLeaderElectionRoleName",
+      "rufioLeaderElectionRoleBindingName",
+      "nodeSelector",
+      "hostNetwork",
+      "singleNodeClusterConfig",
+      "rbac"
+    ]
+  }

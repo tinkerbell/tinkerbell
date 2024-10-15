@@ -1,6 +1,7 @@
 apiVersion: v2
 name: tink
 description: A Helm chart for Kubernetes
+icon: https://github.com/tinkerbell/artwork/blob/6f07de53d75cb8932dbc7d14201e038cf3a3b230/Tinkerbell-Icon-Dark.png
 
 # A chart can be either an 'application' or a 'library' chart.
 #
@@ -15,7 +16,7 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.2.5
+version: 0.3.0
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to

@@ -9,5 +9,5 @@ metadata:
 rules:
   - apiGroups: ["tinkerbell.org"]
     resources: ["hardware", "hardware/status"]
-    verbs: ["get", "watch", "list"]
+    verbs: ["get", "list", "watch"]
 {{- end }}
