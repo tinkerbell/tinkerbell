@@ -107,7 +107,7 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *v1alpha1.Job, jobP
 
 	// List all Task owned by Job
 	tasks := &v1alpha1.TaskList{}
-	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: job.Name})
+	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: job.Name}, client.InNamespace(job.Namespace))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s: %w", job.Namespace, job.Name, err)
 	}
