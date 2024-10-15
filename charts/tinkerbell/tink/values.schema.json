@@ -92,7 +92,8 @@
             "type": "object",
             "properties": {
               "type": {
-                "type": "string"
+                "type": "string",
+                "enum": ["Role", "ClusterRole"]
               },
               "name": {
                 "type": "string"
