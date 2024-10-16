@@ -1,9 +1,13 @@
 {{- if .Values.server.deploy }}
+{{- $roleType := .Values.server.rbac.type }}
+{{- if .Values.global }}
+{{- $roleType = coalesce .Values.global.rbac.type .Values.server.rbac.type }}
+{{- end }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: {{ .Values.server.rbac.type }}
+kind: {{ $roleType }}
 metadata:
   name: {{ .Values.server.rbac.name }}
-  {{- if eq .Values.server.rbac.type "Role"  }}
+  {{- if eq $roleType "Role"  }}
   namespace: {{ .Release.Namespace | quote }}
   {{- end }}
 rules:

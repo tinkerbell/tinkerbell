@@ -23,10 +23,7 @@
           "port": {
             "type": "integer"
           }
-        },
-        "required": [
-          "port"
-        ]
+        }
       },
       "deployment": {
         "type": "object",
@@ -37,11 +34,7 @@
           "portName": {
             "type": "string"
           }
-        },
-        "required": [
-          "port",
-          "portName"
-        ]
+        }
       },
       "resources": {
         "type": "object",
@@ -55,11 +48,7 @@
               "memory": {
                 "type": "string"
               }
-            },
-            "required": [
-              "cpu",
-              "memory"
-            ]
+            }
           },
           "requests": {
             "type": "object",
@@ -70,17 +59,9 @@
               "memory": {
                 "type": "string"
               }
-            },
-            "required": [
-              "cpu",
-              "memory"
-            ]
+            }
           }
-        },
-        "required": [
-          "limits",
-          "requests"
-        ]
+        }
       },
       "rbac": {
         "type": "object",
@@ -95,12 +76,7 @@
           "bindingName": {
             "type": "string"
           }
-        },
-        "required": [
-          "type",
-          "name",
-          "bindingName"
-        ]
+        }
       },
       "nodeSelector": {
         "type": "object"
@@ -118,25 +94,7 @@
           "nodeAffinityWeight": {
             "type": "integer"
           }
-        },
-        "required": [
-          "controlPlaneTolerationsEnabled",
-          "nodeAffinityWeight"
-        ]
+        }
       }
-    },
-    "required": [
-      "deploy",
-      "name",
-      "image",
-      "imagePullPolicy",
-      "replicas",
-      "service",
-      "deployment",
-      "resources",
-      "rbac",
-      "nodeSelector",
-      "trustedProxies",
-      "singleNodeClusterConfig"
-    ]
+    }
   }
