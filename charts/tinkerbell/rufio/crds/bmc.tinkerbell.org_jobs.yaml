@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.16.4
   name: jobs.bmc.tinkerbell.org
 spec:
   group: bmc.tinkerbell.org
@@ -24,14 +24,19 @@ spec:
         description: Job is the Schema for the bmcjobs API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -39,8 +44,9 @@ spec:
             description: JobSpec defines the desired state of Job.
             properties:
               machineRef:
-                description: MachineRef represents the Machine resource to execute
-                  the job. All the tasks in the job are executed for the same Machine.
+                description: |-
+                  MachineRef represents the Machine resource to execute the job.
+                  All the tasks in the job are executed for the same Machine.
                 properties:
                   name:
                     description: Name of the Machine.
@@ -53,15 +59,16 @@ spec:
                 - namespace
                 type: object
               tasks:
-                description: Tasks represents a list of baseboard management actions
-                  to be executed. The tasks are executed sequentially. Controller
-                  waits for one task to complete before executing the next. If a single
-                  task fails, job execution stops and sets condition Failed. Condition
-                  Completed is set only if all the tasks were successful.
+                description: |-
+                  Tasks represents a list of baseboard management actions to be executed.
+                  The tasks are executed sequentially. Controller waits for one task to complete before executing the next.
+                  If a single task fails, job execution stops and sets condition Failed.
+                  Condition Completed is set only if all the tasks were successful.
                 items:
-                  description: Action represents the action to be performed. A single
-                    task can only perform one type of action. For example either PowerAction
-                    or OneTimeBootDeviceAction.
+                  description: |-
+                    Action represents the action to be performed.
+                    A single task can only perform one type of action.
+                    For example either PowerAction or OneTimeBootDeviceAction.
                   maxProperties: 1
                   properties:
                     oneTimeBootDeviceAction:
@@ -69,9 +76,9 @@ spec:
                         management one time set boot device operation.
                       properties:
                         device:
-                          description: Devices represents the boot devices, in order
-                            for setting one time boot. Currently only the first device
-                            in the slice is used to set one time boot.
+                          description: |-
+                            Devices represents the boot devices, in order for setting one time boot.
+                            Currently only the first device in the slice is used to set one time boot.
                           items:
                             description: BootDevice represents boot device of the
                               Machine.
@@ -101,9 +108,9 @@ spec:
                         kind:
                           type: string
                         mediaURL:
-                          description: mediaURL represents the URL of the image to
-                            be inserted into the virtual media, or empty to eject
-                            media.
+                          description: |-
+                            mediaURL represents the URL of the image to be inserted into the virtual media, or empty to
+                            eject media.
                           type: string
                       required:
                       - kind
@@ -119,7 +126,8 @@ spec:
             description: JobStatus defines the observed state of Job.
             properties:
               completionTime:
-                description: CompletionTime represents time when the job was completed.
+                description: |-
+                  CompletionTime represents time when the job was completed.
                   The completion time is only set when the job finishes successfully.
                 format: date-time
                 type: string
@@ -133,8 +141,9 @@ spec:
                         details about last transition.
                       type: string
                     status:
-                      description: Status is the status of the Job condition. Can
-                        be True or False.
+                      description: |-
+                        Status is the status of the Job condition.
+                        Can be True or False.
                       type: string
                     type:
                       description: Type of the Job condition.
