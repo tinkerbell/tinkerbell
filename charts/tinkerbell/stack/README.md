@@ -7,7 +7,8 @@ This chart installs the full Tinkerbell stack.
 ```bash
 helm dependency build stack/
 trusted_proxies=$(kubectl get nodes -o go-template-file=stack/kubectl.go-template)
-helm install stack-release stack/ --create-namespace --namespace tink-system --wait --set "smee.trustedProxies={${trusted_proxies}}" --set "hegel.trustedProxies={${trusted_proxies}}"
+LB_IP=<IP_ADDRESS>
+helm install stack-release stack/ --create-namespace --namespace tink --wait --set "global.trustedProxies={${trusted_proxies}}" --set "global.publicIP=$LB_IP"
 ```
 
 ## Introduction
@@ -36,7 +37,7 @@ The stack chart does not use an ingress object and controller. This is because m
 
 ## Installing the Chart
 
-Before installing the chart you'll want to customize the IP used for the load balancer (`stack.loadBalancerIP`). This IP provides ingress for Hegel, Tink, and Smee (TFTP, HTTP, and SYSLOG endpoints as well as unicast DHCP requests).
+Before installing the chart you'll want to customize the IP used for the load balancer (`global.publicIP`). This IP provides ingress for Hegel, Tink, and Smee (TFTP, HTTP, and SYSLOG endpoints as well as unicast DHCP requests).
 
 Now, deploy the chart.
 
