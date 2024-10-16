@@ -3,11 +3,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.16.4
   name: machines.bmc.tinkerbell.org
-  labels:
-    clusterctl.cluster.x-k8s.io: ""
-    clusterctl.cluster.x-k8s.io/move: ""
 spec:
   group: bmc.tinkerbell.org
   names:
@@ -25,14 +22,19 @@ spec:
         description: Machine is the Schema for the machines API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -44,10 +46,10 @@ spec:
                   Controller.
                 properties:
                   authSecretRef:
-                    description: AuthSecretRef is the SecretReference that contains
-                      authentication information of the Machine. The Secret must contain
-                      username and password keys. This is optional as it is not required
-                      when using the RPC provider.
+                    description: |-
+                      AuthSecretRef is the SecretReference that contains authentication information of the Machine.
+                      The Secret must contain username and password keys. This is optional as it is not required when using
+                      the RPC provider.
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -77,6 +79,14 @@ spec:
                         description: IntelAMT contains the options to customize the
                           IntelAMT provider.
                         properties:
+                          hostScheme:
+                            default: http
+                            description: HostScheme determines whether to use http
+                              or https for intelAMT calls.
+                            enum:
+                            - http
+                            - https
+                            type: string
                           port:
                             description: Port that intelAMT will use for calls.
                             type: integer
@@ -109,9 +119,9 @@ spec:
                           provider.
                         properties:
                           consumerURL:
-                            description: ConsumerURL is the URL where an rpc consumer/listener
-                              is running and to which we will send and receive all
-                              notifications.
+                            description: |-
+                              ConsumerURL is the URL where an rpc consumer/listener is running
+                              and to which we will send and receive all notifications.
                             type: string
                           experimental:
                             description: Experimental options.
@@ -137,9 +147,9 @@ spec:
                               secrets:
                                 additionalProperties:
                                   items:
-                                    description: SecretReference represents a Secret
-                                      Reference. It has enough information to retrieve
-                                      secret in any namespace
+                                    description: |-
+                                      SecretReference represents a Secret Reference. It has enough information to retrieve secret
+                                      in any namespace
                                     properties:
                                       name:
                                         description: name is unique within a namespace
@@ -195,21 +205,19 @@ spec:
                               an HMAC signature to an HTTP request.
                             properties:
                               appendAlgoToHeaderDisabled:
-                                description: 'AppendAlgoToHeaderDisabled decides whether
-                                  to append the algorithm to the signature header
-                                  or not. Example: X-BMCLIB-Signature becomes X-BMCLIB-Signature-256
-                                  When set to true, a header will be added for each
-                                  algorithm. Example: X-BMCLIB-Signature-256 and X-BMCLIB-Signature-512'
+                                description: |-
+                                  AppendAlgoToHeaderDisabled decides whether to append the algorithm to the signature header or not.
+                                  Example: X-BMCLIB-Signature becomes X-BMCLIB-Signature-256
+                                  When set to true, a header will be added for each algorithm. Example: X-BMCLIB-Signature-256 and X-BMCLIB-Signature-512
                                 type: boolean
                               headerName:
                                 description: 'HeaderName is the header name that should
                                   contain the signature(s). Example: X-BMCLIB-Signature'
                                 type: string
                               includedPayloadHeaders:
-                                description: 'IncludedPayloadHeaders are headers whose
-                                  values will be included in the signature payload.
-                                  Example: X-BMCLIB-My-Custom-Header All headers will
-                                  be deduplicated.'
+                                description: |-
+                                  IncludedPayloadHeaders are headers whose values will be included in the signature payload. Example: X-BMCLIB-My-Custom-Header
+                                  All headers will be deduplicated.
                                 items:
                                   type: string
                                 type: array

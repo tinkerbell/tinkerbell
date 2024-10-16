@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.16.4
   name: tasks.bmc.tinkerbell.org
 spec:
   group: bmc.tinkerbell.org
@@ -24,14 +24,19 @@ spec:
         description: Task is the Schema for the Task API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -42,10 +47,10 @@ spec:
                 description: Connection represents the Machine connectivity information.
                 properties:
                   authSecretRef:
-                    description: AuthSecretRef is the SecretReference that contains
-                      authentication information of the Machine. The Secret must contain
-                      username and password keys. This is optional as it is not required
-                      when using the RPC provider.
+                    description: |-
+                      AuthSecretRef is the SecretReference that contains authentication information of the Machine.
+                      The Secret must contain username and password keys. This is optional as it is not required when using
+                      the RPC provider.
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -75,6 +80,14 @@ spec:
                         description: IntelAMT contains the options to customize the
                           IntelAMT provider.
                         properties:
+                          hostScheme:
+                            default: http
+                            description: HostScheme determines whether to use http
+                              or https for intelAMT calls.
+                            enum:
+                            - http
+                            - https
+                            type: string
                           port:
                             description: Port that intelAMT will use for calls.
                             type: integer
@@ -107,9 +120,9 @@ spec:
                           provider.
                         properties:
                           consumerURL:
-                            description: ConsumerURL is the URL where an rpc consumer/listener
-                              is running and to which we will send and receive all
-                              notifications.
+                            description: |-
+                              ConsumerURL is the URL where an rpc consumer/listener is running
+                              and to which we will send and receive all notifications.
                             type: string
                           experimental:
                             description: Experimental options.
@@ -135,9 +148,9 @@ spec:
                               secrets:
                                 additionalProperties:
                                   items:
-                                    description: SecretReference represents a Secret
-                                      Reference. It has enough information to retrieve
-                                      secret in any namespace
+                                    description: |-
+                                      SecretReference represents a Secret Reference. It has enough information to retrieve secret
+                                      in any namespace
                                     properties:
                                       name:
                                         description: name is unique within a namespace
@@ -193,21 +206,19 @@ spec:
                               an HMAC signature to an HTTP request.
                             properties:
                               appendAlgoToHeaderDisabled:
-                                description: 'AppendAlgoToHeaderDisabled decides whether
-                                  to append the algorithm to the signature header
-                                  or not. Example: X-BMCLIB-Signature becomes X-BMCLIB-Signature-256
-                                  When set to true, a header will be added for each
-                                  algorithm. Example: X-BMCLIB-Signature-256 and X-BMCLIB-Signature-512'
+                                description: |-
+                                  AppendAlgoToHeaderDisabled decides whether to append the algorithm to the signature header or not.
+                                  Example: X-BMCLIB-Signature becomes X-BMCLIB-Signature-256
+                                  When set to true, a header will be added for each algorithm. Example: X-BMCLIB-Signature-256 and X-BMCLIB-Signature-512
                                 type: boolean
                               headerName:
                                 description: 'HeaderName is the header name that should
                                   contain the signature(s). Example: X-BMCLIB-Signature'
                                 type: string
                               includedPayloadHeaders:
-                                description: 'IncludedPayloadHeaders are headers whose
-                                  values will be included in the signature payload.
-                                  Example: X-BMCLIB-My-Custom-Header All headers will
-                                  be deduplicated.'
+                                description: |-
+                                  IncludedPayloadHeaders are headers whose values will be included in the signature payload. Example: X-BMCLIB-My-Custom-Header
+                                  All headers will be deduplicated.
                                 items:
                                   type: string
                                 type: array
@@ -229,9 +240,9 @@ spec:
                       one time set boot device operation.
                     properties:
                       device:
-                        description: Devices represents the boot devices, in order
-                          for setting one time boot. Currently only the first device
-                          in the slice is used to set one time boot.
+                        description: |-
+                          Devices represents the boot devices, in order for setting one time boot.
+                          Currently only the first device in the slice is used to set one time boot.
                         items:
                           description: BootDevice represents boot device of the Machine.
                           type: string
@@ -260,8 +271,9 @@ spec:
                       kind:
                         type: string
                       mediaURL:
-                        description: mediaURL represents the URL of the image to be
-                          inserted into the virtual media, or empty to eject media.
+                        description: |-
+                          mediaURL represents the URL of the image to be inserted into the virtual media, or empty to
+                          eject media.
                         type: string
                     required:
                     - kind
@@ -274,7 +286,8 @@ spec:
             description: TaskStatus defines the observed state of Task.
             properties:
               completionTime:
-                description: CompletionTime represents time when the task was completed.
+                description: |-
+                  CompletionTime represents time when the task was completed.
                   The completion time is only set when the task finishes successfully.
                 format: date-time
                 type: string
@@ -288,8 +301,9 @@ spec:
                         details about last transition.
                       type: string
                     status:
-                      description: Status is the status of the Task condition. Can
-                        be True or False.
+                      description: |-
+                        Status is the status of the Task condition.
+                        Can be True or False.
                       type: string
                     type:
                       description: Type of the Task condition.
