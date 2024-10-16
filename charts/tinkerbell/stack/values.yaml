@@ -83,20 +83,20 @@ stack:
 # See individual chart documentation for additional detail.
 
 smee:
-  image: reg.weinstocklabs.com/tinkerbell/smee:rbac
-  tinkWorkerImage: quay.io/tinkerbell/tink-worker
+  image: quay.io/tinkerbell/smee:v0.12.0
+  tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.10.0
   trustedProxies: []
   publicIP: *publicIP
 
 hegel:
-  image: quay.io/tinkerbell/hegel:sha-3ddcc60
+  image: quay.io/tinkerbell/hegel:v0.12.0
   trustedProxies: []
 
 rufio:
-  image: quay.io/tinkerbell/rufio:sha-6180ef3
+  image: quay.io/tinkerbell/rufio:v0.3.3
 
 tink:
   controller:
-    image: quay.io/tinkerbell/tink-controller:sha-8c7a9c89
+    image: quay.io/tinkerbell/tink-controller:v0.10.0
   server:
-    image: quay.io/tinkerbell/tink:sha-8c7a9c89
+    image: quay.io/tinkerbell/tink:v0.10.0
