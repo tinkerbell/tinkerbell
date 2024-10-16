@@ -1,6 +1,7 @@
 apiVersion: v2
 name: stack
 description: A Helm chart for Kubernetes
+icon: https://github.com/tinkerbell/artwork/blob/6f07de53d75cb8932dbc7d14201e038cf3a3b230/Tinkerbell-Icon-Dark.png
 
 # A chart can be either an 'application' or a 'library' chart.
 #
@@ -25,14 +26,14 @@ appVersion: "0.5.0"
 
 dependencies:
   - name: tink
-    version: "0.2.5"
+    version: "0.3.0"
     repository: "file://../tink"
   - name: smee
-    version: "0.4.1"
+    version: "0.5.0"
     repository: "file://../smee"
   - name: rufio
-    version: "0.2.10"
+    version: "0.3.0"
     repository: "file://../rufio"
   - name: hegel
-    version: "0.3.6"
+    version: "0.4.0"
     repository: "file://../hegel"

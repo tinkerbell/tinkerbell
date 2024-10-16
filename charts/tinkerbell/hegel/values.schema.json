@@ -1,0 +1,142 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "properties": {
+      "deploy": {
+        "type": "boolean"
+      },
+      "name": {
+        "type": "string"
+      },
+      "image": {
+        "type": "string"
+      },
+      "imagePullPolicy": {
+        "type": "string"
+      },
+      "replicas": {
+        "type": "integer"
+      },
+      "service": {
+        "type": "object",
+        "properties": {
+          "port": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "port"
+        ]
+      },
+      "deployment": {
+        "type": "object",
+        "properties": {
+          "port": {
+            "type": "integer"
+          },
+          "portName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "port",
+          "portName"
+        ]
+      },
+      "resources": {
+        "type": "object",
+        "properties": {
+          "limits": {
+            "type": "object",
+            "properties": {
+              "cpu": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "cpu",
+              "memory"
+            ]
+          },
+          "requests": {
+            "type": "object",
+            "properties": {
+              "cpu": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "cpu",
+              "memory"
+            ]
+          }
+        },
+        "required": [
+          "limits",
+          "requests"
+        ]
+      },
+      "rbac": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Role", "ClusterRole"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "bindingName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "bindingName"
+        ]
+      },
+      "nodeSelector": {
+        "type": "object"
+      },
+      "trustedProxies": {
+        "type": "array",
+        "items": {}
+      },
+      "singleNodeClusterConfig": {
+        "type": "object",
+        "properties": {
+          "controlPlaneTolerationsEnabled": {
+            "type": "boolean"
+          },
+          "nodeAffinityWeight": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "controlPlaneTolerationsEnabled",
+          "nodeAffinityWeight"
+        ]
+      }
+    },
+    "required": [
+      "deploy",
+      "name",
+      "image",
+      "imagePullPolicy",
+      "replicas",
+      "service",
+      "deployment",
+      "resources",
+      "rbac",
+      "nodeSelector",
+      "trustedProxies",
+      "singleNodeClusterConfig"
+    ]
+  }

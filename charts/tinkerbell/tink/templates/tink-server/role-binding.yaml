@@ -1,0 +1,17 @@
+{{- if .Values.server.deploy }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ printf "%sBinding" .Values.server.rbac.type }}
+metadata:
+  name: {{ .Values.server.rbac.bindingName }}
+  {{- if eq .Values.server.rbac.type "Role"  }}
+  namespace: {{ .Release.Namespace | quote }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: {{ .Values.server.rbac.type }}
+  name: {{ .Values.server.rbac.name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.server.name }}
+    namespace: {{ .Release.Namespace | quote }}
+{{- end }}

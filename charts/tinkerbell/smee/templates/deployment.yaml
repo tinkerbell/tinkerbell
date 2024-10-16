@@ -42,7 +42,9 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
             - -log-level={{ .Values.logLevel }}
+            {{- if eq .Values.rbac.type "Role"}}
             - -backend-kube-namespace={{ .Release.Namespace }}
+            {{- end }}
             - -dhcp-addr={{ printf "%v:%v" .Values.dhcp.ip .Values.dhcp.port }}
             - -dhcp-enabled={{ .Values.dhcp.enabled }}
             - -dhcp-tftp-port={{ .Values.dhcp.tftpPort }}

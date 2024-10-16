@@ -5,7 +5,7 @@ deploy: true
 name: smee
 
 # The image used to launch the container.
-image: quay.io/tinkerbell/smee:v0.12.0
+image: quay.io/tinkerbell/smee:v0.13.0
 imagePullPolicy: IfNotPresent
 
 # The number of pods to run.
@@ -19,9 +19,6 @@ resources:
   requests:
     cpu: 10m
     memory: 64Mi
-
-roleName: smee-role
-roleBindingName: smee-rolebinding
 
 deployment:
   strategy:
@@ -116,7 +113,7 @@ syslog:
   port: 514
 
 # The Tink Worker image passed to OSIE as a kernel arg for launching.
-tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.9.0
+tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.11.0
 
 
 # Additional arguments to pass to the smee container. Some arguments are already defined - refer
@@ -149,3 +146,8 @@ additionalVolumeMounts: [ ]
 #  - name: foo
 #    mountPath: "/etc/foo"
 #    readOnly: true
+
+rbac:
+  type: Role # or ClusterRole
+  name: smee-role # or smee-cluster-role
+  bindingName: smee-rolebinding # or smee-cluster-rolebinding

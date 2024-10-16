@@ -1,0 +1,19 @@
+{{- if .Values.deploy }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ .Values.rbac.type }}
+metadata:
+  name: {{ .Values.rbac.name }}
+  {{- if eq .Values.rbac.type "Role"  }}
+  namespace: {{ .Release.Namespace | quote }}
+  {{- end }}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["bmc.tinkerbell.org"]
+  resources: ["jobs", "jobs/status", "machines", "machines/status", "tasks", "tasks/status"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["bmc.tinkerbell.org"]
+  resources: ["jobs/finalizers", "machines/finalizers", "tasks/finalizers"]
+  verbs: ["update"]
+{{- end }}

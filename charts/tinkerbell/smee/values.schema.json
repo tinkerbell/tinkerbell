@@ -1,0 +1,403 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "properties": {
+      "deploy": {
+        "type": "boolean"
+      },
+      "name": {
+        "type": "string"
+      },
+      "image": {
+        "type": "string"
+      },
+      "imagePullPolicy": {
+        "type": "string"
+      },
+      "replicas": {
+        "type": "integer"
+      },
+      "resources": {
+        "type": "object",
+        "properties": {
+          "limits": {
+            "type": "object",
+            "properties": {
+              "cpu": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "cpu",
+              "memory"
+            ]
+          },
+          "requests": {
+            "type": "object",
+            "properties": {
+              "cpu": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "cpu",
+              "memory"
+            ]
+          }
+        },
+        "required": [
+          "limits",
+          "requests"
+        ]
+      },
+      "deployment": {
+        "type": "object",
+        "properties": {
+          "strategy": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          }
+        },
+        "required": [
+          "strategy"
+        ]
+      },
+      "logLevel": {
+        "type": "string"
+      },
+      "hostNetwork": {
+        "type": "boolean"
+      },
+      "nodeSelector": {
+        "type": "object"
+      },
+      "publicIP": {
+        "type": "string"
+      },
+      "dhcp": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "ip": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "ipForPacket": {
+            "type": "string"
+          },
+          "tftpIp": {
+            "type": "string"
+          },
+          "tftpPort": {
+            "type": "integer"
+          },
+          "syslogIp": {
+            "type": "string"
+          },
+          "httpIPXE": {
+            "type": "object",
+            "properties": {
+              "binaryUrl": {
+                "type": "object",
+                "properties": {
+                  "scheme": {
+                    "type": "string"
+                  },
+                  "host": {
+                    "type": "string"
+                  },
+                  "port": {
+                    "type": "integer"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "scheme",
+                  "host",
+                  "port",
+                  "path"
+                ]
+              },
+              "scriptUrl": {
+                "type": "object",
+                "properties": {
+                  "scheme": {
+                    "type": "string"
+                  },
+                  "host": {
+                    "type": "string"
+                  },
+                  "port": {
+                    "type": "integer"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "scheme",
+                  "host",
+                  "port",
+                  "path"
+                ]
+              }
+            },
+            "required": [
+              "binaryUrl",
+              "scriptUrl"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "name",
+          "mode",
+          "ip",
+          "port",
+          "ipForPacket",
+          "tftpIp",
+          "tftpPort",
+          "syslogIp",
+          "httpIPXE"
+        ]
+      },
+      "tftp": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ip": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "timeout": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "name",
+          "ip",
+          "port",
+          "timeout"
+        ]
+      },
+      "http": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ip": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "tinkServer": {
+            "type": "object",
+            "properties": {
+              "ip": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer"
+              },
+              "tls": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ip",
+              "port",
+              "tls"
+            ]
+          },
+          "osieUrl": {
+            "type": "object",
+            "properties": {
+              "scheme": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "scheme",
+              "host",
+              "port",
+              "path"
+            ]
+          },
+          "additionalKernelArgs": {
+            "type": "array",
+            "items": {}
+          },
+          "ipxeBinaryEnabled": {
+            "type": "boolean"
+          },
+          "ipxeScriptEnabled": {
+            "type": "boolean"
+          },
+          "trustedProxies": {
+            "type": "array",
+            "items": {}
+          }
+        },
+        "required": [
+          "enabled",
+          "name",
+          "ip",
+          "port",
+          "tinkServer",
+          "osieUrl",
+          "additionalKernelArgs",
+          "ipxeBinaryEnabled",
+          "ipxeScriptEnabled",
+          "trustedProxies"
+        ]
+      },
+      "syslog": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ip": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "name",
+          "ip",
+          "port"
+        ]
+      },
+      "tinkWorkerImage": {
+        "type": "string"
+      },
+      "additionalArgs": {
+        "type": "array",
+        "items": {}
+      },
+      "additionalEnv": {
+        "type": "array",
+        "items": {}
+      },
+      "singleNodeClusterConfig": {
+        "type": "object",
+        "properties": {
+          "controlPlaneTolerationsEnabled": {
+            "type": "boolean"
+          },
+          "nodeAffinityWeight": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "controlPlaneTolerationsEnabled",
+          "nodeAffinityWeight"
+        ]
+      },
+      "additionalVolumes": {
+        "type": "array",
+        "items": {}
+      },
+      "additionalVolumeMounts": {
+        "type": "array",
+        "items": {}
+      },
+      "rbac": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Role", "ClusterRole"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "bindingName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "bindingName"
+        ]
+      }
+    },
+    "required": [
+      "deploy",
+      "name",
+      "image",
+      "imagePullPolicy",
+      "replicas",
+      "resources",
+      "deployment",
+      "logLevel",
+      "hostNetwork",
+      "nodeSelector",
+      "publicIP",
+      "dhcp",
+      "tftp",
+      "http",
+      "syslog",
+      "tinkWorkerImage",
+      "additionalArgs",
+      "additionalEnv",
+      "singleNodeClusterConfig",
+      "additionalVolumes",
+      "additionalVolumeMounts",
+      "rbac"
+    ]
+  }

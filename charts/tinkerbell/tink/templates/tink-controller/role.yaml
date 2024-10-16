@@ -1,0 +1,46 @@
+{{- if .Values.controller.deploy }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ .Values.controller.rbac.type }}
+metadata:
+  name: {{ .Values.controller.rbac.name }}
+  {{- if eq .Values.controller.rbac.type "Role"  }}
+  namespace: {{ .Release.Namespace | quote }}
+  {{- end }}
+rules:
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - job
+  - job/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - tinkerbell.org
+  resources:
+  - hardware
+  - hardware/status
+  - templates
+  - templates/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - tinkerbell.org
+  resources:
+  - workflows
+  - workflows/status
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+{{- end }}

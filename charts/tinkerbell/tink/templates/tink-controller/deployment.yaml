@@ -23,11 +23,12 @@ spec:
       containers:
         - image: {{ .Values.controller.image }}
           imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
-          {{- if .Values.controller.args }}
-          args: 
+          args:
+          {{- if eq .Values.controller.rbac.type "Role" }}
+          - --namespace={{ .Release.Namespace }}
+          {{- end }}
           {{- range .Values.controller.args }}
             - {{ . }}
-          {{- end }}
           {{- end }}
           name: {{ .Values.controller.name }}
           resources:
