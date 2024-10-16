@@ -10,8 +10,8 @@ rules:
 - apiGroups:
   - bmc.tinkerbell.org
   resources:
-  - job
-  - job/status
+  - jobs
+  - jobs/status
   verbs:
   - create
   - delete
