@@ -1,0 +1,230 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "properties": {
+      "stack": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "service": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "type": {
+                "type": "string"
+              }
+            }
+          },
+          "selector": {
+            "type": "object",
+            "properties": {
+              "app": {
+                "type": "string"
+              }
+            }
+          },
+          "nodeSelector": {
+            "type": "object"
+          },
+          "deployment": {
+            "type": "object",
+            "properties": {
+              "strategy": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "clusterDomain": {
+            "type": "string"
+          },
+          "loadBalancerIP": {
+            "type": "string"
+          },
+          "lbClass": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "hook": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer"
+              },
+              "image": {
+                "type": "string"
+              },
+              "downloadsDest": {
+                "type": "string"
+              },
+              "downloadURL": {
+                "type": "string"
+              }
+            }
+          },
+          "kubevip": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "image": {
+                "type": "string"
+              },
+              "imagePullPolicy": {
+                "type": "string"
+              },
+              "roleName": {
+                "type": "string"
+              },
+              "roleBindingName": {
+                "type": "string"
+              },
+              "additionalEnv": {
+                "type": "array",
+                "items": {}
+              }
+            }
+          },
+          "relay": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "image": {
+                "type": "string"
+              },
+              "initImage": {
+                "type": "string"
+              },
+              "maxHopCount": {
+                "type": "integer"
+              },
+              "presentGiaddrAction": {
+                "type": "string"
+              },
+              "listenBroadcastTraffic": {
+                "type": "boolean"
+              },
+              "interfaceMode": {
+                "type": "string"
+              }
+            }
+          },
+          "singleNodeClusterConfig": {
+            "type": "object",
+            "properties": {
+              "controlPlaneTolerationsEnabled": {
+                "type": "boolean"
+              },
+              "nodeAffinityWeight": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "global": {
+        "type": "object",
+        "properties": {
+          "publicIP": {
+            "type": "string"
+          },
+          "rbac": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["Role", "ClusterRole"]
+              }
+            }
+          }
+        }
+      },
+      "smee": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string"
+          },
+          "tinkWorkerImage": {
+            "type": "string"
+          },
+          "trustedProxies": {
+            "type": "array",
+            "items": {}
+          },
+          "publicIP": {
+            "type": "string"
+          }
+        }
+      },
+      "hegel": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string"
+          },
+          "trustedProxies": {
+            "type": "array",
+            "items": {}
+          }
+        }
+      },
+      "rufio": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string"
+          }
+        }
+      },
+      "tink": {
+        "type": "object",
+        "properties": {
+          "controller": {
+            "type": "object",
+            "properties": {
+              "image": {
+                "type": "string"
+              }
+            }
+          },
+          "server": {
+            "type": "object",
+            "properties": {
+              "image": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }

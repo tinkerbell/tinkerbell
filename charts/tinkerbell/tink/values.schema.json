@@ -37,11 +37,7 @@
                   "memory": {
                     "type": "string"
                   }
-                },
-                "required": [
-                  "cpu",
-                  "memory"
-                ]
+                }
               },
               "requests": {
                 "type": "object",
@@ -52,17 +48,9 @@
                   "memory": {
                     "type": "string"
                   }
-                },
-                "required": [
-                  "cpu",
-                  "memory"
-                ]
+                }
               }
-            },
-            "required": [
-              "limits",
-              "requests"
-            ]
+            }
           },
           "tinkLeaderElectionRoleName": {
             "type": "string"
@@ -82,11 +70,7 @@
               "weight": {
                 "type": "integer"
               }
-            },
-            "required": [
-              "controlPlaneTolerationsEnabled",
-              "weight"
-            ]
+            }
           },
           "rbac": {
             "type": "object",
@@ -101,28 +85,9 @@
               "bindingName": {
                 "type": "string"
               }
-            },
-            "required": [
-              "type",
-              "name",
-              "bindingName"
-            ]
+            }
           }
-        },
-        "required": [
-          "deploy",
-          "name",
-          "image",
-          "imagePullPolicy",
-          "replicas",
-          "args",
-          "resources",
-          "tinkLeaderElectionRoleName",
-          "tinkLeaderElectionRoleBindingName",
-          "nodeSelector",
-          "singleNodeClusterConfig",
-          "rbac"
-        ]
+        }
       },
       "server": {
         "type": "object",
@@ -148,10 +113,7 @@
               "port": {
                 "type": "integer"
               }
-            },
-            "required": [
-              "port"
-            ]
+            }
           },
           "deployment": {
             "type": "object",
@@ -162,11 +124,7 @@
               "portName": {
                 "type": "string"
               }
-            },
-            "required": [
-              "port",
-              "portName"
-            ]
+            }
           },
           "resources": {
             "type": "object",
@@ -180,11 +138,7 @@
                   "memory": {
                     "type": "string"
                   }
-                },
-                "required": [
-                  "cpu",
-                  "memory"
-                ]
+                }
               },
               "requests": {
                 "type": "object",
@@ -195,17 +149,9 @@
                   "memory": {
                     "type": "string"
                   }
-                },
-                "required": [
-                  "cpu",
-                  "memory"
-                ]
+                }
               }
-            },
-            "required": [
-              "limits",
-              "requests"
-            ]
+            }
           },
           "nodeSelector": {
             "type": "object"
@@ -219,11 +165,7 @@
               "nodeAffinityWeight": {
                 "type": "integer"
               }
-            },
-            "required": [
-              "controlPlaneTolerationsEnabled",
-              "nodeAffinityWeight"
-            ]
+            }
           },
           "rbac": {
             "type": "object",
@@ -238,31 +180,9 @@
               "bindingName": {
                 "type": "string"
               }
-            },
-            "required": [
-              "type",
-              "name",
-              "bindingName"
-            ]
+            }
           }
-        },
-        "required": [
-          "deploy",
-          "name",
-          "image",
-          "imagePullPolicy",
-          "replicas",
-          "service",
-          "deployment",
-          "resources",
-          "nodeSelector",
-          "singleNodeClusterConfig",
-          "rbac"
-        ]
+        }
       }
-    },
-    "required": [
-      "controller",
-      "server"
-    ]
+    }
   }

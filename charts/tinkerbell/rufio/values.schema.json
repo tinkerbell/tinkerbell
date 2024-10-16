@@ -26,11 +26,7 @@
               "memory": {
                 "type": "string"
               }
-            },
-            "required": [
-              "cpu",
-              "memory"
-            ]
+            }
           },
           "limits": {
             "type": "object",
@@ -41,17 +37,9 @@
               "memory": {
                 "type": "string"
               }
-            },
-            "required": [
-              "cpu",
-              "memory"
-            ]
+            }
           }
-        },
-        "required": [
-          "requests",
-          "limits"
-        ]
+        }
       },
       "additionalArgs": {
         "type": "array",
@@ -81,11 +69,7 @@
           "nodeAffinityWeight": {
             "type": "integer"
           }
-        },
-        "required": [
-          "controlPlaneTolerationsEnabled",
-          "nodeAffinityWeight"
-        ]
+        }
       },
       "rbac": {
         "type": "object",
@@ -100,27 +84,7 @@
           "bindingName": {
             "type": "string"
           }
-        },
-        "required": [
-          "type",
-          "name",
-          "bindingName"
-        ]
+        }
       }
-    },
-    "required": [
-      "deploy",
-      "name",
-      "image",
-      "imagePullPolicy",
-      "resources",
-      "additionalArgs",
-      "serviceAccountName",
-      "rufioLeaderElectionRoleName",
-      "rufioLeaderElectionRoleBindingName",
-      "nodeSelector",
-      "hostNetwork",
-      "singleNodeClusterConfig",
-      "rbac"
-    ]
+    }
   }

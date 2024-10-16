@@ -1,4 +1,8 @@
 {{- if .Values.controller.deploy }}
+{{- $roleType := .Values.controller.rbac.type }}
+{{- if .Values.global }}
+{{- $roleType = coalesce .Values.global.rbac.type .Values.controller.rbac.type }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -24,7 +28,7 @@ spec:
         - image: {{ .Values.controller.image }}
           imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
           args:
-          {{- if eq .Values.controller.rbac.type "Role" }}
+          {{- if eq $roleType "Role" }}
           - --namespace={{ .Release.Namespace }}
           {{- end }}
           {{- range .Values.controller.args }}

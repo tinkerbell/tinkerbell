@@ -161,7 +161,7 @@ spec:
   {{- if .Values.stack.lbClass }}
   loadBalancerClass: {{ .Values.stack.lbClass }}
   {{- end }}
-  loadBalancerIP: {{ .Values.stack.loadBalancerIP }}
+  loadBalancerIP: {{ coalesce .Values.stack.loadBalancerIP .Values.global.publicIP }}
   externalTrafficPolicy: Local
   {{- end }}
   ports:

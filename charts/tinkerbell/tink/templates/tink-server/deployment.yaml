@@ -1,4 +1,8 @@
 {{- if .Values.server.deploy }}
+{{- $roleType := .Values.server.rbac.type }}
+{{- if .Values.global }}
+{{- $roleType = coalesce .Values.global.rbac.type .Values.server.rbac.type }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,7 +35,7 @@ spec:
       containers:
         - args:
             - --backend=kubernetes
-            {{- if eq .Values.server.rbac.type "Role"}}
+            {{- if eq $roleType "Role"}}
             - --kube-namespace={{ .Release.Namespace }}
             {{- end }}
             {{- range .Values.server.args }}

@@ -29,11 +29,7 @@
               "memory": {
                 "type": "string"
               }
-            },
-            "required": [
-              "cpu",
-              "memory"
-            ]
+            }
           },
           "requests": {
             "type": "object",
@@ -44,17 +40,9 @@
               "memory": {
                 "type": "string"
               }
-            },
-            "required": [
-              "cpu",
-              "memory"
-            ]
+            }
           }
-        },
-        "required": [
-          "limits",
-          "requests"
-        ]
+        }
       },
       "deployment": {
         "type": "object",
@@ -65,15 +53,9 @@
               "type": {
                 "type": "string"
               }
-            },
-            "required": [
-              "type"
-            ]
+            }
           }
-        },
-        "required": [
-          "strategy"
-        ]
+        }
       },
       "logLevel": {
         "type": "string"
@@ -135,13 +117,7 @@
                   "path": {
                     "type": "string"
                   }
-                },
-                "required": [
-                  "scheme",
-                  "host",
-                  "port",
-                  "path"
-                ]
+                }
               },
               "scriptUrl": {
                 "type": "object",
@@ -158,33 +134,11 @@
                   "path": {
                     "type": "string"
                   }
-                },
-                "required": [
-                  "scheme",
-                  "host",
-                  "port",
-                  "path"
-                ]
+                }
               }
-            },
-            "required": [
-              "binaryUrl",
-              "scriptUrl"
-            ]
+            }
           }
-        },
-        "required": [
-          "enabled",
-          "name",
-          "mode",
-          "ip",
-          "port",
-          "ipForPacket",
-          "tftpIp",
-          "tftpPort",
-          "syslogIp",
-          "httpIPXE"
-        ]
+        }
       },
       "tftp": {
         "type": "object",
@@ -204,14 +158,7 @@
           "timeout": {
             "type": "string"
           }
-        },
-        "required": [
-          "enabled",
-          "name",
-          "ip",
-          "port",
-          "timeout"
-        ]
+        }
       },
       "http": {
         "type": "object",
@@ -240,12 +187,7 @@
               "tls": {
                 "type": "boolean"
               }
-            },
-            "required": [
-              "ip",
-              "port",
-              "tls"
-            ]
+            }
           },
           "osieUrl": {
             "type": "object",
@@ -262,13 +204,7 @@
               "path": {
                 "type": "string"
               }
-            },
-            "required": [
-              "scheme",
-              "host",
-              "port",
-              "path"
-            ]
+            }
           },
           "additionalKernelArgs": {
             "type": "array",
@@ -284,19 +220,7 @@
             "type": "array",
             "items": {}
           }
-        },
-        "required": [
-          "enabled",
-          "name",
-          "ip",
-          "port",
-          "tinkServer",
-          "osieUrl",
-          "additionalKernelArgs",
-          "ipxeBinaryEnabled",
-          "ipxeScriptEnabled",
-          "trustedProxies"
-        ]
+        }
       },
       "syslog": {
         "type": "object",
@@ -313,13 +237,7 @@
           "port": {
             "type": "integer"
           }
-        },
-        "required": [
-          "enabled",
-          "name",
-          "ip",
-          "port"
-        ]
+        }
       },
       "tinkWorkerImage": {
         "type": "string"
@@ -341,11 +259,7 @@
           "nodeAffinityWeight": {
             "type": "integer"
           }
-        },
-        "required": [
-          "controlPlaneTolerationsEnabled",
-          "nodeAffinityWeight"
-        ]
+        }
       },
       "additionalVolumes": {
         "type": "array",
@@ -368,36 +282,7 @@
           "bindingName": {
             "type": "string"
           }
-        },
-        "required": [
-          "type",
-          "name",
-          "bindingName"
-        ]
+        }
       }
-    },
-    "required": [
-      "deploy",
-      "name",
-      "image",
-      "imagePullPolicy",
-      "replicas",
-      "resources",
-      "deployment",
-      "logLevel",
-      "hostNetwork",
-      "nodeSelector",
-      "publicIP",
-      "dhcp",
-      "tftp",
-      "http",
-      "syslog",
-      "tinkWorkerImage",
-      "additionalArgs",
-      "additionalEnv",
-      "singleNodeClusterConfig",
-      "additionalVolumes",
-      "additionalVolumeMounts",
-      "rbac"
-    ]
+    }
   }

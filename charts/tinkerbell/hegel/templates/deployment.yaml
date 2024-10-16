@@ -1,4 +1,10 @@
 {{- if .Values.deploy }}
+{{- $trustedProxies := .Values.trustedProxies }}
+{{- $roleType := .Values.rbac.type }}
+{{- if .Values.global }}
+{{- $trustedProxies = coalesce .Values.trustedProxies .Values.global.trustedProxies }}
+{{- $roleType = coalesce .Values.global.rbac.type .Values.rbac.type }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,7 +38,7 @@ spec:
         - args:
           - --backend=kubernetes
           - --http-addr=:{{ .Values.deployment.port }}
-          {{- if eq .Values.rbac.type "Role"}}
+          {{- if eq $roleType "Role"}}
           - --kubernetes-namespace={{ .Release.Namespace }}
           {{- end }}
           {{- range .Values.args }}
@@ -40,7 +46,7 @@ spec:
           {{- end }}
           env:
             - name: HEGEL_TRUSTED_PROXIES
-              value: {{ required "missing trustedProxies" ( join "," .Values.trustedProxies | quote ) }}
+              value: {{ required "missing trustedProxies" ( join "," $trustedProxies | quote ) }}
             {{- range $i, $env := .Values.env }}
             - name: {{ $env.name | quote }}
               value: {{ $env.value | quote }}

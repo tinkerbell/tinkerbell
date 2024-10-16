@@ -1,11 +1,19 @@
 {{- if .Values.deploy }}
-{{- $_ := set .Values.dhcp "syslogIp" (default .Values.publicIP .Values.dhcp.syslogIp) }}
-{{- $_ := set .Values.dhcp "ipForPacket" (default .Values.publicIP .Values.dhcp.ipForPacket) }}
-{{- $_ := set .Values.dhcp "tftpIp" (default .Values.publicIP .Values.dhcp.tftpIp) }}
-{{- $_ := set .Values.dhcp.httpIPXE.binaryUrl "host" (default .Values.publicIP .Values.dhcp.httpIPXE.binaryUrl.host) }}
-{{- $_ := set .Values.dhcp.httpIPXE.scriptUrl "host" (default .Values.publicIP .Values.dhcp.httpIPXE.scriptUrl.host) }}
-{{- $_ := set .Values.http.tinkServer "ip" (default .Values.publicIP .Values.http.tinkServer.ip) }}
-{{- $_ := set .Values.http.osieUrl "host" (default .Values.publicIP .Values.http.osieUrl.host) }}
+{{- $publicIP := .Values.publicIP }}
+{{- $trustedProxies := .Values.trustedProxies }}
+{{- $roleType := .Values.rbac.type }}
+{{- if .Values.global }}
+{{- $publicIP = coalesce .Values.publicIP .Values.global.publicIP }}
+{{- $trustedProxies = coalesce .Values.trustedProxies .Values.global.trustedProxies }}
+{{- $roleType = coalesce .Values.global.rbac.type .Values.rbac.type }}
+{{- end }}
+{{- $_ := set .Values.dhcp "syslogIp" (default $publicIP .Values.dhcp.syslogIp) }}
+{{- $_ := set .Values.dhcp "ipForPacket" (default $publicIP .Values.dhcp.ipForPacket) }}
+{{- $_ := set .Values.dhcp "tftpIp" (default $publicIP .Values.dhcp.tftpIp) }}
+{{- $_ := set .Values.dhcp.httpIPXE.binaryUrl "host" (default $publicIP .Values.dhcp.httpIPXE.binaryUrl.host) }}
+{{- $_ := set .Values.dhcp.httpIPXE.scriptUrl "host" (default $publicIP .Values.dhcp.httpIPXE.scriptUrl.host) }}
+{{- $_ := set .Values.http.tinkServer "ip" (default $publicIP .Values.http.tinkServer.ip) }}
+{{- $_ := set .Values.http.osieUrl "host" (default $publicIP .Values.http.osieUrl.host) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -42,7 +50,7 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
             - -log-level={{ .Values.logLevel }}
-            {{- if eq .Values.rbac.type "Role"}}
+            {{- if eq $roleType "Role"}}
             - -backend-kube-namespace={{ .Release.Namespace }}
             {{- end }}
             - -dhcp-addr={{ printf "%v:%v" .Values.dhcp.ip .Values.dhcp.port }}
@@ -62,7 +70,7 @@ spec:
             - -osie-url={{include "urlJoiner" (dict "urlDict" .Values.http.osieUrl)}}
             - -tink-server={{ printf "%v:%v" .Values.http.tinkServer.ip .Values.http.tinkServer.port }}
             - -tink-server-tls={{ .Values.http.tinkServer.tls }}
-            - -trusted-proxies={{ required "missing trustedProxies" ( join "," .Values.trustedProxies ) }}
+            - -trusted-proxies={{ required "missing trustedProxies" ( join "," $trustedProxies ) }}
             - -syslog-enabled={{ .Values.syslog.enabled }}
             - -ipxe-script-patch={{ .Values.ipxeScriptPatch }}
             - -tftp-enabled={{ .Values.tftp.enabled }}
