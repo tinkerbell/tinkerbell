@@ -10,6 +10,11 @@ import (
 type RedfishOptions struct {
 	// Port that redfish will use for calls.
 	Port int `json:"port"`
+	// UseBasicAuth for redfish calls. The default is false which means token based auth is used.
+	UseBasicAuth bool `json:"useBasicAuth"`
+	// SystemName is the name of the system to use for redfish calls.
+	// With redfish implementations that manage multiple systems via a single endpoint, this allows for specifying the system to manage.
+	SystemName string `json:"systemName"`
 }
 
 // IPMITOOLOptions contains the ipmitool provider specific options.

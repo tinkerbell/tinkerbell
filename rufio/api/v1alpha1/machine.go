@@ -55,19 +55,19 @@ type MachineSpec struct {
 type ProviderOptions struct {
 	// IntelAMT contains the options to customize the IntelAMT provider.
 	// +optional
-	IntelAMT *IntelAMTOptions `json:"intelAMT"`
+	IntelAMT *IntelAMTOptions `json:"intelAMT,omitempty"`
 
 	// IPMITOOL contains the options to customize the Ipmitool provider.
 	// +optional
-	IPMITOOL *IPMITOOLOptions `json:"ipmitool"`
+	IPMITOOL *IPMITOOLOptions `json:"ipmitool,omitempty"`
 
 	// Redfish contains the options to customize the Redfish provider.
 	// +optional
-	Redfish *RedfishOptions `json:"redfish"`
+	Redfish *RedfishOptions `json:"redfish,omitempty"`
 
 	// RPC contains the options to customize the RPC provider.
 	// +optional
-	RPC *RPCOptions `json:"rpc"`
+	RPC *RPCOptions `json:"rpc,omitempty"`
 }
 
 // Connection contains connection data for a Baseboard Management Controller.
