@@ -82,7 +82,6 @@ helm upgrade stack-release stack/ --namespace tink-system --wait
 | `stack.hook.name` | Name for the Hook artifacts server | `hook-files` |
 | `stack.hook.port` | Port to use for the Hook artifacts server | `8080` |
 | `stack.hook.image` | Image to use for downloading the Hook artifacts | `alpine` |
-| `stack.hook.downloadsDest` | The directory on disk to where Hook artifacts will downloaded  | `/opt/hook` |
 | `stack.hook.downloadURL` | The base URL where all Hook tarballs and checksum.txt file exist for downloading | `https://github.com/tinkerbell/hook/releases/download/latest` |
 
 ### Load Balancer Parameters (kube-vip)
