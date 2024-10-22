@@ -6,7 +6,7 @@ toolchain go1.22.2
 
 require (
 	dario.cat/mergo v1.0.1
-	github.com/bmc-toolbox/bmclib/v2 v2.3.3-0.20241009101203-eba5356884bf
+	github.com/bmc-toolbox/bmclib/v2 v2.3.4-0.20241022160847-8a5f5a1a243c
 	github.com/ccoveille/go-safecast v1.1.0
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zerologr v1.2.3
