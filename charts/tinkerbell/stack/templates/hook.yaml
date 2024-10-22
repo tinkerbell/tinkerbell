@@ -9,52 +9,63 @@ data:
   entrypoint.sh: |-
     #!/usr/bin/env bash
     # This script is designed to download the Hook artifacts.
-    set -euxo pipefail
-    cd /output
-    rm -f *.tar.gz checksum.txt vmlinuz* initramfs*
-    base_loc="{{ .Values.stack.hook.downloadURL }}"
-    files="$base_loc/hook_aarch64.tar.gz $base_loc/hook_x86_64.tar.gz $base_loc/checksum.txt"
-    tmp_dir=$(mktemp -d)
-    for f in ${files}; do
-      echo "${f}"
-      wget -P "${tmp_dir}" "${f}"
-    done
-    # releases of HookOS > 0.8.1 provide more binaries.
-    # We only need the hook_aarch64 and hook_x86_64 binaries so we filter out the rest.
-    (cd "${tmp_dir}" && sed -i '/hook_x86_64\|hook_aarch64/!d' checksum.txt && sha512sum -c checksum.txt)
-    mv "${tmp_dir}"/checksum.txt .
-    for f in ${tmp_dir}/*.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "${f}" && rm -f "${f}"; done
-    rm -rf "${tmp_dir}"
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: download-hook
-  namespace: {{ .Release.Namespace }}
-spec:
-  backoffLimit: 50
-  template:
-    metadata:
-      labels:
-        app: download-hook
-    spec:
-      containers:
-        - name: download-hook
-          image: {{ .Values.stack.hook.image }}
-          command: ["/script/entrypoint.sh"]
-          volumeMounts:
-            - mountPath: /output
-              name: hook-artifacts
-            - mountPath: /script
-              name: configmap-volume
-      restartPolicy: OnFailure
-      volumes:
-        - name: hook-artifacts
-          hostPath:
-            path: {{ .Values.stack.hook.downloadsDest }}
-            type: DirectoryOrCreate
-        - name: configmap-volume
-          configMap:
-            defaultMode: 0700
-            name: download-hook
+    set -x
+
+    function run_checksum_check() {
+      local checksum_file=$1
+
+      # releases of HookOS > 0.8.1 provided more binaries than we general want here.
+      # We only need the hook_aarch64 and hook_x86_64 binaries so we filter out the rest.
+      base_l="$(dirname ${checksum_file})"
+      (cd "${base_l}" && sed -i '/hook_x86_64\|hook_aarch64/!d' checksum.txt && sha512sum -c checksum.txt)
+      if [ $? -ne 0 ]; then
+        return 1
+      fi
+      return 0
+    }
+
+    function main() {
+        # 1. Download the checksum.txt file
+        # 2. Check the checksums for files in the checksum.txt file
+        # 3. If the checksums match, sleep and wait for signals
+        # 4. If the checksums do not match, download the files again
+        # 5. Check the checksums again
+        local base_loc="$1"
+        local output_dir="$2"
+
+        # 1. Download the checksum.txt file
+        wget -O "${output_dir}/checksum.txt" "${base_loc}/checksum.txt"
+        # 2. Check the checksums for files in the checksum.txt file
+        run_checksum_check "${output_dir}/checksum.txt"
+        if [[ $? -eq 0 ]]; then
+        # 3. If the checksums match, sleep and wait for signals
+            sleep infinity & PID=$!
+            trap "kill $PID" INT TERM
+            wait $PID
+            return 0
+        fi
+
+        # 4. If the checksums do not match, download the files again
+        files="$base_loc/hook_aarch64.tar.gz $base_loc/hook_x86_64.tar.gz"
+        for f in ${files}; do
+          echo "${f}"
+          wget -P "${output_dir}" "${f}"
+        done
+
+        run_checksum_check "${output_dir}/checksum.txt"
+        if [[ $? -eq 0 ]]; then
+        # 3. If the checksums match, sleep and wait for signals
+            cd "${output_dir}"
+            for f in ${output_dir}/*.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "${f}"; done
+            sleep infinity & PID=$!
+            trap "kill $PID" INT TERM
+            wait $PID
+            return 0
+        fi
+
+        echo "Checksums do not match. Exiting..."
+        return 1
+    }
+
+    main "{{ .Values.stack.hook.downloadURL }}" "/output"
 {{- end }}
