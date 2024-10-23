@@ -91,8 +91,6 @@ spec:
                           port:
                             description: Port that intelAMT will use for calls.
                             type: integer
-                        required:
-                        - port
                         type: object
                       ipmitool:
                         description: IPMITOOL contains the options to customize the
@@ -121,10 +119,6 @@ spec:
                             description: UseBasicAuth for redfish calls. The default
                               is false which means token based auth is used.
                             type: boolean
-                        required:
-                        - port
-                        - systemName
-                        - useBasicAuth
                         type: object
                       rpc:
                         description: RPC contains the options to customize the RPC
