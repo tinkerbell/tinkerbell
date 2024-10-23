@@ -64,6 +64,12 @@ func (b BMCOptions) Translate(host string) []bmclib.Option {
 		if b.Redfish.Port != 0 {
 			o = append(o, bmclib.WithRedfishPort(strconv.Itoa(b.Redfish.Port)))
 		}
+		if b.Redfish.UseBasicAuth {
+			o = append(o, bmclib.WithRedfishUseBasicAuth(true))
+		}
+		if b.Redfish.SystemName != "" {
+			o = append(o, bmclib.WithRedfishSystemName(b.Redfish.SystemName))
+		}
 	}
 
 	// ipmitool options
