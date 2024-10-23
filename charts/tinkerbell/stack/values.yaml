@@ -96,20 +96,20 @@ stack:
 # See individual chart documentation for additional detail.
 
 smee:
-  image: quay.io/tinkerbell/smee:v0.13.0
-  tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.11.0
+  image: quay.io/tinkerbell/smee:v0.14.0
+  tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.12.0
 
 hegel:
-  image: quay.io/tinkerbell/hegel:v0.13.0
+  image: quay.io/tinkerbell/hegel:v0.14.0
 
 rufio:
-  image: quay.io/tinkerbell/rufio:v0.4.1
+  image: quay.io/tinkerbell/rufio:v0.5.0
 
 tink:
   controller:
-    image: quay.io/tinkerbell/tink-controller:v0.11.0
+    image: quay.io/tinkerbell/tink-controller:v0.12.0
   server:
-    image: quay.io/tinkerbell/tink:v0.11.0
+    image: quay.io/tinkerbell/tink:v0.12.0
 
 # -- Global values
 global:
