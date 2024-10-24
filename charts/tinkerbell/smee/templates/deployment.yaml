@@ -120,9 +120,17 @@ spec:
       {{- if .Values.hostNetwork }}
       hostNetwork: true
       {{- end }}
-      {{- if .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      {{- if or .Values.deployment.tolerations .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       tolerations:
+      {{- .Values.deployment.tolerations | toYaml | nindent 8 }}
+      {{- if .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       {{- include "singleNodeClusterConfig" . | indent 6 }}
+      {{- end }}
+      {{- end }}
+      {{- if .Values.deployment.affinity }}
+      affinity:
+        {{- .Values.deployment.affinity | toYaml | nindent 8 }}
+      {{- else if .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       affinity:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
