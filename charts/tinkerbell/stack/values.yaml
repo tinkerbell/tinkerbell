@@ -4,6 +4,7 @@ stack:
   service:
     enabled: true
     type: LoadBalancer
+    annotations: {}
   selector:
     app: tink-stack
   nodeSelector: {}
