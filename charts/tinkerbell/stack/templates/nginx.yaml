@@ -48,8 +48,9 @@ spec:
         command: ["/bin/bash", "-xeuc"]
         args:
         - |
-          POD_NAMESERVER=$(awk '/nameserver/ {print $2}' /etc/resolv.conf) \
-            envsubst '$POD_NAMESERVER' \
+          export POD_NAMESERVER=$(awk '/nameserver/ {print $2}' /etc/resolv.conf);
+          [[ $POD_NAMESERVER == *.* ]] || POD_NAMESERVER="[$POD_NAMESERVER]";
+          envsubst '$POD_NAMESERVER' \
             </tmp/nginx.conf.template \
             >/etc/nginx/nginx.conf
           exec nginx -g 'daemon off;'
