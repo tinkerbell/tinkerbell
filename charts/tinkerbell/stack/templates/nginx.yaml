@@ -169,6 +169,10 @@ metadata:
     app: {{ .Values.stack.name }}
   name: {{ .Values.stack.name }}
   namespace: {{ .Release.Namespace | quote }}
+  annotations:
+    {{- with .Values.stack.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   type: {{ .Values.stack.service.type }}
   {{- if eq .Values.stack.service.type "LoadBalancer" }}
