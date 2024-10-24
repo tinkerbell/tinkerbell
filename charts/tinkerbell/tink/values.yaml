@@ -1,7 +1,7 @@
 controller:
   deploy: true
   name: tink-controller
-  image: quay.io/tinkerbell/tink-controller:v0.12.0
+  image: quay.io/tinkerbell/tink-controller:v0.12.1
   imagePullPolicy: IfNotPresent
   replicas: 1
   args: []
@@ -27,7 +27,7 @@ controller:
 server:
   deploy: true
   name: tink-server
-  image: quay.io/tinkerbell/tink:v0.12.0
+  image: quay.io/tinkerbell/tink:v0.12.1
   imagePullPolicy: IfNotPresent
   replicas: 1
   service:
