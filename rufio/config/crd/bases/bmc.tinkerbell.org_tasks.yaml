@@ -103,6 +103,18 @@ spec:
                             description: Port that ipmitool will use for calls.
                             type: integer
                         type: object
+                      preferredOrder:
+                        description: |-
+                          PreferredOrder allows customizing the order that BMC providers are called.
+                          Providers added to this list will be moved to the front of the default order.
+                          Provider names are case insensitive.
+                          The default order is: ipmitool, asrockrack, gofish, intelamt, dell, supermicro, openbmc.
+                        items:
+                          description: ProviderName is the bmclib specific provider
+                            name. Names are case insensitive.
+                          pattern: (?i)^(ipmitool|asrockrack|gofish|IntelAMT|dell|supermicro|openbmc)$
+                          type: string
+                        type: array
                       redfish:
                         description: Redfish contains the options to customize the
                           Redfish provider.
