@@ -1,8 +1,10 @@
 {{- if .Values.deploy }}
 {{- $trustedProxies := .Values.trustedProxies }}
 {{- $roleType := .Values.rbac.type }}
+{{- $nodeSelector := .Values.nodeSelector }}
 {{- if .Values.global }}
 {{- $trustedProxies = coalesce .Values.trustedProxies .Values.global.trustedProxies }}
+{{- $nodeSelector = coalesce .Values.nodeSelector .Values.global.nodeSelector }}
 {{- $roleType = coalesce .Values.global.rbac.type .Values.rbac.type }}
 {{- end }}
 apiVersion: apps/v1
@@ -30,10 +32,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.nodeSelector }}
-      nodeSelector: 
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       containers:
         - args:
           - --backend=kubernetes
@@ -68,6 +66,10 @@ spec:
       {{- if .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       tolerations:
       {{- include "singleNodeClusterConfig" . | indent 6 }}
+      {{- with (default .Values.global.nodeSelector .Values.nodeSelector) }}
+      nodeSelector:
+      {{ toYaml . | nindent 8 }}
+      {{- end }}
       affinity:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

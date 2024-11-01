@@ -1,7 +1,9 @@
 {{- if .Values.server.deploy }}
 {{- $roleType := .Values.server.rbac.type }}
+{{- $nodeSelector := .Values.server.nodeSelector }}
 {{- if .Values.global }}
 {{- $roleType = coalesce .Values.global.rbac.type .Values.server.rbac.type }}
+{{- $nodeSelector = coalesce .Values.server.nodeSelector .Values.global.nodeSelector }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment
@@ -28,10 +30,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.server.nodeSelector }}
-      nodeSelector: 
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       containers:
         - args:
             - --backend=kubernetes
@@ -55,6 +53,10 @@ spec:
               cpu: {{ .Values.server.resources.requests.cpu }}
               memory: {{ .Values.server.resources.requests.memory }}
       serviceAccountName: {{ .Values.server.name }}
+      {{- with (default .Values.global.nodeSelector .Values.server.nodeSelector) }}
+      nodeSelector:
+      {{ toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.server.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       tolerations:
       {{- include "singleNodeClusterConfig" . | indent 6 }}

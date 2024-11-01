@@ -2,6 +2,7 @@
 {{- $sourceInterface := .Values.stack.relay.sourceInterface -}}
 {{- $ifaceModes := dict "ipvlan" "" "macvlan" "" -}}
 {{- $dhcpInterfaceType := .Values.stack.relay.interfaceMode -}}
+{{- $nodeSelector := .Values.stack.nodeSelector }}
 {{- if not (hasKey $ifaceModes $dhcpInterfaceType) -}}
   {{- fail "invalid value at .stack.relay.interfaceMode: valid modes include ipvlan and macvlan" -}}
 {{- end -}}
@@ -12,6 +13,9 @@
 {{- end -}}
 {{- if not $listenBroadcast -}}
   {{- $dhcpInterfaceName = "eth0" -}}
+{{- end -}}
+{{- if .Values.global }}
+{{- $nodeSelector = coalesce .Values.stack.nodeSelector .Values.global.nodeSelector }}
 {{- end -}}
 {{- $claimName := coalesce .Values.stack.hook.persistence.existingClaim .Values.stack.hook.persistence.localPersistentVolume.name }}
 apiVersion: apps/v1
@@ -152,6 +156,10 @@ spec:
               mountPath: "/script"
         securityContext:
           privileged: true
+      {{- end }}
+      {{- with (default .Values.global.nodeSelector .Values.stack.nodeSelector) }}
+      nodeSelector:
+      {{ toYaml . | nindent 8 }}
       {{- end }}
       {{- if .Values.stack.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       tolerations:

@@ -119,3 +119,4 @@ global:
   trustedProxies: []
   rbac:
     type: Role
+  nodeSelector: {} 
