@@ -72,7 +72,7 @@ spec:
             memory: {{ .Values.resources.requests.memory }}
       serviceAccountName: {{ .Values.serviceAccountName }}
       terminationGracePeriodSeconds: 10
-      {{- with (default .Values.global.nodeSelector .Values.nodeSelector) }}
+      {{- with $nodeSelector }}
       nodeSelector:
       {{ toYaml . | nindent 8 }}
       {{- end }}

@@ -157,7 +157,7 @@ spec:
         securityContext:
           privileged: true
       {{- end }}
-      {{- with (default .Values.global.nodeSelector .Values.stack.nodeSelector) }}
+      {{- with $nodeSelector }}
       nodeSelector:
       {{ toYaml . | nindent 8 }}
       {{- end }}

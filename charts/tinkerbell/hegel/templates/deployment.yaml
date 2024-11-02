@@ -63,13 +63,13 @@ spec:
               cpu: {{ .Values.resources.requests.cpu }}
               memory: {{ .Values.resources.requests.memory }}
       serviceAccountName: {{ .Values.name }}
-      {{- if .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
-      tolerations:
-      {{- include "singleNodeClusterConfig" . | indent 6 }}
-      {{- with (default .Values.global.nodeSelector .Values.nodeSelector) }}
+      {{- with $nodeSelector }}
       nodeSelector:
       {{ toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      tolerations:
+      {{- include "singleNodeClusterConfig" . | indent 6 }}
       affinity:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

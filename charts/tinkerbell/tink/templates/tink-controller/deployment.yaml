@@ -41,7 +41,7 @@ spec:
               cpu: {{ .Values.controller.resources.requests.cpu }}
               memory: {{ .Values.controller.resources.requests.memory }}
       serviceAccountName: {{ .Values.controller.name }}
-      {{- with (default .Values.global.nodeSelector .Values.controller.nodeSelector) }}
+      {{- with $nodeSelector }}
       nodeSelector:
       {{ toYaml . | nindent 8 }}
       {{- end }}

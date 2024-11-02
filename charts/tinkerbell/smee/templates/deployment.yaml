@@ -118,7 +118,7 @@ spec:
       {{- if .Values.hostNetwork }}
       hostNetwork: true
       {{- end }}
-      {{- with (default .Values.global.nodeSelector .Values.nodeSelector) }}
+      {{- with $nodeSelector }}
       nodeSelector:
       {{ toYaml . | nindent 8 }}
       {{- end }}

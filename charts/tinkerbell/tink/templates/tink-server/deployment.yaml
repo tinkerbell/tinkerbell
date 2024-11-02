@@ -53,7 +53,7 @@ spec:
               cpu: {{ .Values.server.resources.requests.cpu }}
               memory: {{ .Values.server.resources.requests.memory }}
       serviceAccountName: {{ .Values.server.name }}
-      {{- with (default .Values.global.nodeSelector .Values.server.nodeSelector) }}
+      {{- with $nodeSelector }}
       nodeSelector:
       {{ toYaml . | nindent 8 }}
       {{- end }}
