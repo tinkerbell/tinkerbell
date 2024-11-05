@@ -2,10 +2,12 @@
 {{- $publicIP := .Values.publicIP }}
 {{- $trustedProxies := .Values.trustedProxies }}
 {{- $roleType := .Values.rbac.type }}
+{{- $nodeSelector := .Values.nodeSelector }}
 {{- if .Values.global }}
 {{- $publicIP = coalesce .Values.publicIP .Values.global.publicIP }}
 {{- $trustedProxies = coalesce .Values.trustedProxies .Values.global.trustedProxies }}
 {{- $roleType = coalesce .Values.global.rbac.type .Values.rbac.type }}
+{{- $nodeSelector = coalesce .Values.nodeSelector .Values.global.nodeSelector }}
 {{- end }}
 {{- $_ := set .Values.dhcp "syslogIp" (default $publicIP .Values.dhcp.syslogIp) }}
 {{- $_ := set .Values.dhcp "ipForPacket" (default $publicIP .Values.dhcp.ipForPacket) }}
@@ -41,10 +43,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.nodeSelector }}
-      nodeSelector: 
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       containers:
         - image: {{ .Values.image }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
@@ -117,6 +115,10 @@ spec:
       serviceAccountName: {{ .Values.name }}
       {{- if .Values.hostNetwork }}
       hostNetwork: true
+      {{- end }}
+      {{- with $nodeSelector }}
+      nodeSelector:
+      {{ toYaml . | nindent 8 }}
       {{- end }}
       {{- if or .Values.deployment.tolerations .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       tolerations:

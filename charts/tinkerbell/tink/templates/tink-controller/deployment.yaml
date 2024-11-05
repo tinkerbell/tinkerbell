@@ -1,7 +1,9 @@
 {{- if .Values.controller.deploy }}
 {{- $roleType := .Values.controller.rbac.type }}
+{{- $nodeSelector := .Values.controller.nodeSelector }}
 {{- if .Values.global }}
 {{- $roleType = coalesce .Values.global.rbac.type .Values.controller.rbac.type }}
+{{- $nodeSelector = coalesce .Values.controller.nodeSelector .Values.global.nodeSelector }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment
@@ -20,10 +22,6 @@ spec:
       labels:
         app: {{ .Values.controller.name }}
     spec:
-      {{- with .Values.controller.nodeSelector }}
-      nodeSelector: 
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       containers:
         - image: {{ .Values.controller.image }}
           imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
@@ -43,6 +41,10 @@ spec:
               cpu: {{ .Values.controller.resources.requests.cpu }}
               memory: {{ .Values.controller.resources.requests.memory }}
       serviceAccountName: {{ .Values.controller.name }}
+      {{- with $nodeSelector }}
+      nodeSelector:
+      {{ toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.controller.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       tolerations:
       {{- include "singleNodeClusterConfig" . | indent 6 }}

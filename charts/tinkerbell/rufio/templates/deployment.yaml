@@ -1,7 +1,9 @@
 {{- if .Values.deploy }}
 {{- $roleType := .Values.rbac.type }}
+{{- $nodeSelector := .Values.nodeSelector }}
 {{- if .Values.global }}
 {{- $roleType = coalesce .Values.global.rbac.type .Values.rbac.type }}
+{{- $nodeSelector = coalesce .Values.nodeSelector .Values.global.nodeSelector }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment
@@ -30,10 +32,6 @@ spec:
       {{- if .Values.hostNetwork }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      {{- end }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector: 
-        {{- toYaml . | nindent 8 }}
       {{- end }}
       securityContext:
         runAsNonRoot: true
@@ -74,6 +72,10 @@ spec:
             memory: {{ .Values.resources.requests.memory }}
       serviceAccountName: {{ .Values.serviceAccountName }}
       terminationGracePeriodSeconds: 10
+      {{- with $nodeSelector }}
+      nodeSelector:
+      {{ toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       tolerations:
       {{- include "singleNodeClusterConfig" . | indent 6 }}
