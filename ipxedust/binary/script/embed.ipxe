@@ -26,7 +26,7 @@ set retry-max:int32 10
 set count:int32 1
 :retry-loop1
 echo trying dhcp ( attempt ${count}/${retry-max} )
-dhcp net${idx} && goto done1 || iseq ${count} ${retry-max} || inc count && goto retry-loop1
+dhcp net${idx} && goto done1 || iseq ${count} ${retry-max} && goto done1 || inc count && goto retry-loop1
 :done1
 autoboot net${idx} || exit
 
@@ -35,7 +35,7 @@ set retry-max:int32 10
 set count:int32 1
 :retry-loop2
 echo trying dhcp ( attempt ${count}/${retry-max} )
-dhcp && goto done2 || iseq ${count} ${retry-max} || inc count && goto retry-loop2
+dhcp && goto done2 || iseq ${count} ${retry-max} && goto done2 || inc count && goto retry-loop2
 :done2
 autoboot || exit
 
