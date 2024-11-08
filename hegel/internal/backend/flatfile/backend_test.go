@@ -73,7 +73,7 @@ func TestGetEC2Instance(t *testing.T) {
 				}
 
 				if !cmp.Equal(&ec2Instance, tc.ExpectedInstance) {
-					t.Errorf(cmp.Diff(ec2Instance, tc.ExpectedInstance))
+					t.Error(cmp.Diff(ec2Instance, tc.ExpectedInstance))
 				}
 			}
 		})

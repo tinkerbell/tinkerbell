@@ -16,6 +16,7 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
+    - copyloopvar
     - contextcheck
     - cyclop
     - dogsled
@@ -26,7 +27,6 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    - exportloopref
     - forcetypeassert
     - gci
     - gocognit
@@ -111,9 +111,6 @@ linters-settings:
       - name: var-naming
       - name: unconditional-recursion
       - name: waitgroup-by-value
-
-  unused:
-    go: "1.21"
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source

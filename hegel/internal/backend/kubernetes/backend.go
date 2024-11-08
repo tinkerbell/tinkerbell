@@ -162,7 +162,7 @@ type listerClient interface {
 func toEC2Instance(hw tinkv1.Hardware) ec2.Instance {
 	var i ec2.Instance
 
-	if hw.Spec.Metadata.Instance != nil {
+	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil {
 		i.Metadata.InstanceID = hw.Spec.Metadata.Instance.ID
 		i.Metadata.Hostname = hw.Spec.Metadata.Instance.Hostname
 		i.Metadata.LocalHostname = hw.Spec.Metadata.Instance.Hostname
@@ -195,7 +195,7 @@ func toEC2Instance(hw tinkv1.Hardware) ec2.Instance {
 		}
 	}
 
-	if hw.Spec.Metadata.Facility != nil {
+	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Facility != nil {
 		i.Metadata.Plan = hw.Spec.Metadata.Facility.PlanSlug
 		i.Metadata.Facility = hw.Spec.Metadata.Facility.FacilityCode
 	}
