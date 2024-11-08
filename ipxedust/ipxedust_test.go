@@ -150,7 +150,7 @@ func TestServeHTTP(t *testing.T) {
 	}{
 		{
 			name:   "success Server Closed",
-			attr:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 9090)},
+			attr:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 32456)},
 			nilErr: false,
 		},
 		{
@@ -164,7 +164,7 @@ func TestServeHTTP(t *testing.T) {
 			c := &Server{TFTP: tt.attr, Log: logr.Discard()}
 			addr := tt.attr.Addr.String()
 			if (tt.attr.Addr == netip.AddrPort{}) {
-				addr = netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 9090).String()
+				addr = netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 32456).String()
 			}
 			conn, err := net.Listen("tcp", addr)
 			if err != nil {
@@ -226,7 +226,7 @@ func TestServeTFTP(t *testing.T) {
 	}{
 		{
 			name:   "success Server Closed",
-			attr:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 9090)},
+			attr:   ServerSpec{Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 32456)},
 			nilErr: true,
 		},
 		{
