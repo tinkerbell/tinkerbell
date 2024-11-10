@@ -30,7 +30,7 @@ spec:
           - --namespace={{ .Release.Namespace }}
           {{- end }}
           {{- range .Values.controller.args }}
-            - {{ . }}
+          - {{ . }}
           {{- end }}
           name: {{ .Values.controller.name }}
           resources:
