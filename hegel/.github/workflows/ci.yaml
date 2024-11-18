@@ -42,7 +42,7 @@ jobs:
         run: go test -coverprofile=coverage.txt ./...
 
       - name: Upload codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -63,7 +63,7 @@ jobs:
         run: make test-integration
 
       - name: Upload codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -108,7 +108,7 @@ jobs:
         run: make test-e2e
 
       - name: Upload codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
