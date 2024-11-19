@@ -118,6 +118,7 @@ spec:
       - name: download-hook
         image: {{ .Values.stack.hook.image }}
         command: ["/script/entrypoint.sh"]
+        args: ["--url", "{{ .Values.stack.hook.downloadURL }}", "--output-dir", "/output", "--arch", "{{ .Values.stack.hook.arch }}", "--version", "{{ .Values.stack.hook.kernelVersion }}", "--ext", "{{ .Values.stack.hook.extension }}"]
         volumeMounts:
           - mountPath: /output
             name: hook-artifacts
