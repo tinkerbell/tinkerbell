@@ -96,7 +96,7 @@ data:
         local out_dir="$3"
         
         while IFS= read -r line; do
-            wget -q -O "${out_dir}/${line}" "${url}/${line}"
+            wget -O "${out_dir}/${line}" "${url}/${line}"
         done < <(printf '%s\n' "$artifacts")
     }
     
@@ -204,12 +204,14 @@ data:
         local checksum_file="${output_dir}/checksum.txt"
     
         # 1.
-        if ! wget -q -O "${checksum_file}" ${url}/checksum.txt; then
-            echo "Failed to download checksum file: ${url}/checksum.txt"
+        echo "==> Downloading checksum file from ${url}"
+        if ! wget -O "${checksum_file}" ${url}/checksum.txt; then
+            echo "==> Failed to download checksum file: ${url}/checksum.txt"
             return 1
         fi
     
         # 2.
+        echo "==> Parsing checksum file"
         raw_data=$(cat "${checksum_file}")
         data=$(cat "${checksum_file}" | awk '{print $2}')
         by_kernel=$(get_by_kernel_version "${data}" "${version}")
@@ -217,21 +219,26 @@ data:
         filtered=$(get_by_arch "${by_extension}" "${arch}")
     
         # 3.
+        echo "==> Running initial checksum check for all artifacts"
         checksums=$(checksum_format "${filtered}" "${raw_data}")
         if run_checksum512 "${checksums}" "${output_dir}"; then
             cd "${output_dir}"
+            echo "==> Extracting existing artifacts"
             for f in *.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "${f}"; done
-            exit 0
+            return 0
         fi
     
         # 5.
+        echo "==> Downloading artifacts"
         download_artifacts "${url}" "${filtered}" "${output_dir}"
         checksums=$(checksum_format "${filtered}" "${raw_data}")
+        echo "==> Running checksum check for all downloaded artifacts"
         if ! run_checksum512 "${checksums}" "${output_dir}"; then
-            echo "Checksum failed for some artifacts"
+            echo "==> Checksum failed for some artifacts"
             return 1
         fi
         cd "${output_dir}"
+        echo "==> Extracting artifacts"
         for f in *.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "${f}"; done
     }
     
@@ -239,7 +246,7 @@ data:
         exit 1
     fi
     
-    echo "All artifacts downloaded successfully, waiting for signals..."
+    echo "==> All artifacts available, waiting for signals..."
     sleep infinity & PID=$!
     trap "kill $PID" INT TERM
     wait $PID
