@@ -190,7 +190,7 @@ data:
       esac
     done
     
-    echo "Downloading HookOS artifacts from ${url} for architecture(s): ${arch} and extension(s): ${ext} and version(s): ${version}"
+    echo "==> Downloading HookOS artifacts from ${url} for architecture(s): ${arch} and extension(s): ${ext} and version(s): ${version}"
     
     # 1. Download the checksum file
     # 2. Generate a list of artifacts to download based on the options provided
@@ -224,7 +224,7 @@ data:
         if run_checksum512 "${checksums}" "${output_dir}"; then
             cd "${output_dir}"
             echo "==> Extracting existing artifacts"
-            for f in *.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "${f}"; done
+            for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done
             return 0
         fi
     
@@ -239,7 +239,7 @@ data:
         fi
         cd "${output_dir}"
         echo "==> Extracting artifacts"
-        for f in *.tar.gz; do tar --no-same-permissions --overwrite -ozxvf "${f}"; done
+        for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done
     }
     
     if ! main; then
