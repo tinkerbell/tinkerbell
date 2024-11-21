@@ -24,6 +24,6 @@ jobs:
       - name: generate coverage report
         run: make cover
       - name: Codecov
-        uses: codecov/codecov-action@v4.6.0
+        uses: codecov/codecov-action@v5.0.3
       - name: Build
         run: make build
