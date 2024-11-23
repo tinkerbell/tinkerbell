@@ -1,4 +1,4 @@
-{{- if .Values.stack.hook.enabled }}
+{{- if and .Values.stack.enabled .Values.stack.hook.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap

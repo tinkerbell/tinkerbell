@@ -1,3 +1,4 @@
+{{- if .Values.deploy }}
 ---
 apiVersion: v1
 kind: Service
@@ -27,3 +28,4 @@ spec:
     protocol: UDP
   selector:
     app: {{ .Values.name }}
+{{- end }}
