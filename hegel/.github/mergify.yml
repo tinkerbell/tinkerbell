@@ -18,23 +18,21 @@ shared:
 
 queue_rules:
   - name: default
-    conditions:
+    queue_conditions:
       - and: *compulsory
-
-pull_request_rules:
-  - name: Automatic merge
-    conditions:
-      - and: *compulsory
-
-      # Ensure the review is opted in using labels.
       - label!=do-not-merge
       - label=ready-to-merge
+    merge_conditions:
+      - and: *compulsory
 
+    merge_method: merge
+    commit_message_template: |
+      {{ title }} (#{{ number }})
+
+      {{ body }}
+
+pull_request_rules:
+  - name: refactored queue action rule
+    conditions: []
     actions:
       queue:
-        method: merge
-        name: default
-        commit_message_template: |
-          {{ title }} (#{{ number }})
-
-          {{ body }}
