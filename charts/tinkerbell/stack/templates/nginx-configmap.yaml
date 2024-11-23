@@ -1,6 +1,6 @@
+{{ if .Values.stack.enabled -}}
 # The NGINX ConfigMap is in a separate file because its checksum is used to trigger updates in
 # the deployment.
-{{ if .Values.stack.enabled -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
