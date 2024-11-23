@@ -4,12 +4,12 @@ dependencies:
   version: 0.3.0
 - name: smee
   repository: file://../smee
-  version: 0.5.1
+  version: 0.6.0
 - name: rufio
   repository: file://../rufio
   version: 0.4.0
 - name: hegel
   repository: file://../hegel
-  version: 0.4.0
-digest: sha256:cd45c3fbb6ed074365833472021dba91d7716a23b3ff23e22f17f03b2ae4cd3d
-generated: "2024-11-22T21:01:58.580657087-07:00"
+  version: 0.4.1
+digest: sha256:7c73b32c9c5072746f633f28d75b86802c6db5c0b2d6331c49c90c07ff2ca54e
+generated: "2024-11-23T15:15:04.175441288-07:00"

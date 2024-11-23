@@ -29,11 +29,11 @@ dependencies:
     version: "0.3.0"
     repository: "file://../tink"
   - name: smee
-    version: "0.5.1"
+    version: "0.6.0"
     repository: "file://../smee"
   - name: rufio
     version: "0.4.0"
     repository: "file://../rufio"
   - name: hegel
-    version: "0.4.0"
+    version: "0.4.1"
     repository: "file://../hegel"

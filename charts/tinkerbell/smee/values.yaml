@@ -5,7 +5,7 @@ deploy: true
 name: smee
 
 # The image used to launch the container.
-image: quay.io/tinkerbell/smee:v0.14.1
+image: quay.io/tinkerbell/smee:v0.15.0
 imagePullPolicy: IfNotPresent
 
 # The number of pods to run.
@@ -101,6 +101,16 @@ http:
   ipxeBinaryEnabled: true
   # enable iPXE HTTP script server
   ipxeScriptEnabled: true
+
+# ISO settings
+iso:
+  enabled: false
+  # the string pattern to match for in the source ISO, defaults to the one defined in HookOS
+  magicString: ""
+  # enable static IPAM for HookOS
+  staticIPAMEnabled: false
+  # an HTTP(S) URL target to an OSIE that is used for patching
+  url: ""
 
 # Trusted proxies defines a list of IP or CIDR ranges that are allowed to set the X-Forwarded-For
   # header. This typically requires all Pod CIDRs in the cluster.
