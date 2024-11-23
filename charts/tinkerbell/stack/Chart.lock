@@ -11,5 +11,5 @@ dependencies:
 - name: hegel
   repository: file://../hegel
   version: 0.4.0
-digest: sha256:850f283070c59cdbd7bb7c82c3e652762cdac0ebe69587f31f5811967a534c77
-generated: "2024-11-22T20:59:21.106641504-07:00"
+digest: sha256:cd45c3fbb6ed074365833472021dba91d7716a23b3ff23e22f17f03b2ae4cd3d
+generated: "2024-11-22T21:01:58.580657087-07:00"
