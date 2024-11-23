@@ -84,6 +84,10 @@ spec:
             - -dhcp-syslog-ip={{ .Values.dhcp.syslogIp }}
             - -dhcp-tftp-ip={{ .Values.dhcp.tftpIp }}
             - -dhcp-ip-for-packet={{ .Values.dhcp.ipForPacket }}
+            - -iso-enabled={{ .Values.iso.enabled }}
+            - -iso-url={{ .Values.iso.url }}
+            - -iso-magic-string={{ .Values.iso.magicString }}
+            - -iso-static-ipam-enabled={{ .Values.iso.staticIPAMEnabled }}
           {{- range .Values.additionalArgs }}
             - {{ . }}
           {{- end }}
