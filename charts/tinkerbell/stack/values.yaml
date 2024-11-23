@@ -17,7 +17,7 @@ stack:
   # loadBalancerIP: 192.168.2.112
   lbClass: kube-vip.io/kube-vip-class
   # Once the Kubernetes Gateway API is more stable, we will use that for all services instead of nginx.
-  image: nginx:1.25.1
+  image: nginx:1.27.2
 
   hook:
     enabled: true
@@ -48,7 +48,7 @@ stack:
   kubevip:
     enabled: true
     name: kube-vip
-    image: ghcr.io/kube-vip/kube-vip:v0.7.2
+    image: ghcr.io/kube-vip/kube-vip:v0.8.7
     imagePullPolicy: IfNotPresent
     roleName: kube-vip-role
     roleBindingName: kube-vip-rolebinding
