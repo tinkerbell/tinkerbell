@@ -14,15 +14,6 @@ import (
 	"github.com/tinkerbell/rufio/api/v1alpha1"
 )
 
-// convert a slice of ProviderName to a slice of string.
-func toStringSlice(p []v1alpha1.ProviderName) []string {
-	var s []string
-	for _, v := range p {
-		s = append(s, v.String())
-	}
-	return s
-}
-
 // ClientFunc defines a func that returns a bmclib.Client.
 type ClientFunc func(ctx context.Context, log logr.Logger, hostIP, username, password string, opts *BMCOptions) (*bmclib.Client, error)
 
@@ -33,7 +24,10 @@ func NewClientFunc(timeout time.Duration) ClientFunc {
 	// Establishes a connection with the bmc with client.Open
 	// Returns a bmclib.Client.
 	return func(ctx context.Context, log logr.Logger, hostIP, username, password string, opts *BMCOptions) (*bmclib.Client, error) {
-		o := opts.Translate(hostIP)
+		var o []bmclib.Option
+		if opts != nil {
+			o = append(o, opts.Translate(hostIP)...)
+		}
 		log = log.WithValues("host", hostIP, "username", username)
 		o = append(o, bmclib.WithLogger(log))
 		client := bmclib.NewClient(hostIP, username, password, o...)
@@ -41,7 +35,9 @@ func NewClientFunc(timeout time.Duration) ClientFunc {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 
-		client.Registry.Drivers = client.Registry.PreferProtocol(toStringSlice(opts.PreferredOrder)...)
+		if opts != nil && opts.ProviderOptions != nil && len(opts.PreferredOrder) > 0 {
+			client.Registry.Drivers = client.Registry.PreferProtocol(toStringSlice(opts.PreferredOrder)...)
+		}
 		if err := client.Open(ctx); err != nil {
 			md := client.GetMetadata()
 			log.Info("Failed to open connection to BMC", "error", err, "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulOpenConns)
@@ -226,4 +222,13 @@ func toExperimentalOpts(e *v1alpha1.ExperimentalOpts) rpc.Experimental {
 	}
 
 	return opt
+}
+
+// convert a slice of ProviderName to a slice of string.
+func toStringSlice(p []v1alpha1.ProviderName) []string {
+	var s []string
+	for _, v := range p {
+		s = append(s, v.String())
+	}
+	return s
 }
