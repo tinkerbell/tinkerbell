@@ -26,7 +26,7 @@ stack:
     image: bash:5.2.37
     # downloadURL only works with the > 0.8.1 Hook release because
     # previous Hook versions didn't provide a checksum file.
-    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.9.2
+    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.10.0
     arch: both # x86_64, aarch64, both
     extension: tar.gz # iso, tar.gz, both
     kernelVersion: both # 5.10, 6.6, both
