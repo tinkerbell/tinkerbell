@@ -100,7 +100,7 @@ stack:
 # See individual chart documentation for additional detail.
 
 smee:
-  image: quay.io/tinkerbell/smee:v0.15.0
+  image: quay.io/tinkerbell/smee:v0.15.1
   tinkWorkerImage: quay.io/tinkerbell/tink-worker:v0.12.1
 
 hegel:
