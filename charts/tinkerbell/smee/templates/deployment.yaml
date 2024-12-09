@@ -47,51 +47,90 @@ spec:
         - image: {{ .Values.image }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
-            - -log-level={{ .Values.logLevel }}
-            {{- if eq $roleType "Role"}}
-            - -backend-kube-namespace={{ .Release.Namespace }}
-            {{- end }}
-            - -dhcp-addr={{ printf "%v:%v" .Values.dhcp.ip .Values.dhcp.port }}
-            - -dhcp-enabled={{ .Values.dhcp.enabled }}
-            - -dhcp-tftp-port={{ .Values.dhcp.tftpPort }}
-            - -dhcp-http-ipxe-binary-path={{ .Values.dhcp.httpIPXE.binaryUrl.path }}
-            - -dhcp-http-ipxe-binary-port={{ .Values.dhcp.httpIPXE.binaryUrl.port }}
-            - -dhcp-http-ipxe-binary-scheme={{ .Values.dhcp.httpIPXE.binaryUrl.scheme }}
-            - -dhcp-http-ipxe-script-path={{ .Values.dhcp.httpIPXE.scriptUrl.path }}
-            - -dhcp-http-ipxe-script-port={{ .Values.dhcp.httpIPXE.scriptUrl.port }}
-            - -dhcp-http-ipxe-script-scheme={{ .Values.dhcp.httpIPXE.scriptUrl.scheme }}
-            - -dhcp-mode={{ .Values.dhcp.mode }}
-            - -extra-kernel-args={{ join " " ( append .Values.http.additionalKernelArgs ( printf "tink_worker_image=%s" ( required "missing tinkWorkerImage" .Values.tinkWorkerImage ) ) ) }}
-            - -http-ipxe-binary-enabled={{ .Values.http.ipxeBinaryEnabled }}
-            - -http-ipxe-script-enabled={{ .Values.http.ipxeScriptEnabled }}
-            - -http-port={{ .Values.http.port }}
-            - -osie-url={{include "urlJoiner" (dict "urlDict" .Values.http.osieUrl)}}
-            - -tink-server={{ printf "%v:%v" .Values.http.tinkServer.ip .Values.http.tinkServer.port }}
-            - -tink-server-tls={{ .Values.http.tinkServer.tls }}
-            - -tink-server-insecure-tls={{ .Values.http.tinkServer.insecureTLS }}
-            - -trusted-proxies={{ required "missing trustedProxies" ( join "," $trustedProxies ) }}
-            - -syslog-enabled={{ .Values.syslog.enabled }}
-            - -ipxe-script-patch={{ .Values.ipxeScriptPatch }}
-            - -tftp-enabled={{ .Values.tftp.enabled }}
-            - -tftp-timeout={{ .Values.tftp.timeout }}
-            - -tftp-port={{ .Values.tftp.port }}
-            - -syslog-port={{ .Values.syslog.port }}
-            - -http-addr={{ .Values.http.ip }}
-            - -syslog-addr={{ .Values.syslog.ip }}
-            - -tftp-addr={{ .Values.tftp.ip }}
-            - -dhcp-http-ipxe-binary-host={{ .Values.dhcp.httpIPXE.binaryUrl.host}}
-            - -dhcp-http-ipxe-script-host={{ .Values.dhcp.httpIPXE.scriptUrl.host }}
-            - -dhcp-syslog-ip={{ .Values.dhcp.syslogIp }}
-            - -dhcp-tftp-ip={{ .Values.dhcp.tftpIp }}
-            - -dhcp-ip-for-packet={{ .Values.dhcp.ipForPacket }}
-            - -iso-enabled={{ .Values.iso.enabled }}
-            - -iso-url={{ .Values.iso.url }}
-            - -iso-magic-string={{ .Values.iso.magicString }}
-            - -iso-static-ipam-enabled={{ .Values.iso.staticIPAMEnabled }}
           {{- range .Values.additionalArgs }}
             - {{ . }}
           {{- end }}
           env:
+            - name: SMEE_LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: SMEE_DHCP_ADDR
+              value: {{ printf "%v:%v" .Values.dhcp.ip .Values.dhcp.port | quote }}
+            - name: SMEE_DHCP_ENABLED
+              value: {{ .Values.dhcp.enabled | quote }}
+            - name: SMEE_DHCP_TFTP_PORT
+              value: {{ .Values.dhcp.tftpPort | quote }}
+            - name: SMEE_DHCP_HTTP_IPXE_BINARY_PATH
+              value: {{ .Values.dhcp.httpIPXE.binaryUrl.path | quote }}
+            - name: SMEE_DHCP_HTTP_IPXE_BINARY_PORT
+              value: {{ .Values.dhcp.httpIPXE.binaryUrl.port | quote }}
+            - name: SMEE_DHCP_HTTP_IPXE_BINARY_SCHEME
+              value: {{ .Values.dhcp.httpIPXE.binaryUrl.scheme | quote }}
+            - name: SMEE_DHCP_HTTP_IPXE_SCRIPT_PATH
+              value: {{ .Values.dhcp.httpIPXE.scriptUrl.path | quote }}
+            - name: SMEE_DHCP_HTTP_IPXE_SCRIPT_PORT
+              value: {{ .Values.dhcp.httpIPXE.scriptUrl.port | quote }}
+            - name: SMEE_DHCP_HTTP_IPXE_SCRIPT_SCHEME
+              value: {{ .Values.dhcp.httpIPXE.scriptUrl.scheme | quote }}
+            - name: SMEE_DHCP_MODE
+              value: {{ .Values.dhcp.mode | quote }}
+            - name: SMEE_EXTRA_KERNEL_ARGS
+              value: {{ join " " ( append .Values.http.additionalKernelArgs ( printf "tink_worker_image=%s" ( required "missing tinkWorkerImage" .Values.tinkWorkerImage ) ) ) | quote }}
+            - name: SMEE_HTTP_IPXE_BINARY_ENABLED
+              value: {{ .Values.http.ipxeBinaryEnabled | quote }}
+            - name: SMEE_HTTP_IPXE_SCRIPT_ENABLED
+              value: {{ .Values.http.ipxeScriptEnabled | quote }}
+            - name: SMEE_HTTP_PORT
+              value: {{ .Values.http.port | quote }}
+            - name: SMEE_OSIE_URL
+              value: {{include "urlJoiner" (dict "urlDict" .Values.http.osieUrl) | quote }}
+            - name: SMEE_TINK_SERVER
+              value: {{ printf "%v:%v" .Values.http.tinkServer.ip .Values.http.tinkServer.port | quote }}
+            - name: SMEE_TINK_SERVER_TLS
+              value: {{ .Values.http.tinkServer.tls | quote }}
+            - name: SMEE_TINK_SERVER_INSECURE_TLS
+              value: {{ .Values.http.tinkServer.insecureTLS | quote }}
+            - name: SMEE_TRUSTED_PROXIES
+              value: {{ required "missing trustedProxies" ( join "," $trustedProxies ) | quote }}
+            - name: SMEE_SYSLOG_ENABLED
+              value: {{ .Values.syslog.enabled | quote }}
+            - name: SMEE_IPXE_SCRIPT_PATCH
+              value: {{ .Values.ipxeScriptPatch | quote }}
+            - name: SMEE_TFTP_ENABLED
+              value: {{ .Values.tftp.enabled | quote }}
+            - name: SMEE_TFTP_TIMEOUT
+              value: {{ .Values.tftp.timeout | quote }}
+            - name: SMEE_TFTP_PORT
+              value: {{ .Values.tftp.port | quote }}
+            - name: SMEE_SYSLOG_PORT
+              value: {{ .Values.syslog.port | quote }}
+            - name: SMEE_HTTP_ADDR
+              value: {{ .Values.http.ip | quote }}
+            - name: SMEE_SYSLOG_ADDR
+              value: {{ .Values.syslog.ip | quote }}
+            - name: SMEE_TFTP_ADDR
+              value: {{ .Values.tftp.ip | quote }}
+            - name: SMEE_DHCP_HTTP_IPXE_BINARY_HOST
+              value: {{ .Values.dhcp.httpIPXE.binaryUrl.host | quote }}
+            - name: SMEE_DHCP_HTTP_IPXE_SCRIPT_HOST
+              value: {{ .Values.dhcp.httpIPXE.scriptUrl.host | quote }}
+            - name: SMEE_DHCP_SYSLOG_IP
+              value: {{ .Values.dhcp.syslogIp | quote }}
+            - name: SMEE_DHCP_TFTP_IP
+              value: {{ .Values.dhcp.tftpIp | quote }}
+            - name: SMEE_DHCP_IP_FOR_PACKET
+              value: {{ .Values.dhcp.ipForPacket | quote }}
+            - name: SMEE_ISO_ENABLED
+              value: {{ .Values.iso.enabled | quote }}
+            - name: SMEE_ISO_URL
+              value: {{ .Values.iso.url | quote }}
+            - name: SMEE_ISO_MAGIC_STRING
+              value: {{ .Values.iso.magicString | quote }}
+            - name: SMEE_ISO_STATIC_IPAM_ENABLED
+              value: {{ .Values.iso.staticIPAMEnabled | quote }}
+            {{- if eq $roleType "Role"}}
+            - name: SMEE_BACKEND_KUBE_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            {{- end }}
             {{- range .Values.additionalEnv }}
             - name: {{ .name | quote }}
               value: {{ .value | quote }}
