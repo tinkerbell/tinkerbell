@@ -182,6 +182,8 @@ func WithMachineConditionMessage(m string) MachineSetConditionOption {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=machines,scope=Namespaced,categories=tinkerbell,singular=machine
+// +kubebuilder:metadata:labels=clusterctl.cluster.x-k8s.io=
+// +kubebuilder:metadata:labels=clusterctl.cluster.x-k8s.io/move=
 
 // Machine is the Schema for the machines API.
 type Machine struct {
