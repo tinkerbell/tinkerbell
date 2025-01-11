@@ -107,7 +107,7 @@ hegel:
   image: quay.io/tinkerbell/hegel:v0.14.2
 
 rufio:
-  image: quay.io/tinkerbell/rufio:v0.6.1
+  image: quay.io/tinkerbell/rufio:v0.6.3
 
 tink:
   controller:
