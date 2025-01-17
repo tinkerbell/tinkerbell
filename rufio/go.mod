@@ -6,7 +6,7 @@ toolchain go1.22.2
 
 require (
 	dario.cat/mergo v1.0.1
-	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20250111140204-fffd096c5c8e
+	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20250117163502-d621fb6aeb76
 	github.com/ccoveille/go-safecast v1.5.0
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zerologr v1.2.3
@@ -26,7 +26,7 @@ require (
 	github.com/VictorLowther/simplexml v0.0.0-20180716164440-0bff93621230 // indirect
 	github.com/VictorLowther/soap v0.0.0-20150314151524-8e36fca84b22 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bmc-toolbox/common v0.0.0-20241031162543-6b96e5981a0d // indirect
+	github.com/bmc-toolbox/common v0.0.0-20250112191656-b6de52e8303d // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
