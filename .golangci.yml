@@ -146,10 +146,22 @@ linters:
     - whitespace
 
 issues:
-  # exclude-files:
+  exclude-files:
+    - smee/internal/iso/internal/reverseproxy.go
+    - smee/internal/iso/internal/reverseproxy_test.go
+    - smee/internal/iso/internal/acsii.go
+    - smee/internal/iso/internal/acsii_test.go
 
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
+    - path: _test\.go
+      linters:
+        - dupl
+        - errcheck
+        - forcetypeassert
+        - gocyclo
+        - gosec
+        - noctx
 
     # This check is of questionable value
     - linters:
