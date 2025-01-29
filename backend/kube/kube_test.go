@@ -30,7 +30,17 @@ func TestNewBackend(t *testing.T) {
 		opt       cluster.Option
 		shouldErr bool
 	}{
-		"no config": {shouldErr: false},
+		"no config": {shouldErr: false, opt: func(o *cluster.Options) {
+			o.NewClient = func(*rest.Config, client.Options) (client.Client, error) {
+				return newWorkingClient(t), nil
+			}
+			o.MapperProvider = func(*rest.Config, *http.Client) (meta.RESTMapper, error) {
+				return newWorkingClient(t).RESTMapper(), nil
+			}
+			o.NewCache = func(*rest.Config, cache.Options) (cache.Cache, error) {
+				return &informertest.FakeInformers{Scheme: newWorkingClient(t).Scheme()}, nil
+			}
+		}},
 		"failed index field": {shouldErr: true, conf: new(rest.Config), opt: func(o *cluster.Options) {
 			cl := fake.NewClientBuilder().Build()
 			o.NewClient = func(*rest.Config, client.Options) (client.Client, error) {
@@ -44,7 +54,7 @@ func TestNewBackend(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			b, err := NewBackend(Backend{ClientConfig: tt.conf}, tt.opt)
+			b, err := NewBackend(Backend{ClientConfig: tt.conf, APIURL: "localhost"}, tt.opt)
 			if tt.shouldErr && err == nil {
 				t.Fatal("expected error")
 			}
@@ -363,6 +373,28 @@ func TestGetByMac(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newWorkingClient(t *testing.T) client.WithWatch {
+	t.Helper()
+	ct := fake.NewClientBuilder()
+
+	rs := runtime.NewScheme()
+	if err := scheme.AddToScheme(rs); err != nil {
+		t.Fatal(err)
+	}
+	if err := v1alpha1.AddToScheme(rs); err != nil {
+		t.Fatal(err)
+	}
+
+	ct = ct.WithScheme(rs)
+	ct = ct.WithRuntimeObjects(&v1alpha1.HardwareList{})
+	ct = ct.WithIndex(&v1alpha1.Hardware{}, IPAddrIndex, func(client.Object) []string {
+		var list []string
+		return list
+	})
+
+	return ct.Build()
 }
 
 var hwObject1 = v1alpha1.Hardware{
