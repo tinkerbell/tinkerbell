@@ -8,9 +8,11 @@ import (
 	"net/netip"
 	"net/url"
 	"path"
+	"reflect"
 	"strings"
 	"time"
 
+	"dario.cat/mergo"
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
@@ -44,6 +46,17 @@ const (
 	// isoMagicString comes from the HookOS repo and is used to patch the HookOS ISO image.
 	// ref: https://github.com/tinkerbell/hook/blob/main/linuxkit-templates/hook.template.yaml
 	isoMagicString = `464vn90e7rbj08xbwdjejmdf4it17c5zfzjyfhthbh19eij201hjgit021bmpdb9ctrc87x2ymc8e7icu4ffi15x1hah9iyaiz38ckyap8hwx2vt5rm44ixv4hau8iw718q5yd019um5dt2xpqqa2rjtdypzr5v1gun8un110hhwp8cex7pqrh2ivh0ynpm4zkkwc8wcn367zyethzy7q8hzudyeyzx3cgmxqbkh825gcak7kxzjbgjajwizryv7ec1xm2h0hh7pz29qmvtgfjj1vphpgq1zcbiiehv52wrjy9yq473d9t1rvryy6929nk435hfx55du3ih05kn5tju3vijreru1p6knc988d4gfdz28eragvryq5x8aibe5trxd0t6t7jwxkde34v6pj1khmp50k6qqj3nzgcfzabtgqkmeqhdedbvwf3byfdma4nkv3rcxugaj2d0ru30pa2fqadjqrtjnv8bu52xzxv7irbhyvygygxu1nt5z4fh9w1vwbdcmagep26d298zknykf2e88kumt59ab7nq79d8amnhhvbexgh48e8qc61vq2e9qkihzt1twk1ijfgw70nwizai15iqyted2dt9gfmf2gg7amzufre79hwqkddc1cd935ywacnkrnak6r7xzcz7zbmq3kt04u2hg1iuupid8rt4nyrju51e6uejb2ruu36g9aibmz3hnmvazptu8x5tyxk820g2cdpxjdij766bt2n3djur7v623a2v44juyfgz80ekgfb9hkibpxh3zgknw8a34t4jifhf116x15cei9hwch0fye3xyq0acuym8uhitu5evc4rag3ui0fny3qg4kju7zkfyy8hwh537urd5uixkzwu5bdvafz4jmv7imypj543xg5em8jk8cgk7c4504xdd5e4e71ihaumt6u5u2t1w7um92fepzae8p0vq93wdrd1756npu1pziiur1payc7kmdwyxg3hj5n4phxbc29x0tcddamjrwt260b0w`
+
+	// Defaults consumers can use.
+	DefaultTFFTPPort      = 69
+	DefaultTFFTPBlockSize = 512
+	DefaultTFFTPTimeout   = 10 * time.Second
+
+	DefaultDHCPMode = DHCPModeReservation
+
+	DefaultSyslogPort = 514
+
+	DefaultHTTPPort = 32777
 )
 
 type DHCPMode string
@@ -66,30 +79,46 @@ func (d *DHCPMode) Type() string {
 	return "dhcp-mode"
 }
 
+// Config is the configuration for the Smee service.
 type Config struct {
-	Backend    BackendReader
-	Logger     logr.Logger
-	DHCP       DHCP
-	IPXE       IPXE
-	ISO        ISO
-	OTEL       OTEL
-	Syslog     Syslog
-	TFTP       TFTP
+	// Backend is the backend to use for getting data.
+	Backend BackendReader
+	// DHCP is the configuration for the DHCP service.
+	DHCP DHCP
+	// IPXE is the configuration for the iPXE service.
+	IPXE IPXE
+	// ISO is the configuration for the ISO service.
+	ISO ISO
+	// OTEL is the configuration for OpenTelemetry.
+	OTEL OTEL
+	// Syslog is the configuration for the syslog service.
+	Syslog Syslog
+	// TFTP is the configuration for the TFTP service.
+	TFTP TFTP
+	// TinkServer is the configuration for the Tinkerbell server.
 	TinkServer TinkServer
 }
 
 type Syslog struct {
+	// BindAddr is the local address to which to bind the syslog server.
 	BindAddr netip.Addr
+	// BindPort is the local port to which to bind the syslog server.
 	BindPort uint16
-	Enabled  bool
+	// Enabled is a flag to enable or disable the syslog server.
+	Enabled bool
 }
 
 type TFTP struct {
-	BindAddr  netip.Addr
-	BindPort  uint16
+	// BindAddr is the local address to which to bind the TFTP server.
+	BindAddr netip.Addr
+	// BindPort is the local port to which to bind the TFTP server.
+	BindPort uint16
+	// BlockSize is the block size to use when serving TFTP requests.
 	BlockSize int
-	Timeout   time.Duration
-	Enabled   bool
+	// Timeout is the timeout for each serving each TFTP request.
+	Timeout time.Duration
+	// Enabled is a flag to enable or disable the TFTP server.
+	Enabled bool
 }
 
 type IPXE struct {
@@ -114,16 +143,26 @@ type IPXEHTTPScriptServer struct {
 }
 
 type DHCP struct {
-	Enabled           bool
-	Mode              DHCPMode
-	BindAddr          netip.AddrPort
-	BindInterface     string
-	IPForPacket       netip.Addr
-	SyslogIP          netip.Addr
-	TFTPIP            netip.Addr
+	Enabled bool
+	// Mode determines the behavior of the DHCP server.
+	// See the DHCPMode type for valid values.
+	Mode DHCPMode
+	// BindAddr is the local address to which to bind the DHCP server and listen for DHCP packets.
+	BindAddr netip.Addr
+	BindPort uint16
+	// BindInterface is the local interface to which to bind the DHCP server and listen for DHCP packets.
+	BindInterface string
+	// IPForPacket is the IP address to use in the DHCP packet for DHCP option 54.
+	IPForPacket netip.Addr
+	// SyslogIP is the IP address to use in the DHCP packet for DHCP option 7.
+	SyslogIP netip.Addr
+	// TFTPIP is the IP address to use in the DHCP packet for DHCP option 66.
+	TFTPIP netip.Addr
+	// TFTPPort is the port to use in the DHCP packet for DHCP option 66.
+	TFTPPort uint16
+	//
 	IPXEHTTPBinaryURL *url.URL
 	IPXEHTTPScript    IPXEHTTPScript
-	TFTPPort          uint16
 }
 
 type IPXEHTTPScript struct {
@@ -152,12 +191,82 @@ type TinkServer struct {
 	AddrPort    string
 }
 
+// NewConfig is a constructor for the Config struct. It will set default values for the Config struct.
+// Boolean fields are not set-able via c. To set boolean, modify the returned Config struct.
+func NewConfig(c Config) *Config {
+	defaultConfig := &Config{
+		DHCP: DHCP{
+			Enabled:           true,
+			Mode:              DefaultDHCPMode,
+			BindAddr:          netip.Addr{},
+			BindPort:          67,
+			BindInterface:     "",
+			SyslogIP:          netip.Addr{},
+			TFTPIP:            netip.Addr{},
+			IPXEHTTPBinaryURL: &url.URL{},
+			IPXEHTTPScript: IPXEHTTPScript{
+				URL:              &url.URL{},
+				InjectMacAddress: true,
+			},
+			TFTPPort: DefaultTFFTPPort,
+		},
+		IPXE: IPXE{
+			EmbeddedScriptPatch: "",
+			HTTPBinaryServer: IPXEHTTPBinaryServer{
+				Enabled: true,
+			},
+			HTTPScriptServer: IPXEHTTPScriptServer{
+				Enabled:         true,
+				BindAddr:        netip.Addr{},
+				BindPort:        DefaultHTTPPort,
+				Retries:         1,
+				RetryDelay:      1,
+				OSIEURL:         &url.URL{},
+				TrustedProxies:  []string{},
+				ExtraKernelArgs: []string{},
+			},
+		},
+		ISO: ISO{
+			Enabled:           false,
+			UpstreamURL:       &url.URL{},
+			PatchMagicString:  isoMagicString,
+			StaticIPAMEnabled: false,
+		},
+		OTEL: OTEL{
+			Endpoint:         "",
+			InsecureEndpoint: false,
+		},
+		Syslog: Syslog{
+			BindAddr: netip.Addr{},
+			BindPort: DefaultSyslogPort,
+			Enabled:  true,
+		},
+		TFTP: TFTP{
+			BindAddr:  netip.Addr{},
+			BindPort:  DefaultTFFTPPort,
+			BlockSize: DefaultTFFTPBlockSize,
+			Timeout:   DefaultTFFTPTimeout,
+			Enabled:   true,
+		},
+		TinkServer: TinkServer{},
+	}
+
+	if err := mergo.Merge(defaultConfig, &c, mergo.WithTransformers(&c)); err != nil {
+		panic(fmt.Sprintf("failed to merge config: %v", err))
+	}
+
+	if defaultConfig.Backend == nil {
+		defaultConfig.Backend = &noop{}
+	}
+
+	return defaultConfig
+}
+
 // Start will run Smee services. Enabling and disabling services is controlled by the Config struct.
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
-	c.Logger = log
 	if c.Backend == nil {
 		c.Backend = noop{}
-		c.Logger.Info("no backend provided, using noop backend")
+		log.Info("no backend provided, using noop backend")
 	}
 	oCfg := otel.Config{
 		Servicename: "smee",
@@ -177,10 +286,13 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	if c.Syslog.Enabled {
 		// 1. data validation
 		// 2. start the syslog server
-		addr := fmt.Sprintf("%s:%d", c.Syslog.BindAddr, c.Syslog.BindPort)
+		addr := netip.AddrPortFrom(c.Syslog.BindAddr, c.Syslog.BindPort)
+		if !addr.IsValid() {
+			return fmt.Errorf("invalid syslog bind address: IP: %v, Port: %v", addr.Addr(), addr.Port())
+		}
 		log.Info("starting syslog server", "bind_addr", addr)
 		g.Go(func() error {
-			if err := syslog.StartReceiver(ctx, log, addr, 1); err != nil {
+			if err := syslog.StartReceiver(ctx, log, addr.String(), 1); err != nil {
 				log.Error(err, "syslog server failure")
 				return err
 			}
@@ -201,6 +313,9 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		}
 		tftpServer.EnableTFTPSinglePort = true
 		addrPort := netip.AddrPortFrom(c.TFTP.BindAddr, c.TFTP.BindPort)
+		if !addrPort.IsValid() {
+			return fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", addrPort.Addr(), addrPort.Port())
+		}
 		tftpServer.TFTP = ipxedust.ServerSpec{
 			Disabled:  false,
 			Addr:      addrPort,
@@ -285,7 +400,10 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
 		}
 		bindAddr := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, c.IPXE.HTTPScriptServer.BindPort)
-		log.Info("serving http", "addr", bindAddr.String(), "trusted_proxies", c.IPXE.HTTPScriptServer.TrustedProxies)
+		if !bindAddr.IsValid() {
+			return fmt.Errorf("invalid HTTP Script Server bind address: IP: %v, Port: %v", bindAddr.Addr(), bindAddr.Port())
+		}
+		log.Info("starting http server", "addr", bindAddr.String(), "trusted_proxies", c.IPXE.HTTPScriptServer.TrustedProxies)
 		g.Go(func() error {
 			return httpServer.ServeHTTP(ctx, bindAddr.String(), handlers)
 		})
@@ -293,13 +411,17 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 	// dhcp serving
 	if c.DHCP.Enabled {
-		dh, err := c.dhcpHandler()
+		dh, err := c.dhcpHandler(log)
 		if err != nil {
 			return fmt.Errorf("failed to create dhcp listener: %w", err)
 		}
+		dhcpAddrPort := netip.AddrPortFrom(c.DHCP.BindAddr, c.DHCP.BindPort)
+		if !dhcpAddrPort.IsValid() {
+			return fmt.Errorf("invalid DHCP bind address: IP: %v, Port: %v", dhcpAddrPort.Addr(), dhcpAddrPort.Port())
+		}
 		log.Info("starting dhcp server", "bind_addr", c.DHCP.BindAddr)
 		g.Go(func() error {
-			conn, err := server4.NewIPv4UDPConn(c.DHCP.BindInterface, net.UDPAddrFromAddrPort(c.DHCP.BindAddr))
+			conn, err := server4.NewIPv4UDPConn(c.DHCP.BindInterface, net.UDPAddrFromAddrPort(dhcpAddrPort))
 			if err != nil {
 				return err
 			}
@@ -313,20 +435,29 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return fmt.Errorf("failed running all Smee services: %w", err)
 	}
+	if c.noServicesEnabled() {
+		return errors.New("no services enabled")
+	}
 	log.Info("smee is shutting down", "reason", ctx.Err())
 	return nil
 }
 
-func (c *Config) dhcpHandler() (server.Handler, error) {
+func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 	// 1. create the handler
 	// 2. create the backend
 	// 3. add the backend to the handler
 	tftpIP := netip.AddrPortFrom(c.DHCP.TFTPIP, c.DHCP.TFTPPort)
+	if !tftpIP.IsValid() {
+		return nil, fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", tftpIP.Addr(), tftpIP.Port())
+	}
 
 	httpBinaryURL := *c.DHCP.IPXEHTTPBinaryURL
 
 	httpScriptURL := c.DHCP.IPXEHTTPScript.URL
 
+	if httpScriptURL == nil {
+		return nil, errors.New("http ipxe script url is required")
+	}
 	if _, err := url.Parse(httpScriptURL.String()); err != nil {
 		return nil, fmt.Errorf("invalid http ipxe script url: %w", err)
 	}
@@ -347,7 +478,7 @@ func (c *Config) dhcpHandler() (server.Handler, error) {
 		dh := &reservation.Handler{
 			Backend: c.Backend,
 			IPAddr:  c.DHCP.IPForPacket,
-			Log:     c.Logger,
+			Log:     log,
 			Netboot: reservation.Netboot{
 				IPXEBinServerTFTP: tftpIP,
 				IPXEBinServerHTTP: &httpBinaryURL,
@@ -362,7 +493,7 @@ func (c *Config) dhcpHandler() (server.Handler, error) {
 		dh := &proxy.Handler{
 			Backend: c.Backend,
 			IPAddr:  c.DHCP.IPForPacket,
-			Log:     c.Logger,
+			Log:     log,
 			Netboot: proxy.Netboot{
 				IPXEBinServerTFTP: tftpIP,
 				IPXEBinServerHTTP: &httpBinaryURL,
@@ -377,7 +508,7 @@ func (c *Config) dhcpHandler() (server.Handler, error) {
 		dh := &proxy.Handler{
 			Backend: c.Backend,
 			IPAddr:  c.DHCP.IPForPacket,
-			Log:     c.Logger,
+			Log:     log,
 			Netboot: proxy.Netboot{
 				IPXEBinServerTFTP: tftpIP,
 				IPXEBinServerHTTP: &httpBinaryURL,
@@ -391,4 +522,79 @@ func (c *Config) dhcpHandler() (server.Handler, error) {
 	}
 
 	return nil, errors.New("invalid dhcp mode")
+}
+
+// Transformer for merging the netip.IPPort and logr.Logger structs.
+func (c *Config) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
+	var zeroUint16 uint16
+	var zeroInt int
+	var zeroDuration time.Duration
+	switch typ {
+	case reflect.TypeOf(logr.Logger{}):
+		return func(dst, src reflect.Value) error {
+			if dst.CanSet() {
+				isZero := src.MethodByName("GetSink")
+				result := isZero.Call(nil)
+				if result[0].IsNil() {
+					dst.Set(src)
+				}
+			}
+			return nil
+		}
+	case reflect.TypeOf(netip.AddrPort{}):
+		return func(dst, src reflect.Value) error {
+			if dst.CanSet() {
+				v, ok := src.Interface().(netip.AddrPort)
+				if ok && (v != netip.AddrPort{}) {
+					dst.Set(src)
+				}
+			}
+			return nil
+		}
+	case reflect.TypeOf(netip.Addr{}):
+		return func(dst, src reflect.Value) error {
+			if dst.CanSet() {
+				v, ok := src.Interface().(netip.Addr)
+				if ok && (v.Compare(netip.Addr{}) != 0) {
+					dst.Set(src)
+				}
+			}
+			return nil
+		}
+	case reflect.TypeOf(zeroUint16):
+		return func(dst, src reflect.Value) error {
+			if dst.CanSet() {
+				v, ok := src.Interface().(uint16)
+				if ok && v != 0 {
+					dst.Set(src)
+				}
+			}
+			return nil
+		}
+	case reflect.TypeOf(zeroInt):
+		return func(dst, src reflect.Value) error {
+			if dst.CanSet() {
+				v, ok := src.Interface().(int)
+				if ok && v != 0 {
+					dst.Set(src)
+				}
+			}
+			return nil
+		}
+	case reflect.TypeOf(zeroDuration):
+		return func(dst, src reflect.Value) error {
+			if dst.CanSet() {
+				v, ok := src.Interface().(time.Duration)
+				if ok && v != 0 {
+					dst.Set(src)
+				}
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+func (c *Config) noServicesEnabled() bool {
+	return !c.DHCP.Enabled && !c.TFTP.Enabled && !c.ISO.Enabled && !c.Syslog.Enabled && !c.IPXE.HTTPBinaryServer.Enabled && !c.IPXE.HTTPScriptServer.Enabled
 }
