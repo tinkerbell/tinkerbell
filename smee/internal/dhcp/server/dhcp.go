@@ -31,7 +31,7 @@ func (s *DHCP) Serve(ctx context.Context) error {
 		<-ctx.Done()
 		_ = s.Close()
 	}()
-	s.Logger.Info("Server listening on", "addr", s.Conn.LocalAddr())
+	s.Logger.V(1).Info("Server listening on", "addr", s.Conn.LocalAddr())
 
 	nConn := ipv4.NewPacketConn(s.Conn)
 	if err := nConn.SetControlMessage(ipv4.FlagInterface, true); err != nil {
