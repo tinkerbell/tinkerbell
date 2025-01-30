@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -21,38 +20,7 @@ import (
 
 func Execute(ctx context.Context, args []string) error {
 	s := &flag.SmeeConfig{
-		// These are the default values for the smee configuration.
-		Config: smee.NewConfig(smee.Config{
-			DHCP: smee.DHCP{
-				BindAddr:    netip.MustParseAddr("0.0.0.0"),
-				IPForPacket: DetectPublicIPv4(),
-				SyslogIP:    DetectPublicIPv4(),
-				TFTPIP:      DetectPublicIPv4(),
-				IPXEHTTPBinaryURL: &url.URL{
-					Scheme: "http",
-					Host:   fmt.Sprintf("%s:%v", DetectPublicIPv4(), smee.DefaultHTTPPort),
-					Path:   "/ipxe",
-				},
-				IPXEHTTPScript: smee.IPXEHTTPScript{
-					URL: &url.URL{
-						Scheme: "http",
-						Host:   fmt.Sprintf("%s:%v", DetectPublicIPv4(), smee.DefaultHTTPPort),
-						Path:   "auto.ipxe",
-					},
-				},
-			},
-			IPXE: smee.IPXE{
-				HTTPScriptServer: smee.IPXEHTTPScriptServer{
-					BindAddr: DetectPublicIPv4(),
-				},
-			},
-			Syslog: smee.Syslog{
-				BindAddr: DetectPublicIPv4(),
-			},
-			TFTP: smee.TFTP{
-				BindAddr: DetectPublicIPv4(),
-			},
-		}),
+		Config: smee.NewConfig(smee.Config{}, DetectPublicIPv4()),
 	}
 
 	globals := &flag.GlobalConfig{
