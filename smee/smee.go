@@ -229,7 +229,7 @@ func NewConfig(c Config) *Config {
 		ISO: ISO{
 			Enabled:           false,
 			UpstreamURL:       &url.URL{},
-			PatchMagicString:  isoMagicString,
+			PatchMagicString:  "",
 			StaticIPAMEnabled: false,
 		},
 		OTEL: OTEL{
@@ -307,7 +307,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		// 1. data validation
 		// 2. start the tftp server
 		tftpServer := &ipxedust.Server{
-			Log:                  log.WithValues("service", "github.com/tinkerbell/smee").WithName("github.com/tinkerbell/ipxedust"),
+			Log:                  log,
 			HTTP:                 ipxedust.ServerSpec{Disabled: true}, // disabled because below we use the http handlerfunc instead.
 			EnableTFTPSinglePort: true,
 		}
@@ -419,7 +419,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if !dhcpAddrPort.IsValid() {
 			return fmt.Errorf("invalid DHCP bind address: IP: %v, Port: %v", dhcpAddrPort.Addr(), dhcpAddrPort.Port())
 		}
-		log.Info("starting dhcp server", "bind_addr", c.DHCP.BindAddr)
+		log.Info("starting dhcp server", "bind_addr", dhcpAddrPort)
 		g.Go(func() error {
 			conn, err := server4.NewIPv4UDPConn(c.DHCP.BindInterface, net.UDPAddrFromAddrPort(dhcpAddrPort))
 			if err != nil {
