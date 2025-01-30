@@ -193,19 +193,28 @@ type TinkServer struct {
 
 // NewConfig is a constructor for the Config struct. It will set default values for the Config struct.
 // Boolean fields are not set-able via c. To set boolean, modify the returned Config struct.
-func NewConfig(c Config) *Config {
-	defaultConfig := &Config{
+func NewConfig(c Config, publicIP netip.Addr) *Config {
+	defaults := &Config{
 		DHCP: DHCP{
-			Enabled:           true,
-			Mode:              DefaultDHCPMode,
-			BindAddr:          netip.Addr{},
-			BindPort:          67,
-			BindInterface:     "",
-			SyslogIP:          netip.Addr{},
-			TFTPIP:            netip.Addr{},
-			IPXEHTTPBinaryURL: &url.URL{},
+			Enabled:       true,
+			Mode:          DefaultDHCPMode,
+			BindAddr:      netip.MustParseAddr("0.0.0.0"),
+			BindPort:      67,
+			BindInterface: "",
+			IPForPacket:   publicIP,
+			SyslogIP:      publicIP,
+			TFTPIP:        publicIP,
+			IPXEHTTPBinaryURL: &url.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s:%v", publicIP, DefaultHTTPPort),
+				Path:   "/ipxe",
+			},
 			IPXEHTTPScript: IPXEHTTPScript{
-				URL:              &url.URL{},
+				URL: &url.URL{
+					Scheme: "http",
+					Host:   fmt.Sprintf("%s:%v", publicIP, DefaultHTTPPort),
+					Path:   "auto.ipxe",
+				},
 				InjectMacAddress: true,
 			},
 			TFTPPort: DefaultTFFTPPort,
@@ -217,7 +226,7 @@ func NewConfig(c Config) *Config {
 			},
 			HTTPScriptServer: IPXEHTTPScriptServer{
 				Enabled:         true,
-				BindAddr:        netip.Addr{},
+				BindAddr:        publicIP,
 				BindPort:        DefaultHTTPPort,
 				Retries:         1,
 				RetryDelay:      1,
@@ -237,12 +246,12 @@ func NewConfig(c Config) *Config {
 			InsecureEndpoint: false,
 		},
 		Syslog: Syslog{
-			BindAddr: netip.Addr{},
+			BindAddr: publicIP,
 			BindPort: DefaultSyslogPort,
 			Enabled:  true,
 		},
 		TFTP: TFTP{
-			BindAddr:  netip.Addr{},
+			BindAddr:  publicIP,
 			BindPort:  DefaultTFFTPPort,
 			BlockSize: DefaultTFFTPBlockSize,
 			Timeout:   DefaultTFFTPTimeout,
@@ -251,15 +260,15 @@ func NewConfig(c Config) *Config {
 		TinkServer: TinkServer{},
 	}
 
-	if err := mergo.Merge(defaultConfig, &c, mergo.WithTransformers(&c)); err != nil {
+	if err := mergo.Merge(defaults, &c, mergo.WithTransformers(&c)); err != nil {
 		panic(fmt.Sprintf("failed to merge config: %v", err))
 	}
 
-	if defaultConfig.Backend == nil {
-		defaultConfig.Backend = &noop{}
+	if defaults.Backend == nil {
+		defaults.Backend = &noop{}
 	}
 
-	return defaultConfig
+	return defaults
 }
 
 // Start will run Smee services. Enabling and disabling services is controlled by the Config struct.
