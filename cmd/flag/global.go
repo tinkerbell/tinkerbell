@@ -8,7 +8,7 @@ import (
 )
 
 type GlobalConfig struct {
-	LogLevel             string
+	LogLevel             int
 	Backend              string
 	BackendFilePath      string
 	BackendKubeConfig    string
@@ -20,7 +20,7 @@ type GlobalConfig struct {
 }
 
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
-	fs.Register(LogLevelConfig, ffval.NewEnum(&gc.LogLevel, "info", "debug"))
+	fs.Register(LogLevelConfig, ffval.NewValueDefault(&gc.LogLevel, gc.LogLevel))
 	fs.Register(BackendConfig, ffval.NewEnum(&gc.Backend, "kube", "file", "none"))
 	fs.Register(BackendFilePath, ffval.NewValueDefault(&gc.BackendFilePath, gc.BackendFilePath))
 	fs.Register(BackendKubeConfig, ffval.NewValueDefault(&gc.BackendKubeConfig, gc.BackendKubeConfig))
@@ -35,7 +35,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 // are used to create objects that are used by multiple services.
 var LogLevelConfig = Config{
 	Name:  "log-level",
-	Usage: "log level",
+	Usage: "the higher the number the more verbose",
 }
 
 // BackendConfig flags.
