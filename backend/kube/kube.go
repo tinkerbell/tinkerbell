@@ -26,6 +26,11 @@ import (
 
 const tracerName = "github.com/tinkerbell/tinkerbell"
 
+var errNotFound = errors.New("no hardware found")
+
+// ErrInstanceNotFound indicates an instance could not be found for the given identifier.
+var ErrInstanceNotFound = errors.New("instance not found")
+
 // Backend is a backend implementation that uses the Tinkerbell CRDs to get DHCP data.
 type Backend struct {
 	cluster cluster.Cluster
@@ -159,7 +164,7 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHC
 	}
 
 	if len(hardwareList.Items) == 0 {
-		err := hardwareNotFoundError{}
+		err := hardwareNotFoundError{name: mac.String(), namespace: If(b.Namespace == "", "all namespaces", b.Namespace)}
 		span.SetStatus(codes.Error, err.Error())
 
 		return nil, nil, err
@@ -194,6 +199,13 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHC
 	return d, n, nil
 }
 
+func If[T any](condition bool, valueIfTrue, valueIfFalse T) T {
+	if condition {
+		return valueIfTrue
+	}
+	return valueIfFalse
+}
+
 // GetByIP implements the handler.BackendReader interface and returns DHCP and netboot data based on an IP address.
 func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Netboot, error) {
 	tracer := otel.Tracer(tracerName)
@@ -208,7 +220,7 @@ func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 	}
 
 	if len(hardwareList.Items) == 0 {
-		err := hardwareNotFoundError{}
+		err := hardwareNotFoundError{name: ip.String(), namespace: If(b.Namespace == "", "all namespaces", b.Namespace)}
 		span.SetStatus(codes.Error, err.Error())
 
 		return nil, nil, err
@@ -241,6 +253,105 @@ func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 	span.SetStatus(codes.Ok, "")
 
 	return d, n, nil
+}
+
+func (b *Backend) hwByIP(ctx context.Context, ip string) (*v1alpha1.Hardware, error) {
+	tracer := otel.Tracer(tracerName)
+	ctx, span := tracer.Start(ctx, "backend.kube.GetByIP")
+	defer span.End()
+	hardwareList := &v1alpha1.HardwareList{}
+
+	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{IPAddrIndex: ip}); err != nil {
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, fmt.Errorf("failed listing hardware for (%v): %w", ip, err)
+	}
+
+	if len(hardwareList.Items) == 0 {
+		err := hardwareNotFoundError{name: ip, namespace: If(b.Namespace == "", "all namespaces", b.Namespace)}
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, err
+	}
+
+	if len(hardwareList.Items) > 1 {
+		err := fmt.Errorf("got %d hardware objects for ip: %s, expected only 1", len(hardwareList.Items), ip)
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, err
+	}
+
+	span.SetStatus(codes.Ok, "")
+
+	return &hardwareList.Items[0], nil
+}
+
+// GetEC2InstanceByIP satisfies ec2.Client.
+func (b *Backend) GetEC2Instance(ctx context.Context, ip string) (data.Ec2Instance, error) {
+	hw, err := b.hwByIP(ctx, ip)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			return data.Ec2Instance{}, ErrInstanceNotFound
+		}
+
+		return data.Ec2Instance{}, err
+	}
+
+	return toEC2Instance(*hw), nil
+}
+
+func toEC2Instance(hw v1alpha1.Hardware) data.Ec2Instance {
+	var i data.Ec2Instance
+
+	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil {
+		i.Metadata.InstanceID = hw.Spec.Metadata.Instance.ID
+		i.Metadata.Hostname = hw.Spec.Metadata.Instance.Hostname
+		i.Metadata.LocalHostname = hw.Spec.Metadata.Instance.Hostname
+		i.Metadata.Tags = hw.Spec.Metadata.Instance.Tags
+
+		if hw.Spec.Metadata.Instance.OperatingSystem != nil {
+			i.Metadata.OperatingSystem.Slug = hw.Spec.Metadata.Instance.OperatingSystem.Slug
+			i.Metadata.OperatingSystem.Distro = hw.Spec.Metadata.Instance.OperatingSystem.Distro
+			i.Metadata.OperatingSystem.Version = hw.Spec.Metadata.Instance.OperatingSystem.Version
+			i.Metadata.OperatingSystem.ImageTag = hw.Spec.Metadata.Instance.OperatingSystem.ImageTag
+		}
+
+		// Iterate over all IPs and set the first one for IPv4 and IPv6 as the values in the
+		// instance metadata.
+		for _, ip := range hw.Spec.Metadata.Instance.Ips {
+			// Public IPv4
+			if ip.Family == 4 && ip.Public && i.Metadata.PublicIPv4 == "" {
+				i.Metadata.PublicIPv4 = ip.Address
+			}
+
+			// Private IPv4
+			if ip.Family == 4 && !ip.Public && i.Metadata.LocalIPv4 == "" {
+				i.Metadata.LocalIPv4 = ip.Address
+			}
+
+			// Public IPv6
+			if ip.Family == 6 && i.Metadata.PublicIPv6 == "" {
+				i.Metadata.PublicIPv6 = ip.Address
+			}
+		}
+	}
+
+	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Facility != nil {
+		i.Metadata.Plan = hw.Spec.Metadata.Facility.PlanSlug
+		i.Metadata.Facility = hw.Spec.Metadata.Facility.FacilityCode
+	}
+
+	if hw.Spec.UserData != nil {
+		i.Userdata = *hw.Spec.UserData
+	}
+
+	// TODO(chrisdoherty4) Support public keys. The frontend doesn't handle public keys correctly
+	// as it expects a single string and just outputs that key. Until we can support multiple keys
+	// its not worth adding it to the metadata.
+	//
+	// https://github.com/tinkerbell/tinkerbell/hegel/issues/165
+
+	return i
 }
 
 // toDHCPData converts a v1alpha1.DHCP to a data.DHCP data structure.

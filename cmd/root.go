@@ -14,15 +14,12 @@ import (
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
 	"github.com/tinkerbell/tinkerbell/cmd/flag"
+	"github.com/tinkerbell/tinkerbell/hegel"
 	"github.com/tinkerbell/tinkerbell/smee"
 	"golang.org/x/sync/errgroup"
 )
 
 func Execute(ctx context.Context, args []string) error {
-	s := &flag.SmeeConfig{
-		Config: smee.NewConfig(smee.Config{}, DetectPublicIPv4()),
-	}
-
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig: func() string {
 			hd, err := os.UserHomeDir()
@@ -31,19 +28,31 @@ func Execute(ctx context.Context, args []string) error {
 			}
 			return filepath.Join(hd, ".kube", "config")
 		}(),
-		PublicIP: DetectPublicIPv4(),
+		PublicIP:    DetectPublicIPv4(),
+		EnableSmee:  true,
+		EnableHegel: true,
 	}
+	s := &flag.SmeeConfig{
+		Config: smee.NewConfig(smee.Config{}, DetectPublicIPv4()),
+	}
+	h := &flag.HegelConfig{
+		Config: hegel.NewConfig(hegel.Config{}, fmt.Sprintf("%s:%d", DetectPublicIPv4().String(), 50061)),
+	}
+
 	gfs := ff.NewFlagSet("globals")
-	sfs := ff.NewFlagSet("smee").SetParent(gfs)
+	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(gfs)
+	hfs := ff.NewFlagSet("wendy - metadata service").SetParent(sfs)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
 	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
+	flag.RegisterHegelFlags(&flag.Set{FlagSet: hfs}, h)
 
 	cli := &ff.Command{
 		Name:     "tinkerbell",
 		Usage:    "tinkerbell [flags]",
 		LongHelp: "Tinkerbell stack.",
-		Flags:    sfs,
+		Flags:    hfs,
 	}
+
 	if err := cli.Parse(args, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
 		e := errors.New(ffhelp.Command(cli).String())
 		if !errors.Is(err, ff.ErrHelp) {
@@ -53,35 +62,11 @@ func Execute(ctx context.Context, args []string) error {
 		return e
 	}
 
-	s.Config.DHCP.IPXEHTTPScript.URL.Host = func() string {
-		addr, port := splitHostPort(s.Config.DHCP.IPXEHTTPScript.URL.Host)
-		if s.DHCPIPXEScript.Host != "" {
-			addr = s.DHCPIPXEScript.Host
-		}
-		if s.DHCPIPXEScript.Port != 0 {
-			port = fmt.Sprintf("%d", s.DHCPIPXEScript.Port)
-		}
+	// Smee
+	s.Convert(&globals.TrustedProxies)
 
-		if port != "" {
-			return fmt.Sprintf("%s:%s", addr, port)
-		}
-		return addr
-	}()
-
-	s.Config.DHCP.IPXEHTTPBinaryURL.Host = func() string {
-		addr, port := splitHostPort(s.Config.DHCP.IPXEHTTPBinaryURL.Host)
-		if s.DHCPIPXEBinary.Host != "" {
-			addr = s.DHCPIPXEBinary.Host
-		}
-		if s.DHCPIPXEBinary.Port != 0 {
-			port = fmt.Sprintf("%d", s.DHCPIPXEBinary.Port)
-		}
-
-		if port != "" {
-			return fmt.Sprintf("%s:%s", addr, port)
-		}
-		return addr
-	}()
+	// Hegel
+	h.Convert(&globals.TrustedProxies)
 
 	log := defaultLogger(globals.LogLevel)
 	log.Info("starting tinkerbell")
@@ -93,6 +78,8 @@ func Execute(ctx context.Context, args []string) error {
 			return fmt.Errorf("failed to create kube backend: %w", err)
 		}
 		s.Config.Backend = b
+		h.Config.BackendEc2 = b
+		h.Config.BackendHack = b
 	case "file":
 		b, err := NewFileBackend(ctx, log, globals.BackendFilePath)
 		if err != nil {
@@ -100,7 +87,10 @@ func Execute(ctx context.Context, args []string) error {
 		}
 		s.Config.Backend = b
 	case "none":
-		s.Config.Backend = NewNoopBackend()
+		b := NewNoopBackend()
+		s.Config.Backend = b
+		h.Config.BackendEc2 = b
+		h.Config.BackendHack = b
 	default:
 		return fmt.Errorf("unknown backend %q", globals.Backend)
 	}
@@ -108,7 +98,19 @@ func Execute(ctx context.Context, args []string) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		return s.Config.Start(ctx, log)
+		if globals.EnableSmee {
+			return s.Config.Start(ctx, log.WithValues("service", "smee"))
+		}
+		log.Info("smee service is disabled")
+		return nil
+	})
+
+	g.Go(func() error {
+		if globals.EnableHegel {
+			return h.Config.Start(ctx, log.WithValues("service", "hegel"))
+		}
+		log.Info("hegel service is disabled")
+		return nil
 	})
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
@@ -129,9 +131,15 @@ func defaultLogger(level int) logr.Logger {
 			}
 			ss.Function = ""
 			p := strings.Split(ss.File, "/")
-			if len(p) > 3 {
-				ss.File = filepath.Join(p[len(p)-3:]...)
+			// log the file path from tinkerbell/tinkerbell to the end.
+			var idx int
+			for i, v := range p {
+				if v == "tinkerbell" {
+					idx = i
+					break
+				}
 			}
+			ss.File = filepath.Join(p[idx:]...)
 
 			return a
 		}
@@ -139,20 +147,11 @@ func defaultLogger(level int) logr.Logger {
 		// This changes the slog.Level string representation to an integer.
 		// This makes it so that the V-levels passed in to the CLI show up as is in the logs.
 		if a.Key == slog.LevelKey {
-			v, ok := a.Value.Any().(slog.Level)
+			b, ok := a.Value.Any().(slog.Level)
 			if !ok {
 				return a
 			}
-			switch v {
-			case slog.LevelError:
-				a.Value = slog.IntValue(0)
-			default:
-				b, ok := a.Value.Any().(slog.Level)
-				if !ok {
-					return a
-				}
-				a.Value = slog.Float64Value(math.Abs(float64(b)))
-			}
+			a.Value = slog.Float64Value(math.Abs(float64(b)))
 			return a
 		}
 

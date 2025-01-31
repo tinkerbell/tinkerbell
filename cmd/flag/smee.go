@@ -2,9 +2,10 @@ package flag
 
 import (
 	"fmt"
+	"net/netip"
 
 	"github.com/peterbourgon/ff/v4/ffval"
-	"github.com/tinkerbell/tinkerbell/cmd/flag/netip"
+	ntip "github.com/tinkerbell/tinkerbell/cmd/flag/netip"
 	"github.com/tinkerbell/tinkerbell/cmd/flag/url"
 	"github.com/tinkerbell/tinkerbell/smee"
 )
@@ -31,11 +32,11 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	// DHCP flags
 	fs.Register(DHCPEnabled, ffval.NewValueDefault(&sc.Config.DHCP.Enabled, sc.Config.DHCP.Enabled))
 	fs.Register(DHCPModeFlag, &sc.Config.DHCP.Mode)
-	fs.Register(DHCPBindAddr, &netip.Addr{Addr: &sc.Config.DHCP.BindAddr})
+	fs.Register(DHCPBindAddr, &ntip.Addr{Addr: &sc.Config.DHCP.BindAddr})
 	fs.Register(DHCPBindInterface, ffval.NewValueDefault(&sc.Config.DHCP.BindInterface, sc.Config.DHCP.BindInterface))
-	fs.Register(DHCPIPForPacket, &netip.Addr{Addr: &sc.Config.DHCP.IPForPacket})
-	fs.Register(DHCPSyslogIP, &netip.Addr{Addr: &sc.Config.DHCP.SyslogIP})
-	fs.Register(DHCPTftpIP, &netip.Addr{Addr: &sc.Config.DHCP.TFTPIP})
+	fs.Register(DHCPIPForPacket, &ntip.Addr{Addr: &sc.Config.DHCP.IPForPacket})
+	fs.Register(DHCPSyslogIP, &ntip.Addr{Addr: &sc.Config.DHCP.SyslogIP})
+	fs.Register(DHCPTftpIP, &ntip.Addr{Addr: &sc.Config.DHCP.TFTPIP})
 	fs.Register(DHCPTftpPort, ffval.NewValueDefault(&sc.Config.DHCP.TFTPPort, sc.Config.DHCP.TFTPPort))
 	fs.Register(DHCPIPXEHTTPScriptInjectMac, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.InjectMacAddress, sc.Config.DHCP.IPXEHTTPScript.InjectMacAddress))
 	fs.Register(DHCPIPXEHTTPBinaryURLScheme, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPBinaryURL.Scheme, sc.Config.DHCP.IPXEHTTPBinaryURL.Scheme))
@@ -51,7 +52,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(IPXEEmbeddedScriptPatch, ffval.NewValueDefault(&sc.Config.IPXE.EmbeddedScriptPatch, sc.Config.IPXE.EmbeddedScriptPatch))
 	fs.Register(IPXEHTTPBinaryEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPBinaryServer.Enabled, sc.Config.IPXE.HTTPBinaryServer.Enabled))
 	fs.Register(IPXEHTTPScriptEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Enabled, sc.Config.IPXE.HTTPScriptServer.Enabled))
-	fs.Register(IPXEHTTPScriptBindAddr, &netip.Addr{Addr: &sc.Config.IPXE.HTTPScriptServer.BindAddr})
+	fs.Register(IPXEHTTPScriptBindAddr, &ntip.Addr{Addr: &sc.Config.IPXE.HTTPScriptServer.BindAddr})
 	fs.Register(IPXEHTTPScriptBindPort, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.BindPort, sc.Config.IPXE.HTTPScriptServer.BindPort))
 	fs.Register(IPXEHTTPScriptExtraKernelArgs, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.ExtraKernelArgs))
 	fs.Register(IPXEHTTPScriptTrustedProxies, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.TrustedProxies))
@@ -67,12 +68,12 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 
 	// Syslog Flags
 	fs.Register(SyslogEnabled, ffval.NewValueDefault(&sc.Config.Syslog.Enabled, sc.Config.Syslog.Enabled))
-	fs.Register(SyslogBindAddr, &netip.Addr{Addr: &sc.Config.Syslog.BindAddr})
+	fs.Register(SyslogBindAddr, &ntip.Addr{Addr: &sc.Config.Syslog.BindAddr})
 	fs.Register(SyslogBindPort, ffval.NewValueDefault(&sc.Config.Syslog.BindPort, sc.Config.Syslog.BindPort))
 
 	// TFTP Flags
 	fs.Register(TFTPServerEnabled, ffval.NewValueDefault(&sc.Config.TFTP.Enabled, sc.Config.TFTP.Enabled))
-	fs.Register(TFTPServerBindAddr, &netip.Addr{Addr: &sc.Config.TFTP.BindAddr})
+	fs.Register(TFTPServerBindAddr, &ntip.Addr{Addr: &sc.Config.TFTP.BindAddr})
 	fs.Register(TFTPServerBindPort, ffval.NewValueDefault(&sc.Config.TFTP.BindPort, sc.Config.TFTP.BindPort))
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
@@ -81,6 +82,39 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TinkServerAddrPort, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPort, sc.Config.TinkServer.AddrPort))
 	fs.Register(TinkServerUseTLS, ffval.NewValueDefault(&sc.Config.TinkServer.UseTLS, sc.Config.TinkServer.UseTLS))
 	fs.Register(TinkServerInsecureTLS, ffval.NewValueDefault(&sc.Config.TinkServer.InsecureTLS, sc.Config.TinkServer.InsecureTLS))
+}
+
+func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix) {
+	s.Config.IPXE.HTTPScriptServer.TrustedProxies = ntip.ToPrefixList(trustedProxies).Slice()
+	s.Config.DHCP.IPXEHTTPScript.URL.Host = func() string {
+		addr, port := splitHostPort(s.Config.DHCP.IPXEHTTPScript.URL.Host)
+		if s.DHCPIPXEScript.Host != "" {
+			addr = s.DHCPIPXEScript.Host
+		}
+		if s.DHCPIPXEScript.Port != 0 {
+			port = fmt.Sprintf("%d", s.DHCPIPXEScript.Port)
+		}
+
+		if port != "" {
+			return fmt.Sprintf("%s:%s", addr, port)
+		}
+		return addr
+	}()
+
+	s.Config.DHCP.IPXEHTTPBinaryURL.Host = func() string {
+		addr, port := splitHostPort(s.Config.DHCP.IPXEHTTPBinaryURL.Host)
+		if s.DHCPIPXEBinary.Host != "" {
+			addr = s.DHCPIPXEBinary.Host
+		}
+		if s.DHCPIPXEBinary.Port != 0 {
+			port = fmt.Sprintf("%d", s.DHCPIPXEBinary.Port)
+		}
+
+		if port != "" {
+			return fmt.Sprintf("%s:%s", addr, port)
+		}
+		return addr
+	}()
 }
 
 // DHCP flags.
