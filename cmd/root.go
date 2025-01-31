@@ -139,12 +139,19 @@ func defaultLogger(level int) logr.Logger {
 		// This changes the slog.Level string representation to an integer.
 		// This makes it so that the V-levels passed in to the CLI show up as is in the logs.
 		if a.Key == slog.LevelKey {
-			switch a.Value.Any().(slog.Level) {
+			v, ok := a.Value.Any().(slog.Level)
+			if !ok {
+				return a
+			}
+			switch v {
 			case slog.LevelError:
 				a.Value = slog.IntValue(0)
 			default:
-				b := float64(a.Value.Any().(slog.Level))
-				a.Value = slog.Float64Value(math.Abs(b))
+				b, ok := a.Value.Any().(slog.Level)
+				if !ok {
+					return a
+				}
+				a.Value = slog.Float64Value(math.Abs(float64(b)))
 			}
 			return a
 		}
