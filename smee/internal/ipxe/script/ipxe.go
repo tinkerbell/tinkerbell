@@ -297,7 +297,7 @@ func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
 		Retries:               h.IPXEScriptRetries,
 		RetryDelay:            h.IPXEScriptRetryDelay,
 	}
-	if hw.OSIE.BaseURL != nil {
+	if hw.OSIE.BaseURL != nil && hw.OSIE.BaseURL.String() != "" {
 		auto.DownloadURL = hw.OSIE.BaseURL.String()
 	}
 	if hw.OSIE.Kernel != "" {
@@ -306,8 +306,8 @@ func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
 	if hw.OSIE.Initrd != "" {
 		auto.Initrd = hw.OSIE.Initrd
 	}
-	if sc := span.SpanContext(); sc.IsSampled() {
-		auto.TraceID = sc.TraceID().String()
+	if span.SpanContext().IsSampled() {
+		auto.TraceID = span.SpanContext().TraceID().String()
 	}
 
 	return GenerateTemplate(auto, HookScript)
@@ -315,15 +315,15 @@ func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
 
 // customScript returns the custom script or chain URL if defined in the hardware data otherwise an error.
 func (h *Handler) customScript(hw info) (string, error) {
-	if chain := hw.IPXEScriptURL; chain != nil && chain.String() != "" {
-		if chain.Scheme != "http" && chain.Scheme != "https" {
-			return "", fmt.Errorf("invalid URL scheme: %v", chain.Scheme)
+	if hw.IPXEScriptURL != nil && hw.IPXEScriptURL.String() != "" {
+		if hw.IPXEScriptURL.Scheme != "http" && hw.IPXEScriptURL.Scheme != "https" {
+			return "", fmt.Errorf("invalid URL scheme: %v", hw.IPXEScriptURL.Scheme)
 		}
-		c := Custom{Chain: chain}
+		c := Custom{Chain: hw.IPXEScriptURL}
 		return GenerateTemplate(c, CustomScript)
 	}
-	if script := hw.IPXEScript; script != "" {
-		c := Custom{Script: script}
+	if hw.IPXEScript != "" {
+		c := Custom{Script: hw.IPXEScript}
 		return GenerateTemplate(c, CustomScript)
 	}
 
