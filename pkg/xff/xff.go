@@ -21,7 +21,7 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-package http
+package xff
 
 import (
 	"net"
@@ -29,8 +29,8 @@ import (
 	"strings"
 )
 
-// xffOptions is a configuration container to setup the XFF middleware.
-type xffOptions struct {
+// Options is a configuration container to setup the XFF middleware.
+type Options struct {
 	// AllowedSubnets is a list of Subnets from which we will accept the
 	// X-Forwarded-For header.
 	// If this list is empty we will accept every Subnets (default).
@@ -39,21 +39,21 @@ type xffOptions struct {
 	Debug bool
 }
 
-// xff http handler.
-type xff struct {
+// Xff http handler.
+type Xff struct {
 	// Set to true if all IPs or Subnets are allowed.
 	allowAll bool
 	// List of IP subnets that are allowed.
 	allowedMasks []net.IPNet
 }
 
-// New creates a new XFF handler with the provided options.
-func newXFF(options xffOptions) (*xff, error) {
+// NewXFF creates a new XFF handler with the provided options.
+func NewXFF(options Options) (*Xff, error) {
 	allowedMasks, err := toMasks(options.AllowedSubnets)
 	if err != nil {
 		return nil, err
 	}
-	xff := &xff{
+	xff := &Xff{
 		allowAll:     len(options.AllowedSubnets) == 0,
 		allowedMasks: allowedMasks,
 	}
@@ -62,7 +62,7 @@ func newXFF(options xffOptions) (*xff, error) {
 }
 
 // Handler updates RemoteAdd from X-Fowarded-For Headers.
-func (xff *xff) Handler(h http.Handler) http.Handler {
+func (xff *Xff) Handler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.RemoteAddr = getRemoteAddrIfAllowed(r, xff.allowed)
 		h.ServeHTTP(w, r)
@@ -131,7 +131,7 @@ func toMasks(ips []string) (masks []net.IPNet, err error) {
 }
 
 // checks that the IP is allowed.
-func (xff *xff) allowed(sip string) bool {
+func (xff *Xff) allowed(sip string) bool {
 	if xff.allowAll {
 		return true
 	} else if ip := net.ParseIP(sip); ip != nil && ipInMasks(ip, xff.allowedMasks) {
