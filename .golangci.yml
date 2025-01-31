@@ -156,6 +156,7 @@ issues:
     - smee/internal/iso/internal/reverseproxy_test.go
     - smee/internal/iso/internal/acsii.go
     - smee/internal/iso/internal/acsii_test.go
+    - cmd/url.go
 
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
