@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/url"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,17 +53,35 @@ func Execute(ctx context.Context, args []string) error {
 		return e
 	}
 
-	s.Config.DHCP.IPXEHTTPBinaryURL = &url.URL{
-		Scheme: s.DHCPIPXEScript.Scheme,
-		Host:   fmt.Sprintf("%s:%v", s.DHCPIPXEScript.Host, s.DHCPIPXEScript.Port),
-		Path:   s.DHCPIPXEScript.Path,
-	}
+	s.Config.DHCP.IPXEHTTPScript.URL.Host = func() string {
+		addr, port := splitHostPort(s.Config.DHCP.IPXEHTTPScript.URL.Host)
+		if s.DHCPIPXEScript.Host != "" {
+			addr = s.DHCPIPXEScript.Host
+		}
+		if s.DHCPIPXEScript.Port != 0 {
+			port = fmt.Sprintf("%d", s.DHCPIPXEScript.Port)
+		}
 
-	s.Config.DHCP.IPXEHTTPBinaryURL = &url.URL{
-		Scheme: s.DHCPIPXEBinary.Scheme,
-		Host:   fmt.Sprintf("%s:%v", s.DHCPIPXEBinary.Host, s.DHCPIPXEBinary.Port),
-		Path:   s.DHCPIPXEBinary.Path,
-	}
+		if port != "" {
+			return fmt.Sprintf("%s:%s", addr, port)
+		}
+		return addr
+	}()
+
+	s.Config.DHCP.IPXEHTTPBinaryURL.Host = func() string {
+		addr, port := splitHostPort(s.Config.DHCP.IPXEHTTPBinaryURL.Host)
+		if s.DHCPIPXEBinary.Host != "" {
+			addr = s.DHCPIPXEBinary.Host
+		}
+		if s.DHCPIPXEBinary.Port != 0 {
+			port = fmt.Sprintf("%d", s.DHCPIPXEBinary.Port)
+		}
+
+		if port != "" {
+			return fmt.Sprintf("%s:%s", addr, port)
+		}
+		return addr
+	}()
 
 	log := defaultLogger(globals.LogLevel)
 	log.Info("starting tinkerbell")
@@ -100,7 +118,7 @@ func Execute(ctx context.Context, args []string) error {
 }
 
 // defaultLogger uses the slog logr implementation.
-func defaultLogger(level string) logr.Logger {
+func defaultLogger(level int) logr.Logger {
 	// source file and function can be long. This makes the logs less readable.
 	// for improved readability, truncate source file to last 3 parts and remove the function entirely.
 	customAttr := func(_ []string, a slog.Attr) slog.Attr {
@@ -118,14 +136,25 @@ func defaultLogger(level string) logr.Logger {
 			return a
 		}
 
+		// This changes the slog.Level string representation to an integer.
+		// This makes it so that the V-levels passed in to the CLI show up as is in the logs.
+		if a.Key == slog.LevelKey {
+			switch a.Value.Any().(slog.Level) {
+			case slog.LevelError:
+				a.Value = slog.IntValue(0)
+			default:
+				b := float64(a.Value.Any().(slog.Level))
+				a.Value = slog.Float64Value(math.Abs(b))
+			}
+			return a
+		}
+
 		return a
 	}
-	opts := &slog.HandlerOptions{AddSource: true, ReplaceAttr: customAttr}
-	switch level {
-	case "debug":
-		opts.Level = slog.LevelDebug
-	default:
-		opts.Level = slog.LevelInfo
+	opts := &slog.HandlerOptions{
+		AddSource:   true,
+		Level:       slog.Level(-level),
+		ReplaceAttr: customAttr,
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stdout, opts))
 

@@ -21,10 +21,10 @@ type SmeeConfig struct {
 
 // URLBuilder breaks out the fields of a url.URL so they can be set individually from the CLI.
 type URLBuilder struct {
-	Scheme string
-	Host   string
-	Port   int
-	Path   string
+	// Host is required.
+	Host string
+	// Port is optional.
+	Port int
 }
 
 func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
@@ -38,10 +38,14 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(DHCPTftpIP, &netip.Addr{Addr: &sc.Config.DHCP.TFTPIP})
 	fs.Register(DHCPTftpPort, ffval.NewValueDefault(&sc.Config.DHCP.TFTPPort, sc.Config.DHCP.TFTPPort))
 	fs.Register(DHCPIPXEHTTPScriptInjectMac, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.InjectMacAddress, sc.Config.DHCP.IPXEHTTPScript.InjectMacAddress))
-	fs.Register(DHCPIPXEHTTPBinaryURLScheme, ffval.NewValueDefault(&sc.DHCPIPXEBinary.Scheme, sc.DHCPIPXEBinary.Scheme))
+	fs.Register(DHCPIPXEHTTPBinaryURLScheme, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPBinaryURL.Scheme, sc.Config.DHCP.IPXEHTTPBinaryURL.Scheme))
 	fs.Register(DHCPIPXEHTTPBinaryURLHost, ffval.NewValueDefault(&sc.DHCPIPXEBinary.Host, sc.DHCPIPXEBinary.Host))
 	fs.Register(DHCPIPXEHTTPBinaryURLPort, ffval.NewValueDefault(&sc.DHCPIPXEBinary.Port, sc.DHCPIPXEBinary.Port))
-	fs.Register(DHCPIPXEHTTPBinaryURLPath, ffval.NewValueDefault(&sc.DHCPIPXEBinary.Path, sc.DHCPIPXEBinary.Path))
+	fs.Register(DHCPIPXEHTTPBinaryURLPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPBinaryURL.Path, sc.Config.DHCP.IPXEHTTPBinaryURL.Path))
+	fs.Register(DHCPIPXEHTTPScriptScheme, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Scheme, sc.Config.DHCP.IPXEHTTPScript.URL.Scheme))
+	fs.Register(DHCPIPXEHTTPScriptHost, ffval.NewValueDefault(&sc.DHCPIPXEScript.Host, sc.DHCPIPXEScript.Host))
+	fs.Register(DHCPIPXEHTTPScriptPort, ffval.NewValueDefault(&sc.DHCPIPXEScript.Port, sc.DHCPIPXEScript.Port))
+	fs.Register(DHCPIPXEHTTPScriptPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Path, sc.Config.DHCP.IPXEHTTPScript.URL.Path))
 
 	// IPXE flags
 	fs.Register(IPXEEmbeddedScriptPatch, ffval.NewValueDefault(&sc.Config.IPXE.EmbeddedScriptPatch, sc.Config.IPXE.EmbeddedScriptPatch))
