@@ -28,20 +28,20 @@ func Execute(ctx context.Context, args []string) error {
 			}
 			return filepath.Join(hd, ".kube", "config")
 		}(),
-		PublicIP:    DetectPublicIPv4(),
+		PublicIP:    detectPublicIPv4(),
 		EnableSmee:  true,
 		EnableHegel: true,
 	}
 	s := &flag.SmeeConfig{
-		Config: smee.NewConfig(smee.Config{}, DetectPublicIPv4()),
+		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
 	}
 	h := &flag.HegelConfig{
-		Config: hegel.NewConfig(hegel.Config{}, fmt.Sprintf("%s:%d", DetectPublicIPv4().String(), 50061)),
+		Config: hegel.NewConfig(hegel.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 50061)),
 	}
 
 	gfs := ff.NewFlagSet("globals")
 	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(gfs)
-	hfs := ff.NewFlagSet("wendy - metadata service").SetParent(sfs)
+	hfs := ff.NewFlagSet("hegel - metadata service").SetParent(sfs)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
 	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
 	flag.RegisterHegelFlags(&flag.Set{FlagSet: hfs}, h)
@@ -73,7 +73,7 @@ func Execute(ctx context.Context, args []string) error {
 
 	switch globals.Backend {
 	case "kube":
-		b, err := NewKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace)
+		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace)
 		if err != nil {
 			return fmt.Errorf("failed to create kube backend: %w", err)
 		}
@@ -81,13 +81,13 @@ func Execute(ctx context.Context, args []string) error {
 		h.Config.BackendEc2 = b
 		h.Config.BackendHack = b
 	case "file":
-		b, err := NewFileBackend(ctx, log, globals.BackendFilePath)
+		b, err := newFileBackend(ctx, log, globals.BackendFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to create file backend: %w", err)
 		}
 		s.Config.Backend = b
 	case "none":
-		b := NewNoopBackend()
+		b := newNoopBackend()
 		s.Config.Backend = b
 		h.Config.BackendEc2 = b
 		h.Config.BackendHack = b
