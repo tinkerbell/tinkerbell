@@ -19,7 +19,7 @@ import (
 	"github.com/tinkerbell/ipxedust"
 	"github.com/tinkerbell/ipxedust/ihttp"
 	"github.com/tinkerbell/tinkerbell/data"
-	"github.com/tinkerbell/tinkerbell/otel"
+	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/server"

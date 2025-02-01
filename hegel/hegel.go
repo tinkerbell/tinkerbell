@@ -10,9 +10,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tinkerbell/tinkerbell/hegel/internal/frontend/ec2"
 	"github.com/tinkerbell/tinkerbell/hegel/internal/frontend/hack"
-	hegelhttp "github.com/tinkerbell/tinkerbell/hegel/internal/http"
-	hegellogger "github.com/tinkerbell/tinkerbell/hegel/internal/logger"
+	"github.com/tinkerbell/tinkerbell/hegel/internal/http"
 	"github.com/tinkerbell/tinkerbell/hegel/internal/metrics"
+	"github.com/tinkerbell/tinkerbell/hegel/internal/middleware"
 	"github.com/tinkerbell/tinkerbell/hegel/internal/xff"
 )
 
@@ -54,7 +54,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		metrics.InstrumentRequestCount(registry),
 		metrics.InstrumentRequestDuration(registry),
 		gin.Recovery(),
-		hegellogger.Middleware(log),
+		middleware.Logging(log),
 		xffmw,
 	)
 
@@ -67,5 +67,5 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 	hack.Configure(router, c.BackendHack)
 
-	return hegelhttp.Serve(ctx, log, c.BindAddrPort, router)
+	return http.Serve(ctx, log, c.BindAddrPort, router)
 }

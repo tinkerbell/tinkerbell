@@ -1,4 +1,4 @@
-package logger
+package middleware
 
 import (
 	"errors"
@@ -9,9 +9,9 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// Middleware creates a gin middleware that logs requests. It includes client_ip, method,
+// Logging creates a gin middleware that logs requests. It includes client_ip, method,
 // status_code, path and latency.
-func Middleware(logger logr.Logger) gin.HandlerFunc {
+func Logging(logger logr.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Process the request recording how long it took.
 		start := time.Now()
