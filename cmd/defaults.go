@@ -15,7 +15,7 @@ const (
 	smeePublicIPInterface = "SMEE_PUBLIC_IP_INTERFACE"
 )
 
-func DetectPublicIPv4() netip.Addr {
+func detectPublicIPv4() netip.Addr {
 	if netint := os.Getenv(smeePublicIPInterface); netint != "" {
 		if ip := ipByInterface(netint); ip.String() != "" && ip.IsValid() {
 			return ip

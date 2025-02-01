@@ -9,7 +9,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/backend/noop"
 )
 
-func NewKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string) (*kube.Backend, error) {
+func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string) (*kube.Backend, error) {
 	kb, err := kube.NewBackend(kube.Backend{
 		ConfigFilePath: kubeconfig,
 		APIURL:         apiurl,
@@ -29,7 +29,7 @@ func NewKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string) (
 	return kb, nil
 }
 
-func NewFileBackend(ctx context.Context, logger logr.Logger, filepath string) (*file.Watcher, error) {
+func newFileBackend(ctx context.Context, logger logr.Logger, filepath string) (*file.Watcher, error) {
 	f, err := file.NewWatcher(logger, filepath)
 	if err != nil {
 		return nil, err
@@ -40,6 +40,6 @@ func NewFileBackend(ctx context.Context, logger logr.Logger, filepath string) (*
 	return f, nil
 }
 
-func NewNoopBackend() *noop.Backend {
+func newNoopBackend() *noop.Backend {
 	return &noop.Backend{}
 }
