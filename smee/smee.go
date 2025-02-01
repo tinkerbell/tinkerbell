@@ -19,7 +19,7 @@ import (
 	"github.com/tinkerbell/ipxedust"
 	"github.com/tinkerbell/ipxedust/ihttp"
 	"github.com/tinkerbell/tinkerbell/data"
-	"github.com/tinkerbell/tinkerbell/otel"
+	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/server"
@@ -299,7 +299,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if !addr.IsValid() {
 			return fmt.Errorf("invalid syslog bind address: IP: %v, Port: %v", addr.Addr(), addr.Port())
 		}
-		log.Info("starting syslog server", "bind_addr", addr)
+		log.Info("starting syslog server", "bindAddr", addr)
 		g.Go(func() error {
 			if err := syslog.StartReceiver(ctx, log, addr.String(), 1); err != nil {
 				log.Error(err, "syslog server failure")
@@ -333,7 +333,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			BlockSize: c.TFTP.BlockSize,
 		}
 		// start the ipxe binary tftp server
-		log.Info("starting tftp server", "bind_addr", addrPort.String())
+		log.Info("starting tftp server", "bindAddr", addrPort.String())
 		g.Go(func() error {
 			return tftpServer.ListenAndServe(ctx)
 		})
@@ -412,7 +412,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if !bindAddr.IsValid() {
 			return fmt.Errorf("invalid HTTP Script Server bind address: IP: %v, Port: %v", bindAddr.Addr(), bindAddr.Port())
 		}
-		log.Info("starting http server", "addr", bindAddr.String(), "trusted_proxies", c.IPXE.HTTPScriptServer.TrustedProxies)
+		log.Info("starting http server", "addr", bindAddr.String(), "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
 		g.Go(func() error {
 			return httpServer.ServeHTTP(ctx, bindAddr.String(), handlers)
 		})
@@ -428,7 +428,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if !dhcpAddrPort.IsValid() {
 			return fmt.Errorf("invalid DHCP bind address: IP: %v, Port: %v", dhcpAddrPort.Addr(), dhcpAddrPort.Port())
 		}
-		log.Info("starting dhcp server", "bind_addr", dhcpAddrPort)
+		log.Info("starting dhcp server", "bindAddr", dhcpAddrPort)
 		g.Go(func() error {
 			conn, err := server4.NewIPv4UDPConn(c.DHCP.BindInterface, net.UDPAddrFromAddrPort(dhcpAddrPort))
 			if err != nil {

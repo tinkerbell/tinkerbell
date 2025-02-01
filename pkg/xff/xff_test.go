@@ -21,7 +21,7 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-package http
+package xff
 
 import (
 	"net"
@@ -111,38 +111,38 @@ func TestToMasks_error(t *testing.T) {
 }
 
 func TestAllowed_all(t *testing.T) {
-	m, _ := newXFF(xffOptions{
+	m, _ := NewXFF(Options{
 		AllowedSubnets: []string{},
 	})
 	assert.True(t, m.allowed("127.0.0.1"))
 }
 
 func TestAllowed_yes(t *testing.T) {
-	m, _ := newXFF(xffOptions{
+	m, _ := NewXFF(Options{
 		AllowedSubnets: []string{"127.0.0.0/16"},
 	})
 	assert.True(t, m.allowed("127.0.0.1"))
 
-	m, _ = newXFF(xffOptions{
+	m, _ = NewXFF(Options{
 		AllowedSubnets: []string{"127.0.0.1/32"},
 	})
 	assert.True(t, m.allowed("127.0.0.1"))
 }
 
 func TestAllowed_no(t *testing.T) {
-	m, _ := newXFF(xffOptions{
+	m, _ := NewXFF(Options{
 		AllowedSubnets: []string{"127.0.0.0/16"},
 	})
 	assert.False(t, m.allowed("127.1.0.1"))
 
-	m, _ = newXFF(xffOptions{
+	m, _ = NewXFF(Options{
 		AllowedSubnets: []string{"127.0.0.1/32"},
 	})
 	assert.False(t, m.allowed("127.0.0.2"))
 }
 
 func TestParseUnallowedMidway(t *testing.T) {
-	m, _ := newXFF(xffOptions{
+	m, _ := NewXFF(Options{
 		AllowedSubnets: []string{"127.0.0.0/16"},
 	})
 	res := parse("1.1.1.1, 8.8.8.8, 127.0.0.1, 127.0.0.2", m.allowed)
@@ -150,7 +150,7 @@ func TestParseUnallowedMidway(t *testing.T) {
 }
 
 func TestParseMany(t *testing.T) {
-	m, _ := newXFF(xffOptions{
+	m, _ := NewXFF(Options{
 		AllowedSubnets: []string{"127.0.0.0/16"},
 	})
 	res := parse("1.1.1.1, 127.0.0.1, 127.0.0.2, 127.0.0.3", m.allowed)

@@ -17,6 +17,8 @@ type GlobalConfig struct {
 	OTELInsecure         bool
 	TrustedProxies       []netip.Prefix
 	PublicIP             netip.Addr
+	EnableSmee           bool
+	EnableHegel          bool
 }
 
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
@@ -29,6 +31,8 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(OTELInsecure, ffval.NewValueDefault(&gc.OTELInsecure, gc.OTELInsecure))
 	fs.Register(TrustedProxies, &ntip.PrefixList{PrefixList: &gc.TrustedProxies})
 	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
+	fs.Register(EnabledSmee, ffval.NewValueDefault(&gc.EnableSmee, gc.EnableSmee))
+	fs.Register(EnabledHegel, ffval.NewValueDefault(&gc.EnableHegel, gc.EnableHegel))
 }
 
 // All these flags are used by at least two services or
@@ -79,4 +83,14 @@ var TrustedProxies = Config{
 var PublicIP = Config{
 	Name:  "public-ipv4",
 	Usage: "public IPv4 address to use for all enabled services",
+}
+
+var EnabledSmee = Config{
+	Name:  "enable-smee",
+	Usage: "enable Smee service",
+}
+
+var EnabledHegel = Config{
+	Name:  "enable-hegel",
+	Usage: "enable Hegel service",
 }

@@ -103,3 +103,12 @@ func (p *PrefixList) String() string {
 
 	return strings.Join(pl, ",")
 }
+
+func (p *PrefixList) Slice() []string {
+	var pl []string
+	for _, prefix := range *p.PrefixList {
+		pl = append(pl, prefix.String())
+	}
+
+	return pl
+}

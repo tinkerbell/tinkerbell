@@ -35,5 +35,8 @@ jobs:
           go get -t ./... && go mod tidy
 
       - name: Run all CI checks, linting, tests, etc
-        run: |
-          make ci
+        run: make ci
+
+      - name: Compile binaries
+        run: make crosscompile
+
