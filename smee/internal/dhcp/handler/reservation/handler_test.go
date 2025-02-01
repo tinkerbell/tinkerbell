@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/netip"
 	"net/url"
@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-logr/stdr"
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/insomniacslk/dhcp/dhcpv4"
@@ -421,7 +421,7 @@ func TestUpdateMsg(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			s := &Handler{
-				Log:    stdr.New(log.New(os.Stdout, "", log.Lshortfile)),
+				Log:    logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
 				IPAddr: netip.MustParseAddr("127.0.0.1"),
 				Netboot: Netboot{
 					Enabled: true,
@@ -491,7 +491,7 @@ func TestReadBackend(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			s := &Handler{
-				Log:    stdr.New(log.New(os.Stdout, "", log.Lshortfile)),
+				Log:    logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
 				IPAddr: netip.MustParseAddr("127.0.0.1"),
 				Netboot: Netboot{
 					Enabled: true,
@@ -539,8 +539,7 @@ func TestEncodeToAttributes(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			stdr.SetVerbosity(1)
-			s := &Handler{Log: stdr.New(log.New(os.Stdout, "", log.Lshortfile))}
+			s := &Handler{Log: logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil))}
 			kvs := s.encodeToAttributes(tt.input, "testing")
 			got := attribute.NewSet(kvs...)
 			want := attribute.NewSet(tt.want...)

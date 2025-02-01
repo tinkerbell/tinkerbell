@@ -19,6 +19,7 @@ type GlobalConfig struct {
 	PublicIP             netip.Addr
 	EnableSmee           bool
 	EnableHegel          bool
+	EnableTinkServer     bool
 }
 
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
