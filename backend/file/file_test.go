@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net"
 	"net/netip"
 	"net/url"
@@ -16,7 +16,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-logr/logr"
-	"github.com/go-logr/stdr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tinkerbell/tinkerbell/data"
@@ -79,10 +78,18 @@ type testData struct {
 	expectedOut string
 }
 
+// noTime removes the time key from the slog output.
+var noTime = &slog.HandlerOptions{ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+	if a.Key == slog.TimeKey {
+		return slog.Attr{}
+	}
+	return a
+}}
+
 func TestStartAndStop(t *testing.T) {
-	tt := &testData{action: "cancel", expectedOut: `"level"=0 "msg"="stopping watcher"` + "\n"}
+	tt := &testData{action: "cancel", expectedOut: `{"level":"INFO","msg":"stopping watcher"}` + "\n"}
 	out := &bytes.Buffer{}
-	l := stdr.New(log.New(out, "", 0))
+	l := logr.FromSlogHandler(slog.NewJSONHandler(out, noTime))
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	watcher, err := fsnotify.NewWatcher()
@@ -97,9 +104,13 @@ func TestStartAndStop(t *testing.T) {
 }
 
 func TestStartFileUpdateError(t *testing.T) {
-	tt := &testData{expectedOut: `"level"=0 "msg"="file changed, updating cache"` + "\n" + `"msg"="failed to read file" "error"="open not-found.txt: no such file or directory" "file"="not-found.txt"` + "\n" + `"level"=0 "msg"="stopping watcher"` + "\n"}
+	expected := `{"level":"INFO","msg":"file changed, updating cache"}
+{"level":"ERROR","msg":"failed to read file","err":"open not-found.txt: no such file or directory","file":"not-found.txt"}
+{"level":"INFO","msg":"stopping watcher"}
+`
+	tt := &testData{expectedOut: expected}
 	out := &bytes.Buffer{}
-	l := stdr.New(log.New(out, "", 0))
+	l := logr.FromSlogHandler(slog.NewJSONHandler(out, noTime))
 	got, name := tt.helper(t, l)
 	defer os.Remove(name)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -112,6 +123,7 @@ func TestStartFileUpdateError(t *testing.T) {
 	got.Start(ctx)
 	time.Sleep(time.Second)
 	if diff := cmp.Diff(out.String(), tt.expectedOut); diff != "" {
+		t.Log(out.String())
 		t.Fatal(diff)
 	}
 }
@@ -146,7 +158,7 @@ func TestStartFileUpdate(t *testing.T) {
 
 func TestStartFileUpdateClosedChan(t *testing.T) {
 	out := &bytes.Buffer{}
-	l := stdr.New(log.New(out, "", 0))
+	l := logr.FromSlogHandler(slog.NewJSONHandler(out, nil))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	watcher, err := fsnotify.NewWatcher()
@@ -163,9 +175,12 @@ func TestStartFileUpdateClosedChan(t *testing.T) {
 }
 
 func TestStartError(t *testing.T) {
-	tt := &testData{expectedOut: `"level"=0 "msg"="error watching file" "err"="test error"` + "\n" + `"level"=0 "msg"="stopping watcher"` + "\n"}
+	expected := `{"level":"INFO","msg":"error watching file","err":"test error"}
+{"level":"INFO","msg":"stopping watcher"}
+`
+	tt := &testData{expectedOut: expected}
 	out := &bytes.Buffer{}
-	l := stdr.New(log.New(out, "", 0))
+	l := logr.FromSlogHandler(slog.NewJSONHandler(out, noTime))
 	ctx, cancel := context.WithCancel(context.Background())
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -185,7 +200,7 @@ func TestStartError(t *testing.T) {
 
 func TestStartErrorContinue(t *testing.T) {
 	out := &bytes.Buffer{}
-	l := stdr.New(log.New(out, "", 0))
+	l := logr.FromSlogHandler(slog.NewJSONHandler(out, nil))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	watcher, err := fsnotify.NewWatcher()
@@ -294,7 +309,7 @@ func TestTranslateErrors(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			w := &Watcher{Log: stdr.New(log.New(os.Stdout, "", log.Lshortfile))}
+			w := &Watcher{Log: logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil))}
 			if _, _, err := w.translate(tt.input); !errors.Is(err, tt.wantErr) {
 				t.Errorf("translate() = %T, want %T", err, tt.wantErr)
 			}

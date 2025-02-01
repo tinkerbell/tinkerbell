@@ -5,6 +5,7 @@ import (
 	"net/netip"
 
 	"github.com/peterbourgon/ff/v4/ffval"
+	"github.com/tinkerbell/tinkerbell/backend/kube"
 	ntip "github.com/tinkerbell/tinkerbell/cmd/flag/netip"
 	"github.com/tinkerbell/tinkerbell/hegel"
 )
@@ -13,6 +14,10 @@ type HegelConfig struct {
 	Config   *hegel.Config
 	BindAddr netip.Addr
 	BindPort int
+}
+
+var KubeIndexesHegel = map[kube.IndexType]kube.Index{
+	kube.IndexTypeIPAddr: kube.Indexes[kube.IndexTypeIPAddr],
 }
 
 func RegisterHegelFlags(fs *Set, h *HegelConfig) {

@@ -5,6 +5,7 @@ import (
 	"net/netip"
 
 	"github.com/peterbourgon/ff/v4/ffval"
+	"github.com/tinkerbell/tinkerbell/backend/kube"
 	ntip "github.com/tinkerbell/tinkerbell/cmd/flag/netip"
 	"github.com/tinkerbell/tinkerbell/cmd/flag/url"
 	"github.com/tinkerbell/tinkerbell/smee"
@@ -18,6 +19,11 @@ type SmeeConfig struct {
 	// DHCPIPXEScript splits out some url.URL fields so they can be set individually.
 	// The cmd package is responsible for putting the fields back together into a url.URL for use in service package configs.
 	DHCPIPXEScript URLBuilder
+}
+
+var KubeIndexesSmee = map[kube.IndexType]kube.Index{
+	kube.IndexTypeMACAddr: kube.Indexes[kube.IndexTypeMACAddr],
+	kube.IndexTypeIPAddr:  kube.Indexes[kube.IndexTypeIPAddr],
 }
 
 // URLBuilder breaks out the fields of a url.URL so they can be set individually from the CLI.
@@ -321,16 +327,16 @@ var ISOStaticIPAMEnabled = Config{
 
 // Tink Server flags.
 var TinkServerAddrPort = Config{
-	Name:  "tink-server-addr-port",
+	Name:  "ipxe-script-tink-server-addr-port",
 	Usage: "[tink] Tink server address and port",
 }
 
 var TinkServerUseTLS = Config{
-	Name:  "tink-server-use-tls",
+	Name:  "ipxe-script-tink-server-use-tls",
 	Usage: "[tink] Use TLS to connect to the Tink server",
 }
 
 var TinkServerInsecureTLS = Config{
-	Name:  "tink-server-insecure-tls",
+	Name:  "ipxe-script-tink-server-insecure-tls",
 	Usage: "[tink] Skip TLS verification when connecting to the Tink server",
 }

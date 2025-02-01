@@ -9,11 +9,12 @@ import (
 	"github.com/tinkerbell/tinkerbell/backend/noop"
 )
 
-func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string) (*kube.Backend, error) {
+func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string, indexes map[kube.IndexType]kube.Index) (*kube.Backend, error) {
 	kb, err := kube.NewBackend(kube.Backend{
 		ConfigFilePath: kubeconfig,
 		APIURL:         apiurl,
 		Namespace:      namespace,
+		Indexes:        indexes,
 	})
 	if err != nil {
 		return nil, err

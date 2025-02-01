@@ -13,9 +13,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
+	"github.com/tinkerbell/tinkerbell/backend/kube"
 	"github.com/tinkerbell/tinkerbell/cmd/flag"
 	"github.com/tinkerbell/tinkerbell/hegel"
 	"github.com/tinkerbell/tinkerbell/smee"
+	"github.com/tinkerbell/tinkerbell/tink/server"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -28,29 +30,39 @@ func Execute(ctx context.Context, args []string) error {
 			}
 			return filepath.Join(hd, ".kube", "config")
 		}(),
-		PublicIP:    detectPublicIPv4(),
-		EnableSmee:  true,
-		EnableHegel: true,
+		PublicIP:         detectPublicIPv4(),
+		EnableSmee:       true,
+		EnableHegel:      true,
+		EnableTinkServer: true,
 	}
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
 	}
 	h := &flag.HegelConfig{
-		Config: hegel.NewConfig(hegel.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 50061)),
+		Config:   hegel.NewConfig(hegel.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 50061)),
+		BindAddr: detectPublicIPv4(),
+		BindPort: 50061,
+	}
+	ts := &flag.TinkServerConfig{
+		Config:   server.NewConfig(),
+		BindAddr: detectPublicIPv4(),
+		BindPort: 42113,
 	}
 
 	gfs := ff.NewFlagSet("globals")
 	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(gfs)
 	hfs := ff.NewFlagSet("hegel - metadata service").SetParent(sfs)
+	tfs := ff.NewFlagSet("tink server - Workflow server").SetParent(hfs)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
 	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
 	flag.RegisterHegelFlags(&flag.Set{FlagSet: hfs}, h)
+	flag.RegisterTinkServerFlags(&flag.Set{FlagSet: tfs}, ts)
 
 	cli := &ff.Command{
 		Name:     "tinkerbell",
 		Usage:    "tinkerbell [flags]",
 		LongHelp: "Tinkerbell stack.",
-		Flags:    hfs,
+		Flags:    tfs,
 	}
 
 	if err := cli.Parse(args, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
@@ -68,18 +80,22 @@ func Execute(ctx context.Context, args []string) error {
 	// Hegel
 	h.Convert(&globals.TrustedProxies)
 
+	// Tink Server
+	ts.Convert()
+
 	log := defaultLogger(globals.LogLevel)
-	log.Info("starting tinkerbell")
+	log.Info("starting tinkerbell", "tink-server", fmt.Sprintf("%+v", ts), "tink-server-config", fmt.Sprintf("%+v", ts.Config))
 
 	switch globals.Backend {
 	case "kube":
-		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace)
+		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableHegel, globals.EnableTinkServer))
 		if err != nil {
 			return fmt.Errorf("failed to create kube backend: %w", err)
 		}
 		s.Config.Backend = b
 		h.Config.BackendEc2 = b
 		h.Config.BackendHack = b
+		ts.Config.Backend = b
 	case "file":
 		b, err := newFileBackend(ctx, log, globals.BackendFilePath)
 		if err != nil {
@@ -112,11 +128,42 @@ func Execute(ctx context.Context, args []string) error {
 		log.Info("hegel service is disabled")
 		return nil
 	})
+
+	g.Go(func() error {
+		if globals.EnableTinkServer {
+			return ts.Config.Start(ctx, log.WithValues("service", "tink-server"))
+		}
+		log.Info("tink server service is disabled")
+		return nil
+	})
+
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
+	if !globals.EnableSmee && !globals.EnableHegel {
+		return errors.New("all services are disabled")
+	}
 
 	return nil
+}
+
+func enabledIndexes(smeeEnabled, hegelEnabled, tinkServerEnabled bool) map[kube.IndexType]kube.Index {
+	var idxs map[kube.IndexType]kube.Index
+
+	if smeeEnabled {
+		idxs = flag.KubeIndexesSmee
+	}
+	if hegelEnabled {
+		for k, v := range flag.KubeIndexesHegel {
+			idxs[k] = v
+		}
+	}
+	if tinkServerEnabled {
+		for k, v := range flag.KubeIndexesTinkServer {
+			idxs[k] = v
+		}
+	}
+	return idxs
 }
 
 // defaultLogger uses the slog logr implementation.
