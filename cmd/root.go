@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/cmd/flag"
 	"github.com/tinkerbell/tinkerbell/hegel"
 	"github.com/tinkerbell/tinkerbell/smee"
+	"github.com/tinkerbell/tinkerbell/tink/controller"
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"golang.org/x/sync/errgroup"
 )
@@ -30,10 +32,11 @@ func Execute(ctx context.Context, args []string) error {
 			}
 			return filepath.Join(hd, ".kube", "config")
 		}(),
-		PublicIP:         detectPublicIPv4(),
-		EnableSmee:       true,
-		EnableHegel:      true,
-		EnableTinkServer: true,
+		PublicIP:             detectPublicIPv4(),
+		EnableSmee:           true,
+		EnableHegel:          true,
+		EnableTinkServer:     true,
+		EnableTinkController: true,
 	}
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
@@ -48,21 +51,30 @@ func Execute(ctx context.Context, args []string) error {
 		BindAddr: detectPublicIPv4(),
 		BindPort: 42113,
 	}
+	controllerOpts := []controller.Option{
+		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8080))),
+		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8081))),
+	}
+	tc := &flag.TinkControllerConfig{
+		Config: controller.NewConfig(controllerOpts...),
+	}
 
 	gfs := ff.NewFlagSet("globals")
 	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(gfs)
 	hfs := ff.NewFlagSet("hegel - metadata service").SetParent(sfs)
 	tfs := ff.NewFlagSet("tink server - Workflow server").SetParent(hfs)
+	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
 	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
 	flag.RegisterHegelFlags(&flag.Set{FlagSet: hfs}, h)
 	flag.RegisterTinkServerFlags(&flag.Set{FlagSet: tfs}, ts)
+	flag.RegisterTinkControllerFlags(&flag.Set{FlagSet: cfs}, tc)
 
 	cli := &ff.Command{
 		Name:     "tinkerbell",
 		Usage:    "tinkerbell [flags]",
 		LongHelp: "Tinkerbell stack.",
-		Flags:    tfs,
+		Flags:    cfs,
 	}
 
 	if err := cli.Parse(args, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
@@ -84,7 +96,7 @@ func Execute(ctx context.Context, args []string) error {
 	ts.Convert()
 
 	log := defaultLogger(globals.LogLevel)
-	log.Info("starting tinkerbell", "tink-server", fmt.Sprintf("%+v", ts), "tink-server-config", fmt.Sprintf("%+v", ts.Config))
+	log.Info("starting tinkerbell", "version", gitRevision())
 
 	switch globals.Backend {
 	case "kube":
@@ -96,6 +108,7 @@ func Execute(ctx context.Context, args []string) error {
 		h.Config.BackendEc2 = b
 		h.Config.BackendHack = b
 		ts.Config.Backend = b
+		tc.Config.Client = b.ClientConfig
 	case "file":
 		b, err := newFileBackend(ctx, log, globals.BackendFilePath)
 		if err != nil {
@@ -134,6 +147,14 @@ func Execute(ctx context.Context, args []string) error {
 			return ts.Config.Start(ctx, log.WithValues("service", "tink-server"))
 		}
 		log.Info("tink server service is disabled")
+		return nil
+	})
+
+	g.Go(func() error {
+		if globals.EnableTinkController {
+			return tc.Config.Start(ctx, log.WithValues("service", "tink-controller"))
+		}
+		log.Info("tink controller service is disabled")
 		return nil
 	})
 

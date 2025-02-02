@@ -1,0 +1,38 @@
+package flag
+
+import (
+	"github.com/peterbourgon/ff/v4/ffval"
+	"github.com/tinkerbell/tinkerbell/cmd/flag/netip"
+	"github.com/tinkerbell/tinkerbell/tink/controller"
+)
+
+type TinkControllerConfig struct {
+	Config *controller.Config
+}
+
+func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
+	fs.Register(TinkControllerEnableLeaderElection, ffval.NewValueDefault(&t.Config.EnableLeaderElection, t.Config.EnableLeaderElection))
+	fs.Register(TinkControllerLeaderElectionNamespace, ffval.NewValueDefault(&t.Config.LeaderElectionNamespace, t.Config.LeaderElectionNamespace))
+	fs.Register(TinkControllerMetricsAddr, &netip.AddrPort{AddrPort: &t.Config.MetricsAddr})
+	fs.Register(TinkControllerProbeAddr, &netip.AddrPort{AddrPort: &t.Config.ProbeAddr})
+}
+
+var TinkControllerEnableLeaderElection = Config{
+	Name:  "tink-controller-enable-leader-election",
+	Usage: "enable leader election for controller manager",
+}
+
+var TinkControllerMetricsAddr = Config{
+	Name:  "tink-controller-metrics-addr",
+	Usage: "address on which to expose metrics",
+}
+
+var TinkControllerProbeAddr = Config{
+	Name:  "tink-controller-probe-addr",
+	Usage: "address on which to expose health probes",
+}
+
+var TinkControllerLeaderElectionNamespace = Config{
+	Name:  "tink-controller-leader-election-namespace",
+	Usage: "namespace in which the leader election configmap will be created",
+}
