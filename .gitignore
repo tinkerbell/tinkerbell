@@ -29,3 +29,8 @@ out/
 
 # Go coverage profile
 coverage.txt
+
+
+# iPXE build directories
+upstream-*
+ipxe-*.tar.gz

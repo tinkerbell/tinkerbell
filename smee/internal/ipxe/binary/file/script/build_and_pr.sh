@@ -60,7 +60,7 @@ function changes_detected() {
 function clean_iPXE() {
     # remove existing iPXE binaries
     echo "Removing existing iPXE binaries"
-    if ! (cd "$(git rev-parse --show-toplevel)"; make binary/clean); then
+    if ! (cd "$(git rev-parse --show-toplevel)"; make clean); then
         echo "Failed to remove iPXE binaries" 1>&2
         exit 1
     fi
@@ -70,8 +70,7 @@ function clean_iPXE() {
 function build_iPXE() {
     # build iPXE
     echo "Building iPXE"
-    top_level_dir="$(git rev-parse --show-toplevel)"
-    if ! (cd "${top_level_dir}"; nix-shell "${top_level_dir}/binary/script/shell.nix" --run 'make binary'); then
+    if ! (nix-shell "script/shell.nix" --run 'make binary'); then
         echo "Failed to build iPXE" 1>&2
         exit 1
     fi
@@ -161,7 +160,7 @@ function create_pull_request() {
 
     # create pull request
     echo "Creating pull request"
-    if ! "$(git rev-parse --show-toplevel)"/binary/script/gh pr create --base "${base}" --body "${body}" --title "${title}" --head "${branch}"; then
+    if ! script/gh pr create --base "${base}" --body "${body}" --title "${title}" --head "${branch}"; then
         echo "Failed to create pull request" 1>&2
         exit 1
     fi

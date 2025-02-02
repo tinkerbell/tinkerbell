@@ -39,10 +39,10 @@ function make_local_empty() {
 # copy_common_files will copy common custom header files into the ipxe src path.
 function copy_common_files() {
     local ipxe_dir="$1" 
-    cp -a binary/script/ipxe-customizations/colour.h "${ipxe_dir}"/src/config/local/
-    cp -a binary/script/ipxe-customizations/common.h "${ipxe_dir}"/src/config/local/
-    cp -a binary/script/ipxe-customizations/console.h "${ipxe_dir}"/src/config/local/
-    cp -a binary/script/ipxe-customizations/crypto.h "${ipxe_dir}"/src/config/local/
+    cp -a script/ipxe-customizations/colour.h "${ipxe_dir}"/src/config/local/
+    cp -a script/ipxe-customizations/common.h "${ipxe_dir}"/src/config/local/
+    cp -a script/ipxe-customizations/console.h "${ipxe_dir}"/src/config/local/
+    cp -a script/ipxe-customizations/crypto.h "${ipxe_dir}"/src/config/local/
 }
 
 # copy_custom_files will copy in any custom header files based on a requested ipxe binary.
@@ -52,22 +52,22 @@ function copy_custom_files() {
 
     case "${ipxe_bin}" in
     bin/undionly.kpxe)
-    	cp binary/script/ipxe-customizations/general.undionly.h "${ipxe_dir}"/src/config/local/general.h
+    	cp script/ipxe-customizations/general.undionly.h "${ipxe_dir}"/src/config/local/general.h
     	;;
     bin/ipxe.lkrn)
-    	cp binary/script/ipxe-customizations/general.undionly.h "${ipxe_dir}"/src/config/local/general.h
+    	cp script/ipxe-customizations/general.undionly.h "${ipxe_dir}"/src/config/local/general.h
     	;;
     bin-x86_64-efi/ipxe.efi)
-    	cp binary/script/ipxe-customizations/general.efi.h "${ipxe_dir}"/src/config/local/general.h
-        cp binary/script/ipxe-customizations/isa.h "${ipxe_dir}"/src/config/local/isa.h
+    	cp script/ipxe-customizations/general.efi.h "${ipxe_dir}"/src/config/local/general.h
+        cp script/ipxe-customizations/isa.h "${ipxe_dir}"/src/config/local/isa.h
     	;;
     bin-arm64-efi/snp.efi)
-    	cp binary/script/ipxe-customizations/general.efi.h "${ipxe_dir}"/src/config/local/general.h
-    	cp binary/script/ipxe-customizations/nap.h "${ipxe_dir}"/src/config/local/nap.h
+    	cp script/ipxe-customizations/general.efi.h "${ipxe_dir}"/src/config/local/general.h
+    	cp script/ipxe-customizations/nap.h "${ipxe_dir}"/src/config/local/nap.h
     	;;
     bin-x86_64-efi/ipxe.iso)
-    	cp binary/script/ipxe-customizations/general.efi.h "${ipxe_dir}"/src/config/local/general.h
-    	cp binary/script/ipxe-customizations/isa.h "${ipxe_dir}"/src/config/local/isa.h
+    	cp script/ipxe-customizations/general.efi.h "${ipxe_dir}"/src/config/local/general.h
+    	cp script/ipxe-customizations/isa.h "${ipxe_dir}"/src/config/local/isa.h
     	;;
     *) echo "unknown binary: ${ipxe_bin}" >&2 && exit 1 ;;
     esac
@@ -156,4 +156,4 @@ function main() {
     cp -a "${build_dir}/src/${bin_path}" "${final_path}"
 }
 
-main "$1" "$2" "$3" "${4:-}" "${5:-binary/script/embed.ipxe}"
+main "$1" "$2" "$3" "${4:-}" "${5:-script/embed.ipxe}"
