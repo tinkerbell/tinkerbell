@@ -22,7 +22,10 @@ vet: ## Run go vet
 coverage: test ## Show test coverage
 	go tool cover -func=coverage.txt
 
-ci: coverage lint vet ## Runs all the same validations and tests that run in CI
+ci-checks: .github/workflows/ci-checks.sh
+	./.github/workflows/ci-checks.sh
+
+ci: ci-checks coverage lint vet ## Runs all the same validations and tests that run in CI
 
 help: ## Print this help
 	@grep --no-filename -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sed 's/:.*##/·/' | sort | column -ts '·' -c 120
