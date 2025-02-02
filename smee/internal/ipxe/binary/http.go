@@ -21,14 +21,14 @@ import (
 
 // Handle handles GET and HEAD responses to HTTP requests.
 // Serves embedded iPXE binaries.
-func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
-	s.Log.V(1).Info("handling request", "method", req.Method, "path", req.URL.Path)
+func (h Handler) Handle(w http.ResponseWriter, req *http.Request) {
+	h.Log.V(1).Info("handling request", "method", req.Method, "path", req.URL.Path)
 	if req.Method != http.MethodGet && req.Method != http.MethodHead {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	host, port, _ := net.SplitHostPort(req.RemoteAddr)
-	log := s.Log.WithValues("host", host, "port", port)
+	log := h.Log.WithValues("host", host, "port", port)
 	// If a mac address is provided (/0a:00:27:00:00:02/snp.efi), parse and log it.
 	// Mac address is optional.
 	optionalMac, _ := net.ParseMAC(strings.TrimPrefix(path.Dir(req.URL.Path), "/"))
@@ -68,7 +68,7 @@ func (s Handler) Handle(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	file, err = binary.Patch(file, s.Patch)
+	file, err = binary.Patch(file, h.Patch)
 	if err != nil {
 		log.Error(err, "error patching file")
 		w.WriteHeader(http.StatusInternalServerError)

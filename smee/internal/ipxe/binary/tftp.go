@@ -42,9 +42,8 @@ type TFTP struct {
 //
 // Override the defaults by setting the Config struct fields.
 // See binary/binary.go for the iPXE files that are served.
-func (c *Handler) ListenAndServe(ctx context.Context) error {
-
-	a, err := net.ResolveUDPAddr("udp", c.TFTP.Addr.String())
+func (h *Handler) ListenAndServe(ctx context.Context) error {
+	a, err := net.ResolveUDPAddr("udp", h.TFTP.Addr.String())
 	if err != nil {
 		return err
 	}
@@ -53,11 +52,10 @@ func (c *Handler) ListenAndServe(ctx context.Context) error {
 		return err
 	}
 
-	//h := &itftp.Handler{Log: c.Log, Patch: c.TFTP.Patch}
-	ts := tftp.NewServer(c.HandleRead, c.HandleWrite)
-	ts.SetTimeout(c.TFTP.Timeout)
-	ts.SetBlockSize(c.TFTP.BlockSize)
-	if c.TFTP.EnableTFTPSinglePort {
+	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
+	ts.SetTimeout(h.TFTP.Timeout)
+	ts.SetBlockSize(h.TFTP.BlockSize)
+	if h.TFTP.EnableTFTPSinglePort {
 		ts.EnableSinglePort()
 	}
 
@@ -76,7 +74,7 @@ func Serve(_ context.Context, conn net.PacketConn, s *tftp.Server) error {
 }
 
 // HandleRead handlers TFTP GET requests. The function signature satisfies the tftp.Server.readHandler parameter type.
-func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
+func (h Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 	client := net.UDPAddr{}
 	if rpi, ok := rf.(tftp.OutgoingTransfer); ok {
 		client = rpi.RemoteAddr()
@@ -84,7 +82,7 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 
 	full := filename
 	filename = path.Base(filename)
-	log := t.Log.WithValues("event", "get", "filename", filename, "uri", full, "client", client)
+	log := h.Log.WithValues("event", "get", "filename", filename, "uri", full, "client", client)
 
 	// clients can send traceparent over TFTP by appending the traceparent string
 	// to the end of the filename they really want
@@ -121,7 +119,7 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 		return err
 	}
 
-	content, err = binary.Patch(content, t.Patch)
+	content, err = binary.Patch(content, h.Patch)
 	if err != nil {
 		log.Error(err, "failed to patch binary")
 		span.SetStatus(codes.Error, err.Error())
@@ -143,13 +141,13 @@ func (t Handler) HandleRead(filename string, rf io.ReaderFrom) error {
 }
 
 // HandleWrite handles TFTP PUT requests. It will always return an error. This library does not support PUT.
-func (t Handler) HandleWrite(filename string, wt io.WriterTo) error {
+func (h Handler) HandleWrite(filename string, wt io.WriterTo) error {
 	err := fmt.Errorf("access_violation: %w", os.ErrPermission)
 	client := net.UDPAddr{}
 	if rpi, ok := wt.(tftp.OutgoingTransfer); ok {
 		client = rpi.RemoteAddr()
 	}
-	t.Log.Error(err, "client", client, "event", "put", "filename", filename)
+	h.Log.Error(err, "client", client, "event", "put", "filename", filename)
 
 	return err
 }

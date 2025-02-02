@@ -9,8 +9,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// Handler is the struct that implements the http.Handler interface.
-// implements the TFTP read and write function handlers
+// implements the TFTP read and write function handlers.
 type Handler struct {
 	Log   logr.Logger
 	Patch []byte
