@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/controller"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -83,6 +84,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 	controllerruntime.SetLogger(log)
 	clog.SetLogger(log)
+	klog.SetLogger(log)
 
 	mgr, err := controller.NewManager(c.Client, options)
 	if err != nil {
