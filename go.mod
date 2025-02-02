@@ -19,9 +19,9 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/insomniacslk/dhcp v0.0.0-20250109001534-8abf58130905
 	github.com/peterbourgon/ff/v4 v4.0.0-alpha.4
+	github.com/pin/tftp/v3 v3.1.0
 	github.com/prometheus/client_golang v1.20.5
 	github.com/stretchr/testify v1.10.0
-	github.com/tinkerbell/ipxedust v0.0.0-20250129162407-3c29a914f8be
 	github.com/tinkerbell/rufio v0.6.3
 	github.com/vishvananda/netlink v1.3.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0
@@ -63,7 +63,6 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-logr/zerologr v1.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
@@ -85,7 +84,6 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mdlayher/packet v1.1.2 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
@@ -98,16 +96,13 @@ require (
 	github.com/onsi/gomega v1.36.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
-	github.com/peterbourgon/ff/v3 v3.4.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
-	github.com/pin/tftp/v3 v3.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/xattr v0.4.9 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4-0.20230606125235-dd1b4c2e81af // indirect
 	github.com/spf13/cast v1.7.0 // indirect
