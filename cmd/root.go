@@ -96,7 +96,13 @@ func Execute(ctx context.Context, args []string) error {
 	ts.Convert()
 
 	log := defaultLogger(globals.LogLevel)
-	log.Info("starting tinkerbell", "version", gitRevision())
+	log.Info("starting tinkerbell",
+		"version", gitRevision(),
+		"smeeEnabled", globals.EnableSmee,
+		"hegelEnabled", globals.EnableHegel,
+		"tinkServerEnabled", globals.EnableTinkServer,
+		"tinkControllerEnabled", globals.EnableTinkController,
+	)
 
 	switch globals.Backend {
 	case "kube":
@@ -126,6 +132,7 @@ func Execute(ctx context.Context, args []string) error {
 
 	g, ctx := errgroup.WithContext(ctx)
 
+	// Smee
 	g.Go(func() error {
 		if globals.EnableSmee {
 			return s.Config.Start(ctx, log.WithValues("service", "smee"))
@@ -134,6 +141,7 @@ func Execute(ctx context.Context, args []string) error {
 		return nil
 	})
 
+	// Hegel
 	g.Go(func() error {
 		if globals.EnableHegel {
 			return h.Config.Start(ctx, log.WithValues("service", "hegel"))
@@ -142,6 +150,7 @@ func Execute(ctx context.Context, args []string) error {
 		return nil
 	})
 
+	// Tink Server
 	g.Go(func() error {
 		if globals.EnableTinkServer {
 			return ts.Config.Start(ctx, log.WithValues("service", "tink-server"))
@@ -150,6 +159,7 @@ func Execute(ctx context.Context, args []string) error {
 		return nil
 	})
 
+	// Tink Controller
 	g.Go(func() error {
 		if globals.EnableTinkController {
 			return tc.Config.Start(ctx, log.WithValues("service", "tink-controller"))
@@ -161,7 +171,7 @@ func Execute(ctx context.Context, args []string) error {
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
-	if !globals.EnableSmee && !globals.EnableHegel {
+	if !globals.EnableSmee && !globals.EnableHegel && !globals.EnableTinkServer && !globals.EnableTinkController {
 		return errors.New("all services are disabled")
 	}
 
@@ -169,7 +179,7 @@ func Execute(ctx context.Context, args []string) error {
 }
 
 func enabledIndexes(smeeEnabled, hegelEnabled, tinkServerEnabled bool) map[kube.IndexType]kube.Index {
-	var idxs map[kube.IndexType]kube.Index
+	idxs := make(map[kube.IndexType]kube.Index, 0)
 
 	if smeeEnabled {
 		idxs = flag.KubeIndexesSmee
