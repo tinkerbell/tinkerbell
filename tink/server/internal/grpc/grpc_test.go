@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/tink/server/internal/proto"
+	"github.com/tinkerbell/tinkerbell/pkg/proto"
 )
 
 func TestModifyWorkflowState(t *testing.T) {
