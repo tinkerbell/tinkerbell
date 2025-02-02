@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-logr/logr"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	grpcinternal "github.com/tinkerbell/tinkerbell/tink/server/internal/grpc"
-	"github.com/tinkerbell/tinkerbell/tink/server/internal/proto"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"

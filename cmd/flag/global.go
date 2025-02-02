@@ -20,6 +20,7 @@ type GlobalConfig struct {
 	EnableSmee           bool
 	EnableHegel          bool
 	EnableTinkServer     bool
+	EnableTinkController bool
 }
 
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
@@ -34,6 +35,8 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
 	fs.Register(EnabledSmee, ffval.NewValueDefault(&gc.EnableSmee, gc.EnableSmee))
 	fs.Register(EnabledHegel, ffval.NewValueDefault(&gc.EnableHegel, gc.EnableHegel))
+	fs.Register(EnabledTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
+	fs.Register(EnabledTinkController, ffval.NewValueDefault(&gc.EnableTinkController, gc.EnableTinkController))
 }
 
 // All these flags are used by at least two services or
@@ -94,4 +97,14 @@ var EnabledSmee = Config{
 var EnabledHegel = Config{
 	Name:  "enable-hegel",
 	Usage: "enable Hegel service",
+}
+
+var EnabledTinkServer = Config{
+	Name:  "enable-tink-server",
+	Usage: "enable Tink Server service",
+}
+
+var EnabledTinkController = Config{
+	Name:  "enable-tink-controller",
+	Usage: "enable Tink Controller service",
 }

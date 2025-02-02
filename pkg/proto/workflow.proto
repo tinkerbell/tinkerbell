@@ -4,7 +4,7 @@
  */
 syntax = "proto3";
 
-option go_package = "github.com/tinkerbell/tink/internal/proto";
+option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
 
 package proto;
 
