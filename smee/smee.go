@@ -16,13 +16,12 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
-	"github.com/tinkerbell/ipxedust"
-	"github.com/tinkerbell/ipxedust/ihttp"
 	"github.com/tinkerbell/tinkerbell/data"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/server"
+	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/binary"
 	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/http"
 	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/script"
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso"
@@ -264,18 +263,13 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 		panic(fmt.Sprintf("failed to merge config: %v", err))
 	}
 
-	if defaults.Backend == nil {
-		defaults.Backend = &noop{}
-	}
-
 	return defaults
 }
 
 // Start will run Smee services. Enabling and disabling services is controlled by the Config struct.
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	if c.Backend == nil {
-		c.Backend = noop{}
-		log.Info("no backend provided, using noop backend")
+		return errors.New("no backend provided")
 	}
 	oCfg := otel.Config{
 		Servicename: "smee",
@@ -315,27 +309,27 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	if c.TFTP.Enabled {
 		// 1. data validation
 		// 2. start the tftp server
-		tftpServer := &ipxedust.Server{
-			Log:                  log,
-			HTTP:                 ipxedust.ServerSpec{Disabled: true}, // disabled because below we use the http handlerfunc instead.
-			EnableTFTPSinglePort: true,
-		}
-		tftpServer.EnableTFTPSinglePort = true
 		addrPort := netip.AddrPortFrom(c.TFTP.BindAddr, c.TFTP.BindPort)
 		if !addrPort.IsValid() {
 			return fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", addrPort.Addr(), addrPort.Port())
 		}
-		tftpServer.TFTP = ipxedust.ServerSpec{
-			Disabled:  false,
-			Addr:      addrPort,
-			Timeout:   c.TFTP.Timeout,
-			Patch:     []byte(c.IPXE.EmbeddedScriptPatch),
-			BlockSize: c.TFTP.BlockSize,
+		tftpHandler := binary.Handler{
+			Log:   log.WithValues("service", "github.com/tinkerbell/smee").WithName("github.com/tinkerbell/ipxedust"),
+			Patch: []byte(c.IPXE.EmbeddedScriptPatch),
+			TFTP: binary.TFTP{
+				Log:                  log,
+				EnableTFTPSinglePort: true,
+				Addr:                 addrPort,
+				Timeout:              c.TFTP.Timeout,
+				Patch:                []byte(c.IPXE.EmbeddedScriptPatch),
+				BlockSize:            c.TFTP.BlockSize,
+			},
 		}
+
 		// start the ipxe binary tftp server
 		log.Info("starting tftp server", "bindAddr", addrPort.String())
 		g.Go(func() error {
-			return tftpServer.ListenAndServe(ctx)
+			return tftpHandler.ListenAndServe(ctx)
 		})
 	}
 
@@ -345,7 +339,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		// 1. data validation
 		// 2. start the http server for ipxe binaries
 		// serve ipxe binaries from the "/ipxe/" URI.
-		handlers["/ipxe/"] = ihttp.Handler{
+		handlers["/ipxe/"] = binary.Handler{
 			Log:   log.WithValues("service", "github.com/tinkerbell/smee").WithName("github.com/tinkerbell/ipxedust"),
 			Patch: []byte(c.IPXE.EmbeddedScriptPatch),
 		}.Handle
