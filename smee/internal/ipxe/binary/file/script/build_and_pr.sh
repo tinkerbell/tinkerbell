@@ -60,7 +60,7 @@ function changes_detected() {
 function clean_iPXE() {
     # remove existing iPXE binaries
     echo "Removing existing iPXE binaries"
-    if ! (cd "$(git rev-parse --show-toplevel)"; make clean); then
+    if ! make clean; then
         echo "Failed to remove iPXE binaries" 1>&2
         exit 1
     fi
