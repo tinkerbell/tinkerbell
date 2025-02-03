@@ -21,7 +21,7 @@ func main() {
 	defer done()
 
 	if err := cmd.Execute(ctx, os.Args[1:]); err != nil && !errors.Is(err, context.Canceled) {
-		fmt.Fprintf(os.Stderr, `{"error": "%s"}`, err.Error())
+		fmt.Fprintf(os.Stderr, "%s", err.Error())
 		exitCode = 1
 	}
 }
