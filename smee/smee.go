@@ -313,17 +313,13 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if !addrPort.IsValid() {
 			return fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", addrPort.Addr(), addrPort.Port())
 		}
-		tftpHandler := binary.Handler{
-			Log:   log.WithValues("service", "github.com/tinkerbell/smee").WithName("github.com/tinkerbell/ipxedust"),
-			Patch: []byte(c.IPXE.EmbeddedScriptPatch),
-			TFTP: binary.TFTP{
-				Log:                  log,
-				EnableTFTPSinglePort: true,
-				Addr:                 addrPort,
-				Timeout:              c.TFTP.Timeout,
-				Patch:                []byte(c.IPXE.EmbeddedScriptPatch),
-				BlockSize:            c.TFTP.BlockSize,
-			},
+		tftpHandler := binary.TFTP{
+			Log:                  log.WithValues("service", "github.com/tinkerbell/smee").WithName("github.com/tinkerbell/ipxedust"),
+			EnableTFTPSinglePort: true,
+			Addr:                 addrPort,
+			Timeout:              c.TFTP.Timeout,
+			Patch:                []byte(c.IPXE.EmbeddedScriptPatch),
+			BlockSize:            c.TFTP.BlockSize,
 		}
 
 		// start the ipxe binary tftp server
