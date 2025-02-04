@@ -1,3 +1,4 @@
+# Example run command: OSIE_URL="http://192.168.2.50:8787" docker compose up
 services:
 
   etcd:
