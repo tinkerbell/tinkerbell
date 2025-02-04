@@ -1,0 +1,176 @@
+# Example run command: OSIE_URL="http://192.168.2.50:8787" docker compose up
+services:
+
+  etcd:
+    image: registry.k8s.io/etcd:3.5.15-0
+    command:
+      - etcd
+      - --advertise-client-urls=http://0.0.0.0:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+
+  kube-apiserver:
+    image: registry.k8s.io/kube-apiserver:v1.30.4
+    command:
+      - kube-apiserver
+      - --etcd-servers=http://etcd:2379
+      - --service-account-key-file=service-account-key.pem
+      - --service-account-signing-key-file=service-account-key.pem
+      - --service-account-issuer=api
+      - --tls-cert-file=server.crt
+      - --tls-private-key-file=server.key
+      - --client-ca-file=ca.crt
+    working_dir: /certs
+    ports:
+      - 6443:6443
+    volumes:
+      - certs:/certs
+    depends_on:
+      etcd:
+        condition: service_started
+      certs:
+        condition: service_completed_successfully
+
+  tinkerbell:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    network_mode: host
+    environment:
+      TINKERBELL_BACKEND_KUBE_CONFIG: /kube/kubeconfig
+      TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL: ${OSIE_URL:?Error:"OSIE_URL env var is not set"}
+      TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS: "tink_worker_image=ghcr.io/jacobweinstock/tink-agent:5ca9170"
+      TINKERBELL_TINK_CONTROLLER_LEADER_ELECTION_NAMESPACE: default
+    volumes:
+      - kubeconfig:/kube
+    restart: on-failure
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+      kube-apiserver:
+        condition: service_started
+      tink-crds-apply:
+        condition: service_completed_successfully
+      rufio-crds-apply:
+        condition: service_completed_successfully
+    
+    ## "init" containers; they run until they accomplish their purpose and then exit
+  tink-crds-apply:
+    image: bitnami/kubectl:1.30.4
+    command: -s "https://kube-apiserver:6443" apply -k 'github.com/tinkerbell/tink/config/crd?ref=v0.12.2'
+    environment:
+      KUBECONFIG: /kube/kubeconfig
+      KUBERNETES: https://kube-apiserver:6443
+    depends_on:
+      kube-apiserver:
+        condition: service_started
+    volumes:
+      - kubeconfig:/kube
+    restart: on-failure
+
+  rufio-crds-apply:
+    image: bitnami/kubectl:1.30.4
+    command: -s "https://kube-apiserver:6443" apply -k 'github.com/tinkerbell/rufio/config/crd?ref=v0.6.0'
+    environment:
+      KUBECONFIG: /kube/kubeconfig
+      KUBERNETES: https://kube-apiserver:6443
+    depends_on:
+      kube-apiserver:
+        condition: service_started
+    volumes:
+      - kubeconfig:/kube
+    restart: on-failure
+
+  csr:
+    image: alpine
+    entrypoint: /bin/sh
+    environment:
+      CSR_CONF: |-
+        [ req ]
+        default_bits = 2048
+        prompt = no
+        default_md = sha256
+        req_extensions = req_ext
+        distinguished_name = dn
+        
+        [ dn ]
+        C = US
+        ST = CA
+        L = Los Angeles
+        O = Tinkerbell
+        OU = Engineering
+        CN = localhost
+        
+        [ req_ext ]
+        subjectAltName = @alt_names
+        
+        [ alt_names ]
+        DNS.1 = kubernetes
+        DNS.2 = kubernetes.default
+        DNS.3 = kubernetes.default.svc
+        DNS.4 = kubernetes.default.svc.cluster
+        DNS.5 = kubernetes.default.svc.cluster.local
+        DNS.6 = kube-apiserver
+        DNS.7 = localhost
+        
+        [ v3_ext ]
+        authorityKeyIdentifier=keyid,issuer:always
+        basicConstraints=CA:FALSE
+        keyUsage=keyEncipherment,dataEncipherment
+        extendedKeyUsage=serverAuth,clientAuth
+        subjectAltName=@alt_names
+    command: |
+      -c 'echo "$${CSR_CONF}" > /certs/csr.conf && cat /certs/csr.conf'
+    volumes:
+      - certs:/certs
+
+  certs:
+    image: alpine/openssl
+    entrypoint: /bin/sh
+    command: |
+      -c 'openssl genrsa -out service-account-key.pem 4096 && \
+      openssl req -new -x509 -days 365 -key service-account-key.pem -subj "/CN=test" -sha256 -out service-account.pem && \
+      openssl genrsa -out ca.key 2048 && \
+      openssl req -x509 -new -nodes -key ca.key -subj "/CN=test" -days 10000 -out ca.crt && \
+      openssl genrsa -out server.key 2048 && \
+      openssl req -new -key server.key -out server.csr -config csr.conf && \
+      openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key \
+          -CAcreateserial -out server.crt -days 10000 \
+          -extensions v3_ext -extfile csr.conf'
+    working_dir: /certs
+    volumes:
+      - certs:/certs:rw
+    restart: on-failure
+    depends_on:
+      csr:
+        condition: service_completed_successfully
+
+  kubeconfig:
+    image: bitnami/kubectl:1.30.4
+    entrypoint: /bin/sh
+    user: root
+    command: |
+      -c 'chmod 777 /certs && kubectl config set-cluster local-apiserver --certificate-authority=/certs/ca.crt --embed-certs=true --server=https://localhost:6443 --kubeconfig=/kubeconfig/kubeconfig && \
+      kubectl config set-credentials admin --client-certificate=/certs/server.crt --client-key=/certs/server.key --embed-certs=true --kubeconfig=/kubeconfig/kubeconfig && \
+      kubectl config set-context default --cluster=local-apiserver --user=admin --kubeconfig=/kubeconfig/kubeconfig && \
+      kubectl config use-context default --kubeconfig=/kubeconfig/kubeconfig && chmod 644 /kubeconfig/kubeconfig'
+    working_dir: /certs
+    volumes:
+      - certs:/certs
+      - kubeconfig:/kubeconfig
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+
+  kubeconfiglocal:
+    image: alpine
+    command: cp -a /kubeconfig/kubeconfig /kubeconfiglocal/kubeconfig
+    volumes:
+      - kubeconfig:/kubeconfig
+      - ./:/kubeconfiglocal
+    depends_on:
+      kubeconfig:
+        condition: service_completed_successfully
+
+volumes:
+  certs:
+  kubeconfig:

@@ -91,15 +91,7 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new cluster config: %w", err)
 	}
-	/*
-		if err := c.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.Hardware{}, MACAddrIndex, MACAddrs); err != nil {
-			return nil, fmt.Errorf("failed to setup indexer: %w", err)
-		}
 
-		if err := c.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.Hardware{}, IPAddrIndex, IPAddrs); err != nil {
-			return nil, fmt.Errorf("failed to setup indexer(.spec.interfaces.dhcp.ip.address): %w", err)
-		}
-	*/
 	for _, i := range cfg.Indexes {
 		if err := c.GetFieldIndexer().IndexField(context.Background(), i.Obj, i.Field, i.ExtractValue); err != nil {
 			return nil, fmt.Errorf("failed to setup indexer(%s): %w", i.Field, err)

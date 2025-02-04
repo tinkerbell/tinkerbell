@@ -24,6 +24,7 @@ func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {
 	fs.Register(TinkServerBindPort, ffval.NewValueDefault(&t.BindPort, t.BindPort))
 }
 
+// Convert TinkServerConfig data types to tink server server.Config data types.
 func (t *TinkServerConfig) Convert() {
 	t.Config.BindAddrPort = netip.AddrPortFrom(t.BindAddr, t.BindPort)
 }
