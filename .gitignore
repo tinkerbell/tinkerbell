@@ -34,3 +34,5 @@ coverage.txt
 # iPXE build directories
 upstream-*
 ipxe-*.tar.gz
+
+kubeconfig
