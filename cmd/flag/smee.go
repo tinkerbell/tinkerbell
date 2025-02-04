@@ -90,6 +90,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TinkServerInsecureTLS, ffval.NewValueDefault(&sc.Config.TinkServer.InsecureTLS, sc.Config.TinkServer.InsecureTLS))
 }
 
+// Convert CLI specific fields to smee.Config fields.
 func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix) {
 	s.Config.IPXE.HTTPScriptServer.TrustedProxies = ntip.ToPrefixList(trustedProxies).Slice()
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = func() string {

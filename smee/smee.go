@@ -56,6 +56,8 @@ const (
 	DefaultSyslogPort = 514
 
 	DefaultHTTPPort = 32777
+
+	DefaultTinkServerPort = 42113
 )
 
 type DHCPMode string
@@ -256,7 +258,9 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			Timeout:   DefaultTFFTPTimeout,
 			Enabled:   true,
 		},
-		TinkServer: TinkServer{},
+		TinkServer: TinkServer{
+			AddrPort: fmt.Sprintf("%s:%d", publicIP, DefaultTinkServerPort),
+		},
 	}
 
 	if err := mergo.Merge(defaults, &c, mergo.WithTransformers(&c)); err != nil {
