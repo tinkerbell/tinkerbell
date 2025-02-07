@@ -30,7 +30,7 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHC
 	}
 
 	if len(hardwareList.Items) == 0 {
-		err := hardwareNotFoundError{name: mac.String(), namespace: If(b.Namespace == "", "all namespaces", b.Namespace)}
+		err := hardwareNotFoundError{name: mac.String(), namespace: ternary(b.Namespace == "", "all namespaces", b.Namespace)}
 		span.SetStatus(codes.Error, err.Error())
 
 		return nil, nil, err
@@ -65,7 +65,7 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHC
 	return d, n, nil
 }
 
-func If[T any](condition bool, valueIfTrue, valueIfFalse T) T {
+func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {
 	if condition {
 		return valueIfTrue
 	}
@@ -86,7 +86,7 @@ func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 	}
 
 	if len(hardwareList.Items) == 0 {
-		err := hardwareNotFoundError{name: ip.String(), namespace: If(b.Namespace == "", "all namespaces", b.Namespace)}
+		err := hardwareNotFoundError{name: ip.String(), namespace: ternary(b.Namespace == "", "all namespaces", b.Namespace)}
 		span.SetStatus(codes.Error, err.Error())
 
 		return nil, nil, err

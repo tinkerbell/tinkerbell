@@ -4,7 +4,7 @@ import (
 	"net/netip"
 
 	"github.com/peterbourgon/ff/v4/ffval"
-	ntip "github.com/tinkerbell/tinkerbell/cmd/flag/netip"
+	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 )
 
 type GlobalConfig struct {

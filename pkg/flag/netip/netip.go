@@ -12,11 +12,19 @@ func (a *AddrPort) Set(s string) error {
 	if s == "" {
 		return nil
 	}
+
 	ip, err := netip.ParseAddrPort(strings.TrimSpace(s))
-	if !ip.IsValid() && err != nil {
-		return fmt.Errorf("failed to parse Addr:Port: %q", s)
+	if !ip.IsValid() || err != nil {
+		println("failed to parse Addr:Port:", a.AddrPort.String())
+		return fmt.Errorf("failed to parse Addr:Port: %q: err: %v", s, err)
 	}
 	*a.AddrPort = ip
+
+	return nil
+}
+
+func (a *AddrPort) Reset() error {
+	*a.AddrPort = netip.AddrPort{}
 
 	return nil
 }
@@ -32,10 +40,16 @@ func (a *Addr) Set(s string) error {
 		return nil
 	}
 	ip, err := netip.ParseAddr(s)
-	if !ip.IsValid() && err != nil {
+	if !ip.IsValid() || err != nil {
 		return fmt.Errorf("failed to parse Address: %q", s)
 	}
 	*a.Addr = ip
+
+	return nil
+}
+
+func (a *Addr) Reset() error {
+	*a.Addr = netip.Addr{}
 
 	return nil
 }
@@ -51,7 +65,7 @@ func (p *Prefix) Set(s string) error {
 		return nil
 	}
 	ip, err := netip.ParsePrefix(s)
-	if !ip.IsValid() && err != nil {
+	if !ip.IsValid() || err != nil {
 		return fmt.Errorf("failed to parse Prefix: %q", s)
 	}
 	*p.Prefix = ip
@@ -75,12 +89,18 @@ func (p *PrefixList) Set(s string) error {
 	results := make([]netip.Prefix, 0, len(pl))
 	for _, prefix := range pl {
 		ip, err := netip.ParsePrefix(prefix)
-		if !ip.IsValid() && err != nil {
+		if !ip.IsValid() || err != nil {
 			return fmt.Errorf("failed to parse Prefix: %q", prefix)
 		}
 		results = append(results, ip)
 	}
 	*p.PrefixList = results
+
+	return nil
+}
+
+func (p *PrefixList) Reset() error {
+	*p.PrefixList = nil
 
 	return nil
 }

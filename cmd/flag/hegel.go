@@ -6,8 +6,8 @@ import (
 
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/backend/kube"
-	ntip "github.com/tinkerbell/tinkerbell/cmd/flag/netip"
 	"github.com/tinkerbell/tinkerbell/hegel"
+	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 )
 
 type HegelConfig struct {

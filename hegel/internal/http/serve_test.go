@@ -30,11 +30,11 @@ func TestServe(t *testing.T) {
 		fmt.Fprint(w, "Hello, world!")
 	})
 
-	go hhttp.Serve(ctx, logger, fmt.Sprintf(":%d", 8080), &mux)
+	go hhttp.Serve(ctx, logger, fmt.Sprintf(":%d", 45555), &mux)
 
 	time.Sleep(50 * time.Millisecond)
 
-	resp, err := http.Get("http://localhost:8080")
+	resp, err := http.Get("http://localhost:45555")
 	if err != nil {
 		t.Fatal(err)
 	}
