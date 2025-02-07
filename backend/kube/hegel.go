@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/data"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
@@ -28,7 +28,7 @@ func (b *Backend) GetHackInstance(ctx context.Context, ip string) (data.HackInst
 // unmarshalling. This works because the Hardware resource has historical roots that align with
 // the hack.Instance struct that is derived from the rootio action. See the hack frontend for more
 // details.
-func toHackInstance(hw v1alpha1.Hardware) (data.HackInstance, error) {
+func toHackInstance(hw tinkerbell.Hardware) (data.HackInstance, error) {
 	marshalled, err := json.Marshal(hw.Spec)
 	if err != nil {
 		return data.HackInstance{}, err
@@ -56,7 +56,7 @@ func (b *Backend) GetEC2Instance(ctx context.Context, ip string) (data.Ec2Instan
 	return toEC2Instance(*hw), nil
 }
 
-func toEC2Instance(hw v1alpha1.Hardware) data.Ec2Instance {
+func toEC2Instance(hw tinkerbell.Hardware) data.Ec2Instance {
 	var i data.Ec2Instance
 
 	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil {
@@ -110,11 +110,11 @@ func toEC2Instance(hw v1alpha1.Hardware) data.Ec2Instance {
 	return i
 }
 
-func (b *Backend) hwByIP(ctx context.Context, ip string) (*v1alpha1.Hardware, error) {
+func (b *Backend) hwByIP(ctx context.Context, ip string) (*tinkerbell.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "backend.kube.GetByIP")
 	defer span.End()
-	hardwareList := &v1alpha1.HardwareList{}
+	hardwareList := &tinkerbell.HardwareList{}
 
 	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{IPAddrIndex: ip}); err != nil {
 		span.SetStatus(codes.Error, err.Error())

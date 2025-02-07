@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	rufio "github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -15,7 +15,7 @@ import (
 
 var schemeBuilder = runtime.NewSchemeBuilder(
 	clientgoscheme.AddToScheme,
-	v1alpha1.AddToScheme,
+	tinkerbell.AddToScheme,
 	rufio.AddToScheme,
 )
 

@@ -11,16 +11,16 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 )
 
 func TestModifyWorkflowState(t *testing.T) {
 	cases := []struct {
 		name           string
-		inputWf        *v1alpha1.Workflow
+		inputWf        *tinkerbell.Workflow
 		inputWfContext *proto.WorkflowContext
-		want           *v1alpha1.Workflow
+		want           *tinkerbell.Workflow
 		wantErr        error
 	}{
 		{
@@ -32,22 +32,22 @@ func TestModifyWorkflowState(t *testing.T) {
 		},
 		{
 			name:           "no context",
-			inputWf:        &v1alpha1.Workflow{},
+			inputWf:        &tinkerbell.Workflow{},
 			inputWfContext: nil,
 			want:           nil,
 			wantErr:        errors.New("no workflow context provided"),
 		},
 		{
 			name: "no task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			inputWf: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_PENDING",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:    "stream",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -73,15 +73,15 @@ func TestModifyWorkflowState(t *testing.T) {
 		},
 		{
 			name: "no action found",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			inputWf: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_PENDING",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:    "stream",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -106,15 +106,15 @@ func TestModifyWorkflowState(t *testing.T) {
 		},
 		{
 			name: "running task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			inputWf: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_PENDING",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:    "stream",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -134,15 +134,15 @@ func TestModifyWorkflowState(t *testing.T) {
 				CurrentActionState:   proto.State_STATE_RUNNING,
 				TotalNumberOfActions: 1,
 			},
-			want: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			want: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_RUNNING",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:      "stream",
 									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -159,15 +159,15 @@ func TestModifyWorkflowState(t *testing.T) {
 		},
 		{
 			name: "timed out task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			inputWf: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_RUNNING",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:      "stream",
 									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -188,15 +188,15 @@ func TestModifyWorkflowState(t *testing.T) {
 				CurrentActionState:   proto.State_STATE_TIMEOUT,
 				TotalNumberOfActions: 1,
 			},
-			want: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			want: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_TIMEOUT",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:      "stream",
 									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -214,15 +214,15 @@ func TestModifyWorkflowState(t *testing.T) {
 		},
 		{
 			name: "failed task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			inputWf: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_RUNNING",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:      "stream",
 									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -249,15 +249,15 @@ func TestModifyWorkflowState(t *testing.T) {
 				CurrentActionState:   proto.State_STATE_FAILED,
 				TotalNumberOfActions: 2,
 			},
-			want: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			want: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_FAILED",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:      "stream",
 									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -281,15 +281,15 @@ func TestModifyWorkflowState(t *testing.T) {
 		},
 		{
 			name: "successful task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			inputWf: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_RUNNING",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:      "stream",
 									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -316,15 +316,15 @@ func TestModifyWorkflowState(t *testing.T) {
 				CurrentActionState:   proto.State_STATE_SUCCESS,
 				TotalNumberOfActions: 2,
 			},
-			want: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			want: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_RUNNING",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:      "stream",
 									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -348,15 +348,15 @@ func TestModifyWorkflowState(t *testing.T) {
 		},
 		{
 			name: "successful last task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			inputWf: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_RUNNING",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:      "stream",
 									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -384,15 +384,15 @@ func TestModifyWorkflowState(t *testing.T) {
 				CurrentActionState:   proto.State_STATE_SUCCESS,
 				TotalNumberOfActions: 2,
 			},
-			want: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
+			want: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_POST",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:      "stream",
 									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -429,7 +429,7 @@ func TestModifyWorkflowState(t *testing.T) {
 				return
 			}
 
-			if diff := cmp.Diff(tc.inputWf, tc.want, cmpopts.IgnoreFields(v1alpha1.Action{}, "Seconds", "StartedAt")); diff != "" {
+			if diff := cmp.Diff(tc.inputWf, tc.want, cmpopts.IgnoreFields(tinkerbell.Action{}, "Seconds", "StartedAt")); diff != "" {
 				t.Errorf("unexpected difference:\n%v", diff)
 			}
 		})
@@ -454,14 +454,14 @@ func compareErrors(t *testing.T, got, want error) {
 
 type mockBackendReadWriter struct{}
 
-func (m *mockBackendReadWriter) Read(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
+func (m *mockBackendReadWriter) Read(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
 	return nil, nil
 }
 
-func (m *mockBackendReadWriter) ReadAll(_ context.Context, _ string) ([]v1alpha1.Workflow, error) {
+func (m *mockBackendReadWriter) ReadAll(_ context.Context, _ string) ([]tinkerbell.Workflow, error) {
 	return nil, nil
 }
 
-func (m *mockBackendReadWriter) Write(_ context.Context, _ *v1alpha1.Workflow) error {
+func (m *mockBackendReadWriter) Write(_ context.Context, _ *tinkerbell.Workflow) error {
 	return nil
 }

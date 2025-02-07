@@ -22,7 +22,7 @@ spec:
     - jsonPath: .status.state
       name: State
       type: string
-    name: v1alpha1
+    name: tinkerbell
     schema:
       openAPIV3Schema:
         description: Template is the Schema for the Templates API.

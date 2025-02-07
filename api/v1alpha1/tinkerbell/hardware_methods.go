@@ -1,4 +1,4 @@
-package v1alpha1
+package tinkerbell
 
 const (
 	// HardwareIDAnnotation is used by the controller to store the

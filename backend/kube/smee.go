@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/ccoveille/go-safecast"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/data"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
@@ -21,7 +21,7 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHC
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "backend.kube.GetByMac")
 	defer span.End()
-	hardwareList := &v1alpha1.HardwareList{}
+	hardwareList := &tinkerbell.HardwareList{}
 
 	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{MACAddrIndex: mac.String()}); err != nil {
 		span.SetStatus(codes.Error, err.Error())
@@ -43,7 +43,7 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHC
 		return nil, nil, err
 	}
 
-	i := v1alpha1.Interface{}
+	i := tinkerbell.Interface{}
 	for _, iface := range hardwareList.Items[0].Spec.Interfaces {
 		if iface.DHCP.MAC == mac.String() {
 			i = iface
@@ -77,7 +77,7 @@ func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "backend.kube.GetByIP")
 	defer span.End()
-	hardwareList := &v1alpha1.HardwareList{}
+	hardwareList := &tinkerbell.HardwareList{}
 
 	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{IPAddrIndex: ip.String()}); err != nil {
 		span.SetStatus(codes.Error, err.Error())
@@ -99,7 +99,7 @@ func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 		return nil, nil, err
 	}
 
-	i := v1alpha1.Interface{}
+	i := tinkerbell.Interface{}
 	for _, iface := range hardwareList.Items[0].Spec.Interfaces {
 		if iface.DHCP.IP.Address == ip.String() {
 			i = iface
@@ -124,7 +124,7 @@ func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 // toDHCPData converts a v1alpha1.DHCP to a data.DHCP data structure.
 // if required fields are missing, an error is returned.
 // Required fields: v1alpha1.Interface.DHCP.MAC, v1alpha1.Interface.DHCP.IP.Address, v1alpha1.Interface.DHCP.IP.Netmask.
-func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
+func toDHCPData(h *tinkerbell.DHCP) (*data.DHCP, error) {
 	if h == nil {
 		return nil, errors.New("no DHCP data")
 	}
@@ -196,7 +196,7 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 }
 
 // toNetbootData converts a hardware interface to a data.Netboot data structure.
-func toNetbootData(i *v1alpha1.Netboot, facility string) (*data.Netboot, error) {
+func toNetbootData(i *tinkerbell.Netboot, facility string) (*data.Netboot, error) {
 	if i == nil {
 		return nil, errors.New("no netboot data")
 	}
@@ -243,7 +243,7 @@ func toNetbootData(i *v1alpha1.Netboot, facility string) (*data.Netboot, error) 
 }
 
 // transform returns data.DHCP and data.Netboot from part a v1alpha1.Interface and *v1alpha1.HardwareMetadata.
-func transform(i v1alpha1.Interface, m *v1alpha1.HardwareMetadata) (*data.DHCP, *data.Netboot, error) {
+func transform(i tinkerbell.Interface, m *tinkerbell.HardwareMetadata) (*data.DHCP, *data.Netboot, error) {
 	d, err := toDHCPData(i.DHCP)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to convert hardware to DHCP data: %w", err)

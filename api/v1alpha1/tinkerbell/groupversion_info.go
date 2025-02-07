@@ -1,7 +1,7 @@
 // +kubebuilder:object:generate=true
 // +groupName=tinkerbell.org
 
-package v1alpha1
+package tinkerbell
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"

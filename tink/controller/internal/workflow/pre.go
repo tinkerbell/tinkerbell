@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	rufio "github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -27,7 +27,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 
 	// 2. Handle booting scenarios.
 	switch s.workflow.Spec.BootOptions.BootMode {
-	case v1alpha1.BootModeNetboot:
+	case tinkerbell.BootModeNetboot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameNetboot, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode netboot")
@@ -61,12 +61,12 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			}
 
 			r, err := s.handleJob(ctx, actions, name)
-			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete && s.workflow.Status.State == v1alpha1.WorkflowStatePreparing {
-				s.workflow.Status.State = v1alpha1.WorkflowStatePending
+			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete && s.workflow.Status.State == tinkerbell.WorkflowStatePreparing {
+				s.workflow.Status.State = tinkerbell.WorkflowStatePending
 			}
 			return r, err
 		}
-	case v1alpha1.BootModeISO:
+	case tinkerbell.BootModeISO:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameISOMount, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode iso")
@@ -115,13 +115,13 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			}
 
 			r, err := s.handleJob(ctx, actions, name)
-			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete && s.workflow.Status.State == v1alpha1.WorkflowStatePreparing {
-				s.workflow.Status.State = v1alpha1.WorkflowStatePending
+			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete && s.workflow.Status.State == tinkerbell.WorkflowStatePreparing {
+				s.workflow.Status.State = tinkerbell.WorkflowStatePending
 			}
 			return r, err
 		}
 	}
-	s.workflow.Status.State = v1alpha1.WorkflowStatePending
+	s.workflow.Status.State = tinkerbell.WorkflowStatePending
 
 	return reconcile.Result{}, nil
 }
