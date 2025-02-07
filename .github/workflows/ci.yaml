@@ -37,6 +37,9 @@ jobs:
       - name: Run all CI checks, linting, tests, etc
         run: make ci
 
-      - name: Compile binaries
+      - name: Compile binaries for Tinkerbell
         run: make crosscompile
+
+      - name: Compile binaries for Tink Agent
+        run: make crosscompile-agent
 
