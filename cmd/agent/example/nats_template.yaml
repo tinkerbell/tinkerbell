@@ -1,0 +1,61 @@
+---
+- id: 12345
+  name: action 1
+  image: bash
+  cmd: "sleep"
+  args: ["2"]
+  retries: 4
+  timeoutSeconds: 90
+  env:
+    - key: "key1"
+      value: "value1"
+    - key: "key2"
+      value: "value2"
+  namespaces:
+    pid: host
+    network: host
+- id: 123456
+  name: action 2
+  image: bash
+  cmd: "sleep"
+  args: ["2"]
+  retries: 4
+  timeoutSeconds: 90
+  env:
+    - key: "key1"
+      value: "value1"
+    - key: "key2"
+      value: "value2"
+  namespaces:
+    pid: host
+    network: host
+- id: 123457
+  name: action 3
+  image: bash
+  cmd: "sleep"
+  args: ["2"]
+  retries: 4
+  timeoutSeconds: 90
+  env:
+    - key: "key1"
+      value: "value1"
+    - key: "key2"
+      value: "value2"
+  namespaces:
+    pid: host
+    network: host
+- id: 123458
+  name: action 4
+  image: bash
+  cmd: "sleep"
+  args: ["2"]
+  retries: 4
+  timeoutSeconds: 90
+  env:
+    - key: "key1"
+      value: "value1"
+    - key: "key2"
+      value: "value2"
+  namespaces:
+    pid: host
+    network: host

@@ -1,0 +1,10 @@
+apiVersion: "tinkerbell.org/v1alpha1"
+kind: Workflow
+metadata:
+  name: virtual
+  namespace: tink
+spec:
+  templateRef: testing
+  hardwareRef: virtual
+  hardwareMap:
+    device_1: 52:54:00:0f:2e:67
