@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -26,14 +26,14 @@ var TestTime = NewFrozenTimeUnix(1637361793)
 
 func init() {
 	_ = clientgoscheme.AddToScheme(runtimescheme)
-	_ = v1alpha1.AddToScheme(runtimescheme)
+	_ = tinkerbell.AddToScheme(runtimescheme)
 }
 
 func GetFakeClientBuilder() *fake.ClientBuilder {
 	return fake.NewClientBuilder().WithScheme(
 		runtimescheme,
 	).WithRuntimeObjects(
-		&v1alpha1.Hardware{}, &v1alpha1.Template{}, &v1alpha1.Workflow{},
+		&tinkerbell.Hardware{}, &tinkerbell.Template{}, &tinkerbell.Workflow{},
 	)
 }
 
@@ -86,44 +86,44 @@ tasks:
 
 func TestHandleHardwareAllowPXE(t *testing.T) {
 	tests := map[string]struct {
-		OriginalHardware *v1alpha1.Hardware
-		WantHardware     *v1alpha1.Hardware
+		OriginalHardware *tinkerbell.Hardware
+		WantHardware     *tinkerbell.Hardware
 		WantError        error
 		AllowPXE         bool
 	}{
 		"before workflow": {
-			OriginalHardware: &v1alpha1.Hardware{
+			OriginalHardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "machine1",
 					Namespace:       "default",
 					ResourceVersion: "1000",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Interfaces: []v1alpha1.Interface{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
 						{
-							DHCP: &v1alpha1.DHCP{
+							DHCP: &tinkerbell.DHCP{
 								MAC: "3c:ec:ef:4c:4f:54",
 							},
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE: valueToPointer(false),
 							},
 						},
 					},
 				},
 			},
-			WantHardware: &v1alpha1.Hardware{
+			WantHardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "machine1",
 					Namespace:       "default",
 					ResourceVersion: "1001",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Interfaces: []v1alpha1.Interface{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
 						{
-							DHCP: &v1alpha1.DHCP{
+							DHCP: &tinkerbell.DHCP{
 								MAC: "3c:ec:ef:4c:4f:54",
 							},
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE: valueToPointer(true),
 							},
 						},
@@ -133,38 +133,38 @@ func TestHandleHardwareAllowPXE(t *testing.T) {
 			AllowPXE: true,
 		},
 		"after workflow": {
-			OriginalHardware: &v1alpha1.Hardware{
+			OriginalHardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "machine1",
 					Namespace:       "default",
 					ResourceVersion: "1000",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Interfaces: []v1alpha1.Interface{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
 						{
-							DHCP: &v1alpha1.DHCP{
+							DHCP: &tinkerbell.DHCP{
 								MAC: "3c:ec:ef:4c:4f:54",
 							},
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE: valueToPointer(true),
 							},
 						},
 					},
 				},
 			},
-			WantHardware: &v1alpha1.Hardware{
+			WantHardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "machine1",
 					Namespace:       "default",
 					ResourceVersion: "1001",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Interfaces: []v1alpha1.Interface{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
 						{
-							DHCP: &v1alpha1.DHCP{
+							DHCP: &tinkerbell.DHCP{
 								MAC: "3c:ec:ef:4c:4f:54",
 							},
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE: valueToPointer(false),
 							},
 						},
@@ -177,18 +177,18 @@ func TestHandleHardwareAllowPXE(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			fakeClient := GetFakeClientBuilder().WithRuntimeObjects(tt.OriginalHardware).Build()
-			wf := &v1alpha1.Workflow{
+			wf := &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "workflow1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					HardwareRef: "machine1",
 				},
 			}
 			err := setAllowPXE(context.Background(), fakeClient, wf, nil, tt.AllowPXE)
 
-			got := &v1alpha1.Hardware{}
+			got := &tinkerbell.Hardware{}
 			if err := fakeClient.Get(context.Background(), client.ObjectKeyFromObject(tt.OriginalHardware), got); err != nil {
 				t.Fatalf("failed to get hardware after update: %v", err)
 			}
@@ -209,12 +209,12 @@ func TestHandleHardwareAllowPXE(t *testing.T) {
 func TestReconcile(t *testing.T) {
 	cases := []struct {
 		name         string
-		seedTemplate *v1alpha1.Template
-		seedWorkflow *v1alpha1.Workflow
-		seedHardware *v1alpha1.Hardware
+		seedTemplate *tinkerbell.Template
+		seedWorkflow *tinkerbell.Workflow
+		seedHardware *tinkerbell.Hardware
 		req          reconcile.Request
 		want         reconcile.Result
-		wantWflow    *v1alpha1.Workflow
+		wantWflow    *tinkerbell.Workflow
 		wantErr      error
 	}{
 		{
@@ -226,7 +226,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			want: reconcile.Result{},
-			wantWflow: &v1alpha1.Workflow{
+			wantWflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					ResourceVersion: "999",
 				},
@@ -235,7 +235,7 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			name: "NewWorkflow",
-			seedTemplate: &v1alpha1.Template{
+			seedTemplate: &tinkerbell.Template{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Template",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -244,12 +244,12 @@ func TestReconcile(t *testing.T) {
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.TemplateSpec{
+				Spec: tinkerbell.TemplateSpec{
 					Data: &minimalTemplate,
 				},
-				Status: v1alpha1.TemplateStatus{},
+				Status: tinkerbell.TemplateStatus{},
 			},
-			seedWorkflow: &v1alpha1.Workflow{
+			seedWorkflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -258,15 +258,15 @@ func TestReconcile(t *testing.T) {
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian",
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{},
+				Status: tinkerbell.WorkflowStatus{},
 			},
-			seedHardware: &v1alpha1.Hardware{
+			seedHardware: &tinkerbell.Hardware{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Hardware",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -275,17 +275,17 @@ func TestReconcile(t *testing.T) {
 					Name:      "machine1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Interfaces: []v1alpha1.Interface{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
 						{
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE:      &[]bool{true}[0],
 								AllowWorkflow: &[]bool{true}[0],
 							},
-							DHCP: &v1alpha1.DHCP{
+							DHCP: &tinkerbell.DHCP{
 								Arch:     "x86_64",
 								Hostname: "sm01",
-								IP: &v1alpha1.IP{
+								IP: &tinkerbell.IP{
 									Address: "172.16.10.100",
 									Gateway: "172.16.10.1",
 									Netmask: "255.255.255.0",
@@ -306,7 +306,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			want: reconcile.Result{},
-			wantWflow: &v1alpha1.Workflow{
+			wantWflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -316,20 +316,20 @@ func TestReconcile(t *testing.T) {
 					Name:            "debian",
 					Namespace:       "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian",
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{
-					State:             v1alpha1.WorkflowStatePending,
+				Status: tinkerbell.WorkflowStatus{
+					State:             tinkerbell.WorkflowStatePending,
 					GlobalTimeout:     1800,
 					TemplateRendering: "successful",
-					Conditions: []v1alpha1.WorkflowCondition{
-						{Type: v1alpha1.TemplateRenderedSuccess, Status: metav1.ConditionTrue, Reason: "Complete", Message: "template rendered successfully"},
+					Conditions: []tinkerbell.WorkflowCondition{
+						{Type: tinkerbell.TemplateRenderedSuccess, Status: metav1.ConditionTrue, Reason: "Complete", Message: "template rendered successfully"},
 					},
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name: "os-installation",
 
@@ -339,7 +339,7 @@ func TestReconcile(t *testing.T) {
 								"/dev/console:/dev/console",
 								"/lib/firmware:/lib/firmware:ro",
 							},
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -349,7 +349,7 @@ func TestReconcile(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: v1alpha1.WorkflowStatePending,
+									Status: tinkerbell.WorkflowStatePending,
 								},
 							},
 						},
@@ -360,7 +360,7 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			name: "MalformedWorkflow",
-			seedTemplate: &v1alpha1.Template{
+			seedTemplate: &tinkerbell.Template{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Template",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -369,7 +369,7 @@ func TestReconcile(t *testing.T) {
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.TemplateSpec{
+				Spec: tinkerbell.TemplateSpec{
 					Data: &[]string{`version: "0.1"
 					name: debian
 global_timeout: 1800
@@ -377,9 +377,9 @@ tasks:
 	- name: "os-installation"
 		worker: "{{.device_1}}"`}[0],
 				},
-				Status: v1alpha1.TemplateStatus{},
+				Status: tinkerbell.TemplateStatus{},
 			},
-			seedWorkflow: &v1alpha1.Workflow{
+			seedWorkflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -388,15 +388,15 @@ tasks:
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian",
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{},
+				Status: tinkerbell.WorkflowStatus{},
 			},
-			seedHardware: &v1alpha1.Hardware{
+			seedHardware: &tinkerbell.Hardware{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Hardware",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -405,17 +405,17 @@ tasks:
 					Name:      "machine1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Interfaces: []v1alpha1.Interface{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
 						{
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE:      &[]bool{true}[0],
 								AllowWorkflow: &[]bool{true}[0],
 							},
-							DHCP: &v1alpha1.DHCP{
+							DHCP: &tinkerbell.DHCP{
 								Arch:     "x86_64",
 								Hostname: "sm01",
-								IP: &v1alpha1.IP{
+								IP: &tinkerbell.IP{
 									Address: "172.16.10.100",
 									Gateway: "172.16.10.1",
 									Netmask: "255.255.255.0",
@@ -436,7 +436,7 @@ tasks:
 				},
 			},
 			want: reconcile.Result{},
-			wantWflow: &v1alpha1.Workflow{
+			wantWflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -446,16 +446,16 @@ tasks:
 					Name:            "debian",
 					Namespace:       "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian",
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{
-					State:         v1alpha1.WorkflowStatePending,
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStatePending,
 					GlobalTimeout: 1800,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name: "os-installation",
 
@@ -465,7 +465,7 @@ tasks:
 								"/dev/console:/dev/console",
 								"/lib/firmware:/lib/firmware:ro",
 							},
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -475,7 +475,7 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: v1alpha1.WorkflowStatePending,
+									Status: tinkerbell.WorkflowStatePending,
 								},
 							},
 						},
@@ -486,7 +486,7 @@ tasks:
 		},
 		{
 			name: "MissingTemplate",
-			seedTemplate: &v1alpha1.Template{
+			seedTemplate: &tinkerbell.Template{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Template",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -495,10 +495,10 @@ tasks:
 					Name:      "dummy",
 					Namespace: "default",
 				},
-				Spec:   v1alpha1.TemplateSpec{},
-				Status: v1alpha1.TemplateStatus{},
+				Spec:   tinkerbell.TemplateSpec{},
+				Status: tinkerbell.TemplateStatus{},
 			},
-			seedWorkflow: &v1alpha1.Workflow{
+			seedWorkflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -507,15 +507,15 @@ tasks:
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian", // doesn't exist
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{},
+				Status: tinkerbell.WorkflowStatus{},
 			},
-			seedHardware: &v1alpha1.Hardware{
+			seedHardware: &tinkerbell.Hardware{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Hardware",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -524,17 +524,17 @@ tasks:
 					Name:      "machine1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Interfaces: []v1alpha1.Interface{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
 						{
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE:      &[]bool{true}[0],
 								AllowWorkflow: &[]bool{true}[0],
 							},
-							DHCP: &v1alpha1.DHCP{
+							DHCP: &tinkerbell.DHCP{
 								Arch:     "x86_64",
 								Hostname: "sm01",
-								IP: &v1alpha1.IP{
+								IP: &tinkerbell.IP{
 									Address: "172.16.10.100",
 									Gateway: "172.16.10.1",
 									Netmask: "255.255.255.0",
@@ -555,7 +555,7 @@ tasks:
 				},
 			},
 			want: reconcile.Result{},
-			wantWflow: &v1alpha1.Workflow{
+			wantWflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -568,7 +568,7 @@ tasks:
 		},
 		{
 			name: "TimedOutWorkflow",
-			seedTemplate: &v1alpha1.Template{
+			seedTemplate: &tinkerbell.Template{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Template",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -577,12 +577,12 @@ tasks:
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.TemplateSpec{
+				Spec: tinkerbell.TemplateSpec{
 					Data: &minimalTemplate,
 				},
-				Status: v1alpha1.TemplateStatus{},
+				Status: tinkerbell.TemplateStatus{},
 			},
-			seedWorkflow: &v1alpha1.Workflow{
+			seedWorkflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -591,16 +591,16 @@ tasks:
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian",
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{
-					State:         v1alpha1.WorkflowStateRunning,
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStateRunning,
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "os-installation",
 							WorkerAddr: "3c:ec:ef:4c:4f:54",
@@ -609,7 +609,7 @@ tasks:
 								"/dev/console:/dev/console",
 								"/lib/firmware:/lib/firmware:ro",
 							},
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -619,7 +619,7 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status:    v1alpha1.WorkflowStateRunning,
+									Status:    tinkerbell.WorkflowStateRunning,
 									StartedAt: TestTime.MetaV1BeforeSec(601),
 								},
 							},
@@ -627,7 +627,7 @@ tasks:
 					},
 				},
 			},
-			seedHardware: &v1alpha1.Hardware{
+			seedHardware: &tinkerbell.Hardware{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Hardware",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -636,17 +636,17 @@ tasks:
 					Name:      "machine1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Interfaces: []v1alpha1.Interface{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
 						{
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE:      &[]bool{true}[0],
 								AllowWorkflow: &[]bool{true}[0],
 							},
-							DHCP: &v1alpha1.DHCP{
+							DHCP: &tinkerbell.DHCP{
 								Arch:     "x86_64",
 								Hostname: "sm01",
-								IP: &v1alpha1.IP{
+								IP: &tinkerbell.IP{
 									Address: "172.16.10.100",
 									Gateway: "172.16.10.1",
 									Netmask: "255.255.255.0",
@@ -667,7 +667,7 @@ tasks:
 				},
 			},
 			want: reconcile.Result{},
-			wantWflow: &v1alpha1.Workflow{
+			wantWflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -677,17 +677,17 @@ tasks:
 					Name:            "debian",
 					Namespace:       "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian",
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{
-					State:         v1alpha1.WorkflowStateTimeout,
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStateTimeout,
 					CurrentAction: "stream-debian-image",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "os-installation",
 							WorkerAddr: "3c:ec:ef:4c:4f:54",
@@ -696,7 +696,7 @@ tasks:
 								"/dev/console:/dev/console",
 								"/lib/firmware:/lib/firmware:ro",
 							},
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -706,7 +706,7 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status:    v1alpha1.WorkflowStateTimeout,
+									Status:    tinkerbell.WorkflowStateTimeout,
 									StartedAt: TestTime.MetaV1BeforeSec(601),
 									Seconds:   601,
 									Message:   "Action timed out",
@@ -720,7 +720,7 @@ tasks:
 		},
 		{
 			name: "ErrorGettingHardwareRef",
-			seedTemplate: &v1alpha1.Template{
+			seedTemplate: &tinkerbell.Template{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Template",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -729,12 +729,12 @@ tasks:
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.TemplateSpec{
+				Spec: tinkerbell.TemplateSpec{
 					Data: &minimalTemplate,
 				},
-				Status: v1alpha1.TemplateStatus{},
+				Status: tinkerbell.TemplateStatus{},
 			},
-			seedWorkflow: &v1alpha1.Workflow{
+			seedWorkflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -743,14 +743,14 @@ tasks:
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian",
 					HardwareRef: "i_dont_exist",
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{},
+				Status: tinkerbell.WorkflowStatus{},
 			},
 			req: reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -759,7 +759,7 @@ tasks:
 				},
 			},
 			want: reconcile.Result{},
-			wantWflow: &v1alpha1.Workflow{
+			wantWflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -769,16 +769,16 @@ tasks:
 					Name:            "debian",
 					Namespace:       "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian",
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{
-					State:         v1alpha1.WorkflowStatePending,
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStatePending,
 					GlobalTimeout: 1800,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name: "os-installation",
 
@@ -788,7 +788,7 @@ tasks:
 								"/dev/console:/dev/console",
 								"/lib/firmware:/lib/firmware:ro",
 							},
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -798,7 +798,7 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: v1alpha1.WorkflowStatePending,
+									Status: tinkerbell.WorkflowStatePending,
 								},
 							},
 						},
@@ -809,7 +809,7 @@ tasks:
 		},
 		{
 			name: "SuccessWithHardwareRef",
-			seedHardware: &v1alpha1.Hardware{
+			seedHardware: &tinkerbell.Hardware{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Hardware",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -818,20 +818,20 @@ tasks:
 					Name:      "machine1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Disks: []v1alpha1.Disk{
+				Spec: tinkerbell.HardwareSpec{
+					Disks: []tinkerbell.Disk{
 						{Device: "/dev/nvme0n1"},
 					},
-					Interfaces: []v1alpha1.Interface{
+					Interfaces: []tinkerbell.Interface{
 						{
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE:      &[]bool{true}[0],
 								AllowWorkflow: &[]bool{true}[0],
 							},
-							DHCP: &v1alpha1.DHCP{
+							DHCP: &tinkerbell.DHCP{
 								Arch:     "x86_64",
 								Hostname: "sm01",
-								IP: &v1alpha1.IP{
+								IP: &tinkerbell.IP{
 									Address: "172.16.10.100",
 									Gateway: "172.16.10.1",
 									Netmask: "255.255.255.0",
@@ -844,11 +844,11 @@ tasks:
 						},
 					},
 					UserData:   valueToPointer("user-data"),
-					Metadata:   &v1alpha1.HardwareMetadata{State: "active"},
+					Metadata:   &tinkerbell.HardwareMetadata{State: "active"},
 					VendorData: valueToPointer("vendor-data"),
 				},
 			},
-			seedTemplate: &v1alpha1.Template{
+			seedTemplate: &tinkerbell.Template{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Template",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -857,12 +857,12 @@ tasks:
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.TemplateSpec{
+				Spec: tinkerbell.TemplateSpec{
 					Data: &templateWithDiskTemplate,
 				},
-				Status: v1alpha1.TemplateStatus{},
+				Status: tinkerbell.TemplateStatus{},
 			},
-			seedWorkflow: &v1alpha1.Workflow{
+			seedWorkflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -871,14 +871,14 @@ tasks:
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian",
 					HardwareRef: "machine1",
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{},
+				Status: tinkerbell.WorkflowStatus{},
 			},
 			req: reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -887,7 +887,7 @@ tasks:
 				},
 			},
 			want: reconcile.Result{},
-			wantWflow: &v1alpha1.Workflow{
+			wantWflow: &tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -897,21 +897,21 @@ tasks:
 					Name:            "debian",
 					Namespace:       "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "debian",
 					HardwareRef: "machine1",
 					HardwareMap: map[string]string{
 						"device_1": "3c:ec:ef:4c:4f:54",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{
-					State:             v1alpha1.WorkflowStatePending,
+				Status: tinkerbell.WorkflowStatus{
+					State:             tinkerbell.WorkflowStatePending,
 					GlobalTimeout:     1800,
 					TemplateRendering: "successful",
-					Conditions: []v1alpha1.WorkflowCondition{
-						{Type: v1alpha1.TemplateRenderedSuccess, Status: metav1.ConditionTrue, Reason: "Complete", Message: "template rendered successfully"},
+					Conditions: []tinkerbell.WorkflowCondition{
+						{Type: tinkerbell.TemplateRenderedSuccess, Status: metav1.ConditionTrue, Reason: "Complete", Message: "template rendered successfully"},
 					},
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name: "os-installation",
 
@@ -921,7 +921,7 @@ tasks:
 								"/dev/console:/dev/console",
 								"/lib/firmware:/lib/firmware:ro",
 							},
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -931,7 +931,7 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: v1alpha1.WorkflowStatePending,
+									Status: tinkerbell.WorkflowStatePending,
 								},
 								{
 									Name:    "action to test templating",
@@ -942,7 +942,7 @@ tasks:
 										"VENDOR_DATA": "vendor-data",
 										"METADATA":    "active",
 									},
-									Status: v1alpha1.WorkflowStatePending,
+									Status: tinkerbell.WorkflowStatePending,
 								},
 							},
 						},
@@ -988,7 +988,7 @@ tasks:
 				t.Errorf("Got unexpected result. Wanted %v, got %v", tc.want, got)
 				// Don't return, also check the modified object
 			}
-			wflow := &v1alpha1.Workflow{}
+			wflow := &tinkerbell.Workflow{}
 			err := controller.client.Get(
 				context.Background(),
 				client.ObjectKey{Name: tc.wantWflow.Name, Namespace: tc.wantWflow.Namespace},
@@ -998,7 +998,7 @@ tasks:
 				return
 			}
 
-			if diff := cmp.Diff(tc.wantWflow, wflow, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time")); diff != "" {
+			if diff := cmp.Diff(tc.wantWflow, wflow, cmpopts.IgnoreFields(tinkerbell.WorkflowCondition{}, "Time")); diff != "" {
 				t.Errorf("unexpected difference:\n%v", diff)
 			}
 		})

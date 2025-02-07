@@ -19,7 +19,7 @@ spec:
     singular: machine
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - name: bmc
     schema:
       openAPIV3Schema:
         description: Machine is the Schema for the machines API.

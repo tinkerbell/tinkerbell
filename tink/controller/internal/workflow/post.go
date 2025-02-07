@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	rufio "github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -21,7 +21,7 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	// 2. Handle ISO eject scenario.
-	if s.workflow.Spec.BootOptions.BootMode == v1alpha1.BootModeISO {
+	if s.workflow.Spec.BootOptions.BootMode == tinkerbell.BootModeISO {
 		name := jobName(fmt.Sprintf("%s-%s", jobNameISOEject, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode iso")
@@ -39,12 +39,12 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 
 			r, err := s.handleJob(ctx, actions, name)
 			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete {
-				s.workflow.Status.State = v1alpha1.WorkflowStateSuccess
+				s.workflow.Status.State = tinkerbell.WorkflowStateSuccess
 			}
 			return r, err
 		}
 	}
 
-	s.workflow.Status.State = v1alpha1.WorkflowStateSuccess
+	s.workflow.Status.State = tinkerbell.WorkflowStateSuccess
 	return reconcile.Result{}, nil
 }

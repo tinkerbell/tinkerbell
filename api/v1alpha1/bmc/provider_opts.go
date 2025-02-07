@@ -1,4 +1,4 @@
-package v1alpha1
+package bmc
 
 import (
 	"net/http"

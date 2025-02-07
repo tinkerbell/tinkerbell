@@ -1,7 +1,7 @@
 package kube
 
 import (
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -16,17 +16,17 @@ const (
 // Indexes that are currently known.
 var Indexes = map[IndexType]Index{
 	IndexTypeMACAddr: {
-		Obj:          &v1alpha1.Hardware{},
+		Obj:          &tinkerbell.Hardware{},
 		Field:        MACAddrIndex,
 		ExtractValue: MACAddrs,
 	},
 	IndexTypeIPAddr: {
-		Obj:          &v1alpha1.Hardware{},
+		Obj:          &tinkerbell.Hardware{},
 		Field:        IPAddrIndex,
 		ExtractValue: IPAddrs,
 	},
 	IndexTypeWorkflowByNonTerminalState: {
-		Obj:          &v1alpha1.Workflow{},
+		Obj:          &tinkerbell.Workflow{},
 		Field:        WorkflowByNonTerminalState,
 		ExtractValue: WorkflowByNonTerminalStateFunc,
 	},
@@ -37,7 +37,7 @@ const MACAddrIndex = ".Spec.Interfaces.MAC"
 
 // MACAddrs returns a list of MAC addresses for a Hardware object.
 func MACAddrs(obj client.Object) []string {
-	hw, ok := obj.(*v1alpha1.Hardware)
+	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {
 		return nil
 	}
@@ -45,7 +45,7 @@ func MACAddrs(obj client.Object) []string {
 }
 
 // GetMACs retrieves all MACs associated with h.
-func GetMACs(h *v1alpha1.Hardware) []string {
+func GetMACs(h *tinkerbell.Hardware) []string {
 	var macs []string
 	for _, i := range h.Spec.Interfaces {
 		if i.DHCP != nil && i.DHCP.MAC != "" {
@@ -61,7 +61,7 @@ const IPAddrIndex = ".Spec.Interfaces.DHCP.IP"
 
 // IPAddrs returns a list of IP addresses for a Hardware object.
 func IPAddrs(obj client.Object) []string {
-	hw, ok := obj.(*v1alpha1.Hardware)
+	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {
 		return nil
 	}
@@ -69,7 +69,7 @@ func IPAddrs(obj client.Object) []string {
 }
 
 // GetIPs retrieves all IP addresses.
-func GetIPs(h *v1alpha1.Hardware) []string {
+func GetIPs(h *tinkerbell.Hardware) []string {
 	var ips []string
 	for _, i := range h.Spec.Interfaces {
 		if i.DHCP != nil && i.DHCP.IP != nil && i.DHCP.IP.Address != "" {
@@ -85,13 +85,13 @@ const WorkflowByNonTerminalState = ".status.state.nonTerminalWorker"
 // WorkflowByNonTerminalStateFunc inspects obj - which must be a Workflow - for a Pending or
 // Running state. If in either Pending or Running it returns a list of worker addresses.
 func WorkflowByNonTerminalStateFunc(obj client.Object) []string {
-	wf, ok := obj.(*v1alpha1.Workflow)
+	wf, ok := obj.(*tinkerbell.Workflow)
 	if !ok {
 		return nil
 	}
 
 	resp := []string{}
-	if !(wf.Status.State == v1alpha1.WorkflowStateRunning || wf.Status.State == v1alpha1.WorkflowStatePending) {
+	if !(wf.Status.State == tinkerbell.WorkflowStateRunning || wf.Status.State == tinkerbell.WorkflowStatePending) {
 		return resp
 	}
 	for _, task := range wf.Status.Tasks {

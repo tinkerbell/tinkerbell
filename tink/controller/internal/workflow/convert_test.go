@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +14,7 @@ import (
 func TestToWorkflowContext(t *testing.T) {
 	cases := []struct {
 		name  string
-		input *v1alpha1.Workflow
+		input *tinkerbell.Workflow
 		want  *proto.WorkflowContext
 	}{
 		{
@@ -24,7 +24,7 @@ func TestToWorkflowContext(t *testing.T) {
 		},
 		{
 			"empty workflow",
-			&v1alpha1.Workflow{},
+			&tinkerbell.Workflow{},
 			&proto.WorkflowContext{
 				WorkflowId:           "",
 				CurrentWorker:        "",
@@ -37,21 +37,21 @@ func TestToWorkflowContext(t *testing.T) {
 		},
 		{
 			"running workflow",
-			&v1alpha1.Workflow{
+			&tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "wf1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{},
-				Status: v1alpha1.WorkflowStatus{
+				Spec: tinkerbell.WorkflowSpec{},
+				Status: tinkerbell.WorkflowStatus{
 					State:         "STATE_RUNNING",
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "task1",
 							WorkerAddr: "worker1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:   "action1",
 									Status: "STATE_SUCCESS",
@@ -90,7 +90,7 @@ func TestToWorkflowContext(t *testing.T) {
 func TestActionListCRDToProto(t *testing.T) {
 	cases := []struct {
 		name  string
-		input *v1alpha1.Workflow
+		input *tinkerbell.Workflow
 		want  *proto.WorkflowActionList
 	}{
 		{
@@ -100,7 +100,7 @@ func TestActionListCRDToProto(t *testing.T) {
 		},
 		{
 			"empty workflow",
-			&v1alpha1.Workflow{
+			&tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -109,8 +109,8 @@ func TestActionListCRDToProto(t *testing.T) {
 					Name:              "wf1",
 					CreationTimestamp: metav1.Time{},
 				},
-				Spec:   v1alpha1.WorkflowSpec{},
-				Status: v1alpha1.WorkflowStatus{},
+				Spec:   tinkerbell.WorkflowSpec{},
+				Status: tinkerbell.WorkflowStatus{},
 			},
 			&proto.WorkflowActionList{
 				ActionList: []*proto.WorkflowAction{},
@@ -118,7 +118,7 @@ func TestActionListCRDToProto(t *testing.T) {
 		},
 		{
 			"full workflow",
-			&v1alpha1.Workflow{
+			&tinkerbell.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -130,16 +130,16 @@ func TestActionListCRDToProto(t *testing.T) {
 					},
 					CreationTimestamp: metav1.Time{},
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					TemplateRef: "MyCoolWorkflow",
 				},
-				Status: v1alpha1.WorkflowStatus{
+				Status: tinkerbell.WorkflowStatus{
 					State: "STATE_SUCCESS",
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
 							Name:       "worker1",
 							WorkerAddr: "00:00:53:00:53:F4",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									Name:    "stream-debian-image",
 									Timeout: 600,
@@ -238,7 +238,7 @@ func TestYAMLToStatus(t *testing.T) {
 	cases := []struct {
 		name    string
 		inputWf *Workflow
-		want    *v1alpha1.WorkflowStatus
+		want    *tinkerbell.WorkflowStatus
 	}{
 		{
 			"Nil workflow",
@@ -278,13 +278,13 @@ func TestYAMLToStatus(t *testing.T) {
 					},
 				},
 			},
-			&v1alpha1.WorkflowStatus{
+			&tinkerbell.WorkflowStatus{
 				GlobalTimeout: 600,
-				Tasks: []v1alpha1.Task{
+				Tasks: []tinkerbell.Task{
 					{
 						Name:       "do-or-do-not-there-is-no-try",
 						WorkerAddr: "00:00:53:00:53:F4",
-						Actions: []v1alpha1.Action{
+						Actions: []tinkerbell.Action{
 							{
 								Name:    "stream-image-to-disk",
 								Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",

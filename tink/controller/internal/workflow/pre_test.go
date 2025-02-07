@@ -8,7 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	rufio "github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,78 +22,78 @@ func TestPrepareWorkflow(t *testing.T) {
 	tests := map[string]struct {
 		wantResult   reconcile.Result
 		wantError    bool
-		hardware     *v1alpha1.Hardware
-		wantHardware *v1alpha1.Hardware
-		workflow     *v1alpha1.Workflow
-		wantWorkflow *v1alpha1.Workflow
+		hardware     *tinkerbell.Hardware
+		wantHardware *tinkerbell.Hardware
+		workflow     *tinkerbell.Workflow
+		wantWorkflow *tinkerbell.Workflow
 		job          *rufio.Job
 	}{
 		"nothing to do": {
 			wantResult:   reconcile.Result{},
-			hardware:     &v1alpha1.Hardware{},
-			wantHardware: &v1alpha1.Hardware{},
-			workflow:     &v1alpha1.Workflow{},
-			wantWorkflow: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State: v1alpha1.WorkflowStatePending,
+			hardware:     &tinkerbell.Hardware{},
+			wantHardware: &tinkerbell.Hardware{},
+			workflow:     &tinkerbell.Workflow{},
+			wantWorkflow: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
+					State: tinkerbell.WorkflowStatePending,
 				},
 			},
 		},
 		"toggle allowPXE": {
 			wantResult: reconcile.Result{},
-			hardware: &v1alpha1.Hardware{
+			hardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hardware",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Interfaces: []v1alpha1.Interface{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
 						{
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE: valueToPointer(false),
 							},
 						},
 					},
 				},
 			},
-			wantHardware: &v1alpha1.Hardware{
+			wantHardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hardware",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
-					Interfaces: []v1alpha1.Interface{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
 						{
-							Netboot: &v1alpha1.Netboot{
+							Netboot: &tinkerbell.Netboot{
 								AllowPXE: valueToPointer(true),
 							},
 						},
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
+			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-workflow",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					HardwareRef: "test-hardware",
-					BootOptions: v1alpha1.BootOptions{
+					BootOptions: tinkerbell.BootOptions{
 						ToggleAllowNetboot: true,
 					},
 				},
 			},
-			wantWorkflow: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State: v1alpha1.WorkflowStatePending,
-					BootOptions: v1alpha1.BootOptionsStatus{
-						AllowNetboot: v1alpha1.AllowNetbootStatus{
+			wantWorkflow: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
+					State: tinkerbell.WorkflowStatePending,
+					BootOptions: tinkerbell.BootOptionsStatus{
+						AllowNetboot: tinkerbell.AllowNetbootStatus{
 							ToggledTrue: true,
 						},
 					},
-					Conditions: []v1alpha1.WorkflowCondition{
+					Conditions: []tinkerbell.WorkflowCondition{
 						{
-							Type:    v1alpha1.ToggleAllowNetbootTrue,
+							Type:    tinkerbell.ToggleAllowNetbootTrue,
 							Status:  metav1.ConditionTrue,
 							Reason:  "Complete",
 							Message: "set allowPXE to true",
@@ -104,51 +104,51 @@ func TestPrepareWorkflow(t *testing.T) {
 		},
 		"boot mode netboot": {
 			wantResult: reconcile.Result{Requeue: true},
-			hardware: &v1alpha1.Hardware{
+			hardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hardware",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
+				Spec: tinkerbell.HardwareSpec{
 					BMCRef: &v1.TypedLocalObjectReference{
 						Name: "test-bmc",
 						Kind: "machine.bmc.tinkerbell.org",
 					},
 				},
 			},
-			wantHardware: &v1alpha1.Hardware{
+			wantHardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hardware",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
+				Spec: tinkerbell.HardwareSpec{
 					BMCRef: &v1.TypedLocalObjectReference{
 						Name: "test-bmc",
 						Kind: "machine.bmc.tinkerbell.org",
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
+			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-workflow",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					HardwareRef: "test-hardware",
-					BootOptions: v1alpha1.BootOptions{
+					BootOptions: tinkerbell.BootOptions{
 						BootMode: "netboot",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{
-					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
+				Status: tinkerbell.WorkflowStatus{
+					BootOptions: tinkerbell.BootOptionsStatus{
+						Jobs: map[string]tinkerbell.JobStatus{},
 					},
 				},
 			},
-			wantWorkflow: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{
+			wantWorkflow: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
+					BootOptions: tinkerbell.BootOptionsStatus{
+						Jobs: map[string]tinkerbell.JobStatus{
 							fmt.Sprintf("%s-test-workflow", jobNameNetboot): {ExistingJobDeleted: true},
 						},
 					},
@@ -157,52 +157,52 @@ func TestPrepareWorkflow(t *testing.T) {
 		},
 		"boot mode iso": {
 			wantResult: reconcile.Result{Requeue: true},
-			hardware: &v1alpha1.Hardware{
+			hardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hardware",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
+				Spec: tinkerbell.HardwareSpec{
 					BMCRef: &v1.TypedLocalObjectReference{
 						Name: "test-bmc",
 						Kind: "machine.bmc.tinkerbell.org",
 					},
 				},
 			},
-			wantHardware: &v1alpha1.Hardware{
+			wantHardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hardware",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.HardwareSpec{
+				Spec: tinkerbell.HardwareSpec{
 					BMCRef: &v1.TypedLocalObjectReference{
 						Name: "test-bmc",
 						Kind: "machine.bmc.tinkerbell.org",
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
+			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-workflow",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.WorkflowSpec{
+				Spec: tinkerbell.WorkflowSpec{
 					HardwareRef: "test-hardware",
-					BootOptions: v1alpha1.BootOptions{
+					BootOptions: tinkerbell.BootOptions{
 						BootMode: "iso",
 						ISOURL:   "http://example.com",
 					},
 				},
-				Status: v1alpha1.WorkflowStatus{
-					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
+				Status: tinkerbell.WorkflowStatus{
+					BootOptions: tinkerbell.BootOptionsStatus{
+						Jobs: map[string]tinkerbell.JobStatus{},
 					},
 				},
 			},
-			wantWorkflow: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{
+			wantWorkflow: &tinkerbell.Workflow{
+				Status: tinkerbell.WorkflowStatus{
+					BootOptions: tinkerbell.BootOptionsStatus{
+						Jobs: map[string]tinkerbell.JobStatus{
 							fmt.Sprintf("%s-test-workflow", jobNameISOMount): {ExistingJobDeleted: true},
 						},
 					},
@@ -215,7 +215,7 @@ func TestPrepareWorkflow(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scheme := runtime.NewScheme()
 			rufio.AddToScheme(scheme)
-			v1alpha1.AddToScheme(scheme)
+			tinkerbell.AddToScheme(scheme)
 			ro := []runtime.Object{}
 			if tc.hardware != nil {
 				ro = append(ro, tc.hardware)
@@ -243,7 +243,7 @@ func TestPrepareWorkflow(t *testing.T) {
 			}
 
 			// get the Hardware object in cluster
-			gotHardware := &v1alpha1.Hardware{}
+			gotHardware := &tinkerbell.Hardware{}
 			if err := s.client.Get(ctx, types.NamespacedName{Name: tc.hardware.Name, Namespace: tc.hardware.Namespace}, gotHardware); err != nil {
 				t.Fatalf("error getting hardware: %v", err)
 			}
@@ -254,7 +254,7 @@ func TestPrepareWorkflow(t *testing.T) {
 				}
 			}
 
-			if diff := cmp.Diff(tc.workflow.Status, tc.wantWorkflow.Status, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time")); diff != "" {
+			if diff := cmp.Diff(tc.workflow.Status, tc.wantWorkflow.Status, cmpopts.IgnoreFields(tinkerbell.WorkflowCondition{}, "Time")); diff != "" {
 				t.Errorf("unexpected workflow status (-want +got):\n%s", diff)
 				for _, entry := range journal.Journal(ctx) {
 					t.Logf("journal: %+v", entry)
