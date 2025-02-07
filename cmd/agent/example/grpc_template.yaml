@@ -1,0 +1,39 @@
+apiVersion: "tinkerbell.org/v1alpha1"
+kind: Template
+metadata:
+  name: testing
+  namespace: tink
+spec:
+  data: |
+    version: "0.1"
+    name: test
+    global_timeout: 9800
+    tasks:
+      - name: "os-installation"
+        worker: "{{.device_1}}"
+        actions:
+          - name: "action 1"
+            image: bash
+            timeout: 9600
+            command: ["sleep", "2"]
+          - name: "action 2"
+            image: bash
+            timeout: 90
+            command: ["sleep", "2"]
+          - name: "action 3"
+            image: bash
+            timeout: 90
+            command: ["sleep", "2"]
+          - name: "action 4"
+            image: bash
+            command: ["sleep", "1"]
+            timeout: 90
+          - name: "action 5"
+            image: bash
+            timeout: 90
+            command: ["sleep", "2"]
+          - name: "action 6"
+            image: bash
+            timeout: 90
+            pid: host
+            command: ["sleep", "2"]

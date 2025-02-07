@@ -33,6 +33,12 @@ func (u *URL) Set(s string) error {
 	return nil
 }
 
+func (u *URL) Reset() error {
+	*u.URL = url.URL{}
+
+	return nil
+}
+
 func (u *URL) Type() string {
 	return "url"
 }

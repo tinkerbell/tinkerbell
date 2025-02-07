@@ -123,7 +123,7 @@ func (b *Backend) hwByIP(ctx context.Context, ip string) (*v1alpha1.Hardware, er
 	}
 
 	if len(hardwareList.Items) == 0 {
-		err := hardwareNotFoundError{name: ip, namespace: If(b.Namespace == "", "all namespaces", b.Namespace)}
+		err := hardwareNotFoundError{name: ip, namespace: ternary(b.Namespace == "", "all namespaces", b.Namespace)}
 		span.SetStatus(codes.Error, err.Error())
 
 		return nil, err

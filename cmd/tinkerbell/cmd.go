@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
 	"github.com/tinkerbell/tinkerbell/backend/kube"
-	"github.com/tinkerbell/tinkerbell/cmd/flag"
+	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/hegel"
 	"github.com/tinkerbell/tinkerbell/smee"
 	"github.com/tinkerbell/tinkerbell/tink/controller"

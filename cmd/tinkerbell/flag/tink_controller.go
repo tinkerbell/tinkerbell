@@ -2,7 +2,7 @@ package flag
 
 import (
 	"github.com/peterbourgon/ff/v4/ffval"
-	"github.com/tinkerbell/tinkerbell/cmd/flag/netip"
+	"github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 	"github.com/tinkerbell/tinkerbell/tink/controller"
 )
 

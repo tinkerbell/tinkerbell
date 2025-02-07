@@ -105,7 +105,7 @@ func (s *Handler) GetWorkflowContexts(req *proto.WorkflowContextRequest, stream 
 func (s *Handler) GetWorkflowActions(ctx context.Context, req *proto.WorkflowActionsRequest) (*proto.WorkflowActionList, error) {
 	wfID := req.GetWorkflowId()
 	if wfID == "" {
-		return nil, status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
+		return nil, status.Errorf(codes.NotFound, errInvalidWorkflowID)
 	}
 	wf, err := s.getWorkflowByName(ctx, wfID)
 	if err != nil {
