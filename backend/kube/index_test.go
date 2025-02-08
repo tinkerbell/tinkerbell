@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -14,27 +14,27 @@ func TestMACAddrs(t *testing.T) {
 		hw   client.Object
 		want []string
 	}{
-		"not a v1alpha1.Hardware object": {hw: &tinkerbell.Workflow{}, want: nil},
-		"2 MACs": {hw: &tinkerbell.Hardware{
-			Spec: tinkerbell.HardwareSpec{
-				Interfaces: []tinkerbell.Interface{
+		"not a v1alpha1.Hardware object": {hw: &v1alpha1.Workflow{}, want: nil},
+		"2 MACs": {hw: &v1alpha1.Hardware{
+			Spec: v1alpha1.HardwareSpec{
+				Interfaces: []v1alpha1.Interface{
 					{
-						DHCP: &tinkerbell.DHCP{
+						DHCP: &v1alpha1.DHCP{
 							MAC: "00:00:00:00:00:00",
 						},
 					},
 					{
-						DHCP: &tinkerbell.DHCP{
+						DHCP: &v1alpha1.DHCP{
 							MAC: "00:00:00:00:00:01",
 						},
 					},
 					{
-						DHCP: &tinkerbell.DHCP{},
+						DHCP: &v1alpha1.DHCP{},
 					},
 				},
 			},
 		}, want: []string{"00:00:00:00:00:00", "00:00:00:00:00:01"}},
-		"no interfaces": {hw: &tinkerbell.Hardware{}, want: nil},
+		"no interfaces": {hw: &v1alpha1.Hardware{}, want: nil},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -51,36 +51,36 @@ func TestIPAddrs(t *testing.T) {
 		hw   client.Object
 		want []string
 	}{
-		"not a v1alpha1.Hardware object": {hw: &tinkerbell.Workflow{}, want: nil},
-		"2 IPs": {hw: &tinkerbell.Hardware{
-			Spec: tinkerbell.HardwareSpec{
-				Interfaces: []tinkerbell.Interface{
+		"not a v1alpha1.Hardware object": {hw: &v1alpha1.Workflow{}, want: nil},
+		"2 IPs": {hw: &v1alpha1.Hardware{
+			Spec: v1alpha1.HardwareSpec{
+				Interfaces: []v1alpha1.Interface{
 					{
-						DHCP: &tinkerbell.DHCP{
-							IP: &tinkerbell.IP{
+						DHCP: &v1alpha1.DHCP{
+							IP: &v1alpha1.IP{
 								Address: "192.168.2.1",
 							},
 						},
 					},
 					{
-						DHCP: &tinkerbell.DHCP{
-							IP: &tinkerbell.IP{
+						DHCP: &v1alpha1.DHCP{
+							IP: &v1alpha1.IP{
 								Address: "192.168.2.2",
 							},
 						},
 					},
 					{
-						DHCP: &tinkerbell.DHCP{},
+						DHCP: &v1alpha1.DHCP{},
 					},
 					{
-						DHCP: &tinkerbell.DHCP{
-							IP: &tinkerbell.IP{},
+						DHCP: &v1alpha1.DHCP{
+							IP: &v1alpha1.IP{},
 						},
 					},
 				},
 			},
 		}, want: []string{"192.168.2.1", "192.168.2.2"}},
-		"no interfaces": {hw: &tinkerbell.Hardware{}, want: nil},
+		"no interfaces": {hw: &v1alpha1.Hardware{}, want: nil},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -100,25 +100,25 @@ func TestWorkflowIndexFuncs(t *testing.T) {
 	}{
 		{
 			"non workflow",
-			&tinkerbell.Hardware{},
+			&v1alpha1.Hardware{},
 			nil,
 		},
 		{
 			"empty workflow",
-			&tinkerbell.Workflow{
-				Status: tinkerbell.WorkflowStatus{
+			&v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
 					State: "",
-					Tasks: []tinkerbell.Task{},
+					Tasks: []v1alpha1.Task{},
 				},
 			},
 			[]string{},
 		},
 		{
 			"pending workflow",
-			&tinkerbell.Workflow{
-				Status: tinkerbell.WorkflowStatus{
-					State: tinkerbell.WorkflowStatePending,
-					Tasks: []tinkerbell.Task{
+			&v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					State: v1alpha1.WorkflowStatePending,
+					Tasks: []v1alpha1.Task{
 						{
 							WorkerAddr: "worker1",
 						},
@@ -129,10 +129,10 @@ func TestWorkflowIndexFuncs(t *testing.T) {
 		},
 		{
 			"running workflow",
-			&tinkerbell.Workflow{
-				Status: tinkerbell.WorkflowStatus{
-					State: tinkerbell.WorkflowStateRunning,
-					Tasks: []tinkerbell.Task{
+			&v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					State: v1alpha1.WorkflowStateRunning,
+					Tasks: []v1alpha1.Task{
 						{
 							WorkerAddr: "worker1",
 						},
@@ -146,10 +146,10 @@ func TestWorkflowIndexFuncs(t *testing.T) {
 		},
 		{
 			"complete workflow",
-			&tinkerbell.Workflow{
-				Status: tinkerbell.WorkflowStatus{
-					State: tinkerbell.WorkflowStateSuccess,
-					Tasks: []tinkerbell.Task{
+			&v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					State: v1alpha1.WorkflowStateSuccess,
+					Tasks: []v1alpha1.Task{
 						{
 							WorkerAddr: "worker1",
 						},

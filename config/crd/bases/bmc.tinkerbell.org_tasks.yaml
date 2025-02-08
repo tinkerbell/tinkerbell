@@ -18,7 +18,7 @@ spec:
     singular: task
   scope: Namespaced
   versions:
-  - name: bmc
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Task is the Schema for the Task API.

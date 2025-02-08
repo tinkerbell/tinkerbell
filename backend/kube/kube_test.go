@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"github.com/tinkerbell/tinkerbell/data"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,8 +58,8 @@ func TestNewBackend(t *testing.T) {
 				}
 			},
 			idxs: map[IndexType]Index{
-				IndexType("one"):              {Obj: &tinkerbell.Hardware{}, Field: MACAddrIndex, ExtractValue: MACAddrs},
-				IndexType("duplicate of one"): {Obj: &tinkerbell.Hardware{}, Field: MACAddrIndex, ExtractValue: MACAddrs},
+				IndexType("one"):              {Obj: &v1alpha1.Hardware{}, Field: MACAddrIndex, ExtractValue: MACAddrs},
+				IndexType("duplicate of one"): {Obj: &v1alpha1.Hardware{}, Field: MACAddrIndex, ExtractValue: MACAddrs},
 			},
 		},
 	}
@@ -82,7 +82,7 @@ func TestNewBackend(t *testing.T) {
 
 func TestToDHCPData(t *testing.T) {
 	tests := map[string]struct {
-		in        *tinkerbell.DHCP
+		in        *v1alpha1.DHCP
 		want      *data.DHCP
 		shouldErr bool
 	}{
@@ -91,34 +91,34 @@ func TestToDHCPData(t *testing.T) {
 			shouldErr: true,
 		},
 		"no mac": {
-			in:        &tinkerbell.DHCP{},
+			in:        &v1alpha1.DHCP{},
 			shouldErr: true,
 		},
 		"bad mac": {
-			in:        &tinkerbell.DHCP{MAC: "bad"},
+			in:        &v1alpha1.DHCP{MAC: "bad"},
 			shouldErr: true,
 		},
 		"no ip": {
-			in:        &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: &tinkerbell.IP{}},
+			in:        &v1alpha1.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: &v1alpha1.IP{}},
 			shouldErr: true,
 		},
 		"no subnet": {
-			in:        &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: &tinkerbell.IP{Address: "192.168.2.4"}},
+			in:        &v1alpha1.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: &v1alpha1.IP{Address: "192.168.2.4"}},
 			shouldErr: true,
 		},
 		"v1alpha1.IP == nil": {
-			in:        &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: nil},
+			in:        &v1alpha1.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: nil},
 			shouldErr: true,
 		},
 		"bad gateway": {
-			in:        &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: &tinkerbell.IP{Address: "192.168.2.4", Netmask: "255.255.254.0", Gateway: "bad"}},
+			in:        &v1alpha1.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: &v1alpha1.IP{Address: "192.168.2.4", Netmask: "255.255.254.0", Gateway: "bad"}},
 			shouldErr: true,
 		},
 		"one bad nameserver": {
-			in: &tinkerbell.DHCP{
+			in: &v1alpha1.DHCP{
 				MAC:         "00:00:00:00:00:04",
 				NameServers: []string{"1.1.1.1", "bad"},
-				IP: &tinkerbell.IP{
+				IP: &v1alpha1.IP{
 					Address: "192.168.2.4",
 					Netmask: "255.255.0.0",
 					Gateway: "192.168.2.1",
@@ -133,12 +133,12 @@ func TestToDHCPData(t *testing.T) {
 			},
 		},
 		"full": {
-			in: &tinkerbell.DHCP{
+			in: &v1alpha1.DHCP{
 				MAC:         "00:00:00:00:00:04",
 				Hostname:    "test",
 				LeaseTime:   3600,
 				NameServers: []string{"1.1.1.1"},
-				IP: &tinkerbell.IP{
+				IP: &v1alpha1.IP{
 					Address: "192.168.1.4",
 					Netmask: "255.255.255.0",
 					Gateway: "192.168.1.1",
@@ -170,13 +170,13 @@ func TestToDHCPData(t *testing.T) {
 
 func TestToNetbootData(t *testing.T) {
 	tests := map[string]struct {
-		in        *tinkerbell.Netboot
+		in        *v1alpha1.Netboot
 		want      *data.Netboot
 		shouldErr bool
 	}{
 		"nil input":    {in: nil, shouldErr: true},
-		"bad ipxe url": {in: &tinkerbell.Netboot{IPXE: &tinkerbell.IPXE{URL: "bad"}}, shouldErr: true},
-		"successful":   {in: &tinkerbell.Netboot{IPXE: &tinkerbell.IPXE{URL: "http://example.com/ipxe.ipxe"}}, want: &data.Netboot{IPXEScriptURL: &url.URL{Scheme: "http", Host: "example.com", Path: "/ipxe.ipxe"}}},
+		"bad ipxe url": {in: &v1alpha1.Netboot{IPXE: &v1alpha1.IPXE{URL: "bad"}}, shouldErr: true},
+		"successful":   {in: &v1alpha1.Netboot{IPXE: &v1alpha1.IPXE{URL: "http://example.com/ipxe.ipxe"}}, want: &data.Netboot{IPXEScriptURL: &url.URL{Scheme: "http", Host: "example.com", Path: "/ipxe.ipxe"}}},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -193,18 +193,18 @@ func TestToNetbootData(t *testing.T) {
 
 func TestGetByIP(t *testing.T) {
 	tests := map[string]struct {
-		hwObject    []tinkerbell.Hardware
+		hwObject    []v1alpha1.Hardware
 		wantDHCP    *data.DHCP
 		wantNetboot *data.Netboot
 		shouldErr   bool
 		failToList  bool
 	}{
-		"empty hardware list":    {shouldErr: true, hwObject: []tinkerbell.Hardware{}},
-		"more than one hardware": {shouldErr: true, hwObject: []tinkerbell.Hardware{hwObject1, hwObject2}},
-		"bad dhcp data":          {shouldErr: true, hwObject: []tinkerbell.Hardware{badDHCPObject2}},
-		"bad netboot data":       {shouldErr: true, hwObject: []tinkerbell.Hardware{badNetbootObject2}},
+		"empty hardware list":    {shouldErr: true, hwObject: []v1alpha1.Hardware{}},
+		"more than one hardware": {shouldErr: true, hwObject: []v1alpha1.Hardware{hwObject1, hwObject2}},
+		"bad dhcp data":          {shouldErr: true, hwObject: []v1alpha1.Hardware{badDHCPObject2}},
+		"bad netboot data":       {shouldErr: true, hwObject: []v1alpha1.Hardware{badNetbootObject2}},
 		"fail to list hardware":  {shouldErr: true, failToList: true},
-		"good data": {hwObject: []tinkerbell.Hardware{hwObject1}, wantDHCP: &data.DHCP{
+		"good data": {hwObject: []v1alpha1.Hardware{hwObject1}, wantDHCP: &data.DHCP{
 			MACAddress:     net.HardwareAddr{0x3c, 0xec, 0xef, 0x4c, 0x4f, 0x54},
 			IPAddress:      netip.MustParseAddr("172.16.10.100"),
 			SubnetMask:     []byte{0xff, 0xff, 0xff, 0x00},
@@ -231,15 +231,15 @@ func TestGetByIP(t *testing.T) {
 			if err := scheme.AddToScheme(rs); err != nil {
 				t.Fatal(err)
 			}
-			if err := tinkerbell.AddToScheme(rs); err != nil {
+			if err := v1alpha1.AddToScheme(rs); err != nil {
 				t.Fatal(err)
 			}
 
 			ct := fake.NewClientBuilder()
 			if !tc.failToList {
 				ct = ct.WithScheme(rs)
-				ct = ct.WithRuntimeObjects(&tinkerbell.HardwareList{})
-				ct = ct.WithIndex(&tinkerbell.Hardware{}, IPAddrIndex, func(client.Object) []string {
+				ct = ct.WithRuntimeObjects(&v1alpha1.HardwareList{})
+				ct = ct.WithIndex(&v1alpha1.Hardware{}, IPAddrIndex, func(client.Object) []string {
 					var list []string
 					for _, elem := range tc.hwObject {
 						list = append(list, elem.Spec.Interfaces[0].DHCP.IP.Address)
@@ -250,7 +250,7 @@ func TestGetByIP(t *testing.T) {
 			if len(tc.hwObject) > 0 {
 				t.Logf("%+v", tc.hwObject[0].Spec.Interfaces[0].DHCP)
 				t.Logf("%+v", tc.hwObject[0].Spec.Interfaces[0].DHCP.IP)
-				ct = ct.WithLists(&tinkerbell.HardwareList{Items: tc.hwObject})
+				ct = ct.WithLists(&v1alpha1.HardwareList{Items: tc.hwObject})
 			}
 			cl := ct.Build()
 
@@ -291,18 +291,18 @@ func TestGetByIP(t *testing.T) {
 
 func TestGetByMac(t *testing.T) {
 	tests := map[string]struct {
-		hwObject    []tinkerbell.Hardware
+		hwObject    []v1alpha1.Hardware
 		wantDHCP    *data.DHCP
 		wantNetboot *data.Netboot
 		shouldErr   bool
 		failToList  bool
 	}{
 		"empty hardware list":    {shouldErr: true},
-		"more than one hardware": {shouldErr: true, hwObject: []tinkerbell.Hardware{hwObject1, hwObject2}},
-		"bad dhcp data":          {shouldErr: true, hwObject: []tinkerbell.Hardware{badDHCPObject}},
-		"bad netboot data":       {shouldErr: true, hwObject: []tinkerbell.Hardware{badNetbootObject}},
+		"more than one hardware": {shouldErr: true, hwObject: []v1alpha1.Hardware{hwObject1, hwObject2}},
+		"bad dhcp data":          {shouldErr: true, hwObject: []v1alpha1.Hardware{badDHCPObject}},
+		"bad netboot data":       {shouldErr: true, hwObject: []v1alpha1.Hardware{badNetbootObject}},
 		"fail to list hardware":  {shouldErr: true, failToList: true},
-		"good data": {hwObject: []tinkerbell.Hardware{hwObject1}, wantDHCP: &data.DHCP{
+		"good data": {hwObject: []v1alpha1.Hardware{hwObject1}, wantDHCP: &data.DHCP{
 			MACAddress:     net.HardwareAddr{0x3c, 0xec, 0xef, 0x4c, 0x4f, 0x54},
 			IPAddress:      netip.MustParseAddr("172.16.10.100"),
 			SubnetMask:     []byte{0xff, 0xff, 0xff, 0x00},
@@ -329,15 +329,15 @@ func TestGetByMac(t *testing.T) {
 			if err := scheme.AddToScheme(rs); err != nil {
 				t.Fatal(err)
 			}
-			if err := tinkerbell.AddToScheme(rs); err != nil {
+			if err := v1alpha1.AddToScheme(rs); err != nil {
 				t.Fatal(err)
 			}
 
 			ct := fake.NewClientBuilder()
 			if !tc.failToList {
 				ct = ct.WithScheme(rs)
-				ct = ct.WithRuntimeObjects(&tinkerbell.HardwareList{})
-				ct = ct.WithIndex(&tinkerbell.Hardware{}, MACAddrIndex, func(client.Object) []string {
+				ct = ct.WithRuntimeObjects(&v1alpha1.HardwareList{})
+				ct = ct.WithIndex(&v1alpha1.Hardware{}, MACAddrIndex, func(client.Object) []string {
 					var list []string
 					for _, elem := range tc.hwObject {
 						list = append(list, elem.Spec.Interfaces[0].DHCP.MAC)
@@ -348,7 +348,7 @@ func TestGetByMac(t *testing.T) {
 			if len(tc.hwObject) > 0 {
 				t.Logf("%+v", tc.hwObject[0].Spec.Interfaces[0].DHCP)
 				t.Logf("%+v", tc.hwObject[0].Spec.Interfaces[0].DHCP.MAC)
-				ct = ct.WithLists(&tinkerbell.HardwareList{Items: tc.hwObject})
+				ct = ct.WithLists(&v1alpha1.HardwareList{Items: tc.hwObject})
 			}
 			cl := ct.Build()
 
@@ -395,13 +395,13 @@ func newWorkingClient(t *testing.T) client.WithWatch {
 	if err := scheme.AddToScheme(rs); err != nil {
 		t.Fatal(err)
 	}
-	if err := tinkerbell.AddToScheme(rs); err != nil {
+	if err := v1alpha1.AddToScheme(rs); err != nil {
 		t.Fatal(err)
 	}
 
 	ct = ct.WithScheme(rs)
-	ct = ct.WithRuntimeObjects(&tinkerbell.HardwareList{})
-	ct = ct.WithIndex(&tinkerbell.Hardware{}, IPAddrIndex, func(client.Object) []string {
+	ct = ct.WithRuntimeObjects(&v1alpha1.HardwareList{})
+	ct = ct.WithIndex(&v1alpha1.Hardware{}, IPAddrIndex, func(client.Object) []string {
 		var list []string
 		return list
 	})
@@ -409,7 +409,7 @@ func newWorkingClient(t *testing.T) client.WithWatch {
 	return ct.Build()
 }
 
-var hwObject1 = tinkerbell.Hardware{
+var hwObject1 = v1alpha1.Hardware{
 	TypeMeta: v1.TypeMeta{
 		Kind:       "Hardware",
 		APIVersion: "tinkerbell.org/v1alpha1",
@@ -418,25 +418,25 @@ var hwObject1 = tinkerbell.Hardware{
 		Name:      "machine1",
 		Namespace: "default",
 	},
-	Spec: tinkerbell.HardwareSpec{
-		Metadata: &tinkerbell.HardwareMetadata{
-			Facility: &tinkerbell.MetadataFacility{
+	Spec: v1alpha1.HardwareSpec{
+		Metadata: &v1alpha1.HardwareMetadata{
+			Facility: &v1alpha1.MetadataFacility{
 				FacilityCode: "onprem",
 			},
 		},
-		Interfaces: []tinkerbell.Interface{
+		Interfaces: []v1alpha1.Interface{
 			{
-				Netboot: &tinkerbell.Netboot{
+				Netboot: &v1alpha1.Netboot{
 					AllowPXE:      &[]bool{true}[0],
 					AllowWorkflow: &[]bool{true}[0],
-					IPXE: &tinkerbell.IPXE{
+					IPXE: &v1alpha1.IPXE{
 						URL: "http://netboot.xyz",
 					},
 				},
-				DHCP: &tinkerbell.DHCP{
+				DHCP: &v1alpha1.DHCP{
 					Arch:     "x86_64",
 					Hostname: "sm01",
-					IP: &tinkerbell.IP{
+					IP: &v1alpha1.IP{
 						Address: "172.16.10.100",
 						Gateway: "172.16.10.1",
 						Netmask: "255.255.255.0",
@@ -451,7 +451,7 @@ var hwObject1 = tinkerbell.Hardware{
 	},
 }
 
-var hwObject2 = tinkerbell.Hardware{
+var hwObject2 = v1alpha1.Hardware{
 	TypeMeta: v1.TypeMeta{
 		Kind:       "Hardware",
 		APIVersion: "tinkerbell.org/v1alpha1",
@@ -460,20 +460,20 @@ var hwObject2 = tinkerbell.Hardware{
 		Name:      "machine2",
 		Namespace: "default",
 	},
-	Spec: tinkerbell.HardwareSpec{
-		Interfaces: []tinkerbell.Interface{
+	Spec: v1alpha1.HardwareSpec{
+		Interfaces: []v1alpha1.Interface{
 			{
-				Netboot: &tinkerbell.Netboot{
+				Netboot: &v1alpha1.Netboot{
 					AllowPXE:      &[]bool{true}[0],
 					AllowWorkflow: &[]bool{true}[0],
-					IPXE: &tinkerbell.IPXE{
+					IPXE: &v1alpha1.IPXE{
 						URL: "http://netboot.xyz",
 					},
 				},
-				DHCP: &tinkerbell.DHCP{
+				DHCP: &v1alpha1.DHCP{
 					Arch:     "x86_64",
 					Hostname: "sm01",
-					IP: &tinkerbell.IP{
+					IP: &v1alpha1.IP{
 						Address: "172.16.10.101",
 						Gateway: "172.16.10.1",
 						Netmask: "255.255.255.0",
@@ -485,15 +485,15 @@ var hwObject2 = tinkerbell.Hardware{
 				},
 			},
 		},
-		Metadata: &tinkerbell.HardwareMetadata{
-			Facility: &tinkerbell.MetadataFacility{
+		Metadata: &v1alpha1.HardwareMetadata{
+			Facility: &v1alpha1.MetadataFacility{
 				FacilityCode: "ewr2",
 			},
 		},
 	},
 }
 
-var badDHCPObject = tinkerbell.Hardware{
+var badDHCPObject = v1alpha1.Hardware{
 	TypeMeta: v1.TypeMeta{
 		Kind:       "Hardware",
 		APIVersion: "tinkerbell.org/v1alpha1",
@@ -502,20 +502,20 @@ var badDHCPObject = tinkerbell.Hardware{
 		Name:      "machine2",
 		Namespace: "default",
 	},
-	Spec: tinkerbell.HardwareSpec{
-		Interfaces: []tinkerbell.Interface{
+	Spec: v1alpha1.HardwareSpec{
+		Interfaces: []v1alpha1.Interface{
 			{
-				Netboot: &tinkerbell.Netboot{
+				Netboot: &v1alpha1.Netboot{
 					AllowPXE:      &[]bool{true}[0],
 					AllowWorkflow: &[]bool{true}[0],
-					IPXE: &tinkerbell.IPXE{
+					IPXE: &v1alpha1.IPXE{
 						URL: "http://netboot.xyz",
 					},
 				},
-				DHCP: &tinkerbell.DHCP{
+				DHCP: &v1alpha1.DHCP{
 					Arch:     "x86_64",
 					Hostname: "sm01",
-					IP: &tinkerbell.IP{
+					IP: &v1alpha1.IP{
 						Address: "172.16.10.100",
 						Gateway: "bad-address",
 						Netmask: "255.255.255.0",
@@ -530,7 +530,7 @@ var badDHCPObject = tinkerbell.Hardware{
 	},
 }
 
-var badDHCPObject2 = tinkerbell.Hardware{
+var badDHCPObject2 = v1alpha1.Hardware{
 	TypeMeta: v1.TypeMeta{
 		Kind:       "Hardware",
 		APIVersion: "tinkerbell.org/v1alpha1",
@@ -539,20 +539,20 @@ var badDHCPObject2 = tinkerbell.Hardware{
 		Name:      "machine2",
 		Namespace: "default",
 	},
-	Spec: tinkerbell.HardwareSpec{
-		Interfaces: []tinkerbell.Interface{
+	Spec: v1alpha1.HardwareSpec{
+		Interfaces: []v1alpha1.Interface{
 			{
-				Netboot: &tinkerbell.Netboot{
+				Netboot: &v1alpha1.Netboot{
 					AllowPXE:      &[]bool{true}[0],
 					AllowWorkflow: &[]bool{true}[0],
-					IPXE: &tinkerbell.IPXE{
+					IPXE: &v1alpha1.IPXE{
 						URL: "http://netboot.xyz",
 					},
 				},
-				DHCP: &tinkerbell.DHCP{
+				DHCP: &v1alpha1.DHCP{
 					Arch:     "x86_64",
 					Hostname: "sm01",
-					IP: &tinkerbell.IP{
+					IP: &v1alpha1.IP{
 						Address: "172.16.10.100",
 						Gateway: "bad-address",
 						Netmask: "255.255.255.0",
@@ -567,7 +567,7 @@ var badDHCPObject2 = tinkerbell.Hardware{
 	},
 }
 
-var badNetbootObject = tinkerbell.Hardware{
+var badNetbootObject = v1alpha1.Hardware{
 	TypeMeta: v1.TypeMeta{
 		Kind:       "Hardware",
 		APIVersion: "tinkerbell.org/v1alpha1",
@@ -576,17 +576,17 @@ var badNetbootObject = tinkerbell.Hardware{
 		Name:      "machine2",
 		Namespace: "default",
 	},
-	Spec: tinkerbell.HardwareSpec{
-		Interfaces: []tinkerbell.Interface{
+	Spec: v1alpha1.HardwareSpec{
+		Interfaces: []v1alpha1.Interface{
 			{
-				Netboot: &tinkerbell.Netboot{
-					IPXE: &tinkerbell.IPXE{
+				Netboot: &v1alpha1.Netboot{
+					IPXE: &v1alpha1.IPXE{
 						URL: "bad-url",
 					},
 				},
-				DHCP: &tinkerbell.DHCP{
+				DHCP: &v1alpha1.DHCP{
 					Hostname: "sm01",
-					IP: &tinkerbell.IP{
+					IP: &v1alpha1.IP{
 						Address: "172.16.10.101",
 						Gateway: "172.16.10.1",
 						Netmask: "255.255.255.0",
@@ -600,7 +600,7 @@ var badNetbootObject = tinkerbell.Hardware{
 	},
 }
 
-var badNetbootObject2 = tinkerbell.Hardware{
+var badNetbootObject2 = v1alpha1.Hardware{
 	TypeMeta: v1.TypeMeta{
 		Kind:       "Hardware",
 		APIVersion: "tinkerbell.org/v1alpha1",
@@ -609,17 +609,17 @@ var badNetbootObject2 = tinkerbell.Hardware{
 		Name:      "machine2",
 		Namespace: "default",
 	},
-	Spec: tinkerbell.HardwareSpec{
-		Interfaces: []tinkerbell.Interface{
+	Spec: v1alpha1.HardwareSpec{
+		Interfaces: []v1alpha1.Interface{
 			{
-				Netboot: &tinkerbell.Netboot{
-					IPXE: &tinkerbell.IPXE{
+				Netboot: &v1alpha1.Netboot{
+					IPXE: &v1alpha1.IPXE{
 						URL: "bad-url",
 					},
 				},
-				DHCP: &tinkerbell.DHCP{
+				DHCP: &v1alpha1.DHCP{
 					Hostname: "sm01",
-					IP: &tinkerbell.IP{
+					IP: &v1alpha1.IP{
 						Address: "172.16.10.100",
 						Gateway: "172.16.10.1",
 						Netmask: "255.255.255.0",

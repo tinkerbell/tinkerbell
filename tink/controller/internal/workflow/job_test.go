@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	rufio "github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	rufio "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,9 +18,9 @@ import (
 
 func TestHandleJob(t *testing.T) {
 	tests := map[string]struct {
-		workflow     *tinkerbell.Workflow
-		wantWorkflow *tinkerbell.WorkflowStatus
-		hardware     *tinkerbell.Hardware
+		workflow     *v1alpha1.Workflow
+		wantWorkflow *v1alpha1.WorkflowStatus
+		hardware     *v1alpha1.Hardware
 		actions      []rufio.Action
 		name         jobName
 		wantError    bool
@@ -28,38 +28,38 @@ func TestHandleJob(t *testing.T) {
 		job          *rufio.Job
 	}{
 		"existing job deleted, new job created and completed": {
-			workflow: &tinkerbell.Workflow{
-				Status: tinkerbell.WorkflowStatus{
-					BootOptions: tinkerbell.BootOptionsStatus{
-						Jobs: map[string]tinkerbell.JobStatus{
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					BootOptions: v1alpha1.BootOptionsStatus{
+						Jobs: map[string]v1alpha1.JobStatus{
 							jobNameNetboot.String(): {
 								ExistingJobDeleted: true,
 								UID:                types.UID("1234"),
 								Complete:           true,
 							},
 						},
-						AllowNetboot: tinkerbell.AllowNetbootStatus{},
+						AllowNetboot: v1alpha1.AllowNetbootStatus{},
 					},
 				},
 			},
-			wantWorkflow: &tinkerbell.WorkflowStatus{
-				BootOptions: tinkerbell.BootOptionsStatus{
-					Jobs: map[string]tinkerbell.JobStatus{
+			wantWorkflow: &v1alpha1.WorkflowStatus{
+				BootOptions: v1alpha1.BootOptionsStatus{
+					Jobs: map[string]v1alpha1.JobStatus{
 						jobNameNetboot.String(): {
 							ExistingJobDeleted: true,
 							UID:                types.UID("1234"),
 							Complete:           true,
 						},
 					},
-					AllowNetboot: tinkerbell.AllowNetbootStatus{},
+					AllowNetboot: v1alpha1.AllowNetbootStatus{},
 				},
 			},
-			hardware: &tinkerbell.Hardware{
+			hardware: &v1alpha1.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hardware",
 					Namespace: "default",
 				},
-				Spec: tinkerbell.HardwareSpec{
+				Spec: v1alpha1.HardwareSpec{
 					BMCRef: &v1.TypedLocalObjectReference{
 						Name: "test-bmc",
 						Kind: "machine.bmc.tinkerbell.org",
@@ -70,73 +70,73 @@ func TestHandleJob(t *testing.T) {
 			wantResult: reconcile.Result{Requeue: true},
 		},
 		"existing job not deleted": {
-			workflow: &tinkerbell.Workflow{
-				Status: tinkerbell.WorkflowStatus{
-					BootOptions: tinkerbell.BootOptionsStatus{
-						Jobs: map[string]tinkerbell.JobStatus{
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					BootOptions: v1alpha1.BootOptionsStatus{
+						Jobs: map[string]v1alpha1.JobStatus{
 							jobNameNetboot.String(): {},
 						},
-						AllowNetboot: tinkerbell.AllowNetbootStatus{},
+						AllowNetboot: v1alpha1.AllowNetbootStatus{},
 					},
 				},
 			},
-			wantWorkflow: &tinkerbell.WorkflowStatus{
-				BootOptions: tinkerbell.BootOptionsStatus{
-					Jobs: map[string]tinkerbell.JobStatus{
+			wantWorkflow: &v1alpha1.WorkflowStatus{
+				BootOptions: v1alpha1.BootOptionsStatus{
+					Jobs: map[string]v1alpha1.JobStatus{
 						jobNameNetboot.String(): {
 							ExistingJobDeleted: true,
 						},
 					},
-					AllowNetboot: tinkerbell.AllowNetbootStatus{},
+					AllowNetboot: v1alpha1.AllowNetbootStatus{},
 				},
 			},
 			name:       jobNameNetboot,
-			hardware:   new(tinkerbell.Hardware),
+			hardware:   new(v1alpha1.Hardware),
 			wantResult: reconcile.Result{Requeue: true},
 		},
 		"existing job deleted, create new job": {
-			workflow: &tinkerbell.Workflow{
+			workflow: &v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 				},
-				Spec: tinkerbell.WorkflowSpec{
+				Spec: v1alpha1.WorkflowSpec{
 					HardwareRef: "test-hardware",
 				},
-				Status: tinkerbell.WorkflowStatus{
-					BootOptions: tinkerbell.BootOptionsStatus{
-						Jobs: map[string]tinkerbell.JobStatus{
+				Status: v1alpha1.WorkflowStatus{
+					BootOptions: v1alpha1.BootOptionsStatus{
+						Jobs: map[string]v1alpha1.JobStatus{
 							jobNameNetboot.String(): {
 								ExistingJobDeleted: true,
 							},
 						},
-						AllowNetboot: tinkerbell.AllowNetbootStatus{},
+						AllowNetboot: v1alpha1.AllowNetbootStatus{},
 					},
 				},
 			},
-			wantWorkflow: &tinkerbell.WorkflowStatus{
-				Conditions: []tinkerbell.WorkflowCondition{
+			wantWorkflow: &v1alpha1.WorkflowStatus{
+				Conditions: []v1alpha1.WorkflowCondition{
 					{
-						Type:    tinkerbell.NetbootJobSetupComplete,
+						Type:    v1alpha1.NetbootJobSetupComplete,
 						Status:  metav1.ConditionTrue,
 						Reason:  "Created",
 						Message: "job created",
 					},
 				},
-				BootOptions: tinkerbell.BootOptionsStatus{
-					Jobs: map[string]tinkerbell.JobStatus{
+				BootOptions: v1alpha1.BootOptionsStatus{
+					Jobs: map[string]v1alpha1.JobStatus{
 						jobNameNetboot.String(): {
 							ExistingJobDeleted: true,
 						},
 					},
-					AllowNetboot: tinkerbell.AllowNetbootStatus{},
+					AllowNetboot: v1alpha1.AllowNetbootStatus{},
 				},
 			},
-			hardware: &tinkerbell.Hardware{
+			hardware: &v1alpha1.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hardware",
 					Namespace: "default",
 				},
-				Spec: tinkerbell.HardwareSpec{
+				Spec: v1alpha1.HardwareSpec{
 					BMCRef: &v1.TypedLocalObjectReference{
 						Name: "test-bmc",
 						Kind: "machine.bmc.tinkerbell.org",
@@ -148,43 +148,43 @@ func TestHandleJob(t *testing.T) {
 			wantResult: reconcile.Result{Requeue: true},
 		},
 		"existing job deleted, new job created": {
-			workflow: &tinkerbell.Workflow{
+			workflow: &v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 				},
-				Status: tinkerbell.WorkflowStatus{
-					BootOptions: tinkerbell.BootOptionsStatus{
-						Jobs: map[string]tinkerbell.JobStatus{
+				Status: v1alpha1.WorkflowStatus{
+					BootOptions: v1alpha1.BootOptionsStatus{
+						Jobs: map[string]v1alpha1.JobStatus{
 							jobNameNetboot.String(): {
 								ExistingJobDeleted: true,
 								UID:                types.UID("1234"),
 							},
 						},
-						AllowNetboot: tinkerbell.AllowNetbootStatus{},
+						AllowNetboot: v1alpha1.AllowNetbootStatus{},
 					},
 				},
 			},
-			wantWorkflow: &tinkerbell.WorkflowStatus{
-				Conditions: []tinkerbell.WorkflowCondition{
+			wantWorkflow: &v1alpha1.WorkflowStatus{
+				Conditions: []v1alpha1.WorkflowCondition{
 					{
-						Type:    tinkerbell.NetbootJobComplete,
+						Type:    v1alpha1.NetbootJobComplete,
 						Status:  metav1.ConditionTrue,
 						Reason:  "Complete",
 						Message: "job completed",
 					},
 				},
-				BootOptions: tinkerbell.BootOptionsStatus{
-					Jobs: map[string]tinkerbell.JobStatus{
+				BootOptions: v1alpha1.BootOptionsStatus{
+					Jobs: map[string]v1alpha1.JobStatus{
 						jobNameNetboot.String(): {
 							ExistingJobDeleted: true,
 							UID:                types.UID("1234"),
 							Complete:           true,
 						},
 					},
-					AllowNetboot: tinkerbell.AllowNetbootStatus{},
+					AllowNetboot: v1alpha1.AllowNetbootStatus{},
 				},
 			},
-			hardware:   new(tinkerbell.Hardware),
+			hardware:   new(v1alpha1.Hardware),
 			actions:    []rufio.Action{},
 			name:       jobNameNetboot,
 			wantResult: reconcile.Result{},
@@ -210,7 +210,7 @@ func TestHandleJob(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scheme := runtime.NewScheme()
 			rufio.AddToScheme(scheme)
-			tinkerbell.AddToScheme(scheme)
+			v1alpha1.AddToScheme(scheme)
 			clientBuilder := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tc.hardware, tc.workflow)
 			if tc.job != nil {
 				clientBuilder.WithRuntimeObjects(tc.job)
@@ -227,7 +227,7 @@ func TestHandleJob(t *testing.T) {
 			if diff := cmp.Diff(tc.wantResult, r); diff != "" {
 				t.Errorf("unexpected result (-want +got):\n%s", diff)
 			}
-			if diff := cmp.Diff(*tc.wantWorkflow, s.workflow.Status, cmpopts.IgnoreFields(tinkerbell.WorkflowCondition{}, "Time")); diff != "" {
+			if diff := cmp.Diff(*tc.wantWorkflow, s.workflow.Status, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time")); diff != "" {
 				t.Errorf("unexpected workflow status (-want +got):\n%s", diff)
 			}
 		})

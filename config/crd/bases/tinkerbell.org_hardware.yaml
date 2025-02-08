@@ -25,7 +25,7 @@ spec:
     - jsonPath: .status.state
       name: State
       type: string
-    name: tinkerbell
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Hardware is the Schema for the Hardware API.

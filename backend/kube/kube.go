@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/scale/scheme"
@@ -70,7 +70,7 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 		return nil, err
 	}
 
-	if err := tinkerbell.AddToScheme(rs); err != nil {
+	if err := v1alpha1.AddToScheme(rs); err != nil {
 		return nil, err
 	}
 	conf := func(o *cluster.Options) {

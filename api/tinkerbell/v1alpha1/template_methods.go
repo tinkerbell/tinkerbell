@@ -1,4 +1,4 @@
-package tinkerbell
+package v1alpha1
 
 const (
 	// TemplateIDAnnotation is used by the controller to store the

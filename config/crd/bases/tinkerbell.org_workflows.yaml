@@ -31,7 +31,7 @@ spec:
     - jsonPath: .status.templateRending
       name: Template-Rendering
       type: string
-    name: tinkerbell
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Workflow is the Schema for the Workflows API.

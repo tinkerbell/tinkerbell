@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,9 +25,9 @@ const (
 )
 
 type BackendReadWriter interface {
-	ReadAll(ctx context.Context, workerID string) ([]tinkerbell.Workflow, error)
-	Read(ctx context.Context, workflowID, namespace string) (*tinkerbell.Workflow, error)
-	Write(ctx context.Context, wf *tinkerbell.Workflow) error
+	ReadAll(ctx context.Context, workerID string) ([]v1alpha1.Workflow, error)
+	Read(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error)
+	Write(ctx context.Context, wf *v1alpha1.Workflow) error
 }
 
 // Handler is a server that implements a workflow API.
@@ -39,7 +39,7 @@ type Handler struct {
 	proto.UnimplementedWorkflowServiceServer
 }
 
-func getWorkflowContext(wf tinkerbell.Workflow) *proto.WorkflowContext {
+func getWorkflowContext(wf v1alpha1.Workflow) *proto.WorkflowContext {
 	return &proto.WorkflowContext{
 		WorkflowId:           wf.Namespace + "/" + wf.Name,
 		CurrentWorker:        wf.GetCurrentWorker(),
@@ -51,13 +51,13 @@ func getWorkflowContext(wf tinkerbell.Workflow) *proto.WorkflowContext {
 	}
 }
 
-func (s *Handler) getCurrentAssignedNonTerminalWorkflowsForWorker(ctx context.Context, workerID string) ([]tinkerbell.Workflow, error) {
+func (s *Handler) getCurrentAssignedNonTerminalWorkflowsForWorker(ctx context.Context, workerID string) ([]v1alpha1.Workflow, error) {
 	stored, err := s.BackendReadWriter.ReadAll(ctx, workerID)
 	if err != nil {
 		return nil, err
 	}
 
-	wfs := []tinkerbell.Workflow{}
+	wfs := []v1alpha1.Workflow{}
 	for _, wf := range stored {
 		// If the current assigned or running action is assigned to the requested worker, include it
 		if wf.Status.Tasks[wf.GetCurrentTaskIndex()].WorkerAddr == workerID {
@@ -67,7 +67,7 @@ func (s *Handler) getCurrentAssignedNonTerminalWorkflowsForWorker(ctx context.Co
 	return wfs, nil
 }
 
-func (s *Handler) getWorkflowByName(ctx context.Context, workflowID string) (*tinkerbell.Workflow, error) {
+func (s *Handler) getWorkflowByName(ctx context.Context, workflowID string) (*v1alpha1.Workflow, error) {
 	workflowNamespace, workflowName, _ := strings.Cut(workflowID, "/")
 	wflw, err := s.BackendReadWriter.Read(ctx, workflowName, workflowNamespace)
 	if err != nil {
@@ -92,7 +92,7 @@ func (s *Handler) GetWorkflowContexts(req *proto.WorkflowContextRequest, stream 
 	for _, wf := range wflows {
 		// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
 		// This is to prevent the worker from starting Actions before Workflow boot options are performed.
-		if wf.Spec.BootOptions.BootMode != "" && wf.Status.State == tinkerbell.WorkflowStatePreparing {
+		if wf.Spec.BootOptions.BootMode != "" && wf.Status.State == v1alpha1.WorkflowStatePreparing {
 			continue
 		}
 		if err := stream.Send(getWorkflowContext(wf)); err != nil {
@@ -114,7 +114,7 @@ func (s *Handler) GetWorkflowActions(ctx context.Context, req *proto.WorkflowAct
 	return ActionListCRDToProto(wf), nil
 }
 
-func ActionListCRDToProto(wf *tinkerbell.Workflow) *proto.WorkflowActionList {
+func ActionListCRDToProto(wf *v1alpha1.Workflow) *proto.WorkflowActionList {
 	if wf == nil {
 		return nil
 	}
@@ -156,7 +156,7 @@ func ActionListCRDToProto(wf *tinkerbell.Workflow) *proto.WorkflowActionList {
 }
 
 // Modifies a workflow for a given workflowContext.
-func (s *Handler) modifyWorkflowState(wf *tinkerbell.Workflow, wfContext *proto.WorkflowContext) error {
+func (s *Handler) modifyWorkflowState(wf *v1alpha1.Workflow, wfContext *proto.WorkflowContext) error {
 	if wf == nil {
 		return errors.New("no workflow provided")
 	}
@@ -190,19 +190,19 @@ cont:
 	if actionIndex < 0 {
 		return errors.New("action not found")
 	}
-	wf.Status.Tasks[taskIndex].Actions[actionIndex].Status = tinkerbell.WorkflowState(proto.State_name[int32(wfContext.CurrentActionState)])
+	wf.Status.Tasks[taskIndex].Actions[actionIndex].Status = v1alpha1.WorkflowState(proto.State_name[int32(wfContext.CurrentActionState)])
 
 	switch wfContext.CurrentActionState {
 	case proto.State_STATE_RUNNING:
 		// Workflow is running, so set the start time to now
-		wf.Status.State = tinkerbell.WorkflowState(proto.State_name[int32(wfContext.CurrentActionState)])
+		wf.Status.State = v1alpha1.WorkflowState(proto.State_name[int32(wfContext.CurrentActionState)])
 		wf.Status.Tasks[taskIndex].Actions[actionIndex].StartedAt = func() *metav1.Time {
 			t := metav1.NewTime(s.NowFunc())
 			return &t
 		}()
 	case proto.State_STATE_FAILED, proto.State_STATE_TIMEOUT:
 		// Handle terminal statuses by updating the workflow state and time
-		wf.Status.State = tinkerbell.WorkflowState(proto.State_name[int32(wfContext.CurrentActionState)])
+		wf.Status.State = v1alpha1.WorkflowState(proto.State_name[int32(wfContext.CurrentActionState)])
 		if wf.Status.Tasks[taskIndex].Actions[actionIndex].StartedAt != nil {
 			wf.Status.Tasks[taskIndex].Actions[actionIndex].Seconds = int64(s.NowFunc().Sub(wf.Status.Tasks[taskIndex].Actions[actionIndex].StartedAt.Time).Seconds())
 		}
@@ -214,7 +214,7 @@ cont:
 		// Mark success on last action success
 		if wfContext.CurrentActionIndex+1 == wfContext.TotalNumberOfActions {
 			// Set the state to POST instead of Success to allow any post tasks to run.
-			wf.Status.State = tinkerbell.WorkflowStatePost
+			wf.Status.State = v1alpha1.WorkflowStatePost
 		}
 	case proto.State_STATE_PENDING:
 		// This is probably a client bug?
@@ -236,7 +236,7 @@ func validateActionStatusRequest(req *proto.WorkflowActionStatus) error {
 	return nil
 }
 
-func getWorkflowContextForRequest(req *proto.WorkflowActionStatus, wf *tinkerbell.Workflow) *proto.WorkflowContext {
+func getWorkflowContextForRequest(req *proto.WorkflowActionStatus, wf *v1alpha1.Workflow) *proto.WorkflowContext {
 	wfContext := getWorkflowContext(*wf)
 	wfContext.CurrentWorker = req.GetWorkerId()
 	wfContext.CurrentTask = req.GetTaskName()

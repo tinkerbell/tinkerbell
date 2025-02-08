@@ -8,7 +8,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-logr/logr"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,13 +41,13 @@ func NewReconciler(client ctrlclient.Client) *Reconciler {
 func (r *Reconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.
 		NewControllerManagedBy(mgr).
-		For(&tinkerbell.Workflow{}).
+		For(&v1alpha1.Workflow{}).
 		Complete(r)
 }
 
 type state struct {
 	client   ctrlclient.Client
-	workflow *tinkerbell.Workflow
+	workflow *v1alpha1.Workflow
 	backoff  *backoff.ExponentialBackOff
 }
 
@@ -66,7 +66,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	logger.Info("Reconcile")
 	journal.Log(ctx, "starting reconcile")
 
-	stored := &tinkerbell.Workflow{}
+	stored := &v1alpha1.Workflow{}
 	if err := r.client.Get(ctx, req.NamespacedName, stored); err != nil {
 		if errors.IsNotFound(err) {
 			return reconcile.Result{}, nil
@@ -77,7 +77,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 	if stored.Status.BootOptions.Jobs == nil {
-		stored.Status.BootOptions.Jobs = make(map[string]tinkerbell.JobStatus)
+		stored.Status.BootOptions.Jobs = make(map[string]v1alpha1.JobStatus)
 	}
 
 	wflow := stored.DeepCopy()
@@ -88,7 +88,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		resp, err := r.processNewWorkflow(ctx, logger, wflow)
 
 		return resp, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))
-	case tinkerbell.WorkflowStatePreparing:
+	case v1alpha1.WorkflowStatePreparing:
 		journal.Log(ctx, "preparing workflow")
 		s := &state{
 			client:   r.client,
@@ -98,12 +98,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		resp, err := s.prepareWorkflow(ctx)
 
 		return resp, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, s.workflow))
-	case tinkerbell.WorkflowStateRunning:
+	case v1alpha1.WorkflowStateRunning:
 		journal.Log(ctx, "process running workflow")
 		r.processRunningWorkflow(wflow)
 
 		return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow)
-	case tinkerbell.WorkflowStatePost:
+	case v1alpha1.WorkflowStatePost:
 		journal.Log(ctx, "post actions")
 		s := &state{
 			client:   r.client,
@@ -113,7 +113,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		rc, err := s.postActions(ctx)
 
 		return rc, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))
-	case tinkerbell.WorkflowStatePending, tinkerbell.WorkflowStateTimeout, tinkerbell.WorkflowStateFailed, tinkerbell.WorkflowStateSuccess:
+	case v1alpha1.WorkflowStatePending, v1alpha1.WorkflowStateTimeout, v1alpha1.WorkflowStateFailed, v1alpha1.WorkflowStateSuccess:
 		journal.Log(ctx, "controller will not trigger another reconcile", "state", wflow.Status.State)
 		return reconcile.Result{}, nil
 	}
@@ -122,7 +122,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 }
 
 // mergePatchStatus merges an updated Workflow with an original Workflow and patches the Status object via the client (cc).
-func mergePatchStatus(ctx context.Context, cc ctrlclient.Client, original, updated *tinkerbell.Workflow) error {
+func mergePatchStatus(ctx context.Context, cc ctrlclient.Client, original, updated *v1alpha1.Workflow) error {
 	// Patch any changes, regardless of errors
 	if !equality.Semantic.DeepEqual(updated.Status, original.Status) {
 		journal.Log(ctx, "patching status")
@@ -133,16 +133,16 @@ func mergePatchStatus(ctx context.Context, cc ctrlclient.Client, original, updat
 	return nil
 }
 
-func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger, stored *tinkerbell.Workflow) (reconcile.Result, error) {
-	tpl := &tinkerbell.Template{}
+func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger, stored *v1alpha1.Workflow) (reconcile.Result, error) {
+	tpl := &v1alpha1.Template{}
 	if err := r.client.Get(ctx, ctrlclient.ObjectKey{Name: stored.Spec.TemplateRef, Namespace: stored.Namespace}, tpl); err != nil {
 		if errors.IsNotFound(err) {
 			// Throw an error to raise awareness and take advantage of immediate requeue.
 			logger.Error(err, "error getting Template object in processNewWorkflow function")
 			journal.Log(ctx, "template not found")
-			stored.Status.TemplateRendering = tinkerbell.TemplateRenderingFailed
-			stored.Status.SetCondition(tinkerbell.WorkflowCondition{
-				Type:    tinkerbell.TemplateRenderedSuccess,
+			stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
+			stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+				Type:    v1alpha1.TemplateRenderedSuccess,
 				Status:  metav1.ConditionFalse,
 				Reason:  "Error",
 				Message: "template not found",
@@ -154,9 +154,9 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 				stored.Namespace,
 			)
 		}
-		stored.Status.TemplateRendering = tinkerbell.TemplateRenderingFailed
-		stored.Status.SetCondition(tinkerbell.WorkflowCondition{
-			Type:    tinkerbell.TemplateRenderedSuccess,
+		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
+		stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.TemplateRenderedSuccess,
 			Status:  metav1.ConditionFalse,
 			Reason:  "Error",
 			Message: err.Error(),
@@ -165,14 +165,14 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		return reconcile.Result{}, err
 	}
 
-	var hardware tinkerbell.Hardware
+	var hardware v1alpha1.Hardware
 	err := r.client.Get(ctx, ctrlclient.ObjectKey{Name: stored.Spec.HardwareRef, Namespace: stored.Namespace}, &hardware)
 	if ctrlclient.IgnoreNotFound(err) != nil {
 		logger.Error(err, "error getting Hardware object in processNewWorkflow function")
 		journal.Log(ctx, "hardware not found")
-		stored.Status.TemplateRendering = tinkerbell.TemplateRenderingFailed
-		stored.Status.SetCondition(tinkerbell.WorkflowCondition{
-			Type:    tinkerbell.TemplateRenderedSuccess,
+		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
+		stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.TemplateRenderedSuccess,
 			Status:  metav1.ConditionFalse,
 			Reason:  "Error",
 			Message: fmt.Sprintf("error getting hardware: %v", err),
@@ -184,9 +184,9 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	if stored.Spec.HardwareRef != "" && errors.IsNotFound(err) {
 		logger.Error(err, "hardware not found in processNewWorkflow function")
 		journal.Log(ctx, "hardware not found")
-		stored.Status.TemplateRendering = tinkerbell.TemplateRenderingFailed
-		stored.Status.SetCondition(tinkerbell.WorkflowCondition{
-			Type:    tinkerbell.TemplateRenderedSuccess,
+		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
+		stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.TemplateRenderedSuccess,
 			Status:  metav1.ConditionFalse,
 			Reason:  "Error",
 			Message: fmt.Sprintf("hardware not found: %v", err),
@@ -208,9 +208,9 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 
 	tinkWf, err := renderTemplateHardware(stored.Name, pointerToValue(tpl.Spec.Data), data)
 	if err != nil {
-		stored.Status.TemplateRendering = tinkerbell.TemplateRenderingFailed
-		stored.Status.SetCondition(tinkerbell.WorkflowCondition{
-			Type:    tinkerbell.TemplateRenderedSuccess,
+		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
+		stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.TemplateRenderedSuccess,
 			Status:  metav1.ConditionFalse,
 			Reason:  "Error",
 			Message: fmt.Sprintf("error rendering template: %v", err),
@@ -221,9 +221,9 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 
 	// populate Task and Action data
 	stored.Status = *YAMLToStatus(tinkWf)
-	stored.Status.TemplateRendering = tinkerbell.TemplateRenderingSuccessful
-	stored.Status.SetCondition(tinkerbell.WorkflowCondition{
-		Type:    tinkerbell.TemplateRenderedSuccess,
+	stored.Status.TemplateRendering = v1alpha1.TemplateRenderingSuccessful
+	stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+		Type:    v1alpha1.TemplateRenderedSuccess,
 		Status:  metav1.ConditionTrue,
 		Reason:  "Complete",
 		Message: "template rendered successfully",
@@ -232,26 +232,26 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 
 	// set hardware allowPXE if requested.
 	if stored.Spec.BootOptions.ToggleAllowNetboot || stored.Spec.BootOptions.BootMode != "" {
-		stored.Status.State = tinkerbell.WorkflowStatePreparing
+		stored.Status.State = v1alpha1.WorkflowStatePreparing
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	stored.Status.State = tinkerbell.WorkflowStatePending
+	stored.Status.State = v1alpha1.WorkflowStatePending
 	return reconcile.Result{}, nil
 }
 
 // templateHardwareData defines the data exposed for a Hardware instance to a Template.
 type templateHardwareData struct {
 	Disks      []string
-	Interfaces []tinkerbell.Interface
+	Interfaces []v1alpha1.Interface
 	UserData   string
-	Metadata   tinkerbell.HardwareMetadata
+	Metadata   v1alpha1.HardwareMetadata
 	VendorData string
 }
 
 // toTemplateHardwareData converts a Hardware instance of templateHardwareData for use in template
 // rendering.
-func toTemplateHardwareData(hardware tinkerbell.Hardware) templateHardwareData {
+func toTemplateHardwareData(hardware v1alpha1.Hardware) templateHardwareData {
 	var contract templateHardwareData
 	for _, disk := range hardware.Spec.Disks {
 		contract.Disks = append(contract.Disks, disk.Device)
@@ -271,27 +271,27 @@ func toTemplateHardwareData(hardware tinkerbell.Hardware) templateHardwareData {
 	return contract
 }
 
-func (r *Reconciler) processRunningWorkflow(stored *tinkerbell.Workflow) {
+func (r *Reconciler) processRunningWorkflow(stored *v1alpha1.Workflow) {
 	// Check for global timeout expiration
 	if r.nowFunc().After(stored.GetStartTime().Add(time.Duration(stored.Status.GlobalTimeout) * time.Second)) {
-		stored.Status.State = tinkerbell.WorkflowStateTimeout
+		stored.Status.State = v1alpha1.WorkflowStateTimeout
 	}
 
 	// check for any running actions that may have timed out
 	for ti, task := range stored.Status.Tasks {
 		for ai, action := range task.Actions {
 			// A running workflow task action has timed out
-			if action.Status == tinkerbell.WorkflowStateRunning && action.StartedAt != nil &&
+			if action.Status == v1alpha1.WorkflowStateRunning && action.StartedAt != nil &&
 				r.nowFunc().After(action.StartedAt.Add(time.Duration(action.Timeout)*time.Second)) {
 				// Set fields on the timed out action
-				stored.Status.Tasks[ti].Actions[ai].Status = tinkerbell.WorkflowStateTimeout
+				stored.Status.Tasks[ti].Actions[ai].Status = v1alpha1.WorkflowStateTimeout
 				stored.Status.Tasks[ti].Actions[ai].Message = "Action timed out"
 				stored.Status.Tasks[ti].Actions[ai].Seconds = int64(r.nowFunc().Sub(action.StartedAt.Time).Seconds())
 				// Mark the workflow as timed out
-				stored.Status.State = tinkerbell.WorkflowStateTimeout
+				stored.Status.State = v1alpha1.WorkflowStateTimeout
 			}
 			// Update the current action in the status
-			if action.Status == tinkerbell.WorkflowStateRunning && stored.Status.CurrentAction != action.Name {
+			if action.Status == v1alpha1.WorkflowStateRunning && stored.Status.CurrentAction != action.Name {
 				stored.Status.CurrentAction = action.Name
 			}
 		}

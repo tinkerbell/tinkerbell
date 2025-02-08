@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	rufio "github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	rufio "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,8 +44,8 @@ func (s *state) handleJob(ctx context.Context, actions []rufio.Action, name jobN
 		journal.Log(ctx, "no uid found for job", "name", name)
 		result, err := s.createJob(ctx, actions, name)
 		if err != nil {
-			s.workflow.Status.SetCondition(tinkerbell.WorkflowCondition{
-				Type:    tinkerbell.NetbootJobSetupFailed,
+			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+				Type:    v1alpha1.NetbootJobSetupFailed,
 				Status:  metav1.ConditionTrue,
 				Reason:  "Error",
 				Message: fmt.Sprintf("error creating job: %v", err),
@@ -53,8 +53,8 @@ func (s *state) handleJob(ctx context.Context, actions []rufio.Action, name jobN
 			})
 			return result, err
 		}
-		s.workflow.Status.SetCondition(tinkerbell.WorkflowCondition{
-			Type:    tinkerbell.NetbootJobSetupComplete,
+		s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.NetbootJobSetupComplete,
 			Status:  metav1.ConditionTrue,
 			Reason:  "Created",
 			Message: "job created",
@@ -69,8 +69,8 @@ func (s *state) handleJob(ctx context.Context, actions []rufio.Action, name jobN
 		// track status
 		r, tState, err := s.trackRunningJob(ctx, name)
 		if err != nil {
-			s.workflow.Status.SetCondition(tinkerbell.WorkflowCondition{
-				Type:    tinkerbell.NetbootJobFailed,
+			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+				Type:    v1alpha1.NetbootJobFailed,
 				Status:  metav1.ConditionTrue,
 				Reason:  "Error",
 				Message: err.Error(),
@@ -79,8 +79,8 @@ func (s *state) handleJob(ctx context.Context, actions []rufio.Action, name jobN
 			return r, err
 		}
 		if tState == trackedStateComplete {
-			s.workflow.Status.SetCondition(tinkerbell.WorkflowCondition{
-				Type:    tinkerbell.NetbootJobComplete,
+			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+				Type:    v1alpha1.NetbootJobComplete,
 				Status:  metav1.ConditionTrue,
 				Reason:  "Complete",
 				Message: "job completed",
@@ -190,7 +190,7 @@ func (s *state) trackRunningJob(ctx context.Context, name jobName) (reconcile.Re
 	return reconcile.Result{Requeue: true}, trackedStateRunning, nil
 }
 
-func create(ctx context.Context, cc client.Client, name string, hw *tinkerbell.Hardware, ns string, tasks []rufio.Action) error {
+func create(ctx context.Context, cc client.Client, name string, hw *v1alpha1.Hardware, ns string, tasks []rufio.Action) error {
 	journal.Log(ctx, "creating job", "name", name)
 	if err := cc.Create(ctx, &rufio.Job{
 		ObjectMeta: metav1.ObjectMeta{
