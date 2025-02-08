@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -17,12 +17,12 @@ func valueToPointer[T any](v T) *T {
 // setAllowPXE sets the allowPXE field on the hardware network interfaces.
 // If hardware is nil then it will be retrieved using the client.
 // The hardware object will be updated in the cluster.
-func setAllowPXE(ctx context.Context, cc client.Client, w *tinkerbell.Workflow, h *tinkerbell.Hardware, allowPXE bool) error {
+func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h *v1alpha1.Hardware, allowPXE bool) error {
 	if h == nil && w == nil {
 		return fmt.Errorf("both workflow and hardware cannot be nil")
 	}
 	if h == nil {
-		h = &tinkerbell.Hardware{}
+		h = &v1alpha1.Hardware{}
 		if err := cc.Get(ctx, client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}, h); err != nil {
 			return fmt.Errorf("hardware not found: name=%v; namespace=%v, error: %w", w.Spec.HardwareRef, w.Namespace, err)
 		}
@@ -40,14 +40,14 @@ func setAllowPXE(ctx context.Context, cc client.Client, w *tinkerbell.Workflow, 
 }
 
 // hardwareFrom retrieves the in cluster hardware object defined in the given workflow.
-func hardwareFrom(ctx context.Context, cc client.Client, w *tinkerbell.Workflow) (*tinkerbell.Hardware, error) {
+func hardwareFrom(ctx context.Context, cc client.Client, w *v1alpha1.Workflow) (*v1alpha1.Hardware, error) {
 	if w == nil {
 		return nil, fmt.Errorf("workflow is nil")
 	}
 	if w.Spec.HardwareRef == "" {
 		return nil, fmt.Errorf("hardware ref is empty")
 	}
-	h := &tinkerbell.Hardware{}
+	h := &v1alpha1.Hardware{}
 	if err := cc.Get(ctx, client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}, h); err != nil {
 		return nil, fmt.Errorf("hardware not found: name=%v; namespace=%v, error: %w", w.Spec.HardwareRef, w.Namespace, err)
 	}
@@ -65,8 +65,8 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 
 	hw, err := hardwareFrom(ctx, s.client, s.workflow)
 	if err != nil {
-		s.workflow.Status.SetCondition(tinkerbell.WorkflowCondition{
-			Type:    tinkerbell.ToggleAllowNetbootTrue,
+		s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.ToggleAllowNetbootTrue,
 			Status:  metav1.ConditionFalse,
 			Reason:  "Error",
 			Message: fmt.Sprintf("error getting hardware: %v", err),
@@ -81,8 +81,8 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 			return nil
 		}
 		if err := setAllowPXE(ctx, s.client, s.workflow, hw, allowPXE); err != nil {
-			s.workflow.Status.SetCondition(tinkerbell.WorkflowCondition{
-				Type:    tinkerbell.ToggleAllowNetbootTrue,
+			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+				Type:    v1alpha1.ToggleAllowNetbootTrue,
 				Status:  metav1.ConditionFalse,
 				Reason:  "Error",
 				Message: fmt.Sprintf("error setting allowPXE to %v: %v", allowPXE, err),
@@ -91,8 +91,8 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 			return err
 		}
 		s.workflow.Status.BootOptions.AllowNetboot.ToggledTrue = true
-		s.workflow.Status.SetCondition(tinkerbell.WorkflowCondition{
-			Type:    tinkerbell.ToggleAllowNetbootTrue,
+		s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.ToggleAllowNetbootTrue,
 			Status:  metav1.ConditionTrue,
 			Reason:  "Complete",
 			Message: fmt.Sprintf("set allowPXE to %v", allowPXE),
@@ -105,8 +105,8 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 		return nil
 	}
 	if err := setAllowPXE(ctx, s.client, s.workflow, hw, allowPXE); err != nil {
-		s.workflow.Status.SetCondition(tinkerbell.WorkflowCondition{
-			Type:    tinkerbell.ToggleAllowNetbootFalse,
+		s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.ToggleAllowNetbootFalse,
 			Status:  metav1.ConditionFalse,
 			Reason:  "Error",
 			Message: fmt.Sprintf("error setting allowPXE to %v: %v", allowPXE, err),
@@ -115,8 +115,8 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 		return err
 	}
 	s.workflow.Status.BootOptions.AllowNetboot.ToggledFalse = true
-	s.workflow.Status.SetCondition(tinkerbell.WorkflowCondition{
-		Type:    tinkerbell.ToggleAllowNetbootFalse,
+	s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+		Type:    v1alpha1.ToggleAllowNetbootFalse,
 		Status:  metav1.ConditionTrue,
 		Reason:  "Complete",
 		Message: fmt.Sprintf("set allowPXE to %v", allowPXE),

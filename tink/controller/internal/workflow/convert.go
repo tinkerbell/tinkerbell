@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 )
 
-func ToWorkflowContext(wf *tinkerbell.Workflow) *proto.WorkflowContext {
+func ToWorkflowContext(wf *v1alpha1.Workflow) *proto.WorkflowContext {
 	if wf == nil {
 		return nil
 	}
@@ -23,26 +23,26 @@ func ToWorkflowContext(wf *tinkerbell.Workflow) *proto.WorkflowContext {
 	}
 }
 
-func YAMLToStatus(wf *Workflow) *tinkerbell.WorkflowStatus {
+func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 	if wf == nil {
 		return nil
 	}
-	tasks := []tinkerbell.Task{}
+	tasks := []v1alpha1.Task{}
 	for _, task := range wf.Tasks {
-		actions := []tinkerbell.Action{}
+		actions := []v1alpha1.Action{}
 		for _, action := range task.Actions {
-			actions = append(actions, tinkerbell.Action{
+			actions = append(actions, v1alpha1.Action{
 				Name:        action.Name,
 				Image:       action.Image,
 				Timeout:     action.Timeout,
 				Command:     action.Command,
 				Volumes:     action.Volumes,
-				Status:      tinkerbell.WorkflowState(proto.State_name[int32(proto.State_STATE_PENDING)]),
+				Status:      v1alpha1.WorkflowState(proto.State_name[int32(proto.State_STATE_PENDING)]),
 				Environment: action.Environment,
 				Pid:         action.Pid,
 			})
 		}
-		tasks = append(tasks, tinkerbell.Task{
+		tasks = append(tasks, v1alpha1.Task{
 			Name:        task.Name,
 			WorkerAddr:  task.WorkerAddr,
 			Volumes:     task.Volumes,
@@ -50,13 +50,13 @@ func YAMLToStatus(wf *Workflow) *tinkerbell.WorkflowStatus {
 			Actions:     actions,
 		})
 	}
-	return &tinkerbell.WorkflowStatus{
+	return &v1alpha1.WorkflowStatus{
 		GlobalTimeout: int64(wf.GlobalTimeout),
 		Tasks:         tasks,
 	}
 }
 
-func ActionListCRDToProto(wf *tinkerbell.Workflow) *proto.WorkflowActionList {
+func ActionListCRDToProto(wf *v1alpha1.Workflow) *proto.WorkflowActionList {
 	if wf == nil {
 		return nil
 	}

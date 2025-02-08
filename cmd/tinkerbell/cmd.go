@@ -17,6 +17,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/backend/kube"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/hegel"
+	"github.com/tinkerbell/tinkerbell/rufio"
 	"github.com/tinkerbell/tinkerbell/smee"
 	"github.com/tinkerbell/tinkerbell/tink/controller"
 	"github.com/tinkerbell/tinkerbell/tink/server"
@@ -37,6 +38,7 @@ func Execute(ctx context.Context, args []string) error {
 		EnableHegel:          true,
 		EnableTinkServer:     true,
 		EnableTinkController: true,
+		EnableRufio:          true,
 	}
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
@@ -59,22 +61,32 @@ func Execute(ctx context.Context, args []string) error {
 		Config: controller.NewConfig(controllerOpts...),
 	}
 
+	rufioOpts := []rufio.Option{
+		rufio.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8082))),
+		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8083))),
+	}
+	rc := &flag.RufioConfig{
+		Config: rufio.NewConfig(rufioOpts...),
+	}
+
 	gfs := ff.NewFlagSet("globals")
 	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(gfs)
 	hfs := ff.NewFlagSet("hegel - metadata service").SetParent(sfs)
 	tfs := ff.NewFlagSet("tink server - Workflow server").SetParent(hfs)
 	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
+	rfs := ff.NewFlagSet("rufio - BMC controller").SetParent(cfs)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
 	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
 	flag.RegisterHegelFlags(&flag.Set{FlagSet: hfs}, h)
 	flag.RegisterTinkServerFlags(&flag.Set{FlagSet: tfs}, ts)
 	flag.RegisterTinkControllerFlags(&flag.Set{FlagSet: cfs}, tc)
+	flag.RegisterRufioFlags(&flag.Set{FlagSet: rfs}, rc)
 
 	cli := &ff.Command{
 		Name:     "tinkerbell",
 		Usage:    "tinkerbell [flags]",
 		LongHelp: "Tinkerbell stack.",
-		Flags:    cfs,
+		Flags:    rfs,
 	}
 
 	if err := cli.Parse(args, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
@@ -102,6 +114,7 @@ func Execute(ctx context.Context, args []string) error {
 		"hegelEnabled", globals.EnableHegel,
 		"tinkServerEnabled", globals.EnableTinkServer,
 		"tinkControllerEnabled", globals.EnableTinkController,
+		"rufioEnabled", globals.EnableRufio,
 	)
 
 	switch globals.Backend {
@@ -115,6 +128,7 @@ func Execute(ctx context.Context, args []string) error {
 		h.Config.BackendHack = b
 		ts.Config.Backend = b
 		tc.Config.Client = b.ClientConfig
+		rc.Config.Client = b.ClientConfig
 	case "file":
 		b, err := newFileBackend(ctx, log, globals.BackendFilePath)
 		if err != nil {
@@ -162,16 +176,32 @@ func Execute(ctx context.Context, args []string) error {
 	// Tink Controller
 	g.Go(func() error {
 		if globals.EnableTinkController {
-			return tc.Config.Start(ctx, log.WithValues("service", "tink-controller"))
+			if err := tc.Config.Start(ctx, log.WithValues("service", "tink-controller")); err != nil {
+				return fmt.Errorf("failed to setup tink controller: %w", err)
+			}
+			return nil
 		}
 		log.Info("tink controller service is disabled")
+		return nil
+	})
+
+	// Rufio
+	g.Go(func() error {
+		if globals.EnableRufio {
+			err := rc.Config.Start(ctx, log.WithValues("service", "rufio"))
+			if err != nil {
+				return fmt.Errorf("failed to start rufio service: %w", err)
+			}
+			return nil
+		}
+		log.Info("rufio service is disabled")
 		return nil
 	})
 
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
-	if !globals.EnableSmee && !globals.EnableHegel && !globals.EnableTinkServer && !globals.EnableTinkController {
+	if !globals.EnableSmee && !globals.EnableHegel && !globals.EnableTinkServer && !globals.EnableTinkController && !globals.EnableRufio {
 		return errors.New("all services are disabled")
 	}
 
