@@ -11,7 +11,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	controllerruntime "sigs.k8s.io/controller-runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 )
@@ -62,9 +61,9 @@ func NewManager(cfg *rest.Config, opts controllerruntime.Options) (controllerrun
 
 // TODO(jacobweinstock): add functional arguments to the signature.
 // TODO(jacobweinstock): write functional argument for customizing the backoff.
-func NewReconciler(client client.Client) *Reconciler {
+func NewReconciler(c client.Client) *Reconciler {
 	return &Reconciler{
-		client:  client,
+		client:  c,
 		nowFunc: time.Now,
 		backoff: backoff.NewExponentialBackOff([]backoff.ExponentialBackOffOpts{
 			backoff.WithMaxInterval(5 * time.Second), // this should keep all NextBackOff's under 10 seconds
@@ -72,7 +71,7 @@ func NewReconciler(client client.Client) *Reconciler {
 	}
 }
 
-func (r *Reconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, bmcClientFactory ClientFunc) error {
+func (r *Reconciler) SetupWithManager(ctx context.Context, mgr controllerruntime.Manager, bmcClientFactory ClientFunc) error {
 	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("machine-controller"), bmcClientFactory).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create Machines controller: %w", err)
 	}
