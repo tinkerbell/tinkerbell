@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	rufio "github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	rufio "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )

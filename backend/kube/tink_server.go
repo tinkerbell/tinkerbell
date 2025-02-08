@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

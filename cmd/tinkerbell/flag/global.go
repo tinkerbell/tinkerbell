@@ -21,6 +21,7 @@ type GlobalConfig struct {
 	EnableHegel          bool
 	EnableTinkServer     bool
 	EnableTinkController bool
+	EnableRufio          bool
 }
 
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
@@ -37,6 +38,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(EnabledHegel, ffval.NewValueDefault(&gc.EnableHegel, gc.EnableHegel))
 	fs.Register(EnabledTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
 	fs.Register(EnabledTinkController, ffval.NewValueDefault(&gc.EnableTinkController, gc.EnableTinkController))
+	fs.Register(EnabledRufioController, ffval.NewValueDefault(&gc.EnableRufio, gc.EnableRufio))
 }
 
 // All these flags are used by at least two services or
@@ -107,4 +109,9 @@ var EnabledTinkServer = Config{
 var EnabledTinkController = Config{
 	Name:  "enable-tink-controller",
 	Usage: "enable Tink Controller service",
+}
+
+var EnabledRufioController = Config{
+	Name:  "enable-rufio-controller",
+	Usage: "enable Rufio Controller service",
 }

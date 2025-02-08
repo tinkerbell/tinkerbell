@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	rufio "github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	rufio "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

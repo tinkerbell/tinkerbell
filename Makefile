@@ -58,3 +58,34 @@ crosscompile-agent: $(crossbinaries-agent) ## Compile Tink Agent for all archite
 
 cleanup-agent:
 	rm -f out/tink-agent out/tink-agent-linux-amd64 out/tink-agent-linux-arm64
+
+# Kubernetes CRD generation
+# Define the directory tools are installed to.
+TOOLS_DIR := $(PWD)/out/tools
+
+CONTROLLER_GEN_VERSION := v0.17.1
+
+CONTROLLER_GEN = $(TOOLS_DIR)/controller-gen
+.PHONY: controller-gen
+controller-gen: ## Download controller-gen locally.
+	GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
+
+GOIMPORTS = $(TOOLS_DIR)/goimports
+.PHONY: goimports
+goimports: ## Download goimports locally.
+	GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@latest
+
+.PHONY: manifests
+manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(MAKE) fmt
+
+.PHONY: generate
+generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	$(CONTROLLER_GEN) object:headerFile="config/boilerplate.go.txt" paths="./..."
+	$(MAKE) fmt
+
+.PHONY: fmt
+fmt: goimports ## Run go fmt against code.
+	go fmt ./...
+	$(GOIMPORTS) -w .

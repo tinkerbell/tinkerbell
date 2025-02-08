@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

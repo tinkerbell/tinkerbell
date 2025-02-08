@@ -3,8 +3,8 @@ package controller
 import (
 	"fmt"
 
-	rufio "github.com/tinkerbell/rufio/api/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	bmc "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -16,10 +16,10 @@ import (
 var schemeBuilder = runtime.NewSchemeBuilder(
 	clientgoscheme.AddToScheme,
 	v1alpha1.AddToScheme,
-	rufio.AddToScheme,
+	bmc.AddToScheme,
 )
 
-// DefaultScheme returns a scheme with all the types necessary for the tink controller.
+// DefaultScheme returns a scheme with all the types necessary for the Tink controller.
 func DefaultScheme() *runtime.Scheme {
 	s := runtime.NewScheme()
 	_ = schemeBuilder.AddToScheme(s)

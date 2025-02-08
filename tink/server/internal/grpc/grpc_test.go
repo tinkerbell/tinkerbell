@@ -11,7 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 )
 
