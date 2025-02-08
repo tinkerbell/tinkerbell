@@ -31,10 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
-const (
-	appName = "rufio"
-)
-
 type Config struct {
 	Namespace               string
 	Client                  *rest.Config
