@@ -1,0 +1,8 @@
+# This kustomization.yaml is intended to allow using `kubectl apply -k` for CRDs.
+resources:
+  - bases/tinkerbell.org_hardware.yaml
+  - bases/tinkerbell.org_templates.yaml
+  - bases/tinkerbell.org_workflows.yaml
+  - bases/bmc.tinkerbell.org_jobs.yaml
+  - bases/bmc.tinkerbell.org_machines.yaml
+  - bases/bmc.tinkerbell.org_tasks.yaml
