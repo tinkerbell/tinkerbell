@@ -15,7 +15,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/agent/internal/spec"
 	"github.com/tinkerbell/tinkerbell/agent/internal/transport/file"
 	"github.com/tinkerbell/tinkerbell/agent/internal/transport/grpc"
-	"github.com/tinkerbell/tinkerbell/agent/internal/transport/grpc/proto"
+	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/agent/internal/transport/nats"
 	"golang.org/x/sync/errgroup"
 )
