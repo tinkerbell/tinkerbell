@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	wrkflow "github.com/tinkerbell/tinkerbell/pkg/workflow"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -21,7 +22,7 @@ func (b *Backend) ReadAll(ctx context.Context, workerID string) ([]v1alpha1.Work
 	wfs := []v1alpha1.Workflow{}
 	for _, wf := range stored.Items {
 		// If the current assigned or running action is assigned to the requested worker, include it
-		if wf.Status.Tasks[wf.GetCurrentTaskIndex()].WorkerAddr == workerID {
+		if wf.Status.Tasks[wrkflow.GetCurrentTaskIndex(&wf)].WorkerAddr == workerID {
 			wfs = append(wfs, wf)
 		}
 	}

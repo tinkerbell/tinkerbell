@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,16 +40,16 @@ func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef v1.Sec
 }
 
 // toPowerState takes a raw BMC power state response and converts it to a v1alpha1.PowerState.
-func toPowerState(state string) v1alpha1.PowerState {
+func toPowerState(state string) bmc.PowerState {
 	// Normalize the response string for comparison.
 	state = strings.ToLower(state)
 
 	switch {
 	case strings.Contains(state, "on"):
-		return v1alpha1.On
+		return bmc.On
 	case strings.Contains(state, "off"):
-		return v1alpha1.Off
+		return bmc.Off
 	default:
-		return v1alpha1.Unknown
+		return bmc.Unknown
 	}
 }

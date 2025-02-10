@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,30 +16,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func getAction(s string) v1alpha1.Action {
+func getAction(s string) bmc.Action {
 	switch s {
 	case "PowerOn":
-		return v1alpha1.Action{PowerAction: v1alpha1.PowerOn.Ptr()}
+		return bmc.Action{PowerAction: bmc.PowerOn.Ptr()}
 	case "HardOff":
-		return v1alpha1.Action{PowerAction: v1alpha1.PowerHardOff.Ptr()}
+		return bmc.Action{PowerAction: bmc.PowerHardOff.Ptr()}
 	case "SoftOff":
-		return v1alpha1.Action{PowerAction: v1alpha1.PowerSoftOff.Ptr()}
+		return bmc.Action{PowerAction: bmc.PowerSoftOff.Ptr()}
 	case "BootPXE":
-		return v1alpha1.Action{OneTimeBootDeviceAction: &v1alpha1.OneTimeBootDeviceAction{Devices: []v1alpha1.BootDevice{v1alpha1.PXE}}}
+		return bmc.Action{OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{Devices: []bmc.BootDevice{bmc.PXE}}}
 	case "VirtualMedia":
-		return v1alpha1.Action{VirtualMediaAction: &v1alpha1.VirtualMediaAction{MediaURL: "http://example.com/image.iso", Kind: v1alpha1.VirtualMediaCD}}
+		return bmc.Action{VirtualMediaAction: &bmc.VirtualMediaAction{MediaURL: "http://example.com/image.iso", Kind: bmc.VirtualMediaCD}}
 	default:
-		return v1alpha1.Action{}
+		return bmc.Action{}
 	}
 }
 
 func TestTaskReconcile(t *testing.T) {
 	tests := map[string]struct {
 		taskName   string
-		action     v1alpha1.Action
+		action     bmc.Action
 		provider   *testProvider
 		secret     *corev1.Secret
-		task       *v1alpha1.Task
+		task       *bmc.Task
 		shouldErr  bool
 		timeoutErr bool
 	}{
@@ -133,7 +133,7 @@ func TestTaskReconcile(t *testing.T) {
 			} else {
 				secret = createSecret()
 			}
-			var task *v1alpha1.Task
+			var task *bmc.Task
 			if tt.task != nil {
 				task = tt.task
 			} else {
@@ -167,7 +167,7 @@ func TestTaskReconcile(t *testing.T) {
 				t.Fatalf("expected no diff, got: %v", diff)
 			}
 
-			var retrieved v1alpha1.Task
+			var retrieved bmc.Task
 			if err = cluster.Get(context.Background(), request.NamespacedName, &retrieved); err != nil {
 				t.Fatalf("expected nil err, got: %v", err)
 			}
@@ -214,14 +214,14 @@ func TestTaskReconcile(t *testing.T) {
 			if len(retrieved.Status.Conditions) != 1 {
 				t.Fatalf("expected 1 condition, got: %v", retrieved.Status.Conditions)
 			}
-			if retrieved.Status.Conditions[0].Type != v1alpha1.TaskCompleted {
-				t.Fatalf("expected condition type to be %s, got: %s", v1alpha1.TaskCompleted, retrieved.Status.Conditions[0].Type)
+			if retrieved.Status.Conditions[0].Type != bmc.TaskCompleted {
+				t.Fatalf("expected condition type to be %s, got: %s", bmc.TaskCompleted, retrieved.Status.Conditions[0].Type)
 			}
-			if retrieved.Status.Conditions[0].Status != v1alpha1.ConditionTrue {
-				t.Fatalf("expected condition status to be %s, got: %s", v1alpha1.ConditionTrue, retrieved.Status.Conditions[0].Status)
+			if retrieved.Status.Conditions[0].Status != bmc.ConditionTrue {
+				t.Fatalf("expected condition status to be %s, got: %s", bmc.ConditionTrue, retrieved.Status.Conditions[0].Status)
 			}
 
-			var retrieved2 v1alpha1.Task
+			var retrieved2 bmc.Task
 			err = cluster.Get(context.Background(), request.NamespacedName, &retrieved2)
 			if err != nil {
 				t.Fatalf("expected nil err, got: %v", err)
@@ -233,23 +233,23 @@ func TestTaskReconcile(t *testing.T) {
 	}
 }
 
-func createTask(name string, action v1alpha1.Action, secret *corev1.Secret) *v1alpha1.Task {
-	return &v1alpha1.Task{
+func createTask(name string, action bmc.Action, secret *corev1.Secret) *bmc.Task {
+	return &bmc.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
 		},
-		Spec: v1alpha1.TaskSpec{
+		Spec: bmc.TaskSpec{
 			Task: action,
-			Connection: v1alpha1.Connection{
+			Connection: bmc.Connection{
 				Host: "host",
 				Port: 22,
 				AuthSecretRef: corev1.SecretReference{
 					Name:      secret.Name,
 					Namespace: secret.Namespace,
 				},
-				ProviderOptions: &v1alpha1.ProviderOptions{
-					Redfish: &v1alpha1.RedfishOptions{
+				ProviderOptions: &bmc.ProviderOptions{
+					Redfish: &bmc.RedfishOptions{
 						Port: 443,
 					},
 				},
@@ -258,26 +258,26 @@ func createTask(name string, action v1alpha1.Action, secret *corev1.Secret) *v1a
 	}
 }
 
-func createTaskWithRPC(name string, action v1alpha1.Action, secret *corev1.Secret) *v1alpha1.Task {
-	return &v1alpha1.Task{
+func createTaskWithRPC(name string, action bmc.Action, secret *corev1.Secret) *bmc.Task {
+	return &bmc.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
 		},
-		Spec: v1alpha1.TaskSpec{
+		Spec: bmc.TaskSpec{
 			Task: action,
-			Connection: v1alpha1.Connection{
+			Connection: bmc.Connection{
 				Host: "host",
 				Port: 22,
 				AuthSecretRef: corev1.SecretReference{
 					Name:      secret.Name,
 					Namespace: secret.Namespace,
 				},
-				ProviderOptions: &v1alpha1.ProviderOptions{
-					RPC: &v1alpha1.RPCOptions{
+				ProviderOptions: &bmc.ProviderOptions{
+					RPC: &bmc.RPCOptions{
 						ConsumerURL: "http://127.0.0.1:7777",
-						HMAC: &v1alpha1.HMACOpts{
-							Secrets: v1alpha1.HMACSecrets{
+						HMAC: &bmc.HMACOpts{
+							Secrets: bmc.HMACSecrets{
 								"sha256": []corev1.SecretReference{
 									{
 										Name:      secret.Name,

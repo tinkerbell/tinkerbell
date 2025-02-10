@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	rufio "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,11 +21,11 @@ func TestHandleJob(t *testing.T) {
 		workflow     *v1alpha1.Workflow
 		wantWorkflow *v1alpha1.WorkflowStatus
 		hardware     *v1alpha1.Hardware
-		actions      []rufio.Action
+		actions      []bmc.Action
 		name         jobName
 		wantError    bool
 		wantResult   reconcile.Result
-		job          *rufio.Job
+		job          *bmc.Job
 	}{
 		"existing job deleted, new job created and completed": {
 			workflow: &v1alpha1.Workflow{
@@ -143,7 +143,7 @@ func TestHandleJob(t *testing.T) {
 					},
 				},
 			},
-			actions:    []rufio.Action{},
+			actions:    []bmc.Action{},
 			name:       jobNameNetboot,
 			wantResult: reconcile.Result{Requeue: true},
 		},
@@ -185,20 +185,20 @@ func TestHandleJob(t *testing.T) {
 				},
 			},
 			hardware:   new(v1alpha1.Hardware),
-			actions:    []rufio.Action{},
+			actions:    []bmc.Action{},
 			name:       jobNameNetboot,
 			wantResult: reconcile.Result{},
-			job: &rufio.Job{
+			job: &bmc.Job{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      jobNameNetboot.String(),
 					Namespace: "default",
 					UID:       types.UID("1234"),
 				},
-				Status: rufio.JobStatus{
-					Conditions: []rufio.JobCondition{
+				Status: bmc.JobStatus{
+					Conditions: []bmc.JobCondition{
 						{
-							Type:   rufio.JobCompleted,
-							Status: rufio.ConditionTrue,
+							Type:   bmc.JobCompleted,
+							Status: bmc.ConditionTrue,
 						},
 					},
 				},
@@ -209,7 +209,7 @@ func TestHandleJob(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			scheme := runtime.NewScheme()
-			rufio.AddToScheme(scheme)
+			bmc.AddToScheme(scheme)
 			v1alpha1.AddToScheme(scheme)
 			clientBuilder := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tc.hardware, tc.workflow)
 			if tc.job != nil {

@@ -14,13 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package bmc
 
 import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func init() {
+	SchemeBuilder.Register(&Job{}, &JobList{})
+}
 
 // JobConditionType represents the condition of the BMC Job.
 type JobConditionType string
@@ -160,8 +164,4 @@ type JobList struct {
 	metav1.TypeMeta `json:""`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Job `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&Job{}, &JobList{})
 }

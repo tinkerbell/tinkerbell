@@ -5,14 +5,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 )
 
 func TestMachineReconcile(t *testing.T) {
@@ -20,7 +19,7 @@ func TestMachineReconcile(t *testing.T) {
 		provider  *testProvider
 		shouldErr bool
 		secret    *corev1.Secret
-		machine   *v1alpha1.Machine
+		machine   *bmc.Machine
 	}{
 		"success power on": {
 			provider: &testProvider{Powerstate: "on"},
@@ -110,7 +109,7 @@ func TestMachineReconcile(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			var bm *v1alpha1.Machine
+			var bm *bmc.Machine
 			if tt.machine != nil {
 				bm = tt.machine
 			} else {
@@ -128,6 +127,7 @@ func TestMachineReconcile(t *testing.T) {
 				client,
 				fakeRecorder,
 				newTestClient(tt.provider),
+				0,
 			)
 
 			req := reconcile.Request{
@@ -148,21 +148,21 @@ func TestMachineReconcile(t *testing.T) {
 	}
 }
 
-func createMachineWithRPC(secret *corev1.Secret) *v1alpha1.Machine {
-	return &v1alpha1.Machine{
+func createMachineWithRPC(secret *corev1.Secret) *bmc.Machine {
+	return &bmc.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-bm",
 			Namespace: "test-namespace",
 		},
-		Spec: v1alpha1.MachineSpec{
-			Connection: v1alpha1.Connection{
+		Spec: bmc.MachineSpec{
+			Connection: bmc.Connection{
 				Host:        "127.1.1.1",
 				InsecureTLS: false,
-				ProviderOptions: &v1alpha1.ProviderOptions{
-					RPC: &v1alpha1.RPCOptions{
+				ProviderOptions: &bmc.ProviderOptions{
+					RPC: &bmc.RPCOptions{
 						ConsumerURL: "http://127.0.0.1:7777",
-						HMAC: &v1alpha1.HMACOpts{
-							Secrets: v1alpha1.HMACSecrets{
+						HMAC: &bmc.HMACOpts{
+							Secrets: bmc.HMACSecrets{
 								"sha256": []corev1.SecretReference{
 									{
 										Name:      secret.Name,
@@ -178,14 +178,14 @@ func createMachineWithRPC(secret *corev1.Secret) *v1alpha1.Machine {
 	}
 }
 
-func createMachine() *v1alpha1.Machine {
-	return &v1alpha1.Machine{
+func createMachine() *bmc.Machine {
+	return &bmc.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-bm",
 			Namespace: "test-namespace",
 		},
-		Spec: v1alpha1.MachineSpec{
-			Connection: v1alpha1.Connection{
+		Spec: bmc.MachineSpec{
+			Connection: bmc.Connection{
 				Host: "0.0.0.0",
 				Port: 623,
 				AuthSecretRef: corev1.SecretReference{
@@ -193,8 +193,8 @@ func createMachine() *v1alpha1.Machine {
 					Namespace: "test-namespace",
 				},
 				InsecureTLS: false,
-				ProviderOptions: &v1alpha1.ProviderOptions{
-					Redfish: &v1alpha1.RedfishOptions{
+				ProviderOptions: &bmc.ProviderOptions{
+					Redfish: &bmc.RedfishOptions{
 						Port: 443,
 					},
 				},

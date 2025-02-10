@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	rufio "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +26,7 @@ func TestPrepareWorkflow(t *testing.T) {
 		wantHardware *v1alpha1.Hardware
 		workflow     *v1alpha1.Workflow
 		wantWorkflow *v1alpha1.Workflow
-		job          *rufio.Job
+		job          *bmc.Job
 	}{
 		"nothing to do": {
 			wantResult:   reconcile.Result{},
@@ -214,7 +214,7 @@ func TestPrepareWorkflow(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			scheme := runtime.NewScheme()
-			rufio.AddToScheme(scheme)
+			bmc.AddToScheme(scheme)
 			v1alpha1.AddToScheme(scheme)
 			ro := []runtime.Object{}
 			if tc.hardware != nil {
