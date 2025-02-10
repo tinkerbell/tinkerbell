@@ -57,7 +57,7 @@ services:
     ## "init" containers; they run until they accomplish their purpose and then exit
   tink-crds-apply:
     image: bitnami/kubectl:1.30.4
-    command: -s "https://kube-apiserver:6443" apply -k 'github.com/tinkerbell/tink/config/crd?ref=v0.12.2'
+    command: -s "https://kube-apiserver:6443" apply -k 'github.com/tinkerbell/tinkerbell/config/crd?ref=main'
     environment:
       KUBECONFIG: /kube/kubeconfig
       KUBERNETES: https://kube-apiserver:6443
@@ -70,7 +70,7 @@ services:
 
   rufio-crds-apply:
     image: bitnami/kubectl:1.30.4
-    command: -s "https://kube-apiserver:6443" apply -k 'github.com/tinkerbell/rufio/config/crd?ref=v0.6.0'
+    command: -s "https://kube-apiserver:6443" apply -k 'github.com/tinkerbell/tinkerbell/config/crd?ref=main'
     environment:
       KUBECONFIG: /kube/kubeconfig
       KUBERNETES: https://kube-apiserver:6443
