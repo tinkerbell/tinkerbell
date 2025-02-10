@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/agent/internal/spec"
-	"github.com/tinkerbell/tinkerbell/agent/internal/transport/grpc/proto"
+	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
