@@ -29,10 +29,9 @@ func DefaultScheme() *runtime.Scheme {
 
 // Reconciler is a type for managing Workflows.
 type Reconciler struct {
-	client             client.Client
-	nowFunc            func() time.Time
-	backoff            *backoff.ExponentialBackOff
-	powerCheckInterval time.Duration
+	client  client.Client
+	nowFunc func() time.Time
+	backoff *backoff.ExponentialBackOff
 }
 
 func NewManager(cfg *rest.Config, opts controllerruntime.Options, powerCheckInterval time.Duration) (controllerruntime.Manager, error) {
