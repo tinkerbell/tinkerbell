@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/data"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"

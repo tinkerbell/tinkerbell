@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	rufio "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,7 +26,7 @@ func (j jobName) String() string {
 }
 
 // this function will update the Workflow status.
-func (s *state) handleJob(ctx context.Context, actions []rufio.Action, name jobName) (reconcile.Result, error) {
+func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobName) (reconcile.Result, error) {
 	// there are 3 phases. 1. Clean up existing 2. Create new 3. Track status
 	// 1. clean up existing job if it wasn't already deleted
 	if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted {
@@ -94,7 +94,7 @@ func (s *state) handleJob(ctx context.Context, actions []rufio.Action, name jobN
 }
 
 func (s *state) deleteExisting(ctx context.Context, name jobName) (reconcile.Result, error) {
-	existingJob := &rufio.Job{ObjectMeta: metav1.ObjectMeta{Name: name.String(), Namespace: s.workflow.Namespace}}
+	existingJob := &bmc.Job{ObjectMeta: metav1.ObjectMeta{Name: name.String(), Namespace: s.workflow.Namespace}}
 	opts := []client.DeleteOption{
 		client.GracePeriodSeconds(0),
 		client.PropagationPolicy(metav1.DeletePropagationForeground),
@@ -114,13 +114,13 @@ func (s *state) deleteExisting(ctx context.Context, name jobName) (reconcile.Res
 }
 
 // This function will update the Workflow status.
-func (s *state) createJob(ctx context.Context, actions []rufio.Action, name jobName) (reconcile.Result, error) {
+func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobName) (reconcile.Result, error) {
 	// create a new job
 	// The assumption is that the UID is not set. UID checking is not handled here.
 	// 1. look up if there's an existing job with the same name, if so update the status with the UID and return
 	// 2. if there's no existing job, create a new job, update the status with the UID, and return
 
-	rj := &rufio.Job{}
+	rj := &bmc.Job{}
 	if err := s.client.Get(ctx, client.ObjectKey{Name: name.String(), Namespace: s.workflow.Namespace}, rj); err == nil {
 		journal.Log(ctx, "job already exists", "name", name)
 		if !rj.DeletionTimestamp.IsZero() {
@@ -166,16 +166,16 @@ var (
 func (s *state) trackRunningJob(ctx context.Context, name jobName) (reconcile.Result, trackedState, error) {
 	// track status
 	// get the job
-	rj := &rufio.Job{}
+	rj := &bmc.Job{}
 	if err := s.client.Get(ctx, client.ObjectKey{Name: name.String(), Namespace: s.workflow.Namespace}, rj); err != nil {
 		return reconcile.Result{}, trackedStateError, fmt.Errorf("error getting job: %w", err)
 	}
-	if rj.HasCondition(rufio.JobFailed, rufio.ConditionTrue) {
+	if rj.HasCondition(bmc.JobFailed, bmc.ConditionTrue) {
 		journal.Log(ctx, "job failed", "name", name)
 		// job failed
 		return reconcile.Result{}, trackedStateFailed, fmt.Errorf("job failed")
 	}
-	if rj.HasCondition(rufio.JobCompleted, rufio.ConditionTrue) {
+	if rj.HasCondition(bmc.JobCompleted, bmc.ConditionTrue) {
 		journal.Log(ctx, "job completed", "name", name)
 		// job completed
 		jStatus := s.workflow.Status.BootOptions.Jobs[name.String()]
@@ -190,9 +190,9 @@ func (s *state) trackRunningJob(ctx context.Context, name jobName) (reconcile.Re
 	return reconcile.Result{Requeue: true}, trackedStateRunning, nil
 }
 
-func create(ctx context.Context, cc client.Client, name string, hw *v1alpha1.Hardware, ns string, tasks []rufio.Action) error {
+func create(ctx context.Context, cc client.Client, name string, hw *v1alpha1.Hardware, ns string, tasks []bmc.Action) error {
 	journal.Log(ctx, "creating job", "name", name)
-	if err := cc.Create(ctx, &rufio.Job{
+	if err := cc.Create(ctx, &bmc.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
@@ -203,8 +203,8 @@ func create(ctx context.Context, cc client.Client, name string, hw *v1alpha1.Har
 				"tink-controller-auto-created": "true",
 			},
 		},
-		Spec: rufio.JobSpec{
-			MachineRef: rufio.MachineRef{
+		Spec: bmc.JobSpec{
+			MachineRef: bmc.MachineRef{
 				Name:      hw.Spec.BMCRef.Name,
 				Namespace: ns,
 			},

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -17,7 +17,7 @@ import (
 
 var schemeBuilder = runtime.NewSchemeBuilder(
 	scheme.AddToScheme,
-	v1alpha1.AddToScheme,
+	bmc.AddToScheme,
 )
 
 // DefaultScheme returns a scheme with all the types necessary for the Rufio controller.
@@ -34,7 +34,7 @@ type Reconciler struct {
 	backoff *backoff.ExponentialBackOff
 }
 
-func NewManager(cfg *rest.Config, opts controllerruntime.Options) (controllerruntime.Manager, error) {
+func NewManager(cfg *rest.Config, opts controllerruntime.Options, powerCheckInterval time.Duration) (controllerruntime.Manager, error) {
 	if opts.Scheme == nil {
 		opts.Scheme = DefaultScheme()
 	}
@@ -52,7 +52,7 @@ func NewManager(cfg *rest.Config, opts controllerruntime.Options) (controllerrun
 		return nil, fmt.Errorf("set up ready check: %w", err)
 	}
 
-	if err := NewReconciler(mgr.GetClient()).SetupWithManager(context.Background(), mgr, NewClientFunc(time.Minute)); err != nil {
+	if err := NewReconciler(mgr.GetClient()).SetupWithManager(context.Background(), mgr, NewClientFunc(time.Minute), powerCheckInterval); err != nil {
 		return nil, fmt.Errorf("unable to create reconciler: %w", err)
 	}
 
@@ -71,8 +71,8 @@ func NewReconciler(c client.Client) *Reconciler {
 	}
 }
 
-func (r *Reconciler) SetupWithManager(ctx context.Context, mgr controllerruntime.Manager, bmcClientFactory ClientFunc) error {
-	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("machine-controller"), bmcClientFactory).SetupWithManager(mgr); err != nil {
+func (r *Reconciler) SetupWithManager(ctx context.Context, mgr controllerruntime.Manager, bmcClient ClientFunc, powerCheckInterval time.Duration) error {
+	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("machine-controller"), bmcClient, powerCheckInterval).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create Machines controller: %w", err)
 	}
 
@@ -80,7 +80,7 @@ func (r *Reconciler) SetupWithManager(ctx context.Context, mgr controllerruntime
 		return fmt.Errorf("unable to create Jobs controller: %w", err)
 	}
 
-	if err := NewTaskReconciler(mgr.GetClient(), bmcClientFactory).SetupWithManager(mgr); err != nil {
+	if err := NewTaskReconciler(mgr.GetClient(), bmcClient).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create Tasks controller: %w", err)
 	}
 

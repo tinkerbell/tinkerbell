@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
@@ -64,6 +65,8 @@ func Execute(ctx context.Context, args []string) error {
 	rufioOpts := []rufio.Option{
 		rufio.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8082))),
 		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8083))),
+		rufio.WithBmcConnectTimeout(2 * time.Minute),
+		rufio.WithPowerCheckInterval(30 * time.Minute),
 	}
 	rc := &flag.RufioConfig{
 		Config: rufio.NewConfig(rufioOpts...),

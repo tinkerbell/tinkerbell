@@ -1,10 +1,14 @@
-package v1alpha1
+package tinkerbell
 
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func init() {
+	SchemeBuilder.Register(&Hardware{}, &HardwareList{})
+}
 
 // HardwareState represents the hardware state.
 type HardwareState string
@@ -271,8 +275,4 @@ type Disk struct {
 type HardwareStatus struct {
 	//+optional
 	State HardwareState `json:"state,omitempty"`
-}
-
-func init() {
-	SchemeBuilder.Register(&Hardware{}, &HardwareList{})
 }

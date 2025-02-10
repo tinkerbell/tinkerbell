@@ -3,8 +3,8 @@ package controller
 import (
 	"fmt"
 
-	bmc "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"

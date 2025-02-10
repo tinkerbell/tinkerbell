@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	rufio "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -43,20 +43,20 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 				}
 				return false
 			}()
-			actions := []rufio.Action{
+			actions := []bmc.Action{
 				{
-					PowerAction: rufio.PowerHardOff.Ptr(),
+					PowerAction: bmc.PowerHardOff.Ptr(),
 				},
 				{
-					OneTimeBootDeviceAction: &rufio.OneTimeBootDeviceAction{
-						Devices: []rufio.BootDevice{
-							rufio.PXE,
+					OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{
+						Devices: []bmc.BootDevice{
+							bmc.PXE,
 						},
 						EFIBoot: efiBoot,
 					},
 				},
 				{
-					PowerAction: rufio.PowerOn.Ptr(),
+					PowerAction: bmc.PowerOn.Ptr(),
 				},
 			}
 
@@ -85,32 +85,32 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 				}
 				return false
 			}()
-			actions := []rufio.Action{
+			actions := []bmc.Action{
 				{
-					PowerAction: rufio.PowerHardOff.Ptr(),
+					PowerAction: bmc.PowerHardOff.Ptr(),
 				},
 				{
-					VirtualMediaAction: &rufio.VirtualMediaAction{
+					VirtualMediaAction: &bmc.VirtualMediaAction{
 						MediaURL: "", // empty to unmount/eject the media
-						Kind:     rufio.VirtualMediaCD,
+						Kind:     bmc.VirtualMediaCD,
 					},
 				},
 				{
-					VirtualMediaAction: &rufio.VirtualMediaAction{
+					VirtualMediaAction: &bmc.VirtualMediaAction{
 						MediaURL: s.workflow.Spec.BootOptions.ISOURL,
-						Kind:     rufio.VirtualMediaCD,
+						Kind:     bmc.VirtualMediaCD,
 					},
 				},
 				{
-					OneTimeBootDeviceAction: &rufio.OneTimeBootDeviceAction{
-						Devices: []rufio.BootDevice{
-							rufio.CDROM,
+					OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{
+						Devices: []bmc.BootDevice{
+							bmc.CDROM,
 						},
 						EFIBoot: efiBoot,
 					},
 				},
 				{
-					PowerAction: rufio.PowerOn.Ptr(),
+					PowerAction: bmc.PowerOn.Ptr(),
 				},
 			}
 

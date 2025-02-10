@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	rufio "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
-	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -28,11 +28,11 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 			if s.workflow.Spec.BootOptions.ISOURL == "" {
 				return reconcile.Result{}, errors.New("iso url must be a valid url")
 			}
-			actions := []rufio.Action{
+			actions := []bmc.Action{
 				{
-					VirtualMediaAction: &rufio.VirtualMediaAction{
+					VirtualMediaAction: &bmc.VirtualMediaAction{
 						MediaURL: "", // empty to unmount/eject the media
-						Kind:     rufio.VirtualMediaCD,
+						Kind:     bmc.VirtualMediaCD,
 					},
 				},
 			}

@@ -39,6 +39,7 @@ type Config struct {
 	MetricsAddr             netip.AddrPort
 	ProbeAddr               netip.AddrPort
 	BMCConnectTimeout       time.Duration
+	PowerCheckInterval      time.Duration
 }
 
 type Option func(*Config)
@@ -79,6 +80,12 @@ func WithBmcConnectTimeout(timeout time.Duration) Option {
 	}
 }
 
+func WithPowerCheckInterval(interval time.Duration) Option {
+	return func(c *Config) {
+		c.PowerCheckInterval = interval
+	}
+}
+
 func NewConfig(opts ...Option) *Config {
 	defatuls := &Config{
 		EnableLeaderElection: true,
@@ -110,7 +117,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	clog.SetLogger(log)
 	klog.SetLogger(log)
 
-	mgr, err := controller.NewManager(c.Client, options)
+	mgr, err := controller.NewManager(c.Client, options, c.PowerCheckInterval)
 	if err != nil {
 		return err
 	}

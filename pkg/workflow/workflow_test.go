@@ -1,72 +1,23 @@
-package v1alpha1
+package workflow
 
 import (
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func TestWorkflowTinkID(t *testing.T) {
-	id := "d2c26e20-97e0-449c-b665-61efa7373f47"
-	cases := []struct {
-		name      string
-		input     *Workflow
-		want      string
-		overwrite string
-	}{
-		{
-			"Already set",
-			&Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "debian",
-					Namespace: "default",
-					Annotations: map[string]string{
-						WorkflowIDAnnotation: id,
-					},
-				},
-			},
-			id,
-			"",
-		},
-		{
-			"nil annotations",
-			&Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "debian",
-					Namespace:   "default",
-					Annotations: nil,
-				},
-			},
-			"",
-			"abc",
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if tc.input.TinkID() != tc.want {
-				t.Errorf("Got unexpected ID: got %v, wanted %v", tc.input.TinkID(), tc.want)
-			}
-
-			tc.input.SetTinkID(tc.overwrite)
-
-			if tc.input.TinkID() != tc.overwrite {
-				t.Errorf("Got unexpected ID: got %v, wanted %v", tc.input.TinkID(), tc.overwrite)
-			}
-		})
-	}
-}
 
 func TestGetStartTime(t *testing.T) {
 	cases := []struct {
 		name  string
-		input *Workflow
+		input *v1alpha1.Workflow
 		want  *metav1.Time
 	}{
 		{
 			"Empty wflow",
-			&Workflow{
+			&v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "debian",
 					Namespace: "default",
@@ -76,7 +27,7 @@ func TestGetStartTime(t *testing.T) {
 		},
 		{
 			"Running workflow",
-			&Workflow{
+			&v1alpha1.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -85,15 +36,15 @@ func TestGetStartTime(t *testing.T) {
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: WorkflowSpec{},
-				Status: WorkflowStatus{
-					State:         WorkflowStateRunning,
+				Spec: v1alpha1.WorkflowSpec{},
+				Status: v1alpha1.WorkflowStatus{
+					State:         v1alpha1.WorkflowStateRunning,
 					GlobalTimeout: 600,
-					Tasks: []Task{
+					Tasks: []v1alpha1.Task{
 						{
 							Name:       "os-installation",
 							WorkerAddr: "3c:ec:ef:4c:4f:54",
-							Actions: []Action{
+							Actions: []v1alpha1.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -103,7 +54,7 @@ func TestGetStartTime(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: WorkflowStateSuccess,
+									Status: v1alpha1.WorkflowStateSuccess,
 
 									Seconds: 20,
 								},
@@ -116,7 +67,7 @@ func TestGetStartTime(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: WorkflowStateRunning,
+									Status: v1alpha1.WorkflowStateRunning,
 								},
 							},
 						},
@@ -127,7 +78,7 @@ func TestGetStartTime(t *testing.T) {
 		},
 		{
 			"pending without a start time",
-			&Workflow{
+			&v1alpha1.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -136,15 +87,15 @@ func TestGetStartTime(t *testing.T) {
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: WorkflowSpec{},
-				Status: WorkflowStatus{
-					State:         WorkflowStatePending,
+				Spec: v1alpha1.WorkflowSpec{},
+				Status: v1alpha1.WorkflowStatus{
+					State:         v1alpha1.WorkflowStatePending,
 					GlobalTimeout: 600,
-					Tasks: []Task{
+					Tasks: []v1alpha1.Task{
 						{
 							Name:       "os-installation",
 							WorkerAddr: "3c:ec:ef:4c:4f:54",
-							Actions: []Action{
+							Actions: []v1alpha1.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -154,7 +105,7 @@ func TestGetStartTime(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status:    WorkflowStatePending,
+									Status:    v1alpha1.WorkflowStatePending,
 									StartedAt: nil,
 								},
 							},
@@ -167,7 +118,7 @@ func TestGetStartTime(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.input.GetStartTime()
+			got := GetStartTime(tc.input)
 			if got == nil && tc.want == nil {
 				return
 			}
@@ -181,12 +132,12 @@ func TestGetStartTime(t *testing.T) {
 func TestWorkflowMethods(t *testing.T) {
 	cases := []struct {
 		name string
-		wf   *Workflow
+		wf   *v1alpha1.Workflow
 		want taskInfo
 	}{
 		{
 			"Empty wflow",
-			&Workflow{
+			&v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "debian",
 					Namespace: "default",
@@ -196,7 +147,7 @@ func TestWorkflowMethods(t *testing.T) {
 		},
 		{
 			"invalid workflow",
-			&Workflow{
+			&v1alpha1.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -205,25 +156,25 @@ func TestWorkflowMethods(t *testing.T) {
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: WorkflowSpec{},
-				Status: WorkflowStatus{
-					State:         WorkflowStateRunning,
+				Spec: v1alpha1.WorkflowSpec{},
+				Status: v1alpha1.WorkflowStatus{
+					State:         v1alpha1.WorkflowStateRunning,
 					GlobalTimeout: 600,
-					Tasks: []Task{
+					Tasks: []v1alpha1.Task{
 						{
 							Name: "empty task",
 							// WorkerAddr: "", // intentionally not set
-							Actions: []Action{
+							Actions: []v1alpha1.Action{
 								{
 									Name:   "empty action",
-									Status: WorkflowStateFailed,
+									Status: v1alpha1.WorkflowStateFailed,
 								},
 							},
 						},
 						{
 							Name:       "os-installation",
 							WorkerAddr: "3c:ec:ef:4c:4f:54",
-							Actions: []Action{
+							Actions: []v1alpha1.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -233,7 +184,7 @@ func TestWorkflowMethods(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: WorkflowStateSuccess,
+									Status: v1alpha1.WorkflowStateSuccess,
 
 									Seconds: 20,
 								},
@@ -246,7 +197,7 @@ func TestWorkflowMethods(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: WorkflowStateRunning,
+									Status: v1alpha1.WorkflowStateRunning,
 								},
 							},
 						},
@@ -259,13 +210,13 @@ func TestWorkflowMethods(t *testing.T) {
 				CurrentTask:          "empty task",
 				CurrentWorker:        "",
 				CurrentAction:        "empty action",
-				CurrentActionState:   WorkflowStateFailed,
+				CurrentActionState:   v1alpha1.WorkflowStateFailed,
 				CurrentActionIndex:   0,
 			},
 		},
 		{
 			"Running workflow",
-			&Workflow{
+			&v1alpha1.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -274,20 +225,20 @@ func TestWorkflowMethods(t *testing.T) {
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: WorkflowSpec{},
-				Status: WorkflowStatus{
-					State:         WorkflowStateRunning,
+				Spec: v1alpha1.WorkflowSpec{},
+				Status: v1alpha1.WorkflowStatus{
+					State:         v1alpha1.WorkflowStateRunning,
 					GlobalTimeout: 600,
-					Tasks: []Task{
+					Tasks: []v1alpha1.Task{
 						{
 							Name:       "bmc-manage",
 							WorkerAddr: "pbnj",
-							Actions: []Action{
+							Actions: []v1alpha1.Action{
 								{
 									Name:    "configure-pxe",
 									Image:   "quay.io/tinkerbell-actions/pbnj:v1.0.0",
 									Timeout: 20,
-									Status:  WorkflowStateSuccess,
+									Status:  v1alpha1.WorkflowStateSuccess,
 
 									Seconds: 15,
 								},
@@ -296,7 +247,7 @@ func TestWorkflowMethods(t *testing.T) {
 						{
 							Name:       "os-installation",
 							WorkerAddr: "3c:ec:ef:4c:4f:54",
-							Actions: []Action{
+							Actions: []v1alpha1.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -306,7 +257,7 @@ func TestWorkflowMethods(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: WorkflowStateSuccess,
+									Status: v1alpha1.WorkflowStateSuccess,
 
 									Seconds: 20,
 								},
@@ -319,7 +270,7 @@ func TestWorkflowMethods(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: WorkflowStateRunning,
+									Status: v1alpha1.WorkflowStateRunning,
 								},
 							},
 						},
@@ -332,13 +283,13 @@ func TestWorkflowMethods(t *testing.T) {
 				CurrentTask:          "os-installation",
 				CurrentWorker:        "3c:ec:ef:4c:4f:54",
 				CurrentAction:        "write-file",
-				CurrentActionState:   WorkflowStateRunning,
+				CurrentActionState:   v1alpha1.WorkflowStateRunning,
 				CurrentActionIndex:   2,
 			},
 		},
 		{
 			"Pending workflow",
-			&Workflow{
+			&v1alpha1.Workflow{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Workflow",
 					APIVersion: "tinkerbell.org/v1alpha1",
@@ -347,15 +298,15 @@ func TestWorkflowMethods(t *testing.T) {
 					Name:      "debian",
 					Namespace: "default",
 				},
-				Spec: WorkflowSpec{},
-				Status: WorkflowStatus{
-					State:         WorkflowStatePending,
+				Spec: v1alpha1.WorkflowSpec{},
+				Status: v1alpha1.WorkflowStatus{
+					State:         v1alpha1.WorkflowStatePending,
 					GlobalTimeout: 600,
-					Tasks: []Task{
+					Tasks: []v1alpha1.Task{
 						{
 							Name:       "os-installation",
 							WorkerAddr: "3c:ec:ef:4c:4f:54",
-							Actions: []Action{
+							Actions: []v1alpha1.Action{
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
@@ -365,7 +316,7 @@ func TestWorkflowMethods(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: WorkflowStatePending,
+									Status: v1alpha1.WorkflowStatePending,
 								},
 								{
 									Name:    "write-file",
@@ -376,7 +327,7 @@ func TestWorkflowMethods(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: WorkflowStatePending,
+									Status: v1alpha1.WorkflowStatePending,
 								},
 							},
 						},
@@ -389,14 +340,14 @@ func TestWorkflowMethods(t *testing.T) {
 				CurrentTask:          "os-installation",
 				CurrentWorker:        "3c:ec:ef:4c:4f:54",
 				CurrentAction:        "stream-debian-image",
-				CurrentActionState:   WorkflowStatePending,
+				CurrentActionState:   v1alpha1.WorkflowStatePending,
 				CurrentActionIndex:   0,
 			},
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.wf.getTaskActionInfo()
+			got := getTaskActionInfo(tc.wf)
 			if got != tc.want {
 				t.Errorf("Got \n\t%#v\nwanted:\n\t%#v", got, tc.want)
 			}
@@ -406,35 +357,35 @@ func TestWorkflowMethods(t *testing.T) {
 
 func TestSetCondition(t *testing.T) {
 	tests := map[string]struct {
-		ExistingConditions []WorkflowCondition
-		WantConditions     []WorkflowCondition
-		Condition          WorkflowCondition
+		ExistingConditions []v1alpha1.WorkflowCondition
+		WantConditions     []v1alpha1.WorkflowCondition
+		Condition          v1alpha1.WorkflowCondition
 	}{
 		"update existing condition": {
-			ExistingConditions: []WorkflowCondition{
-				{Type: ToggleAllowNetbootTrue, Status: metav1.ConditionTrue},
-				{Type: ToggleAllowNetbootFalse, Status: metav1.ConditionTrue},
+			ExistingConditions: []v1alpha1.WorkflowCondition{
+				{Type: v1alpha1.ToggleAllowNetbootTrue, Status: metav1.ConditionTrue},
+				{Type: v1alpha1.ToggleAllowNetbootFalse, Status: metav1.ConditionTrue},
 			},
-			WantConditions: []WorkflowCondition{
-				{Type: ToggleAllowNetbootTrue, Status: metav1.ConditionFalse},
-				{Type: ToggleAllowNetbootFalse, Status: metav1.ConditionTrue},
+			WantConditions: []v1alpha1.WorkflowCondition{
+				{Type: v1alpha1.ToggleAllowNetbootTrue, Status: metav1.ConditionFalse},
+				{Type: v1alpha1.ToggleAllowNetbootFalse, Status: metav1.ConditionTrue},
 			},
-			Condition: WorkflowCondition{Type: ToggleAllowNetbootTrue, Status: metav1.ConditionFalse},
+			Condition: v1alpha1.WorkflowCondition{Type: v1alpha1.ToggleAllowNetbootTrue, Status: metav1.ConditionFalse},
 		},
 		"append new condition": {
-			ExistingConditions: []WorkflowCondition{
-				{Type: ToggleAllowNetbootTrue, Status: metav1.ConditionTrue},
+			ExistingConditions: []v1alpha1.WorkflowCondition{
+				{Type: v1alpha1.ToggleAllowNetbootTrue, Status: metav1.ConditionTrue},
 			},
-			WantConditions: []WorkflowCondition{
-				{Type: ToggleAllowNetbootTrue, Status: metav1.ConditionTrue},
-				{Type: ToggleAllowNetbootFalse, Status: metav1.ConditionFalse},
+			WantConditions: []v1alpha1.WorkflowCondition{
+				{Type: v1alpha1.ToggleAllowNetbootTrue, Status: metav1.ConditionTrue},
+				{Type: v1alpha1.ToggleAllowNetbootFalse, Status: metav1.ConditionFalse},
 			},
-			Condition: WorkflowCondition{Type: ToggleAllowNetbootFalse, Status: metav1.ConditionFalse},
+			Condition: v1alpha1.WorkflowCondition{Type: v1alpha1.ToggleAllowNetbootFalse, Status: metav1.ConditionFalse},
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			w := &WorkflowStatus{
+			w := &v1alpha1.WorkflowStatus{
 				Conditions: tt.ExistingConditions,
 			}
 			w.SetCondition(tt.Condition)
