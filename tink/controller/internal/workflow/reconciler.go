@@ -8,7 +8,8 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-logr/logr"
-	"github.com/tinkerbell/tinkerbell/api/tinkerbell/v1alpha1"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	wrkflow "github.com/tinkerbell/tinkerbell/pkg/workflow"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -273,7 +274,7 @@ func toTemplateHardwareData(hardware v1alpha1.Hardware) templateHardwareData {
 
 func (r *Reconciler) processRunningWorkflow(stored *v1alpha1.Workflow) {
 	// Check for global timeout expiration
-	if r.nowFunc().After(stored.GetStartTime().Add(time.Duration(stored.Status.GlobalTimeout) * time.Second)) {
+	if r.nowFunc().After(wrkflow.GetStartTime(stored).Add(time.Duration(stored.Status.GlobalTimeout) * time.Second)) {
 		stored.Status.State = v1alpha1.WorkflowStateTimeout
 	}
 

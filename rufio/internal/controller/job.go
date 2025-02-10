@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,8 +28,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
 )
 
 // Index key for Job Owner Name.
@@ -58,7 +57,7 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	logger.Info("Reconciling Job")
 
 	// Fetch the job object
-	job := &v1alpha1.Job{}
+	job := &bmc.Job{}
 	err := r.client.Get(ctx, req.NamespacedName, job)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -75,8 +74,8 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Job is Completed or Failed is noop.
-	if job.HasCondition(v1alpha1.JobCompleted, v1alpha1.ConditionTrue) ||
-		job.HasCondition(v1alpha1.JobFailed, v1alpha1.ConditionTrue) {
+	if job.HasCondition(bmc.JobCompleted, bmc.ConditionTrue) ||
+		job.HasCondition(bmc.JobFailed, bmc.ConditionTrue) {
 		return ctrl.Result{}, nil
 	}
 
@@ -87,26 +86,26 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	return r.doReconcile(ctx, job, jobPatch)
 }
 
-func (r *JobReconciler) doReconcile(ctx context.Context, job *v1alpha1.Job, jobPatch client.Patch) (ctrl.Result, error) {
+func (r *JobReconciler) doReconcile(ctx context.Context, job *bmc.Job, jobPatch client.Patch) (ctrl.Result, error) {
 	// Check if Job is not currently Running
 	// Initialize the StartTime for the Job
 	// Set the Job to Running condition True
-	if !job.HasCondition(v1alpha1.JobRunning, v1alpha1.ConditionTrue) {
+	if !job.HasCondition(bmc.JobRunning, bmc.ConditionTrue) {
 		now := metav1.Now()
 		job.Status.StartTime = &now
-		job.SetCondition(v1alpha1.JobRunning, v1alpha1.ConditionTrue)
+		job.SetCondition(bmc.JobRunning, bmc.ConditionTrue)
 	}
 
 	// Get Machine object for the Job
 	// Requeue if error
-	machine := &v1alpha1.Machine{}
+	machine := &bmc.Machine{}
 	err := r.getMachine(ctx, job.Spec.MachineRef, machine)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("get Job %s/%s MachineRef: %w", job.Namespace, job.Name, err)
 	}
 
 	// List all Task owned by Job
-	tasks := &v1alpha1.TaskList{}
+	tasks := &bmc.TaskList{}
 	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: job.Name}, client.InNamespace(job.Namespace))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s: %w", job.Namespace, job.Name, err)
@@ -118,14 +117,14 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *v1alpha1.Job, jobP
 	// Set the Job condition Failed True if Task has failed.
 	// If the Task has neither Completed or Failed is noop.
 	for _, task := range tasks.Items {
-		if task.HasCondition(v1alpha1.TaskCompleted, v1alpha1.ConditionTrue) {
+		if task.HasCondition(bmc.TaskCompleted, bmc.ConditionTrue) {
 			completedTasksCount++
 			continue
 		}
 
-		if task.HasCondition(v1alpha1.TaskFailed, v1alpha1.ConditionTrue) {
+		if task.HasCondition(bmc.TaskFailed, bmc.ConditionTrue) {
 			err := fmt.Errorf("task %s/%s failed", task.Namespace, task.Name)
-			job.SetCondition(v1alpha1.JobFailed, v1alpha1.ConditionTrue, v1alpha1.WithJobConditionMessage(err.Error()))
+			job.SetCondition(bmc.JobFailed, bmc.ConditionTrue, bmc.WithJobConditionMessage(err.Error()))
 			patchErr := r.patchStatus(ctx, job, jobPatch)
 			if patchErr != nil {
 				return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
@@ -141,7 +140,7 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *v1alpha1.Job, jobP
 	// Set the Task CompletionTime
 	// Set Task Condition Completed True
 	if completedTasksCount == len(job.Spec.Tasks) {
-		job.SetCondition(v1alpha1.JobCompleted, v1alpha1.ConditionTrue)
+		job.SetCondition(bmc.JobCompleted, bmc.ConditionTrue)
 		now := metav1.Now()
 		job.Status.CompletionTime = &now
 		err = r.patchStatus(ctx, job, jobPatch)
@@ -151,7 +150,7 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *v1alpha1.Job, jobP
 	// Create the first Task for the Job
 	if err := r.createTaskWithOwner(ctx, *job, completedTasksCount, machine.Spec.Connection); err != nil {
 		// Set the Job condition Failed True
-		job.SetCondition(v1alpha1.JobFailed, v1alpha1.ConditionTrue, v1alpha1.WithJobConditionMessage(err.Error()))
+		job.SetCondition(bmc.JobFailed, bmc.ConditionTrue, bmc.WithJobConditionMessage(err.Error()))
 		patchErr := r.patchStatus(ctx, job, jobPatch)
 		if patchErr != nil {
 			return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
@@ -166,7 +165,7 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *v1alpha1.Job, jobP
 }
 
 // getMachine Gets the Machine from MachineRef.
-func (r *JobReconciler) getMachine(ctx context.Context, reference v1alpha1.MachineRef, machine *v1alpha1.Machine) error {
+func (r *JobReconciler) getMachine(ctx context.Context, reference bmc.MachineRef, machine *bmc.Machine) error {
 	key := types.NamespacedName{Namespace: reference.Namespace, Name: reference.Name}
 	err := r.client.Get(ctx, key, machine)
 	if err != nil {
@@ -180,11 +179,11 @@ func (r *JobReconciler) getMachine(ctx context.Context, reference v1alpha1.Machi
 }
 
 // createTaskWithOwner creates a Task object with an OwnerReference set to the Job.
-func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job v1alpha1.Job, taskIndex int, conn v1alpha1.Connection) error {
+func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmc.Job, taskIndex int, conn bmc.Connection) error {
 	isController := true
-	task := &v1alpha1.Task{
+	task := &bmc.Task{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      v1alpha1.FormatTaskName(job, taskIndex),
+			Name:      bmc.FormatTaskName(job, taskIndex),
 			Namespace: job.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -196,7 +195,7 @@ func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job v1alpha1.Jo
 				},
 			},
 		},
-		Spec: v1alpha1.TaskSpec{
+		Spec: bmc.TaskSpec{
 			Task:       job.Spec.Tasks[taskIndex],
 			Connection: conn,
 		},
@@ -211,7 +210,7 @@ func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job v1alpha1.Jo
 }
 
 // patchStatus patches the specified patch on the Job.
-func (r *JobReconciler) patchStatus(ctx context.Context, job *v1alpha1.Job, patch client.Patch) error {
+func (r *JobReconciler) patchStatus(ctx context.Context, job *bmc.Job, patch client.Patch) error {
 	err := r.client.Status().Patch(ctx, job, patch)
 	if err != nil {
 		return fmt.Errorf("failed to patch Job %s/%s status: %w", job.Namespace, job.Name, err)
@@ -224,7 +223,7 @@ func (r *JobReconciler) patchStatus(ctx context.Context, job *v1alpha1.Job, patc
 func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&v1alpha1.Task{},
+		&bmc.Task{},
 		jobOwnerKey,
 		TaskOwnerIndexFunc,
 	); err != nil {
@@ -232,13 +231,13 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.Job{}).
+		For(&bmc.Job{}).
 		Watches(
-			&v1alpha1.Task{},
+			&bmc.Task{},
 			handler.EnqueueRequestForOwner(
 				mgr.GetScheme(),
 				mgr.GetRESTMapper(),
-				&v1alpha1.Job{},
+				&bmc.Job{},
 				handler.OnlyControllerOwner(),
 			),
 		).
@@ -247,7 +246,7 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 
 // TaskOwnerIndexFunc is Indexer func which returns the owner name for obj.
 func TaskOwnerIndexFunc(obj client.Object) []string {
-	task, ok := obj.(*v1alpha1.Task)
+	task, ok := obj.(*bmc.Task)
 	if !ok {
 		return nil
 	}
@@ -258,7 +257,7 @@ func TaskOwnerIndexFunc(obj client.Object) []string {
 	}
 
 	// Check if owner is Job
-	if owner.Kind != "Job" || owner.APIVersion != v1alpha1.GroupVersion.String() {
+	if owner.Kind != "Job" || owner.APIVersion != bmc.GroupVersion.String() {
 		return nil
 	}
 

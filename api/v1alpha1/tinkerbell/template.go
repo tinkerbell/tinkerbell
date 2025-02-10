@@ -1,8 +1,12 @@
-package v1alpha1
+package tinkerbell
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func init() {
+	SchemeBuilder.Register(&Template{}, &TemplateList{})
+}
 
 // TemplateState represents the template state.
 type TemplateState string
@@ -48,8 +52,4 @@ type TemplateList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Template `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&Template{}, &TemplateList{})
 }

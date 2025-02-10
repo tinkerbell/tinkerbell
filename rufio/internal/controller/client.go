@@ -11,7 +11,7 @@ import (
 	"github.com/bmc-toolbox/bmclib/v2/providers/rpc"
 	"github.com/ccoveille/go-safecast"
 	"github.com/go-logr/logr"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 )
 
 // ClientFunc defines a func that returns a bmclib.Client.
@@ -52,7 +52,7 @@ func NewClientFunc(timeout time.Duration) ClientFunc {
 }
 
 type BMCOptions struct {
-	*v1alpha1.ProviderOptions
+	*bmc.ProviderOptions
 	rpcSecrets map[rpc.Algorithm][]string
 }
 
@@ -138,7 +138,7 @@ func (b BMCOptions) translateRPC(host string) rpc.Provider {
 	return o
 }
 
-func toRPCOpts(r *v1alpha1.RPCOptions) rpc.Opts {
+func toRPCOpts(r *bmc.RPCOptions) rpc.Opts {
 	opt := rpc.Opts{}
 
 	if r == nil {
@@ -152,7 +152,7 @@ func toRPCOpts(r *v1alpha1.RPCOptions) rpc.Opts {
 	return opt
 }
 
-func toRequestOpts(r *v1alpha1.RequestOpts) rpc.RequestOpts {
+func toRequestOpts(r *bmc.RequestOpts) rpc.RequestOpts {
 	opt := rpc.RequestOpts{}
 	if r == nil {
 		return opt
@@ -176,7 +176,7 @@ func toRequestOpts(r *v1alpha1.RequestOpts) rpc.RequestOpts {
 	return opt
 }
 
-func toSignatureOpts(s *v1alpha1.SignatureOpts) rpc.SignatureOpts {
+func toSignatureOpts(s *bmc.SignatureOpts) rpc.SignatureOpts {
 	opt := rpc.SignatureOpts{}
 
 	if s == nil {
@@ -195,7 +195,7 @@ func toSignatureOpts(s *v1alpha1.SignatureOpts) rpc.SignatureOpts {
 	return opt
 }
 
-func toHMACOpts(h *v1alpha1.HMACOpts) rpc.HMACOpts {
+func toHMACOpts(h *bmc.HMACOpts) rpc.HMACOpts {
 	opt := rpc.HMACOpts{}
 
 	if h == nil {
@@ -208,7 +208,7 @@ func toHMACOpts(h *v1alpha1.HMACOpts) rpc.HMACOpts {
 	return opt
 }
 
-func toExperimentalOpts(e *v1alpha1.ExperimentalOpts) rpc.Experimental {
+func toExperimentalOpts(e *bmc.ExperimentalOpts) rpc.Experimental {
 	opt := rpc.Experimental{}
 
 	if e == nil {
@@ -225,7 +225,7 @@ func toExperimentalOpts(e *v1alpha1.ExperimentalOpts) rpc.Experimental {
 }
 
 // convert a slice of ProviderName to a slice of string.
-func toStringSlice(p []v1alpha1.ProviderName) []string {
+func toStringSlice(p []bmc.ProviderName) []string {
 	var s []string
 	for _, v := range p {
 		s = append(s, v.String())

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/bmc/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,9 +15,9 @@ import (
 
 func TestJobReconcile(t *testing.T) {
 	tests := map[string]struct {
-		machine   *v1alpha1.Machine
+		machine   *bmc.Machine
 		secret    *corev1.Secret
-		job       *v1alpha1.Job
+		job       *bmc.Job
 		shouldErr bool
 		testAll   bool
 	}{
@@ -27,7 +27,7 @@ func TestJobReconcile(t *testing.T) {
 			job:     createJob("test", createMachine()),
 		},
 		"failure unknown machine": {
-			machine: &v1alpha1.Machine{},
+			machine: &bmc.Machine{},
 			secret:  createSecret(),
 			job:     createJob("test", createMachine()), shouldErr: true,
 		},
@@ -44,7 +44,7 @@ func TestJobReconcile(t *testing.T) {
 			clnt := newClientBuilder().
 				WithObjects(tt.job, tt.machine, tt.secret).
 				WithStatusSubresource(tt.job, tt.machine).
-				WithIndex(&v1alpha1.Task{}, ".metadata.controller", controller.TaskOwnerIndexFunc).
+				WithIndex(&bmc.Task{}, ".metadata.controller", controller.TaskOwnerIndexFunc).
 				Build()
 
 			reconciler := controller.NewJobReconciler(clnt)
@@ -66,7 +66,7 @@ func TestJobReconcile(t *testing.T) {
 			if tt.shouldErr || !tt.testAll {
 				return
 			}
-			var retrieved1 v1alpha1.Job
+			var retrieved1 bmc.Job
 			if err = clnt.Get(context.Background(), request.NamespacedName, &retrieved1); err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -77,17 +77,17 @@ func TestJobReconcile(t *testing.T) {
 			if len(retrieved1.Status.Conditions) != 1 {
 				t.Fatalf("expected 1 condition, got %v", len(retrieved1.Status.Conditions))
 			}
-			if retrieved1.Status.Conditions[0].Type != v1alpha1.JobRunning {
-				t.Fatalf("expected condition type %v, got %v", v1alpha1.JobRunning, retrieved1.Status.Conditions[0].Type)
+			if retrieved1.Status.Conditions[0].Type != bmc.JobRunning {
+				t.Fatalf("expected condition type %v, got %v", bmc.JobRunning, retrieved1.Status.Conditions[0].Type)
 			}
-			if retrieved1.Status.Conditions[0].Status != v1alpha1.ConditionTrue {
-				t.Fatalf("expected condition status %v, got %v", v1alpha1.ConditionTrue, retrieved1.Status.Conditions[0].Status)
+			if retrieved1.Status.Conditions[0].Status != bmc.ConditionTrue {
+				t.Fatalf("expected condition status %v, got %v", bmc.ConditionTrue, retrieved1.Status.Conditions[0].Status)
 			}
 
-			var task v1alpha1.Task
+			var task bmc.Task
 			taskKey := types.NamespacedName{
 				Namespace: tt.job.Namespace,
-				Name:      v1alpha1.FormatTaskName(*tt.job, 0),
+				Name:      bmc.FormatTaskName(*tt.job, 0),
 			}
 			if err = clnt.Get(context.Background(), taskKey, &task); err != nil {
 				t.Fatalf("expected no error, got %v", err)
@@ -114,7 +114,7 @@ func TestJobReconcile(t *testing.T) {
 				t.Fatal(diff)
 			}
 
-			var retrieved2 v1alpha1.Job
+			var retrieved2 bmc.Job
 			if err = clnt.Get(context.Background(), request.NamespacedName, &retrieved2); err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -125,22 +125,22 @@ func TestJobReconcile(t *testing.T) {
 	}
 }
 
-func createJob(name string, machine *v1alpha1.Machine, t ...v1alpha1.Action) *v1alpha1.Job {
-	tasks := []v1alpha1.Action{}
+func createJob(name string, machine *bmc.Machine, t ...bmc.Action) *bmc.Job {
+	tasks := []bmc.Action{}
 	if len(t) > 0 {
 		tasks = t
 	}
-	return &v1alpha1.Job{
+	return &bmc.Job{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha1.GroupVersion.String(),
+			APIVersion: bmc.GroupVersion.String(),
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      name,
 		},
-		Spec: v1alpha1.JobSpec{
-			MachineRef: v1alpha1.MachineRef{Name: machine.Name, Namespace: machine.Namespace},
+		Spec: bmc.JobSpec{
+			MachineRef: bmc.MachineRef{Name: machine.Name, Namespace: machine.Namespace},
 			Tasks:      tasks,
 		},
 	}

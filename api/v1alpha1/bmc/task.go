@@ -14,11 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package bmc
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func init() {
+	SchemeBuilder.Register(&Task{}, &TaskList{})
+}
 
 // TaskConditionType represents the condition type on for Tasks.
 type TaskConditionType string
@@ -152,8 +156,4 @@ type TaskList struct {
 	metav1.TypeMeta `json:""`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Task `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&Task{}, &TaskList{})
 }

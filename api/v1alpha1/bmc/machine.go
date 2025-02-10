@@ -14,12 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package bmc
 
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func init() {
+	SchemeBuilder.Register(&Machine{}, &MachineList{})
+}
 
 // PowerState represents power state of a Machine.
 type PowerState string
@@ -201,8 +205,4 @@ type MachineList struct {
 	metav1.TypeMeta `json:""`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Machine `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&Machine{}, &MachineList{})
 }

@@ -1,4 +1,4 @@
-package v1alpha1
+package bmc
 
 // PowerAction represents the power control operation on the baseboard management.
 type PowerAction string
