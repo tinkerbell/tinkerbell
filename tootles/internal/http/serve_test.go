@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	hhttp "github.com/tinkerbell/tinkerbell/hegel/internal/http"
+	hhttp "github.com/tinkerbell/tinkerbell/tootles/internal/http"
 )
 
 // TestServe validates the Serve function does in-fact serve a functional HTTP server with the

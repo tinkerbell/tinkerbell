@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/ginutil"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/ginutil"
 )
 
 func TestTrailingSlashRouteHelper(t *testing.T) {

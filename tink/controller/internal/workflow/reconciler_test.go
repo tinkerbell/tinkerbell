@@ -53,7 +53,7 @@ tasks:
         timeout: 600
         environment:
           DEST_DISK: /dev/nvme0n1
-          # Hegel IP
+          # Tootles IP
           IMG_URL: "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz"
           COMPRESSED: true`
 
@@ -73,7 +73,7 @@ tasks:
         timeout: 600
         environment:
           DEST_DISK: {{ index .Hardware.Disks 0 }}
-          # Hegel IP
+          # Tootles IP
           IMG_URL: "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz"
           COMPRESSED: true
       - name: "action to test templating"
