@@ -89,3 +89,30 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 fmt: goimports ## Run go fmt against code.
 	go fmt ./...
 	$(GOIMPORTS) -w .
+
+# Protocol Buffer code generation
+BUF_VERSION            := v1.50.0
+PROTOC_GEN_GO_GRPC_VER := v1.5.1
+PROTOC_GEN_GO_VER      := v1.36.5
+
+$(TOOLS_DIR)/protoc-gen-go-grpc-$(PROTOC_GEN_GO_GRPC_VER):
+	GOBIN=$(TOOLS_DIR) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VER)
+	@mv $(TOOLS_DIR)/protoc-gen-go-grpc $(TOOLS_DIR)/protoc-gen-go-grpc-$(PROTOC_GEN_GO_GRPC_VER)
+
+$(TOOLS_DIR)/protoc-gen-go-$(PROTOC_GEN_GO_VER):
+	GOBIN=$(TOOLS_DIR) go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VER)
+	@mv $(TOOLS_DIR)/protoc-gen-go $(TOOLS_DIR)/protoc-gen-go-$(PROTOC_GEN_GO_VER)
+
+
+$(TOOLS_DIR)/buf-$(BUF_VERSION):
+	GOBIN=$(TOOLS_DIR) go install github.com/bufbuild/buf/cmd/buf@$(BUF_VERSION)
+	@mv $(TOOLS_DIR)/buf $(TOOLS_DIR)/buf-$(BUF_VERSION)
+
+.PHONY: generate-proto
+generate-proto: $(TOOLS_DIR)/buf-$(BUF_VERSION) $(TOOLS_DIR)/protoc-gen-go-grpc-$(PROTOC_GEN_GO_GRPC_VER) $(TOOLS_DIR)/protoc-gen-go-$(PROTOC_GEN_GO_VER) ## Generate code from proto files.
+	$(TOOLS_DIR)/buf-$(BUF_VERSION) generate
+	$(MAKE) fmt
+
+.PHONY: clean-tools
+clean-tools: ## Remove all tools.
+	rm -rf $(TOOLS_DIR)
