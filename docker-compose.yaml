@@ -49,15 +49,13 @@ services:
         condition: service_completed_successfully
       kube-apiserver:
         condition: service_started
-      tink-crds-apply:
-        condition: service_completed_successfully
-      rufio-crds-apply:
+      crds-apply:
         condition: service_completed_successfully
     
     ## "init" containers; they run until they accomplish their purpose and then exit
-  tink-crds-apply:
+  crds-apply:
     image: bitnami/kubectl:1.30.4
-    command: -s "https://kube-apiserver:6443" apply -k 'github.com/tinkerbell/tinkerbell/config/crd?ref=main'
+    command: -s "https://kube-apiserver:6443" apply -k '/crd' # 'github.com/tinkerbell/tinkerbell/config/crd?ref=main'
     environment:
       KUBECONFIG: /kube/kubeconfig
       KUBERNETES: https://kube-apiserver:6443
@@ -66,19 +64,7 @@ services:
         condition: service_started
     volumes:
       - kubeconfig:/kube
-    restart: on-failure
-
-  rufio-crds-apply:
-    image: bitnami/kubectl:1.30.4
-    command: -s "https://kube-apiserver:6443" apply -k 'github.com/tinkerbell/tinkerbell/config/crd?ref=main'
-    environment:
-      KUBECONFIG: /kube/kubeconfig
-      KUBERNETES: https://kube-apiserver:6443
-    depends_on:
-      kube-apiserver:
-        condition: service_started
-    volumes:
-      - kubeconfig:/kube
+      - ./config/crd:/crd
     restart: on-failure
 
   csr:
