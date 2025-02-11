@@ -1,4 +1,4 @@
-package hegel
+package tootles
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/frontend/ec2"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/frontend/hack"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/http"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/metrics"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/middleware"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/xff"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/hack"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/http"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/metrics"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/middleware"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/xff"
 )
 
 type Config struct {

@@ -17,11 +17,11 @@ import (
 	"github.com/peterbourgon/ff/v4/ffhelp"
 	"github.com/tinkerbell/tinkerbell/backend/kube"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
-	"github.com/tinkerbell/tinkerbell/hegel"
 	"github.com/tinkerbell/tinkerbell/rufio"
 	"github.com/tinkerbell/tinkerbell/smee"
 	"github.com/tinkerbell/tinkerbell/tink/controller"
 	"github.com/tinkerbell/tinkerbell/tink/server"
+	"github.com/tinkerbell/tinkerbell/tootles"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -36,7 +36,7 @@ func Execute(ctx context.Context, args []string) error {
 		}(),
 		PublicIP:             detectPublicIPv4(),
 		EnableSmee:           true,
-		EnableHegel:          true,
+		EnableTootles:        true,
 		EnableTinkServer:     true,
 		EnableTinkController: true,
 		EnableRufio:          true,
@@ -44,8 +44,8 @@ func Execute(ctx context.Context, args []string) error {
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
 	}
-	h := &flag.HegelConfig{
-		Config:   hegel.NewConfig(hegel.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 50061)),
+	h := &flag.TootlesConfig{
+		Config:   tootles.NewConfig(tootles.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 50061)),
 		BindAddr: detectPublicIPv4(),
 		BindPort: 50061,
 	}
@@ -74,13 +74,13 @@ func Execute(ctx context.Context, args []string) error {
 
 	gfs := ff.NewFlagSet("globals")
 	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(gfs)
-	hfs := ff.NewFlagSet("hegel - metadata service").SetParent(sfs)
+	hfs := ff.NewFlagSet("tootles - metadata service").SetParent(sfs)
 	tfs := ff.NewFlagSet("tink server - Workflow server").SetParent(hfs)
 	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
 	rfs := ff.NewFlagSet("rufio - BMC controller").SetParent(cfs)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
 	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
-	flag.RegisterHegelFlags(&flag.Set{FlagSet: hfs}, h)
+	flag.RegisterTootlesFlags(&flag.Set{FlagSet: hfs}, h)
 	flag.RegisterTinkServerFlags(&flag.Set{FlagSet: tfs}, ts)
 	flag.RegisterTinkControllerFlags(&flag.Set{FlagSet: cfs}, tc)
 	flag.RegisterRufioFlags(&flag.Set{FlagSet: rfs}, rc)
@@ -104,7 +104,7 @@ func Execute(ctx context.Context, args []string) error {
 	// Smee
 	s.Convert(&globals.TrustedProxies)
 
-	// Hegel
+	// Tootles
 	h.Convert(&globals.TrustedProxies)
 
 	// Tink Server
@@ -114,7 +114,7 @@ func Execute(ctx context.Context, args []string) error {
 	log.Info("starting tinkerbell",
 		"version", gitRevision(),
 		"smeeEnabled", globals.EnableSmee,
-		"hegelEnabled", globals.EnableHegel,
+		"tootlesEnabled", globals.EnableTootles,
 		"tinkServerEnabled", globals.EnableTinkServer,
 		"tinkControllerEnabled", globals.EnableTinkController,
 		"rufioEnabled", globals.EnableRufio,
@@ -122,7 +122,7 @@ func Execute(ctx context.Context, args []string) error {
 
 	switch globals.Backend {
 	case "kube":
-		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableHegel, globals.EnableTinkServer))
+		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer))
 		if err != nil {
 			return fmt.Errorf("failed to create kube backend: %w", err)
 		}
@@ -158,12 +158,12 @@ func Execute(ctx context.Context, args []string) error {
 		return nil
 	})
 
-	// Hegel
+	// Tootles
 	g.Go(func() error {
-		if globals.EnableHegel {
-			return h.Config.Start(ctx, log.WithValues("service", "hegel"))
+		if globals.EnableTootles {
+			return h.Config.Start(ctx, log.WithValues("service", "tootles"))
 		}
-		log.Info("hegel service is disabled")
+		log.Info("tootles service is disabled")
 		return nil
 	})
 
@@ -204,21 +204,21 @@ func Execute(ctx context.Context, args []string) error {
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
-	if !globals.EnableSmee && !globals.EnableHegel && !globals.EnableTinkServer && !globals.EnableTinkController && !globals.EnableRufio {
+	if !globals.EnableSmee && !globals.EnableTootles && !globals.EnableTinkServer && !globals.EnableTinkController && !globals.EnableRufio {
 		return errors.New("all services are disabled")
 	}
 
 	return nil
 }
 
-func enabledIndexes(smeeEnabled, hegelEnabled, tinkServerEnabled bool) map[kube.IndexType]kube.Index {
+func enabledIndexes(smeeEnabled, tootlesEnabled, tinkServerEnabled bool) map[kube.IndexType]kube.Index {
 	idxs := make(map[kube.IndexType]kube.Index, 0)
 
 	if smeeEnabled {
 		idxs = flag.KubeIndexesSmee
 	}
-	if hegelEnabled {
-		for k, v := range flag.KubeIndexesHegel {
+	if tootlesEnabled {
+		for k, v := range flag.KubeIndexesTootles {
 			idxs[k] = v
 		}
 	}

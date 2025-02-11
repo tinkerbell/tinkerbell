@@ -18,7 +18,7 @@ func Serve(ctx context.Context, logger logr.Logger, address string, handler http
 		Handler: handler,
 
 		// Mitigate Slowloris attacks. 20 seconds is based on Apache's recommended 20-40
-		// recommendation. Hegel doesn't really have many headers so 20s should be plenty of time.
+		// recommendation. Tootles doesn't really have many headers so 20s should be plenty of time.
 		// https://en.wikipedia.org/wiki/Slowloris_(computer_security)
 		ReadHeaderTimeout: 20 * time.Second,
 	}

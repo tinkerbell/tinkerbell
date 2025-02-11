@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/tinkerbell/tinkerbell/data"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/frontend/ec2"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2"
 )
 
 func init() {

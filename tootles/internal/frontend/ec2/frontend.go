@@ -8,10 +8,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tinkerbell/tinkerbell/data"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/frontend/ec2/internal/staticroute"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/ginutil"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/http/httperror"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/http/request"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2/internal/staticroute"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/ginutil"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/http/httperror"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/http/request"
 )
 
 // ErrInstanceNotFound indicates an instance could not be found for the given identifier.
