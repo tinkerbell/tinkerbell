@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/go-cmp/cmp"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/ginutil"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/ginutil"
 )
 
 func TestParse(t *testing.T) {

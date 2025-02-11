@@ -18,7 +18,7 @@ type GlobalConfig struct {
 	TrustedProxies       []netip.Prefix
 	PublicIP             netip.Addr
 	EnableSmee           bool
-	EnableHegel          bool
+	EnableTootles        bool
 	EnableTinkServer     bool
 	EnableTinkController bool
 	EnableRufio          bool
@@ -35,7 +35,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(TrustedProxies, &ntip.PrefixList{PrefixList: &gc.TrustedProxies})
 	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
 	fs.Register(EnabledSmee, ffval.NewValueDefault(&gc.EnableSmee, gc.EnableSmee))
-	fs.Register(EnabledHegel, ffval.NewValueDefault(&gc.EnableHegel, gc.EnableHegel))
+	fs.Register(EnabledTootles, ffval.NewValueDefault(&gc.EnableTootles, gc.EnableTootles))
 	fs.Register(EnabledTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
 	fs.Register(EnabledTinkController, ffval.NewValueDefault(&gc.EnableTinkController, gc.EnableTinkController))
 	fs.Register(EnabledRufioController, ffval.NewValueDefault(&gc.EnableRufio, gc.EnableRufio))
@@ -96,9 +96,9 @@ var EnabledSmee = Config{
 	Usage: "enable Smee service",
 }
 
-var EnabledHegel = Config{
-	Name:  "enable-hegel",
-	Usage: "enable Hegel service",
+var EnabledTootles = Config{
+	Name:  "enable-tootles",
+	Usage: "enable Tootles service",
 }
 
 var EnabledTinkServer = Config{

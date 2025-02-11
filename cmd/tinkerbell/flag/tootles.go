@@ -1,0 +1,63 @@
+package flag
+
+import (
+	"fmt"
+	"net/netip"
+
+	"github.com/peterbourgon/ff/v4/ffval"
+	"github.com/tinkerbell/tinkerbell/backend/kube"
+	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
+	"github.com/tinkerbell/tinkerbell/tootles"
+)
+
+type TootlesConfig struct {
+	Config   *tootles.Config
+	BindAddr netip.Addr
+	BindPort int
+}
+
+var KubeIndexesTootles = map[kube.IndexType]kube.Index{
+	kube.IndexTypeIPAddr: kube.Indexes[kube.IndexTypeIPAddr],
+}
+
+func RegisterTootlesFlags(fs *Set, h *TootlesConfig) {
+	fs.Register(TootlesBindAddr, &ntip.Addr{Addr: &h.BindAddr})
+	fs.Register(TootlesBindPort, ffval.NewValueDefault(&h.BindPort, h.BindPort))
+	fs.Register(TootlesDebugMode, ffval.NewValueDefault(&h.Config.DebugMode, h.Config.DebugMode))
+}
+
+var TootlesBindAddr = Config{
+	Name:  "tootles-bind-addr",
+	Usage: "ip address on which the Tootles service will listen",
+}
+
+var TootlesBindPort = Config{
+	Name:  "tootles-bind-port",
+	Usage: "port on which the Tootles service will listen",
+}
+
+var TootlesDebugMode = Config{
+	Name:  "tootles-debug-mode",
+	Usage: "whether to run Tootles in debug mode",
+}
+
+// Convert converts TootlesConfig data types to tootles.Config data types.
+func (h *TootlesConfig) Convert(trustedProxies *[]netip.Prefix) {
+	// Convert h.BindAddr and h.BindPort to h.Config.BindAddrPort
+	addr, port := splitHostPort(h.Config.BindAddrPort)
+	if h.BindAddr.IsValid() {
+		addr = h.BindAddr.String()
+	}
+	if h.BindPort != 0 {
+		port = fmt.Sprintf("%d", h.BindPort)
+	}
+	if port != "" {
+		h.Config.BindAddrPort = fmt.Sprintf("%s:%s", addr, port)
+	} else {
+		h.Config.BindAddrPort = addr
+	}
+
+	if trustedProxies != nil && len(*trustedProxies) > 0 {
+		h.Config.TrustedProxies = ntip.ToPrefixList(trustedProxies).String()
+	}
+}

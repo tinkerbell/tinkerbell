@@ -14,7 +14,7 @@ import (
 )
 
 // GetHackInstance returns a hack.Instance by calling the getByIP method and converting the result.
-// This is a method that the Hegel service uses.
+// This is a method that the Tootles service uses.
 func (b *Backend) GetHackInstance(ctx context.Context, ip string) (data.HackInstance, error) {
 	hw, err := b.hwByIP(ctx, ip)
 	if err != nil {

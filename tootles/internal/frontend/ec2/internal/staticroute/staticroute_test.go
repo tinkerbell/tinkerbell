@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/frontend/ec2/internal/staticroute"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2/internal/staticroute"
 )
 
 func TestBuilder(t *testing.T) {

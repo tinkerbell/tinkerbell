@@ -2,7 +2,7 @@
 Package hack contains a frontend that provides a /metadata endpoint for the rootio hub action.
 It is not intended to be long lived and will be removed as we migrate to exposing Hardware
 data to Tinkerbell templates. In doing so, we can convert the rootio action to accept its inputs
-via parameters instead of retrieing them from Hegel and subsequently delete this frontend.
+via parameters instead of retrieving them from Tootles and subsequently delete this frontend.
 */
 package hack
 
@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tinkerbell/tinkerbell/data"
-	"github.com/tinkerbell/tinkerbell/hegel/internal/http/request"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/http/request"
 )
 
 // Client is a backend for retrieving hack instance data.
