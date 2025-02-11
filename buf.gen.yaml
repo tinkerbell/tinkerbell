@@ -1,0 +1,17 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/tinkerbell/tinkerbell/pkg/proto
+plugins:
+  - local: out/tools/protoc-gen-go-v1.36.5
+    out: pkg/proto
+    opt:
+      - paths=source_relative
+  - local: out/tools/protoc-gen-go-grpc-v1.5.1
+    out: pkg/proto
+    opt:
+      - paths=source_relative
+inputs:
+  - directory: pkg/proto
