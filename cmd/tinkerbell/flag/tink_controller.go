@@ -34,5 +34,5 @@ var TinkControllerProbeAddr = Config{
 
 var TinkControllerLeaderElectionNamespace = Config{
 	Name:  "tink-controller-leader-election-namespace",
-	Usage: "namespace in which the leader election configmap will be created",
+	Usage: "namespace in which the leader election lease will be created",
 }

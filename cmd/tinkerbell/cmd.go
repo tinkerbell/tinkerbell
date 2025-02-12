@@ -57,6 +57,7 @@ func Execute(ctx context.Context, args []string) error {
 	controllerOpts := []controller.Option{
 		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8080))),
 		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8081))),
+		controller.WithLeaderElectionNamespace("default"),
 	}
 	tc := &flag.TinkControllerConfig{
 		Config: controller.NewConfig(controllerOpts...),
@@ -67,6 +68,7 @@ func Execute(ctx context.Context, args []string) error {
 		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8083))),
 		rufio.WithBmcConnectTimeout(2 * time.Minute),
 		rufio.WithPowerCheckInterval(30 * time.Minute),
+		rufio.WithLeaderElectionNamespace("default"),
 	}
 	rc := &flag.RufioConfig{
 		Config: rufio.NewConfig(rufioOpts...),
@@ -248,6 +250,16 @@ func defaultLogger(level int) logr.Logger {
 				if v == "tinkerbell" {
 					idx = i
 					break
+				}
+				// This trims the source file for 3rd party packages to include
+				// just enough information to identify the package. Without this,
+				// the source file can be long and make the log line more cluttered
+				// and hard to read.
+				if v == "mod" {
+					if i+1 < len(p) {
+						idx = i + 1
+						break
+					}
 				}
 			}
 			ss.File = filepath.Join(p[idx:]...)
