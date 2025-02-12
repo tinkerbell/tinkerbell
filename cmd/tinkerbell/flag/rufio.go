@@ -36,7 +36,7 @@ var RufioControllerProbeAddr = Config{
 
 var RufioControllerLeaderElectionNamespace = Config{
 	Name:  "rufio-controller-leader-election-namespace",
-	Usage: "namespace in which the leader election configmap will be created",
+	Usage: "namespace in which the leader election lease will be created",
 }
 
 var RufioBMCConnectTimeout = Config{
