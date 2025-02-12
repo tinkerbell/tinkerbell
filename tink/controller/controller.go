@@ -55,6 +55,12 @@ func WithProbeAddr(addrPort netip.AddrPort) Option {
 	}
 }
 
+func WithLeaderElectionNamespace(namespace string) Option {
+	return func(c *Config) {
+		c.LeaderElectionNamespace = namespace
+	}
+}
+
 func NewConfig(opts ...Option) *Config {
 	defatuls := &Config{
 		EnableLeaderElection: true,
