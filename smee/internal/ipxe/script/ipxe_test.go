@@ -120,6 +120,7 @@ exit
 func TestStaticScript(t *testing.T) {
 	want := `#!ipxe
 
+set syslog 127.1.1.1
 echo Loading the static Tinkerbell iPXE script...
 
 set arch ${buildarch}
