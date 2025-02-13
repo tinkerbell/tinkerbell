@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -1000,6 +1000,126 @@ tasks:
 
 			if diff := cmp.Diff(tc.wantWflow, wflow, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time")); diff != "" {
 				t.Errorf("unexpected difference:\n%v", diff)
+			}
+		})
+	}
+}
+
+func TestGetStartTime(t *testing.T) {
+	cases := []struct {
+		name  string
+		input *v1alpha1.Workflow
+		want  *metav1.Time
+	}{
+		{
+			"Empty wflow",
+			&v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "debian",
+					Namespace: "default",
+				},
+			},
+			nil,
+		},
+		{
+			"Running workflow",
+			&v1alpha1.Workflow{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "debian",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{},
+				Status: v1alpha1.WorkflowStatus{
+					State:         v1alpha1.WorkflowStateRunning,
+					GlobalTimeout: 600,
+					Tasks: []v1alpha1.Task{
+						{
+							Name:       "os-installation",
+							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							Actions: []v1alpha1.Action{
+								{
+									Name:    "stream-debian-image",
+									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout: 60,
+									Environment: map[string]string{
+										"COMPRESSED": "true",
+										"DEST_DISK":  "/dev/nvme0n1",
+										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
+									},
+									Status: v1alpha1.WorkflowStateSuccess,
+
+									Seconds: 20,
+								},
+								{
+									Name:    "stream-debian-image",
+									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout: 60,
+									Environment: map[string]string{
+										"COMPRESSED": "true",
+										"DEST_DISK":  "/dev/nvme0n1",
+										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
+									},
+									Status: v1alpha1.WorkflowStateRunning,
+								},
+							},
+						},
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"pending without a start time",
+			&v1alpha1.Workflow{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "debian",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{},
+				Status: v1alpha1.WorkflowStatus{
+					State:         v1alpha1.WorkflowStatePending,
+					GlobalTimeout: 600,
+					Tasks: []v1alpha1.Task{
+						{
+							Name:       "os-installation",
+							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							Actions: []v1alpha1.Action{
+								{
+									Name:    "stream-debian-image",
+									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout: 60,
+									Environment: map[string]string{
+										"COMPRESSED": "true",
+										"DEST_DISK":  "/dev/nvme0n1",
+										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
+									},
+									Status:    v1alpha1.WorkflowStatePending,
+									StartedAt: nil,
+								},
+							},
+						},
+					},
+				},
+			},
+			nil,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := startTime(tc.input)
+			if got == nil && tc.want == nil {
+				return
+			}
+			if !got.Time.Equal(tc.want.Time) {
+				t.Errorf("Got time %s, wanted %s", got.Format(time.RFC1123), tc.want.Time.Format(time.RFC1123))
 			}
 		})
 	}

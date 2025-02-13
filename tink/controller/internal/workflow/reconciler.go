@@ -8,8 +8,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-logr/logr"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	wrkflow "github.com/tinkerbell/tinkerbell/pkg/workflow"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -274,7 +273,7 @@ func toTemplateHardwareData(hardware v1alpha1.Hardware) templateHardwareData {
 
 func (r *Reconciler) processRunningWorkflow(stored *v1alpha1.Workflow) {
 	// Check for global timeout expiration
-	if r.nowFunc().After(wrkflow.GetStartTime(stored).Add(time.Duration(stored.Status.GlobalTimeout) * time.Second)) {
+	if r.nowFunc().After(startTime(stored).Add(time.Duration(stored.Status.GlobalTimeout) * time.Second)) {
 		stored.Status.State = v1alpha1.WorkflowStateTimeout
 	}
 
@@ -305,4 +304,14 @@ func pointerToValue[V any](ptr *V) V {
 		return zero
 	}
 	return *ptr
+}
+
+// startTime returns the start time, for the first action of the first task.
+func startTime(w *v1alpha1.Workflow) *metav1.Time {
+	if len(w.Status.Tasks) > 0 {
+		if len(w.Status.Tasks[0].Actions) > 0 {
+			return w.Status.Tasks[0].Actions[0].StartedAt
+		}
+	}
+	return nil
 }

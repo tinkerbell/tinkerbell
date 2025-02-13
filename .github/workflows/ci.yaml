@@ -38,8 +38,8 @@ jobs:
         run: make ci
 
       - name: Compile binaries for Tinkerbell
-        run: make crosscompile
+        run: make cross-compile
 
       - name: Compile binaries for Tink Agent
-        run: make crosscompile-agent
+        run: make cross-compile-agent
 

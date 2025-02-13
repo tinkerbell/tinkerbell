@@ -51,31 +51,37 @@ ci-checks: .github/workflows/ci-checks.sh ## Run the ci-checks.sh script
 .PHONY: ci
 ci: ci-checks coverage lint vet ## Runs all the same validations and tests that run in CI
 
+TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
+
 crossbinaries := out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64
 out/tinkerbell-linux-amd64: FLAGS=GOARCH=amd64
 out/tinkerbell-linux-arm64: FLAGS=GOARCH=arm64
-out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64: clean
+out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64: $(TINKERBELL_SOURCES)
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
-out/tinkerbell: clean ## Compile Tinkerbell for the current architecture
+TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
+
+out/tinkerbell: $(TINKERBELL_SOURCES) ## Compile Tinkerbell for the current architecture
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
-crosscompile: $(crossbinaries) ## Compile for all architectures
+cross-compile: $(crossbinaries) ## Compile for all architectures
+
+AGENT_SOURCES := $(shell find $(go list -deps ./cmd/agent | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
 
 crossbinaries-agent := out/tink-agent-linux-amd64 out/tink-agent-linux-arm64
 out/tink-agent-linux-amd64: FLAGS=GOARCH=amd64
 out/tink-agent-linux-arm64: FLAGS=GOARCH=arm64
-out/tink-agent-linux-amd64 out/tink-agent-linux-arm64:: clean-agent
+out/tink-agent-linux-amd64 out/tink-agent-linux-arm64: $(AGENT_SOURCES)
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o $@ ./cmd/agent
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
-out/tink-agent: clean-agent ## Compile Tink Agent for the current architecture
+out/tink-agent: $(AGENT_SOURCES) ## Compile Tink Agent for the current architecture
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o $@ ./cmd/agent
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
-crosscompile-agent: $(crossbinaries-agent) ## Compile Tink Agent for all architectures
+cross-compile-agent: $(crossbinaries-agent) ## Compile Tink Agent for all architectures
 
 .PHONY: generate-proto
 generate-proto: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) ## Generate code from proto files.
@@ -85,20 +91,26 @@ generate-proto: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) ## Gen
 # Kubernetes CRD generation
 .PHONY: manifests
 manifests: $(CONTROLLER_GEN_FQP) ## Generate WebhookConfiguration and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=build/config/crd/bases
 	$(MAKE) fmt
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN_FQP) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN_FQP) object:headerFile="config/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN_FQP) object:headerFile="build/config/boilerplate.go.txt" paths="./..."
 	$(MAKE) fmt
 
+.PHONY: dep-graph
+dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
+	rm -rf out/dep-graph.txt out/dep-graph.png
+	$(GODEPGRAPH_FQP) -s -novendor -horizontal -onlyprefixes "github.com/tinkerbell/tinkerbell,./cmd/agent,./cmd/tinkerbell" ./cmd/agent ./cmd/tinkerbell > out/dep-graph.txt
+	cat out/dep-graph.txt | dot -Tpng -Goverlap=scale -Gsplines=true -o out/dep-graph.png
+
 .PHONY: clean
-clean: ## Remove all Tinkerbell binaries
+clean: ## Remove all cross compiled Tinkerbell binaries
 	rm -f out/tinkerbell out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64
 
 .PHONY: clean-agent
-clean-agent: ## Remove all Tink Agent binaries
+clean-agent: ## Remove all cross compiled Tink Agent binaries
 	rm -f out/tink-agent out/tink-agent-linux-amd64 out/tink-agent-linux-arm64
 
 .PHONY: clean-tools

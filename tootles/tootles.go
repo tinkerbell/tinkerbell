@@ -1,3 +1,5 @@
+// package tootles is the code for serving metadata (ec2 style, etc).
+// Useful for Cloud-init integration.
 package tootles
 
 import (
