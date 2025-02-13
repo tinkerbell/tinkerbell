@@ -144,7 +144,7 @@ func (h *Handler) HandlerFunc() http.HandlerFunc {
 		if ha, err := getMAC(r.URL.Path); err == nil {
 			hw, err := getByMac(ctx, ha, h.Backend)
 			if err != nil && h.StaticIPXEEnabled {
-				h.Logger.Info("serving static ipxe script", "mac", ha, "error", err)
+				h.Logger.Info("serving static ipxe script", "mac", ha.String(), "reasonForStaticScript", err)
 				h.serveStaticIPXEScript(w)
 				return
 			}
@@ -188,6 +188,8 @@ func (h *Handler) serveStaticIPXEScript(w http.ResponseWriter) {
 		SyslogHost:        h.PublicSyslogFQDN,
 		TinkerbellTLS:     h.TinkServerTLS,
 		TinkGRPCAuthority: h.TinkServerGRPCAddr,
+		Retries:           h.IPXEScriptRetries,
+		RetryDelay:        h.IPXEScriptRetryDelay,
 	}
 	script, err := GenerateTemplate(auto, StaticScript)
 	if err != nil {
