@@ -1,0 +1,7 @@
+FROM scratch
+
+ARG TARGETOS
+ARG TARGETARCH
+
+COPY out/tink-agent-${TARGETOS}-${TARGETARCH} /tink-agent
+ENTRYPOINT [ "/tink-agent" ]
