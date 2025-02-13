@@ -242,14 +242,17 @@ func defaultLogger(level int) logr.Logger {
 			if !ok || ss == nil {
 				return a
 			}
-			ss.Function = ""
+
 			p := strings.Split(ss.File, "/")
 			// log the file path from tinkerbell/tinkerbell to the end.
 			var idx int
+
 			for i, v := range p {
 				if v == "tinkerbell" {
-					idx = i
-					break
+					if i+2 < len(p) {
+						idx = i + 2
+						break
+					}
 				}
 				// This trims the source file for 3rd party packages to include
 				// just enough information to identify the package. Without this,
@@ -263,6 +266,8 @@ func defaultLogger(level int) logr.Logger {
 				}
 			}
 			ss.File = filepath.Join(p[idx:]...)
+			// Don't log the function name.
+			ss.Function = ""
 
 			return a
 		}

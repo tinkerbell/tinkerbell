@@ -33,14 +33,12 @@ services:
   tinkerbell:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.tinkerbell
     network_mode: host
     environment:
       TINKERBELL_BACKEND_KUBE_CONFIG: /kube/kubeconfig
       TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL: ${OSIE_URL:?Error:"OSIE_URL env var is not set"}
-      TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS: "tink_worker_image=ghcr.io/jacobweinstock/tink-agent:5ca9170"
-      TINKERBELL_TINK_CONTROLLER_LEADER_ELECTION_NAMESPACE: default
-      TINKERBELL_RUFIO_CONTROLLER_LEADER_ELECTION_NAMESPACE: default
+      TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS: "tink_worker_image=quay.io/tinkerbell/tink-worker"
     volumes:
       - kubeconfig:/kube
     restart: on-failure
