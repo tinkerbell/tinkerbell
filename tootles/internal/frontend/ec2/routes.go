@@ -1,6 +1,6 @@
 package ec2
 
-import "github.com/tinkerbell/tinkerbell/data"
+import "github.com/tinkerbell/tinkerbell/pkg/data"
 
 // TODO(chrisdoherty4) Figure out a better way to model routes; this approach is clunky and
 // error prone. Ideally we have a way to define routes and retrieve the children of a route without

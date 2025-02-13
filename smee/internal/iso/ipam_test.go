@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tinkerbell/tinkerbell/data"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 )
 
 func TestParseIPAM(t *testing.T) {

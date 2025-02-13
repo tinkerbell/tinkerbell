@@ -9,9 +9,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
-	wrkflow "github.com/tinkerbell/tinkerbell/pkg/workflow"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,12 +42,12 @@ type Handler struct {
 func getWorkflowContext(wf v1alpha1.Workflow) *proto.WorkflowContext {
 	return &proto.WorkflowContext{
 		WorkflowId:           wf.Namespace + "/" + wf.Name,
-		CurrentWorker:        wrkflow.GetCurrentWorker(&wf),
-		CurrentTask:          wrkflow.GetCurrentTask(&wf),
-		CurrentAction:        wrkflow.GetCurrentAction(&wf),
-		CurrentActionIndex:   int64(wrkflow.GetCurrentActionIndex(&wf)),
-		CurrentActionState:   proto.State(proto.State_value[string(wrkflow.GetCurrentActionState(&wf))]),
-		TotalNumberOfActions: int64(wrkflow.GetTotalNumberOfActions(&wf)),
+		CurrentWorker:        v1alpha1.GetCurrentWorker(&wf),
+		CurrentTask:          v1alpha1.GetCurrentTask(&wf),
+		CurrentAction:        v1alpha1.GetCurrentAction(&wf),
+		CurrentActionIndex:   int64(v1alpha1.GetCurrentActionIndex(&wf)),
+		CurrentActionState:   proto.State(proto.State_value[string(v1alpha1.GetCurrentActionState(&wf))]),
+		TotalNumberOfActions: int64(v1alpha1.GetTotalNumberOfActions(&wf)),
 	}
 }
 
@@ -61,7 +60,7 @@ func (s *Handler) getCurrentAssignedNonTerminalWorkflowsForWorker(ctx context.Co
 	wfs := []v1alpha1.Workflow{}
 	for _, wf := range stored {
 		// If the current assigned or running action is assigned to the requested worker, include it
-		if wf.Status.Tasks[wrkflow.GetCurrentTaskIndex(&wf)].WorkerAddr == workerID {
+		if wf.Status.Tasks[v1alpha1.GetCurrentTaskIndex(&wf)].WorkerAddr == workerID {
 			wfs = append(wfs, wf)
 		}
 	}
@@ -242,7 +241,7 @@ func getWorkflowContextForRequest(req *proto.WorkflowActionStatus, wf *v1alpha1.
 	wfContext.CurrentWorker = req.GetWorkerId()
 	wfContext.CurrentTask = req.GetTaskName()
 	wfContext.CurrentActionState = req.GetActionStatus()
-	wfContext.CurrentActionIndex = int64(wrkflow.GetCurrentActionIndex(wf))
+	wfContext.CurrentActionIndex = int64(v1alpha1.GetCurrentActionIndex(wf))
 	return wfContext
 }
 
@@ -259,10 +258,10 @@ func (s *Handler) ReportActionStatus(ctx context.Context, req *proto.WorkflowAct
 		l.Error(err, "get workflow")
 		return nil, status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
 	}
-	if req.GetTaskName() != wrkflow.GetCurrentTask(wf) {
+	if req.GetTaskName() != v1alpha1.GetCurrentTask(wf) {
 		return nil, status.Errorf(codes.InvalidArgument, errInvalidTaskReported)
 	}
-	if req.GetActionName() != wrkflow.GetCurrentAction(wf) {
+	if req.GetActionName() != v1alpha1.GetCurrentAction(wf) {
 		return nil, status.Errorf(codes.InvalidArgument, errInvalidActionReported)
 	}
 

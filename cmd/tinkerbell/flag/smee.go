@@ -5,7 +5,7 @@ import (
 	"net/netip"
 
 	"github.com/peterbourgon/ff/v4/ffval"
-	"github.com/tinkerbell/tinkerbell/backend/kube"
+	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
 	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 	"github.com/tinkerbell/tinkerbell/pkg/flag/url"
 	"github.com/tinkerbell/tinkerbell/smee"

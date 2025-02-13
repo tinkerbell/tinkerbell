@@ -16,7 +16,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
-	"github.com/tinkerbell/tinkerbell/data"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"

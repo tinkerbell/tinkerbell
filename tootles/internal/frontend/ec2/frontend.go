@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tinkerbell/tinkerbell/data"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2/internal/staticroute"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/ginutil"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/http/httperror"
