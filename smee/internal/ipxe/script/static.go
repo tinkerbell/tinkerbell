@@ -4,6 +4,7 @@ package script
 // It is built to be generic enough for all hardware to use.
 var StaticScript = `#!ipxe
 
+set syslog {{ .SyslogHost }}
 echo Loading the static Tinkerbell iPXE script...
 
 set arch ${buildarch}
