@@ -77,6 +77,9 @@ func (c *Config) Start(ctx context.Context) error {
 
 		curAction := actions.GetActionList()[request.GetCurrentActionIndex()]
 		if curAction.String() == inProcessAction.String() {
+			if request.GetCurrentActionState() == proto.State_STATE_PENDING {
+				inProcessAction = &proto.WorkflowAction{}
+			}
 			wait(ctx, c.RetryInterval)
 			continue
 		}
@@ -93,10 +96,20 @@ func (c *Config) Start(ctx context.Context) error {
 			TimeoutSeconds: int(curAction.Timeout),
 		}
 		if len(curAction.Command) > 0 {
-			action.Cmd = curAction.Command[0]
-			if len(curAction.Command) > 1 {
-				action.Args = curAction.Command[1:]
-			}
+			// action.Cmd is the entrypoint in a container.
+			// action.Args are the arguments to the entrypoint.
+
+			// This would allow the Action to override the entrypoint.
+			// This is useful as the current v1alpha1 spec doesn't have a way to override the entrypoint.
+			// But this changes the behavior of using `command` in an Action that is not clear and is not backward compatible.
+			// This is commented out until we have a clear way to handle this.
+			/*
+				action.Cmd = curAction.Command[0]
+				if len(curAction.Command) > 1 {
+					action.Args = curAction.Command[1:]
+				}
+			*/
+			action.Args = curAction.Command
 		}
 		for _, v := range curAction.Volumes {
 			action.Volumes = append(action.Volumes, spec.Volume(v))

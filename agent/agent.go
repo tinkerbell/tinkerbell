@@ -80,10 +80,10 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 
 		state := spec.StateSuccess
 		// TODO(jacobweinstock): Add a retry count that comes from a CLI flag. It should only take precedence if the action has a retry count of 0.
-		retries := action.Retries
+		retries := ternary(action.Retries == 0, 1, action.Retries)
 
 		timeoutCtx, timeoutDone := context.WithTimeout(ctx, time.Duration(action.TimeoutSeconds)*time.Second)
-		for i := 1; i <= ternary(retries == 0, 1, retries); i++ {
+		for i := 1; i <= retries; i++ {
 			if err := c.RuntimeExecutor.Execute(timeoutCtx, action); err != nil {
 				log.Info("error executing action", "error", err, "maxRetries", retries, "currentTry", i)
 				state = spec.StateFailure
@@ -96,7 +96,6 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 					timeoutDone()
 					break
 				}
-				timeoutDone()
 				continue
 			}
 			state = spec.StateSuccess
