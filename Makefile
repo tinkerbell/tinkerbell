@@ -4,6 +4,8 @@
 SHELL := bash
 .SHELLFLAGS := -o pipefail -euc
 
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
+
 CGO_ENABLED := 0
 export CGO_ENABLED
 COMPRESS := false
@@ -101,6 +103,34 @@ dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
 	rm -rf out/dep-graph.txt out/dep-graph.png
 	$(GODEPGRAPH_FQP) -s -novendor -horizontal -onlyprefixes "github.com/tinkerbell/tinkerbell,./cmd/agent,./cmd/tinkerbell" ./cmd/agent ./cmd/tinkerbell > out/dep-graph.txt
 	cat out/dep-graph.txt | dot -Tpng -Goverlap=scale -Gsplines=true -o out/dep-graph.png
+
+######### Build container images - start #########
+# `?=` will only set the variable if it is not already set by the environment 
+IMAGE_NAME       ?= tinkerbell/tinkerbell:latest
+IMAGE_NAME_AGENT ?= tinkerbell/tink-agent:latest
+
+.PHONY: prepare-buildx
+prepare-buildx: ## Prepare the buildx environment.
+## the "|| true" is to avoid failing if the builder already exists.
+	docker buildx create --name tinkerbell-multiarch --use --driver docker-container || true
+
+.PHONY: image
+image: cross-compile ## Build the Tinkerbell container image
+	docker build -t $(IMAGE_NAME) -f Dockerfile.tinkerbell .
+
+.PHONY: build-push-image
+build-push-image: ## Build and push the container image for both Amd64 and Arm64 architectures.
+	docker buildx build --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME):$(GIT_COMMIT) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
+
+.PHONY: image-agent
+image-agent: cross-compile-agent ## Build the Tink Agent container image
+	docker build -t $(IMAGE_NAME_AGENT) -f Dockerfile.agent .
+
+.PHONY: build-push-image-agent
+build-push-image-agent: ## Build and push the container image for both Amd64 and Arm64 architectures.
+	docker buildx build --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME_AGENT):$(GIT_COMMIT) -t $(IMAGE_NAME_AGENT):latest -f Dockerfile.agent .
+
+######### Build container images - end   #########
 
 .PHONY: clean
 clean: ## Remove all cross compiled Tinkerbell binaries

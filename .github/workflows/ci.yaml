@@ -8,8 +8,8 @@ on:
   pull_request:
 
 env:
-  REGISTRY: quay.io
-  IMAGE: quay.io/${{ github.repository }}
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/${{ github.repository }}
   CGO_ENABLED: 0
   GO_VERSION: "1.24"
 
@@ -37,9 +37,78 @@ jobs:
       - name: Run all CI checks, linting, tests, etc
         run: make ci
 
-      - name: Compile binaries for Tinkerbell
-        run: make cross-compile
+  build-binaries:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: tinkerbell
+            make-target: cross-compile
+            artifact-name: tinkerbell-binaries
+          - name: tink-agent
+            make-target: cross-compile-agent
+            artifact-name: tink-agent-binaries
+    steps:
+      - name: Compile binaries for ${{ matrix.name }}
+        run: make ${{ matrix.make-target }}
+      
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: out/${{ matrix.name }}-*
+          if-no-files-found: error
 
-      - name: Compile binaries for Tink Agent
-        run: make cross-compile-agent
+  build-container-images:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - validation
+      - build-binaries
+    strategy:
+      matrix:
+        include:
+          - artifact_name: tinkerbell-binaries
+            image_name: ${{ env.IMAGE }}/tinkerbell
+            make-target: build-push-image
+          - artifact_name: tink-agent-binaries
+            image_name: ${{ env.IMAGE }}/tink-agent
+            make-target: build-push-image-agent
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
 
+      # Add support for more platforms with QEMU (optional)
+      # https://github.com/docker/setup-qemu-action
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ./out
+          merge-multiple: true
+      # Artifact upload doesn't preserve permissions so we need to fix them.
+      - name: Fix permissions
+        run: chmod +x out/*
+
+      - name: Prepare build environment
+        run: make prepare-buildx
+      
+      - name: Build container images
+        run: make ${{ matrix.make-target }}
+        env:
+          IMAGE_NAME: ${{ matrix.image_name }}
+          IMAGE_NAME_AGENT: ${{ matrix.image_name }}
