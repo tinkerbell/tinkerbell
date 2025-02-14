@@ -18,9 +18,6 @@ endif
 
 all: help
 
--include build/tools.mk
--include build/lint.mk
-
 help: ## Print this help
 	@grep --no-filename -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sed 's/:.*##/·/' | sort | column -ts '·' -c 120
 
@@ -51,31 +48,37 @@ ci-checks: .github/workflows/ci-checks.sh ## Run the ci-checks.sh script
 .PHONY: ci
 ci: ci-checks coverage lint vet ## Runs all the same validations and tests that run in CI
 
+TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
+
 crossbinaries := out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64
 out/tinkerbell-linux-amd64: FLAGS=GOARCH=amd64
 out/tinkerbell-linux-arm64: FLAGS=GOARCH=arm64
-out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64: clean
+out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64: $(TINKERBELL_SOURCES)
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
-out/tinkerbell: clean ## Compile Tinkerbell for the current architecture
+TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
+
+out/tinkerbell: $(TINKERBELL_SOURCES) ## Compile Tinkerbell for the current architecture
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
-crosscompile: $(crossbinaries) ## Compile for all architectures
+cross-compile: $(crossbinaries) ## Compile for all architectures
+
+AGENT_SOURCES := $(shell find $(go list -deps ./cmd/agent | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
 
 crossbinaries-agent := out/tink-agent-linux-amd64 out/tink-agent-linux-arm64
 out/tink-agent-linux-amd64: FLAGS=GOARCH=amd64
 out/tink-agent-linux-arm64: FLAGS=GOARCH=arm64
-out/tink-agent-linux-amd64 out/tink-agent-linux-arm64:: clean-agent
+out/tink-agent-linux-amd64 out/tink-agent-linux-arm64: $(AGENT_SOURCES)
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o $@ ./cmd/agent
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
-out/tink-agent: clean-agent ## Compile Tink Agent for the current architecture
+out/tink-agent: $(AGENT_SOURCES) ## Compile Tink Agent for the current architecture
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o $@ ./cmd/agent
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
-crosscompile-agent: $(crossbinaries-agent) ## Compile Tink Agent for all architectures
+cross-compile-agent: $(crossbinaries-agent) ## Compile Tink Agent for all architectures
 
 .PHONY: generate-proto
 generate-proto: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) ## Generate code from proto files.
@@ -93,12 +96,18 @@ generate: $(CONTROLLER_GEN_FQP) ## Generate code containing DeepCopy, DeepCopyIn
 	$(CONTROLLER_GEN_FQP) object:headerFile="config/boilerplate.go.txt" paths="./..."
 	$(MAKE) fmt
 
+.PHONY: dep-graph
+dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
+	rm -rf out/dep-graph.txt out/dep-graph.png
+	$(GODEPGRAPH_FQP) -s -novendor -horizontal -onlyprefixes "github.com/tinkerbell/tinkerbell,./cmd/agent,./cmd/tinkerbell" ./cmd/agent ./cmd/tinkerbell > out/dep-graph.txt
+	cat out/dep-graph.txt | dot -Tpng -Goverlap=scale -Gsplines=true -o out/dep-graph.png
+
 .PHONY: clean
-clean: ## Remove all Tinkerbell binaries
+clean: ## Remove all cross compiled Tinkerbell binaries
 	rm -f out/tinkerbell out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64
 
 .PHONY: clean-agent
-clean-agent: ## Remove all Tink Agent binaries
+clean-agent: ## Remove all cross compiled Tink Agent binaries
 	rm -f out/tink-agent out/tink-agent-linux-amd64 out/tink-agent-linux-arm64
 
 .PHONY: clean-tools
@@ -107,3 +116,99 @@ clean-tools: ## Remove all tools
 
 .PHONY: clean-all
 clean-all: clean clean-agent clean-tools ## Remove all binaries and tools
+
+############## Tools ##############
+# Tool versions
+GOIMPORT_VER           := latest
+CONTROLLER_GEN_VERSION := v0.17.1
+BUF_VERSION            := v1.50.0
+PROTOC_GEN_GO_GRPC_VER := v1.5.1
+PROTOC_GEN_GO_VER      := v1.36.5
+UPX_VER 			   := 4.2.4
+GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
+
+# Tool fully qualified paths (FQP)
+TOOLS_DIR := $(PWD)/out/tools
+GOIMPORTS_FQP := $(TOOLS_DIR)/goimports-$(GOIMPORT_VER)
+CONTROLLER_GEN_FQP := $(TOOLS_DIR)/controller-gen-$(CONTROLLER_GEN_VERSION)
+BUF_FQP := $(TOOLS_DIR)/buf-$(BUF_VERSION)
+PROTOC_GEN_GO_GRPC_FQP := $(TOOLS_DIR)/protoc-gen-go-grpc-$(PROTOC_GEN_GO_GRPC_VER)
+PROTOC_GEN_GO_FQP := $(TOOLS_DIR)/protoc-gen-go-$(PROTOC_GEN_GO_VER)
+UPX_FQP := $(TOOLS_DIR)/upx-$(UPX_VER)-$(LOCAL_ARCH)
+GODEPGRAPH_FQP := $(TOOLS_DIR)/godepgraph-$(GODEPGRAPH_VER)
+
+$(GOIMPORTS_FQP):
+	GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@$(GOIMPORT_VER)
+	@mv $(TOOLS_DIR)/goimports $(GOIMPORTS_FQP)
+
+$(CONTROLLER_GEN_FQP):
+	GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
+	@mv $(TOOLS_DIR)/controller-gen $(CONTROLLER_GEN_FQP)
+
+$(PROTOC_GEN_GO_GRPC_FQP):
+	GOBIN=$(TOOLS_DIR) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VER)
+	@mv $(TOOLS_DIR)/protoc-gen-go-grpc $(PROTOC_GEN_GO_GRPC_FQP)
+
+$(PROTOC_GEN_GO_FQP):
+	GOBIN=$(TOOLS_DIR) go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VER)
+	@mv $(TOOLS_DIR)/protoc-gen-go $(PROTOC_GEN_GO_FQP)
+
+$(BUF_FQP):
+	GOBIN=$(TOOLS_DIR) go install github.com/bufbuild/buf/cmd/buf@$(BUF_VERSION)
+	@mv $(TOOLS_DIR)/buf $(BUF_FQP)
+
+$(UPX_FQP):
+	mkdir -p $(TOOLS_DIR)
+	(cd $(TOOLS_DIR); curl -sSfLO https://github.com/upx/upx/releases/download/v$(UPX_VER)/upx-$(UPX_VER)-$(LOCAL_ARCH_ALT)_linux.tar.xz)
+	(cd $(TOOLS_DIR); tar -xvf upx-$(UPX_VER)-$(LOCAL_ARCH_ALT)_linux.tar.xz)
+	@mv $(TOOLS_DIR)/upx-$(UPX_VER)-$(LOCAL_ARCH_ALT)_linux/upx $(UPX_FQP)
+	@rm -rf $(TOOLS_DIR)/upx-$(UPX_VER)-$(LOCAL_ARCH_ALT)_linux*
+
+$(GODEPGRAPH_FQP):
+	GOBIN=$(TOOLS_DIR) go install github.com/kisielk/godepgraph@$(GODEPGRAPH_VER)
+	@mv $(TOOLS_DIR)/godepgraph $(GODEPGRAPH_FQP)
+
+.PHONY: tools
+tools: $(GOIMPORTS_FQP) $(CONTROLLER_GEN_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) $(BUF_FQP) $(UPX_FQP) $(GODEPGRAPH_FQP) ## Install all tools
+
+############## Linting ##############
+.PHONY: lint
+lint: _lint  ## Run linting
+
+LINT_ARCH := $(shell uname -m)
+LINT_OS := $(shell uname)
+LINT_OS_LOWER := $(shell echo $(LINT_OS) | tr '[:upper:]' '[:lower:]')
+LINT_ROOT := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+
+# shellcheck and hadolint lack arm64 native binaries: rely on x86-64 emulation
+ifeq ($(LINT_OS),Darwin)
+	ifeq ($(LINT_ARCH),arm64)
+		LINT_ARCH=x86_64
+	endif
+endif
+
+LINTERS :=
+FIXERS :=
+
+GOLANGCI_LINT_CONFIG := $(LINT_ROOT)/.golangci.yml
+GOLANGCI_LINT_VERSION ?= v1.63.4
+GOLANGCI_LINT_BIN := $(LINT_ROOT)/out/linters/golangci-lint-$(GOLANGCI_LINT_VERSION)-$(LINT_ARCH)
+$(GOLANGCI_LINT_BIN):
+	mkdir -p $(LINT_ROOT)/out/linters
+	rm -rf $(LINT_ROOT)/out/linters/golangci-lint-*
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LINT_ROOT)/out/linters $(GOLANGCI_LINT_VERSION)
+	mv $(LINT_ROOT)/out/linters/golangci-lint $@
+
+LINTERS += golangci-lint-lint
+golangci-lint-lint: $(GOLANGCI_LINT_BIN)
+	find . -name go.mod -execdir sh -c '"$(GOLANGCI_LINT_BIN)" run -c "$(GOLANGCI_LINT_CONFIG)"' '{}' '+'
+
+FIXERS += golangci-lint-fix
+golangci-lint-fix: $(GOLANGCI_LINT_BIN)
+	find . -name go.mod -execdir "$(GOLANGCI_LINT_BIN)" run -c "$(GOLANGCI_LINT_CONFIG)" --fix \;
+
+.PHONY: _lint $(LINTERS)
+_lint: $(LINTERS)
+
+.PHONY: fix $(FIXERS)
+fix: $(FIXERS)

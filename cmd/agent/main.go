@@ -17,7 +17,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
-	"github.com/tinkerbell/tinkerbell/agent"
+	"github.com/tinkerbell/tinkerbell/tink/agent"
 )
 
 const (

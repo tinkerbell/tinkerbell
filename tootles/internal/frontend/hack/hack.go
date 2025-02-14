@@ -12,7 +12,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tinkerbell/tinkerbell/data"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/http/request"
 )
 

@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
-	wrkflow "github.com/tinkerbell/tinkerbell/pkg/workflow"
 )
 
 func ToWorkflowContext(wf *v1alpha1.Workflow) *proto.WorkflowContext {
@@ -15,12 +14,12 @@ func ToWorkflowContext(wf *v1alpha1.Workflow) *proto.WorkflowContext {
 	}
 	return &proto.WorkflowContext{
 		WorkflowId:           wf.GetName(),
-		CurrentWorker:        wrkflow.GetCurrentWorker(wf),
-		CurrentTask:          wrkflow.GetCurrentTask(wf),
-		CurrentAction:        wrkflow.GetCurrentAction(wf),
-		CurrentActionIndex:   int64(wrkflow.GetCurrentActionIndex(wf)),
-		CurrentActionState:   proto.State(proto.State_value[string(wrkflow.GetCurrentActionState(wf))]),
-		TotalNumberOfActions: int64(wrkflow.GetTotalNumberOfActions(wf)),
+		CurrentWorker:        v1alpha1.GetCurrentWorker(wf),
+		CurrentTask:          v1alpha1.GetCurrentTask(wf),
+		CurrentAction:        v1alpha1.GetCurrentAction(wf),
+		CurrentActionIndex:   int64(v1alpha1.GetCurrentActionIndex(wf)),
+		CurrentActionState:   proto.State(proto.State_value[string(v1alpha1.GetCurrentActionState(wf))]),
+		TotalNumberOfActions: int64(v1alpha1.GetTotalNumberOfActions(wf)),
 	}
 }
 

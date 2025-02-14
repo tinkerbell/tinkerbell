@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/tinkerbell/tinkerbell/backend/file"
-	"github.com/tinkerbell/tinkerbell/backend/kube"
-	"github.com/tinkerbell/tinkerbell/backend/noop"
+	"github.com/tinkerbell/tinkerbell/pkg/backend/file"
+	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
+	"github.com/tinkerbell/tinkerbell/pkg/backend/noop"
 )
 
 func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string, indexes map[kube.IndexType]kube.Index) (*kube.Backend, error) {

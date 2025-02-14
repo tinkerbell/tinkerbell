@@ -6,13 +6,12 @@ import (
 	stdnetip "net/netip"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffval"
-	"github.com/tinkerbell/tinkerbell/agent"
 	"github.com/tinkerbell/tinkerbell/pkg/flag/netip"
+	"github.com/tinkerbell/tinkerbell/tink/agent"
 )
 
 type config struct {
@@ -21,32 +20,10 @@ type config struct {
 	Options  *agent.Options
 }
 
-type stringSlice struct {
-	Value *[]string
-}
-
-func (s *stringSlice) String() string {
-	return strings.Join(*s.Value, ",")
-}
-
-func (s *stringSlice) Set(value string) error {
-	*s.Value = append(*s.Value, strings.Split(value, ",")...)
-	return nil
-}
-
-func (s *stringSlice) Type() string {
-	return "stringSlice"
-}
-
-func (s *stringSlice) Reset() error { //nolint:unparam // this method need to satisfy an interface in the ff package.
-	*s.Value = []string{}
-	return nil
-}
-
 func RegisterFlagsLegacy(c *config, fs *flag.FlagSet) {
-	fs.StringVar(&c.Options.Registry.User, "registry-username", "", "Registry username")
-	fs.StringVar(&c.Options.Registry.Pass, "registry-password", "", "Registry password")
-	fs.StringVar(&c.Options.Registry.Name, "docker-registry", "", "Registry name")
+	fs.StringVar(&c.Options.Registry.User, "registry-username", "", "Container image Registry user for authentication")
+	fs.StringVar(&c.Options.Registry.Pass, "registry-password", "", "Container image Registry pass for authentication")
+	fs.StringVar(&c.Options.Registry.Name, "docker-registry", "", "Container image Registry name to which to log in")
 	fs.Var(&netip.AddrPort{AddrPort: &c.Options.Transport.GRPC.ServerAddrPort}, "tinkerbell-grpc-authority", "Tink server GRPC IP:Port")
 	fs.BoolVar(&c.Options.Transport.GRPC.TLSInsecure, "tinkerbell-insecure-tls", false, "Tink server GRPC insecure TLS")
 	fs.BoolVar(&c.Options.Transport.GRPC.TLSEnabled, "tinkerbell-tls", false, "Tink server GRPC use TLS")
@@ -95,13 +72,9 @@ func RegisterAllFlags(c *config) *ff.FlagSet {
 	RegisterRepositoryFlags(c, fscr)
 	fsContainerRegistry := ff.NewFlagSetFrom("container registry", fscr).SetParent(fsTransport)
 
-	fsp := flag.NewFlagSet("proxy", flag.ContinueOnError)
-	RegisterProxyFlags(c, fsp)
-	fsProxy := ff.NewFlagSetFrom("proxy", fsp).SetParent(fsContainerRegistry)
-
 	fsc := flag.NewFlagSet("containerd runtime", flag.ContinueOnError)
 	RegisterContainerdRuntimeFlags(c, fsc)
-	fsContainerd := ff.NewFlagSetFrom("containerd runtime", fsc).SetParent(fsProxy)
+	fsContainerd := ff.NewFlagSetFrom("containerd runtime", fsc).SetParent(fsContainerRegistry)
 
 	fsd := flag.NewFlagSet("docker runtime", flag.ContinueOnError)
 	RegisterDockerRuntimeFlags(c, fsd)
@@ -133,16 +106,10 @@ func RegisterRootFlags(c *config, fs *flag.FlagSet) {
 	fs.Var(&c.Options.TransportSelected, "transport", fmt.Sprintf("Transport used to receive Workflows/Actions and to send results, must be one of [%s, %s, %s]", agent.GRPCTransportType, agent.NATSTransportType, agent.FileTransportType))
 }
 
-func RegisterProxyFlags(c *config, fs *flag.FlagSet) {
-	fs.Var(&stringSlice{Value: &c.Options.Proxy.HTTPProxy}, "http-proxy", "comma separated list of HTTP proxies")
-	fs.Var(ffval.NewUniqueList(&c.Options.Proxy.HTTPSProxy), "https-proxy", "comma separated list of HTTPS proxies")
-	fs.Var(&stringSlice{Value: &c.Options.Proxy.NoProxy}, "no-proxy", "comma separated list of no proxies")
-}
-
 func RegisterRepositoryFlags(c *config, fs *flag.FlagSet) {
-	fs.StringVar(&c.Options.Registry.Name, "registry-name", "", "Registry name to which to log in")
-	fs.StringVar(&c.Options.Registry.User, "registry-user", "", "Registry user for authentication")
-	fs.StringVar(&c.Options.Registry.Pass, "registry-pass", "", "Registry pass for authentication")
+	fs.StringVar(&c.Options.Registry.Name, "registry-name", "", "Container image Registry name to which to log in")
+	fs.StringVar(&c.Options.Registry.User, "registry-user", "", "Container image Registry user for authentication")
+	fs.StringVar(&c.Options.Registry.Pass, "registry-pass", "", "Container image Registry pass for authentication")
 }
 
 func RegisterGRPCTransportFlags(c *config, fs *flag.FlagSet) {

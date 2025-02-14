@@ -6,7 +6,7 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/tinkerbell/tinkerbell/data"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 )
 
 func parseIPAM(d *data.DHCP) string {
