@@ -14,11 +14,11 @@ import (
 
 	"github.com/ccoveille/go-safecast"
 	"github.com/fsnotify/fsnotify"
-	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
+	"gopkg.in/yaml.v3"
 )
 
 const tracerName = "github.com/tinkerbell/tinkerbell"

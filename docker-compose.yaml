@@ -53,7 +53,7 @@ services:
     ## "init" containers; they run until they accomplish their purpose and then exit
   crds-apply:
     image: bitnami/kubectl:1.30.4
-    command: -s "https://kube-apiserver:6443" apply -k '/crd' # 'github.com/tinkerbell/tinkerbell/build/config/crd?ref=main'
+    command: -s "https://kube-apiserver:6443" apply -k '/crd' # 'github.com/tinkerbell/tinkerbell/config/crd?ref=main'
     environment:
       KUBECONFIG: /kube/kubeconfig
       KUBERNETES: https://kube-apiserver:6443
@@ -62,7 +62,7 @@ services:
         condition: service_started
     volumes:
       - kubeconfig:/kube
-      - ./build/config/crd:/crd
+      - ./config/crd:/crd
     restart: on-failure
 
   csr:
