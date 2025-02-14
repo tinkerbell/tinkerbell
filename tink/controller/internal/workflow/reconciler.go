@@ -141,13 +141,20 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 			logger.Error(err, "error getting Template object in processNewWorkflow function")
 			journal.Log(ctx, "template not found")
 			stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
-			stored.Status.SetCondition(v1alpha1.WorkflowCondition{
-				Type:    v1alpha1.TemplateRenderedSuccess,
-				Status:  metav1.ConditionFalse,
-				Reason:  "Error",
-				Message: "template not found",
-				Time:    &metav1.Time{Time: metav1.Now().UTC()},
-			})
+			msg := "template not found"
+			// If the message is different than what has already been set in the condition, then we update the condition.
+			// This is needed so as to not overwhelm the kubernetes event system if failures grow.
+			trs := getCondition(stored.Status.Conditions, v1alpha1.TemplateRenderedSuccess)
+			if trs == nil || trs.Message != msg {
+				stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+					Type:    v1alpha1.TemplateRenderedSuccess,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Error",
+					Message: msg,
+					Time:    &metav1.Time{Time: metav1.Now().UTC()},
+				})
+			}
+
 			return reconcile.Result{}, fmt.Errorf(
 				"no template found: name=%v; namespace=%v",
 				stored.Spec.TemplateRef,
@@ -155,13 +162,18 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 			)
 		}
 		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
-		stored.Status.SetCondition(v1alpha1.WorkflowCondition{
-			Type:    v1alpha1.TemplateRenderedSuccess,
-			Status:  metav1.ConditionFalse,
-			Reason:  "Error",
-			Message: err.Error(),
-			Time:    &metav1.Time{Time: metav1.Now().UTC()},
-		})
+		// If the message is different than what has already been set in the condition, then we update the condition.
+		// This is needed so as to not overwhelm the kubernetes event system if failures grow.
+		trs := getCondition(stored.Status.Conditions, v1alpha1.TemplateRenderedSuccess)
+		if trs == nil || trs.Message != err.Error() {
+			stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+				Type:    v1alpha1.TemplateRenderedSuccess,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Error",
+				Message: err.Error(),
+				Time:    &metav1.Time{Time: metav1.Now().UTC()},
+			})
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -171,13 +183,19 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		logger.Error(err, "error getting Hardware object in processNewWorkflow function")
 		journal.Log(ctx, "hardware not found")
 		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
-		stored.Status.SetCondition(v1alpha1.WorkflowCondition{
-			Type:    v1alpha1.TemplateRenderedSuccess,
-			Status:  metav1.ConditionFalse,
-			Reason:  "Error",
-			Message: fmt.Sprintf("error getting hardware: %v", err),
-			Time:    &metav1.Time{Time: metav1.Now().UTC()},
-		})
+		msg := fmt.Sprintf("error getting hardware: %v", err)
+		// If the message is different than what has already been set in the condition, then we update the condition.
+		// This is needed so as to not overwhelm the kubernetes event system if failures grow.
+		trs := getCondition(stored.Status.Conditions, v1alpha1.TemplateRenderedSuccess)
+		if trs == nil || trs.Message != msg {
+			stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+				Type:    v1alpha1.TemplateRenderedSuccess,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Error",
+				Message: msg,
+				Time:    &metav1.Time{Time: metav1.Now().UTC()},
+			})
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -185,13 +203,19 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		logger.Error(err, "hardware not found in processNewWorkflow function")
 		journal.Log(ctx, "hardware not found")
 		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
-		stored.Status.SetCondition(v1alpha1.WorkflowCondition{
-			Type:    v1alpha1.TemplateRenderedSuccess,
-			Status:  metav1.ConditionFalse,
-			Reason:  "Error",
-			Message: fmt.Sprintf("hardware not found: %v", err),
-			Time:    &metav1.Time{Time: metav1.Now().UTC()},
-		})
+		msg := fmt.Sprintf("hardware not found: %v", err)
+		// If the message is different than what has already been set in the condition, then we update the condition.
+		// This is needed so as to not overwhelm the kubernetes event system if failures grow.
+		trs := getCondition(stored.Status.Conditions, v1alpha1.TemplateRenderedSuccess)
+		if trs == nil || trs.Message != msg {
+			stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+				Type:    v1alpha1.TemplateRenderedSuccess,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Error",
+				Message: msg,
+				Time:    &metav1.Time{Time: metav1.Now().UTC()},
+			})
+		}
 		return reconcile.Result{}, fmt.Errorf(
 			"hardware not found: name=%v; namespace=%v",
 			stored.Spec.HardwareRef,
@@ -208,14 +232,22 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 
 	tinkWf, err := renderTemplateHardware(stored.Name, pointerToValue(tpl.Spec.Data), data)
 	if err != nil {
+		journal.Log(ctx, "error rendering template")
 		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
-		stored.Status.SetCondition(v1alpha1.WorkflowCondition{
-			Type:    v1alpha1.TemplateRenderedSuccess,
-			Status:  metav1.ConditionFalse,
-			Reason:  "Error",
-			Message: fmt.Sprintf("error rendering template: %v", err),
-			Time:    &metav1.Time{Time: metav1.Now().UTC()},
-		})
+		msg := fmt.Sprintf("error rendering template: %v", err)
+		// If the message is different than what has already been set in the condition, then we update the condition.
+		// This is needed so as to not overwhelm the kubernetes event system if failures grow.
+		trs := getCondition(stored.Status.Conditions, v1alpha1.TemplateRenderedSuccess)
+		if trs == nil || trs.Message != msg {
+			stored.Status.SetCondition(v1alpha1.WorkflowCondition{
+				Type:    v1alpha1.TemplateRenderedSuccess,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Error",
+				Message: msg,
+				Time:    &metav1.Time{Time: metav1.Now().UTC()},
+			})
+		}
+
 		return reconcile.Result{}, err
 	}
 
@@ -238,6 +270,15 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 
 	stored.Status.State = v1alpha1.WorkflowStatePending
 	return reconcile.Result{}, nil
+}
+
+func getCondition(all []v1alpha1.WorkflowCondition, want v1alpha1.WorkflowConditionType) *v1alpha1.WorkflowCondition {
+	for _, c := range all {
+		if c.Type == want {
+			return &c
+		}
+	}
+	return nil
 }
 
 // templateHardwareData defines the data exposed for a Hardware instance to a Template.
