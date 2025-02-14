@@ -144,7 +144,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 			msg := "template not found"
 			// If the message is different than what has already been set in the condition, then we update the condition.
 			// This is needed so as to not overwhelm the kubernetes event system if failures grow.
-			trs := getCondition(stored.Status.Conditions, v1alpha1.TemplateRenderedSuccess)
+			trs := getConditionTemplateRenderedSuccess(stored.Status.Conditions)
 			if trs == nil || trs.Message != msg {
 				stored.Status.SetCondition(v1alpha1.WorkflowCondition{
 					Type:    v1alpha1.TemplateRenderedSuccess,
@@ -164,7 +164,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
 		// If the message is different than what has already been set in the condition, then we update the condition.
 		// This is needed so as to not overwhelm the kubernetes event system if failures grow.
-		trs := getCondition(stored.Status.Conditions, v1alpha1.TemplateRenderedSuccess)
+		trs := getConditionTemplateRenderedSuccess(stored.Status.Conditions)
 		if trs == nil || trs.Message != err.Error() {
 			stored.Status.SetCondition(v1alpha1.WorkflowCondition{
 				Type:    v1alpha1.TemplateRenderedSuccess,
@@ -186,7 +186,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		msg := fmt.Sprintf("error getting hardware: %v", err)
 		// If the message is different than what has already been set in the condition, then we update the condition.
 		// This is needed so as to not overwhelm the kubernetes event system if failures grow.
-		trs := getCondition(stored.Status.Conditions, v1alpha1.TemplateRenderedSuccess)
+		trs := getConditionTemplateRenderedSuccess(stored.Status.Conditions)
 		if trs == nil || trs.Message != msg {
 			stored.Status.SetCondition(v1alpha1.WorkflowCondition{
 				Type:    v1alpha1.TemplateRenderedSuccess,
@@ -206,7 +206,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		msg := fmt.Sprintf("hardware not found: %v", err)
 		// If the message is different than what has already been set in the condition, then we update the condition.
 		// This is needed so as to not overwhelm the kubernetes event system if failures grow.
-		trs := getCondition(stored.Status.Conditions, v1alpha1.TemplateRenderedSuccess)
+		trs := getConditionTemplateRenderedSuccess(stored.Status.Conditions)
 		if trs == nil || trs.Message != msg {
 			stored.Status.SetCondition(v1alpha1.WorkflowCondition{
 				Type:    v1alpha1.TemplateRenderedSuccess,
@@ -237,7 +237,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		msg := fmt.Sprintf("error rendering template: %v", err)
 		// If the message is different than what has already been set in the condition, then we update the condition.
 		// This is needed so as to not overwhelm the kubernetes event system if failures grow.
-		trs := getCondition(stored.Status.Conditions, v1alpha1.TemplateRenderedSuccess)
+		trs := getConditionTemplateRenderedSuccess(stored.Status.Conditions)
 		if trs == nil || trs.Message != msg {
 			stored.Status.SetCondition(v1alpha1.WorkflowCondition{
 				Type:    v1alpha1.TemplateRenderedSuccess,
@@ -272,9 +272,9 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	return reconcile.Result{}, nil
 }
 
-func getCondition(all []v1alpha1.WorkflowCondition, want v1alpha1.WorkflowConditionType) *v1alpha1.WorkflowCondition {
+func getConditionTemplateRenderedSuccess(all []v1alpha1.WorkflowCondition) *v1alpha1.WorkflowCondition {
 	for _, c := range all {
-		if c.Type == want {
+		if c.Type == v1alpha1.TemplateRenderedSuccess {
 			return &c
 		}
 	}
