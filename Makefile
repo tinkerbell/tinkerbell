@@ -5,6 +5,31 @@ SHELL := bash
 .SHELLFLAGS := -o pipefail -euc
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
+########### Tools variables ###########
+# Tool versions
+GOIMPORT_VER           := latest
+CONTROLLER_GEN_VERSION := v0.17.1
+BUF_VERSION            := v1.50.0
+PROTOC_GEN_GO_GRPC_VER := v1.5.1
+PROTOC_GEN_GO_VER      := v1.36.5
+UPX_VER 			   := 4.2.4
+GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
+
+# Tool fully qualified paths (FQP)
+TOOLS_DIR := $(PWD)/out/tools
+GOIMPORTS_FQP := $(TOOLS_DIR)/goimports-$(GOIMPORT_VER)
+CONTROLLER_GEN_FQP := $(TOOLS_DIR)/controller-gen-$(CONTROLLER_GEN_VERSION)
+BUF_FQP := $(TOOLS_DIR)/buf-$(BUF_VERSION)
+PROTOC_GEN_GO_GRPC_FQP := $(TOOLS_DIR)/protoc-gen-go-grpc-$(PROTOC_GEN_GO_GRPC_VER)
+PROTOC_GEN_GO_FQP := $(TOOLS_DIR)/protoc-gen-go-$(PROTOC_GEN_GO_VER)
+UPX_FQP := $(TOOLS_DIR)/upx-$(UPX_VER)-$(LOCAL_ARCH)
+GODEPGRAPH_FQP := $(TOOLS_DIR)/godepgraph-$(GODEPGRAPH_VER)
+#######################################
+######### Container images variable #########
+# `?=` will only set the variable if it is not already set by the environment
+IMAGE_NAME       ?= tinkerbell/tinkerbell:latest
+IMAGE_NAME_AGENT ?= tinkerbell/tink-agent:latest
+#############################################
 
 CGO_ENABLED := 0
 export CGO_ENABLED
@@ -105,10 +130,6 @@ dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
 	cat out/dep-graph.txt | dot -Tpng -Goverlap=scale -Gsplines=true -o out/dep-graph.png
 
 ######### Build container images - start #########
-# `?=` will only set the variable if it is not already set by the environment 
-IMAGE_NAME       ?= tinkerbell/tinkerbell:latest
-IMAGE_NAME_AGENT ?= tinkerbell/tink-agent:latest
-
 .PHONY: prepare-buildx
 prepare-buildx: ## Prepare the buildx environment.
 ## the "|| true" is to avoid failing if the builder already exists.
@@ -148,25 +169,6 @@ clean-tools: ## Remove all tools
 clean-all: clean clean-agent clean-tools ## Remove all binaries and tools
 
 ############## Tools ##############
-# Tool versions
-GOIMPORT_VER           := latest
-CONTROLLER_GEN_VERSION := v0.17.1
-BUF_VERSION            := v1.50.0
-PROTOC_GEN_GO_GRPC_VER := v1.5.1
-PROTOC_GEN_GO_VER      := v1.36.5
-UPX_VER 			   := 4.2.4
-GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
-
-# Tool fully qualified paths (FQP)
-TOOLS_DIR := $(PWD)/out/tools
-GOIMPORTS_FQP := $(TOOLS_DIR)/goimports-$(GOIMPORT_VER)
-CONTROLLER_GEN_FQP := $(TOOLS_DIR)/controller-gen-$(CONTROLLER_GEN_VERSION)
-BUF_FQP := $(TOOLS_DIR)/buf-$(BUF_VERSION)
-PROTOC_GEN_GO_GRPC_FQP := $(TOOLS_DIR)/protoc-gen-go-grpc-$(PROTOC_GEN_GO_GRPC_VER)
-PROTOC_GEN_GO_FQP := $(TOOLS_DIR)/protoc-gen-go-$(PROTOC_GEN_GO_VER)
-UPX_FQP := $(TOOLS_DIR)/upx-$(UPX_VER)-$(LOCAL_ARCH)
-GODEPGRAPH_FQP := $(TOOLS_DIR)/godepgraph-$(GODEPGRAPH_VER)
-
 $(GOIMPORTS_FQP):
 	GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@$(GOIMPORT_VER)
 	@mv $(TOOLS_DIR)/goimports $(GOIMPORTS_FQP)
