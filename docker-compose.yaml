@@ -38,7 +38,7 @@ services:
     environment:
       TINKERBELL_BACKEND_KUBE_CONFIG: /kube/kubeconfig
       TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL: ${OSIE_URL:?Error:"OSIE_URL env var is not set"}
-      TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS: "tink_worker_image=quay.io/tinkerbell/tink-worker"
+      TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS: "tink_worker_image=ghcr.io/tinkerbell/tink-agent"
     volumes:
       - kubeconfig:/kube
     restart: on-failure
