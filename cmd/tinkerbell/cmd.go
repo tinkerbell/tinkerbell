@@ -76,7 +76,7 @@ func Execute(ctx context.Context, args []string) error {
 
 	gfs := ff.NewFlagSet("globals")
 	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(gfs)
-	hfs := ff.NewFlagSet("tootles - metadata service").SetParent(sfs)
+	hfs := ff.NewFlagSet("tootles - Metadata service").SetParent(sfs)
 	tfs := ff.NewFlagSet("tink server - Workflow server").SetParent(hfs)
 	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
 	rfs := ff.NewFlagSet("rufio - BMC controller").SetParent(cfs)
