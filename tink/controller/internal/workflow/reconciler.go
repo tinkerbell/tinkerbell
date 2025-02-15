@@ -243,15 +243,6 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	return reconcile.Result{}, nil
 }
 
-func getConditionTemplateRenderedSuccess(all []v1alpha1.WorkflowCondition) *v1alpha1.WorkflowCondition {
-	for _, c := range all {
-		if c.Type == v1alpha1.TemplateRenderedSuccess {
-			return &c
-		}
-	}
-	return nil
-}
-
 // templateHardwareData defines the data exposed for a Hardware instance to a Template.
 type templateHardwareData struct {
 	Disks      []string
