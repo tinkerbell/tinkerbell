@@ -116,7 +116,7 @@ func TestHandleJob(t *testing.T) {
 			wantWorkflow: &v1alpha1.WorkflowStatus{
 				Conditions: []v1alpha1.WorkflowCondition{
 					{
-						Type:    v1alpha1.NetbootJobSetupComplete,
+						Type:    v1alpha1.BootJobSetupComplete,
 						Status:  metav1.ConditionTrue,
 						Reason:  "Created",
 						Message: "job created",
@@ -167,7 +167,7 @@ func TestHandleJob(t *testing.T) {
 			wantWorkflow: &v1alpha1.WorkflowStatus{
 				Conditions: []v1alpha1.WorkflowCondition{
 					{
-						Type:    v1alpha1.NetbootJobComplete,
+						Type:    v1alpha1.BootJobComplete,
 						Status:  metav1.ConditionTrue,
 						Reason:  "Complete",
 						Message: "job completed",
