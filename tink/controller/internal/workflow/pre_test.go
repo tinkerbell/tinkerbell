@@ -136,7 +136,7 @@ func TestPrepareWorkflow(t *testing.T) {
 				Spec: v1alpha1.WorkflowSpec{
 					HardwareRef: "test-hardware",
 					BootOptions: v1alpha1.BootOptions{
-						BootMode: "netboot",
+						BootMode: v1alpha1.BootModeNetboot,
 					},
 				},
 				Status: v1alpha1.WorkflowStatus{
@@ -189,7 +189,7 @@ func TestPrepareWorkflow(t *testing.T) {
 				Spec: v1alpha1.WorkflowSpec{
 					HardwareRef: "test-hardware",
 					BootOptions: v1alpha1.BootOptions{
-						BootMode: "iso",
+						BootMode: v1alpha1.BootModeISO,
 						ISOURL:   "http://example.com",
 					},
 				},
