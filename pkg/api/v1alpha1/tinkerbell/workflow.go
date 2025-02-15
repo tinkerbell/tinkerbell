@@ -25,11 +25,11 @@ const (
 	WorkflowStateFailed    = WorkflowState("STATE_FAILED")
 	WorkflowStateTimeout   = WorkflowState("STATE_TIMEOUT")
 
-	NetbootJobFailed        WorkflowConditionType = "NetbootJobFailed"
-	NetbootJobComplete      WorkflowConditionType = "NetbootJobComplete"
-	NetbootJobRunning       WorkflowConditionType = "NetbootJobRunning"
-	NetbootJobSetupFailed   WorkflowConditionType = "NetbootJobSetupFailed"
-	NetbootJobSetupComplete WorkflowConditionType = "NetbootJobSetupComplete"
+	BootJobFailed           WorkflowConditionType = "BootJobFailed"
+	BootJobComplete         WorkflowConditionType = "BootJobComplete"
+	BootJobRunning          WorkflowConditionType = "BootJobRunning"
+	BootJobSetupFailed      WorkflowConditionType = "BootJobSetupFailed"
+	BootJobSetupComplete    WorkflowConditionType = "BootJobSetupComplete"
 	ToggleAllowNetbootTrue  WorkflowConditionType = "AllowNetbootTrue"
 	ToggleAllowNetbootFalse WorkflowConditionType = "AllowNetbootFalse"
 	TemplateRenderedSuccess WorkflowConditionType = "TemplateRenderedSuccess"
@@ -38,7 +38,7 @@ const (
 	TemplateRenderingFailed     TemplateRendering = "failed"
 
 	BootModeNetboot BootMode = "netboot"
-	BootModeISO     BootMode = "iso"
+	BootModeISO     BootMode = "isoboot"
 )
 
 // +kubebuilder:subresource:status
@@ -101,7 +101,7 @@ type BootOptions struct {
 
 	// BootMode is the type of booting that will be done.
 	// +optional
-	// +kubebuilder:validation:Enum=netboot;iso
+	// +kubebuilder:validation:Enum=netboot;isoboot
 	BootMode BootMode `json:"bootMode,omitempty"`
 }
 
@@ -228,6 +228,34 @@ func (w *WorkflowStatus) SetCondition(wc WorkflowCondition) {
 		}
 	}
 	if index != -1 {
+		w.Conditions[index] = wc
+		return
+	}
+
+	w.Conditions = append(w.Conditions, wc)
+}
+
+// SetConditionIfDifferent updates the status with a condition, if:
+//
+// 1. the condition does not exist
+//
+// 2. the condition exists but any field except the .Time field is different
+//
+// This is needed so as to not overwhelm the kubernetes event system if failures grow.
+// This limits the number of updates to the status so that we don't continually
+// update the status with the same information and cause unnecessary Kubernetes events.
+func (w *WorkflowStatus) SetConditionIfDifferent(wc WorkflowCondition) {
+	index := -1
+	for i, c := range w.Conditions {
+		if c.Type == wc.Type {
+			index = i
+			break
+		}
+	}
+	if index != -1 {
+		if w.Conditions[index].Status == wc.Status && w.Conditions[index].Reason == wc.Reason && w.Conditions[index].Message == wc.Message {
+			return
+		}
 		w.Conditions[index] = wc
 		return
 	}
