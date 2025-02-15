@@ -45,7 +45,7 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 		result, err := s.createJob(ctx, actions, name)
 		if err != nil {
 			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
-				Type:    v1alpha1.NetbootJobSetupFailed,
+				Type:    v1alpha1.BootJobSetupFailed,
 				Status:  metav1.ConditionTrue,
 				Reason:  "Error",
 				Message: fmt.Sprintf("error creating job: %v", err),
@@ -54,7 +54,7 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 			return result, err
 		}
 		s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
-			Type:    v1alpha1.NetbootJobSetupComplete,
+			Type:    v1alpha1.BootJobSetupComplete,
 			Status:  metav1.ConditionTrue,
 			Reason:  "Created",
 			Message: "job created",
@@ -70,7 +70,7 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 		r, tState, err := s.trackRunningJob(ctx, name)
 		if err != nil {
 			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
-				Type:    v1alpha1.NetbootJobFailed,
+				Type:    v1alpha1.BootJobFailed,
 				Status:  metav1.ConditionTrue,
 				Reason:  "Error",
 				Message: err.Error(),
@@ -80,7 +80,7 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 		}
 		if tState == trackedStateComplete {
 			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
-				Type:    v1alpha1.NetbootJobComplete,
+				Type:    v1alpha1.BootJobComplete,
 				Status:  metav1.ConditionTrue,
 				Reason:  "Complete",
 				Message: "job completed",

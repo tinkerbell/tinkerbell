@@ -8,6 +8,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -33,6 +34,14 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			journal.Log(ctx, "boot mode netboot")
 			hw, err := hardwareFrom(ctx, s.client, s.workflow)
 			if err != nil {
+				// update a condition to indicate the error
+				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+					Type:    v1alpha1.BootJobSetupFailed,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Error",
+					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
+					Time:    &metav1.Time{Time: metav1.Now().UTC()},
+				})
 				return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
 			}
 			efiBoot := func() bool {
@@ -75,6 +84,14 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			}
 			hw, err := hardwareFrom(ctx, s.client, s.workflow)
 			if err != nil {
+				// update a condition to indicate the error
+				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+					Type:    v1alpha1.BootJobSetupComplete,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Error",
+					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
+					Time:    &metav1.Time{Time: metav1.Now().UTC()},
+				})
 				return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
 			}
 			efiBoot := func() bool {

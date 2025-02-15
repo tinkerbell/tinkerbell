@@ -44,9 +44,7 @@ func hardwareFrom(ctx context.Context, cc client.Client, w *v1alpha1.Workflow) (
 	if w == nil {
 		return nil, fmt.Errorf("workflow is nil")
 	}
-	if w.Spec.HardwareRef == "" {
-		return nil, fmt.Errorf("hardware ref is empty")
-	}
+
 	h := &v1alpha1.Hardware{}
 	if err := cc.Get(ctx, client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}, h); err != nil {
 		return nil, fmt.Errorf("hardware not found: name=%v; namespace=%v, error: %w", w.Spec.HardwareRef, w.Namespace, err)
@@ -65,7 +63,7 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 
 	hw, err := hardwareFrom(ctx, s.client, s.workflow)
 	if err != nil {
-		s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+		s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 			Type:    v1alpha1.ToggleAllowNetbootTrue,
 			Status:  metav1.ConditionFalse,
 			Reason:  "Error",
@@ -81,7 +79,7 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 			return nil
 		}
 		if err := setAllowPXE(ctx, s.client, s.workflow, hw, allowPXE); err != nil {
-			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+			s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 				Type:    v1alpha1.ToggleAllowNetbootTrue,
 				Status:  metav1.ConditionFalse,
 				Reason:  "Error",
@@ -105,7 +103,7 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 		return nil
 	}
 	if err := setAllowPXE(ctx, s.client, s.workflow, hw, allowPXE); err != nil {
-		s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
+		s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 			Type:    v1alpha1.ToggleAllowNetbootFalse,
 			Status:  metav1.ConditionFalse,
 			Reason:  "Error",
