@@ -137,7 +137,7 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 	if publicIP.IsUnspecified() || !publicIP.IsValid() {
 		return
 	}
-	// the order of precendence is: CLI flag, publicIP, default.
+	// the order of precedence is: CLI flag, publicIP, default.
 	if s.Config.DHCP.IPForPacket.IsUnspecified() || !s.Config.DHCP.IPForPacket.IsValid() {
 		s.Config.DHCP.IPForPacket = publicIP
 	}
