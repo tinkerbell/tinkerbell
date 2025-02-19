@@ -49,7 +49,7 @@ func (s *Config) ServeHTTP(ctx context.Context, addr string, handlers HandlerMap
 		})
 		if err != nil {
 			s.Logger.Error(err, "failed to create new xff object")
-			panic(fmt.Errorf("failed to create new xff object: %v", err))
+			return fmt.Errorf("failed to create new xff object: %w", err)
 		}
 
 		xffHandler = xffmw.Handler(&loggingMiddleware{

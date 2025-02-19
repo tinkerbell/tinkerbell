@@ -3,6 +3,7 @@ package ec2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/tootles/internal/ginutil"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/http/httperror"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/http/request"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // ErrInstanceNotFound indicates an instance could not be found for the given identifier.
@@ -97,8 +99,8 @@ func (f Frontend) getInstance(ctx context.Context, r *http.Request) (data.Ec2Ins
 
 	instance, err := f.client.GetEC2Instance(ctx, ip)
 	if err != nil {
-		if errors.Is(err, ErrInstanceNotFound) {
-			return data.Ec2Instance{}, httperror.New(http.StatusNotFound, "no hardware found for source ip")
+		if errors.Is(err, ErrInstanceNotFound) || apierrors.IsNotFound(err) {
+			return data.Ec2Instance{}, httperror.New(http.StatusNotFound, fmt.Sprintf("no hardware found for source ip: %s", ip))
 		}
 
 		// TODO(chrisdoherty4) What happens when multiple Instance could be returned? What

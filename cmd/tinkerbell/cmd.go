@@ -23,6 +23,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"github.com/tinkerbell/tinkerbell/tootles"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/client-go/rest"
 )
 
 func Execute(ctx context.Context, args []string) error {
@@ -32,7 +33,17 @@ func Execute(ctx context.Context, args []string) error {
 			if err != nil {
 				return ""
 			}
-			return filepath.Join(hd, ".kube", "config")
+			p := filepath.Join(hd, ".kube", "config")
+			// if this default location doesn't exist it's highly
+			// likely that Tinkerbell is being run from within the
+			// cluster. In that case, the loading of the Kubernetes
+			// client will only look for in cluster configuration/environment
+			// variables if this is empty.
+			_, oserr := os.Stat(p)
+			if oserr != nil {
+				return ""
+			}
+			return p
 		}(),
 		PublicIP:             detectPublicIPv4(),
 		EnableSmee:           true,
@@ -41,9 +52,11 @@ func Execute(ctx context.Context, args []string) error {
 		EnableTinkController: true,
 		EnableRufio:          true,
 	}
+
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
 	}
+
 	h := &flag.TootlesConfig{
 		Config:   tootles.NewConfig(tootles.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 50061)),
 		BindAddr: detectPublicIPv4(),
@@ -57,7 +70,6 @@ func Execute(ctx context.Context, args []string) error {
 	controllerOpts := []controller.Option{
 		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8080))),
 		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8081))),
-		controller.WithLeaderElectionNamespace("default"),
 	}
 	tc := &flag.TinkControllerConfig{
 		Config: controller.NewConfig(controllerOpts...),
@@ -68,7 +80,6 @@ func Execute(ctx context.Context, args []string) error {
 		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8083))),
 		rufio.WithBmcConnectTimeout(2 * time.Minute),
 		rufio.WithPowerCheckInterval(30 * time.Minute),
-		rufio.WithLeaderElectionNamespace("default"),
 	}
 	rc := &flag.RufioConfig{
 		Config: rufio.NewConfig(rufioOpts...),
@@ -104,13 +115,23 @@ func Execute(ctx context.Context, args []string) error {
 	}
 
 	// Smee
-	s.Convert(&globals.TrustedProxies)
+	s.Convert(&globals.TrustedProxies, globals.PublicIP)
 
 	// Tootles
 	h.Convert(&globals.TrustedProxies)
 
 	// Tink Server
 	ts.Convert()
+
+	// Tink Controller
+	if !inCluster() && tc.Config.EnableLeaderElection && tc.Config.LeaderElectionNamespace == "" {
+		tc.Config.LeaderElectionNamespace = "default"
+	}
+
+	// Rufio
+	if !inCluster() && rc.Config.EnableLeaderElection && rc.Config.LeaderElectionNamespace == "" {
+		rc.Config.LeaderElectionNamespace = "default"
+	}
 
 	log := defaultLogger(globals.LogLevel)
 	log.Info("starting tinkerbell",
@@ -293,4 +314,12 @@ func defaultLogger(level int) logr.Logger {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, opts))
 
 	return logr.FromSlogHandler(log.Handler())
+}
+
+// inCluster checks if we are running in cluster.
+func inCluster() bool {
+	if _, err := rest.InClusterConfig(); err == nil {
+		return true
+	}
+	return false
 }

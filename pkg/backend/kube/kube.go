@@ -123,7 +123,7 @@ func loadConfig(cfg Backend) (Backend, error) {
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
 	config, err := loader.ClientConfig()
 	if err != nil {
-		return Backend{}, err
+		return Backend{}, fmt.Errorf("failed to load client config: %w", err)
 	}
 	cfg.ClientConfig = config
 

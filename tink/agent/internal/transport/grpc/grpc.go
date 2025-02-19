@@ -118,10 +118,19 @@ func (c *Config) Start(ctx context.Context) error {
 			action.Volumes = append(action.Volumes, spec.Volume(v))
 		}
 		for _, v := range curAction.GetEnvironment() {
-			kv := strings.Split(v, "=")
-			env := spec.Env{
-				Key:   kv[0],
-				Value: kv[1],
+			kv := strings.SplitN(v, "=", 2)
+			env := spec.Env{}
+			switch len(kv) {
+			case 1:
+				env = spec.Env{
+					Key:   kv[0],
+					Value: "",
+				}
+			case 2:
+				env = spec.Env{
+					Key:   kv[0],
+					Value: kv[1],
+				}
 			}
 			action.Env = append(action.Env, env)
 		}

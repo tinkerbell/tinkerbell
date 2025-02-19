@@ -21,8 +21,7 @@ func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string, i
 	}
 
 	go func() {
-		err = kb.Start(ctx)
-		if err != nil {
+		if err := kb.Start(ctx); err != nil {
 			panic(err)
 		}
 	}()
