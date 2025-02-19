@@ -15,6 +15,6 @@ func main() {
 
 	if err := Execute(ctx, os.Args[1:]); err != nil && !errors.Is(err, context.Canceled) {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-		os.Exit(1)
+		os.Exit(1) //nolint: gocritic // it's okay for the defer to not be called.
 	}
 }
