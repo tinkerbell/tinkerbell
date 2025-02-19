@@ -296,7 +296,7 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 	})
 
 	if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		panic(err)
+		return err
 	}
 
 	return nil
