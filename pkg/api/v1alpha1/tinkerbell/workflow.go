@@ -38,7 +38,8 @@ const (
 	TemplateRenderingFailed     TemplateRendering = "failed"
 
 	BootModeNetboot BootMode = "netboot"
-	BootModeISO     BootMode = "isoboot"
+	BootModeISO     BootMode = "iso"
+	BootModeISOBoot BootMode = "isoboot"
 )
 
 // +kubebuilder:subresource:status
@@ -101,7 +102,7 @@ type BootOptions struct {
 
 	// BootMode is the type of booting that will be done.
 	// +optional
-	// +kubebuilder:validation:Enum=netboot;isoboot
+	// +kubebuilder:validation:Enum=netboot;isoboot;iso
 	BootMode BootMode `json:"bootMode,omitempty"`
 }
 
