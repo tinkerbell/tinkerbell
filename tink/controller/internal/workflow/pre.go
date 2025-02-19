@@ -75,7 +75,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			}
 			return r, err
 		}
-	case v1alpha1.BootModeISO:
+	case v1alpha1.BootModeISO, v1alpha1.BootModeISOBoot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameISOMount, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode iso")

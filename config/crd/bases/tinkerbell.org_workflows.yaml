@@ -64,6 +64,7 @@ spec:
                     enum:
                     - netboot
                     - isoboot
+                    - iso
                     type: string
                   isoURL:
                     description: |-
