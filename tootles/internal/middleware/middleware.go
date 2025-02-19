@@ -44,6 +44,9 @@ func Logging(logger logr.Logger) gin.HandlerFunc {
 
 		// If we received a non-error status code Info else error it.
 		if c.Writer.Status() < 500 {
+			if c.Errors.Errors() != nil {
+				log.Error(errors.New("errors occurred"), "all errors", "errs", strings.Join(c.Errors.Errors(), "; "))
+			}
 			log.Info("request received")
 		} else {
 			msg := "no errors occurred"
