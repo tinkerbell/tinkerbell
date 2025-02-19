@@ -202,18 +202,13 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			BindAddr:      netip.MustParseAddr("0.0.0.0"),
 			BindPort:      67,
 			BindInterface: "",
-			IPForPacket:   publicIP,
-			SyslogIP:      publicIP,
-			TFTPIP:        publicIP,
 			IPXEHTTPBinaryURL: &url.URL{
 				Scheme: "http",
-				Host:   fmt.Sprintf("%s:%v", publicIP, DefaultHTTPPort),
 				Path:   "/ipxe",
 			},
 			IPXEHTTPScript: IPXEHTTPScript{
 				URL: &url.URL{
 					Scheme: "http",
-					Host:   fmt.Sprintf("%s:%v", publicIP, DefaultHTTPPort),
 					Path:   "auto.ipxe",
 				},
 				InjectMacAddress: true,
@@ -258,9 +253,7 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			Timeout:   DefaultTFFTPTimeout,
 			Enabled:   true,
 		},
-		TinkServer: TinkServer{
-			AddrPort: fmt.Sprintf("%s:%d", publicIP, DefaultTinkServerPort),
-		},
+		TinkServer: TinkServer{},
 	}
 
 	if err := mergo.Merge(defaults, &c, mergo.WithTransformers(&c)); err != nil {

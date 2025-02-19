@@ -91,10 +91,15 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 }
 
 // Convert CLI specific fields to smee.Config fields.
-func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix) {
+func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr) {
 	s.Config.IPXE.HTTPScriptServer.TrustedProxies = ntip.ToPrefixList(trustedProxies).Slice()
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = func() string {
-		addr, port := splitHostPort(s.Config.DHCP.IPXEHTTPScript.URL.Host)
+		var addr string                                 // Defaults
+		port := fmt.Sprintf("%d", smee.DefaultHTTPPort) // Defaults
+		if !publicIP.IsUnspecified() && publicIP.IsValid() {
+			addr = publicIP.String()
+		}
+		// CLI flag
 		if s.DHCPIPXEScript.Host != "" {
 			addr = s.DHCPIPXEScript.Host
 		}
@@ -109,7 +114,12 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix) {
 	}()
 
 	s.Config.DHCP.IPXEHTTPBinaryURL.Host = func() string {
-		addr, port := splitHostPort(s.Config.DHCP.IPXEHTTPBinaryURL.Host)
+		var addr string                                 // Defaults
+		port := fmt.Sprintf("%d", smee.DefaultHTTPPort) // Defaults
+		if !publicIP.IsUnspecified() && publicIP.IsValid() {
+			addr = publicIP.String()
+		}
+		// CLI flag
 		if s.DHCPIPXEBinary.Host != "" {
 			addr = s.DHCPIPXEBinary.Host
 		}
@@ -121,6 +131,29 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix) {
 			return fmt.Sprintf("%s:%s", addr, port)
 		}
 		return addr
+	}()
+
+	// publicIP is used to set IPForPacket, SyslogIP, TFTPIP, IPXEHTTPBinaryURL.Host, IPXEHTTPScript.URL.Host, and TinkServer.AddrPort.
+	if publicIP.IsUnspecified() || !publicIP.IsValid() {
+		return
+	}
+	// the order of precendence is: CLI flag, publicIP, default.
+	if s.Config.DHCP.IPForPacket.IsUnspecified() || !s.Config.DHCP.IPForPacket.IsValid() {
+		s.Config.DHCP.IPForPacket = publicIP
+	}
+	if s.Config.DHCP.SyslogIP.IsUnspecified() || !s.Config.DHCP.SyslogIP.IsValid() {
+		s.Config.DHCP.SyslogIP = publicIP
+	}
+	if s.Config.DHCP.TFTPIP.IsUnspecified() || !s.Config.DHCP.TFTPIP.IsValid() {
+		s.Config.DHCP.TFTPIP = publicIP
+	}
+
+	s.Config.TinkServer.AddrPort = func() string {
+		_, port := splitHostPort(s.Config.TinkServer.AddrPort)
+		if port == "" {
+			port = fmt.Sprintf("%d", smee.DefaultTinkServerPort)
+		}
+		return fmt.Sprintf("%s:%s", publicIP.String(), port)
 	}()
 }
 
