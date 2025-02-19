@@ -23,6 +23,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"github.com/tinkerbell/tinkerbell/tootles"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/client-go/rest"
 )
 
 func Execute(ctx context.Context, args []string) error {
@@ -121,6 +122,16 @@ func Execute(ctx context.Context, args []string) error {
 
 	// Tink Server
 	ts.Convert()
+
+	// Tink Controller
+	if !inCluster() && tc.Config.EnableLeaderElection && tc.Config.LeaderElectionNamespace == "" {
+		tc.Config.LeaderElectionNamespace = "default"
+	}
+
+	// Rufio
+	if !inCluster() && rc.Config.EnableLeaderElection && rc.Config.LeaderElectionNamespace == "" {
+		rc.Config.LeaderElectionNamespace = "default"
+	}
 
 	log := defaultLogger(globals.LogLevel)
 	log.Info("starting tinkerbell",
@@ -303,4 +314,12 @@ func defaultLogger(level int) logr.Logger {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, opts))
 
 	return logr.FromSlogHandler(log.Handler())
+}
+
+// inCluster checks if we are running in cluster.
+func inCluster() bool {
+	if _, err := rest.InClusterConfig(); err == nil {
+		return true
+	}
+	return false
 }
