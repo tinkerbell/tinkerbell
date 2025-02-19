@@ -184,7 +184,7 @@ message WorkflowAction {
    */
   string message = 6;
   /*
-   * When the status got created for this aciton. You can see it as the time
+   * When the status got created for this action. You can see it as the time
    * when the action started its execution inside the hardware itself.
    */
   google.protobuf.Timestamp created_at = 7;

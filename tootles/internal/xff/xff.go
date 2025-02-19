@@ -78,7 +78,7 @@ func Middleware(proxies []string) (gin.HandlerFunc, error) {
 	}, nil
 }
 
-// MiddlewareFromUnparsed is a helpe that calls Parse then Middleware. proxies must conform to the
+// MiddlewareFromUnparsed is a helper that calls Parse then Middleware. proxies must conform to the
 // Parse constraints.
 func MiddlewareFromUnparsed(proxies string) (gin.HandlerFunc, error) {
 	parsed, err := Parse(proxies)
