@@ -1,0 +1,154 @@
+
+deploy: true
+name: tinkerbell
+
+publicIP:
+trustedProxies: []
+deployment:
+  image: ghcr.io/tinkerbell/tinkerbell:latest
+  imagePullPolicy: IfNotPresent
+  replicas: 1
+  args: []
+  additionalEnvs: []
+  strategy:
+    type: RollingUpdate
+  toleration: []
+  affinity: {}
+  selector: {}
+  envs:
+    rufio:
+      enableLeaderElection: true
+      leaderElectionNamespace: ""
+      metricsAddr: ""
+      probeAddr: ""
+      bmcConnectTimeout: "2m0s"
+      powerCheckInterval: "30m0s"
+    tinkController:
+      enableLeaderElection: true
+      leaderElectionNamespace: ""
+      metricsAddr: ""
+      probeAddr: ""
+    tinkServer:
+      bindAddr: ""
+      bindPort: 42113
+    tootles:
+      bindAddr: ""
+      bindPort: 50061
+      debugMode: false
+    smee:
+      dhcpEnabled: true
+      dhcpMode: "reservation"
+      dhcpBindAddr: ""
+      dhcpBindInterface: ""
+      dhcpIPForPacket: ""
+      dhcpSyslogIP: ""
+      dhcpTftpIP: ""
+      dhcpTftpPort: 69
+      dhcpIpxeHttpScriptPrependMac: false
+      dhcpIpxeHttpBinaryScheme: "http"
+      dhcpIpxeHttpBinaryHost: ""
+      dhcpIpxeHttpBinaryPort: 7171
+      dhcpIpxeHttpBinaryPath: "/ipxe"
+      dhcpIpxeHttpScriptScheme: "http"
+      dhcpIpxeHttpScriptHost: ""
+      dhcpIpxeHttpScriptPort: 7171
+      dhcpIpxeHttpScriptPath: "auto.ipxe"
+      ipxeEmbeddedScriptPatch: ""
+      ipxeHttpBinaryEnabled: true
+      ipxeHttpScriptEnabled: true
+      ipxeHttpScriptBindAddr: ""
+      ipxeHttpScriptBindPort: 7171
+      ipxeHttpScriptExtraKernelArgs: ""
+      #ipxeHttpScriptTrustedProxies: ""
+      ipxeHttpScriptRetries: 1
+      ipxeHttpScriptRetryDelay: 1
+      ipxeHttpScriptOsieURL: ""
+      isoEnabled: true
+      isoUpstreamURL: ""
+      isoPatchMagicString: ""
+      isoStaticIPAMEnabled: true
+      syslogEnabled: true
+      syslogBindAddr: ""
+      syslogBindPort: 514
+      tftpServerEnabled: true
+      tftpServerBindAddr: ""
+      tftpServerBindPort: 69
+      tftpTimeout: "10s"
+      tftpBlockSize: 512
+      ipxeScriptTinkServerAddrPort: ""
+      ipxeScriptTinkServerUseTLS: false
+      ipxeScriptTinkServerInsecureTLS: false
+    globals:
+      logLevel: 0
+      backend: "kube"
+      backendFilePath: ""
+      backendKubeConfig: ""
+      backendKubeNamespace: ""
+      otelEndpoint: ""
+      otelInsecure: false
+      trustedProxies: ""
+      #publicIpv4: ""
+      enableSmee: true
+      enableTootles: true
+      enableTinkServer: true
+      enableTinkController: true
+      enableRufioController: true
+  hostNetwork: false
+  ports:
+    tftp:
+      port: 69
+      name: tftp
+      protocol: UDP
+    syslog:
+      port: 514
+      name: syslog
+      protocol: UDP
+    dhcp:
+      port: 67
+      name: dhcp
+      protocol: UDP
+    httpSmee:
+      port: 7171
+      name: http-smee
+      protocol: TCP
+    httpTootles:
+      port: 50061
+      name: http-tootles
+      protocol: TCP
+    grpc:
+      port: 42113
+      name: grpc
+      protocol: TCP
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 500m
+      memory: 128Mi
+
+service:
+  ports:
+    tftp:
+      port: 69
+    syslog:
+      port: 514
+    http-smee:
+      port: 7171
+    http-tootles:
+      port: 50061
+    grpc:
+      port: 4211
+leaderElection:
+  name:
+  roleBindingName:
+
+tinkLeaderElectionRoleName: tink-leader-election-role
+tinkLeaderElectionRoleBindingName: tink-leader-election-rolebinding
+
+rbac:
+  type: Role # or ClusterRole
+  name: tink-controller-role # or tink-controller-cluster-role
+  bindingName: tink-controller-rolebinding # or tink-controller-cluster-rolebinding
+  serviceAccountName: tinkerbell
+

@@ -36,3 +36,7 @@ upstream-*
 ipxe-*.tar.gz
 
 kubeconfig
+
+# helm chart files and directories
+*.tgz
+Chart.lock

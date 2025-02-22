@@ -9,7 +9,6 @@ import (
 	"time"
 
 	retry "github.com/avast/retry-go"
-	"github.com/aws/smithy-go/ptr"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
@@ -138,11 +137,16 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	case <-ctx.Done():
 		// We can't use the context passed to Run() as its been cancelled.
 		err := c.Client.ContainerStop(context.Background(), create.ID, container.StopOptions{
-			Timeout: ptr.Int(5),
+			Timeout: toPointer(5),
 		})
 		if err != nil {
 			c.Log.Info("Failed to gracefully stop container", "error", err)
 		}
 		return fmt.Errorf("context error: %w", ctx.Err())
 	}
+}
+
+// toPointer converts a value of any type to a pointer of that type.
+func toPointer[T any](v T) *T {
+	return &v
 }
