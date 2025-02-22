@@ -55,6 +55,12 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
+		DHCPIPXEBinary: flag.URLBuilder{
+			Port: smee.DefaultHTTPPort,
+		},
+		DHCPIPXEScript: flag.URLBuilder{
+			Port: smee.DefaultHTTPPort,
+		},
 	}
 
 	h := &flag.TootlesConfig{
