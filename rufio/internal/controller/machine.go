@@ -134,7 +134,7 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *bmc.Machine, bm
 		}
 
 		// requeue as bmc connections can be transient.
-		return ctrl.Result{RequeueAfter: machineRequeueInterval}, nil
+		return ctrl.Result{RequeueAfter: r.powerCheckInterval}, nil
 	}
 
 	// Close BMC connection after reconciliation
@@ -169,7 +169,7 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *bmc.Machine, bm
 		return ctrl.Result{}, utilerrors.NewAggregate(multiErr)
 	}
 
-	return ctrl.Result{RequeueAfter: machineRequeueInterval}, nil
+	return ctrl.Result{RequeueAfter: r.powerCheckInterval}, nil
 }
 
 // updatePowerState gets the current power state of the machine.

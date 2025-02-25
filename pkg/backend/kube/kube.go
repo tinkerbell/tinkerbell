@@ -6,10 +6,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/scale/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -73,6 +74,15 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 	if err := v1alpha1.AddToScheme(rs); err != nil {
 		return nil, err
 	}
+
+	if err := bmc.AddToScheme(rs); err != nil {
+		return nil, err
+	}
+
+	if err := scheme.AddToScheme(rs); err != nil {
+		return nil, err
+	}
+
 	conf := func(o *cluster.Options) {
 		o.Scheme = rs
 		if cfg.Namespace != "" {

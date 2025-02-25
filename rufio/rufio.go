@@ -93,15 +93,15 @@ func WithLeaderElectionNamespace(namespace string) Option {
 }
 
 func NewConfig(opts ...Option) *Config {
-	defatuls := &Config{
+	defaults := &Config{
 		EnableLeaderElection: true,
 	}
 
 	for _, opt := range opts {
-		opt(defatuls)
+		opt(defaults)
 	}
 
-	return defatuls
+	return defaults
 }
 
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
