@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strconv"
 	"syscall"
@@ -19,7 +18,6 @@ type Handle struct{}
 // State is the internal State needed to track multiple sessions
 // and provide a way to share stdin between sessions.
 type State struct {
-	file       *os.File
 	mainClosed chan struct{}
 	// connectedSessions is a map of all the extra sessions connected to the main session
 	connectedSessions map[string]struct{}
@@ -27,20 +25,14 @@ type State struct {
 	stdin             io.Writer
 }
 
-func Handler(ctx context.Context, log logr.Logger, globalState map[string]State, ipmitoolPath string) func(s ssh.Session) {
+func Handler(ctx context.Context, log logr.Logger, globalState map[string]State, ipmitoolPath string) func(s ssh.Session) { //nolint:gocognit,cyclop // TODO: Refactor
 	return func(s ssh.Session) {
 		// search for an ipmitool session that is already running with the same user and host
 
 		log.Info("new session", "user", s.User())
 
-		if st, found := globalState[s.User()]; found {
+		if st, found := globalState[s.User()]; found { //nolint:nestif // TODO: Refactor
 			log.Info("connecting to existing session")
-			//_, winCh, _ := s.Pty()
-			//go func() {
-			//	for win := range winCh {
-			//		setWinsize(st.file, win.Width, win.Height)
-			//	}
-			//}()
 
 			name := fmt.Sprintf("%v-%v", s.User(), len(st.connectedSessions)+1)
 			st.connectedSessions[name] = struct{}{}
@@ -70,25 +62,37 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 						}
 						if b[0] == '.' {
 							log.Info("escape sequence detected")
-							s.Exit(0)
+							if err := s.Exit(0); err != nil {
+								log.Error(err, "error closing session")
+							}
 							return
 						}
 					}
 				}
 			}()
-			go io.Copy(mw, s) // stdin
+			go func() {
+				if _, err := io.Copy(mw, s); err != nil { // stdin
+					log.Error(err, "error copying stdin")
+				}
+			}()
 			select {
 			case <-st.mainClosed:
 				log.Info("main session closed", "name", name)
-				s.Exit(0)
+				if err := s.Exit(0); err != nil {
+					log.Error(err, "error closing session")
+				}
 				return
 			case <-ctx.Done():
 				log.Info("context done", "name", name)
-				s.Exit(0)
+				if err := s.Exit(0); err != nil {
+					log.Error(err, "error closing session")
+				}
 				return
 			case <-s.Context().Done():
 				log.Info("session context done", "name", name)
-				s.Exit(0)
+				if err := s.Exit(0); err != nil {
+					log.Error(err, "error closing session")
+				}
 				return
 			}
 		}
@@ -99,7 +103,9 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 		bmc, ok := s.Context().Value("bmc").(data.BMCMachine)
 		if !ok {
 			log.Info("error getting bmc info, exiting session")
-			s.Exit(1)
+			if err := s.Exit(1); err != nil {
+				log.Error(err, "error closing session")
+			}
 			return
 		}
 
@@ -116,18 +122,24 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 		in, err := cmd.StdinPipe()
 		if err != nil {
 			log.Error(err, "error getting stdin pipe")
-			s.Exit(2)
+			if err := s.Exit(2); err != nil {
+				log.Error(err, "error closing session")
+			}
 			return
 		}
 		out, err := cmd.StdoutPipe()
 		if err != nil {
 			log.Error(err, "error getting stdout pipe")
-			s.Exit(2)
+			if err := s.Exit(2); err != nil {
+				log.Error(err, "error closing session")
+			}
 			return
 		}
 		if err := cmd.Start(); err != nil {
 			log.Error(err, "error starting command")
-			s.Exit(2)
+			if err := s.Exit(2); err != nil {
+				log.Error(err, "error closing session")
+			}
 			return
 		}
 
@@ -162,7 +174,9 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 					}
 					if b[0] == '.' {
 						log.Info("escape sequence detected")
-						s.Exit(0)
+						if err := s.Exit(0); err != nil {
+							log.Error(err, "error closing session")
+						}
 						return
 					}
 				}
@@ -170,14 +184,22 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 		}()
 
 		go func() {
-			io.Copy(mw, s) // stdin
+			_, err := io.Copy(mw, s) // stdin
+			if err != nil {
+				log.Error(err, "error copying stdin")
+			}
 		}()
 
-		io.Copy(wr, out) // stdout
+		if _, err := io.Copy(wr, out); err != nil { // stdout
+			log.Error(err, "error copying stdout")
+		}
 
 		if err := cmd.Wait(); err != nil {
 			ps := cmd.ProcessState
-			status := ps.Sys().(syscall.WaitStatus)
+			status, ok := ps.Sys().(syscall.WaitStatus)
+			if !ok {
+				log.Error(err, "error getting process state")
+			}
 			switch {
 			case status.Exited():
 				log.Info("process exited", "status", status.ExitStatus())
