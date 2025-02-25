@@ -17,7 +17,6 @@ import (
 
 // GetByMac implements the handler.BackendReader interface and returns DHCP and netboot data based on a mac address.
 func (b *Backend) ReadBMCMachine(ctx context.Context, name string) (*data.BMCMachine, error) {
-
 	// get the hardware object, using the name, from the cluster
 	// get the ssh public keys from the hardware object, add them to the return data.BMCMachine object
 	// get the bmcRef from the hardware object
@@ -81,16 +80,16 @@ func (b *Backend) machine(ctx context.Context, name string, machine *data.BMCMac
 	if len(bmcList.Items) > 1 {
 		return fmt.Errorf("got %d bmc machine objects for name: %s, expected only 1", len(bmcList.Items), name)
 	}
-	bmc := bmcList.Items[0]
+	bmcMachine := bmcList.Items[0]
 
-	machine.Host = bmc.Spec.Connection.Host
-	if bmc.Spec.Connection.ProviderOptions != nil && bmc.Spec.Connection.ProviderOptions.IPMITOOL != nil {
-		machine.Port = ternary(bmc.Spec.Connection.ProviderOptions.IPMITOOL.Port == 0, 623, bmc.Spec.Connection.ProviderOptions.IPMITOOL.Port)
-		machine.CipherSuite = ternary(bmc.Spec.Connection.ProviderOptions.IPMITOOL.CipherSuite == "", "17", bmc.Spec.Connection.ProviderOptions.IPMITOOL.CipherSuite)
+	machine.Host = bmcMachine.Spec.Connection.Host
+	if bmcMachine.Spec.Connection.ProviderOptions != nil && bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL != nil {
+		machine.Port = ternary(bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.Port == 0, 623, bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.Port)
+		machine.CipherSuite = ternary(bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.CipherSuite == "", "17", bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.CipherSuite)
 	}
 
 	// lookup the secret object from the cluster. This gives us the user and pass.
-	username, password, err := resolveAuthSecretRef(ctx, b.cluster.GetClient(), v1.SecretReference{Name: bmc.Spec.Connection.AuthSecretRef.Name, Namespace: bmc.Spec.Connection.AuthSecretRef.Namespace})
+	username, password, err := resolveAuthSecretRef(ctx, b.cluster.GetClient(), v1.SecretReference{Name: bmcMachine.Spec.Connection.AuthSecretRef.Name, Namespace: bmcMachine.Spec.Connection.AuthSecretRef.Namespace})
 	if err != nil {
 		return err
 	}

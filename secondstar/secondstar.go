@@ -2,6 +2,7 @@ package secondstar
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -46,10 +47,12 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		log.Info("shutting down ssh server")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		server.Shutdown(shutdownCtx)
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Error(err, "error shutting down ssh server")
+		}
 	}()
 
-	if err := server.ListenAndServe(); err != nil && err != gssh.ErrServerClosed {
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, gssh.ErrServerClosed) {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 	return nil
