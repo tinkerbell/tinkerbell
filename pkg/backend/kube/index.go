@@ -1,6 +1,7 @@
 package kube
 
 import (
+	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -11,6 +12,8 @@ const (
 	IndexTypeMACAddr                    IndexType = MACAddrIndex
 	IndexTypeIPAddr                     IndexType = IPAddrIndex
 	IndexTypeWorkflowByNonTerminalState IndexType = WorkflowByNonTerminalState
+	IndexTypeHardwareName               IndexType = "hardware.metadata.name"
+	IndexTypeMachineName                IndexType = "machine.metadata.name"
 )
 
 // Indexes that are currently known.
@@ -29,6 +32,16 @@ var Indexes = map[IndexType]Index{
 		Obj:          &v1alpha1.Workflow{},
 		Field:        WorkflowByNonTerminalState,
 		ExtractValue: WorkflowByNonTerminalStateFunc,
+	},
+	IndexTypeHardwareName: {
+		Obj:          &v1alpha1.Hardware{},
+		Field:        HardwareNameIndex,
+		ExtractValue: HardwareNameFunc,
+	},
+	IndexTypeMachineName: {
+		Obj:          &bmc.Machine{},
+		Field:        MachineNameIndex,
+		ExtractValue: MachineNameFunc,
 	},
 }
 
@@ -101,4 +114,25 @@ func WorkflowByNonTerminalStateFunc(obj client.Object) []string {
 	}
 
 	return resp
+}
+
+// NameIndex is an index used with a controller-runtime client to lookup objects by name.
+const HardwareNameIndex = ".metadata.name"
+
+func HardwareNameFunc(obj client.Object) []string {
+	hw, ok := obj.(*v1alpha1.Hardware)
+	if !ok {
+		return nil
+	}
+	return []string{hw.ObjectMeta.Name}
+}
+
+const MachineNameIndex = ".metadata.name"
+
+func MachineNameFunc(obj client.Object) []string {
+	m, ok := obj.(*bmc.Machine)
+	if !ok {
+		return nil
+	}
+	return []string{m.ObjectMeta.Name}
 }

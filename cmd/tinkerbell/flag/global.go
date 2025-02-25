@@ -22,6 +22,7 @@ type GlobalConfig struct {
 	EnableTinkServer     bool
 	EnableTinkController bool
 	EnableRufio          bool
+	EnableSecondStar     bool
 }
 
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
@@ -39,6 +40,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(EnabledTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
 	fs.Register(EnabledTinkController, ffval.NewValueDefault(&gc.EnableTinkController, gc.EnableTinkController))
 	fs.Register(EnabledRufioController, ffval.NewValueDefault(&gc.EnableRufio, gc.EnableRufio))
+	fs.Register(EnabledSecondStar, ffval.NewValueDefault(&gc.EnableSecondStar, gc.EnableSecondStar))
 }
 
 // All these flags are used by at least two services or
@@ -114,4 +116,9 @@ var EnabledTinkController = Config{
 var EnabledRufioController = Config{
 	Name:  "enable-rufio-controller",
 	Usage: "enable Rufio Controller service",
+}
+
+var EnabledSecondStar = Config{
+	Name:  "enable-secondstar",
+	Usage: "enable SecondStar service",
 }
