@@ -27,12 +27,11 @@ type State struct {
 
 func Handler(ctx context.Context, log logr.Logger, globalState map[string]State, ipmitoolPath string) func(s ssh.Session) { //nolint:gocognit,cyclop // TODO: Refactor
 	return func(s ssh.Session) {
+		log.V(2).Info("new session", "user", s.User())
+
 		// search for an ipmitool session that is already running with the same user and host
-
-		log.Info("new session", "user", s.User())
-
 		if st, found := globalState[s.User()]; found { //nolint:nestif // TODO: Refactor
-			log.Info("connecting to existing session")
+			log.V(2).Info("connecting to existing session")
 
 			name := fmt.Sprintf("%v-%v", s.User(), len(st.connectedSessions)+1)
 			st.connectedSessions[name] = struct{}{}
@@ -61,7 +60,7 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 							return
 						}
 						if b[0] == '.' {
-							log.Info("escape sequence detected")
+							log.V(2).Info("escape sequence detected")
 							if err := s.Exit(0); err != nil {
 								log.Error(err, "error closing session")
 							}
@@ -77,19 +76,19 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 			}()
 			select {
 			case <-st.mainClosed:
-				log.Info("main session closed", "name", name)
+				log.V(2).Info("main session closed", "name", name)
 				if err := s.Exit(0); err != nil {
 					log.Error(err, "error closing session")
 				}
 				return
 			case <-ctx.Done():
-				log.Info("context done", "name", name)
+				log.V(2).Info("context done", "name", name)
 				if err := s.Exit(0); err != nil {
 					log.Error(err, "error closing session")
 				}
 				return
 			case <-s.Context().Done():
-				log.Info("session context done", "name", name)
+				log.V(2).Info("session context done", "name", name)
 				if err := s.Exit(0); err != nil {
 					log.Error(err, "error closing session")
 				}
@@ -100,9 +99,9 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 		// lookup the machine.bmc object from the cluster. This gives us the host and port and secret reference.
 		// lookup the secret object from the cluster. This gives us the user and pass.
 		// session user will eventually be the Hardware name and will be used to lookup all credential info. Also, maybe ssh key for validation.
-		bmc, ok := s.Context().Value("bmc").(data.BMCMachine)
+		bmc, ok := s.Context().Value(BMCDataKey).(data.BMCMachine)
 		if !ok {
-			log.Info("error getting bmc info, exiting session")
+			log.V(2).Info("error getting bmc info, exiting session")
 			if err := s.Exit(1); err != nil {
 				log.Error(err, "error closing session")
 			}
@@ -173,7 +172,7 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 						return
 					}
 					if b[0] == '.' {
-						log.Info("escape sequence detected")
+						log.V(2).Info("escape sequence detected")
 						if err := s.Exit(0); err != nil {
 							log.Error(err, "error closing session")
 						}
@@ -202,11 +201,11 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 			}
 			switch {
 			case status.Exited():
-				log.Info("process exited", "status", status.ExitStatus())
+				log.V(2).Info("process exited", "status", status.ExitStatus())
 			case status.Signaled():
-				log.Info("process signaled", "signal", status.Signal().String())
+				log.V(2).Info("process signaled", "signal", status.Signal().String())
 			case status.Stopped():
-				log.Info("process stopped", "signal", status.Signal().String())
+				log.V(2).Info("process stopped", "signal", status.Signal().String())
 			default:
 				log.Error(err, "error waiting for command")
 			}
@@ -218,7 +217,7 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 		// close all the channels in the tracker
 		close(globalState[s.User()].mainClosed)
 		delete(globalState, s.User())
-		log.Info("initial session closed")
+		log.V(2).Info("initial session closed")
 
 		deactivateArgs := []string{ipmitoolPath, "-I", "lanplus", "-E", "-H", bmc.Host, "-U", bmc.User, "-p", strconv.Itoa(bmc.Port), "sol", "deactivate"}
 		deactivateCmd := exec.CommandContext(context.Background(), deactivateArgs[0], deactivateArgs[1:]...)
@@ -228,6 +227,6 @@ func Handler(ctx context.Context, log logr.Logger, globalState map[string]State,
 			log.Error(err, "error deactivating sol", "output", string(out))
 		}
 
-		log.Info("session closed")
+		log.V(2).Info("session closed")
 	}
 }

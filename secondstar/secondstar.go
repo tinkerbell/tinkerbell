@@ -22,6 +22,7 @@ type Config struct {
 	SSHPort      int
 	HostKey      ssh.Signer
 	IPMITOOLPath string
+	IdleTimeout  time.Duration
 	Backend      Reader
 }
 
@@ -34,10 +35,12 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	server := &gssh.Server{
 		Addr:             fmt.Sprintf(":%d", c.SSHPort),
 		Handler:          handler,
-		PublicKeyHandler: internal.PubkeyAuth(c.Backend),
-		Banner:           "Welcome to SecondStar\n",
+		PublicKeyHandler: internal.PubkeyAuth(c.Backend, log),
+		Banner:           "Second star to the right and straight on 'til morning\n",
+		IdleTimeout:      c.IdleTimeout,
 	}
 
+	// when c.HostKey is nil, the server will generate a new host key on every start.
 	if c.HostKey != nil {
 		server.AddHostKey(c.HostKey)
 	}

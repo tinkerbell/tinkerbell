@@ -15,7 +15,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
+	"github.com/tinkerbell/tinkerbell/apiserver"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
+	"github.com/tinkerbell/tinkerbell/config/crd"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
 	"github.com/tinkerbell/tinkerbell/rufio"
 	"github.com/tinkerbell/tinkerbell/secondstar"
@@ -23,7 +25,16 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/controller"
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"github.com/tinkerbell/tinkerbell/tootles"
+	"go.etcd.io/etcd/server/v3/embed"
 	"golang.org/x/sync/errgroup"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
@@ -91,6 +102,7 @@ func Execute(ctx context.Context, args []string) error {
 		Config: &secondstar.Config{
 			SSHPort:      2222,
 			IPMITOOLPath: "/usr/sbin/ipmitool",
+			IdleTimeout:  15 * time.Minute,
 		},
 	}
 
@@ -158,6 +170,65 @@ func Execute(ctx context.Context, args []string) error {
 		"rufioEnabled", globals.EnableRufio,
 	)
 
+	// TODO: add optional in memory etcd.
+
+	// Etcd server
+	cfg := embed.NewConfig()
+	cfg.Dir = "/tmp/default.etcd"
+	e, err := embed.StartEtcd(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to start etcd: %w", err)
+	}
+	defer e.Close()
+	select {
+	case <-e.Server.ReadyNotify():
+		log.Info("etcd server is ready")
+	case <-time.After(60 * time.Second):
+		e.Server.Stop() // trigger a shutdown
+		return fmt.Errorf("server took too long to start")
+	}
+
+	g, ctx := errgroup.WithContext(ctx)
+	// API Server
+	g.Go(func() error {
+		if result := apiserver.Start(ctx, log); result != 0 {
+			return fmt.Errorf("API server return an error: %d", result)
+		}
+		return nil
+	})
+
+	b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create kube backend: %w", err)
+	}
+
+	// Wait for the API server to be healthy
+	if err := WaitForAPIServerHealth(ctx, b.ClientConfig, 5*time.Minute, 5*time.Second); err != nil {
+		return fmt.Errorf("failed to wait for API server health: %w", err)
+	}
+
+	apiExtClient, err := apiextensionsv1client.NewForConfig(b.ClientConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create apiextensions client: %w", err)
+	}
+
+	decoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	for _, raw := range [][]byte{crd.HardwareCRD, crd.TemplateCRD, crd.WorkflowCRD, crd.MachineCRD, crd.JobCRD, crd.TaskCRD} {
+		obj := &unstructured.Unstructured{}
+		if _, _, err := decoder.Decode(raw, nil, obj); err != nil {
+			return fmt.Errorf("failed to decode YAML: %w", err)
+		}
+		crd := &apiextensionsv1.CustomResourceDefinition{}
+		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, crd); err != nil {
+			return fmt.Errorf("failed to convert unstructured to CRD: %w", err)
+		}
+
+		if _, err := apiExtClient.CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create CRD: %w", err)
+		}
+	}
+	<-time.After(3 * time.Second)
+
 	switch globals.Backend {
 	case "kube":
 		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar))
@@ -186,12 +257,14 @@ func Execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("unknown backend %q", globals.Backend)
 	}
 
-	g, ctx := errgroup.WithContext(ctx)
-
 	// Smee
 	g.Go(func() error {
 		if globals.EnableSmee {
-			return s.Config.Start(ctx, log.WithValues("service", "smee"))
+			if err := s.Config.Start(ctx, log.WithValues("service", "smee")); err != nil {
+				return fmt.Errorf("failed to start smee service: %w", err)
+			}
+			return nil
+
 		}
 		log.Info("smee service is disabled")
 		return nil
@@ -200,7 +273,10 @@ func Execute(ctx context.Context, args []string) error {
 	// Tootles
 	g.Go(func() error {
 		if globals.EnableTootles {
-			return h.Config.Start(ctx, log.WithValues("service", "tootles"))
+			if err := h.Config.Start(ctx, log.WithValues("service", "tootles")); err != nil {
+				return fmt.Errorf("failed to start tootles service: %w", err)
+			}
+			return nil
 		}
 		log.Info("tootles service is disabled")
 		return nil
@@ -209,7 +285,10 @@ func Execute(ctx context.Context, args []string) error {
 	// Tink Server
 	g.Go(func() error {
 		if globals.EnableTinkServer {
-			return ts.Config.Start(ctx, log.WithValues("service", "tink-server"))
+			if err := ts.Config.Start(ctx, log.WithValues("service", "tink-server")); err != nil {
+				return fmt.Errorf("failed to start tink server service: %w", err)
+			}
+			return nil
 		}
 		log.Info("tink server service is disabled")
 		return nil
@@ -219,7 +298,7 @@ func Execute(ctx context.Context, args []string) error {
 	g.Go(func() error {
 		if globals.EnableTinkController {
 			if err := tc.Config.Start(ctx, log.WithValues("service", "tink-controller")); err != nil {
-				return fmt.Errorf("failed to setup tink controller: %w", err)
+				return fmt.Errorf("failed to start tink controller service: %w", err)
 			}
 			return nil
 		}
@@ -230,8 +309,7 @@ func Execute(ctx context.Context, args []string) error {
 	// Rufio
 	g.Go(func() error {
 		if globals.EnableRufio {
-			err := rc.Config.Start(ctx, log.WithValues("service", "rufio"))
-			if err != nil {
+			if err := rc.Config.Start(ctx, log.WithValues("service", "rufio")); err != nil {
 				return fmt.Errorf("failed to start rufio service: %w", err)
 			}
 			return nil
@@ -243,8 +321,7 @@ func Execute(ctx context.Context, args []string) error {
 	// SecondStar - SSH over serial
 	g.Go(func() error {
 		if globals.EnableSecondStar {
-			err := ssc.Config.Start(ctx, log.WithValues("service", "secondstar"))
-			if err != nil {
+			if err := ssc.Config.Start(ctx, log.WithValues("service", "secondstar")); err != nil {
 				return fmt.Errorf("failed to start secondstar service: %w", err)
 			}
 			return nil
@@ -256,11 +333,45 @@ func Execute(ctx context.Context, args []string) error {
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
-	if !globals.EnableSmee && !globals.EnableTootles && !globals.EnableTinkServer && !globals.EnableTinkController && !globals.EnableRufio && !globals.EnableSecondStar {
-		return errors.New("all services are disabled")
-	}
+	//if !globals.EnableSmee && !globals.EnableTootles && !globals.EnableTinkServer && !globals.EnableTinkController && !globals.EnableRufio && !globals.EnableSecondStar {
+	//	return errors.New("all services are disabled")
+	//}
 
 	return nil
+}
+
+// WaitForAPIServerHealth waits for the Kubernetes API server to become healthy
+func WaitForAPIServerHealth(ctx context.Context, config *rest.Config, maxWaitTime time.Duration, pollInterval time.Duration) error {
+	// Create clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to create clientset: %w", err)
+	}
+
+	// Calculate deadline
+	deadline := time.Now().Add(maxWaitTime)
+
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			// Check health
+			resp, err := clientset.Discovery().RESTClient().Get().AbsPath("/livez").Do(ctx).Raw()
+
+			if err == nil && len(resp) > 0 {
+				return nil // API server is healthy
+			}
+
+			// Log error and continue waiting
+			fmt.Printf("API server not healthy yet: %v\n", err)
+
+			// Sleep before next check
+			time.Sleep(pollInterval)
+		}
+	}
+
+	return fmt.Errorf("timed out waiting for API server health after %v", maxWaitTime)
 }
 
 func enabledIndexes(smeeEnabled, tootlesEnabled, tinkServerEnabled, secondStarEnabled bool) map[kube.IndexType]kube.Index {
