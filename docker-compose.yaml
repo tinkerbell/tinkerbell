@@ -7,64 +7,101 @@ services:
       - etcd
       - --advertise-client-urls=http://0.0.0.0:2379
       - --listen-client-urls=http://0.0.0.0:2379
-
-  kube-apiserver:
-    image: registry.k8s.io/kube-apiserver:v1.30.4
-    command:
-      - kube-apiserver
-      - --etcd-servers=http://etcd:2379
-      - --service-account-key-file=service-account-key.pem
-      - --service-account-signing-key-file=service-account-key.pem
-      - --service-account-issuer=api
-      - --tls-cert-file=server.crt
-      - --tls-private-key-file=server.key
-      - --client-ca-file=ca.crt
-    working_dir: /certs
     ports:
-      - 6443:6443
-    volumes:
-      - certs:/certs
-    depends_on:
-      etcd:
-        condition: service_started
-      certs:
-        condition: service_completed_successfully
+      - 2379:2379
+
+  #kube-apiserver:
+  #  image: registry.k8s.io/kube-apiserver:v1.30.4
+  #  command:
+  #    - kube-apiserver
+  #    - --etcd-servers=http://etcd:2379
+  #    - --service-account-key-file=service-account-key.pem
+  #    - --service-account-signing-key-file=service-account-key.pem
+  #    - --service-account-issuer=api
+  #    - --tls-cert-file=server.crt
+  #    - --tls-private-key-file=server.key
+  #    - --client-ca-file=ca.crt
+  #  working_dir: /certs
+  #  ports:
+  #    - 6443:6443
+  #  volumes:
+  #    - certs:/certs
+  #  depends_on:
+  #    etcd:
+  #      condition: service_started
+  #    certs:
+  #      condition: service_completed_successfully
 
   tinkerbell:
     #image: ghcr.io/tinkerbell/tinkerbell
     build:
       context: .
       dockerfile: Dockerfile.tinkerbell
-    network_mode: host
+    #network_mode: host
     environment:
       TINKERBELL_BACKEND_KUBE_CONFIG: /kube/kubeconfig
       TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL: ${OSIE_URL:?Error:"OSIE_URL env var is not set"}
       TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS: "tink_worker_image=ghcr.io/tinkerbell/tink-agent"
+      TINKERBELL_PUBLIC_IPV4: 192.168.2.50
+      ETCD_SERVERS: http://etcd:2379
+      SERVICE_ACCOUNT_KEY_FILE: /certs/service-account-key.pem
+      SERVICE_ACCOUNT_SIGNING_KEY_FILE: /certs/service-account-key.pem
+      SERVICE_ACCOUNT_ISSUER: api
+      TLS_CERT_FILE: /certs/server.crt
+      TLS_PRIVATE_KEY_FILE: /certs/server.key
+      CLIENT_CA_FILE: /certs/ca.crt
+      LOGGING_FORMAT: json
+      #TINKERBELL_ENABLE_SMEE: "false"
+      #TINKERBELL_ENABLE_TOOTLES: "false"
+      #TINKERBELL_ENABLE_TINK_SERVER: "false"
+      #TINKERBELL_ENABLE_TINK_CONTROLLER: "false"
+      #TINKERBELL_ENABLE_RUFIO_CONTROLLER: "false"
+      #TINKERBELL_ENABLE_SECONDSTAR: "false"
     volumes:
       - kubeconfig:/kube
+      - certs:/certs
     restart: on-failure
+    ports:
+      - 42113:42113
+      - 50061:50061
+      - 6443:6443
+      - 514:514/udp
+      - 69:69/udp
+      - 67:67/udp
+      - 7171:7171
+      - 32777:32777
+      - 2222:2222
     depends_on:
       certs:
         condition: service_completed_successfully
-      kube-apiserver:
+      etcd:
         condition: service_started
-      crds-apply:
+      kubeconfig:
         condition: service_completed_successfully
-    
+      #crds-apply:
+      #  condition: service_completed_successfully
+
+  #dhcp-relay:
+  #  image: ghcr.io/jacobweinstock/dhcprelay
+  #  command: ["-m", "forward", "-c", "5", "-id", "eno1", "-iu", "eno1", "-U", "eno1", "192.168.2.50"]
+  #  network_mode: host
+
     ## "init" containers; they run until they accomplish their purpose and then exit
-  crds-apply:
-    image: bitnami/kubectl:1.30.4
-    command: -s "https://kube-apiserver:6443" apply -k '/crd' # 'github.com/tinkerbell/tinkerbell/config/crd?ref=main'
-    environment:
-      KUBECONFIG: /kube/kubeconfig
-      KUBERNETES: https://kube-apiserver:6443
-    depends_on:
-      kube-apiserver:
-        condition: service_started
-    volumes:
-      - kubeconfig:/kube
-      - ./config/crd:/crd
-    restart: on-failure
+  #crds-apply:
+  #  image: bitnami/kubectl:1.30.4
+  #  command: -s "https://tinkerbell:6443" apply -k '/crd' # 'github.com/tinkerbell/tinkerbell/config/crd?ref=main'
+  #  environment:
+  #    KUBECONFIG: /kube/kubeconfig
+  #    KUBERNETES: https://tinkerbell:6443
+  #  depends_on:
+  #    kubeconfig:
+  #      condition: service_completed_successfully
+  #  #  tinkerbell:
+  #  #    condition: service_started
+  #  volumes:
+  #    - kubeconfig:/kube
+  #    - ./config/crd:/crd
+  #  restart: on-failure
 
   csr:
     image: alpine
@@ -96,7 +133,10 @@ services:
         DNS.4 = kubernetes.default.svc.cluster
         DNS.5 = kubernetes.default.svc.cluster.local
         DNS.6 = kube-apiserver
-        DNS.7 = localhost
+        DNS.7 = tinkerbell
+        DNS.8 = localhost
+        IP.1 = 127.0.0.1
+        IP.2 = 192.168.2.50
         
         [ v3_ext ]
         authorityKeyIdentifier=keyid,issuer:always
