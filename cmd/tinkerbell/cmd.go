@@ -18,6 +18,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
 	"github.com/tinkerbell/tinkerbell/rufio"
+	"github.com/tinkerbell/tinkerbell/secondstar"
 	"github.com/tinkerbell/tinkerbell/smee"
 	"github.com/tinkerbell/tinkerbell/tink/controller"
 	"github.com/tinkerbell/tinkerbell/tink/server"
@@ -51,6 +52,7 @@ func Execute(ctx context.Context, args []string) error {
 		EnableTinkServer:     true,
 		EnableTinkController: true,
 		EnableRufio:          true,
+		EnableSecondStar:     true,
 	}
 
 	s := &flag.SmeeConfig{
@@ -85,24 +87,33 @@ func Execute(ctx context.Context, args []string) error {
 		Config: rufio.NewConfig(rufioOpts...),
 	}
 
+	ssc := &flag.SecondStarConfig{
+		Config: &secondstar.Config{
+			SSHPort:      2222,
+			IPMITOOLPath: "/usr/sbin/ipmitool",
+		},
+	}
+
 	gfs := ff.NewFlagSet("globals")
 	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(gfs)
 	hfs := ff.NewFlagSet("tootles - Metadata service").SetParent(sfs)
-	tfs := ff.NewFlagSet("tink server - Workflow server").SetParent(hfs)
+	tfs := ff.NewFlagSet("tink server - Workflow service").SetParent(hfs)
 	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
 	rfs := ff.NewFlagSet("rufio - BMC controller").SetParent(cfs)
+	ssfs := ff.NewFlagSet("secondstar - SSH over serial service").SetParent(rfs)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
 	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
 	flag.RegisterTootlesFlags(&flag.Set{FlagSet: hfs}, h)
 	flag.RegisterTinkServerFlags(&flag.Set{FlagSet: tfs}, ts)
 	flag.RegisterTinkControllerFlags(&flag.Set{FlagSet: cfs}, tc)
 	flag.RegisterRufioFlags(&flag.Set{FlagSet: rfs}, rc)
+	flag.RegisterSecondStarFlags(&flag.Set{FlagSet: ssfs}, ssc)
 
 	cli := &ff.Command{
 		Name:     "tinkerbell",
 		Usage:    "tinkerbell [flags]",
 		LongHelp: "Tinkerbell stack.",
-		Flags:    rfs,
+		Flags:    ssfs,
 	}
 
 	if err := cli.Parse(args, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
@@ -133,6 +144,10 @@ func Execute(ctx context.Context, args []string) error {
 		rc.Config.LeaderElectionNamespace = "default"
 	}
 
+	if err := ssc.Convert(); err != nil {
+		return fmt.Errorf("failed to convert secondstar config: %w", err)
+	}
+
 	log := defaultLogger(globals.LogLevel)
 	log.Info("starting tinkerbell",
 		"version", gitRevision(),
@@ -145,7 +160,7 @@ func Execute(ctx context.Context, args []string) error {
 
 	switch globals.Backend {
 	case "kube":
-		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer))
+		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar))
 		if err != nil {
 			return fmt.Errorf("failed to create kube backend: %w", err)
 		}
@@ -155,6 +170,7 @@ func Execute(ctx context.Context, args []string) error {
 		ts.Config.Backend = b
 		tc.Config.Client = b.ClientConfig
 		rc.Config.Client = b.ClientConfig
+		ssc.Config.Backend = b
 	case "file":
 		b, err := newFileBackend(ctx, log, globals.BackendFilePath)
 		if err != nil {
@@ -224,17 +240,30 @@ func Execute(ctx context.Context, args []string) error {
 		return nil
 	})
 
+	// SecondStar - SSH over serial
+	g.Go(func() error {
+		if globals.EnableSecondStar {
+			err := ssc.Config.Start(ctx, log.WithValues("service", "secondstar"))
+			if err != nil {
+				return fmt.Errorf("failed to start secondstar service: %w", err)
+			}
+			return nil
+		}
+		log.Info("secondstar service is disabled")
+		return nil
+	})
+
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
-	if !globals.EnableSmee && !globals.EnableTootles && !globals.EnableTinkServer && !globals.EnableTinkController && !globals.EnableRufio {
+	if !globals.EnableSmee && !globals.EnableTootles && !globals.EnableTinkServer && !globals.EnableTinkController && !globals.EnableRufio && !globals.EnableSecondStar {
 		return errors.New("all services are disabled")
 	}
 
 	return nil
 }
 
-func enabledIndexes(smeeEnabled, tootlesEnabled, tinkServerEnabled bool) map[kube.IndexType]kube.Index {
+func enabledIndexes(smeeEnabled, tootlesEnabled, tinkServerEnabled, secondStarEnabled bool) map[kube.IndexType]kube.Index {
 	idxs := make(map[kube.IndexType]kube.Index, 0)
 
 	if smeeEnabled {
@@ -250,6 +279,12 @@ func enabledIndexes(smeeEnabled, tootlesEnabled, tinkServerEnabled bool) map[kub
 			idxs[k] = v
 		}
 	}
+	if secondStarEnabled {
+		for k, v := range flag.KubeIndexesSecondStar {
+			idxs[k] = v
+		}
+	}
+
 	return idxs
 }
 
