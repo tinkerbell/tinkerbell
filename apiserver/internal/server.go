@@ -83,7 +83,7 @@ cluster's shared state through which all other components interact.`,
 		// stop printing usage when the command errors
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			if err := InitializeConfig(cmd); err != nil {
+			if err := initializeEnv(cmd); err != nil {
 				return fmt.Errorf("error initializing config: %v", err)
 			}
 			if err := featuregate.DefaultComponentGlobalsRegistry.Set(); err != nil {
@@ -145,7 +145,53 @@ cluster's shared state through which all other components interact.`,
 	return cmd
 }
 
-func InitializeConfig(cmd *cobra.Command) error {
+func ServerOptionsAndFlags(ctx context.Context) (*pflag.FlagSet, func(*pflag.FlagSet, logr.Logger) error) {
+	_, featureGate := featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(
+		featuregate.DefaultKubeComponent, utilversion.DefaultBuildEffectiveVersion(), utilfeature.DefaultMutableFeatureGate)
+	s := options.NewServerRunOptions()
+
+	runFunc := func(fs *pflag.FlagSet, log logr.Logger) error {
+		// This is idempotent.
+		logs.AddFlags(fs)
+		logs.InitLogs()
+		klog.SetLogger(log)
+		// Activate logging as soon as possible, after that
+		// show flags with the final logging configuration.
+		if err := logsapi.ValidateAndApply(s.Logs, featureGate); err != nil {
+			return err
+		}
+		cliflag.PrintFlags(fs)
+
+		// set default options
+		completedOptions, err := s.Complete(ctx)
+		if err != nil {
+			return err
+		}
+
+		// validate options
+		if errs := completedOptions.Validate(); len(errs) != 0 {
+			return utilerrors.NewAggregate(errs)
+		}
+		// add feature enablement metrics
+		featureGate.AddMetrics()
+		return Run(ctx, completedOptions)
+	}
+
+	//klog.SetLogger(log)
+
+	fs := pflag.NewFlagSet("kube-apiserver", pflag.ContinueOnError)
+	namedFlagSets := s.Flags()
+	verflag.AddFlags(namedFlagSets.FlagSet("global"))
+	globalflag.AddGlobalFlags(namedFlagSets.FlagSet("global") /*cmd.Name()*/, "kube-apiserver", logs.SkipLoggingConfigurationFlags())
+	options.AddCustomGlobalFlags(namedFlagSets.FlagSet("generic"))
+	for _, f := range namedFlagSets.FlagSets {
+		fs.AddFlagSet(f)
+	}
+
+	return fs, runFunc
+}
+
+func initializeEnv(cmd *cobra.Command) error {
 	v := viper.New()
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
@@ -162,6 +208,32 @@ func bindFlags(cmd *cobra.Command, v *viper.Viper) {
 			cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
 		}
 	})
+}
+
+func SetupAndRun(ctx context.Context, s *options.ServerRunOptions) error {
+	_, featureGate := featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(
+		featuregate.DefaultKubeComponent, utilversion.DefaultBuildEffectiveVersion(), utilfeature.DefaultMutableFeatureGate)
+	if err := featuregate.DefaultComponentGlobalsRegistry.Set(); err != nil {
+		return err
+	}
+	// Activate logging as soon as possible, after that
+	// show flags with the final logging configuration.
+	if err := logsapi.ValidateAndApply(s.Logs, featureGate); err != nil {
+		return err
+	}
+	// set default options
+	completedOptions, err := s.Complete(ctx)
+	if err != nil {
+		return err
+	}
+
+	// validate options
+	if errs := completedOptions.Validate(); len(errs) != 0 {
+		return utilerrors.NewAggregate(errs)
+	}
+	// add feature enablement metrics
+	featureGate.AddMetrics()
+	return Run(ctx, completedOptions)
 }
 
 // Run runs the specified APIServer.  This should never exit.
