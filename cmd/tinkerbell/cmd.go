@@ -15,6 +15,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
+	"github.com/spf13/pflag"
 	"github.com/tinkerbell/tinkerbell/apiserver"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/config/crd"
@@ -36,9 +37,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/component-base/logs"
 )
 
-func Execute(ctx context.Context, args []string) error {
+func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error {
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig: func() string {
 			hd, err := os.UserHomeDir()
@@ -64,6 +66,10 @@ func Execute(ctx context.Context, args []string) error {
 		EnableTinkController: true,
 		EnableRufio:          true,
 		EnableSecondStar:     true,
+		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
+			EnableKubeAPIServer: true,
+			EnableETCD:          true,
+		},
 	}
 
 	s := &flag.SmeeConfig{
@@ -83,6 +89,7 @@ func Execute(ctx context.Context, args []string) error {
 	controllerOpts := []controller.Option{
 		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8080))),
 		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8081))),
+		controller.WithEnableLeaderElection(false),
 	}
 	tc := &flag.TinkControllerConfig{
 		Config: controller.NewConfig(controllerOpts...),
@@ -93,6 +100,7 @@ func Execute(ctx context.Context, args []string) error {
 		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8083))),
 		rufio.WithBmcConnectTimeout(2 * time.Minute),
 		rufio.WithPowerCheckInterval(30 * time.Minute),
+		rufio.WithEnableLeaderElection(false),
 	}
 	rc := &flag.RufioConfig{
 		Config: rufio.NewConfig(rufioOpts...),
@@ -106,26 +114,72 @@ func Execute(ctx context.Context, args []string) error {
 		},
 	}
 
-	gfs := ff.NewFlagSet("globals")
-	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(gfs)
+	ecfg := embed.NewConfig()
+	ecfg.Dir = "/tmp/default.etcd"
+	ec := &flag.EmbeddedEtcdConfig{
+		Config:             ecfg,
+		WaitHealthyTimeout: time.Minute,
+	}
+
+	// order here determines the help output.
+	kaffs := ff.NewFlagSet("embedded kube-apiserver")
+	efs := ff.NewFlagSet("embedded etcd").SetParent(kaffs)
+	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(efs)
 	hfs := ff.NewFlagSet("tootles - Metadata service").SetParent(sfs)
 	tfs := ff.NewFlagSet("tink server - Workflow service").SetParent(hfs)
 	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
 	rfs := ff.NewFlagSet("rufio - BMC controller").SetParent(cfs)
 	ssfs := ff.NewFlagSet("secondstar - SSH over serial service").SetParent(rfs)
-	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
+	gfs := ff.NewFlagSet("globals").SetParent(ssfs)
 	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
 	flag.RegisterTootlesFlags(&flag.Set{FlagSet: hfs}, h)
 	flag.RegisterTinkServerFlags(&flag.Set{FlagSet: tfs}, ts)
 	flag.RegisterTinkControllerFlags(&flag.Set{FlagSet: cfs}, tc)
 	flag.RegisterRufioFlags(&flag.Set{FlagSet: rfs}, rc)
 	flag.RegisterSecondStarFlags(&flag.Set{FlagSet: ssfs}, ssc)
+	flag.RegisterEtcd(&flag.Set{FlagSet: efs}, ec)
+	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
 
+	apiserverFS, runFunc := apiserver.ConfigAndFlags(ctx)
+
+	apiserverFS.VisitAll(func(f *pflag.Flag) {
+		// help and v already exist in the global flags defined above so we skip them
+		// here to avoid duplicate flag errors.
+		if f.Name == "help" || f.Name == "v" {
+			return
+		}
+		fc := ff.FlagConfig{
+			LongName: f.Name,
+			Usage:    f.Usage,
+			Value:    f.Value,
+		}
+		// feature-gates has a lot of output and includes a lot of '\n' characters
+		// that makes the ffhelp output not output all the flags. We remove all the
+		// feature gates so that all the flags are output in the help.
+		if f.Name == "feature-gates" {
+			lines := strings.Split(f.Usage, "\n")
+			newlines := make([]string, 0)
+			for _, line := range lines {
+				if !strings.HasPrefix(line, "kube:") {
+					newlines = append(newlines, line)
+				}
+			}
+			fc.Usage = strings.Join(newlines, "\n")
+		}
+
+		if len([]rune(f.Shorthand)) > 0 {
+			fc.ShortName = []rune(f.Shorthand)[0]
+		}
+
+		if _, err := kaffs.AddFlag(fc); err != nil {
+			fmt.Printf("error adding flag: %v\n", err)
+		}
+	})
 	cli := &ff.Command{
 		Name:     "tinkerbell",
 		Usage:    "tinkerbell [flags]",
 		LongHelp: "Tinkerbell stack.",
-		Flags:    ssfs,
+		Flags:    gfs,
 	}
 
 	if err := cli.Parse(args, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
@@ -156,6 +210,7 @@ func Execute(ctx context.Context, args []string) error {
 		rc.Config.LeaderElectionNamespace = "default"
 	}
 
+	// Second star
 	if err := ssc.Convert(); err != nil {
 		return fmt.Errorf("failed to convert secondstar config: %w", err)
 	}
@@ -170,41 +225,49 @@ func Execute(ctx context.Context, args []string) error {
 		"rufioEnabled", globals.EnableRufio,
 	)
 
-	// TODO: add optional in memory etcd.
-
 	// Etcd server
-	cfg := embed.NewConfig()
-	cfg.Dir = "/tmp/default.etcd"
-	e, err := embed.StartEtcd(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to start etcd: %w", err)
-	}
-	defer e.Close()
-	select {
-	case <-e.Server.ReadyNotify():
-		log.Info("etcd server is ready")
-	case <-time.After(60 * time.Second):
-		e.Server.Stop() // trigger a shutdown
-		return fmt.Errorf("server took too long to start")
-	}
-
-	g, ctx := errgroup.WithContext(ctx)
-	// API Server
-	g.Go(func() error {
-		if result := apiserver.Start(ctx, log); result != 0 {
-			return fmt.Errorf("API server return an error: %d", result)
+	if globals.EmbeddedGlobalConfig.EnableETCD {
+		e, err := embed.StartEtcd(ec.Config)
+		if err != nil {
+			return fmt.Errorf("failed to start etcd: %w", err)
 		}
+		defer e.Close()
+		select {
+		case <-e.Server.ReadyNotify():
+			log.Info("etcd server is ready")
+		case <-time.After(ec.WaitHealthyTimeout):
+			e.Server.Stop() // trigger a shutdown
+			return fmt.Errorf("server took too long to start")
+		}
+	} else {
+		log.Info("embedded etcd is disabled")
+	}
+	// API Server
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		if globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
+			logs.InitLogs()
+			if err := runFunc(apiserverFS, log); err != nil {
+				return fmt.Errorf("API server error: %w", err)
+			}
+			return nil
+		}
+		log.Info("embedded kube-apiserver is disabled")
 		return nil
 	})
 
 	b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create kube backend: %w", err)
+		cancel()
+		gerr := g.Wait()
+		return fmt.Errorf("failed to create kube backend: %w", errors.Join(err, gerr))
 	}
 
 	// Wait for the API server to be healthy
-	if err := WaitForAPIServerHealth(ctx, b.ClientConfig, 5*time.Minute, 5*time.Second); err != nil {
-		return fmt.Errorf("failed to wait for API server health: %w", err)
+	if err := WaitForAPIServerHealth(ctx, b.ClientConfig, 20*time.Second, 5*time.Second); err != nil {
+		cancel()
+		gerr := g.Wait()
+		return fmt.Errorf("failed to wait for API server health: %w", errors.Join(err, gerr))
 	}
 
 	apiExtClient, err := apiextensionsv1client.NewForConfig(b.ClientConfig)
