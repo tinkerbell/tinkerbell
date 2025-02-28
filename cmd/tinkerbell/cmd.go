@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
@@ -561,7 +562,7 @@ func defaultLogger(level int) logr.Logger {
 			if !ok {
 				return a
 			}
-			a.Value = slog.Float64Value(math.Abs(float64(b)))
+			a.Value = slog.StringValue(strconv.Itoa(int(b)))
 			return a
 		}
 
@@ -581,7 +582,11 @@ func defaultLogger(level int) logr.Logger {
 func zapLogger(level int) *zap.Logger {
 	config := zap.NewProductionConfig()
 	config.OutputPaths = []string{"stdout"}
-	config.Level = zap.NewAtomicLevelAt(zapcore.Level(-level))
+	l, err := safecast.ToInt8(level)
+	if err != nil {
+		l = 0
+	}
+	config.Level = zap.NewAtomicLevelAt(zapcore.Level(-l))
 	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
 	config.EncoderConfig.TimeKey = "time"
 	config.EncoderConfig.EncodeLevel = func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
