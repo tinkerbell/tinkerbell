@@ -80,7 +80,7 @@ cluster's shared state through which all other components interact.`,
 
 		// stop printing usage when the command errors
 		SilenceUsage: true,
-		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		PersistentPreRunE: func(*cobra.Command, []string) error {
 			if err := featuregate.DefaultComponentGlobalsRegistry.Set(); err != nil {
 				return err
 			}
