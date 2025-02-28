@@ -27,6 +27,8 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"github.com/tinkerbell/tinkerbell/tootles"
 	"go.etcd.io/etcd/server/v3/embed"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -37,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/component-base/logs"
 )
 
 func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error {
@@ -223,10 +224,15 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		"tinkServerEnabled", globals.EnableTinkServer,
 		"tinkControllerEnabled", globals.EnableTinkController,
 		"rufioEnabled", globals.EnableRufio,
+		"secondStarEnabled", globals.EnableSecondStar,
+		"publicIP", globals.PublicIP,
+		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
+		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
 	)
 
 	// Etcd server
 	if globals.EmbeddedGlobalConfig.EnableETCD {
+		ec.Config.ZapLoggerBuilder = embed.NewZapLoggerBuilder(zapLogger(globals.LogLevel))
 		e, err := embed.StartEtcd(ec.Config)
 		if err != nil {
 			return fmt.Errorf("failed to start etcd: %w", err)
@@ -239,15 +245,19 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			e.Server.Stop() // trigger a shutdown
 			return fmt.Errorf("server took too long to start")
 		}
+		go func() {
+			<-ctx.Done()
+			e.Server.Stop()
+		}()
 	} else {
 		log.Info("embedded etcd is disabled")
 	}
+
 	// API Server
-	g, ctx := errgroup.WithContext(ctx)
+	g := errgroup.Group{}
 	g.Go(func() error {
 		if globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
-			logs.InitLogs()
-			if err := runFunc(apiserverFS, log); err != nil {
+			if err := runFunc(apiserverFS, log.WithValues("service", "kube-apiserver")); err != nil {
 				return fmt.Errorf("API server error: %w", err)
 			}
 			return nil
@@ -256,44 +266,21 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return nil
 	})
 
-	b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil)
-	if err != nil {
-		cancel()
-		gerr := g.Wait()
-		return fmt.Errorf("failed to create kube backend: %w", errors.Join(err, gerr))
+	if numEnabled(globals) == 0 {
+		goto WAIT
 	}
-
-	// Wait for the API server to be healthy
-	if err := WaitForAPIServerHealth(ctx, b.ClientConfig, 20*time.Second, 5*time.Second); err != nil {
-		cancel()
-		gerr := g.Wait()
-		return fmt.Errorf("failed to wait for API server health: %w", errors.Join(err, gerr))
-	}
-
-	apiExtClient, err := apiextensionsv1client.NewForConfig(b.ClientConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create apiextensions client: %w", err)
-	}
-
-	decoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	for _, raw := range [][]byte{crd.HardwareCRD, crd.TemplateCRD, crd.WorkflowCRD, crd.MachineCRD, crd.JobCRD, crd.TaskCRD} {
-		obj := &unstructured.Unstructured{}
-		if _, _, err := decoder.Decode(raw, nil, obj); err != nil {
-			return fmt.Errorf("failed to decode YAML: %w", err)
-		}
-		crd := &apiextensionsv1.CustomResourceDefinition{}
-		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, crd); err != nil {
-			return fmt.Errorf("failed to convert unstructured to CRD: %w", err)
-		}
-
-		if _, err := apiExtClient.CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create CRD: %w", err)
-		}
-	}
-	<-time.After(3 * time.Second)
-
 	switch globals.Backend {
 	case "kube":
+		if err := crdMigrations(ctx, log, globals.BackendKubeConfig, globals.BackendKubeNamespace); err != nil {
+			cancel()
+			gerr := g.Wait()
+			return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
+		}
+
+		// I think we need some time for the CRDs to be "available" before we can create a client with indexers that use them.
+		// TODO: validate this assumption.
+		<-time.After(3 * time.Second)
+
 		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar))
 		if err != nil {
 			return fmt.Errorf("failed to create kube backend: %w", err)
@@ -320,6 +307,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return fmt.Errorf("unknown backend %q", globals.Backend)
 	}
 
+WAIT:
+
 	// Smee
 	g.Go(func() error {
 		if globals.EnableSmee {
@@ -327,7 +316,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				return fmt.Errorf("failed to start smee service: %w", err)
 			}
 			return nil
-
 		}
 		log.Info("smee service is disabled")
 		return nil
@@ -396,15 +384,78 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
-	//if !globals.EnableSmee && !globals.EnableTootles && !globals.EnableTinkServer && !globals.EnableTinkController && !globals.EnableRufio && !globals.EnableSecondStar {
-	//	return errors.New("all services are disabled")
-	//}
+
+	if numEnabled(globals) == 0 && !globals.EmbeddedGlobalConfig.EnableKubeAPIServer && !globals.EmbeddedGlobalConfig.EnableETCD {
+		return errors.New("all services are disabled")
+	}
+
+	// if etcd is the only service enabled, wait until the context is done.
+	if numEnabled(globals) == 0 && !globals.EmbeddedGlobalConfig.EnableKubeAPIServer && globals.EmbeddedGlobalConfig.EnableETCD {
+		<-ctx.Done()
+	}
 
 	return nil
 }
 
-// WaitForAPIServerHealth waits for the Kubernetes API server to become healthy
-func WaitForAPIServerHealth(ctx context.Context, config *rest.Config, maxWaitTime time.Duration, pollInterval time.Duration) error {
+func numEnabled(globals *flag.GlobalConfig) int {
+	n := 0
+	if globals.EnableSmee {
+		n++
+	}
+	if globals.EnableTootles {
+		n++
+	}
+	if globals.EnableTinkServer {
+		n++
+	}
+	if globals.EnableTinkController {
+		n++
+	}
+	if globals.EnableRufio {
+		n++
+	}
+	if globals.EnableSecondStar {
+		n++
+	}
+	return n
+}
+
+func crdMigrations(ctx context.Context, log logr.Logger, kubeconfig, namespace string) error {
+	backendNoIndexes, err := newKubeBackend(ctx, kubeconfig, "", namespace, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create kube backend: %w", err)
+	}
+
+	// Wait for the API server to be healthy
+	if err := waitForAPIServer(ctx, log, backendNoIndexes.ClientConfig, 20*time.Second, 5*time.Second); err != nil {
+		return fmt.Errorf("failed to wait for API server health: %w", err)
+	}
+
+	apiExtClient, err := apiextensionsv1client.NewForConfig(backendNoIndexes.ClientConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create apiextensions client: %w", err)
+	}
+
+	decoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	for _, raw := range [][]byte{crd.HardwareCRD, crd.TemplateCRD, crd.WorkflowCRD, crd.MachineCRD, crd.JobCRD, crd.TaskCRD} {
+		obj := &unstructured.Unstructured{}
+		if _, _, err := decoder.Decode(raw, nil, obj); err != nil {
+			return fmt.Errorf("failed to decode YAML: %w", err)
+		}
+		crdef := &apiextensionsv1.CustomResourceDefinition{}
+		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, crdef); err != nil {
+			return fmt.Errorf("failed to convert unstructured to CRD: %w", err)
+		}
+
+		if _, err := apiExtClient.CustomResourceDefinitions().Create(ctx, crdef, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create CRD: %w", err)
+		}
+	}
+	return nil
+}
+
+// waitForAPIServer waits for the Kubernetes API server to become healthy.
+func waitForAPIServer(ctx context.Context, log logr.Logger, config *rest.Config, maxWaitTime time.Duration, pollInterval time.Duration) error {
 	// Create clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -427,7 +478,7 @@ func WaitForAPIServerHealth(ctx context.Context, config *rest.Config, maxWaitTim
 			}
 
 			// Log error and continue waiting
-			fmt.Printf("API server not healthy yet: %v\n", err)
+			log.Info("API server not healthy yet", "reason", err)
 
 			// Sleep before next check
 			time.Sleep(pollInterval)
@@ -496,8 +547,9 @@ func defaultLogger(level int) logr.Logger {
 				}
 			}
 			ss.File = filepath.Join(p[idx:]...)
-			// Don't log the function name.
-			ss.Function = ""
+			ss.File = fmt.Sprintf("%s:%d", ss.File, ss.Line)
+			a.Value = slog.StringValue(ss.File)
+			a.Key = "caller"
 
 			return a
 		}
@@ -523,6 +575,24 @@ func defaultLogger(level int) logr.Logger {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, opts))
 
 	return logr.FromSlogHandler(log.Handler())
+}
+
+// zapLogger is used by embedded etcd. It's the only logger that embedded etcd supports.
+func zapLogger(level int) *zap.Logger {
+	config := zap.NewProductionConfig()
+	config.OutputPaths = []string{"stdout"}
+	config.Level = zap.NewAtomicLevelAt(zapcore.Level(-level))
+	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
+	config.EncoderConfig.TimeKey = "time"
+	config.EncoderConfig.EncodeLevel = func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+		enc.AppendString(fmt.Sprintf("%d", l))
+	}
+	logger, err := config.Build()
+	if err != nil {
+		panic(err)
+	}
+
+	return logger.With(zap.String("service", "etcd"))
 }
 
 // inCluster checks if we are running in cluster.

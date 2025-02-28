@@ -5,6 +5,18 @@ SHELL := bash
 .SHELLFLAGS := -o pipefail -euc
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
+CGO_ENABLED := 0
+export CGO_ENABLED
+COMPRESS := false
+UPX_BASEDIR := $(PWD)/build
+LOCAL_ARCH := $(shell uname -m)
+LOCAL_ARCH_ALT :=
+ifeq ($(LOCAL_ARCH),x86_64)
+	LOCAL_ARCH_ALT := amd64
+else ifeq ($(LOCAL_ARCH),aarch64)
+	LOCAL_ARCH_ALT := arm64
+endif
+
 ########### Tools variables ###########
 # Tool versions
 GOIMPORT_VER           := latest
@@ -30,18 +42,6 @@ GODEPGRAPH_FQP := $(TOOLS_DIR)/godepgraph-$(GODEPGRAPH_VER)
 IMAGE_NAME       ?= tinkerbell/tinkerbell:latest
 IMAGE_NAME_AGENT ?= tinkerbell/tink-agent:latest
 #############################################
-
-CGO_ENABLED := 0
-export CGO_ENABLED
-COMPRESS := false
-UPX_BASEDIR := $(PWD)/build
-LOCAL_ARCH := $(shell uname -m)
-LOCAL_ARCH_ALT :=
-ifeq ($(LOCAL_ARCH),x86_64)
-	LOCAL_ARCH_ALT := amd64
-else ifeq ($(LOCAL_ARCH),aarch64)
-	LOCAL_ARCH_ALT := arm64
-endif
 
 all: help
 

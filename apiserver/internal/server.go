@@ -24,12 +24,10 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -48,7 +46,7 @@ import (
 	"k8s.io/component-base/featuregate"
 	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
-	_ "k8s.io/component-base/metrics/prometheus/workqueue"
+	_ "k8s.io/component-base/metrics/prometheus/workqueue" //nolint:revive,nolintlint // This comes from the upstream library.
 	"k8s.io/component-base/term"
 	utilversion "k8s.io/component-base/version"
 	"k8s.io/component-base/version/verflag"
@@ -66,7 +64,7 @@ func init() {
 	utilruntime.Must(logsapi.AddFeatureGates(utilfeature.DefaultMutableFeatureGate))
 }
 
-// NewAPIServerCommand creates a *cobra.Command object with default parameters
+// NewAPIServerCommand creates a *cobra.Command object with default parameters.
 func NewAPIServerCommand(ctx context.Context, log logr.Logger) *cobra.Command {
 	_, featureGate := featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(
 		featuregate.DefaultKubeComponent, utilversion.DefaultBuildEffectiveVersion(), utilfeature.DefaultMutableFeatureGate)
@@ -83,9 +81,6 @@ cluster's shared state through which all other components interact.`,
 		// stop printing usage when the command errors
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			if err := initializeEnv(cmd); err != nil {
-				return fmt.Errorf("error initializing config: %v", err)
-			}
 			if err := featuregate.DefaultComponentGlobalsRegistry.Set(); err != nil {
 				return err
 			}
@@ -94,7 +89,7 @@ cluster's shared state through which all other components interact.`,
 			rest.SetDefaultWarningHandler(rest.NoWarnings{})
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			verflag.PrintAndExitIfRequested()
 			fs := cmd.Flags()
 			// Activate logging as soon as possible, after that
@@ -151,10 +146,6 @@ func ServerOptionsAndFlags(ctx context.Context) (*pflag.FlagSet, func(*pflag.Fla
 	s := options.NewServerRunOptions()
 
 	runFunc := func(fs *pflag.FlagSet, log logr.Logger) error {
-		// This is idempotent.
-		logs.AddFlags(fs)
-		logs.InitLogs()
-		klog.SetLogger(log)
 		// Activate logging as soon as possible, after that
 		// show flags with the final logging configuration.
 		if err := logsapi.ValidateAndApply(s.Logs, featureGate); err != nil {
@@ -174,10 +165,13 @@ func ServerOptionsAndFlags(ctx context.Context) (*pflag.FlagSet, func(*pflag.Fla
 		}
 		// add feature enablement metrics
 		featureGate.AddMetrics()
+
+		logs.InitLogs()
+		klog.SetLogger(log)
 		return Run(ctx, completedOptions)
 	}
 
-	//klog.SetLogger(log)
+	// klog.SetLogger(log)
 
 	fs := pflag.NewFlagSet("kube-apiserver", pflag.ContinueOnError)
 	namedFlagSets := s.Flags()
@@ -189,25 +183,6 @@ func ServerOptionsAndFlags(ctx context.Context) (*pflag.FlagSet, func(*pflag.Fla
 	}
 
 	return fs, runFunc
-}
-
-func initializeEnv(cmd *cobra.Command) error {
-	v := viper.New()
-	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	v.AutomaticEnv()
-	bindFlags(cmd, v)
-	return nil
-}
-
-// Bind each cobra flag to its associated viper configuration environment variable
-func bindFlags(cmd *cobra.Command, v *viper.Viper) {
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		configName := f.Name
-		if !f.Changed && v.IsSet(configName) {
-			val := v.Get(configName)
-			cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
-		}
-	})
 }
 
 func SetupAndRun(ctx context.Context, s *options.ServerRunOptions) error {
@@ -288,7 +263,7 @@ func CreateServerChain(config CompletedConfig) (*aggregatorapiserver.APIAggregat
 	return aggregatorServer, nil
 }
 
-// CreateKubeAPIServerConfig creates all the resources for running the API server, but runs none of them
+// CreateKubeAPIServerConfig creates all the resources for running the API server, but runs none of them.
 func CreateKubeAPIServerConfig(
 	opts options.CompletedOptions,
 	genericConfig *genericapiserver.Config,
