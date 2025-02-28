@@ -35,20 +35,19 @@ type Config struct {
 
 	Aggregator    *aggregatorapiserver.Config
 	KubeAPIs      *controlplane.Config
-	ApiExtensions *apiextensionsapiserver.Config
+	ApiExtensions *apiextensionsapiserver.Config //nolint:revive,stylecheck // This comes from the upstream library.
 
 	ExtraConfig
 }
 
-type ExtraConfig struct {
-}
+type ExtraConfig struct{}
 
 type completedConfig struct {
 	Options options.CompletedOptions
 
 	Aggregator    aggregatorapiserver.CompletedConfig
 	KubeAPIs      controlplane.CompletedConfig
-	ApiExtensions apiextensionsapiserver.CompletedConfig
+	ApiExtensions apiextensionsapiserver.CompletedConfig //nolint:revive,stylecheck // This comes from the upstream library.
 
 	ExtraConfig
 }
