@@ -171,8 +171,6 @@ func ServerOptionsAndFlags(ctx context.Context) (*pflag.FlagSet, func(*pflag.Fla
 		return Run(ctx, completedOptions)
 	}
 
-	// klog.SetLogger(log)
-
 	fs := pflag.NewFlagSet("kube-apiserver", pflag.ContinueOnError)
 	namedFlagSets := s.Flags()
 	verflag.AddFlags(namedFlagSets.FlagSet("global"))
