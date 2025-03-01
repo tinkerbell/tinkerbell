@@ -1,0 +1,87 @@
+{{ if .Values.stack.enabled -}}
+# The NGINX ConfigMap is in a separate file because its checksum is used to trigger updates in
+# the deployment.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+  namespace: {{ .Release.Namespace | quote }}
+data:
+  nginx.conf: |
+    worker_processes 1;
+    events {
+        worker_connections  1024;
+    }
+    user root;
+
+    http {
+      {{- if or (not .Values.smee.hostNetwork) (not .Values.smee.deploy) }}
+      server {
+        listen {{ .Values.smee.http.port }};
+        location / {
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          resolver $POD_NAMESERVER;
+          set $smee_dns {{ .Values.smee.name }}.{{ .Release.Namespace }}.svc.{{ .Values.stack.clusterDomain }}.; # needed in Kubernetes for dynamic DNS resolution
+
+          proxy_pass http://$smee_dns:{{ .Values.smee.http.port }};
+        }
+      }
+      {{- end }}
+
+      server {
+        listen {{ .Values.hegel.service.port }};
+        location / {
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          resolver $POD_NAMESERVER;
+          set $hegel_dns {{ .Values.hegel.name }}.{{ .Release.Namespace }}.svc.{{ .Values.stack.clusterDomain }}.; # needed in Kubernetes for dynamic DNS resolution
+
+          proxy_pass http://$hegel_dns:{{ .Values.hegel.service.port }};
+        }
+      }
+
+      server {
+        listen {{ .Values.tink.server.service.port }};
+        http2 on;
+        location / {
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          resolver $POD_NAMESERVER;
+          set $tink_dns {{ .Values.tink.server.name }}.{{ .Release.Namespace }}.svc.{{ .Values.stack.clusterDomain }}.; # needed in Kubernetes for dynamic DNS resolution
+
+          grpc_pass grpc://$tink_dns:{{ .Values.tink.server.service.port }};
+        }
+      }
+
+       server {
+        listen {{ .Values.stack.hook.port }};
+        location / {
+          sendfile           on;
+          sendfile_max_chunk 1m;
+          root /usr/share/nginx/html;
+        }
+      }
+    }
+
+    stream {
+      log_format logger-json escape=json '{"source": "nginx", "time": $msec, "address": "$remote_addr", "status": $status, "upstream_addr": "$upstream_addr"}';
+
+      {{- if or (not .Values.smee.hostNetwork) (not .Values.smee.deploy) }}
+      server {
+          listen {{ .Values.smee.tftp.port }} udp;
+          resolver $POD_NAMESERVER;
+          set $smee_dns {{ .Values.smee.name }}.{{ .Release.Namespace }}.svc.{{ .Values.stack.clusterDomain }}.; # needed in Kubernetes for dynamic DNS resolution
+          proxy_pass $smee_dns:{{ .Values.smee.tftp.port }};
+          access_log /dev/stdout logger-json;
+      }
+      server {
+          listen {{ .Values.smee.syslog.port }} udp;
+          resolver $POD_NAMESERVER;
+          set $smee_dns {{ .Values.smee.name }}.{{ .Release.Namespace }}.svc.{{ .Values.stack.clusterDomain }}.; # needed in Kubernetes for dynamic DNS resolution
+          proxy_pass $smee_dns:{{ .Values.smee.syslog.port }};
+          access_log /dev/stdout logger-json;
+      }
+      {{- end }}
+    }
+{{- end }}

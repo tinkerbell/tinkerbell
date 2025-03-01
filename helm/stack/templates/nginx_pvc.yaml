@@ -1,0 +1,52 @@
+{{- if and .Values.stack.enabled .Values.stack.hook.enabled (empty .Values.stack.hook.persistence.existingClaim ) }}
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: {{ .Values.stack.hook.persistence.localPersistentVolume.storageClassName }}
+  namespace: {{ .Release.Namespace }}
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.stack.hook.persistence.localPersistentVolume.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  capacity:
+    storage: {{ .Values.stack.hook.persistence.localPersistentVolume.size }}
+  accessModes:
+  {{- range .Values.stack.hook.persistence.localPersistentVolume.accessModes }}
+  - {{ . | quote }}
+  {{- end }}
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ .Values.stack.hook.persistence.localPersistentVolume.storageClassName }}
+  local:
+    path: {{ .Values.stack.hook.persistence.localPersistentVolume.path }}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: non-existent-label # this label with DoesNotExist should match all nodes
+          operator: DoesNotExist
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hook-artifacts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- with .Values.stack.hook.persistence.localPersistentVolume.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  accessModes:
+  {{- range .Values.stack.hook.persistence.localPersistentVolume.accessModes }}
+  - {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.stack.hook.persistence.localPersistentVolume.size | quote }}
+  storageClassName: {{ .Values.stack.hook.persistence.localPersistentVolume.storageClassName }}
+{{- end }}
