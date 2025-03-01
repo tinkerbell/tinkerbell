@@ -3,34 +3,39 @@ services:
 
   etcd:
     image: registry.k8s.io/etcd:3.5.15-0
+    networks:
+      01-tinkerbell_default:
     command:
       - etcd
       - --advertise-client-urls=http://0.0.0.0:2379
       - --listen-client-urls=http://0.0.0.0:2379
-    ports:
-      - 2379:2379
+      - --data-dir=/data/tinkerbell.etcd
+    volumes:
+      - etcd:/data
 
-  #kube-apiserver:
-  #  image: registry.k8s.io/kube-apiserver:v1.30.4
-  #  command:
-  #    - kube-apiserver
-  #    - --etcd-servers=http://etcd:2379
-  #    - --service-account-key-file=service-account-key.pem
-  #    - --service-account-signing-key-file=service-account-key.pem
-  #    - --service-account-issuer=api
-  #    - --tls-cert-file=server.crt
-  #    - --tls-private-key-file=server.key
-  #    - --client-ca-file=ca.crt
-  #  working_dir: /certs
-  #  ports:
-  #    - 6443:6443
-  #  volumes:
-  #    - certs:/certs
-  #  depends_on:
-  #    etcd:
-  #      condition: service_started
-  #    certs:
-  #      condition: service_completed_successfully
+  kube-apiserver:
+    image: registry.k8s.io/kube-apiserver:v1.30.4
+    networks:
+      01-tinkerbell_default:
+    command:
+      - kube-apiserver
+      - --etcd-servers=http://etcd:2379
+      - --service-account-key-file=service-account-key.pem
+      - --service-account-signing-key-file=service-account-key.pem
+      - --service-account-issuer=api
+      - --tls-cert-file=server.crt
+      - --tls-private-key-file=server.key
+      - --client-ca-file=ca.crt
+    working_dir: /certs
+    ports:
+      - 6443:6443
+    volumes:
+      - certs:/certs
+    depends_on:
+      etcd:
+        condition: service_started
+      kubeconfig:
+        condition: service_completed_successfully
 
   tinkerbell:
     #image: ghcr.io/tinkerbell/tinkerbell
@@ -38,136 +43,29 @@ services:
       context: .
       dockerfile: Dockerfile.tinkerbell
     #network_mode: host
+    networks:
+      02-dhcp-relay:
+      01-tinkerbell_default:
     environment:
-      TINKERBELL_BACKEND_KUBE_CONFIG: /kube/kubeconfig
+      TINKERBELL_BACKEND_KUBE_CONFIG: /certs/kubeconfig
       TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL: ${OSIE_URL:?Error:"OSIE_URL env var is not set"}
       TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS: "tink_worker_image=ghcr.io/tinkerbell/tink-agent"
       TINKERBELL_PUBLIC_IPV4: 192.168.2.50
-      ETCD_SERVERS: http://etcd:2379
-      SERVICE_ACCOUNT_KEY_FILE: /certs/service-account-key.pem
-      SERVICE_ACCOUNT_SIGNING_KEY_FILE: /certs/service-account-key.pem
-      SERVICE_ACCOUNT_ISSUER: api
-      TLS_CERT_FILE: /certs/server.crt
-      TLS_PRIVATE_KEY_FILE: /certs/server.key
-      CLIENT_CA_FILE: /certs/ca.crt
-      LOGGING_FORMAT: json
-      #TINKERBELL_ENABLE_SMEE: "false"
-      #TINKERBELL_ENABLE_TOOTLES: "false"
-      #TINKERBELL_ENABLE_TINK_SERVER: "false"
-      #TINKERBELL_ENABLE_TINK_CONTROLLER: "false"
-      #TINKERBELL_ENABLE_RUFIO_CONTROLLER: "false"
-      #TINKERBELL_ENABLE_SECONDSTAR: "false"
+      TINKERBELL_ENABLE_EMBEDDED_ETCD: "false"
+      TINKERBELL_ENABLE_EMBEDDED_KUBE_APISERVER: "false"
     volumes:
-      - kubeconfig:/kube
       - certs:/certs
     restart: on-failure
     ports:
       - 42113:42113
       - 50061:50061
-      - 6443:6443
       - 514:514/udp
       - 69:69/udp
       - 67:67/udp
       - 7171:7171
-      - 32777:32777
       - 2222:2222
     depends_on:
-      certs:
-        condition: service_completed_successfully
-      etcd:
-        condition: service_started
       kubeconfig:
-        condition: service_completed_successfully
-      #crds-apply:
-      #  condition: service_completed_successfully
-
-  #dhcp-relay:
-  #  image: ghcr.io/jacobweinstock/dhcprelay
-  #  command: ["-m", "forward", "-c", "5", "-id", "eno1", "-iu", "eno1", "-U", "eno1", "192.168.2.50"]
-  #  network_mode: host
-
-    ## "init" containers; they run until they accomplish their purpose and then exit
-  #crds-apply:
-  #  image: bitnami/kubectl:1.30.4
-  #  command: -s "https://tinkerbell:6443" apply -k '/crd' # 'github.com/tinkerbell/tinkerbell/config/crd?ref=main'
-  #  environment:
-  #    KUBECONFIG: /kube/kubeconfig
-  #    KUBERNETES: https://tinkerbell:6443
-  #  depends_on:
-  #    kubeconfig:
-  #      condition: service_completed_successfully
-  #  #  tinkerbell:
-  #  #    condition: service_started
-  #  volumes:
-  #    - kubeconfig:/kube
-  #    - ./config/crd:/crd
-  #  restart: on-failure
-
-  csr:
-    image: alpine
-    entrypoint: /bin/sh
-    environment:
-      CSR_CONF: |-
-        [ req ]
-        default_bits = 2048
-        prompt = no
-        default_md = sha256
-        req_extensions = req_ext
-        distinguished_name = dn
-        
-        [ dn ]
-        C = US
-        ST = CA
-        L = Los Angeles
-        O = Tinkerbell
-        OU = Engineering
-        CN = localhost
-        
-        [ req_ext ]
-        subjectAltName = @alt_names
-        
-        [ alt_names ]
-        DNS.1 = kubernetes
-        DNS.2 = kubernetes.default
-        DNS.3 = kubernetes.default.svc
-        DNS.4 = kubernetes.default.svc.cluster
-        DNS.5 = kubernetes.default.svc.cluster.local
-        DNS.6 = kube-apiserver
-        DNS.7 = tinkerbell
-        DNS.8 = localhost
-        IP.1 = 127.0.0.1
-        IP.2 = 192.168.2.50
-        
-        [ v3_ext ]
-        authorityKeyIdentifier=keyid,issuer:always
-        basicConstraints=CA:FALSE
-        keyUsage=keyEncipherment,dataEncipherment
-        extendedKeyUsage=serverAuth,clientAuth
-        subjectAltName=@alt_names
-    command: |
-      -c 'echo "$${CSR_CONF}" > /certs/csr.conf && cat /certs/csr.conf'
-    volumes:
-      - certs:/certs
-
-  certs:
-    image: alpine/openssl
-    entrypoint: /bin/sh
-    command: |
-      -c 'openssl genrsa -out service-account-key.pem 4096 && \
-      openssl req -new -x509 -days 365 -key service-account-key.pem -subj "/CN=test" -sha256 -out service-account.pem && \
-      openssl genrsa -out ca.key 2048 && \
-      openssl req -x509 -new -nodes -key ca.key -subj "/CN=test" -days 10000 -out ca.crt && \
-      openssl genrsa -out server.key 2048 && \
-      openssl req -new -key server.key -out server.csr -config csr.conf && \
-      openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key \
-          -CAcreateserial -out server.crt -days 10000 \
-          -extensions v3_ext -extfile csr.conf'
-    working_dir: /certs
-    volumes:
-      - certs:/certs:rw
-    restart: on-failure
-    depends_on:
-      csr:
         condition: service_completed_successfully
 
   kubeconfig:
@@ -175,28 +73,25 @@ services:
     entrypoint: /bin/sh
     user: root
     command: |
-      -c 'chmod 777 /certs && kubectl config set-cluster local-apiserver --certificate-authority=/certs/ca.crt --embed-certs=true --server=https://localhost:6443 --kubeconfig=/kubeconfig/kubeconfig && \
-      kubectl config set-credentials admin --client-certificate=/certs/server.crt --client-key=/certs/server.key --embed-certs=true --kubeconfig=/kubeconfig/kubeconfig && \
-      kubectl config set-context default --cluster=local-apiserver --user=admin --kubeconfig=/kubeconfig/kubeconfig && \
-      kubectl config use-context default --kubeconfig=/kubeconfig/kubeconfig && chmod 644 /kubeconfig/kubeconfig'
-    working_dir: /certs
+      -c '/certs.sh -d /certs -i kube-apiserver && cp -a /certs/kubeconfig.localhost /kubeconfiglocal/kubeconfig'
     volumes:
       - certs:/certs
-      - kubeconfig:/kubeconfig
-    depends_on:
-      certs:
-        condition: service_completed_successfully
-
-  kubeconfiglocal:
-    image: alpine
-    command: cp -a /kubeconfig/kubeconfig /kubeconfiglocal/kubeconfig
-    volumes:
-      - kubeconfig:/kubeconfig
-      - ./:/kubeconfiglocal
-    depends_on:
-      kubeconfig:
-        condition: service_completed_successfully
+      - ./script/certs.sh:/certs.sh
+      - ./out:/kubeconfiglocal
 
 volumes:
   certs:
-  kubeconfig:
+  etcd:
+
+# use a custom network configuration to enable macvlan mode so we can listen for broadcast DHCP packets
+networks:
+  01-tinkerbell_default:
+    driver: bridge
+  02-dhcp-relay:
+    driver: macvlan
+    driver_opts:
+      parent: ${PARENT_INTERFACE:?Error:"PARENT_INTERFACE env var must be set to the interface name to use for DHCP broadcast traffic"}
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.99.0/30

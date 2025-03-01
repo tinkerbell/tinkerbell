@@ -20,6 +20,8 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 		}
 	}
 
+	// remove any existing tasks if they were created.
+
 	// 2. Handle ISO eject scenario.
 	if s.workflow.Spec.BootOptions.BootMode == v1alpha1.BootModeISO || s.workflow.Spec.BootOptions.BootMode == v1alpha1.BootModeISOBoot {
 		name := jobName(fmt.Sprintf("%s-%s", jobNameISOEject, s.workflow.GetName()))
