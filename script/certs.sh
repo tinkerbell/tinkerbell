@@ -2,9 +2,58 @@
 
 set -eou pipefail
 
-mkdir -p certs
+function usage() {
+        echo "Usage: $0 [OPTION]..."
+        echo "Script for creating kube-apiserver certificates and a Kubeconfig"
+        echo
+        echo "Options:"
+        echo "  -i, --apiserver           The Name or IP address of the kube-apiserver (default: localhost)"
+        echo "  -d, --dir                 Directory where all files will be created (default: ./certs)"
+        echo "  -h, --help                Display this help and exit"
+    }
 
+# default values
 certs_dir=$(pwd)/certs
+apiserver_ip="localhost"
+
+args=$(getopt -a -o i:d:h --long i:,dir:,help -- "$@")
+if [[ $? -gt 0 ]]; then
+  usage
+fi
+
+eval set -- ${args}
+while :
+do
+  case $1 in
+    -i | --apiserver)
+      if [[ ! -z $2 ]]; then
+        apiserver_ip=$2
+      fi
+      shift 2 ;;
+    -d | --dir)
+      if [[ ! -z $2 ]]; then
+        certs_dir=$2
+      fi
+      shift 2 ;;
+    -h | --help)
+      usage
+      exit 1
+      shift ;;
+    # -- means the end of the arguments; drop this, and break out of the while loop
+    --) shift; break ;;
+    *) >&2 echo Unsupported option: $1
+       usage ;;
+  esac
+done
+
+mkdir -p "$certs_dir"
+
+alt_name="DNS.9 = $apiserver_ip"
+# determine if the apiserver_ip is an IP or a hostname
+if [[ $apiserver_ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "IP address detected"
+    alt_name="IP.2 = $apiserver_ip"
+fi
 
 cat > "$certs_dir"/csr.conf <<EOF
 [ req ]
@@ -35,7 +84,7 @@ DNS.6 = kube-apiserver
 DNS.7 = tinkerbell
 DNS.8 = localhost
 IP.1 = 127.0.0.1
-IP.2 = 192.168.2.50
+$alt_name
 
 [ v3_ext ]
 authorityKeyIdentifier=keyid,issuer:always
@@ -53,7 +102,15 @@ openssl genrsa -out "$certs_dir"/server.key 2048
 openssl req -new -key "$certs_dir"/server.key -out "$certs_dir"/server.csr -config "$certs_dir"/csr.conf
 openssl x509 -req -in "$certs_dir"/server.csr -CA "$certs_dir"/ca.crt -CAkey "$certs_dir"/ca.key -CAcreateserial -out "$certs_dir"/server.crt -days 10000 -extensions v3_ext -extfile "$certs_dir"/csr.conf
 
-kubectl config set-cluster local-apiserver --certificate-authority=certs/ca.crt --embed-certs=true --server=https://localhost:6443 --kubeconfig=kubeconfig
-kubectl config set-credentials admin --client-certificate=certs/server.crt --client-key=certs/server.key --embed-certs=true --kubeconfig=kubeconfig
-kubectl config set-context default --cluster=local-apiserver --user=admin --kubeconfig=kubeconfig
-kubectl config use-context default --kubeconfig=kubeconfig && chmod 644 kubeconfig
+# This creates a kubeconfig that will point to the name or IP address passed in via the -i flag for the apiserver
+kubectl config set-cluster local-apiserver --certificate-authority="$certs_dir"/ca.crt --embed-certs=true --server=https://"$apiserver_ip":6443 --kubeconfig="$certs_dir"/kubeconfig
+kubectl config set-credentials admin --client-certificate="$certs_dir"/server.crt --client-key="$certs_dir"/server.key --embed-certs=true --kubeconfig="$certs_dir"/kubeconfig
+kubectl config set-context default --cluster=local-apiserver --user=admin --kubeconfig="$certs_dir"/kubeconfig
+kubectl config use-context default --kubeconfig="$certs_dir"/kubeconfig && chmod 644 "$certs_dir"/kubeconfig
+
+# This creates a kubeconfig that will point to localhost for the apiserver
+kubeconfig_localhost="kubeconfig.localhost"
+kubectl config set-cluster local-apiserver --certificate-authority="$certs_dir"/ca.crt --embed-certs=true --server=https://localhost:6443 --kubeconfig="$certs_dir/$kubeconfig_localhost"
+kubectl config set-credentials admin --client-certificate="$certs_dir"/server.crt --client-key="$certs_dir"/server.key --embed-certs=true --kubeconfig="$certs_dir/$kubeconfig_localhost"
+kubectl config set-context default --cluster=local-apiserver --user=admin --kubeconfig="$certs_dir/$kubeconfig_localhost"
+kubectl config use-context default --kubeconfig="$certs_dir/$kubeconfig_localhost" && chmod 644 "$certs_dir/$kubeconfig_localhost"

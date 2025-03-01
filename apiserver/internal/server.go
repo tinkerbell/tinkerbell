@@ -140,12 +140,12 @@ cluster's shared state through which all other components interact.`,
 	return cmd
 }
 
-func ServerOptionsAndFlags(ctx context.Context) (*pflag.FlagSet, func(*pflag.FlagSet, logr.Logger) error) {
+func ServerOptionsAndFlags() (*pflag.FlagSet, func(context.Context, *pflag.FlagSet, logr.Logger) error) {
 	_, featureGate := featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(
 		featuregate.DefaultKubeComponent, utilversion.DefaultBuildEffectiveVersion(), utilfeature.DefaultMutableFeatureGate)
 	s := options.NewServerRunOptions()
 
-	runFunc := func(fs *pflag.FlagSet, log logr.Logger) error {
+	runFunc := func(ctx context.Context, fs *pflag.FlagSet, log logr.Logger) error {
 		// Activate logging as soon as possible, after that
 		// show flags with the final logging configuration.
 		if err := logsapi.ValidateAndApply(s.Logs, featureGate); err != nil {

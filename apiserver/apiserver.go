@@ -12,6 +12,6 @@ import (
 	_ "k8s.io/component-base/metrics/prometheus/version"  // for version metric registration
 )
 
-func ConfigAndFlags(ctx context.Context) (*pflag.FlagSet, func(*pflag.FlagSet, logr.Logger) error) {
-	return internal.ServerOptionsAndFlags(ctx)
+func ConfigAndFlags() (*pflag.FlagSet, func(context.Context, *pflag.FlagSet, logr.Logger) error) {
+	return internal.ServerOptionsAndFlags()
 }
