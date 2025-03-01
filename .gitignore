@@ -36,3 +36,5 @@ upstream-*
 ipxe-*.tar.gz
 
 kubeconfig
+
+certs/

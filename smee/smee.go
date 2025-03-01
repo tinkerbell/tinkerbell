@@ -55,7 +55,7 @@ const (
 
 	DefaultSyslogPort = 514
 
-	DefaultHTTPPort = 32777
+	DefaultHTTPPort = 7171
 
 	DefaultTinkServerPort = 42113
 )

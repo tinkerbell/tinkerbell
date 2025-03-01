@@ -23,6 +23,12 @@ type GlobalConfig struct {
 	EnableTinkController bool
 	EnableRufio          bool
 	EnableSecondStar     bool
+	EmbeddedGlobalConfig EmbeddedGlobalConfig
+}
+
+type EmbeddedGlobalConfig struct {
+	EnableKubeAPIServer bool
+	EnableETCD          bool
 }
 
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
@@ -35,12 +41,14 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(OTELInsecure, ffval.NewValueDefault(&gc.OTELInsecure, gc.OTELInsecure))
 	fs.Register(TrustedProxies, &ntip.PrefixList{PrefixList: &gc.TrustedProxies})
 	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
-	fs.Register(EnabledSmee, ffval.NewValueDefault(&gc.EnableSmee, gc.EnableSmee))
-	fs.Register(EnabledTootles, ffval.NewValueDefault(&gc.EnableTootles, gc.EnableTootles))
-	fs.Register(EnabledTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
-	fs.Register(EnabledTinkController, ffval.NewValueDefault(&gc.EnableTinkController, gc.EnableTinkController))
-	fs.Register(EnabledRufioController, ffval.NewValueDefault(&gc.EnableRufio, gc.EnableRufio))
-	fs.Register(EnabledSecondStar, ffval.NewValueDefault(&gc.EnableSecondStar, gc.EnableSecondStar))
+	fs.Register(EnableSmee, ffval.NewValueDefault(&gc.EnableSmee, gc.EnableSmee))
+	fs.Register(EnableTootles, ffval.NewValueDefault(&gc.EnableTootles, gc.EnableTootles))
+	fs.Register(EnableTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
+	fs.Register(EnableTinkController, ffval.NewValueDefault(&gc.EnableTinkController, gc.EnableTinkController))
+	fs.Register(EnableRufioController, ffval.NewValueDefault(&gc.EnableRufio, gc.EnableRufio))
+	fs.Register(EnableSecondStar, ffval.NewValueDefault(&gc.EnableSecondStar, gc.EnableSecondStar))
+	fs.Register(EnableKubeAPIServer, ffval.NewValueDefault(&gc.EmbeddedGlobalConfig.EnableKubeAPIServer, gc.EmbeddedGlobalConfig.EnableKubeAPIServer))
+	fs.Register(EnableETCD, ffval.NewValueDefault(&gc.EmbeddedGlobalConfig.EnableETCD, gc.EmbeddedGlobalConfig.EnableETCD))
 }
 
 // All these flags are used by at least two services or
@@ -93,32 +101,42 @@ var PublicIP = Config{
 	Usage: "public IPv4 address to use for all enabled services",
 }
 
-var EnabledSmee = Config{
+var EnableSmee = Config{
 	Name:  "enable-smee",
 	Usage: "enable Smee service",
 }
 
-var EnabledTootles = Config{
+var EnableTootles = Config{
 	Name:  "enable-tootles",
 	Usage: "enable Tootles service",
 }
 
-var EnabledTinkServer = Config{
+var EnableTinkServer = Config{
 	Name:  "enable-tink-server",
 	Usage: "enable Tink Server service",
 }
 
-var EnabledTinkController = Config{
+var EnableTinkController = Config{
 	Name:  "enable-tink-controller",
 	Usage: "enable Tink Controller service",
 }
 
-var EnabledRufioController = Config{
+var EnableRufioController = Config{
 	Name:  "enable-rufio-controller",
 	Usage: "enable Rufio Controller service",
 }
 
-var EnabledSecondStar = Config{
+var EnableSecondStar = Config{
 	Name:  "enable-secondstar",
 	Usage: "enable SecondStar service",
+}
+
+var EnableKubeAPIServer = Config{
+	Name:  "enable-embedded-kube-apiserver",
+	Usage: "enables the embedded kube-apiserver",
+}
+
+var EnableETCD = Config{
+	Name:  "enable-embedded-etcd",
+	Usage: "enables the embedded etcd",
 }

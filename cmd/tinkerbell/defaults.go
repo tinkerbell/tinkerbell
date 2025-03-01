@@ -6,13 +6,15 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
 const (
-	smeePublicIPInterface = "SMEE_PUBLIC_IP_INTERFACE"
+	smeePublicIPInterface          = "SMEE_PUBLIC_IP_INTERFACE"
+	defaultLeaderElectionNamespace = "default"
 )
 
 func detectPublicIPv4() netip.Addr {
@@ -117,4 +119,29 @@ func autoDetectPublicIpv4WithDefaultGateway() (netip.Addr, error) {
 	}
 
 	return netip.Addr{}, fmt.Errorf("no default gateway found")
+}
+
+func kubeConfig() string {
+	hd, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	p := filepath.Join(hd, ".kube", "config")
+	// if this default location doesn't exist it's highly
+	// likely that Tinkerbell is being run from within the
+	// cluster. In that case, the loading of the Kubernetes
+	// client will only look for in cluster configuration/environment
+	// variables if this is empty.
+	_, oserr := os.Stat(p)
+	if oserr != nil {
+		return ""
+	}
+	return p
+}
+
+func leaderElectionNamespace(inCluster, enabled bool, namespace string) string {
+	if !inCluster && enabled && namespace == "" {
+		return defaultLeaderElectionNamespace
+	}
+	return namespace
 }
