@@ -10,15 +10,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/ccoveille/go-safecast"
+	"github.com/avast/retry-go/v4"
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
-	"github.com/spf13/pflag"
-	"github.com/tinkerbell/tinkerbell/apiserver"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/config/crd"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
@@ -28,9 +25,6 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/controller"
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"github.com/tinkerbell/tinkerbell/tootles"
-	"go.etcd.io/etcd/server/v3/embed"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -43,7 +37,14 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop // It's over the max (37) by 2. This function has a lot to start. Will look into improvements.
+var (
+	embeddedFlagSet                      *ff.FlagSet
+	embeddedApiserverExecute             func(context.Context, logr.Logger) error
+	embeddedEtcdExecute                  func(context.Context, int) error
+	embeddedKubeControllerManagerExecute func(context.Context, string) error
+)
+
+func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error {
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig:    kubeConfig(),
 		PublicIP:             detectPublicIPv4(),
@@ -100,18 +101,23 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			IdleTimeout:  15 * time.Minute,
 		},
 	}
-
-	ecfg := embed.NewConfig()
-	ecfg.Dir = "/tmp/default.etcd"
-	ec := &flag.EmbeddedEtcdConfig{
-		Config:             ecfg,
-		WaitHealthyTimeout: time.Minute,
-	}
+	/*
+		ecfg := embed.NewConfig()
+		ecfg.Dir = "/tmp/default.etcd"
+		ec := &flag.EmbeddedEtcdConfig{
+			Config:             ecfg,
+			WaitHealthyTimeout: time.Minute,
+		}
+	*/
 
 	// order here determines the help output.
-	kaffs := ff.NewFlagSet("embedded kube-apiserver")
-	efs := ff.NewFlagSet("embedded etcd").SetParent(kaffs)
-	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(efs)
+	var top *ff.FlagSet
+	if embeddedFlagSet != nil {
+		top = ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(embeddedFlagSet)
+	} else {
+		top = ff.NewFlagSet("smee - DHCP and iPXE service")
+	}
+	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(top)
 	hfs := ff.NewFlagSet("tootles - Metadata service").SetParent(sfs)
 	tfs := ff.NewFlagSet("tink server - Workflow service").SetParent(hfs)
 	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
@@ -124,11 +130,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	flag.RegisterTinkControllerFlags(&flag.Set{FlagSet: cfs}, tc)
 	flag.RegisterRufioFlags(&flag.Set{FlagSet: rfs}, rc)
 	flag.RegisterSecondStarFlags(&flag.Set{FlagSet: ssfs}, ssc)
-	flag.RegisterEtcd(&flag.Set{FlagSet: efs}, ec)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
-
-	apiserverFS, runFunc := apiserver.ConfigAndFlags()
-	apiserverFS.VisitAll(kubeAPIServerFlags(kaffs))
 
 	cli := &ff.Command{
 		Name:     "tinkerbell",
@@ -182,64 +184,60 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	g, ctx := errgroup.WithContext(ctx)
 	// Etcd server
-	readyChan := make(chan struct{})
-	apiserverShutdown := &sync.WaitGroup{}
-	apiserverShutdown.Add(1)
+	/*
+		readyChan := make(chan struct{})
+		apiserverShutdown := &sync.WaitGroup{}
+		apiserverShutdown.Add(1)
+	*/
 	g.Go(func() error {
 		if !globals.EmbeddedGlobalConfig.EnableETCD {
 			log.Info("embedded etcd is disabled")
 			return nil
 		}
-		ec.Config.ZapLoggerBuilder = embed.NewZapLoggerBuilder(zapLogger(globals.LogLevel))
-		e, err := embed.StartEtcd(ec.Config)
-		if err != nil {
-			return fmt.Errorf("failed to start etcd: %w", err)
+		if embeddedEtcdExecute != nil {
+			if err := retry.Do(func() error {
+				if err := embeddedEtcdExecute(ctx, globals.LogLevel); err != nil {
+					return fmt.Errorf("etcd server error: %w", err)
+				}
+				return nil
+			}, retry.Attempts(10), retry.Delay(2*time.Second)); err != nil {
+				return err
+			}
 		}
-		defer e.Close()
-		select {
-		case <-e.Server.ReadyNotify():
-			log.Info("etcd server is ready")
-			readyChan <- struct{}{}
-		case <-time.After(ec.WaitHealthyTimeout):
-			apiserverShutdown.Wait()
-			e.Server.Stop() // trigger a shutdown
-			return fmt.Errorf("server took too long to become healthy")
-		case <-ctx.Done():
-			apiserverShutdown.Wait()
-			e.Server.Stop() // trigger a shutdown
-			log.Info("context cancelled waiting for etcd to become healthy")
-			return nil
-		}
-		<-ctx.Done()
-		// need to wait for the kube apiserver to shutdown before stopping etcd.
-		apiserverShutdown.Wait()
-		e.Server.Stop()
 		return nil
 	})
-
-	if globals.EmbeddedGlobalConfig.EnableETCD {
-		select {
-		case <-readyChan:
-			log.Info("etcd server is ready")
-		case <-time.After(ec.WaitHealthyTimeout):
-			apiserverShutdown.Done()
-			return fmt.Errorf("server took too long to become healthy")
-		case <-ctx.Done():
-			apiserverShutdown.Done()
-			log.Info("context cancelled waiting for etcd to become healthy")
-			return nil
+	/*
+		if globals.EmbeddedGlobalConfig.EnableETCD {
+			select {
+			case <-readyChan:
+				log.Info("etcd server is ready")
+			case <-time.After(ec.WaitHealthyTimeout):
+				apiserverShutdown.Done()
+				return fmt.Errorf("server took too long to become healthy")
+			case <-ctx.Done():
+				apiserverShutdown.Done()
+				log.Info("context cancelled waiting for etcd to become healthy")
+				return nil
+			}
 		}
-	}
+	*/
 
 	// API Server
 	g.Go(func() error {
-		defer apiserverShutdown.Done()
+		// defer apiserverShutdown.Done()
 		if !globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
 			log.Info("embedded kube-apiserver is disabled")
 			return nil
 		}
-		if err := runFunc(ctx, apiserverFS, log.WithValues("service", "kube-apiserver/controller-manager")); err != nil {
-			return fmt.Errorf("API server error: %w", err)
+		if embeddedApiserverExecute != nil {
+			if err := retry.Do(func() error {
+				if err := embeddedApiserverExecute(ctx, log.WithValues("service", "kube-apiserver")); err != nil {
+					return fmt.Errorf("API server error: %w", err)
+				}
+				return nil
+			}, retry.Attempts(10), retry.Delay(2*time.Second)); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -290,7 +288,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			log.Info("embedded kube-controller-manager is disabled")
 			return nil
 		}
-		if err := apiserver.Kubecontrollermanager(ctx, globals.BackendKubeConfig); err != nil {
+		if err := embeddedKubeControllerManagerExecute(ctx, globals.BackendKubeConfig); err != nil {
 			return fmt.Errorf("kube-controller-manager error: %w", err)
 		}
 		return nil
@@ -467,42 +465,6 @@ func waitForAPIServer(ctx context.Context, log logr.Logger, config *rest.Config,
 	return fmt.Errorf("timed out waiting for API server health after %v", maxWaitTime)
 }
 
-func kubeAPIServerFlags(kaffs *ff.FlagSet) func(*pflag.Flag) {
-	return func(f *pflag.Flag) {
-		// help and v already exist in the global flags defined above so we skip them
-		// here to avoid duplicate flag errors.
-		if f.Name == "help" || f.Name == "v" {
-			return
-		}
-		fc := ff.FlagConfig{
-			LongName: f.Name,
-			Usage:    f.Usage,
-			Value:    f.Value,
-		}
-		// feature-gates has a lot of output and includes a lot of '\n' characters
-		// that makes the ffhelp output not output all the flags. We remove all the
-		// feature gates so that all the flags are output in the help.
-		if f.Name == "feature-gates" {
-			lines := strings.Split(f.Usage, "\n")
-			newlines := make([]string, 0)
-			for _, line := range lines {
-				if !strings.HasPrefix(line, "kube:") {
-					newlines = append(newlines, line)
-				}
-			}
-			fc.Usage = strings.Join(newlines, "\n")
-		}
-
-		if len([]rune(f.Shorthand)) > 0 {
-			fc.ShortName = []rune(f.Shorthand)[0]
-		}
-
-		if _, err := kaffs.AddFlag(fc); err != nil {
-			fmt.Printf("error adding flag: %v\n", err)
-		}
-	}
-}
-
 func enabledIndexes(smeeEnabled, tootlesEnabled, tinkServerEnabled, secondStarEnabled bool) map[kube.IndexType]kube.Index {
 	idxs := make(map[kube.IndexType]kube.Index, 0)
 
@@ -590,28 +552,6 @@ func defaultLogger(level int) logr.Logger {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, opts))
 
 	return logr.FromSlogHandler(log.Handler())
-}
-
-// zapLogger is used by embedded etcd. It's the only logger that embedded etcd supports.
-func zapLogger(level int) *zap.Logger {
-	config := zap.NewProductionConfig()
-	config.OutputPaths = []string{"stdout"}
-	l, err := safecast.ToInt8(level)
-	if err != nil {
-		l = 0
-	}
-	config.Level = zap.NewAtomicLevelAt(zapcore.Level(-l))
-	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
-	config.EncoderConfig.TimeKey = "time"
-	config.EncoderConfig.EncodeLevel = func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(fmt.Sprintf("%d", l))
-	}
-	logger, err := config.Build()
-	if err != nil {
-		panic(err)
-	}
-
-	return logger.With(zap.String("service", "etcd"))
 }
 
 // inCluster checks if we are running in cluster.

@@ -101,7 +101,7 @@ func (s *state) deleteExisting(ctx context.Context, name jobName) (reconcile.Res
 	// watches for delete events, and is not embedded in Tinkerbell, at the moment.
 	op := []client.DeleteAllOfOption{
 		client.GracePeriodSeconds(0),
-		client.PropagationPolicy(metav1.DeletePropagationForeground),
+		client.PropagationPolicy(metav1.DeletePropagationBackground),
 		client.MatchingLabels{"owner-name": name.String()},
 		client.InNamespace(s.workflow.Namespace),
 	}
@@ -112,7 +112,7 @@ func (s *state) deleteExisting(ctx context.Context, name jobName) (reconcile.Res
 
 	opts := []client.DeleteOption{
 		client.GracePeriodSeconds(0),
-		client.PropagationPolicy(metav1.DeletePropagationForeground),
+		client.PropagationPolicy(metav1.DeletePropagationBackground),
 	}
 	existingJob := &bmc.Job{ObjectMeta: metav1.ObjectMeta{Name: name.String(), Namespace: s.workflow.Namespace}}
 	if err := s.client.Delete(ctx, existingJob, opts...); client.IgnoreNotFound(err) != nil {

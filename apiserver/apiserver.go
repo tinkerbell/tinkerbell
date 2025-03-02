@@ -25,18 +25,18 @@ import (
 	ctrloptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
 )
 
-func ConfigAndFlags() (*pflag.FlagSet, func(context.Context, *pflag.FlagSet, logr.Logger) error) {
+func ConfigAndFlags() (*pflag.FlagSet, func(context.Context, logr.Logger) error) {
 	_, featureGate := featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(
 		featuregate.DefaultKubeComponent, utilversion.DefaultBuildEffectiveVersion(), utilfeature.DefaultMutableFeatureGate)
 	s := apioptions.NewServerRunOptions()
 
-	runFunc := func(ctx context.Context, fs *pflag.FlagSet, log logr.Logger) error {
+	runFunc := func(ctx context.Context, log logr.Logger) error {
 		// Activate logging as soon as possible, after that
 		// show flags with the final logging configuration.
 		if err := logsapi.ValidateAndApply(s.Logs, featureGate); err != nil {
 			return err
 		}
-		cliflag.PrintFlags(fs)
+		// cliflag.PrintFlags(fs)
 
 		// set default options
 		completedOptions, err := s.Complete(ctx)
