@@ -8,8 +8,7 @@ import (
 	"io"
 	"time"
 
-	retry "github.com/avast/retry-go"
-	"github.com/aws/smithy-go/ptr"
+	retry "github.com/avast/retry-go/v4"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
@@ -43,7 +42,7 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 			// This might be the case where the image is already present in the local cache
 			// and the environment doesn't have access to the registry.
 			// Embedded images in HookOS are a partial example of this.
-			if _, _, err := c.Client.ImageInspectWithRaw(ctx, a.Image); err == nil {
+			if _, err := c.Client.ImageInspect(ctx, a.Image); err == nil {
 				return nil
 			}
 			return fmt.Errorf("docker: %w", err)
@@ -138,11 +137,15 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	case <-ctx.Done():
 		// We can't use the context passed to Run() as its been cancelled.
 		err := c.Client.ContainerStop(context.Background(), create.ID, container.StopOptions{
-			Timeout: ptr.Int(5),
+			Timeout: toPtr(5),
 		})
 		if err != nil {
 			c.Log.Info("Failed to gracefully stop container", "error", err)
 		}
 		return fmt.Errorf("context error: %w", ctx.Err())
 	}
+}
+
+func toPtr[T any](v T) *T {
+	return &v
 }
