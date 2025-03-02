@@ -14,7 +14,7 @@ services:
       - etcd:/data
 
   kube-apiserver:
-    image: registry.k8s.io/kube-apiserver:v1.30.4
+    image: registry.k8s.io/kube-apiserver:v1.32.2
     networks:
       01-tinkerbell_default:
     command:
@@ -36,6 +36,25 @@ services:
         condition: service_started
       kubeconfig:
         condition: service_completed_successfully
+
+  kube-controller-manager:
+    image: registry.k8s.io/kube-controller-manager:v1.32.2
+    networks:
+      01-tinkerbell_default:
+    command:
+      - kube-controller-manager
+      - --kubeconfig=/certs/kubeconfig
+      - --controllers=namespace-controller,garbage-collector-controller
+    working_dir: /certs
+    volumes:
+      - certs:/certs
+    depends_on:
+      etcd:
+        condition: service_started
+      kubeconfig:
+        condition: service_completed_successfully
+      kube-apiserver:
+        condition: service_started
 
   tinkerbell:
     #image: ghcr.io/tinkerbell/tinkerbell
