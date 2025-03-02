@@ -43,7 +43,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error {
+func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop // It's over the max (37) by 2. This function has a lot to start. Will look into improvements.
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig:    kubeConfig(),
 		PublicIP:             detectPublicIPv4(),
@@ -217,16 +217,18 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return nil
 	})
 
-	select {
-	case <-readyChan:
-		log.Info("etcd server is ready")
-	case <-time.After(ec.WaitHealthyTimeout):
-		apiserverShutdown.Done()
-		return fmt.Errorf("server took too long to become healthy")
-	case <-ctx.Done():
-		apiserverShutdown.Done()
-		log.Info("context cancelled waiting for etcd to become healthy")
-		return nil
+	if globals.EmbeddedGlobalConfig.EnableETCD {
+		select {
+		case <-readyChan:
+			log.Info("etcd server is ready")
+		case <-time.After(ec.WaitHealthyTimeout):
+			apiserverShutdown.Done()
+			return fmt.Errorf("server took too long to become healthy")
+		case <-ctx.Done():
+			apiserverShutdown.Done()
+			log.Info("context cancelled waiting for etcd to become healthy")
+			return nil
+		}
 	}
 
 	// API Server
@@ -236,7 +238,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			log.Info("embedded kube-apiserver is disabled")
 			return nil
 		}
-		if err := runFunc(ctx, apiserverFS, log.WithValues("service", "kube-apiserver")); err != nil {
+		if err := runFunc(ctx, apiserverFS, log.WithValues("service", "kube-apiserver/controller-manager")); err != nil {
 			return fmt.Errorf("API server error: %w", err)
 		}
 		return nil
@@ -281,6 +283,18 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return fmt.Errorf("unknown backend %q", globals.Backend)
 		}
 	}
+
+	// Kube Controller Manager
+	g.Go(func() error {
+		if !globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
+			log.Info("embedded kube-controller-manager is disabled")
+			return nil
+		}
+		if err := apiserver.Kubecontrollermanager(ctx, globals.BackendKubeConfig); err != nil {
+			return fmt.Errorf("kube-controller-manager error: %w", err)
+		}
+		return nil
+	})
 
 	// Smee
 	g.Go(func() error {
