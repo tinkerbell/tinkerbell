@@ -185,6 +185,9 @@ func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmc.Job, ta
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      bmc.FormatTaskName(job, taskIndex),
 			Namespace: job.Namespace,
+			Labels: map[string]string{
+				"owner-name": job.Name,
+			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: job.APIVersion,
