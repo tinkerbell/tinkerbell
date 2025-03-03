@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "${{ env.GO_VERSION }}"
-          cache: true
+          cache: false
 
       - name: Restore Go cache
         uses: actions/cache/restore@v4
@@ -96,7 +96,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "${{ env.GO_VERSION }}"
-          cache: true
+          cache: false
 
       - name: Fix no space errors and Fetch Deps
         run: |
