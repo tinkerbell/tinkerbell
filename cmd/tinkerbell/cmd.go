@@ -17,7 +17,7 @@ import (
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
-	"github.com/tinkerbell/tinkerbell/config/crd"
+	"github.com/tinkerbell/tinkerbell/crd"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
 	"github.com/tinkerbell/tinkerbell/rufio"
 	"github.com/tinkerbell/tinkerbell/secondstar"
@@ -26,14 +26,6 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"github.com/tinkerbell/tinkerbell/tootles"
 	"golang.org/x/sync/errgroup"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
@@ -44,7 +36,7 @@ var (
 	embeddedKubeControllerManagerExecute func(context.Context, string) error
 )
 
-func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error {
+func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop // Will need to look into reducing the cyclomatic complexity.
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig:    kubeConfig(),
 		PublicIP:             detectPublicIPv4(),
@@ -54,9 +46,10 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		EnableTinkController: true,
 		EnableRufio:          true,
 		EnableSecondStar:     true,
+		EnableCRDMigrations:  true,
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
-			EnableKubeAPIServer: true,
-			EnableETCD:          true,
+			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
+			EnableETCD:          (embeddedEtcdExecute != nil),
 		},
 	}
 
@@ -103,11 +96,9 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	// order here determines the help output.
-	var top *ff.FlagSet
+	top := ff.NewFlagSet("smee - DHCP and iPXE service")
 	if embeddedFlagSet != nil {
 		top = ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(embeddedFlagSet)
-	} else {
-		top = ff.NewFlagSet("smee - DHCP and iPXE service")
 	}
 	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(top)
 	hfs := ff.NewFlagSet("tootles - Metadata service").SetParent(sfs)
@@ -175,6 +166,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	)
 
 	g, ctx := errgroup.WithContext(ctx)
+	// Etcd server
 	g.Go(func() error {
 		if !globals.EmbeddedGlobalConfig.EnableETCD {
 			log.Info("embedded etcd is disabled")
@@ -186,7 +178,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 					return fmt.Errorf("etcd server error: %w", err)
 				}
 				return nil
-			}, retry.Attempts(10), retry.Delay(2*time.Second)); err != nil {
+			}, retry.Attempts(10), retry.Delay(2*time.Second), retry.Context(ctx)); err != nil {
 				return err
 			}
 		}
@@ -205,7 +197,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 					return fmt.Errorf("API server error: %w", err)
 				}
 				return nil
-			}, retry.Attempts(10), retry.Delay(2*time.Second)); err != nil {
+			}, retry.Attempts(10), retry.Delay(2*time.Second), retry.Context(ctx)); err != nil {
 				return err
 			}
 		}
@@ -215,15 +207,17 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	if numEnabled(globals) > 0 {
 		switch globals.Backend {
 		case "kube":
-			if err := crdMigrations(ctx, log, globals.BackendKubeConfig, globals.BackendKubeNamespace); err != nil {
-				cancel()
-				gerr := g.Wait()
-				return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
+			if globals.EnableCRDMigrations {
+				backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil)
+				if err != nil {
+					return fmt.Errorf("failed to create kube backend: %w", err)
+				}
+				if err := crd.Migrate(ctx, log, backendNoIndexes.ClientConfig); err != nil {
+					cancel()
+					gerr := g.Wait()
+					return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
+				}
 			}
-
-			// I think we need some time for the CRDs to be "available" before we can create a client with indexers that use them.
-			// TODO: validate this assumption.
-			<-time.After(3 * time.Second)
 
 			b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar))
 			if err != nil {
@@ -312,7 +306,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return nil
 	})
 
-	// Rufio
+	// Rufio Controller
 	g.Go(func() error {
 		if !globals.EnableRufio {
 			log.Info("rufio service is disabled")
@@ -324,7 +318,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return nil
 	})
 
-	// SecondStar - SSH over serial
+	// SecondStar
 	g.Go(func() error {
 		if !globals.EnableSecondStar {
 			log.Info("secondstar service is disabled")
@@ -364,75 +358,6 @@ func numEnabled(globals *flag.GlobalConfig) int {
 		n++
 	}
 	return n
-}
-
-func crdMigrations(ctx context.Context, log logr.Logger, kubeconfig, namespace string) error {
-	backendNoIndexes, err := newKubeBackend(ctx, kubeconfig, "", namespace, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create kube backend: %w", err)
-	}
-
-	// Wait for the API server to be healthy
-	if err := waitForAPIServer(ctx, log, backendNoIndexes.ClientConfig, 20*time.Second, 5*time.Second); err != nil {
-		return fmt.Errorf("failed to wait for API server health: %w", err)
-	}
-
-	apiExtClient, err := apiextensionsv1client.NewForConfig(backendNoIndexes.ClientConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create apiextensions client: %w", err)
-	}
-
-	decoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	for _, raw := range [][]byte{crd.HardwareCRD, crd.TemplateCRD, crd.WorkflowCRD, crd.MachineCRD, crd.JobCRD, crd.TaskCRD} {
-		obj := &unstructured.Unstructured{}
-		if _, _, err := decoder.Decode(raw, nil, obj); err != nil {
-			return fmt.Errorf("failed to decode YAML: %w", err)
-		}
-		crdef := &apiextensionsv1.CustomResourceDefinition{}
-		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, crdef); err != nil {
-			return fmt.Errorf("failed to convert unstructured to CRD: %w", err)
-		}
-
-		if _, err := apiExtClient.CustomResourceDefinitions().Create(ctx, crdef, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create CRD: %w", err)
-		}
-	}
-	return nil
-}
-
-// waitForAPIServer waits for the Kubernetes API server to become healthy.
-func waitForAPIServer(ctx context.Context, log logr.Logger, config *rest.Config, maxWaitTime time.Duration, pollInterval time.Duration) error {
-	// Create clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return fmt.Errorf("failed to create clientset: %w", err)
-	}
-
-	// Calculate deadline
-	deadline := time.Now().Add(maxWaitTime)
-
-	for time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			// Check health
-			resp, err := clientset.Discovery().RESTClient().Get().AbsPath("/livez").Do(ctx).Raw()
-
-			if err == nil && len(resp) > 0 {
-				log.Info("API server is healthy")
-				return nil // API server is healthy
-			}
-
-			// Log error and continue waiting
-			log.Info("API server not healthy yet, will retry", "retryInterval", fmt.Sprintf("%v", pollInterval), "reason", err)
-
-			// Sleep before next check
-			time.Sleep(pollInterval)
-		}
-	}
-
-	return fmt.Errorf("timed out waiting for API server health after %v", maxWaitTime)
 }
 
 func enabledIndexes(smeeEnabled, tootlesEnabled, tinkServerEnabled, secondStarEnabled bool) map[kube.IndexType]kube.Index {

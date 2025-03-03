@@ -13,6 +13,10 @@ if ! go mod tidy; then
 	failed=true
 fi
 
+if ! make generate generate-proto; then
+	failed=1
+fi
+
 if ! git diff | (! grep .); then
 	failed=1
 fi

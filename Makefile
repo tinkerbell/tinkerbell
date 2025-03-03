@@ -120,7 +120,7 @@ manifests: $(CONTROLLER_GEN_FQP) ## Generate WebhookConfiguration and CustomReso
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN_FQP) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN_FQP) object:headerFile="config/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN_FQP) object:headerFile="pkg/api/boilerplate.go.txt" paths="./..."
 	$(MAKE) fmt
 
 .PHONY: dep-graph
