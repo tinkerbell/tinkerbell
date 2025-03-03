@@ -47,7 +47,7 @@ jobs:
           go get -t ./... && go mod tidy && go mod download
 
       - name: Run all CI checks, linting, tests, etc
-        run: make ci
+        run: make ci TEST_ARGS="-count=1"
 
       - name: Trim Go cache
         if: ${{ github.ref == 'refs/heads/main' }}
