@@ -5,6 +5,18 @@ SHELL := bash
 .SHELLFLAGS := -o pipefail -euc
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
+CGO_ENABLED := 0
+export CGO_ENABLED
+COMPRESS := false
+UPX_BASEDIR := $(PWD)/build
+LOCAL_ARCH := $(shell uname -m)
+LOCAL_ARCH_ALT :=
+ifeq ($(LOCAL_ARCH),x86_64)
+	LOCAL_ARCH_ALT := amd64
+else ifeq ($(LOCAL_ARCH),aarch64)
+	LOCAL_ARCH_ALT := arm64
+endif
+
 ########### Tools variables ###########
 # Tool versions
 GOIMPORT_VER           := latest
@@ -30,18 +42,6 @@ GODEPGRAPH_FQP := $(TOOLS_DIR)/godepgraph-$(GODEPGRAPH_VER)
 IMAGE_NAME       ?= tinkerbell/tinkerbell:latest
 IMAGE_NAME_AGENT ?= tinkerbell/tink-agent:latest
 #############################################
-
-CGO_ENABLED := 0
-export CGO_ENABLED
-COMPRESS := false
-UPX_BASEDIR := $(PWD)/build
-LOCAL_ARCH := $(shell uname -m)
-LOCAL_ARCH_ALT :=
-ifeq ($(LOCAL_ARCH),x86_64)
-	LOCAL_ARCH_ALT := amd64
-else ifeq ($(LOCAL_ARCH),aarch64)
-	LOCAL_ARCH_ALT := arm64
-endif
 
 all: help
 
@@ -81,13 +81,13 @@ crossbinaries := out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64
 out/tinkerbell-linux-amd64: FLAGS=GOARCH=amd64
 out/tinkerbell-linux-arm64: FLAGS=GOARCH=arm64
 out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64: $(TINKERBELL_SOURCES)
-	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o $@ ./cmd/tinkerbell
+	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -tags "${GO_TAGS}" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
 TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
 
 out/tinkerbell: $(TINKERBELL_SOURCES) ## Compile Tinkerbell for the current architecture
-	${FLAGS} CGO_ENABLED=0 go build -ldflags="-s -w" -v -o $@ ./cmd/tinkerbell
+	${FLAGS} CGO_ENABLED=0 go build -ldflags="-s -w" -tags "${GO_TAGS}" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
 cross-compile: $(crossbinaries) ## Compile for all architectures
@@ -98,11 +98,11 @@ crossbinaries-agent := out/tink-agent-linux-amd64 out/tink-agent-linux-arm64
 out/tink-agent-linux-amd64: FLAGS=GOARCH=amd64
 out/tink-agent-linux-arm64: FLAGS=GOARCH=arm64
 out/tink-agent-linux-amd64 out/tink-agent-linux-arm64: $(AGENT_SOURCES)
-	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o $@ ./cmd/agent
+	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -tags "${GO_TAGS}" -ldflags="-s -w" -v -o $@ ./cmd/agent
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
 out/tink-agent: $(AGENT_SOURCES) ## Compile Tink Agent for the current architecture
-	${FLAGS} CGO_ENABLED=0 go build -ldflags="-s -w" -v -o $@ ./cmd/agent
+	${FLAGS} CGO_ENABLED=0 go build -ldflags="-s -w" -tags "${GO_TAGS}" -v -o $@ ./cmd/agent
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
 cross-compile-agent: $(crossbinaries-agent) ## Compile Tink Agent for all architectures
@@ -233,7 +233,7 @@ $(GOLANGCI_LINT_BIN):
 
 LINTERS += golangci-lint-lint
 golangci-lint-lint: $(GOLANGCI_LINT_BIN)
-	find . -name go.mod -execdir sh -c '"$(GOLANGCI_LINT_BIN)" run -c "$(GOLANGCI_LINT_CONFIG)"' '{}' '+'
+	find . -name go.mod -execdir sh -c '"$(GOLANGCI_LINT_BIN)" run --timeout 10m -c "$(GOLANGCI_LINT_CONFIG)"' '{}' '+'
 
 FIXERS += golangci-lint-fix
 golangci-lint-fix: $(GOLANGCI_LINT_BIN)

@@ -94,14 +94,33 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 }
 
 func (s *state) deleteExisting(ctx context.Context, name jobName) (reconcile.Result, error) {
-	existingJob := &bmc.Job{ObjectMeta: metav1.ObjectMeta{Name: name.String(), Namespace: s.workflow.Namespace}}
+	// delete the tasks.bmc.tinkerbell.org objects
+	// Generally, deleting tasks is not needed. But because we have an embedded kube-apiserver option
+	// this is precautionary. The Kubernetes garbage collector is not part of the
+	// kube-apiserver, it is a separate controller (kube-controller-manager) that
+	// watches for delete events, and is not embedded in Tinkerbell, at the moment.
+	op := []client.DeleteAllOfOption{
+		client.GracePeriodSeconds(0),
+		client.PropagationPolicy(metav1.DeletePropagationBackground),
+		client.MatchingLabels{"owner-name": name.String()},
+		client.InNamespace(s.workflow.Namespace),
+	}
+	if err := s.client.DeleteAllOf(ctx, &bmc.Task{}, op...); client.IgnoreNotFound(err) != nil {
+		journal.Log(ctx, "error deleting tasks", "name", name, "error", err)
+		return reconcile.Result{}, fmt.Errorf("error deleting tasks.bmc.tinkerbell.org objects: %w", err)
+	}
+
 	opts := []client.DeleteOption{
 		client.GracePeriodSeconds(0),
-		client.PropagationPolicy(metav1.DeletePropagationForeground),
+		client.PropagationPolicy(metav1.DeletePropagationBackground),
 	}
+	existingJob := &bmc.Job{ObjectMeta: metav1.ObjectMeta{Name: name.String(), Namespace: s.workflow.Namespace}}
 	if err := s.client.Delete(ctx, existingJob, opts...); client.IgnoreNotFound(err) != nil {
+		journal.Log(ctx, "error deleting job", "name", name, "error", err)
 		return reconcile.Result{}, fmt.Errorf("error deleting job.bmc.tinkerbell.org object: %w", err)
 	}
+
+	journal.Log(ctx, "job deleted", "name", name)
 
 	jStatus := s.workflow.Status.BootOptions.Jobs[name.String()]
 	jStatus.ExistingJobDeleted = true
@@ -145,7 +164,17 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 		return reconcile.Result{}, fmt.Errorf("hardware %q does not have a BMC", hw.Name)
 	}
 
-	if err := create(ctx, s.client, name.String(), hw, s.workflow.Namespace, actions); err != nil {
+	ownerRef := []metav1.OwnerReference{
+		{
+			APIVersion: s.workflow.APIVersion,
+			Kind:       s.workflow.Kind,
+			Name:       s.workflow.Name,
+			UID:        s.workflow.ObjectMeta.UID,
+			Controller: valueToPointer(true),
+		},
+	}
+
+	if err := create(ctx, s.client, name.String(), hw, s.workflow.Namespace, actions, ownerRef); err != nil {
 		return reconcile.Result{}, fmt.Errorf("error creating job: %w", err)
 	}
 	journal.Log(ctx, "job created", "name", name)
@@ -190,7 +219,7 @@ func (s *state) trackRunningJob(ctx context.Context, name jobName) (reconcile.Re
 	return reconcile.Result{Requeue: true}, trackedStateRunning, nil
 }
 
-func create(ctx context.Context, cc client.Client, name string, hw *v1alpha1.Hardware, ns string, tasks []bmc.Action) error {
+func create(ctx context.Context, cc client.Client, name string, hw *v1alpha1.Hardware, ns string, tasks []bmc.Action, ownerRef []metav1.OwnerReference) error {
 	journal.Log(ctx, "creating job", "name", name)
 	if err := cc.Create(ctx, &bmc.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -202,6 +231,7 @@ func create(ctx context.Context, cc client.Client, name string, hw *v1alpha1.Har
 			Labels: map[string]string{
 				"tink-controller-auto-created": "true",
 			},
+			OwnerReferences: ownerRef,
 		},
 		Spec: bmc.JobSpec{
 			MachineRef: bmc.MachineRef{
