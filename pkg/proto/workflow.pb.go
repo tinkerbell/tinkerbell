@@ -519,7 +519,7 @@ type WorkflowActionStatus struct {
 	Seconds int64 `protobuf:"varint,5,opt,name=seconds,proto3" json:"seconds,omitempty"`
 	// The message returned from the action.
 	Message string `protobuf:"bytes,6,opt,name=message,proto3" json:"message,omitempty"`
-	// When the status got created for this aciton. You can see it as the time
+	// When the status got created for this action. You can see it as the time
 	// when the action started its execution inside the hardware itself.
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	WorkerId      string                 `protobuf:"bytes,8,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
