@@ -102,7 +102,7 @@ jobs:
         run: |
           # fixes "write /run/user/1001/355792648: no space left on device" error
           sudo mount -o remount,size=3G /run/user/1001 || true
-          go get -t ./... && go mod tidy
+          go get -t ./... && go mod tidy && go mod download
 
       - name: Restore Go cache
         uses: actions/cache/restore@v4
