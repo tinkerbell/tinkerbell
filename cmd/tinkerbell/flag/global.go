@@ -23,6 +23,7 @@ type GlobalConfig struct {
 	EnableTinkController bool
 	EnableRufio          bool
 	EnableSecondStar     bool
+	EnableCRDMigrations  bool
 	EmbeddedGlobalConfig EmbeddedGlobalConfig
 }
 
@@ -49,6 +50,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(EnableSecondStar, ffval.NewValueDefault(&gc.EnableSecondStar, gc.EnableSecondStar))
 	fs.Register(EnableKubeAPIServer, ffval.NewValueDefault(&gc.EmbeddedGlobalConfig.EnableKubeAPIServer, gc.EmbeddedGlobalConfig.EnableKubeAPIServer))
 	fs.Register(EnableETCD, ffval.NewValueDefault(&gc.EmbeddedGlobalConfig.EnableETCD, gc.EmbeddedGlobalConfig.EnableETCD))
+	fs.Register(EnableCRDMigrations, ffval.NewValueDefault(&gc.EnableCRDMigrations, gc.EnableCRDMigrations))
 }
 
 // All these flags are used by at least two services or
@@ -139,4 +141,9 @@ var EnableKubeAPIServer = Config{
 var EnableETCD = Config{
 	Name:  "enable-embedded-etcd",
 	Usage: "enables the embedded etcd",
+}
+
+var EnableCRDMigrations = Config{
+	Name:  "enable-crd-migrations",
+	Usage: "create CRDs in the cluster",
 }
