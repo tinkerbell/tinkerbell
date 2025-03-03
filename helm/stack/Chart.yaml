@@ -25,9 +25,6 @@ version: 0.6.3
 appVersion: "0.6.3"
 
 dependencies:
-  - name: crds
-    version: "0.0.1"
-    repository: "file://../crds"
   - name: tinkerbell
     version: "0.0.1"
     repository: "file://../tinkerbell"
