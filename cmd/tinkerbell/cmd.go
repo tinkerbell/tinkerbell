@@ -101,14 +101,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			IdleTimeout:  15 * time.Minute,
 		},
 	}
-	/*
-		ecfg := embed.NewConfig()
-		ecfg.Dir = "/tmp/default.etcd"
-		ec := &flag.EmbeddedEtcdConfig{
-			Config:             ecfg,
-			WaitHealthyTimeout: time.Minute,
-		}
-	*/
 
 	// order here determines the help output.
 	var top *ff.FlagSet
@@ -183,12 +175,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	)
 
 	g, ctx := errgroup.WithContext(ctx)
-	// Etcd server
-	/*
-		readyChan := make(chan struct{})
-		apiserverShutdown := &sync.WaitGroup{}
-		apiserverShutdown.Add(1)
-	*/
 	g.Go(func() error {
 		if !globals.EmbeddedGlobalConfig.EnableETCD {
 			log.Info("embedded etcd is disabled")
@@ -206,25 +192,9 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		}
 		return nil
 	})
-	/*
-		if globals.EmbeddedGlobalConfig.EnableETCD {
-			select {
-			case <-readyChan:
-				log.Info("etcd server is ready")
-			case <-time.After(ec.WaitHealthyTimeout):
-				apiserverShutdown.Done()
-				return fmt.Errorf("server took too long to become healthy")
-			case <-ctx.Done():
-				apiserverShutdown.Done()
-				log.Info("context cancelled waiting for etcd to become healthy")
-				return nil
-			}
-		}
-	*/
 
 	// API Server
 	g.Go(func() error {
-		// defer apiserverShutdown.Done()
 		if !globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
 			log.Info("embedded kube-apiserver is disabled")
 			return nil
