@@ -13,7 +13,7 @@ if ! go mod tidy; then
 	failed=true
 fi
 
-if ! make generate generate-proto; then
+if ! make generate generate-proto manifests; then
 	failed=1
 fi
 
