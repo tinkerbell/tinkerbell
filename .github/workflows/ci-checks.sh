@@ -21,4 +21,9 @@ if ! git diff | (! grep .); then
 	failed=1
 fi
 
+# This checks for any new files that were created. We should not have any new files.
+if ! git status --porcelain | (! grep .); then
+	failed=1
+fi
+
 exit "$failed"
