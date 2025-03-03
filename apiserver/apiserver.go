@@ -1,3 +1,6 @@
+//go:build embedded
+// +build embedded
+
 package apiserver
 
 import (
