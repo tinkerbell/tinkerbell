@@ -98,12 +98,6 @@ jobs:
           go-version: "${{ env.GO_VERSION }}"
           cache: false
 
-      - name: Fix no space errors and Fetch Deps
-        run: |
-          # fixes "write /run/user/1001/355792648: no space left on device" error
-          sudo mount -o remount,size=3G /run/user/1001 || true
-          go get -t ./... && go mod tidy && go mod download
-
       - name: Restore Go cache
         uses: actions/cache/restore@v4
         with:
@@ -115,6 +109,12 @@ jobs:
           key: nonexistent
           restore-keys: |
             ${{ runner.os }}-go-${{ hashFiles('go.mod') }}-
+
+      - name: Fix no space errors and Fetch Deps
+        run: |
+          # fixes "write /run/user/1001/355792648: no space left on device" error
+          sudo mount -o remount,size=3G /run/user/1001 || true
+          go get -t ./... && go mod tidy && go mod download
 
       - name: Compile binaries for ${{ matrix.name }}
         run: make ${{ matrix.make-target }}
