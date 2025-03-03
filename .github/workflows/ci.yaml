@@ -104,6 +104,18 @@ jobs:
           sudo mount -o remount,size=3G /run/user/1001 || true
           go get -t ./... && go mod tidy
 
+      - name: Restore Go cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          # always grab from the restore-keys pattern below,
+          # like Linux-go-$hash-YYYY-MM-DD as saved by CI
+          key: nonexistent
+          restore-keys: |
+            ${{ runner.os }}-go-${{ hashFiles('go.mod') }}-
+
       - name: Compile binaries for ${{ matrix.name }}
         run: make ${{ matrix.make-target }}
       
