@@ -7,8 +7,14 @@ metadata:
   namespace: tinkerbell
 spec:
   type: ClusterIP
-  #loadBalancerClass: "kube-vip.io/kube-vip-class"
-  #loadBalancerIP: "192.168.2.115"
+  type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  {{- if .Values.service.lbClass }}
+  loadBalancerClass: {{ .Values.service.lbClass }}
+  {{- end }}
+  loadBalancerIP: {{ coalesce .Values.service.loadBalancerIP .Values.publicIP }}
+  externalTrafficPolicy: Local
+  {{- end }}
   ports:
   - port: 42113
     targetPort: 42113
@@ -34,5 +40,9 @@ spec:
     targetPort: 7171
     protocol: TCP
     name: http-ipxe
+  - port: 2222
+    targetPort: 2222
+    protocol: TCP
+    name: ssh
   selector:
     app: tinkerbell

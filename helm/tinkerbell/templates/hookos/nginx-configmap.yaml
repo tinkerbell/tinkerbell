@@ -1,0 +1,26 @@
+{{- if .Values.hookos.enabled }}
+# The NGINX ConfigMap is in a separate file because its checksum is used to trigger updates in
+# the deployment.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+  namespace: {{ .Release.Namespace | quote }}
+data:
+  nginx.conf: |
+    worker_processes 1;
+    events {
+      worker_connections  1024;
+    }
+    user root;
+    http {
+      server {
+        listen {{ .Values.hookos.port }};
+        location / {
+          sendfile           on;
+          sendfile_max_chunk 1m;
+          root /usr/share/nginx/html;
+        }
+      }
+    }
+{{- end }}
