@@ -8,7 +8,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/go-logr/logr"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/client/applyconfiguration/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,12 +69,12 @@ func Migrate(ctx context.Context, log logr.Logger, config *rest.Config) error {
 		if _, _, err := decoder.Decode(raw, nil, obj); err != nil {
 			return fmt.Errorf("failed to decode YAML: %w", err)
 		}
-		crdef := &apiextensionsv1.CustomResourceDefinition{}
+		crdef := &v1.CustomResourceDefinitionApplyConfiguration{}
 		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, crdef); err != nil {
 			return fmt.Errorf("failed to convert unstructured to CRD: %w", err)
 		}
 
-		if _, err := apiExtClient.CustomResourceDefinitions().Create(ctx, crdef, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		if _, err := apiExtClient.CustomResourceDefinitions().Apply(ctx, crdef, metav1.ApplyOptions{FieldManager: "Tinkerbell CLI"}); err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create CRD: %w", err)
 		}
 	}

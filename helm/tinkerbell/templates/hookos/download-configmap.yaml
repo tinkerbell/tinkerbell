@@ -1,0 +1,254 @@
+{{- if and .Values.hookos.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: download-hook
+  namespace: {{ .Release.Namespace }}
+data:
+  entrypoint.sh: |-
+    #!/usr/bin/env bash
+    
+    set -euo pipefail
+    
+    function usage() {
+        echo "Usage: $0 [OPTION]..."
+        echo "Script for downloading HookOS artifacts"
+        echo
+        echo "Options:"
+        echo "  -u, --url                 Base URL to the location of the HookOS artifacts (default: https://github.com/tinkerbell/hook/releases/download/latest)"
+        echo "  -a, --arch                Architectures to download, one of [x86_64, aarch64, both] (default: both)"
+        echo "  -v, --version             The kernel version of the HookOS artifacts to download, one of [5.10, 6.6, both] (default: 6.6)"
+        echo "  -e, --ext                 The artifact extension types to download, one of [tar.gz, iso, both] (default: both)"
+        echo "  -s, --specific-artifacts  List of non-standard artifacts to download"
+        echo "  -o, --output-dir          Output directory to store the downloaded artifacts (default: .)"
+        echo "  -h, --help                Display this help and exit"
+    }
+    
+    function validate_option() {
+      local option="$1"
+      local valid_values="$2"
+      local value="$3"
+    
+      if [[ ! " ${valid_values[@]} " =~ " ${value} " ]]; then
+        >&2 echo "Invalid value: '$value' for '${option}'. Valid values are: [${valid_values[*]}]"
+        usage
+        exit 1
+      fi
+    }
+    
+    
+    function get_by_kernel_version() {
+        # data must be newline separated list of artifacts
+        local data="$1"
+        local version="$2"
+        local artifacts=""
+        
+        if [[ "${version}" == "both" ]]; then
+            artifacts+=$(grep -v "latest-lts" <<< $data)$'\n'
+            artifacts+=$(grep "latest-lts" <<< "$data")
+        elif [[ "${version}" == "6.6" ]]; then
+            artifacts=$(grep "latest-lts" <<< "$data")
+        elif [[ "${version}" == "5.10" ]]; then
+            artifacts=$(grep -v "latest-lts" <<< "$data")
+        fi
+        
+        echo "${artifacts}"
+    }
+    
+    function get_by_extension() {
+        local data="$1"
+        local ext="$2"
+        local artifacts=""
+        
+        if [[ "${ext}" == "both" ]]; then
+            artifacts=$(grep ".tar.gz" <<< "$data")$'\n'
+            artifacts+=$(grep ".iso" <<< "$data")
+        elif [[ "${ext}" == "tar.gz" ]]; then
+            artifacts=$(grep ".tar.gz" <<< "$data")
+        elif [[ "${ext}" == "iso" ]]; then
+            artifacts=$(grep ".iso" <<< "$data")
+        fi
+        
+        echo "${artifacts}"
+    }
+    
+    function get_by_arch() {
+        local data="$1"
+        local arch="$2"
+        local artifacts=""
+        
+        if [[ "${arch}" == "both" ]]; then
+            artifacts+=$(grep "x86_64" <<< "$data")$'\n'
+            artifacts+=$(grep "aarch64" <<< "$data")
+        elif [[ "${arch}" == "x86_64" ]]; then
+            artifacts=$(grep "x86_64" <<< "$data")
+        elif [[ "${arch}" == "aarch64" ]]; then
+            artifacts=$(grep "aarch64" <<< "$data")
+        fi
+        
+        echo "${artifacts}"
+    }
+    
+    function download_artifacts() {
+        local url="$1"
+        local artifacts="$2"
+        local out_dir="$3"
+        
+        while IFS= read -r line; do
+            wget -O "${out_dir}/${line}" "${url}/${line}"
+        done < <(printf '%s\n' "$artifacts")
+    }
+    
+    function run_checksum512() {
+        local checksum_data="$1"
+        local out_dir="$2"
+        
+        (cd "${out_dir}" && sha512sum -c <<< "${checksum_data}")
+        if [ $? -ne 0 ]; then
+          return 1
+        fi
+        return 0
+    }
+    
+    function checksum_format() {
+        # data is a newline separated list of artifacts
+        local data="$1"
+        local raw="$2"
+        local checksums=""
+    
+        while IFS= read -r line; do
+            checksums+=$(grep "${line}" <<< "${raw}")$'\n'
+        done < <(printf '%s\n' "$data")
+    
+        echo "${checksums}"
+    }
+    
+    # default values
+    url="https://github.com/tinkerbell/hook/releases/download/latest"
+    arch="both"
+    version="6.6"
+    ext="both"
+    specific_artifacts=()
+    output_dir="."
+    
+    # valid options
+    valid_arches=("x86_64" "aarch64" "both")
+    valid_versions=("5.10" "6.6" "both")
+    valid_exts=("tar.gz" "iso" "both")
+    
+    args=$(getopt -a -o u:a:v:e:s:o:h --long url:,arch:,version:,ext:,specific-artifacts:,output-dir:,help -- "$@")
+    if [[ $? -gt 0 ]]; then
+      usage
+    fi
+    
+    eval set -- ${args}
+    while :
+    do
+      case $1 in
+        -u | --url)
+          if [[ ! -z $2 ]]; then
+            url=$2
+          fi
+          shift 2 ;;
+        -a | --arch)
+          if [[ ! -z $2 ]]; then
+            validate_option "arch" "${valid_arches[*]}" $2
+            arch=$2
+          fi
+          shift 2 ;;
+        -v | --version)
+          if [[ ! -z $2 ]]; then
+            validate_option "version" "${valid_versions[*]}" $2
+            version=$2
+          fi
+          shift 2 ;;
+        -e | --ext)
+          if [[ ! -z $2 ]]; then
+            validate_option "ext" "${valid_exts[*]}" $2
+            ext=$2
+          fi
+          shift 2 ;;
+        -s | --specific-artifacts)
+          if [[ ! -z $2 ]]; then
+            specific_artifacts=$2
+          fi
+          shift 2 ;;
+        -o | --output-dir)
+          if [[ ! -z $2 ]]; then
+            output_dir=$2
+          fi
+          shift 2 ;;
+        -h | --help)
+          usage
+          exit 1
+          shift ;;
+        # -- means the end of the arguments; drop this, and break out of the while loop
+        --) shift; break ;;
+        *) >&2 echo Unsupported option: $1
+           usage ;;
+      esac
+    done
+    
+    echo "==> Downloading HookOS artifacts from ${url} for architecture(s): ${arch} and extension(s): ${ext} and version(s): ${version}"
+    
+    # 1. Download the checksum file
+    # 2. Generate a list of artifacts to download based on the options provided
+    # 3. Run a checksum check for all artifacts to be downloaded. For artifacts that pass (meaning the artifact is already downloaded), do nothing. Make a list of artifacts that need downloaded.
+    # 4. If all artifacts are already downloaded, sleep and wait for signals.
+    # 5. Download artifacts that need downloaded.
+    # 6. Run a checksum check for all downloaded artifacts.
+    # 7. If all checksums pass, sleep and wait for signals. If any checksum fails, exit with 1.
+    
+    function main() {
+        local checksum_file="${output_dir}/checksum.txt"
+    
+        # 1.
+        echo "==> Downloading checksum file from ${url}"
+        if ! wget -O "${checksum_file}" ${url}/checksum.txt; then
+            echo "==> Failed to download checksum file: ${url}/checksum.txt"
+            return 1
+        fi
+    
+        # 2.
+        echo "==> Parsing checksum file"
+        raw_data=$(cat "${checksum_file}")
+        data=$(cat "${checksum_file}" | awk '{print $2}')
+        by_kernel=$(get_by_kernel_version "${data}" "${version}")
+        by_extension=$(get_by_extension "${by_kernel}" "${ext}")
+        filtered=$(get_by_arch "${by_extension}" "${arch}")
+    
+        # 3.
+        echo "==> Running initial checksum check for all artifacts"
+        checksums=$(checksum_format "${filtered}" "${raw_data}")
+        if run_checksum512 "${checksums}" "${output_dir}"; then
+            cd "${output_dir}"
+            echo "==> Extracting existing artifacts"
+            for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done
+            return 0
+        fi
+    
+        # 5.
+        echo "==> Downloading artifacts"
+        download_artifacts "${url}" "${filtered}" "${output_dir}"
+        checksums=$(checksum_format "${filtered}" "${raw_data}")
+        echo "==> Running checksum check for all downloaded artifacts"
+        if ! run_checksum512 "${checksums}" "${output_dir}"; then
+            echo "==> Checksum failed for some artifacts"
+            return 1
+        fi
+        cd "${output_dir}"
+        echo "==> Extracting artifacts"
+        for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done
+    }
+    
+    if ! main; then
+        exit 1
+    fi
+    
+    echo "==> All artifacts available, waiting for signals..."
+    sleep infinity & PID=$!
+    trap "kill $PID" INT TERM
+    wait $PID
+    
+{{- end }}

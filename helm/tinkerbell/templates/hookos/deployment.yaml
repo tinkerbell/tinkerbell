@@ -1,0 +1,89 @@
+{{- if .Values.hookos.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.hookos.name}}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    matchLabels:
+      {{- with .Values.hookos.selector }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  replicas: 1
+  strategy:
+    type: {{ .Values.hookos.deployment.strategy.type }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/hookos/nginx-configmap.yaml") . | sha256sum }}
+      labels:
+        {{- with .Values.hookos.selector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+      - name: {{ .Values.hookos.name }}
+        image: {{ .Values.hookos.image }}
+        command: ["/bin/bash", "-xeuc"]
+        args:
+        - |
+          export POD_NAMESERVER=$(awk '/nameserver/ {print $2}' /etc/resolv.conf);
+          [[ $POD_NAMESERVER == *.* ]] || POD_NAMESERVER="[$POD_NAMESERVER]";
+          envsubst '$POD_NAMESERVER' \
+            </tmp/nginx.conf.template \
+            >/etc/nginx/nginx.conf
+          exec nginx -g 'daemon off;'
+        ports:
+        - containerPort: {{ .Values.hookos.port }}
+          protocol: TCP
+          name: hook-http
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        volumeMounts:
+        - mountPath: /tmp
+          readOnly: true
+          name: nginx-conf
+        - mountPath: /usr/share/nginx/html
+          name: hook-artifacts
+      - name: download-hook
+        image: {{ .Values.hookos.scriptImage }}
+        command: ["/script/entrypoint.sh"]
+        args: ["--url", "{{ .Values.hookos.downloadURL }}", "--output-dir", "/output", "--arch", "{{ .Values.hookos.arch }}", "--version", "{{ .Values.hookos.kernelVersion }}", "--ext", "{{ .Values.hookos.extension }}"]
+        volumeMounts:
+          - mountPath: /output
+            name: hook-artifacts
+          - mountPath: /script
+            name: configmap-volume
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: nginx-conf
+          items:
+            - key: nginx.conf
+              path: nginx.conf.template
+      - name: hook-artifacts
+        persistentVolumeClaim:
+          claimName: {{ coalesce .Values.hookos.persistence.existingClaim .Values.hookos.persistence.localPersistentVolume.name }}
+      - name: configmap-volume
+        configMap:
+          defaultMode: 0700
+          name: download-hook
+      {{- with .Values.hookos.nodeSelector }}
+      nodeSelector:
+      {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.hookos.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      tolerations:
+      {{- include "singleNodeClusterConfig" . | indent 6 }}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- include "preferWorkerNodes" (dict "nodeAffinityWeight" .Values.hookos.singleNodeClusterConfig.nodeAffinityWeight) | indent 10 }}
+      {{- end }}
+{{- end }}

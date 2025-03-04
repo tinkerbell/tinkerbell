@@ -1,0 +1,31 @@
+{{- if .Values.hookos.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ .Values.hookos.name }}
+  name: {{ .Values.hookos.name }}
+  namespace: {{ .Release.Namespace | quote }}
+  annotations:
+    {{- with .Values.hookos.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.hookos.service.type }}
+  {{- if eq .Values.hookos.service.type "LoadBalancer" }}
+  {{- if .Values.hookos.service.lbClass }}
+  loadBalancerClass: {{ .Values.hookos.service.lbClass }}
+  {{- end }}
+  loadBalancerIP: {{ .Values.hookos.service.loadBalancerIP }}
+  externalTrafficPolicy: Local
+  {{- end }}
+  ports:
+  - name: {{ .Values.hookos.name }}
+    port: {{ .Values.hookos.port }}
+    protocol: TCP
+  selector:
+    {{- with .Values.hookos.selector }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

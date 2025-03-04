@@ -1,0 +1,100 @@
+{{- if and .Values.kubevip.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Values.kubevip.name }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.kubevip.name }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.kubevip.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Values.kubevip.name }}
+    spec:
+      containers:
+      - args:
+        - manager
+        env:
+        - name: vip_arp
+          value: "true"
+        - name: svc_enable
+          value: "true"
+        - name: svc_election
+          value: "true"
+        - name: enableServicesElection
+          value: "true"
+        {{- range .Values.kubevip.additionalEnv }}
+        - name: {{ .name | quote }}
+          value: {{ .value | quote }}
+        {{- end }}
+        {{- with .Values.kubevip.interface }}
+        - name: vip_interface
+          value: {{ . }}
+        {{- end }}
+        image: {{ .Values.kubevip.image }}
+        imagePullPolicy: {{ .Values.kubevip.imagePullPolicy }}
+        name: {{ .Values.kubevip.name }}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+      hostNetwork: true
+      serviceAccountName: {{ .Values.kubevip.name }}
+      {{- if .Values.kubevip.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      tolerations:
+      {{- include "singleNodeClusterConfig" (dict "nodeAffinityWeight" .Values.stack.singleNodeClusterConfig.nodeAffinityWeight) | indent 6 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.kubevip.name }}
+  namespace: {{ .Release.Namespace | quote }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: {{ .Values.kubevip.roleName }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - "services"
+      - "services/status"
+      - "nodes"
+      - "endpoints"
+    verbs:
+      - "list"
+      - "get"
+      - "watch"
+      - "update"
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - "leases"
+    verbs:
+      - "list"
+      - "get"
+      - "watch"
+      - "update"
+      - "create"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.kubevip.roleBindingName }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.kubevip.roleName }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.kubevip.name }}
+  namespace: {{ .Release.Namespace | quote }}
+{{- end }}
