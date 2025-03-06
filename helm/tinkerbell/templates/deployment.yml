@@ -1,5 +1,7 @@
-{{- $publicIP := coalesce .Values.publicIP .Values.global.publicIP }}
-{{- $trustedProxies := coalesce .Values.trustedProxies .Values.global.trustedProxies }}
+{{- $publicIP := .Values.publicIP }}
+{{- $trustedProxies := .Values.trustedProxies }}
+{{- $sourceInterface := .Values.deployment.init.sourceInterface }}
+{{- $dhcpInterfaceType := .Values.deployment.init.interfaceMode }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,6 +29,9 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      {{- if .Values.deployment.init.enabled }}
+      hostPID: true
+      {{- end }}
       containers:
         - name: tinkerbell
           image: {{ .Values.deployment.image }}
@@ -124,7 +129,7 @@ spec:
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRY_DELAY
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetryDelay | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL
-              value: http://{{ $publicIP }}:8080            
+              value: {{ .Values.deployment.envs.smee.ipxeHttpScriptOsieURL | quote }}          
             - name: TINKERBELL_ISO_ENABLED
               value: {{ .Values.deployment.envs.smee.isoEnabled | quote }}
             - name: TINKERBELL_ISO_UPSTREAM_URL
@@ -215,6 +220,33 @@ spec:
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
+            {{- with .Values.deployment.ports.ssh }}
+            - containerPort: {{ .port }}
+              name: {{ .name }}
+              protocol: {{ .protocol }}
+            {{- end }}
           resources: {{ toYaml .Values.deployment.resources | nindent 12 }}
+          securityContext:
+            capabilities:
+              add:
+                - NET_RAW
       hostNetwork: {{ .Values.deployment.hostNetwork }}
       serviceAccountName: {{ .Values.rbac.serviceAccountName }}
+      volumes:
+      {{- if .Values.deployment.init.enabled }}
+      - name: script
+        configMap:
+          name: host-interface-script
+          defaultMode: 0500
+      {{- end }}
+      {{- if .Values.deployment.init.enabled }}
+      initContainers:
+      - name: relay-broadcast-interface
+        image: {{ .Values.deployment.init.image }}
+        command: ["/script/host_interface.sh", "-s", "{{ $sourceInterface }}", "-t", "{{ $dhcpInterfaceType }}"]
+        volumeMounts:
+            - name: script
+              mountPath: "/script"
+        securityContext:
+          privileged: true
+      {{- end }}
