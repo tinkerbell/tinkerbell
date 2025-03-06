@@ -49,6 +49,11 @@ jobs:
       - name: Run all CI checks, linting, tests, etc
         run: make ci TEST_ARGS="-count=1"
 
+      - name: upload to codecov
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Trim Go cache
         if: ${{ github.ref == 'refs/heads/main' }}
         shell: bash
