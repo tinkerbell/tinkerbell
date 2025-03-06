@@ -8,36 +8,38 @@ import (
 
 // MultiWriter is a writer that writes to multiple other writers.
 type MultiWriter struct {
-	sync.RWMutex
+	mu      sync.RWMutex
 	writers []io.Writer
 }
 
-// New creates a writer that duplicates its writes to all the provided writers,
+// NewMultiWriter creates a writer that duplicates its writes to all the provided writers,
 // similar to the Unix tee(1) command. Writers can be added and removed
 // dynamically after creation.
 //
 // Each write is written to each listed writer, one at a time. If a listed
 // writer returns an error, that overall write operation stops and returns the
 // error; it does not continue down the list.
-func New(writers ...io.Writer) *MultiWriter {
-	mw := &MultiWriter{writers: writers}
+func NewMultiWriter(writers ...io.Writer) *MultiWriter {
+	mw := &MultiWriter{
+		writers: writers,
+		mu:      sync.RWMutex{},
+	}
 	return mw
 }
 
 // Write writes some bytes to all the writers.
-func (mw *MultiWriter) Write(p []byte) (n int, err error) {
-	mw.RLock()
-	defer mw.RUnlock()
+func (mw *MultiWriter) Write(p []byte) (int, error) {
+	mw.mu.RLock()
+	defer mw.mu.RUnlock()
 
 	for _, w := range mw.writers {
-		n, err = w.Write(p)
+		n, err := w.Write(p)
 		if err != nil {
-			return
+			return n, err
 		}
 
 		if n < len(p) {
-			err = io.ErrShortWrite
-			return
+			return n, io.ErrShortWrite
 		}
 	}
 
@@ -46,14 +48,14 @@ func (mw *MultiWriter) Write(p []byte) (n int, err error) {
 
 // Add appends a writer to the list of writers this multiwriter writes to.
 func (mw *MultiWriter) Add(w io.Writer) {
-	mw.Lock()
+	mw.mu.Lock()
 	mw.writers = append(mw.writers, w)
-	mw.Unlock()
+	mw.mu.Unlock()
 }
 
 // Remove will remove a previously added writer from the list of writers.
 func (mw *MultiWriter) Remove(w io.Writer) {
-	mw.Lock()
+	mw.mu.Lock()
 	var writers []io.Writer
 	for _, ew := range mw.writers {
 		if ew != w {
@@ -61,5 +63,5 @@ func (mw *MultiWriter) Remove(w io.Writer) {
 		}
 	}
 	mw.writers = writers
-	mw.Unlock()
+	mw.mu.Unlock()
 }

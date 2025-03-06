@@ -27,14 +27,10 @@ type Config struct {
 }
 
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
-	tracker := make(map[string]internal.State, 0)
-	handler := internal.Handler(ctx, log, tracker, c.IPMITOOLPath)
-
 	log.Info("starting ssh server", "port", c.SSHPort)
-
 	server := &gssh.Server{
 		Addr:             fmt.Sprintf(":%d", c.SSHPort),
-		Handler:          handler,
+		Handler:          internal.Handler(log, internal.NewKeyValueStore(), c.IPMITOOLPath),
 		PublicKeyHandler: internal.PubkeyAuth(c.Backend, log),
 		Banner:           "Second star to the right and straight on 'til morning\n",
 		IdleTimeout:      c.IdleTimeout,
