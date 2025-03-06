@@ -79,7 +79,7 @@ coverage: test ## Show test coverage
 ## Filter out generated files
 	cat coverage.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > coverage.out
 	go tool cover -func=coverage.out
-	rm -rf coverage.out
+	mv coverage.out coverage.txt
 
 .PHONY: ci-checks
 ci-checks: .github/workflows/ci-checks.sh ## Run the ci-checks.sh script
