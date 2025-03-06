@@ -51,9 +51,17 @@ help: ## Print this help
 build: out/tinkerbell ## Build the Tinkerbell binary
 build-agent: out/tink-agent ## Build the Tink Agent binary
 
+TEST_PKG ?=
+TEST_PKGS :=
+ifeq ($(TEST_PKG),)
+	TEST_PKGS := ./...
+else
+	TEST_PKGS := ./$(TEST_PKG)/...
+endif
+
 .PHONY: test
 test: ## Run go test
-	CGO_ENABLED=1 go test -race -coverprofile=coverage.txt -covermode=atomic -v ${TEST_ARGS} ./...
+	CGO_ENABLED=1 go test -race -coverprofile=coverage.txt -covermode=atomic -v ${TEST_ARGS} ${TEST_PKGS}
 
 .PHONY: vet
 vet: ## Run go vet
@@ -64,9 +72,14 @@ fmt: $(GOIMPORTS_FQP) ## Run go fmt
 	go fmt ./...
 	$(GOIMPORTS_FQP) -w .
 
+FILE_TO_NOT_INCLUDE_IN_COVERAGE := workflow_grpc.pb.go|workflow.pb.go|zz_generated.deepcopy.go|facility_string.go|severity_string.go
+
 .PHONY: coverage
 coverage: test ## Show test coverage
-	go tool cover -func=coverage.txt
+## Filter out generated files
+	cat coverage.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > coverage.out
+	go tool cover -func=coverage.out
+	rm -rf coverage.out
 
 .PHONY: ci-checks
 ci-checks: .github/workflows/ci-checks.sh ## Run the ci-checks.sh script
@@ -75,18 +88,29 @@ ci-checks: .github/workflows/ci-checks.sh ## Run the ci-checks.sh script
 .PHONY: ci
 ci: ci-checks coverage lint vet ## Runs all the same validations and tests that run in CI
 
+# Run go generate
+generated_go_files := \
+		smee/internal/syslog/facility_string.go \
+		smee/internal/syslog/severity_string.go \
+
+generate-go: $(generated_go_files) ## Run Go's generate command
+smee/internal/syslog/facility_string.go: smee/internal/syslog/message.go
+smee/internal/syslog/severity_string.go: smee/internal/syslog/message.go
+	go generate -run=".*_string.go" ./...
+	$(GOIMPORTS_FQP) -w .
+
 TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
 
 crossbinaries := out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64
 out/tinkerbell-linux-amd64: FLAGS=GOARCH=amd64
 out/tinkerbell-linux-arm64: FLAGS=GOARCH=arm64
-out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64: $(TINKERBELL_SOURCES)
+out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64: $(generated_go_files) $(TINKERBELL_SOURCES)
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -tags "${GO_TAGS}" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
 TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
 
-out/tinkerbell: $(TINKERBELL_SOURCES) ## Compile Tinkerbell for the current architecture
+out/tinkerbell: $(generated_go_files) $(TINKERBELL_SOURCES) ## Compile Tinkerbell for the current architecture
 	${FLAGS} CGO_ENABLED=0 go build -ldflags="-s -w" -tags "${GO_TAGS}" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
