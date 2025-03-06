@@ -1,4 +1,5 @@
 
+# helm install tinkerbell tinkerbell/ --create-namespace --namespace tinkerbell --wait --set "trustedProxies={${trusted_proxies}}" --set "publicIP=$LB_IP" --set "deployment.envs.smee.ipxeHttpScriptOsieURL=http://192.168.2.117:8080" --set "hookos.service.loadBalancerIP=192.168.2.117"
 deploy: true
 name: tinkerbell
 
@@ -93,6 +94,7 @@ deployment:
       enableTinkServer: true
       enableTinkController: true
       enableRufioController: true
+      enableSecondstar: true
   hostNetwork: false
   ports:
     tftp:
@@ -119,6 +121,10 @@ deployment:
       port: 42113
       name: grpc
       protocol: TCP
+    ssh:
+      port: 2222
+      name: ssh
+      protocol: TCP
   resources:
     limits:
       cpu: 500m
@@ -126,8 +132,21 @@ deployment:
     requests:
       cpu: 500m
       memory: 128Mi
+  init:
+    enabled: true
+    # if `interfaceMode: ipvlan`, then ghcr.io/jacobweinstock/relay-init:v0.1.0 (has nmap and nmap-scripts) is required. Otherwise, alpine can be used. 
+    image: ghcr.io/jacobweinstock/relay-init:v0.1.0
+    # interfaceMode determines how we create the interface needed to listen for DHCP broadcast traffic.
+    # by default macvlan is used. ipvlan is the only other option.
+    interfaceMode: macvlan
+    # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
+    # When unset, the interface from the default route will be used.
+    # sourceInterface: eno1
 
 service:
+  type: LoadBalancer
+  lbClass: "kube-vip.io/kube-vip-class"
+  loadBalancerIP: ""
   ports:
     tftp:
       port: 69
@@ -152,3 +171,72 @@ rbac:
   bindingName: tink-controller-rolebinding # or tink-controller-cluster-rolebinding
   serviceAccountName: tinkerbell
 
+publicIP: 192.168.2.114
+trustedProxies: []
+
+# hookos objects enables downloading and serving HookOS artifacts.
+# it is optional and enabled by default.
+hookos:
+  enabled: true
+  image: nginx:1.27.2
+  scriptImage: bash:5.2.37
+  name: hookos
+  port: 8080
+  selector:
+    app: hookos
+  nodeSelector: {}
+  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+  singleNodeClusterConfig:
+    controlPlaneTolerationsEnabled: false
+    nodeAffinityWeight: 1
+  service:
+    annotations: {}
+    type: LoadBalancer
+    lbClass: "kube-vip.io/kube-vip-class"
+    loadBalancerIP: ""
+  deployment:
+    strategy:
+      type: RollingUpdate
+  # downloadURL only works with the > 0.8.1 Hook release because
+  # previous Hook versions didn't provide a checksum file.
+  downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.10.0
+  arch: both # x86_64, aarch64, both
+  extension: tar.gz # iso, tar.gz, both
+  kernelVersion: both # 5.10, 6.6, both
+  persistence:
+    # If existingClaim is set, the local persistence volume (localPersistentVolume) objects will NOT be created.
+    # Use this to point to an existing production grade storage class.
+    existingClaim: ""
+    # While local storage is the default, it is not recommended for production use.
+    localPersistentVolume:
+      storageClassName: local-storage
+      # this path must already exist on the node
+      path: /tmp
+      name: hook-artifacts
+      accessModes:
+        - ReadWriteMany
+      size: 2Gi
+      extraLabels: {}
+
+kubevip:
+  enabled: true
+  name: kube-vip
+  image: ghcr.io/kube-vip/kube-vip:v0.8.7
+  imagePullPolicy: IfNotPresent
+  roleName: kube-vip-role
+  roleBindingName: kube-vip-rolebinding
+  # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
+  # interface: enp0s8
+
+  # Additional environment variables to pass to the kubevip container. Each entry is expected to have a
+  # name and value key. Some keys are already defined - refer to the deployment.yaml template for
+  # details.
+  #
+  # Example
+  #   - name: MY_ENV_VAR
+  #     value: my-value
+  additionalEnv: []
+  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+  singleNodeClusterConfig:
+    controlPlaneTolerationsEnabled: false
+    nodeAffinityWeight: 1
