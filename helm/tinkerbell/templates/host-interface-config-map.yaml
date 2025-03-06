@@ -1,0 +1,116 @@
+{{- if and .Values.deployment.init.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: host-interface-script
+data:
+  host_interface.sh: |
+    #!/usr/bin/env sh
+
+    # This script allows us to listen and respond to DHCP requests on a host network interface and interact with Smee properly.
+    # This is used instead of `hostNetwork: true` because the dhcp relay requires clear paths for listening for broadcast traffic
+    # and sending/receiving unicast traffic to/from Smee.
+    
+    set -xeuo pipefail
+    
+    function usage() {
+        echo "Usage: $0 [OPTION]..."
+        echo "Init script for setting up a network interface to listen and respond to DHCP requests from the Host and move it into a container."
+        echo
+        echo "Options:"
+        echo "  -s, --src     Source interface for listening and responding to DHCP requests (default: default gateway interface)"
+        echo "  -t, --type    Create the interface of type, must be either ipvlan or macvlan (default: macvlan)"
+        echo "  -c, --clean   Clean up any interfaces created"
+        echo "  -h, --help    Display this help and exit"
+    }
+    
+    function binary_exists() {
+        command -v "$1" >/dev/null 2>&1
+    }
+    
+    function main() {
+        local src_interface="$1"
+        local interface_type="$2"
+        local interface_mode="$3"
+        local interface_name="${interface_type}0"
+    
+        # Preparation
+        # Delete existing interfaces in the container
+        ip link del macvlan0 || true
+        ip link del ipvlan0 || true
+        ip link del ipvlan0-wa || true
+        # Delete existing interfaces in the host namespace
+        nsenter -t1 -n ip link del macvlan0 || true
+        nsenter -t1 -n ip link del ipvlan0 || true
+        nsenter -t1 -n ip link del ipvlan0-wa || true
+        # Create the interface
+        nsenter -t1 -n ip link add "${interface_name}" link "${src_interface}" type "${interface_type}" mode "${interface_mode}" || true
+        # Move the interface into the Pod container
+        pid=$(echo $$)
+        nsenter -t1 -n ip link set "${interface_name}" netns ${pid} || nsenter -t1 -n ip link delete "${interface_name}"
+        # Bring up the interface
+        ip link set dev "${interface_name}" up
+        # Set the IP address
+        ip addr add 127.1.1.1/32 dev "${interface_name}" noprefixroute || true
+        # Run ipvlan workaround
+        # There is an issue with ipvlan interfaces. They do not start receiving broadcast packets after creation.
+        # This is a workaround to get broadcast packets flowing.
+        # TODO(jacobweinstock): Investigate this deeper and see if this is a kernel bug.
+        if [[ "${interface_type}" == "ipvlan" ]]; then
+            nsenter -t1 -n nmap --script broadcast-dhcp-discover
+            nsenter -t1 -n ip link add "${interface_name}"-wa link "${src_interface}" type "${interface_type}" mode "${interface_mode}" bridge || true
+            nsenter -t1 -n nmap --script broadcast-dhcp-discover
+        fi
+    }
+
+    src_interface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}' | head -n1)
+    interface_type="macvlan"
+    interface_mode="bridge"
+    clean=false
+    args=$(getopt -a -o s:t:ch --long src:,type:,clean,help -- "$@")
+    if [[ $? -gt 0 ]]; then
+      usage
+    fi
+    
+    eval set -- ${args}
+    while :
+    do
+      case $1 in
+        -s | --src)
+          if [[ ! -z $2 ]]; then
+            src_interface=$2
+          fi
+          shift 2 ;;
+        -t | --type)
+          if [[ "$2" == "ipvlan" ]]; then
+            interface_type="ipvlan"
+            interface_mode="l2"
+          fi
+          shift 2 ;;
+        -c | --clean)
+          clean=true
+          shift ;;
+        -h | --help)
+          usage
+          exit 1
+          shift ;;
+        # -- means the end of the arguments; drop this, and break out of the while loop
+        --) shift; break ;;
+        *) >&2 echo Unsupported option: $1
+           usage ;;
+      esac
+    done    
+    
+    if "${clean}"; then
+        # Delete existing interfaces in the container
+        ip link del macvlan0 || true
+        ip link del ipvlan0 || true
+        ip link del ipvlan0-wa || true
+        # Delete existing interfaces in the host namespace
+        nsenter -t1 -n ip link del macvlan0 || true
+        nsenter -t1 -n ip link del ipvlan0 || true
+        nsenter -t1 -n ip link del ipvlan0-wa || true
+        exit 0
+    fi
+    main "${src_interface}" "${interface_type}" "${interface_mode}"
+{{- end }}

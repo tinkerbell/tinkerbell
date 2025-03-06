@@ -150,8 +150,12 @@ generate: $(CONTROLLER_GEN_FQP) ## Generate code containing DeepCopy, DeepCopyIn
 .PHONY: dep-graph
 dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
 	rm -rf out/dep-graph.txt out/dep-graph.png
-	$(GODEPGRAPH_FQP) -s -novendor -horizontal -onlyprefixes "github.com/tinkerbell/tinkerbell,./cmd/agent,./cmd/tinkerbell" ./cmd/agent ./cmd/tinkerbell > out/dep-graph.txt
-	cat out/dep-graph.txt | dot -Tpng -Goverlap=scale -Gsplines=true -o out/dep-graph.png
+	$(GODEPGRAPH_FQP) -s -novendor -onlyprefixes "github.com/tinkerbell/tinkerbell,./cmd/agent,./cmd/tinkerbell" ./cmd/agent ./cmd/tinkerbell > out/dep-graph.txt
+	cat out/dep-graph.txt | dot -Txdot -o out/dep-graph.dot
+
+######### Helm charts - start #########
+
+######### Helm charts - end   #########
 
 ######### Build container images - start #########
 .PHONY: prepare-buildx

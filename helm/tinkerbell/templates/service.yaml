@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: tinkerbell
+  name: tinkerbell
+  namespace: tinkerbell
+spec:
+  type: ClusterIP
+  type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  {{- if .Values.service.lbClass }}
+  loadBalancerClass: {{ .Values.service.lbClass }}
+  {{- end }}
+  loadBalancerIP: {{ coalesce .Values.service.loadBalancerIP .Values.publicIP }}
+  externalTrafficPolicy: Local
+  {{- end }}
+  ports:
+  - port: 42113
+    targetPort: 42113
+    protocol: TCP
+    name: grpc
+  - port: 50061
+    targetPort: 50061
+    protocol: TCP
+    name: http-tootles
+  - port: 69
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  - port: 514
+    targetPort: 514
+    protocol: UDP
+    name: syslog
+  - port: 67
+    targetPort: 67
+    protocol: UDP
+    name: dhcp
+  - port: 7171
+    targetPort: 7171
+    protocol: TCP
+    name: http-ipxe
+  - port: 2222
+    targetPort: 2222
+    protocol: TCP
+    name: ssh
+  selector:
+    app: tinkerbell

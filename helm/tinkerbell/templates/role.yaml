@@ -1,0 +1,44 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tinkerbell
+rules:
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs: ["create", "get", "update", "delete"]
+  - apiGroups:
+      - tinkerbell.org
+    resources:
+      - hardware
+      - hardware/status
+      - templates
+      - templates/status
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - tinkerbell.org
+    resources:
+      - workflows
+      - workflows/status
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - delete
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["bmc.tinkerbell.org"]
+    resources: ["jobs", "jobs/status", "machines", "machines/status", "tasks", "tasks/status"]
+    verbs: ["create", "delete", "get", "list", "patch", "update", "watch", deletecollection]
+  - apiGroups: ["bmc.tinkerbell.org"]
+    resources: ["jobs/finalizers", "machines/finalizers", "tasks/finalizers"]
+    verbs: ["update"]
