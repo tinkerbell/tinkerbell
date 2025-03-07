@@ -14,5 +14,6 @@ Tinkerbell is a bare metal provisioning engine. It supports network and ISO boot
 - Third party DHCP server integration
 - BMC support via Redfish, IPMI, IntelAMT, and more
 - Auto discovery of Hardware
+- Serial over SSH
 
 For more details, see the [Tinkerbell documentation](https://tinkerbell.org).
