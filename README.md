@@ -6,6 +6,7 @@
 [![CLO Monitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/tinkerbell/badge)](https://clomonitor.io/projects/cncf/tinkerbell)
 [![CNCF Slack Channel](https://img.shields.io/badge/slack-%23tinkerbell-blue?logo=slack)](https://cloud-native.slack.com/archives/C01SRB41GMT)
 [![CNCF Landscape](https://img.shields.io/badge/CNCF%20Landscape-5699C6?logo=cncf)](https://landscape.cncf.io/?item=provisioning--automation-configuration--tinkerbell)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftinkerbell%2Ftinkerbell.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftinkerbell%2Ftinkerbell?ref=badge_shield&issueType=license)
 
 Tinkerbell is a bare metal provisioning engine. It supports network and ISO booting and BMC interactions as well as a metadata service, and a workflow engine for provisioning. Some of the features include:
 
@@ -17,3 +18,19 @@ Tinkerbell is a bare metal provisioning engine. It supports network and ISO boot
 - Serial over SSH
 
 For more details, see the [Tinkerbell documentation](https://tinkerbell.org).
+
+## Contributing
+
+If you are interested in contributing to Tinkerbell, please see our [contributing guidelines](CONTRIBUTING.md).
+
+## Roadmap
+
+To follow along and contribute to the Tinkerbell roadmap, please see our [roadmap repository](https://github.com/tinkerbell/roadmap).
+
+## Adopters
+
+A list of adopters and a brief description of their use cases can be found in our [adopters document](ADOPTERS.md).
+
+## Governance
+
+The Tinkerbell project is governed by a group of Maintainers and Committers. How they are selected and govern is outlined in our [governance document](https://github.com/tinkerbell/org/blob/main/GOVERNANCE.md).
