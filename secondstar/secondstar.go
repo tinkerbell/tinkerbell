@@ -32,7 +32,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		Addr:             fmt.Sprintf(":%d", c.SSHPort),
 		Handler:          internal.Handler(log, internal.NewKeyValueStore(), c.IPMITOOLPath),
 		PublicKeyHandler: internal.PubkeyAuth(c.Backend, log),
-		Banner:           "Second star to the right and straight on 'til morning\n",
+		Banner:           "Second star to the right and straight on 'til morning\n[Use ~. to disconnect]\n",
 		IdleTimeout:      c.IdleTimeout,
 	}
 
