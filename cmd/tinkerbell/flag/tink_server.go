@@ -13,6 +13,7 @@ type TinkServerConfig struct {
 	Config   *server.Config
 	BindAddr netip.Addr
 	BindPort uint16
+	LogLevel int
 }
 
 var KubeIndexesTinkServer = map[kube.IndexType]kube.Index{
@@ -22,6 +23,7 @@ var KubeIndexesTinkServer = map[kube.IndexType]kube.Index{
 func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {
 	fs.Register(TinkServerBindAddr, &ntip.Addr{Addr: &t.BindAddr})
 	fs.Register(TinkServerBindPort, ffval.NewValueDefault(&t.BindPort, t.BindPort))
+	fs.Register(TinkServerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
 }
 
 // Convert TinkServerConfig data types to tink server server.Config data types.
@@ -37,4 +39,9 @@ var TinkServerBindAddr = Config{
 var TinkServerBindPort = Config{
 	Name:  "tink-server-bind-port",
 	Usage: "port on which the Tink server will listen",
+}
+
+var TinkServerLogLevel = Config{
+	Name:  "tink-server-log-level",
+	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
 }

@@ -7,7 +7,8 @@ import (
 )
 
 type RufioConfig struct {
-	Config *rufio.Config
+	Config   *rufio.Config
+	LogLevel int
 }
 
 func RegisterRufioFlags(fs *Set, t *RufioConfig) {
@@ -17,6 +18,7 @@ func RegisterRufioFlags(fs *Set, t *RufioConfig) {
 	fs.Register(RufioControllerProbeAddr, &netip.AddrPort{AddrPort: &t.Config.ProbeAddr})
 	fs.Register(RufioBMCConnectTimeout, ffval.NewValueDefault(&t.Config.BMCConnectTimeout, t.Config.BMCConnectTimeout))
 	fs.Register(RufioPowerCheckInterval, ffval.NewValueDefault(&t.Config.PowerCheckInterval, t.Config.PowerCheckInterval))
+	fs.Register(RufioLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
 }
 
 var RufioControllerEnableLeaderElection = Config{
@@ -47,4 +49,9 @@ var RufioBMCConnectTimeout = Config{
 var RufioPowerCheckInterval = Config{
 	Name:  "rufio-power-check-interval",
 	Usage: "interval at which the machine's power state is reconciled",
+}
+
+var RufioLogLevel = Config{
+	Name:  "rufio-log-level",
+	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
 }
