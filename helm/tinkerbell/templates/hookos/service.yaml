@@ -1,4 +1,7 @@
 {{- if .Values.hookos.enabled }}
+{{- $artifactsURL := urlParse .Values.artifactsFileServer }}
+{{- $artifactsHost :=  split ":" $artifactsURL.host }}
+{{- $artifactsIP := include "isIpAddress" $artifactsHost._0 }}
 ---
 apiVersion: v1
 kind: Service
@@ -17,7 +20,7 @@ spec:
   {{- if .Values.hookos.service.lbClass }}
   loadBalancerClass: {{ .Values.hookos.service.lbClass }}
   {{- end }}
-  loadBalancerIP: {{ .Values.hookos.service.loadBalancerIP }}
+  loadBalancerIP: {{ coalesce $artifactsIP .Values.hookos.service.loadBalancerIP | required "no HookOS load balancer IP specified, please specify a load balancer IP" }}
   externalTrafficPolicy: Local
   {{- end }}
   ports:

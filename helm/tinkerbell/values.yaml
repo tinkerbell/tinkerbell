@@ -1,10 +1,15 @@
 
-# helm install tinkerbell tinkerbell/ --create-namespace --namespace tinkerbell --wait --set "trustedProxies={${trusted_proxies}}" --set "publicIP=$LB_IP" --set "deployment.envs.smee.ipxeHttpScriptOsieURL=http://192.168.2.117:8080" --set "hookos.service.loadBalancerIP=192.168.2.117"
+# trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
+# LB_IP=192.168.2.116
+# the ARTIFACTS_FILE_SERVER is used to set the load balancer IP for the HookOS/nginx service object and will be used to configure TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL in the Tinkerbell deployment.
+# ARTIFACTS_FILE_SERVER=http://192.168.2.117:8080
+# helm install tinkerbell tinkerbell/ --create-namespace --namespace tinkerbell --wait --set "trustedProxies={${trusted_proxies}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER"
 deploy: true
 name: tinkerbell
 
 publicIP:
 trustedProxies: []
+artifactsFileServer:
 deployment:
   image: ghcr.io/tinkerbell/tinkerbell:latest
   imagePullPolicy: IfNotPresent
