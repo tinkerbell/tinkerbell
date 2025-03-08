@@ -13,11 +13,13 @@ import (
 type EmbeddedEtcdConfig struct {
 	Config             *embed.Config
 	WaitHealthyTimeout time.Duration
+	LogLevel           int
 }
 
 func RegisterEtcd(fs *Set, ec *EmbeddedEtcdConfig) {
 	fs.Register(EtcdDir, ffval.NewValueDefault(&ec.Config.Dir, ec.Config.Dir))
 	fs.Register(EtcdWaitHealthyTimeout, ffval.NewValueDefault(&ec.WaitHealthyTimeout, ec.WaitHealthyTimeout))
+	fs.Register(EtcdLogLevel, ffval.NewValueDefault(&ec.LogLevel, ec.LogLevel))
 }
 
 var EtcdDir = Config{
@@ -28,4 +30,9 @@ var EtcdDir = Config{
 var EtcdWaitHealthyTimeout = Config{
 	Name:  "etcd-wait-healthy-timeout",
 	Usage: "the timeout to wait for etcd to become healthy",
+}
+
+var EtcdLogLevel = Config{
+	Name:  "etcd-log-level",
+	Usage: "log level for etcd",
 }

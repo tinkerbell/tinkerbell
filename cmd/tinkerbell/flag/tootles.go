@@ -14,6 +14,7 @@ type TootlesConfig struct {
 	Config   *tootles.Config
 	BindAddr netip.Addr
 	BindPort int
+	LogLevel int
 }
 
 var KubeIndexesTootles = map[kube.IndexType]kube.Index{
@@ -24,6 +25,7 @@ func RegisterTootlesFlags(fs *Set, h *TootlesConfig) {
 	fs.Register(TootlesBindAddr, &ntip.Addr{Addr: &h.BindAddr})
 	fs.Register(TootlesBindPort, ffval.NewValueDefault(&h.BindPort, h.BindPort))
 	fs.Register(TootlesDebugMode, ffval.NewValueDefault(&h.Config.DebugMode, h.Config.DebugMode))
+	fs.Register(TootlesLogLevel, ffval.NewValueDefault(&h.LogLevel, h.LogLevel))
 }
 
 var TootlesBindAddr = Config{
@@ -39,6 +41,11 @@ var TootlesBindPort = Config{
 var TootlesDebugMode = Config{
 	Name:  "tootles-debug-mode",
 	Usage: "whether to run Tootles in debug mode",
+}
+
+var TootlesLogLevel = Config{
+	Name:  "tootles-log-level",
+	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
 }
 
 // Convert converts TootlesConfig data types to tootles.Config data types.

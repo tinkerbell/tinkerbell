@@ -19,6 +19,7 @@ type SmeeConfig struct {
 	// DHCPIPXEScript splits out some url.URL fields so they can be set individually.
 	// The cmd package is responsible for putting the fields back together into a url.URL for use in service package configs.
 	DHCPIPXEScript URLBuilder
+	LogLevel       int
 }
 
 var KubeIndexesSmee = map[kube.IndexType]kube.Index{
@@ -35,6 +36,7 @@ type URLBuilder struct {
 }
 
 func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
+	fs.Register(SmeeLogLevel, ffval.NewValueDefault(&sc.LogLevel, sc.LogLevel))
 	// DHCP flags
 	fs.Register(DHCPEnabled, ffval.NewValueDefault(&sc.Config.DHCP.Enabled, sc.Config.DHCP.Enabled))
 	fs.Register(DHCPModeFlag, &sc.Config.DHCP.Mode)
@@ -373,4 +375,9 @@ var TinkServerUseTLS = Config{
 var TinkServerInsecureTLS = Config{
 	Name:  "ipxe-script-tink-server-insecure-tls",
 	Usage: "[tink] Skip TLS verification when connecting to the Tink server",
+}
+
+var SmeeLogLevel = Config{
+	Name:  "smee-log-level",
+	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
 }
