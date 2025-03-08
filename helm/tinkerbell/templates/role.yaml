@@ -7,7 +7,7 @@ rules:
       - apiextensions.k8s.io
     resources:
       - customresourcedefinitions
-    verbs: ["create", "get", "update", "delete"]
+    verbs: ["create", "get", "list", "patch", "update", "delete"]
   - apiGroups:
       - tinkerbell.org
     resources:
