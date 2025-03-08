@@ -9,6 +9,7 @@ import (
 type SecondStarConfig struct {
 	Config      *secondstar.Config
 	HostKeyPath string
+	LogLevel    int
 }
 
 var KubeIndexesSecondStar = map[kube.IndexType]kube.Index{
@@ -21,6 +22,7 @@ func RegisterSecondStarFlags(fs *Set, ssc *SecondStarConfig) {
 	fs.Register(SecondStarHostKey, ffval.NewValueDefault(&ssc.HostKeyPath, ssc.HostKeyPath))
 	fs.Register(SecondStarIPMIToolPath, ffval.NewValueDefault(&ssc.Config.IPMITOOLPath, ssc.Config.IPMITOOLPath))
 	fs.Register(SecondStarIdleTimeout, ffval.NewValueDefault(&ssc.Config.IdleTimeout, ssc.Config.IdleTimeout))
+	fs.Register(SecondStarLogLevel, ffval.NewValueDefault(&ssc.LogLevel, ssc.LogLevel))
 }
 
 var SecondStarPort = Config{
@@ -41,6 +43,11 @@ var SecondStarIPMIToolPath = Config{
 var SecondStarIdleTimeout = Config{
 	Name:  "secondstar-idle-timeout",
 	Usage: "Idle timeout for SecondStar",
+}
+
+var SecondStarLogLevel = Config{
+	Name:  "secondstar-log-level",
+	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
 }
 
 func (ssc *SecondStarConfig) Convert() error {

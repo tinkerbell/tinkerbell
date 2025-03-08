@@ -7,7 +7,8 @@ import (
 )
 
 type TinkControllerConfig struct {
-	Config *controller.Config
+	Config   *controller.Config
+	LogLevel int
 }
 
 func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
@@ -15,6 +16,7 @@ func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
 	fs.Register(TinkControllerLeaderElectionNamespace, ffval.NewValueDefault(&t.Config.LeaderElectionNamespace, t.Config.LeaderElectionNamespace))
 	fs.Register(TinkControllerMetricsAddr, &netip.AddrPort{AddrPort: &t.Config.MetricsAddr})
 	fs.Register(TinkControllerProbeAddr, &netip.AddrPort{AddrPort: &t.Config.ProbeAddr})
+	fs.Register(TinkControllerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
 }
 
 var TinkControllerEnableLeaderElection = Config{
@@ -35,4 +37,9 @@ var TinkControllerProbeAddr = Config{
 var TinkControllerLeaderElectionNamespace = Config{
 	Name:  "tink-controller-leader-election-namespace",
 	Usage: "namespace in which the leader election lease will be created",
+}
+
+var TinkControllerLogLevel = Config{
+	Name:  "tink-controller-log-level",
+	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
 }
