@@ -129,7 +129,7 @@ spec:
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRY_DELAY
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetryDelay | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL
-              value: {{ .Values.deployment.envs.smee.ipxeHttpScriptOsieURL | quote }}          
+              value: {{ coalesce .Values.artifactsFileServer .Values.deployment.envs.smee.ipxeHttpScriptOsieURL | quote }}
             - name: TINKERBELL_ISO_ENABLED
               value: {{ .Values.deployment.envs.smee.isoEnabled | quote }}
             - name: TINKERBELL_ISO_UPSTREAM_URL
