@@ -5,6 +5,14 @@ SHELL := bash
 .SHELLFLAGS := -o pipefail -euc
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
+GIT_TAG := $(shell git describe --tags --exact-match 2>/dev/null || true)
+ifeq ($(GIT_TAG),)
+	GIT_TAG := v0.0.0
+endif
+VERSION ?=
+ifeq ($(VERSION),)
+	VERSION := $(GIT_TAG)-$(GIT_COMMIT)
+endif
 CGO_ENABLED := 0
 export CGO_ENABLED
 COMPRESS := false
@@ -16,6 +24,7 @@ ifeq ($(LOCAL_ARCH),x86_64)
 else ifeq ($(LOCAL_ARCH),aarch64)
 	LOCAL_ARCH_ALT := arm64
 endif
+HELM_REPO_NAME ?= ghcr.io/tinkerbell/charts
 
 ########### Tools variables ###########
 # Tool versions
@@ -154,6 +163,22 @@ dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
 	cat out/dep-graph.txt | dot -Txdot -o out/dep-graph.dot
 
 ######### Helm charts - start #########
+helm-files := $(shell git ls-files helm/tinkerbell/ | grep -v helm/tinkerbell/docs)
+helm-package: out/helm/tinkerbell-$(VERSION).tgz ## Helm chart for Tinkerbell
+out/helm/tinkerbell-$(VERSION).tgz: $(helm-files)
+	helm package -d out/helm/ helm/tinkerbell --version $(VERSION)
+
+.PHONY: helm-publish
+helm-publish: out/helm/tinkerbell-$(VERSION).tgz ## Publish the Helm chart
+	helm push out/helm/tinkerbell-$(VERSION).tgz oci://$(HELM_REPO_NAME)
+
+.PHONY: helm-lint
+helm-lint: ## Lint the Helm chart
+	helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2"
+
+.PHONY: helm-template
+helm-template: ## Helm template for Tinkerbell
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" 2>&1 >/dev/null
 
 ######### Helm charts - end   #########
 
