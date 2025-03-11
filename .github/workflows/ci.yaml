@@ -202,7 +202,7 @@ jobs:
           IMAGE_NAME: ${{ matrix.image_name }}
           IMAGE_NAME_AGENT: ${{ matrix.image_name }}
 
-package-publish-helm-chart:
+  package-publish-helm-chart:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     needs:
