@@ -80,6 +80,23 @@ jobs:
           # Save to eg Linux-go-$hash-YYYY-MM-DD to keep the cache fresh
           key: "${{ runner.os }}-go-${{ hashFiles('go.mod') }}-${{ env.GO_CACHE_DATE }}"
 
+  validate-helm-chart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+          fetch-tags: true
+
+      - name: install helm
+        uses: Azure/setup-helm@v4
+        with:
+          version: v3.17.0
+
+      - name: Build and publish helm chart
+        run: make helm-lint helm-template
+
   build-binaries:
     runs-on: ubuntu-latest
     strategy:
@@ -131,7 +148,7 @@ jobs:
           path: out/${{ matrix.name }}-*
           if-no-files-found: error
 
-  build-container-images:
+  build-publish-container-images:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     needs:
@@ -179,8 +196,35 @@ jobs:
       - name: Prepare build environment
         run: make prepare-buildx
       
-      - name: Build container images
+      - name: Build and publish container images
         run: make ${{ matrix.make-target }}
         env:
           IMAGE_NAME: ${{ matrix.image_name }}
           IMAGE_NAME_AGENT: ${{ matrix.image_name }}
+
+package-publish-helm-chart:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - validate-helm-chart
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+          fetch-tags: true
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: install helm
+        uses: Azure/setup-helm@v4
+        with:
+          version: v3.17.0
+
+      - name: Package and publish the Helm chart
+        run: make helm-publish
