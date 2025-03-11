@@ -94,7 +94,7 @@ jobs:
         with:
           version: v3.17.0
 
-      - name: Build and publish helm chart
+      - name: Lint and Template Helm chart
         run: make helm-lint helm-template
 
   build-binaries:
