@@ -1,0 +1,45 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "07:00"
+      timezone: "America/Denver"
+    reviewers:
+      - jacobweinstock
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "07:10"
+      timezone: "America/Denver"
+    reviewers:
+      - jacobweinstock
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "07:20"
+      timezone: "America/Denver"
+    reviewers:
+      - jacobweinstock
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "07:30"
+      timezone: "America/Denver"
+    reviewers:
+      - jacobweinstock
+    open-pull-requests-limit: 10
