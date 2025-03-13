@@ -22,17 +22,6 @@ updates:
       - jacobweinstock
     open-pull-requests-limit: 10
 
-  - package-ecosystem: "gomod"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "07:20"
-      timezone: "America/Denver"
-    reviewers:
-      - jacobweinstock
-    open-pull-requests-limit: 10
-
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
