@@ -11,7 +11,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/containerd/containerd v1.7.26
 	github.com/containers/image/v5 v5.34.1
-	github.com/diskfs/go-diskfs v1.5.1
+	github.com/diskfs/go-diskfs v1.5.2
 	github.com/distribution/reference v0.6.0
 	github.com/docker/docker v28.0.1+incompatible
 	github.com/fsnotify/fsnotify v1.8.0
