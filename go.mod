@@ -28,7 +28,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.2.1
 	github.com/peterbourgon/ff/v4 v4.0.0-alpha.4
 	github.com/pin/tftp/v3 v3.1.0
-	github.com/prometheus/client_golang v1.21.0
+	github.com/prometheus/client_golang v1.21.1
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.10.0
 	github.com/vishvananda/netlink v1.3.1-0.20240905180732-b1ce50cfa9be
