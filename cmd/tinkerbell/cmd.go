@@ -210,46 +210,53 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return nil
 	})
 
-	if numEnabled(globals) > 0 {
-		switch globals.Backend {
-		case "kube":
-			if globals.EnableCRDMigrations {
-				backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil)
-				if err != nil {
-					return fmt.Errorf("failed to create kube backend: %w", err)
-				}
-				if err := crd.Migrate(ctx, log, backendNoIndexes.ClientConfig); err != nil {
-					cancel()
-					gerr := g.Wait()
-					return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
-				}
-			}
-
-			b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar))
+	if numEnabled(globals) == 0 {
+		globals.Backend = "pass"
+	}
+	switch globals.Backend {
+	case "kube":
+		if globals.EnableCRDMigrations {
+			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil)
 			if err != nil {
 				return fmt.Errorf("failed to create kube backend: %w", err)
 			}
-			s.Config.Backend = b
-			h.Config.BackendEc2 = b
-			h.Config.BackendHack = b
-			ts.Config.Backend = b
-			tc.Config.Client = b.ClientConfig
-			rc.Config.Client = b.ClientConfig
-			ssc.Config.Backend = b
-		case "file":
-			b, err := newFileBackend(ctx, log, globals.BackendFilePath)
-			if err != nil {
-				return fmt.Errorf("failed to create file backend: %w", err)
+			// Wait for the API server to be healthy
+			if err := backendNoIndexes.WaitForAPIServer(ctx, log, 20*time.Second, 5*time.Second); err != nil {
+				return fmt.Errorf("failed to wait for API server health: %w", err)
 			}
-			s.Config.Backend = b
-		case "none":
-			b := newNoopBackend()
-			s.Config.Backend = b
-			h.Config.BackendEc2 = b
-			h.Config.BackendHack = b
-		default:
-			return fmt.Errorf("unknown backend %q", globals.Backend)
+
+			if err := crd.NewTinkerbell(crd.WithRestConfig(backendNoIndexes.ClientConfig)).MigrateAndReady(ctx); err != nil {
+				cancel()
+				gerr := g.Wait()
+				return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
+			}
 		}
+
+		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar))
+		if err != nil {
+			return fmt.Errorf("failed to create kube backend: %w", err)
+		}
+		s.Config.Backend = b
+		h.Config.BackendEc2 = b
+		h.Config.BackendHack = b
+		ts.Config.Backend = b
+		tc.Config.Client = b.ClientConfig
+		rc.Config.Client = b.ClientConfig
+		ssc.Config.Backend = b
+	case "file":
+		b, err := newFileBackend(ctx, log, globals.BackendFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to create file backend: %w", err)
+		}
+		s.Config.Backend = b
+	case "none":
+		b := newNoopBackend()
+		s.Config.Backend = b
+		h.Config.BackendEc2 = b
+		h.Config.BackendHack = b
+	case "pass":
+	default:
+		return fmt.Errorf("unknown backend %q", globals.Backend)
 	}
 
 	// Kube Controller Manager
