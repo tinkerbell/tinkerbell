@@ -71,13 +71,6 @@ var TinkerbellDefaults = map[string][]byte{
 // ConfigOption is a function that sets a configuration option.
 type ConfigOption func(*Tinkerbell)
 
-// WithCRDs sets the CRDs in the Mapping.
-func WithCRDs(crdMap map[string][]byte) ConfigOption {
-	return func(m *Tinkerbell) {
-		m.CRDs = crdMap
-	}
-}
-
 // WithClient sets the client in the Mapping.
 func WithClient(config clientset.Interface) ConfigOption {
 	return func(m *Tinkerbell) {
@@ -107,6 +100,14 @@ func NewTinkerbell(opts ...ConfigOption) Tinkerbell {
 	return defaultMapper
 }
 
+func (t Tinkerbell) MigrateAndReady(ctx context.Context) error {
+	if err := t.Migrate(ctx); err != nil {
+		return err
+	}
+
+	return t.Ready(ctx)
+}
+
 // Migrate applies the CRDs to the cluster.
 func (t Tinkerbell) Migrate(ctx context.Context) error {
 	// TODO: should we check for differences in the CRDs? Should we check for the presence of the CRDs?
@@ -126,6 +127,30 @@ func (t Tinkerbell) Migrate(ctx context.Context) error {
 			if err := t.create(ctx, obj); err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+// Ready checks if the CRDs exist in the cluster and are established.
+func (t Tinkerbell) Ready(ctx context.Context) error {
+	// Get the CRDs from the cluster to verify they are available and usable.
+	for name := range t.CRDs {
+		if err := retry.Do(func() error {
+			crd, err := t.Client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get CRD %s: %w", name, err)
+			}
+
+			establishedCond := getCondition(crd, apiv1.Established)
+			namesAcceptedCond := getCondition(crd, apiv1.NamesAccepted)
+			if establishedCond.Status != apiv1.ConditionTrue && namesAcceptedCond.Status != apiv1.ConditionTrue {
+				return fmt.Errorf("CRD %s is not ready: established: %v, namesAccepted: %v", name, establishedCond.Status, namesAcceptedCond.Status)
+			}
+			return nil
+		}, retry.Attempts(5), retry.Delay(2*time.Second), retry.Context(ctx)); err != nil {
+			return fmt.Errorf("failed to waiting for CRD %s: %w", name, err)
 		}
 	}
 
@@ -157,45 +182,12 @@ func (t Tinkerbell) apply(ctx context.Context, obj *unstructured.Unstructured) e
 	return nil
 }
 
-// Ready checks if the CRDs exist in the cluster and are established.
-func (t Tinkerbell) Ready(ctx context.Context) error {
-	// Get the CRDs from the cluster to verify they are available and usable.
-	for name := range t.CRDs {
-		if err := retry.Do(func() error {
-			crd, err := t.Client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
-			if err != nil {
-				return fmt.Errorf("failed to get CRD %s: %w", name, err)
-			}
-
-			for _, cond := range crd.Status.Conditions {
-				switch cond.Type {
-				case apiv1.Established:
-					if cond.Status == apiv1.ConditionTrue {
-						return nil
-					}
-				case apiv1.NamesAccepted:
-					if cond.Status == apiv1.ConditionFalse {
-						return fmt.Errorf("name conflict for CRD %s: reason: %s", name, err)
-					}
-				}
-			}
-			return fmt.Errorf("CRD %s is not established", name)
-		}, retry.Attempts(5), retry.Delay(2*time.Second), retry.Context(ctx)); err != nil {
-			return fmt.Errorf("failed to waiting for CRD %s: %w", name, err)
+// getCondition returns a condition from a list of conditions if it exists.
+func getCondition(crd *apiv1.CustomResourceDefinition, conditionType apiv1.CustomResourceDefinitionConditionType) *apiv1.CustomResourceDefinitionCondition {
+	for _, cond := range crd.Status.Conditions {
+		if cond.Type == conditionType {
+			return &cond
 		}
 	}
-
-	return nil
-}
-
-func (t Tinkerbell) MigrateAndValidate(ctx context.Context) error {
-	if err := t.Migrate(ctx); err != nil {
-		return err
-	}
-
-	if err := t.Ready(ctx); err != nil {
-		return err
-	}
-
 	return nil
 }
