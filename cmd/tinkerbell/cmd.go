@@ -218,7 +218,12 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				if err != nil {
 					return fmt.Errorf("failed to create kube backend: %w", err)
 				}
-				if err := crd.Migrate(ctx, log, backendNoIndexes.ClientConfig); err != nil {
+				// Wait for the API server to be healthy
+				if err := backendNoIndexes.WaitForAPIServer(ctx, log, 20*time.Second, 5*time.Second); err != nil {
+					return fmt.Errorf("failed to wait for API server health: %w", err)
+				}
+
+				if err := crd.NewTinkerbell(crd.WithRestConfig(backendNoIndexes.ClientConfig)).MigrateAndValidate(ctx); err != nil {
 					cancel()
 					gerr := g.Wait()
 					return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
