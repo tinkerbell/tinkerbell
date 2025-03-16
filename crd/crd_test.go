@@ -14,14 +14,19 @@ import (
 	ktesting "k8s.io/client-go/testing"
 )
 
-func TestXxx(t *testing.T) {
+func TestMigrateAndReady(t *testing.T) {
 	var curCRDs sync.Map
 	client := fake.NewSimpleClientset()
+	// the Reactors are needed because the fake clientset does not support conditions on CRDs.
+	// also important to note that reactors don't modify the actual CRD object in the clientset.
+	// This is why need curCRDs. ktesting.CreateAction has access to the actual CRD object so we
+	// use a create reactor to save the CRD object. The ktesting.GetAction doesn't have access to
+	// the actual CRD object so we use curCRDs to get the CRD object.
 	client.PrependReactor("create", "customresourcedefinitions", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		// get the CRD object from the action
 		a, ok := action.(ktesting.CreateAction)
 		if !ok {
-			return false, nil, fmt.Errorf("unexpected action type: %T", action)
+			return false, nil, fmt.Errorf("expecting a CreateAction got type: %T", action)
 		}
 		// add the status conditions to the CRD object
 		o, ok := a.GetObject().(*v1.CustomResourceDefinition)
@@ -58,7 +63,7 @@ func TestXxx(t *testing.T) {
 		return false, nil, nil
 	})
 	m := NewTinkerbell(WithClient(client))
-	if err := m.MigrateAndValidate(context.Background()); err != nil {
+	if err := m.MigrateAndReady(context.Background()); err != nil {
 		t.Errorf("failed to migrate CRDs: %v", err)
 	}
 }
