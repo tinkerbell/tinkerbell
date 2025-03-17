@@ -220,8 +220,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			if err != nil {
 				return fmt.Errorf("failed to create kube backend: %w", err)
 			}
-			// Wait for the API server to be healthy
-			if err := backendNoIndexes.WaitForAPIServer(ctx, log, 20*time.Second, 5*time.Second); err != nil {
+			// Wait for the API server to be healthy and ready.
+			if err := backendNoIndexes.WaitForAPIServer(ctx, log, 20*time.Second, 5*time.Second, nil); err != nil {
 				return fmt.Errorf("failed to wait for API server health: %w", err)
 			}
 
