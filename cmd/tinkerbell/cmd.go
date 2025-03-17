@@ -170,6 +170,15 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
 		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
 	)
+	log.V(1).Info("configuration",
+		"globals", globals,
+		"smee", s,
+		"tootles", h,
+		"tinkServer", ts,
+		"tinkController", tc,
+		"rufio", rc,
+		"secondStar", ssc,
+	)
 
 	g, ctx := errgroup.WithContext(ctx)
 	// Etcd server
