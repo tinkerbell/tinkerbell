@@ -7,22 +7,25 @@ queue_rules:
       - "#review-requested=0"
       - check-success=DCO
       - check-success=validation
-      - check-success=build-binaries (tink-agent, cross-compile-agent, tink-agent-binaries)
-      - check-success=build-binaries (tinkerbell, cross-compile, tinkerbell-binaries)
+      - check-success=build-binaries (tink-agent, cross-compile-agent,
+        tink-agent-binaries)
+      - check-success=build-binaries (tinkerbell, cross-compile,
+        tinkerbell-binaries)
       - label!=do-not-merge
       - label=ready-to-merge
     merge_conditions:
-      # Conditions to get out of the queue (= merged)
       - check-success=DCO
       - check-success=validation
-      - check-success=build-binaries (tink-agent, cross-compile-agent, tink-agent-binaries)
-      - check-success=build-binaries (tinkerbell, cross-compile, tinkerbell-binaries)
+      - check-success=build-binaries (tink-agent, cross-compile-agent,
+        tink-agent-binaries)
+      - check-success=build-binaries (tinkerbell, cross-compile,
+        tinkerbell-binaries)
     merge_method: merge
     commit_message_template: |
       {{ title }} (#{{ number }})
 
       {{ body }}
-
+    branch_protection_injection_mode: merge
 pull_request_rules:
   - name: refactored queue action rule
     conditions: []
