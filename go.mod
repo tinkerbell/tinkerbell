@@ -54,7 +54,7 @@ require (
 	k8s.io/client-go v1.5.2
 	k8s.io/component-base v0.32.3
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubernetes v1.32.2
+	k8s.io/kubernetes v1.32.3
 	sigs.k8s.io/controller-runtime v0.20.3
 )
 
