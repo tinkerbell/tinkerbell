@@ -218,7 +218,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		if globals.EnableCRDMigrations {
 			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil)
 			if err != nil {
-				return fmt.Errorf("failed to create kube backend: %w", err)
+				return fmt.Errorf("failed to create kube backend with no indexes: %w", err)
 			}
 			// Wait for the API server to be healthy and ready.
 			if err := backendNoIndexes.WaitForAPIServer(ctx, log, 20*time.Second, 5*time.Second, nil); err != nil {
@@ -230,6 +230,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				gerr := g.Wait()
 				return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
 			}
+			log.Info("CRD migrations completed")
 		}
 
 		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar))

@@ -119,6 +119,14 @@ type AllowNetbootStatus struct {
 	ToggledFalse bool `json:"toggledFalse,omitempty"`
 }
 
+type CurrentState struct {
+	WorkerID   string        `json:"workerID,omitempty"`
+	TaskID     string        `json:"taskID,omitempty"`
+	ActionID   string        `json:"actionID,omitempty"`
+	State      WorkflowState `json:"state,omitempty"`
+	ActionName string        `json:"actionName,omitempty"`
+}
+
 // WorkflowStatus defines the observed state of a Workflow.
 type WorkflowStatus struct {
 	// State is the current overall state of the Workflow.
@@ -136,6 +144,9 @@ type WorkflowStatus struct {
 
 	// GlobalTimeout represents the max execution time.
 	GlobalTimeout int64 `json:"globalTimeout,omitempty"`
+
+	// CurrentState tracks where the workflow is in its execution.
+	CurrentState *CurrentState `json:"currentState,omitempty"`
 
 	// Tasks are the tasks to be run by the worker(s).
 	Tasks []Task `json:"tasks,omitempty"`
@@ -185,6 +196,7 @@ type WorkflowCondition struct {
 
 // Task represents a series of actions to be completed by a worker.
 type Task struct {
+	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	WorkerAddr  string            `json:"worker"`
 	Actions     []Action          `json:"actions"`
@@ -194,17 +206,18 @@ type Task struct {
 
 // Action represents a workflow action.
 type Action struct {
-	Name        string            `json:"name,omitempty"`
-	Image       string            `json:"image,omitempty"`
-	Timeout     int64             `json:"timeout,omitempty"`
-	Command     []string          `json:"command,omitempty"`
-	Volumes     []string          `json:"volumes,omitempty"`
-	Pid         string            `json:"pid,omitempty"`
-	Environment map[string]string `json:"environment,omitempty"`
-	Status      WorkflowState     `json:"status,omitempty"`
-	StartedAt   *metav1.Time      `json:"startedAt,omitempty"`
-	Seconds     int64             `json:"seconds,omitempty"`
-	Message     string            `json:"message,omitempty"`
+	ID              string            `json:"id"`
+	Name            string            `json:"name,omitempty"`
+	Image           string            `json:"image,omitempty"`
+	Timeout         int64             `json:"timeout,omitempty"`
+	Command         []string          `json:"command,omitempty"`
+	Volumes         []string          `json:"volumes,omitempty"`
+	Pid             string            `json:"pid,omitempty"`
+	Environment     map[string]string `json:"environment,omitempty"`
+	Status          WorkflowState     `json:"status,omitempty"`
+	StartedAt       *metav1.Time      `json:"startedAt,omitempty"`
+	DurationSeconds int64             `json:"durationSeconds,omitempty"`
+	Message         string            `json:"message,omitempty"`
 }
 
 // HasCondition checks if the cType condition is present with status cStatus on a bmj.

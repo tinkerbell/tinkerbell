@@ -276,23 +276,27 @@ func toTemplateHardwareData(hardware v1alpha1.Hardware) templateHardwareData {
 
 func (r *Reconciler) processRunningWorkflow(stored *v1alpha1.Workflow) {
 	// Check for global timeout expiration
-	if r.nowFunc().After(startTime(stored).Add(time.Duration(stored.Status.GlobalTimeout) * time.Second)) {
-		stored.Status.State = v1alpha1.WorkflowStateTimeout
+	if st := startTime(stored); st != nil {
+		if r.nowFunc().After(st.Add(time.Duration(stored.Status.GlobalTimeout) * time.Second)) {
+			stored.Status.State = v1alpha1.WorkflowStateTimeout
+		}
 	}
 
 	// check for any running actions that may have timed out
-	for ti, task := range stored.Status.Tasks {
-		for ai, action := range task.Actions {
+	for _, task := range stored.Status.Tasks {
+		for _, action := range task.Actions {
 			// A running workflow task action has timed out
-			if action.Status == v1alpha1.WorkflowStateRunning && action.StartedAt != nil &&
-				r.nowFunc().After(action.StartedAt.Add(time.Duration(action.Timeout)*time.Second)) {
-				// Set fields on the timed out action
-				stored.Status.Tasks[ti].Actions[ai].Status = v1alpha1.WorkflowStateTimeout
-				stored.Status.Tasks[ti].Actions[ai].Message = "Action timed out"
-				stored.Status.Tasks[ti].Actions[ai].Seconds = int64(r.nowFunc().Sub(action.StartedAt.Time).Seconds())
-				// Mark the workflow as timed out
-				stored.Status.State = v1alpha1.WorkflowStateTimeout
-			}
+			/*
+				if action.Status == v1alpha1.WorkflowStateRunning && action.StartedAt != nil &&
+					r.nowFunc().After(action.StartedAt.Add(time.Duration(action.Timeout)*time.Second)) {
+					// Set fields on the timed out action
+					stored.Status.Tasks[ti].Actions[ai].Status = v1alpha1.WorkflowStateTimeout
+					stored.Status.Tasks[ti].Actions[ai].Message = "Action timed out"
+					stored.Status.Tasks[ti].Actions[ai].Seconds = int64(r.nowFunc().Sub(action.StartedAt.Time).Seconds())
+					// Mark the workflow as timed out
+					stored.Status.State = v1alpha1.WorkflowStateTimeout
+				}
+			*/
 			// Update the current action in the status
 			if action.Status == v1alpha1.WorkflowStateRunning && stored.Status.CurrentAction != action.Name {
 				stored.Status.CurrentAction = action.Name
