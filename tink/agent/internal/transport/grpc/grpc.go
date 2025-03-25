@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -14,9 +13,11 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Config struct {
@@ -39,66 +40,40 @@ func wait(ctx context.Context, d time.Duration) {
 
 func (c *Config) Start(ctx context.Context) error {
 	log := c.Log.WithValues("retry_interval", c.RetryInterval.String())
-	var inProcessAction *proto.WorkflowAction
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
 		}
-
-		stream, err := c.TinkServerClient.GetWorkflowContexts(ctx, &proto.WorkflowContextRequest{WorkerId: c.WorkerID})
+		response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{WorkerId: toPtr(c.WorkerID)})
 		if err != nil {
 			// TODO(jacobweinstock): how to handle unrecoverable errors?
-			log.Info("error getting workflow contexts", "error", err)
-			wait(ctx, c.RetryInterval)
-			continue
-		}
-
-		request, err := stream.Recv()
-		if err != nil && !errors.Is(err, io.EOF) {
-			status.Code(err)
-			log.Info("error receiving workflow context", "error", err, "eType", fmt.Sprintf("%T", err), "code", status.Code(err))
-			wait(ctx, c.RetryInterval)
-			continue
-		}
-
-		if request == nil || request.GetCurrentWorker() != c.WorkerID || request.GetCurrentActionState() != proto.State_STATE_PENDING {
-			wait(ctx, c.RetryInterval)
-			continue
-		}
-
-		actions, err := c.TinkServerClient.GetWorkflowActions(ctx, &proto.WorkflowActionsRequest{WorkflowId: request.GetWorkflowId()})
-		if err != nil {
-			log.Info("error getting workflow actions", "error", err)
-			wait(ctx, c.RetryInterval)
-			continue
-		}
-
-		curAction := actions.GetActionList()[request.GetCurrentActionIndex()]
-		if curAction.String() == inProcessAction.String() {
-			// Generally, when the curAction == inProcessAction, it means the action is still in progress.
-			// But if the action state is pending then it means that the inProcessAction should be reset
-			// so that processing of the Action can be started.
-			if request.GetCurrentActionState() == proto.State_STATE_PENDING {
-				inProcessAction = &proto.WorkflowAction{}
+			// if the error is not found no need to log it.
+			if status.Code(err) != codes.NotFound {
+				log.Info("error getting action", "error", err)
 			}
+			// log.Info("error getting workflow contexts", "error", err)
 			wait(ctx, c.RetryInterval)
 			continue
 		}
+		log.Info("connected to server, ready to stream actions")
 
-		action := spec.Action{
-			TaskName:       request.GetCurrentTask(),
-			ID:             request.GetWorkflowId(),
-			Name:           curAction.Name,
-			Image:          curAction.Image,
+		as := spec.Action{
+			TaskID:         response.GetTaskId(),
+			ID:             response.GetActionId(),
+			WorkerID:       response.GetWorkerId(),
+			WorkflowID:     response.GetWorkflowId(),
+			Name:           response.GetName(),
+			Image:          response.GetImage(),
 			Env:            []spec.Env{},
 			Volumes:        []spec.Volume{},
 			Namespaces:     spec.Namespaces{},
 			Retries:        0,
-			TimeoutSeconds: int(curAction.Timeout),
+			TimeoutSeconds: int(response.GetTimeout()),
 		}
-		if len(curAction.Command) > 0 {
+		if len(response.GetCommand()) > 0 {
 			// action.Cmd is the entrypoint in a container.
 			// action.Args are the arguments to the entrypoint.
 
@@ -112,12 +87,12 @@ func (c *Config) Start(ctx context.Context) error {
 					action.Args = curAction.Command[1:]
 				}
 			*/
-			action.Args = curAction.Command
+			as.Args = response.GetCommand()
 		}
-		for _, v := range curAction.Volumes {
-			action.Volumes = append(action.Volumes, spec.Volume(v))
+		for _, v := range response.GetVolumes() {
+			as.Volumes = append(as.Volumes, spec.Volume(v))
 		}
-		for _, v := range curAction.GetEnvironment() {
+		for _, v := range response.GetEnvironment() {
 			kv := strings.SplitN(v, "=", 2)
 			env := spec.Env{}
 			switch len(kv) {
@@ -132,12 +107,11 @@ func (c *Config) Start(ctx context.Context) error {
 					Value: kv[1],
 				}
 			}
-			action.Env = append(action.Env, env)
+			as.Env = append(as.Env, env)
 		}
-		action.Namespaces.PID = curAction.GetPid()
+		as.Namespaces.PID = response.GetPid()
 
-		c.Actions <- action
-		inProcessAction = curAction
+		c.Actions <- as
 	}
 }
 
@@ -151,14 +125,16 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 }
 
 func (c *Config) Write(ctx context.Context, event spec.Event) error {
-	ar := &proto.WorkflowActionStatus{
-		WorkflowId:   event.Action.ID,
-		TaskName:     event.Action.TaskName,
-		ActionName:   event.Action.Name,
-		ActionStatus: specToProto(event.State),
-		Seconds:      0,
-		Message:      event.Message,
-		WorkerId:     c.WorkerID,
+	ar := &proto.ActionStatusRequest{
+		WorkflowId:       &event.Action.WorkflowID,
+		WorkerId:         &event.Action.WorkerID,
+		TaskId:           &event.Action.TaskID,
+		ActionId:         &event.Action.ID,
+		ActionName:       &event.Action.Name,
+		ActionState:      specToProto(event.State),
+		ExecutionSeconds: toPtr(int64(event.Action.Duration.Seconds())),
+		Message:          &proto.ActionMessage{Message: toPtr(event.Message)},
+		CreatedAt:        timestamppb.New(event.Action.StartedAt),
 	}
 	_, err := c.TinkServerClient.ReportActionStatus(ctx, ar)
 	if err != nil {
@@ -187,17 +163,21 @@ func NewClientConn(authority string, tlsEnabled bool, tlsInsecure bool) (*grpc.C
 	return conn, nil
 }
 
-func specToProto(inState spec.State) proto.State {
+func specToProto(inState spec.State) *proto.StateType {
 	switch inState {
 	case spec.StateRunning:
-		return proto.State_STATE_RUNNING
+		return toPtr(proto.StateType_STATE_RUNNING)
 	case spec.StateSuccess:
-		return proto.State_STATE_SUCCESS
+		return toPtr(proto.StateType_STATE_SUCCESS)
 	case spec.StateFailure:
-		return proto.State_STATE_FAILED
+		return toPtr(proto.StateType_STATE_FAILED)
 	case spec.StateTimeout:
-		return proto.State_STATE_TIMEOUT
+		return toPtr(proto.StateType_STATE_TIMEOUT)
+	default:
+		return toPtr(proto.StateType_STATE_UNSPECIFIED)
 	}
+}
 
-	return proto.State(-1)
+func toPtr[T any](v T) *T {
+	return &v
 }

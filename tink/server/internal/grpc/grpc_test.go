@@ -2,7 +2,6 @@ package grpc
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"os"
 	"testing"
@@ -13,20 +12,21 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestModifyWorkflowState(t *testing.T) {
 	cases := []struct {
-		name           string
-		inputWf        *v1alpha1.Workflow
-		inputWfContext *proto.WorkflowContext
-		want           *v1alpha1.Workflow
-		wantErr        error
+		name     string
+		workflow *v1alpha1.Workflow
+		request  *proto.ActionRequest
+		want     *proto.ActionResponse
+		wantErr  error
 	}{
-		{
+		/*{
 			name:           "no workflow",
 			inputWf:        nil,
-			inputWfContext: &proto.WorkflowContext{},
+			inputWfContext: &proto.ActionRequest{},
 			want:           nil,
 			wantErr:        errors.New("no workflow provided"),
 		},
@@ -59,7 +59,7 @@ func TestModifyWorkflowState(t *testing.T) {
 					},
 				},
 			},
-			inputWfContext: &proto.WorkflowContext{
+			inputWfContext: &proto.ActionRequest{
 				WorkflowId:           "debian",
 				CurrentWorker:        "machine-mac-1",
 				CurrentTask:          "power-on",
@@ -198,12 +198,12 @@ func TestModifyWorkflowState(t *testing.T) {
 							WorkerAddr: "machine-mac-1",
 							Actions: []v1alpha1.Action{
 								{
-									Name:      "stream",
-									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:   300,
-									Status:    "STATE_TIMEOUT",
-									StartedAt: nil,
-									Seconds:   301,
+									Name:            "stream",
+									Image:           "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout:         300,
+									Status:          "STATE_TIMEOUT",
+									StartedAt:       nil,
+									DurationSeconds: 301,
 								},
 							},
 						},
@@ -259,12 +259,12 @@ func TestModifyWorkflowState(t *testing.T) {
 							WorkerAddr: "machine-mac-1",
 							Actions: []v1alpha1.Action{
 								{
-									Name:      "stream",
-									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:   300,
-									Status:    "STATE_FAILED",
-									StartedAt: nil,
-									Seconds:   30,
+									Name:            "stream",
+									Image:           "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout:         300,
+									Status:          "STATE_FAILED",
+									StartedAt:       nil,
+									DurationSeconds: 30,
 								},
 								{
 									Name:    "kexec",
@@ -326,12 +326,12 @@ func TestModifyWorkflowState(t *testing.T) {
 							WorkerAddr: "machine-mac-1",
 							Actions: []v1alpha1.Action{
 								{
-									Name:      "stream",
-									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:   300,
-									Status:    "STATE_SUCCESS",
-									StartedAt: nil,
-									Seconds:   30,
+									Name:            "stream",
+									Image:           "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout:         300,
+									Status:          "STATE_SUCCESS",
+									StartedAt:       nil,
+									DurationSeconds: 30,
 								},
 								{
 									Name:    "kexec",
@@ -345,10 +345,28 @@ func TestModifyWorkflowState(t *testing.T) {
 				},
 			},
 			wantErr: nil,
-		},
+		},*/
 		{
-			name: "successful last task",
-			inputWf: &v1alpha1.Workflow{
+			name: "successful only one Action",
+			request: &proto.ActionRequest{
+				WorkerId: toPtr("machine-mac-1"),
+			},
+			want: &proto.ActionResponse{
+				WorkflowId:  toPtr("default/machine1"),
+				WorkerId:    toPtr("machine-mac-1"),
+				TaskId:      new(string),
+				ActionId:    new(string),
+				Name:        toPtr("stream"),
+				Image:       toPtr("quay.io/tinkerbell-actions/image2disk:v1.0.0"),
+				Timeout:     toPtr(int64(300)),
+				Environment: []string{},
+				Pid:         new(string),
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
 				Status: v1alpha1.WorkflowStatus{
 					State:         "STATE_RUNNING",
 					GlobalTimeout: 600,
@@ -358,54 +376,12 @@ func TestModifyWorkflowState(t *testing.T) {
 							WorkerAddr: "machine-mac-1",
 							Actions: []v1alpha1.Action{
 								{
-									Name:      "stream",
-									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:   300,
-									Status:    "STATE_SUCCESS",
-									StartedAt: nil,
-									Seconds:   27,
-								},
-								{
-									Name:    "kexec",
-									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
-									Timeout: 5,
-									Status:  "STATE_RUNNING",
-								},
-							},
-						},
-					},
-				},
-			},
-			inputWfContext: &proto.WorkflowContext{
-				CurrentWorker:        "machine-mac-1",
-				CurrentTask:          "provision",
-				CurrentAction:        "kexec",
-				CurrentActionIndex:   1,
-				CurrentActionState:   proto.State_STATE_SUCCESS,
-				TotalNumberOfActions: 2,
-			},
-			want: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_POST",
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
-								{
-									Name:      "stream",
-									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:   300,
-									Status:    "STATE_SUCCESS",
-									StartedAt: nil,
-									Seconds:   27,
-								},
-								{
-									Name:    "kexec",
-									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
-									Timeout: 5,
-									Status:  "STATE_SUCCESS",
+									Name:            "stream",
+									Image:           "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout:         300,
+									Status:          "STATE_PENDING",
+									StartedAt:       nil,
+									DurationSeconds: 30,
 								},
 							},
 						},
@@ -420,16 +396,17 @@ func TestModifyWorkflowState(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			server := &Handler{
 				Logger:            logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
-				BackendReadWriter: &mockBackendReadWriter{},
+				BackendReadWriter: &mockBackendReadWriter{workflow: tc.workflow},
 				NowFunc:           func() time.Time { return time.Time{} },
 			}
-			gotErr := server.modifyWorkflowState(tc.inputWf, tc.inputWfContext)
+
+			resp, gotErr := server.GetAction(context.Background(), tc.request)
 			compareErrors(t, gotErr, tc.wantErr)
 			if tc.want == nil {
 				return
 			}
 
-			if diff := cmp.Diff(tc.inputWf, tc.want, cmpopts.IgnoreFields(v1alpha1.Action{}, "Seconds", "StartedAt")); diff != "" {
+			if diff := cmp.Diff(resp, tc.want, cmpopts.IgnoreUnexported(proto.ActionResponse{})); diff != "" {
 				t.Errorf("unexpected difference:\n%v", diff)
 			}
 		})
@@ -452,14 +429,19 @@ func compareErrors(t *testing.T, got, want error) {
 	}
 }
 
-type mockBackendReadWriter struct{}
+type mockBackendReadWriter struct {
+	workflow *v1alpha1.Workflow
+}
 
 func (m *mockBackendReadWriter) Read(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
-	return nil, nil
+	return m.workflow, nil
 }
 
 func (m *mockBackendReadWriter) ReadAll(_ context.Context, _ string) ([]v1alpha1.Workflow, error) {
-	return nil, nil
+	if m.workflow != nil {
+		return []v1alpha1.Workflow{*m.workflow}, nil
+	}
+	return []v1alpha1.Workflow{}, nil
 }
 
 func (m *mockBackendReadWriter) Write(_ context.Context, _ *v1alpha1.Workflow) error {

@@ -1,0 +1,32 @@
+edition = "2023";
+
+package proto;
+
+option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
+
+/*
+ * ActionRequest 
+ */
+message ActionRequest {
+    /* The ID of the worker that is requesting the action */
+    string worker_id = 1;
+    /* Attributes of the worker, this enables more sophisticated server-side Workflow selection and creation capabilities */
+    WorkerAttributes worker_attributes = 2;
+}
+
+message WorkerAttributes {
+    /*
+    cpu
+    memory
+    block
+    topology
+    network
+    pci
+    gpu
+    accelerators
+    BIOS
+    baseboard
+    product
+    */
+}
+

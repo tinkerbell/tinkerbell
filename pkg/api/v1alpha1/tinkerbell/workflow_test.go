@@ -64,7 +64,7 @@ func TestWorkflowMethods(t *testing.T) {
 									},
 									Status: WorkflowStateSuccess,
 
-									Seconds: 20,
+									DurationSeconds: 20,
 								},
 								{
 									Name:    "stream-debian-image",
@@ -118,7 +118,7 @@ func TestWorkflowMethods(t *testing.T) {
 									Timeout: 20,
 									Status:  WorkflowStateSuccess,
 
-									Seconds: 15,
+									DurationSeconds: 15,
 								},
 							},
 						},
@@ -137,7 +137,7 @@ func TestWorkflowMethods(t *testing.T) {
 									},
 									Status: WorkflowStateSuccess,
 
-									Seconds: 20,
+									DurationSeconds: 20,
 								},
 								{
 									Name:    "write-file",
