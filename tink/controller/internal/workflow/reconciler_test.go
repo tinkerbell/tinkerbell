@@ -706,10 +706,10 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status:    v1alpha1.WorkflowStateTimeout,
-									StartedAt: TestTime.MetaV1BeforeSec(601),
-									Seconds:   601,
-									Message:   "Action timed out",
+									Status:          v1alpha1.WorkflowStateRunning,
+									StartedAt:       TestTime.MetaV1BeforeSec(601),
+									DurationSeconds: 0,
+									Message:         "",
 								},
 							},
 						},
@@ -998,7 +998,7 @@ tasks:
 				return
 			}
 
-			if diff := cmp.Diff(tc.wantWflow, wflow, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time")); diff != "" {
+			if diff := cmp.Diff(tc.wantWflow, wflow, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time"), cmpopts.IgnoreFields(v1alpha1.Task{}, "ID"), cmpopts.IgnoreFields(v1alpha1.Action{}, "ID")); diff != "" {
 				t.Errorf("unexpected difference:\n%v", diff)
 			}
 		})
@@ -1052,7 +1052,7 @@ func TestGetStartTime(t *testing.T) {
 									},
 									Status: v1alpha1.WorkflowStateSuccess,
 
-									Seconds: 20,
+									DurationSeconds: 20,
 								},
 								{
 									Name:    "stream-debian-image",

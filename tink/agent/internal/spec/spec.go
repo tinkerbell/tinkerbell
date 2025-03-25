@@ -1,11 +1,17 @@
 package spec
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Action holds the configuration used to create and run an Action container.
 type Action struct {
-	TaskName string
-	ID       string `json:"id" yaml:"id"`
+	WorkerID   string `json:"worker_id" yaml:"worker_id"`
+	TaskID     string `json:"task_id" yaml:"task_id"`
+	WorkflowID string `json:"workflow_id" yaml:"workflow_id"`
+	// ID is the unique identifier for the Action.
+	ID string `json:"id" yaml:"id"`
 	// Name is a name for the action.
 	Name string `json:"name" yaml:"name"`
 
@@ -36,6 +42,10 @@ type Action struct {
 	Namespaces     Namespaces `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 	Retries        int        `json:"retries" yaml:"retries"`
 	TimeoutSeconds int        `json:"timeoutSeconds" yaml:"timeoutSeconds"`
+	// StartedAt is the time the action was started.
+	StartedAt time.Time `json:"created_at" yaml:"created_at"`
+	// Duration is the time the action took to complete.
+	Duration time.Duration `json:"duration" yaml:"duration"`
 }
 
 type Env struct {
@@ -84,6 +94,7 @@ const (
 	StateFailure State = "failure"
 	StateRunning State = "running"
 	StateTimeout State = "timeout"
+	StateUnknown State = "unknown"
 )
 
 func (e Event) String() string {
