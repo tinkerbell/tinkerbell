@@ -22,6 +22,7 @@ const (
 	errInvalidActionName     = "invalid action name"
 	errInvalidTaskReported   = "reported task name does not match the current action details"
 	errInvalidActionReported = "reported action name does not match the current action details"
+	errWritingtoBackend      = "error writing to backend"
 )
 
 type BackendReadWriter interface {
@@ -120,7 +121,7 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 	}
 
 	// update the current state
-	// populate the current state and then send the action to the client or the other way around?
+	// populate the current state and then send the action to the client.
 	wf.Status.CurrentState = &v1alpha1.CurrentState{
 		WorkerID:   req.GetWorkerId(),
 		TaskID:     task.ID,
@@ -185,7 +186,7 @@ func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatu
 		wf, err := h.getWorkflowByName(ctx, req.GetWorkflowId())
 		if err != nil {
 			h.Logger.Error(err, "get workflow")
-			return status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
+			return status.Errorf(codes.InvalidArgument, "error getting workflow: %v", err)
 		}
 		// 3. Find the Action in the workflow from the request
 		for ti, task := range wf.Status.Tasks {
@@ -218,7 +219,7 @@ func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatu
 					}
 					if err := h.BackendReadWriter.Write(ctx, wf); err != nil {
 						h.Logger.Error(err, "failed to write action status")
-						return status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
+						return status.Errorf(codes.InvalidArgument, "%v: %v", errWritingtoBackend, err)
 					}
 					return nil
 				}
@@ -226,7 +227,7 @@ func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatu
 			}
 		}
 		return nil
-	}, retry.Attempts(10), retry.Context(ctx)); err != nil {
+	}, retry.Attempts(2), retry.Context(ctx), retry.LastErrorOnly(true)); err != nil {
 		return &proto.ActionStatusResponse{}, err
 	}
 
