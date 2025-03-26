@@ -57,7 +57,7 @@ func NewConfig(opts ...Option) *Config {
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	s := &grpcinternal.Handler{
 		BackendReadWriter: c.Backend,
-		Logger:            c.Logger,
+		Logger:            log,
 		NowFunc:           time.Now,
 	}
 

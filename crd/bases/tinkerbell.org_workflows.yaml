@@ -168,6 +168,20 @@ spec:
                 description: CurrentAction is the action that is currently in the
                   running state.
                 type: string
+              currentState:
+                description: CurrentState tracks where the workflow is in its execution.
+                properties:
+                  actionID:
+                    type: string
+                  actionName:
+                    type: string
+                  state:
+                    type: string
+                  taskID:
+                    type: string
+                  workerID:
+                    type: string
+                type: object
               globalTimeout:
                 description: GlobalTimeout represents the max execution time.
                 format: int64
@@ -189,10 +203,15 @@ spec:
                             items:
                               type: string
                             type: array
+                          durationSeconds:
+                            format: int64
+                            type: integer
                           environment:
                             additionalProperties:
                               type: string
                             type: object
+                          id:
+                            type: string
                           image:
                             type: string
                           message:
@@ -201,9 +220,6 @@ spec:
                             type: string
                           pid:
                             type: string
-                          seconds:
-                            format: int64
-                            type: integer
                           startedAt:
                             format: date-time
                             type: string
@@ -216,12 +232,16 @@ spec:
                             items:
                               type: string
                             type: array
+                        required:
+                        - id
                         type: object
                       type: array
                     environment:
                       additionalProperties:
                         type: string
                       type: object
+                    id:
+                      type: string
                     name:
                       type: string
                     volumes:
@@ -232,6 +252,7 @@ spec:
                       type: string
                   required:
                   - actions
+                  - id
                   - name
                   - worker
                   type: object

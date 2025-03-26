@@ -3,6 +3,7 @@ package crd
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"time"
 
@@ -122,10 +123,10 @@ func (t Tinkerbell) Migrate(ctx context.Context) error {
 		if _, err := t.Client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, obj.GetName(), metav1.GetOptions{}); err == nil {
 			continue
 		}
-		// Try apply, if that fails, try create.
-		if err := t.apply(ctx, obj); err != nil {
-			if err := t.create(ctx, obj); err != nil {
-				return err
+		// Try apply, if that fails, try create. Apply only works if the CRD already exists.
+		if errApply := t.apply(ctx, obj); errApply != nil {
+			if errCreate := t.create(ctx, obj); errCreate != nil {
+				return errors.Join(errApply, errCreate)
 			}
 		}
 	}

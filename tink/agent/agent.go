@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
+	"github.com/tinkerbell/tinkerbell/tink/agent/internal/attribute"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/containerd"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/docker"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
@@ -82,6 +83,8 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 		// TODO(jacobweinstock): Add a retry count that comes from a CLI flag. It should only take precedence if the action has a retry count of 0.
 		retries := ternary(action.Retries == 0, 1, action.Retries)
 
+		responseEvent := spec.Event{}
+		action.StartedAt = time.Now().UTC()
 		timeoutCtx, timeoutDone := context.WithTimeout(ctx, time.Duration(action.TimeoutSeconds)*time.Second)
 		for i := 1; i <= retries; i++ {
 			if err := c.RuntimeExecutor.Execute(timeoutCtx, action); err != nil {
@@ -105,7 +108,12 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 		}
 		timeoutDone()
 
-		if err := c.TransportWriter.Write(ctx, spec.Event{Action: action, Message: "action completed", State: state}); err != nil {
+		action.Duration = time.Now().UTC().Sub(action.StartedAt)
+		responseEvent.Action = action
+		responseEvent.Message = "action completed"
+		responseEvent.State = state
+
+		if err := c.TransportWriter.Write(ctx, responseEvent); err != nil {
 			log.Info("error writing event", "error", err)
 			continue
 		}
@@ -134,12 +142,13 @@ type TransportType string
 type RuntimeType string
 
 type Options struct {
-	Transport         Transport
-	Runtime           Runtime
-	Registry          Registry
-	Proxy             Proxy
-	TransportSelected TransportType
-	RuntimeSelected   RuntimeType
+	Transport                 Transport
+	Runtime                   Runtime
+	Registry                  Registry
+	Proxy                     Proxy
+	TransportSelected         TransportType
+	RuntimeSelected           RuntimeType
+	AttributeDetectionEnabled bool
 }
 
 type Transport struct {
@@ -238,6 +247,9 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 			WorkerID:         id,
 			RetryInterval:    time.Second * 5,
 			Actions:          make(chan spec.Action),
+		}
+		if o.AttributeDetectionEnabled {
+			readWriter.Attributes = grpc.ToProto(attribute.DiscoverAll())
 		}
 		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort)
 		eg.Go(func() error {
