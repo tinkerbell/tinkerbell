@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
+	"github.com/tinkerbell/tinkerbell/tink/agent/internal/attribute"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/containerd"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/docker"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
@@ -141,12 +142,13 @@ type TransportType string
 type RuntimeType string
 
 type Options struct {
-	Transport         Transport
-	Runtime           Runtime
-	Registry          Registry
-	Proxy             Proxy
-	TransportSelected TransportType
-	RuntimeSelected   RuntimeType
+	Transport                 Transport
+	Runtime                   Runtime
+	Registry                  Registry
+	Proxy                     Proxy
+	TransportSelected         TransportType
+	RuntimeSelected           RuntimeType
+	AttributeDetectionEnabled bool
 }
 
 type Transport struct {
@@ -245,6 +247,9 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 			WorkerID:         id,
 			RetryInterval:    time.Second * 5,
 			Actions:          make(chan spec.Action),
+		}
+		if o.AttributeDetectionEnabled {
+			readWriter.Attributes = attribute.Proto()
 		}
 		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort)
 		eg.Go(func() error {

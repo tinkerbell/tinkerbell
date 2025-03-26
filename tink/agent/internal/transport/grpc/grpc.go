@@ -26,6 +26,7 @@ type Config struct {
 	WorkerID         string
 	RetryInterval    time.Duration
 	Actions          chan spec.Action
+	Attributes       *proto.WorkerAttributes
 }
 
 // wait for either ctx.Done() or d duration to elapse.
@@ -47,7 +48,7 @@ func (c *Config) Start(ctx context.Context) error {
 			return nil
 		default:
 		}
-		response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{WorkerId: toPtr(c.WorkerID)})
+		response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{WorkerId: toPtr(c.WorkerID), WorkerAttributes: c.Attributes})
 		if err != nil {
 			// TODO(jacobweinstock): how to handle unrecoverable errors?
 			// if the error is not found no need to log it.

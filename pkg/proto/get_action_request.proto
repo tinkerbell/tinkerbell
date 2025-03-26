@@ -15,18 +15,87 @@ message ActionRequest {
 }
 
 message WorkerAttributes {
-    /*
-    cpu
-    memory
-    block
-    topology
-    network
-    pci
-    gpu
-    accelerators
-    BIOS
-    baseboard
-    product
-    */
+    CPU cpu = 1;
+    Memory memory = 2;
+    repeated Block block = 3;
+    repeated Network network = 4;
+    repeated PCI pci = 5;
+    repeated GPU gpu = 6;
+    Chassis chassis = 7;
+    BIOS bios = 8;
+    Baseboard baseboard = 9;
+    Product product = 10;
 }
 
+message CPU {
+    uint32 total_cores = 1;
+    uint32 total_threads = 2;
+    repeated Processor processors = 3;
+}
+
+message Processor {
+    uint32 id = 1;
+    uint32 cores = 2;
+    uint32 threads = 3;
+    string vendor = 4;
+    string model = 5;
+    repeated string capabilities = 6;
+}
+
+message Memory {
+    uint64 total = 1;
+    uint64 usable = 2;
+}
+
+message Block {
+    string name = 1;
+    string controller_type = 2;
+    string drive_type = 3;
+    uint64 size = 4;
+    uint64 physical_block_size = 5;
+    string vendor = 6;
+    string model = 7;
+}
+
+message Network {
+    string name = 1;
+    string mac = 2;
+    string speed = 3;
+    repeated string enabled_capabilities = 4;
+}
+
+message PCI {
+    string vendor = 1;
+    string product = 2;
+    string class = 3;
+    string driver = 4;
+}
+
+message GPU {
+    string vendor = 1;
+    string product = 2;
+    string class = 3;
+    string driver = 4;
+}
+
+message Chassis {
+    string serial = 1;
+    string vendor = 2;
+}
+
+message BIOS {
+    string vendor = 1;
+    string version = 2;
+    string release_date = 3;
+}
+
+message Baseboard {
+    string vendor = 1;
+    string product = 2;
+    string version = 3;
+}
+
+message Product {
+    string name = 1;
+    string vendor = 2;
+}

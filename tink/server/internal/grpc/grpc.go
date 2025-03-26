@@ -51,6 +51,7 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 		// log.Info("invalid worker id")
 		return nil, status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
 	}
+
 	wflows, err := h.getWorkflowsByID(ctx, req.GetWorkerId())
 	if err != nil {
 		// TODO: This is where we handle auto capabilities
@@ -70,6 +71,10 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 	// This is to prevent the worker from starting Actions before Workflow boot options are performed.
 	if wf.Spec.BootOptions.BootMode != "" && wf.Status.State == v1alpha1.WorkflowStatePreparing {
 		return nil, status.Error(codes.FailedPrecondition, "workflow is in preparing state")
+	}
+	if wf.Status.State != v1alpha1.WorkflowStatePending && wf.Status.State != v1alpha1.WorkflowStateRunning {
+		// log.Info("workflow not in pending or running state", "workflowState", wf.Status.State)
+		return nil, status.Error(codes.FailedPrecondition, "workflow not in pending or running state")
 	}
 	// only support workflows with a single task for now
 	task := wf.Status.Tasks[0]
@@ -94,7 +99,7 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 		// Get the current Action. If it is not in a success state, return error.
 		if wf.Status.CurrentState.State != v1alpha1.WorkflowStateSuccess {
 			// log.Info("current action not in success state", "actionStatus", wf.Status.CurrentState.State)
-			return nil, status.Error(codes.NotFound, "current action not in success state")
+			return nil, status.Error(codes.FailedPrecondition, "current action not in success state")
 		}
 		// Get the next Action after the one defined in the current state.
 		for idx, act := range task.Actions {
