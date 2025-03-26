@@ -4,7 +4,6 @@ queue_rules:
       - base=main
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
-      - "#review-requested=0"
       - check-success=DCO
       - check-success=validation
       - check-success=build-binaries (tink-agent, cross-compile-agent, tink-agent-binaries)
