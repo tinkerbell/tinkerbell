@@ -17,7 +17,6 @@ queue_rules:
       - check-success=build-binaries (tink-agent, cross-compile-agent, tink-agent-binaries)
       - check-success=build-binaries (tinkerbell, cross-compile, tinkerbell-binaries)
     merge_method: merge
-    branch_protection_injection_mode: none
     commit_message_template: |
       {{ title }} (#{{ number }})
 
