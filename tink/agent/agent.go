@@ -249,7 +249,7 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 			Actions:          make(chan spec.Action),
 		}
 		if o.AttributeDetectionEnabled {
-			readWriter.Attributes = attribute.Proto()
+			readWriter.Attributes = grpc.ToProto(attribute.DiscoverAll())
 		}
 		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort)
 		eg.Go(func() error {
