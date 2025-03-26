@@ -3,6 +3,7 @@ package attribute
 import (
 	"math"
 
+	"github.com/ccoveille/go-safecast"
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
@@ -32,8 +33,12 @@ func cpu() *proto.CPU {
 	}
 	var processors []*proto.Processor
 	for _, p := range cpu.Processors {
+		id, err := safecast.ToUint32(p.ID)
+		if err != nil {
+			id = uint32(0)
+		}
 		processors = append(processors, &proto.Processor{
-			Id:           toPtr(uint32(p.ID)),
+			Id:           toPtr(id),
 			Cores:        toPtr(p.TotalCores),
 			Threads:      toPtr(p.TotalHardwareThreads),
 			Vendor:       toPtr(p.Vendor),
@@ -194,49 +199,53 @@ func toPtr[T any](v T) *T {
 	return &v
 }
 
-type ByteSize interface {
+type byteSize interface {
 	~uint64 | ~int64
 }
 
-// Generic function to convert megabytes to GB format
-func toGB[T ByteSize](mbytes T) uint64 {
+// Generic function to convert megabytes to GB format.
+func toGB[T byteSize](mbytes T) uint64 {
 	var tpbs uint64
 	if mbytes > 0 {
 		tpb := int64(mbytes)
-		unit, _ := AmountString(tpb)
+		unit, _ := amountString(tpb)
 		tpb = int64(math.Ceil(float64(mbytes) / float64(unit)))
-		tpbs = uint64(tpb)
+		t, err := safecast.ToUint64(tpb)
+		if err != nil {
+			t = uint64(0)
+		}
+		tpbs = t
 	}
 
 	return tpbs
 }
 
 var (
-	KB int64 = 1024
-	MB       = KB * 1024
-	GB       = MB * 1024
-	TB       = GB * 1024
-	PB       = TB * 1024
-	EB       = PB * 1024
+	kb int64 = 1024
+	mb       = kb * 1024
+	gb       = mb * 1024
+	tb       = gb * 1024
+	pb       = tb * 1024
+	eb       = pb * 1024
 )
 
-// AmountString returns a string representation of the amount with an amount
-// suffix corresponding to the nearest kibibit.
+// amountString returns a string representation of the
+// amount with an amount suffix corresponding to the nearest kibibit.
 //
-// For example, AmountString(1022) == "1022). AmountString(1024) == "1KB", etc
-func AmountString(size int64) (int64, string) {
+// For example, amountString(1022) == "1022". amountString(1024) == "1KB", etc.
+func amountString(size int64) (int64, string) {
 	switch {
-	case size < MB:
-		return KB, "KB"
-	case size < GB:
-		return MB, "MB"
-	case size < TB:
-		return GB, "GB"
-	case size < PB:
-		return TB, "TB"
-	case size < EB:
-		return PB, "PB"
+	case size < mb:
+		return kb, "KB"
+	case size < gb:
+		return mb, "MB"
+	case size < tb:
+		return gb, "GB"
+	case size < pb:
+		return tb, "TB"
+	case size < eb:
+		return pb, "PB"
 	default:
-		return EB, "EB"
+		return eb, "EB"
 	}
 }
