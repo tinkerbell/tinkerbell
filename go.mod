@@ -13,7 +13,7 @@ require (
 	github.com/containers/image/v5 v5.34.2
 	github.com/diskfs/go-diskfs v1.5.2
 	github.com/distribution/reference v0.6.0
-	github.com/docker/docker v28.0.1+incompatible
+	github.com/docker/docker v28.0.4+incompatible
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gliderlabs/ssh v0.3.8
