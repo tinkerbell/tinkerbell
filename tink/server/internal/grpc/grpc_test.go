@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -12,318 +14,44 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestModifyWorkflowState(t *testing.T) {
-	cases := []struct {
-		name     string
+func TestGetAction(t *testing.T) {
+	cases := map[string]struct {
 		workflow *v1alpha1.Workflow
 		request  *proto.ActionRequest
 		want     *proto.ActionResponse
 		wantErr  error
 	}{
-		/*{
-			name:           "no workflow",
-			inputWf:        nil,
-			inputWfContext: &proto.ActionRequest{},
-			want:           nil,
-			wantErr:        errors.New("no workflow provided"),
-		},
-		{
-			name:           "no context",
-			inputWf:        &v1alpha1.Workflow{},
-			inputWfContext: nil,
-			want:           nil,
-			wantErr:        errors.New("no workflow context provided"),
-		},
-		{
-			name: "no task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_PENDING",
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
-								{
-									Name:    "stream",
-									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout: 300,
-									Status:  "STATE_PENDING",
-								},
-							},
-						},
-					},
+		"successful second Action in Task": {
+			request: &proto.ActionRequest{
+				WorkerId: toPtr("machine-mac-1"),
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
 				},
-			},
-			inputWfContext: &proto.ActionRequest{
-				WorkflowId:           "debian",
-				CurrentWorker:        "machine-mac-1",
-				CurrentTask:          "power-on",
-				CurrentAction:        "power-on-bmc",
-				CurrentActionIndex:   0,
-				CurrentActionState:   proto.State_STATE_RUNNING,
-				TotalNumberOfActions: 1,
-			},
-			want:    nil,
-			wantErr: errors.New("task not found"),
-		},
-		{
-			name: "no action found",
-			inputWf: &v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_PENDING",
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
-								{
-									Name:    "stream",
-									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout: 300,
-									Status:  "STATE_PENDING",
-								},
-							},
-						},
+					State: "STATE_RUNNING",
+					CurrentState: &v1alpha1.CurrentState{
+						WorkerID:   "machine-mac-1",
+						TaskID:     "provision",
+						ActionID:   "stream",
+						State:      "STATE_SUCCESS",
+						ActionName: "stream",
 					},
-				},
-			},
-			inputWfContext: &proto.WorkflowContext{
-				CurrentWorker:        "machine-mac-1",
-				CurrentTask:          "provision",
-				CurrentAction:        "power-on-bmc",
-				CurrentActionIndex:   0,
-				CurrentActionState:   proto.State_STATE_RUNNING,
-				TotalNumberOfActions: 1,
-			},
-			want:    nil,
-			wantErr: errors.New("action not found"),
-		},
-		{
-			name: "running task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_PENDING",
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
 							Name:       "provision",
 							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
-								{
-									Name:    "stream",
-									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout: 300,
-									Status:  "STATE_PENDING",
-								},
-							},
-						},
-					},
-				},
-			},
-			inputWfContext: &proto.WorkflowContext{
-				CurrentWorker:        "machine-mac-1",
-				CurrentTask:          "provision",
-				CurrentAction:        "stream",
-				CurrentActionIndex:   0,
-				CurrentActionState:   proto.State_STATE_RUNNING,
-				TotalNumberOfActions: 1,
-			},
-			want: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_RUNNING",
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
-								{
-									Name:      "stream",
-									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:   300,
-									Status:    "STATE_RUNNING",
-									StartedAt: nil,
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErr: nil,
-		},
-		{
-			name: "timed out task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_RUNNING",
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
-								{
-									Name:      "stream",
-									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:   300,
-									Status:    "STATE_RUNNING",
-									StartedAt: nil,
-								},
-							},
-						},
-					},
-				},
-			},
-			inputWfContext: &proto.WorkflowContext{
-				CurrentWorker:        "machine-mac-1",
-				CurrentTask:          "provision",
-				CurrentAction:        "stream",
-				CurrentActionIndex:   0,
-				CurrentActionState:   proto.State_STATE_TIMEOUT,
-				TotalNumberOfActions: 1,
-			},
-			want: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_TIMEOUT",
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
-								{
-									Name:            "stream",
-									Image:           "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:         300,
-									Status:          "STATE_TIMEOUT",
-									StartedAt:       nil,
-									DurationSeconds: 301,
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErr: nil,
-		},
-		{
-			name: "failed task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_RUNNING",
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
-								{
-									Name:      "stream",
-									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:   300,
-									Status:    "STATE_RUNNING",
-									StartedAt: nil,
-								},
-								{
-									Name:    "kexec",
-									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
-									Timeout: 5,
-									Status:  "STATE_PENDING",
-								},
-							},
-						},
-					},
-				},
-			},
-			inputWfContext: &proto.WorkflowContext{
-				CurrentWorker:        "machine-mac-1",
-				CurrentTask:          "provision",
-				CurrentAction:        "stream",
-				CurrentActionIndex:   0,
-				CurrentActionState:   proto.State_STATE_FAILED,
-				TotalNumberOfActions: 2,
-			},
-			want: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_FAILED",
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
-								{
-									Name:            "stream",
-									Image:           "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:         300,
-									Status:          "STATE_FAILED",
-									StartedAt:       nil,
-									DurationSeconds: 30,
-								},
-								{
-									Name:    "kexec",
-									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
-									Timeout: 5,
-									Status:  "STATE_PENDING",
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErr: nil,
-		},
-		{
-			name: "successful task",
-			inputWf: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_RUNNING",
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
-								{
-									Name:      "stream",
-									Image:     "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:   300,
-									Status:    "STATE_RUNNING",
-									StartedAt: nil,
-								},
-								{
-									Name:    "kexec",
-									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
-									Timeout: 5,
-									Status:  "STATE_PENDING",
-								},
-							},
-						},
-					},
-				},
-			},
-			inputWfContext: &proto.WorkflowContext{
-				CurrentWorker:        "machine-mac-1",
-				CurrentTask:          "provision",
-				CurrentAction:        "stream",
-				CurrentActionIndex:   0,
-				CurrentActionState:   proto.State_STATE_SUCCESS,
-				TotalNumberOfActions: 2,
-			},
-			want: &v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_RUNNING",
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
+							ID:         "provision",
 							Actions: []v1alpha1.Action{
 								{
 									Name:            "stream",
@@ -332,22 +60,34 @@ func TestModifyWorkflowState(t *testing.T) {
 									Status:          "STATE_SUCCESS",
 									StartedAt:       nil,
 									DurationSeconds: 30,
+									ID:              "stream",
 								},
 								{
 									Name:    "kexec",
 									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
 									Timeout: 5,
 									Status:  "STATE_PENDING",
+									ID:      "kexec",
 								},
 							},
 						},
 					},
 				},
 			},
+			want: &proto.ActionResponse{
+				WorkflowId:  toPtr("default/machine1"),
+				WorkerId:    toPtr("machine-mac-1"),
+				TaskId:      toPtr("provision"),
+				ActionId:    toPtr("kexec"),
+				Name:        toPtr("kexec"),
+				Image:       toPtr("quay.io/tinkerbell-actions/kexec:v1.0.0"),
+				Timeout:     toPtr(int64(5)),
+				Environment: []string{},
+				Pid:         new(string),
+			},
 			wantErr: nil,
-		},*/
-		{
-			name: "successful only one Action",
+		},
+		"successful first Action in Task": {
 			request: &proto.ActionRequest{
 				WorkerId: toPtr("machine-mac-1"),
 			},
@@ -392,8 +132,8 @@ func TestModifyWorkflowState(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
 			server := &Handler{
 				Logger:            logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
 				BackendReadWriter: &mockBackendReadWriter{workflow: tc.workflow},
@@ -446,4 +186,130 @@ func (m *mockBackendReadWriter) ReadAll(_ context.Context, _ string) ([]v1alpha1
 
 func (m *mockBackendReadWriter) Write(_ context.Context, _ *v1alpha1.Workflow) error {
 	return nil
+}
+
+type mockBackendReadWriterForReport struct {
+	workflow *v1alpha1.Workflow
+	writeErr error
+}
+
+func (m *mockBackendReadWriterForReport) Read(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
+	if m.workflow == nil {
+		return nil, errors.New("workflow not found")
+	}
+	return m.workflow, nil
+}
+
+func (m *mockBackendReadWriterForReport) ReadAll(_ context.Context, _ string) ([]v1alpha1.Workflow, error) {
+	return nil, nil
+}
+
+func (m *mockBackendReadWriterForReport) Write(_ context.Context, _ *v1alpha1.Workflow) error {
+	return m.writeErr
+}
+
+func TestReportActionStatus(t *testing.T) {
+	tests := map[string]struct {
+		request      *proto.ActionStatusRequest
+		workflow     *v1alpha1.Workflow
+		writeErr     error
+		expectedResp *proto.ActionStatusResponse
+		expectedErr  error
+	}{
+		"success": {
+			request: &proto.ActionStatusRequest{
+				WorkflowId:       toPtr("default/workflow1"),
+				TaskId:           toPtr("task1"),
+				ActionId:         toPtr("action1"),
+				ActionState:      toPtr(proto.StateType_STATE_SUCCESS),
+				CreatedAt:        timestamppb.New(time.Now()),
+				ExecutionSeconds: toPtr(int64(30)),
+				Message: &proto.ActionMessage{
+					Message: toPtr("Action completed successfully"),
+				},
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "workflow1",
+					Namespace: "default",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					Tasks: []v1alpha1.Task{
+						{
+							ID: "task1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:     "action1",
+									Status: v1alpha1.WorkflowStatePending,
+								},
+							},
+						},
+					},
+				},
+			},
+			writeErr:     nil,
+			expectedErr:  nil,
+			expectedResp: &proto.ActionStatusResponse{},
+		},
+		"write error": {
+			request: &proto.ActionStatusRequest{
+				WorkflowId:       toPtr("default/workflow6"),
+				TaskId:           toPtr("task1"),
+				ActionId:         toPtr("action1"),
+				ActionState:      toPtr(proto.StateType_STATE_SUCCESS),
+				CreatedAt:        timestamppb.New(time.Now()),
+				ExecutionSeconds: toPtr(int64(30)),
+				Message: &proto.ActionMessage{
+					Message: toPtr("Action completed successfully"),
+				},
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "workflow1",
+					Namespace: "default",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					Tasks: []v1alpha1.Task{
+						{
+							ID: "task1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:     "action1",
+									Status: v1alpha1.WorkflowStatePending,
+								},
+							},
+						},
+					},
+				},
+			},
+			writeErr:     errors.New("write error"),
+			expectedErr:  status.Errorf(codes.InvalidArgument, fmt.Sprintf("%v: write error", errWritingtoBackend)),
+			expectedResp: &proto.ActionStatusResponse{},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			handler := &Handler{
+				BackendReadWriter: &mockBackendReadWriterForReport{
+					workflow: tc.workflow,
+					writeErr: tc.writeErr,
+				},
+			}
+
+			resp, err := handler.ReportActionStatus(context.Background(), tc.request)
+
+			if diff := cmp.Diff(tc.expectedResp, resp, protocmp.Transform()); diff != "" {
+				t.Errorf("unexpected response (-want +got):\n%s", diff)
+			}
+
+			if tc.expectedErr != nil {
+				if err == nil || err.Error() != tc.expectedErr.Error() {
+					t.Errorf("unexpected error: \ngot:  %v\nwant: %v", err, tc.expectedErr)
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
 }
