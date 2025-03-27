@@ -81,6 +81,12 @@ func TestTaskReconcile(t *testing.T) {
 			task:     createTaskWithRPC("PowerOn", getAction("PowerOn"), createHMACSecret()),
 		},
 
+		"success power on with RPC provider w/o secrets": {
+			taskName: "PowerOn",
+			action:   getAction("PowerOn"),
+			provider: &testProvider{Powerstate: "on", PowerSetOK: true, Proto: "rpc"},
+		},
+
 		"failure on bmc open": {
 			taskName: "PowerOn", action: getAction("PowerOn"),
 			provider:  &testProvider{ErrOpen: errors.New("failed to open")},
@@ -259,7 +265,7 @@ func createTask(name string, action v1alpha1.Action, secret *corev1.Secret) *v1a
 }
 
 func createTaskWithRPC(name string, action v1alpha1.Action, secret *corev1.Secret) *v1alpha1.Task {
-	return &v1alpha1.Task{
+	machine := &v1alpha1.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
@@ -269,26 +275,32 @@ func createTaskWithRPC(name string, action v1alpha1.Action, secret *corev1.Secre
 			Connection: v1alpha1.Connection{
 				Host: "host",
 				Port: 22,
-				AuthSecretRef: corev1.SecretReference{
-					Name:      secret.Name,
-					Namespace: secret.Namespace,
-				},
 				ProviderOptions: &v1alpha1.ProviderOptions{
 					RPC: &v1alpha1.RPCOptions{
 						ConsumerURL: "http://127.0.0.1:7777",
-						HMAC: &v1alpha1.HMACOpts{
-							Secrets: v1alpha1.HMACSecrets{
-								"sha256": []corev1.SecretReference{
-									{
-										Name:      secret.Name,
-										Namespace: secret.Namespace,
-									},
-								},
-							},
-						},
 					},
 				},
 			},
 		},
 	}
+
+	if secret != nil {
+		machine.Spec.Connection.AuthSecretRef = corev1.SecretReference{
+			Name:      secret.Name,
+			Namespace: secret.Namespace,
+		}
+
+		machine.Spec.Connection.ProviderOptions.RPC.HMAC = &v1alpha1.HMACOpts{
+			Secrets: v1alpha1.HMACSecrets{
+				"sha256": []corev1.SecretReference{
+					{
+						Name:      secret.Name,
+						Namespace: secret.Namespace,
+					},
+				},
+			},
+		}
+	}
+
+	return machine
 }

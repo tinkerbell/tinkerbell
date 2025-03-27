@@ -93,7 +93,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *v1alpha1.Task, t
 	}
 	if task.Spec.Connection.ProviderOptions != nil && task.Spec.Connection.ProviderOptions.RPC != nil {
 		opts.ProviderOptions = task.Spec.Connection.ProviderOptions
-		if len(task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
+		if task.Spec.Connection.ProviderOptions.RPC.HMAC != nil && len(task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
 			se, err := retrieveHMACSecrets(ctx, r.client, task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets)
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("unable to get hmac secrets: %w", err)
