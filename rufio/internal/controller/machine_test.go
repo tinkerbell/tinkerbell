@@ -25,18 +25,20 @@ func TestMachineReconcile(t *testing.T) {
 			provider: &testProvider{Powerstate: "on"},
 			secret:   createSecret(),
 		},
-
 		"success power off": {
 			provider: &testProvider{Powerstate: "off"},
 			secret:   createSecret(),
 		},
-
 		"success power on with RPC provider": {
 			provider: &testProvider{Powerstate: "on", Proto: "rpc"},
 			secret:   createHMACSecret(),
 			machine:  createMachineWithRPC(createHMACSecret()),
 		},
-
+		"success power on with RPC provider w/o secrets": {
+			provider: &testProvider{Powerstate: "on", Proto: "rpc"},
+			secret:   createSecret(),
+			machine:  createMachineWithRPC(nil),
+		},
 		"fail to find secret with RPC provider": {
 			provider:  &testProvider{Powerstate: "on", Proto: "rpc"},
 			secret:    createHMACSecret(),
@@ -51,33 +53,27 @@ func TestMachineReconcile(t *testing.T) {
 				},
 			}),
 		},
-
 		"fail on open": {
 			provider: &testProvider{ErrOpen: errors.New("failed to open connection")},
 			secret:   createSecret(),
 		},
-
 		"fail on power get": {
 			provider: &testProvider{ErrPowerStateGet: errors.New("failed to set power state")},
 			secret:   createSecret(),
 		},
-
 		"fail bad power state": {
 			provider: &testProvider{Powerstate: "bad"},
 			secret:   createSecret(),
 		},
-
 		"fail on close": {
 			provider: &testProvider{ErrClose: errors.New("failed to close connection")},
 			secret:   createSecret(),
 		},
-
 		"fail secret not found": {
 			provider:  &testProvider{Powerstate: "on"},
 			shouldErr: true,
 			secret:    &corev1.Secret{},
 		},
-
 		"fail secret username not found": {
 			provider:  &testProvider{Powerstate: "on"},
 			shouldErr: true,
@@ -91,7 +87,6 @@ func TestMachineReconcile(t *testing.T) {
 				},
 			},
 		},
-
 		"fail secret password not found": {
 			provider:  &testProvider{Powerstate: "on"},
 			shouldErr: true,
@@ -149,7 +144,7 @@ func TestMachineReconcile(t *testing.T) {
 }
 
 func createMachineWithRPC(secret *corev1.Secret) *bmc.Machine {
-	return &bmc.Machine{
+	machine := &bmc.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-bm",
 			Namespace: "test-namespace",
@@ -161,21 +156,26 @@ func createMachineWithRPC(secret *corev1.Secret) *bmc.Machine {
 				ProviderOptions: &bmc.ProviderOptions{
 					RPC: &bmc.RPCOptions{
 						ConsumerURL: "http://127.0.0.1:7777",
-						HMAC: &bmc.HMACOpts{
-							Secrets: bmc.HMACSecrets{
-								"sha256": []corev1.SecretReference{
-									{
-										Name:      secret.Name,
-										Namespace: secret.Namespace,
-									},
-								},
-							},
-						},
 					},
 				},
 			},
 		},
 	}
+
+	if secret != nil {
+		machine.Spec.Connection.ProviderOptions.RPC.HMAC = &bmc.HMACOpts{
+			Secrets: bmc.HMACSecrets{
+				"sha256": []corev1.SecretReference{
+					{
+						Name:      secret.Name,
+						Namespace: secret.Namespace,
+					},
+				},
+			},
+		}
+	}
+
+	return machine
 }
 
 func createMachine() *bmc.Machine {
