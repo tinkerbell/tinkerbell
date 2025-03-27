@@ -275,10 +275,6 @@ func createTaskWithRPC(name string, action v1alpha1.Action, secret *corev1.Secre
 			Connection: v1alpha1.Connection{
 				Host: "host",
 				Port: 22,
-				AuthSecretRef: corev1.SecretReference{
-					Name:      secret.Name,
-					Namespace: secret.Namespace,
-				},
 				ProviderOptions: &v1alpha1.ProviderOptions{
 					RPC: &v1alpha1.RPCOptions{
 						ConsumerURL: "http://127.0.0.1:7777",
@@ -289,6 +285,11 @@ func createTaskWithRPC(name string, action v1alpha1.Action, secret *corev1.Secre
 	}
 
 	if secret != nil {
+		machine.Spec.Connection.AuthSecretRef = corev1.SecretReference{
+			Name:      secret.Name,
+			Namespace: secret.Namespace,
+		}
+
 		machine.Spec.Connection.ProviderOptions.RPC.HMAC = &v1alpha1.HMACOpts{
 			Secrets: v1alpha1.HMACSecrets{
 				"sha256": []corev1.SecretReference{
