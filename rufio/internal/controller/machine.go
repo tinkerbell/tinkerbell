@@ -106,7 +106,7 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *bmc.Machine, bm
 	}
 	if bm.Spec.Connection.ProviderOptions != nil && bm.Spec.Connection.ProviderOptions.RPC != nil {
 		opts.ProviderOptions = bm.Spec.Connection.ProviderOptions
-		if len(bm.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
+		if bm.Spec.Connection.ProviderOptions.RPC.HMAC != nil && len(bm.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
 			se, err := retrieveHMACSecrets(ctx, r.client, bm.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets)
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("unable to get hmac secrets: %w", err)
