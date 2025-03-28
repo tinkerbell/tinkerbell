@@ -58,7 +58,7 @@ func (t *testProvider) Protocol() string {
 	if t.Proto != "" {
 		return t.Proto
 	}
-	return "redfish"
+	return "gofish"
 }
 
 func (t *testProvider) Features() registrar.Features {
