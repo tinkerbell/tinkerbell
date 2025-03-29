@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -62,12 +62,12 @@ func NewManager(cfg *rest.Config, opts controllerruntime.Options, powerCheckInte
 // TODO(jacobweinstock): add functional arguments to the signature.
 // TODO(jacobweinstock): write functional argument for customizing the backoff.
 func NewReconciler(c client.Client) *Reconciler {
+	bo := backoff.NewExponentialBackOff()
+	bo.MaxInterval = 5 * time.Second
 	return &Reconciler{
 		client:  c,
 		nowFunc: time.Now,
-		backoff: backoff.NewExponentialBackOff([]backoff.ExponentialBackOffOpts{
-			backoff.WithMaxInterval(5 * time.Second), // this should keep all NextBackOff's under 10 seconds
-		}...),
+		backoff: bo,
 	}
 }
 
