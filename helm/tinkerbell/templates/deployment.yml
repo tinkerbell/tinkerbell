@@ -201,6 +201,7 @@ spec:
             - name: TINKERBELL_ENABLE_RUFIO_CONTROLLER
               value: {{ .Values.deployment.envs.globals.enableRufioController | quote }}
           ports:
+          {{- if .Values.deployment.envs.globals.enableSmee }}
             {{- with .Values.deployment.ports.tftp }}
             - containerPort: {{ .port }}
               name: {{ .name }}
@@ -221,6 +222,7 @@ spec:
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
+          {{- end }}
             {{- with .Values.deployment.ports.httpTootles }}
             - containerPort: {{ .port }}
               name: {{ .name }}
