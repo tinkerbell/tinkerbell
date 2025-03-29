@@ -24,6 +24,7 @@ spec:
     targetPort: 50061
     protocol: TCP
     name: http-tootles
+  {{- if .Values.deployment.envs.globals.enableSmee }}
   - port: 69
     targetPort: 69
     protocol: UDP
@@ -40,6 +41,7 @@ spec:
     targetPort: 7171
     protocol: TCP
     name: http-ipxe
+  {{- end }}
   - port: 2222
     targetPort: 2222
     protocol: TCP
