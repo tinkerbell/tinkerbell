@@ -4,6 +4,14 @@
 SHELL := bash
 .SHELLFLAGS := -o pipefail -euc
 
+# Detect if running on macOS and if Homebrew is installed
+ifeq ($(shell uname), Darwin)
+  ifeq ($(shell command -v brew 2>/dev/null), /usr/local/bin/brew)
+    HOMEBREW_PREFIX := $(shell brew --prefix)
+    PATH := $(HOMEBREW_PREFIX)/opt/coreutils/libexec/gnubin:$(HOMEBREW_PREFIX)/opt/gnu-sed/libexec/gnubin:$(HOMEBREW_PREFIX)/opt/gnu-tar/libexec/gnubin:$(HOMEBREW_PREFIX)/opt/findutils/libexec/gnubin:$(PATH)
+  endif
+endif
+
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 GIT_TAG := $(shell git describe --tags --exact-match 2>/dev/null || true)
 ifeq ($(GIT_TAG),)
