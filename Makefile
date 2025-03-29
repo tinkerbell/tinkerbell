@@ -4,6 +4,18 @@
 SHELL := bash
 .SHELLFLAGS := -o pipefail -euc
 
+# Detect if running on macOS and if Homebrew is installed; check for GNU Make and GNU coreutils/findutils/sed/tar
+ifeq ($(shell uname), Darwin)
+  MAKE_VERSION := $(shell $(MAKE) -v | awk '/GNU Make/ {print $$3}')
+  ifeq ($(shell expr $(MAKE_VERSION) \< 4), 1)
+    $(error "GNU Make 4.x is required (Current version: $(MAKE_VERSION)) Install it via Homebrew with 'brew install make' and use 'gmake' instead of 'make'.")
+  endif
+  ifeq ($(shell command -v brew 2>/dev/null), /usr/local/bin/brew)
+    HOMEBREW_PREFIX := $(shell brew --prefix)
+    PATH := $(HOMEBREW_PREFIX)/opt/coreutils/libexec/gnubin:$(HOMEBREW_PREFIX)/opt/gnu-sed/libexec/gnubin:$(HOMEBREW_PREFIX)/opt/gnu-tar/libexec/gnubin:$(HOMEBREW_PREFIX)/opt/findutils/libexec/gnubin:$(PATH)
+  endif
+endif
+
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 GIT_TAG := $(shell git describe --tags --exact-match 2>/dev/null || true)
 ifeq ($(GIT_TAG),)
