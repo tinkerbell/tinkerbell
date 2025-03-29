@@ -1,4 +1,3 @@
-
 # trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
 # LB_IP=192.168.2.116
 # the ARTIFACTS_FILE_SERVER is used to set the load balancer IP for the HookOS/nginx service object and will be used to configure TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL in the Tinkerbell deployment.
@@ -178,9 +177,6 @@ rbac:
   name: tink-controller-role # or tink-controller-cluster-role
   bindingName: tink-controller-rolebinding # or tink-controller-cluster-rolebinding
   serviceAccountName: tinkerbell
-
-publicIP: 192.168.2.114
-trustedProxies: []
 
 # hookos objects enables downloading and serving HookOS artifacts.
 # it is optional and enabled by default.
