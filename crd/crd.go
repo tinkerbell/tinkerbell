@@ -11,7 +11,6 @@ import (
 	apiv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1 "k8s.io/apiextensions-apiserver/pkg/client/applyconfiguration/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,20 +71,13 @@ var TinkerbellDefaults = map[string][]byte{
 // ConfigOption is a function that sets a configuration option.
 type ConfigOption func(*Tinkerbell)
 
-// WithClient sets the client in the Mapping.
-func WithClient(config clientset.Interface) ConfigOption {
-	return func(m *Tinkerbell) {
-		m.Client = config
-	}
-}
-
 func WithRestConfig(config *rest.Config) ConfigOption {
-	return func(m *Tinkerbell) {
+	return func(t *Tinkerbell) {
 		client, err := clientset.NewForConfig(config)
 		if err != nil {
 			panic(err)
 		}
-		m.Client = client
+		t.Client = client
 	}
 }
 
@@ -120,13 +112,12 @@ func (t Tinkerbell) Migrate(ctx context.Context) error {
 			return fmt.Errorf("failed to decode YAML: %w", err)
 		}
 
-		if _, err := t.Client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, obj.GetName(), metav1.GetOptions{}); err == nil {
-			continue
-		}
 		// Try apply, if that fails, try create. Apply only works if the CRD already exists.
 		if errApply := t.apply(ctx, obj); errApply != nil {
-			if errCreate := t.create(ctx, obj); errCreate != nil {
-				return errors.Join(errApply, errCreate)
+			if errUpdate := t.update(ctx, obj); errUpdate != nil {
+				if errCreate := t.create(ctx, obj); errCreate != nil {
+					return errors.Join(errApply, errUpdate, errCreate)
+				}
 			}
 		}
 	}
@@ -176,8 +167,20 @@ func (t Tinkerbell) apply(ctx context.Context, obj *unstructured.Unstructured) e
 		return fmt.Errorf("failed to convert unstructured to CRD: %w", err)
 	}
 
-	if _, err := t.Client.ApiextensionsV1().CustomResourceDefinitions().Apply(ctx, crdef, metav1.ApplyOptions{FieldManager: "Tinkerbell CLI"}); err != nil && !apierrors.IsAlreadyExists(err) {
+	if _, err := t.Client.ApiextensionsV1().CustomResourceDefinitions().Apply(ctx, crdef, metav1.ApplyOptions{FieldManager: "Tinkerbell CLI"}); err != nil {
 		return fmt.Errorf("failed to apply CRD: %w", err)
+	}
+
+	return nil
+}
+
+func (t Tinkerbell) update(ctx context.Context, obj *unstructured.Unstructured) error {
+	var crdef apiv1.CustomResourceDefinition
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &crdef); err != nil {
+		return fmt.Errorf("failed to convert unstructured to CRD: %w", err)
+	}
+	if _, err := t.Client.ApiextensionsV1().CustomResourceDefinitions().Update(ctx, &crdef, metav1.UpdateOptions{FieldManager: "Tinkerbell CLI"}); err != nil {
+		return fmt.Errorf("failed to update CRD: %w", err)
 	}
 
 	return nil

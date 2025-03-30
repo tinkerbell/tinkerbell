@@ -62,7 +62,7 @@ func TestMigrateAndReady(t *testing.T) {
 		}
 		return false, nil, nil
 	})
-	m := NewTinkerbell(WithClient(client))
+	m := NewTinkerbell(func(t *Tinkerbell) { t.Client = client })
 	if err := m.MigrateAndReady(context.Background()); err != nil {
 		t.Errorf("failed to migrate CRDs: %v", err)
 	}
