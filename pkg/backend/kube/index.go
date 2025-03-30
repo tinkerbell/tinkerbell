@@ -104,7 +104,7 @@ func WorkflowByNonTerminalStateFunc(obj client.Object) []string {
 	}
 
 	resp := []string{}
-	if !(wf.Status.State == v1alpha1.WorkflowStateRunning || wf.Status.State == v1alpha1.WorkflowStatePending) {
+	if wf.Status.State != v1alpha1.WorkflowStateRunning && wf.Status.State != v1alpha1.WorkflowStatePending {
 		return resp
 	}
 	for _, task := range wf.Status.Tasks {
@@ -124,7 +124,7 @@ func HardwareNameFunc(obj client.Object) []string {
 	if !ok {
 		return nil
 	}
-	return []string{hw.ObjectMeta.Name}
+	return []string{hw.Name}
 }
 
 const MachineNameIndex = ".metadata.name"
@@ -134,5 +134,5 @@ func MachineNameFunc(obj client.Object) []string {
 	if !ok {
 		return nil
 	}
-	return []string{m.ObjectMeta.Name}
+	return []string{m.Name}
 }

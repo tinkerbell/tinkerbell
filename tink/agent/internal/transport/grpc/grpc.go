@@ -31,7 +31,7 @@ type Config struct {
 
 func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 	operation := func() (spec.Action, error) {
-		return c.read(ctx)
+		return c.doRead(ctx)
 	}
 	opts := c.RetryOptions
 	if len(opts) == 0 {
@@ -46,7 +46,8 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 	}
 	return resp, nil
 }
-func (c *Config) read(ctx context.Context) (spec.Action, error) {
+
+func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{WorkerId: toPtr(c.WorkerID), WorkerAttributes: c.Attributes})
 	if err != nil {
 		return spec.Action{}, fmt.Errorf("error getting action: %w", err)
@@ -109,7 +110,7 @@ func (c *Config) read(ctx context.Context) (spec.Action, error) {
 
 func (c *Config) Write(ctx context.Context, event spec.Event) error {
 	operation := func() (*bool, error) {
-		return nil, c.write(ctx, event)
+		return nil, c.doWrite(ctx, event)
 	}
 	opts := c.RetryOptions
 	if len(opts) == 0 {
@@ -124,7 +125,8 @@ func (c *Config) Write(ctx context.Context, event spec.Event) error {
 	}
 	return nil
 }
-func (c *Config) write(ctx context.Context, event spec.Event) error {
+
+func (c *Config) doWrite(ctx context.Context, event spec.Event) error {
 	ar := &proto.ActionStatusRequest{
 		WorkflowId:        &event.Action.WorkflowID,
 		WorkerId:          &event.Action.WorkerID,

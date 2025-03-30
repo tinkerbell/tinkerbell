@@ -193,7 +193,7 @@ func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmc.Job, ta
 					APIVersion: job.APIVersion,
 					Kind:       job.Kind,
 					Name:       job.Name,
-					UID:        job.ObjectMeta.UID,
+					UID:        job.UID,
 					Controller: &isController,
 				},
 			},

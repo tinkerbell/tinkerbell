@@ -1117,7 +1117,7 @@ func TestGetStartTime(t *testing.T) {
 				return
 			}
 			if !got.Time.Equal(tc.want.Time) {
-				t.Errorf("Got time %s, wanted %s", got.Format(time.RFC1123), tc.want.Time.Format(time.RFC1123))
+				t.Errorf("Got time %s, wanted %s", got.Format(time.RFC1123), tc.want.Format(time.RFC1123))
 			}
 		})
 	}
