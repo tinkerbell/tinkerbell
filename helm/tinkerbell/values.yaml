@@ -23,6 +23,7 @@ deployment:
   toleration: []
   affinity: {}
   selector: {}
+  nodeSelector: {}
   envs:
     rufio:
       enableLeaderElection: true
