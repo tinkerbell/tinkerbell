@@ -42,9 +42,11 @@ spec:
     protocol: TCP
     name: http-ipxe
   {{- end }}
+  {{- if .Values.deployment.envs.globals.enableSecondstar }}
   - port: 2222
     targetPort: 2222
     protocol: TCP
     name: ssh
+  {{- end }}
   selector:
     app: tinkerbell

@@ -200,6 +200,8 @@ spec:
               value: {{ .Values.deployment.envs.globals.enableTinkController | quote }}
             - name: TINKERBELL_ENABLE_RUFIO_CONTROLLER
               value: {{ .Values.deployment.envs.globals.enableRufioController | quote }}
+            - name: TINKERBELL_ENABLE_SECONDSTAR
+              value: {{ .Values.deployment.envs.globals.enableSecondstar | quote }}
           ports:
           {{- if .Values.deployment.envs.globals.enableSmee }}
             {{- with .Values.deployment.ports.tftp }}
@@ -233,10 +235,12 @@ spec:
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
+          {{- if .Values.deployment.envs.globals.enableSecondstar }}
             {{- with .Values.deployment.ports.ssh }}
             - containerPort: {{ .port }}
               name: {{ .name }}
               protocol: {{ .protocol }}
+          {{- end }}
             {{- end }}
           resources: {{ toYaml .Values.deployment.resources | nindent 12 }}
           securityContext:
