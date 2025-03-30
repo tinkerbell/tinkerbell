@@ -16,6 +16,8 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 	if s.workflow.Spec.BootOptions.ToggleAllowNetboot && !s.workflow.Status.BootOptions.AllowNetboot.ToggledFalse {
 		journal.Log(ctx, "toggling allowPXE false")
 		if err := s.toggleHardware(ctx, false); err != nil {
+			s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+			// TODO: add a status field for why the post Action failed.
 			return reconcile.Result{}, err
 		}
 	}
@@ -26,6 +28,7 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode iso")
 			if s.workflow.Spec.BootOptions.ISOURL == "" {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 				return reconcile.Result{}, errors.New("iso url must be a valid url")
 			}
 			actions := []bmc.Action{
@@ -38,13 +41,22 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 			}
 
 			r, err := s.handleJob(ctx, actions, name)
-			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete {
-				s.workflow.Status.State = v1alpha1.WorkflowStateSuccess
+			if err != nil {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return r, err
 			}
-			return r, err
+			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete {
+				// Post Action handling must only change the Status.State if the status.State was not a failure state (i.e. not STATE_FAILED, STATE_TIMEOUT).
+				if s.workflow.Status.CurrentState != nil {
+					s.workflow.Status.State = s.workflow.Status.CurrentState.State
+				}
+			}
+			return r, nil
 		}
 	}
 
-	s.workflow.Status.State = v1alpha1.WorkflowStateSuccess
+	if s.workflow.Status.CurrentState != nil {
+		s.workflow.Status.State = s.workflow.Status.CurrentState.State
+	}
 	return reconcile.Result{}, nil
 }

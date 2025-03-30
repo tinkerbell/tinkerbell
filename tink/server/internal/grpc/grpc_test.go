@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -54,19 +55,19 @@ func TestGetAction(t *testing.T) {
 							ID:         "provision",
 							Actions: []v1alpha1.Action{
 								{
-									Name:            "stream",
-									Image:           "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:         300,
-									Status:          "STATE_SUCCESS",
-									StartedAt:       nil,
-									DurationSeconds: 30,
-									ID:              "stream",
+									Name:              "stream",
+									Image:             "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout:           300,
+									State:             "STATE_SUCCESS",
+									ExecutionStart:    nil,
+									ExecutionDuration: "30s",
+									ID:                "stream",
 								},
 								{
 									Name:    "kexec",
 									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
 									Timeout: 5,
-									Status:  "STATE_PENDING",
+									State:   "STATE_PENDING",
 									ID:      "kexec",
 								},
 							},
@@ -116,12 +117,12 @@ func TestGetAction(t *testing.T) {
 							WorkerAddr: "machine-mac-1",
 							Actions: []v1alpha1.Action{
 								{
-									Name:            "stream",
-									Image:           "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout:         300,
-									Status:          "STATE_PENDING",
-									StartedAt:       nil,
-									DurationSeconds: 30,
+									Name:              "stream",
+									Image:             "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout:           300,
+									State:             "STATE_PENDING",
+									ExecutionStart:    nil,
+									ExecutionDuration: "30s",
 								},
 							},
 						},
@@ -138,6 +139,7 @@ func TestGetAction(t *testing.T) {
 				Logger:            logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
 				BackendReadWriter: &mockBackendReadWriter{workflow: tc.workflow},
 				NowFunc:           func() time.Time { return time.Time{} },
+				RetryOptions:      []backoff.RetryOption{backoff.WithMaxTries(1)},
 			}
 
 			resp, gotErr := server.GetAction(context.Background(), tc.request)
@@ -218,12 +220,12 @@ func TestReportActionStatus(t *testing.T) {
 	}{
 		"success": {
 			request: &proto.ActionStatusRequest{
-				WorkflowId:       toPtr("default/workflow1"),
-				TaskId:           toPtr("task1"),
-				ActionId:         toPtr("action1"),
-				ActionState:      toPtr(proto.StateType_STATE_SUCCESS),
-				CreatedAt:        timestamppb.New(time.Now()),
-				ExecutionSeconds: toPtr(int64(30)),
+				WorkflowId:        toPtr("default/workflow1"),
+				TaskId:            toPtr("task1"),
+				ActionId:          toPtr("action1"),
+				ActionState:       toPtr(proto.StateType_STATE_SUCCESS),
+				ExecutionStart:    timestamppb.New(time.Now()),
+				ExecutionDuration: toPtr("30s"),
 				Message: &proto.ActionMessage{
 					Message: toPtr("Action completed successfully"),
 				},
@@ -239,8 +241,8 @@ func TestReportActionStatus(t *testing.T) {
 							ID: "task1",
 							Actions: []v1alpha1.Action{
 								{
-									ID:     "action1",
-									Status: v1alpha1.WorkflowStatePending,
+									ID:    "action1",
+									State: v1alpha1.WorkflowStatePending,
 								},
 							},
 						},
@@ -253,12 +255,12 @@ func TestReportActionStatus(t *testing.T) {
 		},
 		"write error": {
 			request: &proto.ActionStatusRequest{
-				WorkflowId:       toPtr("default/workflow6"),
-				TaskId:           toPtr("task1"),
-				ActionId:         toPtr("action1"),
-				ActionState:      toPtr(proto.StateType_STATE_SUCCESS),
-				CreatedAt:        timestamppb.New(time.Now()),
-				ExecutionSeconds: toPtr(int64(30)),
+				WorkflowId:        toPtr("default/workflow6"),
+				TaskId:            toPtr("task1"),
+				ActionId:          toPtr("action1"),
+				ActionState:       toPtr(proto.StateType_STATE_SUCCESS),
+				ExecutionStart:    timestamppb.New(time.Now()),
+				ExecutionDuration: toPtr("30s"),
 				Message: &proto.ActionMessage{
 					Message: toPtr("Action completed successfully"),
 				},
@@ -274,17 +276,16 @@ func TestReportActionStatus(t *testing.T) {
 							ID: "task1",
 							Actions: []v1alpha1.Action{
 								{
-									ID:     "action1",
-									Status: v1alpha1.WorkflowStatePending,
+									ID:    "action1",
+									State: v1alpha1.WorkflowStatePending,
 								},
 							},
 						},
 					},
 				},
 			},
-			writeErr:     errors.New("write error"),
-			expectedErr:  status.Errorf(codes.InvalidArgument, fmt.Sprintf("%v: write error", errWritingtoBackend)),
-			expectedResp: &proto.ActionStatusResponse{},
+			writeErr:    errors.New("write error"),
+			expectedErr: status.Errorf(codes.InvalidArgument, fmt.Sprintf("%v: write error", errWritingToBackend)),
 		},
 	}
 
@@ -295,6 +296,7 @@ func TestReportActionStatus(t *testing.T) {
 					workflow: tc.workflow,
 					writeErr: tc.writeErr,
 				},
+				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
 			}
 
 			resp, err := handler.ReportActionStatus(context.Background(), tc.request)

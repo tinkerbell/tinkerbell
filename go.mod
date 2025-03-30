@@ -8,7 +8,7 @@ require (
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20250117163502-d621fb6aeb76
 	github.com/ccoveille/go-safecast v1.6.1
-	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/containerd/containerd v1.7.27
 	github.com/containers/image/v5 v5.34.2
 	github.com/diskfs/go-diskfs v1.5.2
@@ -84,6 +84,7 @@ require (
 	github.com/bmc-toolbox/common v0.0.0-20250112191656-b6de52e8303d // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
+	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/checkpoint-restore/go-criu/v6 v6.3.0 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect

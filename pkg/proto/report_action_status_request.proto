@@ -36,18 +36,21 @@ option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
      */
     StateType action_state = 6;
     /*
-     * The execution time for the action
+     This is the time when the action started the execution
      */
-    int64 execution_seconds = 7;
+    google.protobuf.Timestamp execution_start = 7;
+    /*
+     * This is the time when the action stopped the execution
+     */
+    google.protobuf.Timestamp execution_stop = 8;
+    /*
+     * The execution duration time for the action
+     */
+    string execution_duration = 9;
     /*
      * The message returned from the action.
      */
-    ActionMessage message = 8;
-    /*
-     * When the status got created for this action. You can see it as the time
-     * when the action started its execution inside the hardware itself.
-     */
-    google.protobuf.Timestamp created_at = 9;
+    ActionMessage message = 10;
   }
 
 /*
