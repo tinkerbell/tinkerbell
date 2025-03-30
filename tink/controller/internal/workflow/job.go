@@ -169,7 +169,7 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 			APIVersion: s.workflow.APIVersion,
 			Kind:       s.workflow.Kind,
 			Name:       s.workflow.Name,
-			UID:        s.workflow.ObjectMeta.UID,
+			UID:        s.workflow.UID,
 			Controller: valueToPointer(true),
 		},
 	}

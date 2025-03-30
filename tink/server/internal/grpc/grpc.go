@@ -25,8 +25,10 @@ const (
 	errWritingToBackend  = "error writing to backend"
 )
 
-var ErrBackendRead = errors.New("error reading from backend")
-var ErrBackendWrite = errors.New("error writing to backend")
+var (
+	ErrBackendRead  = errors.New("error reading from backend")
+	ErrBackendWrite = errors.New("error writing to backend")
+)
 
 type BackendReadWriter interface {
 	ReadAll(ctx context.Context, workerID string) ([]v1alpha1.Workflow, error)
@@ -47,7 +49,7 @@ type Handler struct {
 
 func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
 	operation := func() (*proto.ActionResponse, error) {
-		return h.getAction(ctx, req)
+		return h.doGetAction(ctx, req)
 	}
 	if len(h.RetryOptions) == 0 {
 		h.RetryOptions = []backoff.RetryOption{
@@ -65,7 +67,7 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 	return resp, nil
 }
 
-func (h *Handler) getAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
+func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, status.Error(codes.Unavailable, "server shutting down")
@@ -170,7 +172,7 @@ func (h *Handler) getAction(ctx context.Context, req *proto.ActionRequest) (*pro
 		Timeout:    toPtr(action.Timeout),
 		Command:    action.Command,
 		Volumes:    append(task.Volumes, action.Volumes...),
-		Environment: func(env map[string]string) []string {
+		Environment: func() []string {
 			// add task environment variables to the action environment variables.
 			joined := map[string]string{}
 			maps.Copy(joined, task.Environment)
@@ -181,7 +183,7 @@ func (h *Handler) getAction(ctx context.Context, req *proto.ActionRequest) (*pro
 			}
 			sort.Strings(resp)
 			return resp
-		}(task.Environment),
+		}(),
 		Pid: toPtr(action.Pid),
 	}
 
@@ -191,7 +193,7 @@ func (h *Handler) getAction(ctx context.Context, req *proto.ActionRequest) (*pro
 
 func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
 	operation := func() (*proto.ActionStatusResponse, error) {
-		return h.reportActionStatus(ctx, req)
+		return h.doReportActionStatus(ctx, req)
 	}
 	if len(h.RetryOptions) == 0 {
 		h.RetryOptions = []backoff.RetryOption{
@@ -209,7 +211,7 @@ func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatu
 	return resp, nil
 }
 
-func (h *Handler) reportActionStatus(ctx context.Context, req *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
+func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
 	log := h.Logger.WithValues("worker", req.GetWorkerId())
 	// log.Info("reporting action status", "actionStatusRequest", req.String())
 	// 1. Validate the request

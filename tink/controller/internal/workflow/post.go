@@ -23,6 +23,7 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	// 2. Handle ISO eject scenario.
+	//nolint: nestif // This is what it is.
 	if s.workflow.Spec.BootOptions.BootMode == v1alpha1.BootModeISO || s.workflow.Spec.BootOptions.BootMode == v1alpha1.BootModeISOBoot {
 		name := jobName(fmt.Sprintf("%s-%s", jobNameISOEject, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {

@@ -81,7 +81,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	wflow := stored.DeepCopy()
-	//r.processRunningWorkflow(wflow)
+	// r.processRunningWorkflow(wflow)
 
 	switch wflow.Status.State {
 	case "":
@@ -291,16 +291,6 @@ func toTemplateHardwareData(hardware v1alpha1.Hardware) templateHardwareData {
 		contract.VendorData = pointerToValue(hardware.Spec.VendorData)
 	}
 	return contract
-}
-
-// TODO: this check should be done on an interval and not wait for a reconcile.
-func (r *Reconciler) processRunningWorkflow(stored *v1alpha1.Workflow) {
-	// Check for global timeout expiration
-	if st := startTime(stored); st != nil {
-		if r.nowFunc().After(st.Add(time.Duration(stored.Status.GlobalTimeout) * time.Second)) {
-			stored.Status.State = v1alpha1.WorkflowStateTimeout
-		}
-	}
 }
 
 func pointerToValue[V any](ptr *V) V {
