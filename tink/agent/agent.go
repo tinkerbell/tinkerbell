@@ -84,7 +84,7 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 		retries := ternary(action.Retries == 0, 1, action.Retries)
 
 		responseEvent := spec.Event{}
-		action.StartedAt = time.Now().UTC()
+		action.ExecutionStart = time.Now().UTC()
 		timeoutCtx, timeoutDone := context.WithTimeout(ctx, time.Duration(action.TimeoutSeconds)*time.Second)
 		for i := 1; i <= retries; i++ {
 			if err := c.RuntimeExecutor.Execute(timeoutCtx, action); err != nil {
@@ -108,7 +108,8 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 		}
 		timeoutDone()
 
-		action.Duration = time.Now().UTC().Sub(action.StartedAt)
+		action.ExecutionStop = time.Now().UTC()
+		action.ExecutionDuration = humanDuration(action.ExecutionStop.Sub(action.ExecutionStart), 2)
 		responseEvent.Action = action
 		responseEvent.Message = "action completed"
 		responseEvent.State = state
@@ -252,9 +253,6 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 			readWriter.Attributes = grpc.ToProto(attribute.DiscoverAll())
 		}
 		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort)
-		eg.Go(func() error {
-			return readWriter.Start(ctx)
-		})
 		tr = readWriter
 		tw = readWriter
 	}
@@ -348,4 +346,47 @@ func (r *RuntimeType) Set(s string) error {
 
 func (r *RuntimeType) Type() string {
 	return "runtime-type"
+}
+
+// humanDuration prints human readable units that have non-zero values. The precision is the number of units to print.
+// For example, if the duration is 1 hour, 2 minutes, and 3 seconds, and the precision is 2, it will print "1h2m".
+func humanDuration(d time.Duration, precision int) string {
+	// Convert everything to nanoseconds for precise calculations
+	nanos := d.Nanoseconds()
+
+	// Calculate each unit from nanoseconds
+	hours := nanos / (time.Hour.Nanoseconds())
+	remainingAfterHours := nanos % (time.Hour.Nanoseconds())
+	minutes := remainingAfterHours / (time.Minute.Nanoseconds())
+	remainingAfterMinutes := remainingAfterHours % (time.Minute.Nanoseconds())
+	seconds := remainingAfterMinutes / (time.Second.Nanoseconds())
+	remainingAfterSeconds := remainingAfterMinutes % (time.Second.Nanoseconds())
+	milliseconds := remainingAfterSeconds / (time.Millisecond.Nanoseconds())
+	remainingAfterMillis := remainingAfterSeconds % (time.Millisecond.Nanoseconds())
+	microseconds := remainingAfterMillis / (time.Microsecond.Nanoseconds())
+	nanoseconds := remainingAfterMillis % (time.Microsecond.Nanoseconds())
+
+	// Build the duration string with only non-zero units
+	parts := []string{}
+	if hours > 0 && len(parts) < precision {
+		parts = append(parts, fmt.Sprintf("%dh", hours))
+	}
+	if minutes > 0 && len(parts) < precision {
+		parts = append(parts, fmt.Sprintf("%dm", minutes))
+	}
+	if seconds > 0 && len(parts) < precision {
+		parts = append(parts, fmt.Sprintf("%ds", seconds))
+	}
+	if milliseconds > 0 && len(parts) < precision {
+		parts = append(parts, fmt.Sprintf("%dms", milliseconds))
+	}
+	if microseconds > 0 && len(parts) < precision {
+		parts = append(parts, fmt.Sprintf("%dus", microseconds))
+	}
+	if nanoseconds > 0 && len(parts) < precision {
+		parts = append(parts, fmt.Sprintf("%dns", nanoseconds))
+	}
+
+	// Join all parts with spaces
+	return strings.Join(parts, "")
 }

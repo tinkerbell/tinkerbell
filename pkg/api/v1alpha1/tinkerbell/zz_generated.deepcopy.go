@@ -46,8 +46,12 @@ func (in *Action) DeepCopyInto(out *Action) {
 			(*out)[key] = val
 		}
 	}
-	if in.StartedAt != nil {
-		in, out := &in.StartedAt, &out.StartedAt
+	if in.ExecutionStart != nil {
+		in, out := &in.ExecutionStart, &out.ExecutionStart
+		*out = (*in).DeepCopy()
+	}
+	if in.ExecutionStop != nil {
+		in, out := &in.ExecutionStop, &out.ExecutionStop
 		*out = (*in).DeepCopy()
 	}
 }

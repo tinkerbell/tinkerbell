@@ -48,7 +48,7 @@ const (
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:JSONPath=".spec.templateRef",name=Template,type=string
 // +kubebuilder:printcolumn:JSONPath=".status.state",name=State,type=string
-// +kubebuilder:printcolumn:JSONPath=".status.currentAction",name=Current-Action,type=string
+// +kubebuilder:printcolumn:JSONPath=".status.currentState.actionName",name=Current-Action,type=string
 // +kubebuilder:printcolumn:JSONPath=".status.templateRending",name=Template-Rendering,type=string
 
 // Workflow is the Schema for the Workflows API.
@@ -132,9 +132,6 @@ type WorkflowStatus struct {
 	// State is the current overall state of the Workflow.
 	State WorkflowState `json:"state,omitempty"`
 
-	// CurrentAction is the action that is currently in the running state.
-	CurrentAction string `json:"currentAction,omitempty"`
-
 	// BootOptions holds the state of any boot options.
 	BootOptions BootOptionsStatus `json:"bootOptions,omitempty"`
 
@@ -206,18 +203,19 @@ type Task struct {
 
 // Action represents a workflow action.
 type Action struct {
-	ID              string            `json:"id"`
-	Name            string            `json:"name,omitempty"`
-	Image           string            `json:"image,omitempty"`
-	Timeout         int64             `json:"timeout,omitempty"`
-	Command         []string          `json:"command,omitempty"`
-	Volumes         []string          `json:"volumes,omitempty"`
-	Pid             string            `json:"pid,omitempty"`
-	Environment     map[string]string `json:"environment,omitempty"`
-	Status          WorkflowState     `json:"status,omitempty"`
-	StartedAt       *metav1.Time      `json:"startedAt,omitempty"`
-	DurationSeconds int64             `json:"durationSeconds,omitempty"`
-	Message         string            `json:"message,omitempty"`
+	ID                string            `json:"id"`
+	Name              string            `json:"name,omitempty"`
+	Image             string            `json:"image,omitempty"`
+	Timeout           int64             `json:"timeout,omitempty"`
+	Command           []string          `json:"command,omitempty"`
+	Volumes           []string          `json:"volumes,omitempty"`
+	Pid               string            `json:"pid,omitempty"`
+	Environment       map[string]string `json:"environment,omitempty"`
+	State             WorkflowState     `json:"state,omitempty"`
+	ExecutionStart    *metav1.Time      `json:"executionStart,omitempty"`
+	ExecutionStop     *metav1.Time      `json:"executionStop,omitempty"`
+	ExecutionDuration string            `json:"executionDuration,omitempty"`
+	Message           string            `json:"message,omitempty"`
 }
 
 // HasCondition checks if the cType condition is present with status cStatus on a bmj.
@@ -275,89 +273,4 @@ func (w *WorkflowStatus) SetConditionIfDifferent(wc WorkflowCondition) {
 	}
 
 	w.Conditions = append(w.Conditions, wc)
-}
-
-type taskInfo struct {
-	CurrentWorker        string
-	CurrentTask          string
-	CurrentTaskIndex     int
-	CurrentAction        string
-	CurrentActionIndex   int
-	CurrentActionState   WorkflowState
-	TotalNumberOfActions int
-}
-
-func GetCurrentWorker(w *Workflow) string {
-	return getTaskActionInfo(w).CurrentWorker
-}
-
-func GetCurrentTask(w *Workflow) string {
-	return getTaskActionInfo(w).CurrentTask
-}
-
-func GetCurrentTaskIndex(w *Workflow) int {
-	return getTaskActionInfo(w).CurrentTaskIndex
-}
-
-func GetCurrentAction(w *Workflow) string {
-	return getTaskActionInfo(w).CurrentAction
-}
-
-func GetCurrentActionIndex(w *Workflow) int {
-	return getTaskActionInfo(w).CurrentActionIndex
-}
-
-func GetCurrentActionState(w *Workflow) WorkflowState {
-	return getTaskActionInfo(w).CurrentActionState
-}
-
-func GetTotalNumberOfActions(w *Workflow) int {
-	return getTaskActionInfo(w).TotalNumberOfActions
-}
-
-// helper function for task info.
-func getTaskActionInfo(w *Workflow) taskInfo {
-	var (
-		found           bool
-		taskIndex       = -1
-		actionIndex     int
-		actionTaskIndex int
-		actionCount     int
-	)
-	for ti, task := range w.Status.Tasks {
-		actionCount += len(task.Actions)
-		if found {
-			continue
-		}
-	INNER:
-		for ai, action := range task.Actions {
-			// Find the first non-successful action
-			switch action.Status { //nolint:exhaustive // WorkflowStateWaiting is only used in Workflows not Actions.
-			case WorkflowStateSuccess:
-				actionIndex++
-				continue
-			case WorkflowStatePending, WorkflowStateRunning, WorkflowStateFailed, WorkflowStateTimeout:
-				taskIndex = ti
-				actionTaskIndex = ai
-				found = true
-				break INNER
-			}
-		}
-	}
-
-	ti := taskInfo{
-		TotalNumberOfActions: actionCount,
-		CurrentActionIndex:   actionIndex,
-	}
-	if taskIndex >= 0 {
-		ti.CurrentWorker = w.Status.Tasks[taskIndex].WorkerAddr
-		ti.CurrentTask = w.Status.Tasks[taskIndex].Name
-		ti.CurrentTaskIndex = taskIndex
-	}
-	if taskIndex >= 0 && actionIndex >= 0 {
-		ti.CurrentAction = w.Status.Tasks[taskIndex].Actions[actionTaskIndex].Name
-		ti.CurrentActionState = w.Status.Tasks[taskIndex].Actions[actionTaskIndex].Status
-	}
-
-	return ti
 }
