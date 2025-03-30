@@ -265,7 +265,7 @@ func (h *Handler) reportActionStatus(ctx context.Context, req *proto.ActionStatu
 				}
 				if err := h.BackendReadWriter.Write(ctx, wf); err != nil {
 					// log.Error(err, "failed to write action status")
-					return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error writing report status: %v", err))
+					return nil, status.Errorf(codes.Internal, "error writing report status: %v", err)
 				}
 				return &proto.ActionStatusResponse{}, nil
 			}

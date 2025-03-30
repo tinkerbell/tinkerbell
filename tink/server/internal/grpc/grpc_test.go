@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -285,7 +284,7 @@ func TestReportActionStatus(t *testing.T) {
 				},
 			},
 			writeErr:    errors.New("write error"),
-			expectedErr: status.Errorf(codes.InvalidArgument, fmt.Sprintf("%v: write error", errWritingToBackend)),
+			expectedErr: status.Errorf(codes.Internal, "error writing report status: write error"),
 		},
 	}
 
