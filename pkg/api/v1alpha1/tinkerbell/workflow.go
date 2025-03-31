@@ -17,13 +17,13 @@ type (
 )
 
 const (
-	WorkflowStatePreparing = WorkflowState("STATE_PREPARING")
-	WorkflowStatePending   = WorkflowState("STATE_PENDING")
-	WorkflowStateRunning   = WorkflowState("STATE_RUNNING")
-	WorkflowStatePost      = WorkflowState("STATE_POST")
-	WorkflowStateSuccess   = WorkflowState("STATE_SUCCESS")
-	WorkflowStateFailed    = WorkflowState("STATE_FAILED")
-	WorkflowStateTimeout   = WorkflowState("STATE_TIMEOUT")
+	WorkflowStatePreparing = WorkflowState("PREPARING")
+	WorkflowStatePending   = WorkflowState("PENDING")
+	WorkflowStateRunning   = WorkflowState("RUNNING")
+	WorkflowStatePost      = WorkflowState("POST")
+	WorkflowStateSuccess   = WorkflowState("SUCCESS")
+	WorkflowStateFailed    = WorkflowState("FAILED")
+	WorkflowStateTimeout   = WorkflowState("TIMEOUT")
 
 	BootJobFailed           WorkflowConditionType = "BootJobFailed"
 	BootJobComplete         WorkflowConditionType = "BootJobComplete"
