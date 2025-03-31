@@ -71,32 +71,32 @@ enum StateType {
    * Unspecified is the default state of a workflow. It means that the state of
    * the workflow is not known.
    */
-  STATE_UNSPECIFIED = 0;
+  UNSPECIFIED = 0;
   /*
    * A workflow is in pending state when it is waiting for the hardware to pick
    * it up and start the execution.
   */
-  STATE_PENDING = 1;
+  PENDING = 1;
   /*
    * A workflow is in a running state when the tink-worker started the
    * exeuction of it, and it is currently in execution inside the device
    * itself.
    */
-  STATE_RUNNING = 2;
+  RUNNING = 2;
   /*
    * Failed is a final state. Something wrong happened during the execution of
    * the workflow inside the target. Have a look at the logs to see if you can
    * spot what is going on.
    */
-  STATE_FAILED = 3;
+  FAILED = 3;
   /*
    * Timeout is final state, almost like FAILED but it communicate to you that
    * an action or the overall workflow reached the specified timeout.
    */
-  STATE_TIMEOUT = 4;
+  TIMEOUT = 4;
   /*
    * This is the state we all deserve. The execution of the workflow is over
    * and everything is just fine. Sit down, and enjoy your great work.
    */
-  STATE_SUCCESS = 5;
+  SUCCESS = 5;
 }

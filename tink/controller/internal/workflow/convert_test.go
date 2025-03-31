@@ -75,7 +75,7 @@ func TestYAMLToStatus(t *testing.T) {
 									"DEST_DISK":  "/dev/nvme0n1",
 									"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 								},
-								State: "STATE_PENDING",
+								State: v1alpha1.WorkflowStatePending,
 							},
 						},
 					},
