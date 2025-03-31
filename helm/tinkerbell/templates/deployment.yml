@@ -132,7 +132,7 @@ spec:
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_BIND_PORT
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindPort | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS
-              value: tink_worker_image=ghcr.io/tinkerbell/tink-agent:latest
+              value: {{ join " " ( append .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs ( printf "tink_worker_image=%s" .Values.deployment.agentImage ) ) | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TRUSTED_PROXIES
               value: {{ ( join "," $trustedProxies ) | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRIES

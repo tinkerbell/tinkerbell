@@ -14,6 +14,7 @@ deployment:
     enabled: false
   image: ghcr.io/tinkerbell/tinkerbell:latest
   imagePullPolicy: IfNotPresent
+  agentImage: ghcr.io/tinkerbell/tink-agent:latest
   replicas: 1
   args: []
   additionalEnvs: []
@@ -66,7 +67,8 @@ deployment:
       ipxeHttpScriptEnabled: true
       ipxeHttpScriptBindAddr: ""
       ipxeHttpScriptBindPort: 7171
-      ipxeHttpScriptExtraKernelArgs: ""
+      # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
+      ipxeHttpScriptExtraKernelArgs: []
       #ipxeHttpScriptTrustedProxies: ""
       ipxeHttpScriptRetries: 1
       ipxeHttpScriptRetryDelay: 1
