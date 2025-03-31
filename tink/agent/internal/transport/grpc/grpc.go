@@ -52,7 +52,6 @@ func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 	if err != nil {
 		return spec.Action{}, fmt.Errorf("error getting action: %w", err)
 	}
-	// log.Info("connected to server, ready to stream actions")
 
 	as := spec.Action{
 		TaskID:         response.GetTaskId(),
