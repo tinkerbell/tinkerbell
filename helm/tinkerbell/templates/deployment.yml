@@ -2,15 +2,22 @@
 {{- $trustedProxies := .Values.trustedProxies }}
 {{- $sourceInterface := .Values.deployment.init.sourceInterface }}
 {{- $dhcpInterfaceType := .Values.deployment.init.interfaceMode }}
+{{- if .Values.deployment.daemonSet.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+{{- else }}
 apiVersion: apps/v1
 kind: Deployment
+{{- end }}
 metadata:
   labels:
     app: {{ .Values.name }}
   name: {{ .Values.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
+  {{- if not .Values.deployment.daemonSet.enabled }}
   replicas: {{ .Values.deployment.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ .Values.name }}
@@ -18,8 +25,10 @@ spec:
       {{- with .Values.deployment.selector }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
+  {{- if not .Values.deployment.daemonSet.enabled }}
   strategy:
     type: {{ .Values.deployment.strategy.type }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -29,6 +38,8 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      nodeSelector:
+        {{- toYaml .Values.deployment.nodeSelector | nindent 8 }}
       {{- if .Values.deployment.init.enabled }}
       hostPID: true
       {{- end }}
