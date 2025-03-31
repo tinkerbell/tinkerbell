@@ -58,7 +58,7 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 		}
 	}
 	// We retry multiple times as we read-write to the Workflow Status and there can be caching and eventually consistent issues
-	// that would cause the write to fail and a retry to get the latest Workflow resolves these types of issues.
+	// that would cause the write to fail. A retry to get the latest Workflow resolves these types of issues.
 	resp, err := backoff.Retry(ctx, operation, h.RetryOptions...)
 	if err != nil {
 		return nil, err
@@ -76,23 +76,19 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 
 	log := h.Logger.WithValues("worker", req.GetWorkerId())
 	if req.GetWorkerId() == "" {
-		// log.Info("invalid worker id")
 		return nil, status.Errorf(codes.InvalidArgument, "invalid worker id:")
 	}
 
 	wflows, err := h.BackendReadWriter.ReadAll(ctx, req.GetWorkerId())
 	if err != nil {
 		// TODO: This is where we handle auto capabilities
-		// log.Info("error getting workflows", "error", err)
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
 	if len(wflows) == 0 {
-		// log.Info("no workflows found", "worker", req.GetWorkerId())
 		return nil, status.Error(codes.NotFound, "no workflows found")
 	}
 	wf := wflows[0]
 	if len(wf.Status.Tasks) == 0 {
-		// log.Info("no tasks found", "workflow", wf.Name)
 		return nil, status.Error(codes.NotFound, "no tasks found")
 	}
 	// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
@@ -101,32 +97,27 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 		return nil, status.Error(codes.FailedPrecondition, "workflow is in preparing state")
 	}
 	if wf.Status.State != v1alpha1.WorkflowStatePending && wf.Status.State != v1alpha1.WorkflowStateRunning {
-		// log.Info("workflow not in pending or running state", "workflowState", wf.Status.State)
 		return nil, status.Error(codes.FailedPrecondition, "workflow not in pending or running state")
 	}
 	// only support workflows with a single task for now
 	task := wf.Status.Tasks[0]
 	if len(task.Actions) == 0 {
-		// log.Info("no actions found", "workflow", wf.Name)
 		return nil, status.Error(codes.NotFound, "no actions found")
 	}
 	if task.WorkerAddr != req.GetWorkerId() {
-		// log.Info("task not assigned to worker", "taskWorkerAddr", task.WorkerAddr)
 		return nil, status.Error(codes.NotFound, "task not assigned to worker")
 	}
 	var action *v1alpha1.Action
 	// This is the first action handler
 	if wf.Status.CurrentState == nil {
 		if task.Actions[0].State != v1alpha1.WorkflowStatePending {
-			// log.Info("current action not in pending state", "actionStatus", task.Actions[0].Status)
-			return nil, status.Error(codes.NotFound, "first action not in pending state")
+			return nil, status.Error(codes.FailedPrecondition, "first action not in pending state")
 		}
 		action = &task.Actions[0]
 	} else {
 		// This handles Actions after the first one
 		// Get the current Action. If it is not in a success state, return error.
 		if wf.Status.CurrentState.State != v1alpha1.WorkflowStateSuccess {
-			// log.Info("current action not in success state", "actionStatus", wf.Status.CurrentState.State)
 			return nil, status.Error(codes.FailedPrecondition, "current action not in success state")
 		}
 		// Get the next Action after the one defined in the current state.
@@ -134,7 +125,6 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 			if act.ID == wf.Status.CurrentState.ActionID {
 				// if the action is the last one in the task, return error
 				if idx == len(task.Actions)-1 {
-					// log.Info("last action in task", "actionID", action.ID)
 					return nil, status.Error(codes.NotFound, "last action in task")
 				}
 				action = &task.Actions[idx+1]
@@ -142,7 +132,6 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 			}
 		}
 		if action == nil {
-			// log.Info("no action found", "currentActionID", wf.Status.CurrentState.ActionID)
 			return nil, status.Error(codes.NotFound, "no action found")
 		}
 	}
@@ -158,7 +147,6 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	}
 
 	if err := h.BackendReadWriter.Write(ctx, &wf); err != nil {
-		// log.Error(err, "failed to write current state")
 		return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error writing current state: %v", err))
 	}
 
@@ -212,26 +200,20 @@ func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatu
 }
 
 func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
-	log := h.Logger.WithValues("worker", req.GetWorkerId())
-	// log.Info("reporting action status", "actionStatusRequest", req.String())
 	// 1. Validate the request
 	if req.GetWorkflowId() == "" {
-		//	log.Info("invalid workflow id")
 		return nil, status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
 	}
 	if req.GetTaskId() == "" {
-		log.Info("invalid task name")
 		return nil, status.Errorf(codes.InvalidArgument, errInvalidTaskName)
 	}
 	if req.GetActionId() == "" {
-		log.Info("invalid action name")
 		return nil, status.Errorf(codes.InvalidArgument, errInvalidActionName)
 	}
 	// 2. Get the workflow
 	namespace, name, _ := strings.Cut(req.GetWorkflowId(), "/")
 	wf, err := h.BackendReadWriter.Read(ctx, name, namespace)
 	if err != nil {
-		log.Error(err, "get workflow")
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow: %v", err))
 	}
 	// 3. Find the Action in the workflow from the request
@@ -246,14 +228,11 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 				wf.Status.Tasks[ti].Actions[ai].Message = req.GetMessage().GetMessage()
 
 				// 4. Write the updated workflow
-				// log.Info("updating workflow in Kubernetes", "workflow", wf)
-
 				if req.GetActionState() != proto.StateType_STATE_SUCCESS {
 					wf.Status.State = wf.Status.Tasks[ti].Actions[ai].State
 				}
 				if len(wf.Status.Tasks) == ti+1 && len(task.Actions) == ai+1 && req.GetActionState() == proto.StateType_STATE_SUCCESS {
 					// This is the last action in the last task
-					log.Info("debugging", "currentState", wf.Status.CurrentState, "globalState", wf.Status.State)
 					wf.Status.State = v1alpha1.WorkflowStatePost
 				}
 
@@ -266,12 +245,10 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 					ActionName: req.GetActionName(),
 				}
 				if err := h.BackendReadWriter.Write(ctx, wf); err != nil {
-					// log.Error(err, "failed to write action status")
 					return nil, status.Errorf(codes.Internal, "error writing report status: %v", err)
 				}
 				return &proto.ActionStatusResponse{}, nil
 			}
-			// log.Info("action doesnt match", "gotActionID", req.GetActionId(), "wantActionID", action.ID)
 		}
 	}
 
