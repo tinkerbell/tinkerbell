@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
@@ -17,11 +19,15 @@ import (
 )
 
 const (
-	errInvalidWorkflowID     = "invalid workflow id"
-	errInvalidTaskName       = "invalid task name"
-	errInvalidActionName     = "invalid action name"
-	errInvalidTaskReported   = "reported task name does not match the current action details"
-	errInvalidActionReported = "reported action name does not match the current action details"
+	errInvalidWorkflowID = "invalid workflow id"
+	errInvalidTaskName   = "invalid task name"
+	errInvalidActionName = "invalid action name"
+	errWritingToBackend  = "error writing to backend"
+)
+
+var (
+	ErrBackendRead  = errors.New("error reading from backend")
+	ErrBackendWrite = errors.New("error writing to backend")
 )
 
 type BackendReadWriter interface {
@@ -35,247 +41,220 @@ type Handler struct {
 	Logger            logr.Logger
 	BackendReadWriter BackendReadWriter
 	NowFunc           func() time.Time
+	AutoCapabilities  bool
+	RetryOptions      []backoff.RetryOption
 
 	proto.UnimplementedWorkflowServiceServer
 }
 
-func getWorkflowContext(wf v1alpha1.Workflow) *proto.WorkflowContext {
-	return &proto.WorkflowContext{
-		WorkflowId:           wf.Namespace + "/" + wf.Name,
-		CurrentWorker:        v1alpha1.GetCurrentWorker(&wf),
-		CurrentTask:          v1alpha1.GetCurrentTask(&wf),
-		CurrentAction:        v1alpha1.GetCurrentAction(&wf),
-		CurrentActionIndex:   int64(v1alpha1.GetCurrentActionIndex(&wf)),
-		CurrentActionState:   proto.State(proto.State_value[string(v1alpha1.GetCurrentActionState(&wf))]),
-		TotalNumberOfActions: int64(v1alpha1.GetTotalNumberOfActions(&wf)),
+func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
+	operation := func() (*proto.ActionResponse, error) {
+		return h.doGetAction(ctx, req)
 	}
-}
-
-func (s *Handler) getCurrentAssignedNonTerminalWorkflowsForWorker(ctx context.Context, workerID string) ([]v1alpha1.Workflow, error) {
-	stored, err := s.BackendReadWriter.ReadAll(ctx, workerID)
-	if err != nil {
-		return nil, err
-	}
-
-	wfs := []v1alpha1.Workflow{}
-	for _, wf := range stored {
-		// If the current assigned or running action is assigned to the requested worker, include it
-		if wf.Status.Tasks[v1alpha1.GetCurrentTaskIndex(&wf)].WorkerAddr == workerID {
-			wfs = append(wfs, wf)
+	if len(h.RetryOptions) == 0 {
+		h.RetryOptions = []backoff.RetryOption{
+			backoff.WithMaxElapsedTime(time.Minute * 5),
+			backoff.WithBackOff(backoff.NewExponentialBackOff()),
 		}
 	}
-	return wfs, nil
-}
-
-func (s *Handler) getWorkflowByName(ctx context.Context, workflowID string) (*v1alpha1.Workflow, error) {
-	workflowNamespace, workflowName, _ := strings.Cut(workflowID, "/")
-	wflw, err := s.BackendReadWriter.Read(ctx, workflowName, workflowNamespace)
+	// We retry multiple times as we read-write to the Workflow Status and there can be caching and eventually consistent issues
+	// that would cause the write to fail. A retry to get the latest Workflow resolves these types of issues.
+	resp, err := backoff.Retry(ctx, operation, h.RetryOptions...)
 	if err != nil {
-		s.Logger.Error(err, "get client", "workflow", workflowID)
 		return nil, err
 	}
-	return wflw, nil
+
+	return resp, nil
 }
 
-// The following APIs are used by the worker.
+func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
+	select {
+	case <-ctx.Done():
+		return nil, status.Error(codes.Unavailable, "server shutting down")
+	default:
+	}
 
-func (s *Handler) GetWorkflowContexts(req *proto.WorkflowContextRequest, stream proto.WorkflowService_GetWorkflowContextsServer) error {
-	// if spec.Netboot is true, and allowPXE: false in the hardware then don't serve a workflow context
-	// if spec.ToggleHardwareNetworkBooting is true, and any associated bmc jobs dont exists or have not completed successfully then don't serve a workflow context
+	log := h.Logger.WithValues("worker", req.GetWorkerId())
 	if req.GetWorkerId() == "" {
-		return status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid worker id:")
 	}
-	wflows, err := s.getCurrentAssignedNonTerminalWorkflowsForWorker(stream.Context(), req.WorkerId)
+
+	wflows, err := h.BackendReadWriter.ReadAll(ctx, req.GetWorkerId())
 	if err != nil {
-		return err
+		// TODO: This is where we handle auto capabilities
+		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
-	for _, wf := range wflows {
-		// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
-		// This is to prevent the worker from starting Actions before Workflow boot options are performed.
-		if wf.Spec.BootOptions.BootMode != "" && wf.Status.State == v1alpha1.WorkflowStatePreparing {
-			continue
+	if len(wflows) == 0 {
+		return nil, status.Error(codes.NotFound, "no workflows found")
+	}
+	wf := wflows[0]
+	if len(wf.Status.Tasks) == 0 {
+		return nil, status.Error(codes.NotFound, "no tasks found")
+	}
+	// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
+	// This is to prevent the worker from starting Actions before Workflow boot options are performed.
+	if wf.Spec.BootOptions.BootMode != "" && wf.Status.State == v1alpha1.WorkflowStatePreparing {
+		return nil, status.Error(codes.FailedPrecondition, "workflow is in preparing state")
+	}
+	if wf.Status.State != v1alpha1.WorkflowStatePending && wf.Status.State != v1alpha1.WorkflowStateRunning {
+		return nil, status.Error(codes.FailedPrecondition, "workflow not in pending or running state")
+	}
+	// only support workflows with a single task for now
+	task := wf.Status.Tasks[0]
+	if len(task.Actions) == 0 {
+		return nil, status.Error(codes.NotFound, "no actions found")
+	}
+	if task.WorkerAddr != req.GetWorkerId() {
+		return nil, status.Error(codes.NotFound, "task not assigned to worker")
+	}
+	var action *v1alpha1.Action
+	// This is the first action handler
+	if wf.Status.CurrentState == nil {
+		if task.Actions[0].State != v1alpha1.WorkflowStatePending {
+			return nil, status.Error(codes.FailedPrecondition, "first action not in pending state")
 		}
-		if err := stream.Send(getWorkflowContext(wf)); err != nil {
-			return err
+		action = &task.Actions[0]
+	} else {
+		// This handles Actions after the first one
+		// Get the current Action. If it is not in a success state, return error.
+		if wf.Status.CurrentState.State != v1alpha1.WorkflowStateSuccess {
+			return nil, status.Error(codes.FailedPrecondition, "current action not in success state")
 		}
-	}
-	return nil
-}
-
-func (s *Handler) GetWorkflowActions(ctx context.Context, req *proto.WorkflowActionsRequest) (*proto.WorkflowActionList, error) {
-	wfID := req.GetWorkflowId()
-	if wfID == "" {
-		return nil, status.Errorf(codes.NotFound, errInvalidWorkflowID)
-	}
-	wf, err := s.getWorkflowByName(ctx, wfID)
-	if err != nil {
-		return nil, err
-	}
-	return ActionListCRDToProto(wf), nil
-}
-
-func ActionListCRDToProto(wf *v1alpha1.Workflow) *proto.WorkflowActionList {
-	if wf == nil {
-		return nil
-	}
-	resp := &proto.WorkflowActionList{
-		ActionList: []*proto.WorkflowAction{},
-	}
-	for _, task := range wf.Status.Tasks {
-		for _, action := range task.Actions {
-			resp.ActionList = append(resp.ActionList, &proto.WorkflowAction{
-				TaskName: task.Name,
-				Name:     action.Name,
-				Image:    action.Image,
-				Timeout:  action.Timeout,
-				Command:  action.Command,
-				WorkerId: task.WorkerAddr,
-				Volumes:  append(task.Volumes, action.Volumes...),
-				// TODO: (micahhausler) Dedupe task volume targets overridden in the action volumes?
-				//   Also not sure how Docker handles nested mounts (ex: "/foo:/foo" and "/bar:/foo/bar")
-				Environment: func(env map[string]string) []string {
-					resp := []string{}
-					merged := map[string]string{}
-					for k, v := range env {
-						merged[k] = v
-					}
-					for k, v := range action.Environment {
-						merged[k] = v
-					}
-					for k, v := range merged {
-						resp = append(resp, fmt.Sprintf("%s=%s", k, v))
-					}
-					sort.Strings(resp)
-					return resp
-				}(task.Environment),
-				Pid: action.Pid,
-			})
-		}
-	}
-	return resp
-}
-
-// Modifies a workflow for a given workflowContext.
-func (s *Handler) modifyWorkflowState(wf *v1alpha1.Workflow, wfContext *proto.WorkflowContext) error {
-	if wf == nil {
-		return errors.New("no workflow provided")
-	}
-	if wfContext == nil {
-		return errors.New("no workflow context provided")
-	}
-	var (
-		taskIndex   = -1
-		actionIndex = -1
-	)
-
-	seenActions := 0
-	for ti, task := range wf.Status.Tasks {
-		if wfContext.CurrentTask == task.Name {
-			taskIndex = ti
-			for ai, action := range task.Actions {
-				if action.Name == wfContext.CurrentAction && (wfContext.CurrentActionIndex == int64(ai) || wfContext.CurrentActionIndex == int64(seenActions)) {
-					actionIndex = ai
-					goto cont
+		// Get the next Action after the one defined in the current state.
+		for idx, act := range task.Actions {
+			if act.ID == wf.Status.CurrentState.ActionID {
+				// if the action is the last one in the task, return error
+				if idx == len(task.Actions)-1 {
+					return nil, status.Error(codes.NotFound, "last action in task")
 				}
-				seenActions++
+				action = &task.Actions[idx+1]
+				break
 			}
 		}
-		seenActions += len(task.Actions)
+		if action == nil {
+			return nil, status.Error(codes.NotFound, "no action found")
+		}
 	}
-cont:
 
-	if taskIndex < 0 {
-		return errors.New("task not found")
+	// update the current state
+	// populate the current state and then send the action to the client.
+	wf.Status.CurrentState = &v1alpha1.CurrentState{
+		WorkerID:   req.GetWorkerId(),
+		TaskID:     task.ID,
+		ActionID:   action.ID,
+		State:      action.State,
+		ActionName: action.Name,
 	}
-	if actionIndex < 0 {
-		return errors.New("action not found")
-	}
-	wf.Status.Tasks[taskIndex].Actions[actionIndex].Status = v1alpha1.WorkflowState(proto.State_name[int32(wfContext.CurrentActionState)])
 
-	switch wfContext.CurrentActionState {
-	case proto.State_STATE_RUNNING:
-		// Workflow is running, so set the start time to now
-		wf.Status.State = v1alpha1.WorkflowState(proto.State_name[int32(wfContext.CurrentActionState)])
-		wf.Status.Tasks[taskIndex].Actions[actionIndex].StartedAt = func() *metav1.Time {
-			t := metav1.NewTime(s.NowFunc())
-			return &t
-		}()
-	case proto.State_STATE_FAILED, proto.State_STATE_TIMEOUT:
-		// Handle terminal statuses by updating the workflow state and time
-		wf.Status.State = v1alpha1.WorkflowState(proto.State_name[int32(wfContext.CurrentActionState)])
-		if wf.Status.Tasks[taskIndex].Actions[actionIndex].StartedAt != nil {
-			wf.Status.Tasks[taskIndex].Actions[actionIndex].Seconds = int64(s.NowFunc().Sub(wf.Status.Tasks[taskIndex].Actions[actionIndex].StartedAt.Time).Seconds())
-		}
-	case proto.State_STATE_SUCCESS:
-		// Handle a success by marking the task as complete
-		if wf.Status.Tasks[taskIndex].Actions[actionIndex].StartedAt != nil {
-			wf.Status.Tasks[taskIndex].Actions[actionIndex].Seconds = int64(s.NowFunc().Sub(wf.Status.Tasks[taskIndex].Actions[actionIndex].StartedAt.Time).Seconds())
-		}
-		// Mark success on last action success
-		if wfContext.CurrentActionIndex+1 == wfContext.TotalNumberOfActions {
-			// Set the state to POST instead of Success to allow any post tasks to run.
-			wf.Status.State = v1alpha1.WorkflowStatePost
-		}
-	case proto.State_STATE_PENDING:
-		// This is probably a client bug?
-		return errors.New("no update requested")
+	if err := h.BackendReadWriter.Write(ctx, &wf); err != nil {
+		return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error writing current state: %v", err))
 	}
-	return nil
+
+	ar := &proto.ActionResponse{
+		WorkflowId: toPtr(wf.Namespace + "/" + wf.Name),
+		TaskId:     toPtr(task.ID),
+		WorkerId:   toPtr(req.GetWorkerId()),
+		ActionId:   toPtr(action.ID),
+		Name:       toPtr(action.Name),
+		Image:      toPtr(action.Image),
+		Timeout:    toPtr(action.Timeout),
+		Command:    action.Command,
+		Volumes:    append(task.Volumes, action.Volumes...),
+		Environment: func() []string {
+			// add task environment variables to the action environment variables.
+			joined := map[string]string{}
+			maps.Copy(joined, task.Environment)
+			maps.Copy(joined, action.Environment)
+			resp := []string{}
+			for k, v := range joined {
+				resp = append(resp, fmt.Sprintf("%s=%s", k, v))
+			}
+			sort.Strings(resp)
+			return resp
+		}(),
+		Pid: toPtr(action.Pid),
+	}
+
+	log.Info("sending action", "action", ar, "actionID", action.ID)
+	return ar, nil
 }
 
-func validateActionStatusRequest(req *proto.WorkflowActionStatus) error {
-	if req.GetWorkflowId() == "" {
-		return status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
+func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
+	operation := func() (*proto.ActionStatusResponse, error) {
+		return h.doReportActionStatus(ctx, req)
 	}
-	if req.GetTaskName() == "" {
-		return status.Errorf(codes.InvalidArgument, errInvalidTaskName)
+	if len(h.RetryOptions) == 0 {
+		h.RetryOptions = []backoff.RetryOption{
+			backoff.WithMaxElapsedTime(time.Minute * 5),
+			backoff.WithBackOff(backoff.NewExponentialBackOff()),
+		}
 	}
-	if req.GetActionName() == "" {
-		return status.Errorf(codes.InvalidArgument, errInvalidActionName)
-	}
-	return nil
-}
-
-func getWorkflowContextForRequest(req *proto.WorkflowActionStatus, wf *v1alpha1.Workflow) *proto.WorkflowContext {
-	wfContext := getWorkflowContext(*wf)
-	wfContext.CurrentWorker = req.GetWorkerId()
-	wfContext.CurrentTask = req.GetTaskName()
-	wfContext.CurrentActionState = req.GetActionStatus()
-	wfContext.CurrentActionIndex = int64(v1alpha1.GetCurrentActionIndex(wf))
-	return wfContext
-}
-
-func (s *Handler) ReportActionStatus(ctx context.Context, req *proto.WorkflowActionStatus) (*proto.Empty, error) {
-	err := validateActionStatusRequest(req)
+	// We retry multiple times as we read-write to the Workflow Status and there can be caching and eventually consistent issues
+	// that would cause the write to fail and a retry to get the latest Workflow resolves these types of issues.
+	resp, err := backoff.Retry(ctx, operation, h.RetryOptions...)
 	if err != nil {
 		return nil, err
 	}
-	wfID := req.GetWorkflowId()
-	l := s.Logger.WithValues("actionName", req.GetActionName(), "status", req.GetActionStatus(), "workflowID", req.GetWorkflowId(), "taskName", req.GetTaskName(), "worker", req.WorkerId)
 
-	wf, err := s.getWorkflowByName(ctx, wfID)
+	return resp, nil
+}
+
+func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
+	// 1. Validate the request
+	if req.GetWorkflowId() == "" {
+		return nil, status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
+	}
+	if req.GetTaskId() == "" {
+		return nil, status.Errorf(codes.InvalidArgument, errInvalidTaskName)
+	}
+	if req.GetActionId() == "" {
+		return nil, status.Errorf(codes.InvalidArgument, errInvalidActionName)
+	}
+	// 2. Get the workflow
+	namespace, name, _ := strings.Cut(req.GetWorkflowId(), "/")
+	wf, err := h.BackendReadWriter.Read(ctx, name, namespace)
 	if err != nil {
-		l.Error(err, "get workflow")
-		return nil, status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
+		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow: %v", err))
 	}
-	if req.GetTaskName() != v1alpha1.GetCurrentTask(wf) {
-		return nil, status.Errorf(codes.InvalidArgument, errInvalidTaskReported)
-	}
-	if req.GetActionName() != v1alpha1.GetCurrentAction(wf) {
-		return nil, status.Errorf(codes.InvalidArgument, errInvalidActionReported)
+	// 3. Find the Action in the workflow from the request
+	for ti, task := range wf.Status.Tasks {
+		for ai, action := range task.Actions {
+			// action IDs match or this is the first action in a task
+			if action.ID == req.GetActionId() && task.WorkerAddr == req.GetWorkerId() {
+				wf.Status.Tasks[ti].Actions[ai].State = v1alpha1.WorkflowState(req.GetActionState().String())
+				wf.Status.Tasks[ti].Actions[ai].ExecutionStart = &metav1.Time{Time: req.GetExecutionStart().AsTime()}
+				wf.Status.Tasks[ti].Actions[ai].ExecutionStop = &metav1.Time{Time: req.GetExecutionStop().AsTime()}
+				wf.Status.Tasks[ti].Actions[ai].ExecutionDuration = req.GetExecutionDuration()
+				wf.Status.Tasks[ti].Actions[ai].Message = req.GetMessage().GetMessage()
+
+				// 4. Write the updated workflow
+				if req.GetActionState() != proto.StateType_STATE_SUCCESS {
+					wf.Status.State = wf.Status.Tasks[ti].Actions[ai].State
+				}
+				if len(wf.Status.Tasks) == ti+1 && len(task.Actions) == ai+1 && req.GetActionState() == proto.StateType_STATE_SUCCESS {
+					// This is the last action in the last task
+					wf.Status.State = v1alpha1.WorkflowStatePost
+				}
+
+				// update the status current state
+				wf.Status.CurrentState = &v1alpha1.CurrentState{
+					WorkerID:   req.GetWorkerId(),
+					TaskID:     req.GetTaskId(),
+					ActionID:   req.GetActionId(),
+					State:      wf.Status.Tasks[ti].Actions[ai].State,
+					ActionName: req.GetActionName(),
+				}
+				if err := h.BackendReadWriter.Write(ctx, wf); err != nil {
+					return nil, status.Errorf(codes.Internal, "error writing report status: %v", err)
+				}
+				return &proto.ActionStatusResponse{}, nil
+			}
+		}
 	}
 
-	wfContext := getWorkflowContextForRequest(req, wf)
-	err = s.modifyWorkflowState(wf, wfContext)
-	if err != nil {
-		l.Error(err, "modify workflow state")
-		return nil, status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
-	}
-	l.Info("updating workflow in Kubernetes")
-	if err := s.BackendReadWriter.Write(ctx, wf); err != nil {
-		l.Error(err, "writing workflow")
-		return nil, status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
-	}
+	return &proto.ActionStatusResponse{}, status.Error(codes.NotFound, "action not found")
+}
 
-	return &proto.Empty{}, nil
+func toPtr[T any](v T) *T {
+	return &v
 }

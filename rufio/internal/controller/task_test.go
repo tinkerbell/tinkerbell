@@ -48,31 +48,26 @@ func TestTaskReconcile(t *testing.T) {
 			action:   getAction("PowerOn"),
 			provider: &testProvider{Powerstate: "on", PowerSetOK: true},
 		},
-
 		"success hard off": {
 			taskName: "HardOff",
 			action:   getAction("HardOff"),
 			provider: &testProvider{Powerstate: "off", PowerSetOK: true},
 		},
-
 		"success soft off": {
 			taskName: "SoftOff",
 			action:   getAction("SoftOff"),
 			provider: &testProvider{Powerstate: "off", PowerSetOK: true},
 		},
-
 		"success boot pxe": {
 			taskName: "BootPXE",
 			action:   getAction("BootPXE"),
 			provider: &testProvider{BootdeviceOK: true},
 		},
-
 		"success virtual media": {
 			taskName: "VirtualMedia",
 			action:   getAction("VirtualMedia"),
 			provider: &testProvider{VirtualMediaOK: true},
 		},
-
 		"success power on with rpc provider": {
 			taskName: "PowerOn",
 			action:   getAction("PowerOn"),
@@ -80,41 +75,40 @@ func TestTaskReconcile(t *testing.T) {
 			secret:   createHMACSecret(),
 			task:     createTaskWithRPC("PowerOn", getAction("PowerOn"), createHMACSecret()),
 		},
-
+		"success power on with RPC provider w/o secrets": {
+			taskName: "PowerOn",
+			action:   getAction("PowerOn"),
+			provider: &testProvider{Powerstate: "on", PowerSetOK: true, Proto: "rpc"},
+		},
 		"failure on bmc open": {
 			taskName: "PowerOn", action: getAction("PowerOn"),
 			provider:  &testProvider{ErrOpen: errors.New("failed to open")},
 			shouldErr: true,
 		},
-
 		"failure on bmc power on": {
 			taskName:  "PowerOn",
 			action:    getAction("PowerOn"),
 			provider:  &testProvider{ErrPowerStateSet: errors.New("failed to set power state")},
 			shouldErr: true,
 		},
-
 		"failure on set boot device": {
 			taskName:  "BootPXE",
 			action:    getAction("BootPXE"),
 			provider:  &testProvider{ErrBootDeviceSet: errors.New("failed to set boot device")},
 			shouldErr: true,
 		},
-
 		"failure on virtual media": {
 			taskName:  "VirtualMedia",
 			action:    getAction("VirtualMedia"),
 			provider:  &testProvider{ErrVirtualMediaInsert: errors.New("failed to set virtual media")},
 			shouldErr: true,
 		},
-
 		"failure timeout": {
 			taskName:   "PowerOn",
 			action:     getAction("PowerOn"),
 			provider:   &testProvider{Powerstate: "off", PowerSetOK: true},
 			timeoutErr: true,
 		},
-
 		"fail to find secret": {
 			taskName:  "PowerOn",
 			action:    getAction("PowerOn"),
@@ -259,7 +253,7 @@ func createTask(name string, action bmc.Action, secret *corev1.Secret) *bmc.Task
 }
 
 func createTaskWithRPC(name string, action bmc.Action, secret *corev1.Secret) *bmc.Task {
-	return &bmc.Task{
+	task := &bmc.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
@@ -269,26 +263,32 @@ func createTaskWithRPC(name string, action bmc.Action, secret *corev1.Secret) *b
 			Connection: bmc.Connection{
 				Host: "host",
 				Port: 22,
-				AuthSecretRef: corev1.SecretReference{
-					Name:      secret.Name,
-					Namespace: secret.Namespace,
-				},
 				ProviderOptions: &bmc.ProviderOptions{
 					RPC: &bmc.RPCOptions{
 						ConsumerURL: "http://127.0.0.1:7777",
-						HMAC: &bmc.HMACOpts{
-							Secrets: bmc.HMACSecrets{
-								"sha256": []corev1.SecretReference{
-									{
-										Name:      secret.Name,
-										Namespace: secret.Namespace,
-									},
-								},
-							},
-						},
 					},
 				},
 			},
 		},
 	}
+
+	if secret != nil {
+		task.Spec.Connection.AuthSecretRef = corev1.SecretReference{
+			Name:      secret.Name,
+			Namespace: secret.Namespace,
+		}
+
+		task.Spec.Connection.ProviderOptions.RPC.HMAC = &bmc.HMACOpts{
+			Secrets: bmc.HMACSecrets{
+				"sha256": []corev1.SecretReference{
+					{
+						Name:      secret.Name,
+						Namespace: secret.Namespace,
+					},
+				},
+			},
+		}
+	}
+
+	return task
 }

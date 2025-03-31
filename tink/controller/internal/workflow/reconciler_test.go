@@ -349,7 +349,7 @@ func TestReconcile(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: v1alpha1.WorkflowStatePending,
+									State: v1alpha1.WorkflowStatePending,
 								},
 							},
 						},
@@ -475,7 +475,7 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: v1alpha1.WorkflowStatePending,
+									State: v1alpha1.WorkflowStatePending,
 								},
 							},
 						},
@@ -619,8 +619,8 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status:    v1alpha1.WorkflowStateRunning,
-									StartedAt: TestTime.MetaV1BeforeSec(601),
+									State:          v1alpha1.WorkflowStateRunning,
+									ExecutionStart: TestTime.MetaV1BeforeSec(601),
 								},
 							},
 						},
@@ -685,7 +685,6 @@ tasks:
 				},
 				Status: v1alpha1.WorkflowStatus{
 					State:         v1alpha1.WorkflowStateTimeout,
-					CurrentAction: "stream-debian-image",
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
@@ -706,10 +705,9 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status:    v1alpha1.WorkflowStateTimeout,
-									StartedAt: TestTime.MetaV1BeforeSec(601),
-									Seconds:   601,
-									Message:   "Action timed out",
+									State:          v1alpha1.WorkflowStateRunning,
+									ExecutionStart: TestTime.MetaV1BeforeSec(601),
+									Message:        "",
 								},
 							},
 						},
@@ -798,7 +796,7 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: v1alpha1.WorkflowStatePending,
+									State: v1alpha1.WorkflowStatePending,
 								},
 							},
 						},
@@ -931,7 +929,7 @@ tasks:
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: v1alpha1.WorkflowStatePending,
+									State: v1alpha1.WorkflowStatePending,
 								},
 								{
 									Name:    "action to test templating",
@@ -942,7 +940,7 @@ tasks:
 										"VENDOR_DATA": "vendor-data",
 										"METADATA":    "active",
 									},
-									Status: v1alpha1.WorkflowStatePending,
+									State: v1alpha1.WorkflowStatePending,
 								},
 							},
 						},
@@ -998,7 +996,7 @@ tasks:
 				return
 			}
 
-			if diff := cmp.Diff(tc.wantWflow, wflow, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time")); diff != "" {
+			if diff := cmp.Diff(tc.wantWflow, wflow, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time"), cmpopts.IgnoreFields(v1alpha1.Task{}, "ID"), cmpopts.IgnoreFields(v1alpha1.Action{}, "ID")); diff != "" {
 				t.Errorf("unexpected difference:\n%v", diff)
 			}
 		})
@@ -1050,9 +1048,9 @@ func TestGetStartTime(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: v1alpha1.WorkflowStateSuccess,
+									State: v1alpha1.WorkflowStateSuccess,
 
-									Seconds: 20,
+									ExecutionDuration: "20s",
 								},
 								{
 									Name:    "stream-debian-image",
@@ -1063,7 +1061,7 @@ func TestGetStartTime(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status: v1alpha1.WorkflowStateRunning,
+									State: v1alpha1.WorkflowStateRunning,
 								},
 							},
 						},
@@ -1101,8 +1099,8 @@ func TestGetStartTime(t *testing.T) {
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
-									Status:    v1alpha1.WorkflowStatePending,
-									StartedAt: nil,
+									State:          v1alpha1.WorkflowStatePending,
+									ExecutionStart: nil,
 								},
 							},
 						},
@@ -1119,7 +1117,7 @@ func TestGetStartTime(t *testing.T) {
 				return
 			}
 			if !got.Time.Equal(tc.want.Time) {
-				t.Errorf("Got time %s, wanted %s", got.Format(time.RFC1123), tc.want.Time.Format(time.RFC1123))
+				t.Errorf("Got time %s, wanted %s", got.Format(time.RFC1123), tc.want.Format(time.RFC1123))
 			}
 		})
 	}

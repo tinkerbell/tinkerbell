@@ -7,8 +7,7 @@ coverage:
         threshold: 1%
 
 ignore:
-  - "pkg/proto/workflow_grpc.pb.go"
-  - "pkg/proto/workflow.pb.go"
+  - "pkg/proto/*.go"
   - "**/zz_generated.deepcopy.go"
   - "smee/internal/syslog/facility_string.go"
   - "smee/internal/syslog/severity_string.go"

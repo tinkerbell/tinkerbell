@@ -25,7 +25,7 @@ spec:
     - jsonPath: .status.state
       name: State
       type: string
-    - jsonPath: .status.currentAction
+    - jsonPath: .status.currentState.actionName
       name: Current-Action
       type: string
     - jsonPath: .status.templateRending
@@ -164,10 +164,20 @@ spec:
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
-              currentAction:
-                description: CurrentAction is the action that is currently in the
-                  running state.
-                type: string
+              currentState:
+                description: CurrentState tracks where the workflow is in its execution.
+                properties:
+                  actionID:
+                    type: string
+                  actionName:
+                    type: string
+                  state:
+                    type: string
+                  taskID:
+                    type: string
+                  workerID:
+                    type: string
+                type: object
               globalTimeout:
                 description: GlobalTimeout represents the max execution time.
                 format: int64
@@ -193,6 +203,16 @@ spec:
                             additionalProperties:
                               type: string
                             type: object
+                          executionDuration:
+                            type: string
+                          executionStart:
+                            format: date-time
+                            type: string
+                          executionStop:
+                            format: date-time
+                            type: string
+                          id:
+                            type: string
                           image:
                             type: string
                           message:
@@ -201,13 +221,7 @@ spec:
                             type: string
                           pid:
                             type: string
-                          seconds:
-                            format: int64
-                            type: integer
-                          startedAt:
-                            format: date-time
-                            type: string
-                          status:
+                          state:
                             type: string
                           timeout:
                             format: int64
@@ -216,12 +230,16 @@ spec:
                             items:
                               type: string
                             type: array
+                        required:
+                        - id
                         type: object
                       type: array
                     environment:
                       additionalProperties:
                         type: string
                       type: object
+                    id:
+                      type: string
                     name:
                       type: string
                     volumes:
@@ -232,6 +250,7 @@ spec:
                       type: string
                   required:
                   - actions
+                  - id
                   - name
                   - worker
                   type: object

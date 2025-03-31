@@ -36,7 +36,7 @@ func NewClientFunc(timeout time.Duration) ClientFunc {
 		defer cancel()
 
 		if opts != nil && opts.ProviderOptions != nil && len(opts.PreferredOrder) > 0 {
-			client.Registry.Drivers = client.Registry.PreferProtocol(toStringSlice(opts.PreferredOrder)...)
+			client.Registry.Drivers = client.Registry.PreferDriver(toStringSlice(opts.PreferredOrder)...)
 		}
 		if err := client.Open(ctx); err != nil {
 			md := client.GetMetadata()

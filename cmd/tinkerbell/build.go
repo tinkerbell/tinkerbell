@@ -19,10 +19,10 @@ func gitRevision() string {
 		return "unknown"
 	}
 	for _, i := range info.Settings {
-		switch {
-		case i.Key == "vcs.revision":
+		switch i.Key {
+		case "vcs.revision":
 			revision = i.Value
-		case i.Key == "vcs.modified":
+		case "vcs.modified":
 			dirty, _ = strconv.ParseBool(i.Value)
 		}
 	}

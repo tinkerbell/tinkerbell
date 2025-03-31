@@ -22,6 +22,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 	if s.workflow.Spec.BootOptions.ToggleAllowNetboot && !s.workflow.Status.BootOptions.AllowNetboot.ToggledTrue {
 		journal.Log(ctx, "toggling allowPXE true")
 		if err := s.toggleHardware(ctx, true); err != nil {
+			s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 			return reconcile.Result{}, err
 		}
 	}
@@ -42,6 +43,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
 					Time:    &metav1.Time{Time: metav1.Now().UTC()},
 				})
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 				return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
 			}
 			efiBoot := func() bool {
@@ -70,16 +72,22 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			}
 
 			r, err := s.handleJob(ctx, actions, name)
+			if err != nil {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return r, err
+			}
 			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete && s.workflow.Status.State == v1alpha1.WorkflowStatePreparing {
 				s.workflow.Status.State = v1alpha1.WorkflowStatePending
 			}
-			return r, err
+			return r, nil
 		}
+		// what do i set the state to? I think if we get here then the preparing was successful
 	case v1alpha1.BootModeISO, v1alpha1.BootModeISOBoot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameISOMount, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode iso")
 			if s.workflow.Spec.BootOptions.ISOURL == "" {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 				return reconcile.Result{}, errors.New("iso url must be a valid url")
 			}
 			hw, err := hardwareFrom(ctx, s.client, s.workflow)
@@ -92,6 +100,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
 					Time:    &metav1.Time{Time: metav1.Now().UTC()},
 				})
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 				return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
 			}
 			efiBoot := func() bool {
@@ -132,13 +141,20 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			}
 
 			r, err := s.handleJob(ctx, actions, name)
+			if err != nil {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return r, err
+			}
 			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete && s.workflow.Status.State == v1alpha1.WorkflowStatePreparing {
 				s.workflow.Status.State = v1alpha1.WorkflowStatePending
 			}
-			return r, err
+			return r, nil
 		}
+		// what do i set the state to? I think if we get here then the preparing was successful
+	default:
+		s.workflow.Status.State = v1alpha1.WorkflowStatePending
 	}
-	s.workflow.Status.State = v1alpha1.WorkflowStatePending
+	// s.workflow.Status.State = v1alpha1.WorkflowStatePending
 
 	return reconcile.Result{}, nil
 }
