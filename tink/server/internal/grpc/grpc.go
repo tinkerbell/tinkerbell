@@ -228,10 +228,10 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 				wf.Status.Tasks[ti].Actions[ai].Message = req.GetMessage().GetMessage()
 
 				// 4. Write the updated workflow
-				if req.GetActionState() != proto.StateType_STATE_SUCCESS {
+				if req.GetActionState() != proto.StateType_SUCCESS {
 					wf.Status.State = wf.Status.Tasks[ti].Actions[ai].State
 				}
-				if len(wf.Status.Tasks) == ti+1 && len(task.Actions) == ai+1 && req.GetActionState() == proto.StateType_STATE_SUCCESS {
+				if len(wf.Status.Tasks) == ti+1 && len(task.Actions) == ai+1 && req.GetActionState() == proto.StateType_SUCCESS {
 					// This is the last action in the last task
 					wf.Status.State = v1alpha1.WorkflowStatePost
 				}

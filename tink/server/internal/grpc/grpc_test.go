@@ -38,12 +38,12 @@ func TestGetAction(t *testing.T) {
 					Namespace: "default",
 				},
 				Status: v1alpha1.WorkflowStatus{
-					State: "STATE_RUNNING",
+					State: v1alpha1.WorkflowStateRunning,
 					CurrentState: &v1alpha1.CurrentState{
 						WorkerID:   "machine-mac-1",
 						TaskID:     "provision",
 						ActionID:   "stream",
-						State:      "STATE_SUCCESS",
+						State:      v1alpha1.WorkflowStateSuccess,
 						ActionName: "stream",
 					},
 					GlobalTimeout: 600,
@@ -57,7 +57,7 @@ func TestGetAction(t *testing.T) {
 									Name:              "stream",
 									Image:             "quay.io/tinkerbell-actions/image2disk:v1.0.0",
 									Timeout:           300,
-									State:             "STATE_SUCCESS",
+									State:             v1alpha1.WorkflowStateSuccess,
 									ExecutionStart:    nil,
 									ExecutionDuration: "30s",
 									ID:                "stream",
@@ -66,7 +66,7 @@ func TestGetAction(t *testing.T) {
 									Name:    "kexec",
 									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
 									Timeout: 5,
-									State:   "STATE_PENDING",
+									State:   v1alpha1.WorkflowStatePending,
 									ID:      "kexec",
 								},
 							},
@@ -108,7 +108,7 @@ func TestGetAction(t *testing.T) {
 					Namespace: "default",
 				},
 				Status: v1alpha1.WorkflowStatus{
-					State:         "STATE_RUNNING",
+					State:         v1alpha1.WorkflowStateRunning,
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
@@ -119,7 +119,7 @@ func TestGetAction(t *testing.T) {
 									Name:              "stream",
 									Image:             "quay.io/tinkerbell-actions/image2disk:v1.0.0",
 									Timeout:           300,
-									State:             "STATE_PENDING",
+									State:             v1alpha1.WorkflowStatePending,
 									ExecutionStart:    nil,
 									ExecutionDuration: "30s",
 								},
@@ -222,7 +222,7 @@ func TestReportActionStatus(t *testing.T) {
 				WorkflowId:        toPtr("default/workflow1"),
 				TaskId:            toPtr("task1"),
 				ActionId:          toPtr("action1"),
-				ActionState:       toPtr(proto.StateType_STATE_SUCCESS),
+				ActionState:       toPtr(proto.StateType_SUCCESS),
 				ExecutionStart:    timestamppb.New(time.Now()),
 				ExecutionDuration: toPtr("30s"),
 				Message: &proto.ActionMessage{
@@ -257,7 +257,7 @@ func TestReportActionStatus(t *testing.T) {
 				WorkflowId:        toPtr("default/workflow6"),
 				TaskId:            toPtr("task1"),
 				ActionId:          toPtr("action1"),
-				ActionState:       toPtr(proto.StateType_STATE_SUCCESS),
+				ActionState:       toPtr(proto.StateType_SUCCESS),
 				ExecutionStart:    timestamppb.New(time.Now()),
 				ExecutionDuration: toPtr("30s"),
 				Message: &proto.ActionMessage{
