@@ -42,7 +42,7 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 	}
 	resp, err := backoff.Retry(ctx, operation, opts...)
 	if err != nil {
-		return spec.Action{}, fmt.Errorf("error getting action: %w", err)
+		return spec.Action{}, err
 	}
 	return resp, nil
 }

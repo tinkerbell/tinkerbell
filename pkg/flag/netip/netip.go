@@ -15,7 +15,6 @@ func (a *AddrPort) Set(s string) error {
 
 	ip, err := netip.ParseAddrPort(strings.TrimSpace(s))
 	if !ip.IsValid() || err != nil {
-		println("failed to parse Addr:Port:", a.String())
 		return fmt.Errorf("failed to parse Addr:Port: %q: err: %v", s, err)
 	}
 	*a.AddrPort = ip
