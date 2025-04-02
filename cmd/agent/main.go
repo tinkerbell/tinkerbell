@@ -43,9 +43,7 @@ func main() {
 	c := &config{
 		Options: &agent.Options{
 			Transport: agent.Transport{
-				GRPC: agent.GRPCTransport{
-					ServerAddrPort: netip.AddrPortFrom(netip.IPv4Unspecified(), 0),
-				},
+				GRPC: agent.GRPCTransport{},
 				NATS: agent.NATSTransport{
 					ServerAddrPort: netip.AddrPortFrom(netip.IPv4Unspecified(), 0),
 				},

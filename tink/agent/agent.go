@@ -176,7 +176,7 @@ type Proxy struct {
 }
 
 type GRPCTransport struct {
-	ServerAddrPort netip.AddrPort
+	ServerAddrPort string
 	TLSEnabled     bool
 	TLSInsecure    bool
 	RetryInterval  time.Duration
@@ -238,7 +238,7 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 		tr = readWriter
 		tw = readWriter
 	default:
-		conn, err := grpc.NewClientConn(o.Transport.GRPC.ServerAddrPort.String(), o.Transport.GRPC.TLSEnabled, o.Transport.GRPC.TLSInsecure)
+		conn, err := grpc.NewClientConn(o.Transport.GRPC.ServerAddrPort, o.Transport.GRPC.TLSEnabled, o.Transport.GRPC.TLSInsecure)
 		if err != nil {
 			return fmt.Errorf("unable to create gRPC client: %w", err)
 		}
