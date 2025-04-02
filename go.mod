@@ -1,7 +1,6 @@
 module github.com/tinkerbell/tinkerbell
 
 go 1.24.1
-
 require (
 	dario.cat/mergo v1.0.1
 	github.com/Masterminds/sprig/v3 v3.3.0
@@ -10,7 +9,7 @@ require (
 	github.com/ccoveille/go-safecast v1.6.1
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/containerd/containerd v1.7.27
-	github.com/containers/image/v5 v5.34.2
+	github.com/containers/image/v5 v5.34.3
 	github.com/diskfs/go-diskfs v1.5.2
 	github.com/distribution/reference v0.6.0
 	github.com/docker/docker v28.0.4+incompatible
