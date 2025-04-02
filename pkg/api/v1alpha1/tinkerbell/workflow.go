@@ -80,7 +80,7 @@ type WorkflowSpec struct {
 	// +optional
 	HardwareRef string `json:"hardwareRef,omitempty"`
 
-	// A mapping of template devices to hadware mac addresses.
+	// A mapping of template devices to hardware mac addresses.
 	HardwareMap map[string]string `json:"hardwareMap,omitempty"`
 
 	// BootOptions are options that control the booting of Hardware.

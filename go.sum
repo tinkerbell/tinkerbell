@@ -750,8 +750,8 @@ k8s.io/pod-security-admission v0.32.4/go.mod h1:tArewGi1O8VDciZPLB993LeT6sR24DN8
 k8s.io/utils v0.0.0-20241210054802-24370beab758 h1:sdbE21q2nlQtFh65saZY+rRM6x6aJJI8IUa1AmH/qa0=
 k8s.io/utils v0.0.0-20241210054802-24370beab758/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 nullprogram.com/x/optparse v1.0.0/go.mod h1:KdyPE+Igbe0jQUrVfMqDMeJQIJZEuyV7pjYmp6pbG50=
-quamina.net/go/quamina v1.5.1 h1:hrJOsy6wGieU4Jae+Ei4U9Rwic579jEE5+OKkg7gs6E=
-quamina.net/go/quamina v1.5.1/go.mod h1:EJ1teLWOcAHYfOUE+w2B6OQq5sAxEiwE0EDlcRxx+TQ=
+quamina.net/go/quamina v1.5.2-0.20250207005432-0526acc321a8 h1:dtQDLuBmRd2XjA12bnnhs7wYQ+plIx/rQOf5ybNZsvg=
+quamina.net/go/quamina v1.5.2-0.20250207005432-0526acc321a8/go.mod h1:tYJ2Xjt7JC+e40J/UkDYTzYtPpdnDb2yKYW/+JRas3Q=
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.0 h1:CPT0ExVicCzcpeN4baWEV2ko2Z/AsiZgEdwgcfwLgMo=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.0/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
