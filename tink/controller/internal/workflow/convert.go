@@ -21,7 +21,7 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 				Timeout:     action.Timeout,
 				Command:     action.Command,
 				Volumes:     action.Volumes,
-				State:       v1alpha1.WorkflowState(proto.StateType_PENDING.String()),
+				State:       v1alpha1.WorkflowState(proto.ActionStatusRequest_PENDING.String()),
 				Environment: action.Environment,
 				Pid:         action.Pid,
 			})

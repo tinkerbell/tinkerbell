@@ -35,16 +35,16 @@ func TestToProto(t *testing.T) {
 					},
 				},
 				Memory: &attribute.Memory{
-					Total:  toPtr(uint64(16384)),
-					Usable: toPtr(uint64(8192)),
+					Total:  toPtr("16KB"),
+					Usable: toPtr("8KB"),
 				},
 				BlockDevices: []*attribute.Block{
 					{
 						Name:              toPtr("sda"),
 						ControllerType:    toPtr("SATA"),
 						DriveType:         toPtr("SSD"),
-						Size:              toPtr(uint64(512)),
-						PhysicalBlockSize: toPtr(uint64(4096)),
+						Size:              toPtr("512B"),
+						PhysicalBlockSize: toPtr("4KB"),
 						Vendor:            toPtr("Samsung"),
 						Model:             toPtr("EVO860"),
 					},
@@ -74,16 +74,16 @@ func TestToProto(t *testing.T) {
 					},
 				},
 				Memory: &proto.Memory{
-					Total:  toPtr(uint64(16384)),
-					Usable: toPtr(uint64(8192)),
+					Total:  toPtr("16KB"),
+					Usable: toPtr("8KB"),
 				},
 				Block: []*proto.Block{
 					{
 						Name:              toPtr("sda"),
 						ControllerType:    toPtr("SATA"),
 						DriveType:         toPtr("SSD"),
-						Size:              toPtr(uint64(512)),
-						PhysicalBlockSize: toPtr(uint64(4096)),
+						Size:              toPtr("512B"),
+						PhysicalBlockSize: toPtr("4KB"),
 						Vendor:            toPtr("Samsung"),
 						Model:             toPtr("EVO860"),
 					},
@@ -129,16 +129,16 @@ func TestToProto(t *testing.T) {
 					},
 				},
 				Memory: &attribute.Memory{
-					Total:  toPtr(uint64(16384)),
-					Usable: toPtr(uint64(8192)),
+					Total:  toPtr("16KB"),
+					Usable: toPtr("8KB"),
 				},
 				BlockDevices: []*attribute.Block{
 					{
 						Name:              toPtr("sda"),
 						ControllerType:    toPtr("SATA"),
 						DriveType:         toPtr("SSD"),
-						Size:              toPtr(uint64(512)),
-						PhysicalBlockSize: toPtr(uint64(4096)),
+						Size:              toPtr("512B"),
+						PhysicalBlockSize: toPtr("4KB"),
 						Vendor:            toPtr("Samsung"),
 						Model:             toPtr("EVO860"),
 					},
@@ -201,16 +201,16 @@ func TestToProto(t *testing.T) {
 					},
 				},
 				Memory: &proto.Memory{
-					Total:  toPtr(uint64(16384)),
-					Usable: toPtr(uint64(8192)),
+					Total:  toPtr("16KB"),
+					Usable: toPtr("8KB"),
 				},
 				Block: []*proto.Block{
 					{
 						Name:              toPtr("sda"),
 						ControllerType:    toPtr("SATA"),
 						DriveType:         toPtr("SSD"),
-						Size:              toPtr(uint64(512)),
-						PhysicalBlockSize: toPtr(uint64(4096)),
+						Size:              toPtr("512B"),
+						PhysicalBlockSize: toPtr("4KB"),
 						Vendor:            toPtr("Samsung"),
 						Model:             toPtr("EVO860"),
 					},

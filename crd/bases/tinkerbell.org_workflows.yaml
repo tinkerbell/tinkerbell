@@ -83,7 +83,7 @@ spec:
               hardwareMap:
                 additionalProperties:
                   type: string
-                description: A mapping of template devices to hadware mac addresses.
+                description: A mapping of template devices to hardware mac addresses.
                 type: object
               hardwareRef:
                 description: Name of the Hardware associated with this workflow.

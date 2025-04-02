@@ -14,8 +14,10 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -50,6 +52,10 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{WorkerId: toPtr(c.WorkerID), WorkerAttributes: c.Attributes})
 	if err != nil {
+		if status.Code(err) == codes.Unavailable {
+			// If the server is unavailable, return a nil action and let the caller retry.
+			return spec.Action{}, backoff.Permanent(err)
+		}
 		return spec.Action{}, fmt.Errorf("error getting action: %w", err)
 	}
 
@@ -165,18 +171,18 @@ func NewClientConn(authority string, tlsEnabled bool, tlsInsecure bool) (*grpc.C
 	return conn, nil
 }
 
-func specToProto(inState spec.State) *proto.StateType {
+func specToProto(inState spec.State) *proto.ActionStatusRequest_StateType {
 	switch inState {
 	case spec.StateRunning:
-		return toPtr(proto.StateType_RUNNING)
+		return toPtr(proto.ActionStatusRequest_RUNNING)
 	case spec.StateSuccess:
-		return toPtr(proto.StateType_SUCCESS)
+		return toPtr(proto.ActionStatusRequest_SUCCESS)
 	case spec.StateFailure:
-		return toPtr(proto.StateType_FAILED)
+		return toPtr(proto.ActionStatusRequest_FAILED)
 	case spec.StateTimeout:
-		return toPtr(proto.StateType_TIMEOUT)
+		return toPtr(proto.ActionStatusRequest_TIMEOUT)
 	default:
-		return toPtr(proto.StateType_UNSPECIFIED)
+		return toPtr(proto.ActionStatusRequest_UNSPECIFIED)
 	}
 }
 
