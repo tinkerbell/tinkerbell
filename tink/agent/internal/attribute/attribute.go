@@ -1,6 +1,7 @@
 package attribute
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/ccoveille/go-safecast"
@@ -22,8 +23,8 @@ type AllAttributes struct {
 }
 
 type CPU struct {
-	TotalCores   *uint32      `json:"total_cores,omitempty" yaml:"total_cores,omitempty"`
-	TotalThreads *uint32      `json:"total_threads,omitempty" yaml:"total_threads,omitempty"`
+	TotalCores   *uint32      `json:"totalCores,omitempty" yaml:"totalCores,omitempty"`
+	TotalThreads *uint32      `json:"totalThreads,omitempty" yaml:"totalThreads,omitempty"`
 	Processors   []*Processor `json:"processors,omitempty" yaml:"processors,omitempty"`
 }
 
@@ -37,16 +38,16 @@ type Processor struct {
 }
 
 type Memory struct {
-	Total  *uint64 `json:"total,omitempty" yaml:"total,omitempty"`
-	Usable *uint64 `json:"usable,omitempty" yaml:"usable,omitempty"`
+	Total  *string `json:"total,omitempty" yaml:"total,omitempty"`
+	Usable *string `json:"usable,omitempty" yaml:"usable,omitempty"`
 }
 
 type Block struct {
 	Name              *string `json:"name,omitempty" yaml:"name,omitempty"`
-	ControllerType    *string `json:"controller_type,omitempty" yaml:"controller_type,omitempty"`
-	DriveType         *string `json:"drive_type,omitempty" yaml:"drive_type,omitempty"`
-	Size              *uint64 `json:"size,omitempty" yaml:"size,omitempty"`
-	PhysicalBlockSize *uint64 `json:"physical_block_size,omitempty" yaml:"physical_block_size,omitempty"`
+	ControllerType    *string `json:"controllerType,omitempty" yaml:"controllerType,omitempty"`
+	DriveType         *string `json:"driveType,omitempty" yaml:"driveType,omitempty"`
+	Size              *string `json:"size,omitempty" yaml:"size,omitempty"`
+	PhysicalBlockSize *string `json:"physicalBlockSize,omitempty" yaml:"physicalBlockSize,omitempty"`
 	Vendor            *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
 	Model             *string `json:"model,omitempty" yaml:"model,omitempty"`
 }
@@ -55,7 +56,7 @@ type Network struct {
 	Name                *string  `json:"name,omitempty" yaml:"name,omitempty"`
 	Mac                 *string  `json:"mac,omitempty" yaml:"mac,omitempty"`
 	Speed               *string  `json:"speed,omitempty" yaml:"speed,omitempty"`
-	EnabledCapabilities []string `json:"enabled_capabilities,omitempty" yaml:"enabled_capabilities,omitempty"`
+	EnabledCapabilities []string `json:"enabledCapabilities,omitempty" yaml:"enabledCapabilities,omitempty"`
 }
 
 type PCI struct {
@@ -80,7 +81,7 @@ type Chassis struct {
 type BIOS struct {
 	Vendor      *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
 	Version     *string `json:"version,omitempty" yaml:"version,omitempty"`
-	ReleaseDate *string `json:"release_date,omitempty" yaml:"release_date,omitempty"`
+	ReleaseDate *string `json:"releaseDate,omitempty" yaml:"releaseDate,omitempty"`
 }
 
 type Baseboard struct {
@@ -110,7 +111,7 @@ func DiscoverAll() *AllAttributes {
 }
 
 func DiscoverCPU() *CPU {
-	cpu, err := ghw.CPU()
+	cpu, err := ghw.CPU(ghw.WithDisableWarnings())
 	if err != nil {
 		return nil
 	}
@@ -138,19 +139,19 @@ func DiscoverCPU() *CPU {
 }
 
 func DiscoverMemory() *Memory {
-	memory, err := ghw.Memory()
+	memory, err := ghw.Memory(ghw.WithDisableWarnings())
 	if err != nil {
 		return nil
 	}
 
 	return &Memory{
-		Total:  toPtr(toGB(memory.TotalPhysicalBytes)),
-		Usable: toPtr(toGB(memory.TotalUsableBytes)),
+		Total:  toPtr(humanReadable(memory.TotalPhysicalBytes)),
+		Usable: toPtr(humanReadable(memory.TotalUsableBytes)),
 	}
 }
 
 func DiscoverBlockDevices() []*Block {
-	b, err := ghw.Block()
+	b, err := ghw.Block(ghw.WithDisableWarnings())
 	if err != nil {
 		return nil
 	}
@@ -161,8 +162,8 @@ func DiscoverBlockDevices() []*Block {
 				Name:              toPtr(d.Name),
 				ControllerType:    toPtr(d.StorageController.String()),
 				DriveType:         toPtr(d.DriveType.String()),
-				Size:              toPtr(toGB(d.SizeBytes)),
-				PhysicalBlockSize: toPtr(d.PhysicalBlockSizeBytes),
+				Size:              toPtr(humanReadable(d.SizeBytes)),
+				PhysicalBlockSize: toPtr(humanReadable(d.PhysicalBlockSizeBytes)),
 				Vendor:            toPtr(d.Vendor),
 				Model:             toPtr(d.Model),
 			})
@@ -172,7 +173,7 @@ func DiscoverBlockDevices() []*Block {
 }
 
 func DiscoverNetworks() []*Network {
-	net, err := ghw.Network()
+	net, err := ghw.Network(ghw.WithDisableWarnings())
 	if err != nil {
 		return nil
 	}
@@ -199,7 +200,7 @@ func DiscoverNetworks() []*Network {
 }
 
 func DiscoverPCI() []*PCI {
-	pci, err := ghw.PCI()
+	pci, err := ghw.PCI(ghw.WithDisableWarnings())
 	if err != nil {
 		return nil
 	}
@@ -216,7 +217,7 @@ func DiscoverPCI() []*PCI {
 }
 
 func DiscoverGPU() []*GPU {
-	gpu, err := ghw.GPU()
+	gpu, err := ghw.GPU(ghw.WithDisableWarnings())
 	if err != nil {
 		return nil
 	}
@@ -233,7 +234,7 @@ func DiscoverGPU() []*GPU {
 }
 
 func DiscoverChassis() *Chassis {
-	chassis, err := ghw.Chassis()
+	chassis, err := ghw.Chassis(ghw.WithDisableWarnings())
 	if err != nil {
 		return nil
 	}
@@ -244,7 +245,7 @@ func DiscoverChassis() *Chassis {
 }
 
 func DiscoverBIOS() *BIOS {
-	bios, err := ghw.BIOS()
+	bios, err := ghw.BIOS(ghw.WithDisableWarnings())
 	if err != nil {
 		return nil
 	}
@@ -256,7 +257,7 @@ func DiscoverBIOS() *BIOS {
 }
 
 func DiscoverBaseboard() *Baseboard {
-	baseboard, err := ghw.Baseboard()
+	baseboard, err := ghw.Baseboard(ghw.WithDisableWarnings())
 	if err != nil {
 		return nil
 	}
@@ -268,7 +269,7 @@ func DiscoverBaseboard() *Baseboard {
 }
 
 func DiscoverProduct() *Product {
-	product, err := ghw.Product()
+	product, err := ghw.Product(ghw.WithDisableWarnings())
 	if err != nil {
 		return nil
 	}
@@ -286,18 +287,19 @@ type byteSize interface {
 	~uint64 | ~int64
 }
 
-// toGB is a function to convert bytes to GB format.
-func toGB[T byteSize](byts T) uint64 {
-	var tpbs uint64
+// humanReadable is a function to convert bytes to a human readable format.
+// 512 -> 512B, 1024 -> 1KB, 1024*1024 -> 1MB, etc.
+func humanReadable[T byteSize](byts T) string {
+	var tpbs string
 	if byts > 0 {
 		tpb := int64(byts)
-		unit, _ := amountString(tpb)
+		unit, unitString := amountString(tpb)
 		tpb = int64(math.Ceil(float64(byts) / float64(unit)))
 		t, err := safecast.ToUint64(tpb)
 		if err != nil {
 			t = uint64(0)
 		}
-		tpbs = t
+		tpbs = fmt.Sprintf("%v%s", t, unitString)
 	}
 
 	return tpbs
@@ -318,6 +320,8 @@ var (
 // For example, amountString(1022) == "1022". amountString(1024) == "1KB", etc.
 func amountString(size int64) (int64, string) {
 	switch {
+	case size < kb:
+		return 1, "B"
 	case size < mb:
 		return kb, "KB"
 	case size < gb:

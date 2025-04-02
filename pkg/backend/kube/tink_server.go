@@ -46,9 +46,30 @@ func (b *Backend) Read(ctx context.Context, workflowID, namespace string) (*v1al
 	return wflw, nil
 }
 
-func (b *Backend) Write(ctx context.Context, wf *v1alpha1.Workflow) error {
+func (b *Backend) Update(ctx context.Context, wf *v1alpha1.Workflow) error {
 	if err := b.cluster.GetClient().Status().Update(ctx, wf); err != nil {
 		return fmt.Errorf("failed to update workflow %s: %w", wf.Name, err)
+	}
+
+	return nil
+}
+
+func (b *Backend) ReadAllWorkflowRuleSets(ctx context.Context, namespace string) ([]v1alpha1.WorkflowRuleSet, error) {
+	stored := &v1alpha1.WorkflowRuleSetList{}
+	err := b.cluster.GetClient().List(ctx, stored)
+	if err != nil {
+		return nil, err
+	}
+	wfs := []v1alpha1.WorkflowRuleSet{}
+	for _, wf := range stored.Items {
+		wfs = append(wfs, wf)
+	}
+	return wfs, nil
+}
+
+func (b *Backend) Create(ctx context.Context, wf *v1alpha1.Workflow) error {
+	if err := b.cluster.GetClient().Create(ctx, wf); err != nil {
+		return fmt.Errorf("failed to create workflow %s: %w", wf.Name, err)
 	}
 
 	return nil
