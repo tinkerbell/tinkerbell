@@ -170,18 +170,18 @@ func NewClientConn(authority string, tlsEnabled bool, tlsInsecure bool) (*grpc.C
 	return conn, nil
 }
 
-func specToProto(inState spec.State) *proto.StateType {
+func specToProto(inState spec.State) *proto.ActionStatusRequest_StateType {
 	switch inState {
 	case spec.StateRunning:
-		return toPtr(proto.StateType_RUNNING)
+		return toPtr(proto.ActionStatusRequest_RUNNING)
 	case spec.StateSuccess:
-		return toPtr(proto.StateType_SUCCESS)
+		return toPtr(proto.ActionStatusRequest_SUCCESS)
 	case spec.StateFailure:
-		return toPtr(proto.StateType_FAILED)
+		return toPtr(proto.ActionStatusRequest_FAILED)
 	case spec.StateTimeout:
-		return toPtr(proto.StateType_TIMEOUT)
+		return toPtr(proto.ActionStatusRequest_TIMEOUT)
 	default:
-		return toPtr(proto.StateType_UNSPECIFIED)
+		return toPtr(proto.ActionStatusRequest_UNSPECIFIED)
 	}
 }
 
