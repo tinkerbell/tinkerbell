@@ -43,16 +43,16 @@ message Processor {
 }
 
 message Memory {
-    uint64 total = 1;
-    uint64 usable = 2;
+    string total = 1;
+    string usable = 2;
 }
 
 message Block {
     string name = 1;
     string controller_type = 2;
     string drive_type = 3;
-    uint64 size = 4;
-    uint64 physical_block_size = 5;
+    string size = 4;
+    string physical_block_size = 5;
     string vendor = 6;
     string model = 7;
 }
