@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	stdnetip "net/netip"
 	"os"
 	"strconv"
 	"time"
@@ -24,7 +23,7 @@ func RegisterFlagsLegacy(c *config, fs *flag.FlagSet) {
 	fs.StringVar(&c.Options.Registry.User, "registry-username", "", "Container image Registry user for authentication")
 	fs.StringVar(&c.Options.Registry.Pass, "registry-password", "", "Container image Registry pass for authentication")
 	fs.StringVar(&c.Options.Registry.Name, "docker-registry", "", "Container image Registry name to which to log in")
-	fs.Var(&netip.AddrPort{AddrPort: &c.Options.Transport.GRPC.ServerAddrPort}, "tinkerbell-grpc-authority", "Tink server GRPC IP:Port")
+	fs.StringVar(&c.Options.Transport.GRPC.ServerAddrPort, "tinkerbell-grpc-authority", "", "Tink server GRPC address:port")
 	fs.BoolVar(&c.Options.Transport.GRPC.TLSInsecure, "tinkerbell-insecure-tls", false, "Tink server GRPC insecure TLS")
 	fs.BoolVar(&c.Options.Transport.GRPC.TLSEnabled, "tinkerbell-tls", false, "Tink server GRPC use TLS")
 }
@@ -42,10 +41,7 @@ func SetFromEnvLegacy(c *config) {
 			case "DOCKER_REGISTRY":
 				c.Options.Registry.Name = v
 			case "TINKERBELL_GRPC_AUTHORITY":
-				ap, err := stdnetip.ParseAddrPort(v)
-				if err == nil {
-					c.Options.Transport.GRPC.ServerAddrPort = ap
-				}
+				c.Options.Transport.GRPC.ServerAddrPort = v
 			case "TINKERBELL_TLS":
 				b, err := strconv.ParseBool(v)
 				if err == nil {
@@ -113,7 +109,7 @@ func RegisterRepositoryFlags(c *config, fs *flag.FlagSet) {
 }
 
 func RegisterGRPCTransportFlags(c *config, fs *flag.FlagSet) {
-	fs.Var(&netip.AddrPort{AddrPort: &c.Options.Transport.GRPC.ServerAddrPort}, "grpc-server", "gRPC server address:port")
+	fs.StringVar(&c.Options.Transport.GRPC.ServerAddrPort, "grpc-server", "", "gRPC server address:port")
 	fs.BoolVar(&c.Options.Transport.GRPC.TLSEnabled, "grpc-tls", false, "gRPC TLS enabled")
 	fs.BoolVar(&c.Options.Transport.GRPC.TLSInsecure, "grpc-insecure-tls", false, "gRPC insecure TLS")
 	fs.Var(ffval.NewValueDefault(&c.Options.Transport.GRPC.RetryInterval, 5*time.Second), "grpc-retry-interval", "gRPC retry interval in Seconds")
