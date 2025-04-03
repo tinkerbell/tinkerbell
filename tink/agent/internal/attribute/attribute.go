@@ -10,6 +10,7 @@ import (
 )
 
 type AllAttributes struct {
+	AgentID           string     `json:"agentID,omitempty" yaml:"agentID,omitempty"`
 	CPU               *CPU       `json:"cpu,omitempty" yaml:"cpu,omitempty"`
 	Memory            *Memory    `json:"memory,omitempty" yaml:"memory,omitempty"`
 	BlockDevices      []*Block   `json:"blockDevices,omitempty" yaml:"blockDevices,omitempty"`
