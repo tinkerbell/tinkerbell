@@ -13,8 +13,9 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
+	gbackoff "google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
@@ -52,9 +53,20 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{WorkerId: toPtr(c.WorkerID), WorkerAttributes: c.Attributes})
 	if err != nil {
-		if status.Code(err) == codes.Unavailable {
-			// If the server is unavailable, return a nil action and let the caller retry.
-			return spec.Action{}, backoff.Permanent(err)
+		s := status.Convert(err)
+		for _, d := range s.Details() {
+			switch t := d.(type) {
+			case *epb.PreconditionFailure:
+				for _, f := range t.Violations {
+					switch f.Type {
+					case proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_WORKFLOW_CREATED.String():
+						// c.Log.Info("debugging", "isPreconditionFailure", true, "isEnrollment", true, "error", err)
+						return spec.Action{}, backoff.Permanent(err)
+					case proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_EXISTING_WORKFLOW.String():
+						return spec.Action{}, err
+					}
+				}
+			}
 		}
 		return spec.Action{}, fmt.Errorf("error getting action: %w", err)
 	}
@@ -163,7 +175,7 @@ func NewClientConn(authority string, tlsEnabled bool, tlsInsecure bool) (*grpc.C
 		creds = grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
 
-	conn, err := grpc.NewClient(authority, creds, grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
+	conn, err := grpc.NewClient(authority, creds, grpc.WithStatsHandler(otelgrpc.NewClientHandler()), grpc.WithConnectParams(grpc.ConnectParams{Backoff: gbackoff.DefaultConfig}))
 	if err != nil {
 		return nil, fmt.Errorf("dial tinkerbell server: %w", err)
 	}
