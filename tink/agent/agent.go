@@ -248,11 +248,11 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 		readWriter := &grpc.Config{
 			Log:              log,
 			TinkServerClient: proto.NewWorkflowServiceClient(conn),
-			WorkerID:         id,
+			AgentID:          id,
 			RetryInterval:    time.Second * 5,
 			Actions:          make(chan spec.Action),
 		}
-		if !o.AttributeDetectionEnabled {
+		if o.AttributeDetectionEnabled {
 			readWriter.Attributes = grpc.ToProto(attribute.DiscoverAll())
 		}
 		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort)

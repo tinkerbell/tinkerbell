@@ -15,7 +15,7 @@ func TestEnroll(t *testing.T) {
 	tests := []struct {
 		name                  string
 		workerID              string
-		attributes            *proto.WorkerAttributes
+		attributes            *proto.AgentAttributes
 		mockCapabilities      *mockAutoCapabilities
 		mockBackendReadWriter *mockReadUpdater
 		expectedErrorCode     codes.Code
@@ -23,7 +23,7 @@ func TestEnroll(t *testing.T) {
 		{
 			name:     "successful enrollment",
 			workerID: "worker-123",
-			attributes: &proto.WorkerAttributes{
+			attributes: &proto.AgentAttributes{
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
@@ -53,7 +53,7 @@ func TestEnroll(t *testing.T) {
 		{
 			name:     "no matching workflow rule set",
 			workerID: "worker-123",
-			attributes: &proto.WorkerAttributes{
+			attributes: &proto.AgentAttributes{
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
@@ -71,7 +71,7 @@ func TestEnroll(t *testing.T) {
 		{
 			name:     "error reading workflow rule sets",
 			workerID: "worker-123",
-			attributes: &proto.WorkerAttributes{
+			attributes: &proto.AgentAttributes{
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{

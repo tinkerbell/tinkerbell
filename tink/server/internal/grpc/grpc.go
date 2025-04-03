@@ -151,7 +151,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 				}
 				return wfs
 			}()
-			return h.enroll(ctx, req.GetWorkerId(), req.GetWorkerAttributes(), wfns)
+			return h.enroll(ctx, req.GetAgentId(), req.GetAgentAttributes(), wfns)
 		}
 		log.Info("debugging", "noWorkflowsFound", true)
 		return nil, status.Error(codes.NotFound, "no workflows found")
@@ -247,7 +247,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	// update the current state
 	// populate the current state and then send the action to the client.
 	wf.Status.CurrentState = &v1alpha1.CurrentState{
-		WorkerID:   req.GetWorkerId(),
+		WorkerID:   req.GetAgentId(),
 		TaskID:     task.ID,
 		ActionID:   action.ID,
 		State:      action.State,
@@ -262,7 +262,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	ar := &proto.ActionResponse{
 		WorkflowId: toPtr(wf.Namespace + "/" + wf.Name),
 		TaskId:     toPtr(task.ID),
-		WorkerId:   toPtr(req.GetWorkerId()),
+		AgentId:    toPtr(req.GetAgentId()),
 		ActionId:   toPtr(action.ID),
 		Name:       toPtr(action.Name),
 		Image:      toPtr(action.Image),
@@ -351,7 +351,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 	for ti, task := range wf.Status.Tasks {
 		for ai, action := range task.Actions {
 			// action IDs match or this is the first action in a task
-			if action.ID == req.GetActionId() && task.WorkerAddr == req.GetWorkerId() {
+			if action.ID == req.GetActionId() && task.WorkerAddr == req.GetAgentId() {
 				wf.Status.Tasks[ti].Actions[ai].State = v1alpha1.WorkflowState(req.GetActionState().String())
 				wf.Status.Tasks[ti].Actions[ai].ExecutionStart = &metav1.Time{Time: req.GetExecutionStart().AsTime()}
 				wf.Status.Tasks[ti].Actions[ai].ExecutionStop = &metav1.Time{Time: req.GetExecutionStop().AsTime()}
@@ -369,7 +369,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 
 				// update the status current state
 				wf.Status.CurrentState = &v1alpha1.CurrentState{
-					WorkerID:   req.GetWorkerId(),
+					WorkerID:   req.GetAgentId(),
 					TaskID:     req.GetTaskId(),
 					ActionID:   req.GetActionId(),
 					State:      wf.Status.Tasks[ti].Actions[ai].State,

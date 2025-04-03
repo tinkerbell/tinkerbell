@@ -7,7 +7,7 @@ import (
 
 // Action holds the configuration used to create and run an Action container.
 type Action struct {
-	WorkerID   string `json:"worker_id" yaml:"worker_id"`
+	AgentID    string `json:"agent_id" yaml:"agent_id"`
 	TaskID     string `json:"task_id" yaml:"task_id"`
 	WorkflowID string `json:"workflow_id" yaml:"workflow_id"`
 	// ID is the unique identifier for the Action.
