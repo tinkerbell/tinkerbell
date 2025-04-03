@@ -17,10 +17,12 @@ import (
 )
 
 type Config struct {
-	Backend      grpcinternal.BackendReadUpdater
-	AutoBackend  grpcinternal.AutoReadCreator
-	BindAddrPort netip.AddrPort
-	Logger       logr.Logger
+	Backend               grpcinternal.BackendReadUpdater
+	AutoBackend           grpcinternal.AutoReadCreator
+	BindAddrPort          netip.AddrPort
+	Logger                logr.Logger
+	AutoEnrollmentEnabled bool
+	AutoDiscoveryEnabled  bool
 }
 
 // Option is a functional option type.
@@ -62,8 +64,11 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		NowFunc:           time.Now,
 		AutoCapabilities: grpcinternal.AutoCapabilities{
 			Enrollment: grpcinternal.AutoEnrollment{
-				Enabled:     true,
+				Enabled:     c.AutoEnrollmentEnabled,
 				ReadCreator: c.AutoBackend,
+			},
+			Discovery: grpcinternal.AutoDiscovery{
+				Enabled: c.AutoDiscoveryEnabled,
 			},
 		},
 	}

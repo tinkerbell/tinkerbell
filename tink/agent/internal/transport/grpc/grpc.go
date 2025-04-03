@@ -25,10 +25,10 @@ import (
 type Config struct {
 	Log              logr.Logger
 	TinkServerClient proto.WorkflowServiceClient
-	WorkerID         string
+	AgentID          string
 	RetryInterval    time.Duration
 	Actions          chan spec.Action
-	Attributes       *proto.WorkerAttributes
+	Attributes       *proto.AgentAttributes
 	RetryOptions     []backoff.RetryOption
 }
 
@@ -51,7 +51,7 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 }
 
 func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
-	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{WorkerId: toPtr(c.WorkerID), WorkerAttributes: c.Attributes})
+	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{AgentId: toPtr(c.AgentID), AgentAttributes: c.Attributes})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return spec.Action{}, &NoWorkflowError{}
@@ -76,7 +76,7 @@ func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 	as := spec.Action{
 		TaskID:         response.GetTaskId(),
 		ID:             response.GetActionId(),
-		WorkerID:       response.GetWorkerId(),
+		AgentID:        response.GetAgentId(),
 		WorkflowID:     response.GetWorkflowId(),
 		Name:           response.GetName(),
 		Image:          response.GetImage(),
@@ -148,7 +148,7 @@ func (c *Config) Write(ctx context.Context, event spec.Event) error {
 func (c *Config) doWrite(ctx context.Context, event spec.Event) error {
 	ar := &proto.ActionStatusRequest{
 		WorkflowId:        &event.Action.WorkflowID,
-		WorkerId:          &event.Action.WorkerID,
+		AgentId:           &event.Action.AgentID,
 		TaskId:            &event.Action.TaskID,
 		ActionId:          &event.Action.ID,
 		ActionName:        &event.Action.Name,

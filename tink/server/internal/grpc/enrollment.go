@@ -23,7 +23,7 @@ const (
 // wflowNamespace is a map of workflow names to their namespaces.
 type wflowNamespace map[string]string
 
-func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.WorkerAttributes, allWflows wflowNamespace) (*proto.ActionResponse, error) {
+func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.AgentAttributes, allWflows wflowNamespace) (*proto.ActionResponse, error) {
 	log := h.Logger.WithValues("workerID", workerID)
 	name, err := makeValidName(workerID, workflowPrefix)
 	if err != nil {
