@@ -116,7 +116,6 @@ func TestMakeValid(t *testing.T) {
 			if diff := cmp.Diff(got, test.expectedName); diff != "" {
 				t.Errorf("makeValid() = %v", diff)
 			}
-
 		})
 	}
 }
