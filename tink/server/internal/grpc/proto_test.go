@@ -9,7 +9,7 @@ import (
 func TestFlattenAttributes(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    *proto.WorkerAttributes
+		input    *proto.AgentAttributes
 		expected map[string]string
 	}{
 		{
@@ -19,7 +19,7 @@ func TestFlattenAttributes(t *testing.T) {
 		},
 		{
 			name: "CPU attributes",
-			input: &proto.WorkerAttributes{
+			input: &proto.AgentAttributes{
 				Cpu: &proto.CPU{
 					TotalCores:   toPtr(uint32(8)),
 					TotalThreads: toPtr(uint32(16)),
@@ -46,7 +46,7 @@ func TestFlattenAttributes(t *testing.T) {
 		},
 		{
 			name: "Memory attributes",
-			input: &proto.WorkerAttributes{
+			input: &proto.AgentAttributes{
 				Memory: &proto.Memory{
 					Total:  toPtr("32GB"),
 					Usable: toPtr("31GB"),
@@ -59,7 +59,7 @@ func TestFlattenAttributes(t *testing.T) {
 		},
 		{
 			name: "Chassis attributes",
-			input: &proto.WorkerAttributes{
+			input: &proto.AgentAttributes{
 				Chassis: &proto.Chassis{
 					Serial: toPtr("12345"),
 					Vendor: toPtr("Dell"),

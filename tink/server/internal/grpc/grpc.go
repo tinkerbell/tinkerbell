@@ -31,7 +31,7 @@ var (
 )
 
 type BackendReadUpdater interface {
-	ReadAll(ctx context.Context, workerID string) ([]v1alpha1.Workflow, error)
+	ReadAll(ctx context.Context, agentID string) ([]v1alpha1.Workflow, error)
 	Read(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error)
 	Update(ctx context.Context, wf *v1alpha1.Workflow) error
 }
@@ -112,13 +112,12 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	default:
 	}
 
-	log := h.Logger.WithValues("worker", req.GetWorkerId())
-	// log.Info("debugging", "attributes", req.GetWorkerAttributes(), "attributesString", req.GetWorkerAttributes().String())
-	if req.GetWorkerId() == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid worker id:")
+	log := h.Logger.WithValues("agentID", req.GetAgentId())
+	if req.GetAgentId() == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent id:")
 	}
 
-	wflows, err := h.BackendReadWriter.ReadAll(ctx, req.GetWorkerId())
+	wflows, err := h.BackendReadWriter.ReadAll(ctx, req.GetAgentId())
 	if err != nil {
 		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
@@ -147,7 +146,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 				}
 				return wfs
 			}()
-			return h.enroll(ctx, req.GetWorkerId(), req.GetWorkerAttributes(), wfns)
+			return h.enroll(ctx, req.GetAgentId(), req.GetAgentAttributes(), wfns)
 		}
 		log.Info("debugging", "noWorkflowsFound", true)
 		return nil, status.Error(codes.NotFound, "no workflows found")
@@ -157,7 +156,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 		return nil, status.Error(codes.NotFound, "no tasks found")
 	}
 	// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
-	// This is to prevent the worker from starting Actions before Workflow boot options are performed.
+	// This is to prevent the Agent from starting Actions before Workflow boot options are performed.
 	if wf.Spec.BootOptions.BootMode != "" && wf.Status.State == v1alpha1.WorkflowStatePreparing {
 		return nil, status.Error(codes.FailedPrecondition, "workflow is in preparing state")
 	}
@@ -169,8 +168,8 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	if len(task.Actions) == 0 {
 		return nil, status.Error(codes.NotFound, "no actions found")
 	}
-	if task.WorkerAddr != req.GetWorkerId() {
-		return nil, status.Error(codes.NotFound, "task not assigned to worker")
+	if task.WorkerAddr != req.GetAgentId() {
+		return nil, status.Error(codes.NotFound, "task not assigned to Agent")
 	}
 	var action *v1alpha1.Action
 	// This is the first action handler
@@ -204,7 +203,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	// update the current state
 	// populate the current state and then send the action to the client.
 	wf.Status.CurrentState = &v1alpha1.CurrentState{
-		WorkerID:   req.GetWorkerId(),
+		WorkerID:   req.GetAgentId(),
 		TaskID:     task.ID,
 		ActionID:   action.ID,
 		State:      action.State,
@@ -218,7 +217,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	ar := &proto.ActionResponse{
 		WorkflowId: toPtr(wf.Namespace + "/" + wf.Name),
 		TaskId:     toPtr(task.ID),
-		WorkerId:   toPtr(req.GetWorkerId()),
+		AgentId:    toPtr(req.GetAgentId()),
 		ActionId:   toPtr(action.ID),
 		Name:       toPtr(action.Name),
 		Image:      toPtr(action.Image),
@@ -285,7 +284,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 	for ti, task := range wf.Status.Tasks {
 		for ai, action := range task.Actions {
 			// action IDs match or this is the first action in a task
-			if action.ID == req.GetActionId() && task.WorkerAddr == req.GetWorkerId() {
+			if action.ID == req.GetActionId() && task.WorkerAddr == req.GetAgentId() {
 				wf.Status.Tasks[ti].Actions[ai].State = v1alpha1.WorkflowState(req.GetActionState().String())
 				wf.Status.Tasks[ti].Actions[ai].ExecutionStart = &metav1.Time{Time: req.GetExecutionStart().AsTime()}
 				wf.Status.Tasks[ti].Actions[ai].ExecutionStop = &metav1.Time{Time: req.GetExecutionStop().AsTime()}
@@ -303,7 +302,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 
 				// update the status current state
 				wf.Status.CurrentState = &v1alpha1.CurrentState{
-					WorkerID:   req.GetWorkerId(),
+					WorkerID:   req.GetAgentId(),
 					TaskID:     req.GetTaskId(),
 					ActionID:   req.GetActionId(),
 					State:      wf.Status.Tasks[ti].Actions[ai].State,
