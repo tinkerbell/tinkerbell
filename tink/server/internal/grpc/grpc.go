@@ -105,7 +105,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	}
 
 	log := h.Logger.WithValues("worker", req.GetWorkerId())
-	//log.Info("debugging", "attributes", req.GetWorkerAttributes(), "attributesString", req.GetWorkerAttributes().String())
+	// log.Info("debugging", "attributes", req.GetWorkerAttributes(), "attributesString", req.GetWorkerAttributes().String())
 	if req.GetWorkerId() == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid worker id:")
 	}
