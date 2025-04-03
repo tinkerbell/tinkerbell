@@ -12,7 +12,7 @@ import (
 func TestToProto(t *testing.T) {
 	tests := map[string]struct {
 		input    *attribute.AllAttributes
-		expected *proto.WorkerAttributes
+		expected *proto.AgentAttributes
 	}{
 		"Nil input": {
 			input:    nil,
@@ -58,7 +58,7 @@ func TestToProto(t *testing.T) {
 					},
 				},
 			},
-			expected: &proto.WorkerAttributes{
+			expected: &proto.AgentAttributes{
 				Cpu: &proto.CPU{
 					TotalCores:   toPtr(uint32(8)),
 					TotalThreads: toPtr(uint32(16)),
@@ -105,7 +105,7 @@ func TestToProto(t *testing.T) {
 					TotalThreads: toPtr(uint32(8)),
 				},
 			},
-			expected: &proto.WorkerAttributes{
+			expected: &proto.AgentAttributes{
 				Cpu: &proto.CPU{
 					TotalCores:   toPtr(uint32(4)),
 					TotalThreads: toPtr(uint32(8)),
@@ -185,7 +185,7 @@ func TestToProto(t *testing.T) {
 					Version: toPtr("1.0"),
 				},
 			},
-			expected: &proto.WorkerAttributes{
+			expected: &proto.AgentAttributes{
 				Cpu: &proto.CPU{
 					TotalCores:   toPtr(uint32(4)),
 					TotalThreads: toPtr(uint32(8)),
