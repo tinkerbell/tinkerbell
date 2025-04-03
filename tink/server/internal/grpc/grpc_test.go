@@ -741,5 +741,4 @@ func TestRules(t *testing.T) {
 		t.Logf("found a match: %v", match)
 	}
 	t.Fail()
-
 }
