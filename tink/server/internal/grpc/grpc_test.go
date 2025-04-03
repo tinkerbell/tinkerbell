@@ -31,7 +31,7 @@ func TestGetAction(t *testing.T) {
 	}{
 		"successful second Action in Task": {
 			request: &proto.ActionRequest{
-				WorkerId: toPtr("machine-mac-1"),
+				AgentId: toPtr("machine-mac-1"),
 			},
 			workflow: &v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
@@ -77,7 +77,7 @@ func TestGetAction(t *testing.T) {
 			},
 			want: &proto.ActionResponse{
 				WorkflowId:  toPtr("default/machine1"),
-				WorkerId:    toPtr("machine-mac-1"),
+				AgentId:     toPtr("machine-mac-1"),
 				TaskId:      toPtr("provision"),
 				ActionId:    toPtr("kexec"),
 				Name:        toPtr("kexec"),
@@ -90,11 +90,11 @@ func TestGetAction(t *testing.T) {
 		},
 		"successful first Action in Task": {
 			request: &proto.ActionRequest{
-				WorkerId: toPtr("machine-mac-1"),
+				AgentId: toPtr("machine-mac-1"),
 			},
 			want: &proto.ActionResponse{
 				WorkflowId:  toPtr("default/machine1"),
-				WorkerId:    toPtr("machine-mac-1"),
+				AgentId:     toPtr("machine-mac-1"),
 				TaskId:      new(string),
 				ActionId:    new(string),
 				Name:        toPtr("stream"),
