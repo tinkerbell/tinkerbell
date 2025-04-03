@@ -88,6 +88,10 @@ spec:
                       A HardwareRef must be provided.
                     type: boolean
                 type: object
+              disabled:
+                description: Disabled indicates whether the Workflow will be processed
+                  or not.
+                type: boolean
               hardwareMap:
                 additionalProperties:
                   type: string
