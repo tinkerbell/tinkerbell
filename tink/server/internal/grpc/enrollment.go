@@ -12,14 +12,20 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"quamina.net/go/quamina"
 )
 
-func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.WorkerAttributes) (*proto.ActionResponse, error) {
+const (
+	workflowPrefix = "enrollment-"
+)
+
+// wflowNamespace is a map of workflow names to their namespaces.
+type wflowNamespace map[string]string
+
+func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.WorkerAttributes, allWflows wflowNamespace) (*proto.ActionResponse, error) {
 	log := h.Logger.WithValues("workerID", workerID)
-	name, err := makeValidName(workerID, "enrollment-")
+	name, err := makeValidName(workerID, workflowPrefix)
 	if err != nil {
 		log.Info("debugging", "error making valid", true, "error", err)
 		return nil, status.Errorf(codes.Internal, "error making workerID a valid Kubernetes name: %v", err)
@@ -28,7 +34,7 @@ func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.Worke
 	// Get all WorkflowRuleSets and check if there is a match to the WorkerID or the Attributes (if Attributes are provided by request)
 	// using github.com/timbray/quamina
 	// If there is a match, create a Workflow for the WorkerID.
-	wrs, err := h.AutoCapabilities.Enrollment.ReadCreator.ReadAllWorkflowRuleSets(ctx)
+	wrs, err := h.AutoCapabilities.Enrollment.ReadCreator.ReadWorkflowRuleSets(ctx)
 	if err != nil {
 		log.Info("debugging", "error getting workflow rules", true, "error", err)
 		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))
@@ -39,7 +45,7 @@ func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.Worke
 	}
 	final := &match{}
 	for _, wr := range wrs {
-		if w, err := h.BackendReadWriter.Read(ctx, name, wr.Spec.WorkflowNamespace); (err != nil && !apierrors.IsNotFound(err)) || w != nil {
+		if ns, found := allWflows[wr.Name]; found && ns == wr.Spec.WorkflowNamespace {
 			// log.Info("debugging", "existingWorkflowFound", true, "error", err, "workflowName", name)
 			// Should this continue to the next WorkflowRuleSet?
 			st := status.New(codes.FailedPrecondition, "existing workflow found")
@@ -114,7 +120,7 @@ func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.Worke
 		awf.Spec.HardwareMap[final.wrs.Spec.WorkerTemplateName] = workerID
 		// TODO: if the awf.Spec.HardwareRef is an empty string, then query for a Hardware object with some corresponding value from the attributes.
 		// If a Hardware object is found add it to the awf.Spec.HardwareRef.
-		if err := h.AutoCapabilities.Enrollment.ReadCreator.Create(ctx, awf); err != nil {
+		if err := h.AutoCapabilities.Enrollment.ReadCreator.CreateWorkflow(ctx, awf); err != nil {
 			log.Info("debugging", "error creating enrollment workflow", true, "error", err)
 			return nil, errors.Join(errBackendWrite, status.Errorf(codes.Internal, "error creating enrollment workflow: %v", err))
 		}

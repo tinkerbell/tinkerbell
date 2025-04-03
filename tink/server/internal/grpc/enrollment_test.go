@@ -95,7 +95,7 @@ func TestEnroll(t *testing.T) {
 				BackendReadWriter: tt.mockBackendReadWriter,
 			}
 
-			_, err := handler.enroll(context.Background(), tt.workerID, tt.attributes)
+			_, err := handler.enroll(context.Background(), tt.workerID, tt.attributes, nil)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
@@ -117,11 +117,11 @@ type mockAutoCapabilities struct {
 	CreateFunc                  func(ctx context.Context, wf *v1alpha1.Workflow) error
 }
 
-func (m *mockAutoCapabilities) ReadAllWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
+func (m *mockAutoCapabilities) ReadWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
 	return m.ReadAllWorkflowRuleSetsFunc(ctx)
 }
 
-func (m *mockAutoCapabilities) Create(ctx context.Context, wf *v1alpha1.Workflow) error {
+func (m *mockAutoCapabilities) CreateWorkflow(ctx context.Context, wf *v1alpha1.Workflow) error {
 	return m.CreateFunc(ctx, wf)
 }
 
