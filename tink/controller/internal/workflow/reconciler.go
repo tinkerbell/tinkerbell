@@ -128,6 +128,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 		return reconcile.Result{}, err
 	}
+	if stored.Spec.Disabled != nil && *stored.Spec.Disabled {
+		journal.Log(ctx, "workflow disabled")
+		return reconcile.Result{}, nil
+	}
 	if !stored.DeletionTimestamp.IsZero() {
 		return reconcile.Result{}, nil
 	}

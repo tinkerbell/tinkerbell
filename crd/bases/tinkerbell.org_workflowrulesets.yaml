@@ -42,10 +42,14 @@ spec:
             type: object
           spec:
             properties:
+              addAttributesAsLabels:
+                type: boolean
               rules:
                 items:
                   type: string
                 type: array
+              workerTemplateName:
+                type: string
               workflow:
                 description: WorkflowSpec defines the desired state of Workflow.
                 properties:
@@ -75,6 +79,10 @@ spec:
                           A HardwareRef must be provided.
                         type: boolean
                     type: object
+                  disabled:
+                    description: Disabled indicates whether the Workflow will be processed
+                      or not.
+                    type: boolean
                   hardwareMap:
                     additionalProperties:
                       type: string
@@ -87,6 +95,8 @@ spec:
                     description: Name of the Template associated with this workflow.
                     type: string
                 type: object
+              workflowNamespace:
+                type: string
             type: object
           status:
             type: object
