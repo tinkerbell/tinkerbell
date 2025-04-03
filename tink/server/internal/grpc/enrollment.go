@@ -75,7 +75,7 @@ func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.Worke
 				log.Info("debugging", "error marshalling attributes to json", true, "error", err)
 				return nil, status.Errorf(codes.Internal, "error marshalling attributes to json: %v", err)
 			}
-			//log.Info("debugging", "jsonEvent", string(jsonBytes))
+			// log.Info("debugging", "jsonEvent", string(jsonBytes))
 			jsonEvent = jsonBytes
 		}
 		matches, err := q.MatchesForEvent(jsonEvent)

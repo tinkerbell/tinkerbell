@@ -61,9 +61,7 @@ func (b *Backend) ReadAllWorkflowRuleSets(ctx context.Context) ([]v1alpha1.Workf
 		return nil, err
 	}
 	wfs := []v1alpha1.WorkflowRuleSet{}
-	for _, wf := range stored.Items {
-		wfs = append(wfs, wf)
-	}
+	wfs = append(wfs, stored.Items...)
 	return wfs, nil
 }
 
