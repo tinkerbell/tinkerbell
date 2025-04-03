@@ -22,7 +22,7 @@ type WorkflowRuleSet struct {
 
 // +kubebuilder:object:root=true
 
-// WorkflowRuleSetList contains a list of WorkflowRuleSet
+// WorkflowRuleSetList contains a list of WorkflowRuleSet.
 type WorkflowRuleSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

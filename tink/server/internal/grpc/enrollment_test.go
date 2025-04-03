@@ -27,7 +27,7 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ReadAllWorkflowRuleSetsFunc: func(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
+				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
 					return []v1alpha1.WorkflowRuleSet{
 						{
 							Spec: v1alpha1.WorkflowRuleSetSpec{
@@ -39,12 +39,12 @@ func TestEnroll(t *testing.T) {
 						},
 					}, nil
 				},
-				CreateFunc: func(ctx context.Context, wf *v1alpha1.Workflow) error {
+				CreateFunc: func(_ context.Context, _ *v1alpha1.Workflow) error {
 					return nil
 				},
 			},
 			mockBackendReadWriter: &mockReadUpdater{
-				ReadFunc: func(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error) {
+				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
 					return nil, nil
 				},
 			},
@@ -57,12 +57,12 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ReadAllWorkflowRuleSetsFunc: func(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
+				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
 					return nil, nil
 				},
 			},
 			mockBackendReadWriter: &mockReadUpdater{
-				ReadFunc: func(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error) {
+				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
 					return nil, nil
 				},
 			},
@@ -75,12 +75,12 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ReadAllWorkflowRuleSetsFunc: func(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
+				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
 					return nil, errors.New("failed to read workflow rule sets")
 				},
 			},
 			mockBackendReadWriter: &mockReadUpdater{
-				ReadFunc: func(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error) {
+				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
 					return nil, nil
 				},
 			},
