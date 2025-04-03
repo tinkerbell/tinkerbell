@@ -55,8 +55,7 @@ func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 	if err != nil {
 		s := status.Convert(err)
 		for _, d := range s.Details() {
-			switch t := d.(type) {
-			case *epb.PreconditionFailure:
+			if t, ok := d.(*epb.PreconditionFailure); ok {
 				for _, f := range t.Violations {
 					switch f.Type {
 					case proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_WORKFLOW_CREATED.String():
