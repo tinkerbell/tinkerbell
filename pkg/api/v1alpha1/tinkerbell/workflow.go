@@ -71,6 +71,9 @@ type WorkflowList struct {
 
 // WorkflowSpec defines the desired state of Workflow.
 type WorkflowSpec struct {
+	// Disabled indicates whether the Workflow will be processed or not.
+	// +optional
+	Disabled *bool `json:"disabled,omitempty"`
 	// Name of the Template associated with this workflow.
 	TemplateRef string `json:"templateRef,omitempty"`
 
@@ -82,7 +85,7 @@ type WorkflowSpec struct {
 	HardwareMap map[string]string `json:"hardwareMap,omitempty"`
 
 	// BootOptions are options that control the booting of Hardware.
-	BootOptions BootOptions `json:"bootOptions,omitempty"`
+	BootOptions BootOptions `json:"bootOptions,omitempty,omitzero"`
 }
 
 // BootOptions are options that control the booting of Hardware.
@@ -104,6 +107,10 @@ type BootOptions struct {
 	// +optional
 	// +kubebuilder:validation:Enum=netboot;isoboot;iso
 	BootMode BootMode `json:"bootMode,omitempty"`
+}
+
+func (b BootOptions) IsZero() bool {
+	return b.ISOURL == "" && !b.ToggleAllowNetboot && b.BootMode == ""
 }
 
 // BootOptionsStatus holds the state of any boot options.

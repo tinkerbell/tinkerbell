@@ -15,9 +15,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"quamina.net/go/quamina"
 )
 
 const (
@@ -28,8 +26,8 @@ const (
 )
 
 var (
-	ErrBackendRead  = errors.New("error reading from backend")
-	ErrBackendWrite = errors.New("error writing to backend")
+	errBackendRead  = errors.New("error reading from backend")
+	errBackendWrite = errors.New("error writing to backend")
 )
 
 type BackendReadUpdater interface {
@@ -39,7 +37,7 @@ type BackendReadUpdater interface {
 }
 
 type AutoCapReadCreator interface {
-	ReadAllWorkflowRuleSets(ctx context.Context, namespace string) ([]v1alpha1.WorkflowRuleSet, error)
+	ReadAllWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error)
 	Create(ctx context.Context, wf *v1alpha1.Workflow) error
 }
 
@@ -114,7 +112,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 
 	wflows, err := h.BackendReadWriter.ReadAll(ctx, req.GetWorkerId())
 	if err != nil {
-		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
+		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
 	if len(wflows) == 0 {
 		// TODO: This is where we handle auto capabilities
@@ -123,67 +121,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 			// If not, create one.
 		}
 		if h.AutoCapabilities.Enrollment.Enabled {
-			// TODO: fail here if an enrollment workflow already exists. h.BackendReadWriter.ReadAll returns non-terminal workflows
-			// so a successful enrollment Workflow will not be returned as part of this call.
-			log.Info("debugging", "startingAutoEnrollment", true)
-			// Get all WorkflowRuleSets and check if there is a match to the WorkerID or the Attributes (if Attributes are provided by request)
-			// using github.com/timbray/quamina
-			// If there is a match, create a Workflow for the WorkerID.
-			wrs, err := h.AutoCapabilities.Enrollment.ReadCreator.ReadAllWorkflowRuleSets(ctx, "tink-system")
-			if err != nil {
-				log.Info("debugging", "error getting workflow rules", true, "error", err)
-				return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))
-			}
-
-			for _, wr := range wrs {
-				q, err := quamina.New()
-				if err != nil {
-					log.Info("debugging", "error preparing WorkflowRuleSet parser", true, "error", err)
-					return nil, status.Errorf(codes.Internal, "error preparing WorkflowRuleSet parser: %v", err)
-				}
-				for idx, r := range wr.Spec.Rules {
-					if err := q.AddPattern(fmt.Sprintf("pattern-%v", idx), r); err != nil {
-						log.Info("debugging", "error with pattern in WorkflowRuleSet", true, "error", err)
-						return nil, status.Errorf(codes.Internal, "error with pattern in WorkflowRuleSet: %v", err)
-					}
-				}
-
-				var jsonEvent []byte
-				if req.GetWorkerAttributes() != nil {
-					jsonBytes, err := protojson.Marshal(req.GetWorkerAttributes())
-					if err != nil {
-						log.Info("debugging", "error marshalling attributes to json", true, "error", err)
-						return nil, status.Errorf(codes.Internal, "error marshalling attributes to json: %v", err)
-					}
-					//log.Info("debugging", "jsonEvent", string(jsonBytes))
-					jsonEvent = jsonBytes
-				}
-				matches, err := q.MatchesForEvent(jsonEvent)
-				if err != nil {
-					log.Info("debugging", "error matching pattern", true, "error", err)
-					return nil, status.Errorf(codes.Internal, "error matching pattern: %v", err)
-				}
-				if len(matches) > 0 {
-					// Create a Workflow for the WorkerID
-					awf := &v1alpha1.Workflow{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      fmt.Sprintf("enrollment-%s", strings.ReplaceAll(req.GetWorkerId(), ":", "-")),
-							Namespace: "tink-system",
-						},
-						Spec: wr.Spec.Workflow,
-					}
-					awf.Spec.HardwareMap["worker_id"] = req.GetWorkerId()
-					if err := h.AutoCapabilities.Enrollment.ReadCreator.Create(ctx, awf); err != nil {
-						log.Info("debugging", "error creating enrollment workflow", true, "error", err)
-						return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error creating enrollment workflow: %v", err))
-					}
-					log.Info("debugging", "enrollmentWorkflowCreated", true)
-					return nil, backoff.Permanent(status.Error(codes.Unavailable, "enrollment workflow created, please try again"))
-				}
-			}
-			// If there is no match, return an error.
-			log.Info("debugging", "noWorkflowRuleSetMatch", true)
-			return nil, status.Errorf(codes.NotFound, "no Workflow Rule Sets found or matched for worker %s", req.GetWorkerId())
+			return h.enroll(ctx, req.GetWorkerId(), req.GetWorkerAttributes())
 		}
 		log.Info("debugging", "noWorkflowsFound", true)
 		return nil, status.Error(codes.NotFound, "no workflows found")
@@ -248,7 +186,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	}
 
 	if err := h.BackendReadWriter.Update(ctx, &wf); err != nil {
-		return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error writing current state: %v", err))
+		return nil, errors.Join(errBackendWrite, status.Errorf(codes.Internal, "error writing current state: %v", err))
 	}
 
 	ar := &proto.ActionResponse{
@@ -315,7 +253,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 	namespace, name, _ := strings.Cut(req.GetWorkflowId(), "/")
 	wf, err := h.BackendReadWriter.Read(ctx, name, namespace)
 	if err != nil {
-		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow: %v", err))
+		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflow: %v", err))
 	}
 	// 3. Find the Action in the workflow from the request
 	for ti, task := range wf.Status.Tasks {

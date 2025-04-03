@@ -54,7 +54,7 @@ func (b *Backend) Update(ctx context.Context, wf *v1alpha1.Workflow) error {
 	return nil
 }
 
-func (b *Backend) ReadAllWorkflowRuleSets(ctx context.Context, namespace string) ([]v1alpha1.WorkflowRuleSet, error) {
+func (b *Backend) ReadAllWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
 	stored := &v1alpha1.WorkflowRuleSetList{}
 	err := b.cluster.GetClient().List(ctx, stored)
 	if err != nil {
