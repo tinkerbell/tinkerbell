@@ -141,6 +141,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 		if h.AutoCapabilities.Discovery.Enabled {
 			// Check if there is an existing Hardware Object.
 			// If not, create one.
+			log.Info("auto discovery is not implemented yet")
 		}
 		if h.AutoCapabilities.Enrollment.Enabled {
 			wfns := func() wflowNamespace {
