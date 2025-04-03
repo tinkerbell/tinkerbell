@@ -8,13 +8,13 @@ option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
  * ActionRequest 
  */
 message ActionRequest {
-    /* The ID of the worker that is requesting the action */
-    string worker_id = 1;
-    /* Attributes of the worker, this enables more sophisticated server-side Workflow selection and creation capabilities */
-    WorkerAttributes worker_attributes = 2;
+    /* The ID of the Agent that is requesting the action */
+    string agent_id = 1;
+    /* Attributes of the Agent, this enables more sophisticated server-side Workflow selection and creation capabilities */
+    AgentAttributes agent_attributes = 2;
 }
 
-message WorkerAttributes {
+message AgentAttributes {
     CPU cpu = 1;
     Memory memory = 2;
     repeated Block block = 3;

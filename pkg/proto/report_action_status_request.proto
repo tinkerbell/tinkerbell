@@ -15,9 +15,9 @@ option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
      */
     string workflow_id = 1;
     /*
-     * The worker id
+     * The agent id
      */
-    string worker_id = 2;
+    string agent_id = 2;
     /*
      * The name of the task this action is part of
      */
@@ -67,8 +67,8 @@ option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
       */
       PENDING = 1;
       /*
-       * A workflow is in a running state when the tink-worker started the
-       * exeuction of it, and it is currently in execution inside the device
+       * A workflow is in a running state when the Agent started the
+       * execution of it, and it is currently in execution inside the device
        * itself.
        */
       RUNNING = 2;

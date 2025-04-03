@@ -8,7 +8,7 @@ import (
 
 const labelSeparator = "-"
 
-func flattenAttributes(attr *proto.WorkerAttributes) map[string]string {
+func flattenAttributes(attr *proto.AgentAttributes) map[string]string {
 	flattened := make(map[string]string)
 	if attr == nil {
 		return flattened
