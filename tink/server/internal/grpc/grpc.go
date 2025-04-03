@@ -37,9 +37,17 @@ type BackendReadWriter interface {
 	Update(ctx context.Context, wf *v1alpha1.Workflow) error
 }
 
-type AutoCapReadCreator interface {
-	ReadAllWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error)
-	Create(ctx context.Context, wf *v1alpha1.Workflow) error
+type AutoReadCreator interface {
+	WorkflowRuleSetReader
+	WorkflowCreator
+}
+
+type WorkflowRuleSetReader interface {
+	ReadWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error)
+}
+
+type WorkflowCreator interface {
+	CreateWorkflow(ctx context.Context, wf *v1alpha1.Workflow) error
 }
 
 // Handler is a server that implements a workflow API.
@@ -64,7 +72,7 @@ type AutoCapabilities struct {
 // Object defined.
 type AutoEnrollment struct {
 	Enabled     bool
-	ReadCreator AutoCapReadCreator
+	ReadCreator AutoReadCreator
 }
 
 // AutoDiscovery is a struct that contains the auto discovery configuration.
@@ -118,14 +126,31 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	if err != nil {
 		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
-	if len(wflows) == 0 {
+	nonTerminatedWflows := func() []v1alpha1.Workflow {
+		wfs := []v1alpha1.Workflow{}
+		for _, wf := range wflows {
+			if wf.Status.State != v1alpha1.WorkflowStateRunning && wf.Status.State != v1alpha1.WorkflowStatePending {
+				return wfs
+			}
+			wfs = append(wfs, wf)
+		}
+		return wfs
+	}()
+	if len(nonTerminatedWflows) == 0 {
 		// TODO: This is where we handle auto capabilities
 		if h.AutoCapabilities.Discovery.Enabled {
 			// Check if there is an existing Hardware Object.
 			// If not, create one.
 		}
 		if h.AutoCapabilities.Enrollment.Enabled {
-			return h.enroll(ctx, req.GetWorkerId(), req.GetWorkerAttributes())
+			wfns := func() wflowNamespace {
+				wfs := wflowNamespace{}
+				for _, wf := range wflows {
+					wfs[wf.Namespace] = wf.Namespace
+				}
+				return wfs
+			}()
+			return h.enroll(ctx, req.GetWorkerId(), req.GetWorkerAttributes(), wfns)
 		}
 		log.Info("debugging", "noWorkflowsFound", true)
 		return nil, status.Error(codes.NotFound, "no workflows found")
