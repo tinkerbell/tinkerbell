@@ -18,7 +18,7 @@ import (
 
 type Config struct {
 	Backend      grpcinternal.BackendReadUpdater
-	AutoBackend  grpcinternal.AutoCapReadCreator
+	AutoBackend  grpcinternal.AutoReadCreator
 	BindAddrPort netip.AddrPort
 	Logger       logr.Logger
 }
