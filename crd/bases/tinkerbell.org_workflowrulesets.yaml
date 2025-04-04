@@ -44,7 +44,7 @@ spec:
             properties:
               addAttributesAsLabels:
                 type: boolean
-              agentTemplateName:
+              agentTemplateValue:
                 type: string
               rules:
                 items:
