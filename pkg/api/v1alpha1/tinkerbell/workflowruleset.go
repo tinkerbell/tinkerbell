@@ -30,11 +30,12 @@ type WorkflowRuleSetList struct {
 }
 
 type WorkflowRuleSetSpec struct {
-	Rules                 []string     `json:"rules,omitempty"`
-	AddAttributesAsLabels bool         `json:"addAttributesAsLabels,omitempty"`
-	AgentTemplateName     string       `json:"agentTemplateName,omitempty"`
-	WorkflowNamespace     string       `json:"workflowNamespace,omitempty"`
-	Workflow              WorkflowSpec `json:"workflow,omitempty"`
+	Rules                 []string `json:"rules,omitempty"`
+	AddAttributesAsLabels bool     `json:"addAttributesAsLabels,omitempty"`
+	// AgentTemplateValue is the Go template value used in a Template for the Task[].worker value.
+	AgentTemplateValue string       `json:"agentTemplateValue,omitempty"`
+	WorkflowNamespace  string       `json:"workflowNamespace,omitempty"`
+	Workflow           WorkflowSpec `json:"workflow,omitempty"`
 }
 
 type WorkflowRuleSetStatus struct{}
