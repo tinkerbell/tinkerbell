@@ -120,12 +120,12 @@ func TestWorkflowIndexFuncs(t *testing.T) {
 					State: v1alpha1.WorkflowStatePending,
 					Tasks: []v1alpha1.Task{
 						{
-							WorkerAddr: "worker1",
+							AgentID: "agent1",
 						},
 					},
 				},
 			},
-			[]string{"worker1"},
+			[]string{"agent1"},
 		},
 		{
 			"running workflow",
@@ -134,15 +134,15 @@ func TestWorkflowIndexFuncs(t *testing.T) {
 					State: v1alpha1.WorkflowStateRunning,
 					Tasks: []v1alpha1.Task{
 						{
-							WorkerAddr: "worker1",
+							AgentID: "agent1",
 						},
 						{
-							WorkerAddr: "worker2",
+							AgentID: "agent2",
 						},
 					},
 				},
 			},
-			[]string{"worker1", "worker2"},
+			[]string{"agent1", "agent2"},
 		},
 		{
 			"complete workflow",
@@ -151,7 +151,7 @@ func TestWorkflowIndexFuncs(t *testing.T) {
 					State: v1alpha1.WorkflowStateSuccess,
 					Tasks: []v1alpha1.Task{
 						{
-							WorkerAddr: "worker1",
+							AgentID: "agent1",
 						},
 					},
 				},

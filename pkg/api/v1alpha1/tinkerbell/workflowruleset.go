@@ -32,7 +32,7 @@ type WorkflowRuleSetList struct {
 type WorkflowRuleSetSpec struct {
 	Rules                 []string     `json:"rules,omitempty"`
 	AddAttributesAsLabels bool         `json:"addAttributesAsLabels,omitempty"`
-	WorkerTemplateName    string       `json:"workerTemplateName,omitempty"`
+	AgentTemplateName     string       `json:"agentTemplateName,omitempty"`
 	WorkflowNamespace     string       `json:"workflowNamespace,omitempty"`
 	Workflow              WorkflowSpec `json:"workflow,omitempty"`
 }

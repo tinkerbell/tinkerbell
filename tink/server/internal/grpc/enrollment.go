@@ -23,17 +23,17 @@ const (
 // wflowNamespace is a map of workflow names to their namespaces.
 type wflowNamespace map[string]string
 
-func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.AgentAttributes, allWflows wflowNamespace) (*proto.ActionResponse, error) {
-	log := h.Logger.WithValues("workerID", workerID)
-	name, err := makeValidName(workerID, workflowPrefix)
+func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentAttributes, allWflows wflowNamespace) (*proto.ActionResponse, error) {
+	log := h.Logger.WithValues("agentID", agentID)
+	name, err := makeValidName(agentID, workflowPrefix)
 	if err != nil {
 		log.Info("debugging", "error making valid", true, "error", err)
-		return nil, status.Errorf(codes.Internal, "error making workerID a valid Kubernetes name: %v", err)
+		return nil, status.Errorf(codes.Internal, "error making agentID a valid Kubernetes name: %v", err)
 	}
 	log = log.WithValues("workflowName", name)
-	// Get all WorkflowRuleSets and check if there is a match to the WorkerID or the Attributes (if Attributes are provided by request)
+	// Get all WorkflowRuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
 	// using github.com/timbray/quamina
-	// If there is a match, create a Workflow for the WorkerID.
+	// If there is a match, create a Workflow for the AgentID.
 	wrs, err := h.AutoCapabilities.Enrollment.ReadCreator.ReadWorkflowRuleSets(ctx)
 	if err != nil {
 		log.Info("debugging", "error getting workflow rules", true, "error", err)
@@ -95,7 +95,7 @@ func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.Agent
 		}
 	}
 	if final.numMatches > 0 {
-		// Create a Workflow for the WorkerID
+		// Create a Workflow for the AgentID
 		awf := &v1alpha1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -117,7 +117,7 @@ func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.Agent
 		if awf.Spec.HardwareMap == nil {
 			awf.Spec.HardwareMap = make(map[string]string)
 		}
-		awf.Spec.HardwareMap[final.wrs.Spec.WorkerTemplateName] = workerID
+		awf.Spec.HardwareMap[final.wrs.Spec.AgentTemplateName] = agentID
 		// TODO: if the awf.Spec.HardwareRef is an empty string, then query for a Hardware object with some corresponding value from the attributes.
 		// If a Hardware object is found add it to the awf.Spec.HardwareRef.
 		if err := h.AutoCapabilities.Enrollment.ReadCreator.CreateWorkflow(ctx, awf); err != nil {
@@ -143,5 +143,5 @@ func (h *Handler) enroll(ctx context.Context, workerID string, attr *proto.Agent
 	}
 	// If there is no match, return an error.
 	log.Info("debugging", "noWorkflowRuleSetMatch", true)
-	return nil, status.Errorf(codes.NotFound, "no Workflow Rule Sets found or matched for worker %s", workerID)
+	return nil, status.Errorf(codes.NotFound, "no Workflow Rule Sets found or matched for Agent %s", agentID)
 }
