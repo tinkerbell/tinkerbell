@@ -45,7 +45,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 	}
 	final := &match{}
 	for _, wr := range wrs {
-		if ns, found := allWflows[wr.Name]; found && ns == wr.Spec.WorkflowNamespace {
+		if ns, found := allWflows[name]; found && ns == wr.Spec.WorkflowNamespace {
 			// log.Info("debugging", "existingWorkflowFound", true, "error", err, "workflowName", name)
 			// Should this continue to the next WorkflowRuleSet?
 			st := status.New(codes.FailedPrecondition, "existing workflow found")

@@ -62,7 +62,7 @@ func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 				for _, f := range t.Violations {
 					switch f.Type {
 					case proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_WORKFLOW_CREATED.String():
-						// c.Log.Info("debugging", "isPreconditionFailure", true, "isEnrollment", true, "error", err)
+						// backoff.Permanent is used to stop the backoff retry loop. This will cause a new GetAction to be called right away.
 						return spec.Action{}, backoff.Permanent(err)
 					case proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_EXISTING_WORKFLOW.String():
 						return spec.Action{}, err
