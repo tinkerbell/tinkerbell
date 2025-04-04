@@ -9,23 +9,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (b *Backend) ReadAll(ctx context.Context, workerID string) ([]v1alpha1.Workflow, error) {
+func (b *Backend) ReadAll(ctx context.Context, agentID string) ([]v1alpha1.Workflow, error) {
 	stored := &v1alpha1.WorkflowList{}
-	err := b.cluster.GetClient().List(ctx, stored /*&client.MatchingFields{WorkflowByNonTerminalState: workerID}*/)
+	err := b.cluster.GetClient().List(ctx, stored)
 	if err != nil {
 		return nil, err
 	}
-	wfs := []v1alpha1.Workflow{}
-	for _, wf := range stored.Items {
-		// If the current assigned or running action is assigned to the requested worker, include it
-		for _, task := range wf.Status.Tasks {
-			if task.WorkerAddr == workerID {
-				wfs = append(wfs, wf)
-				break
-			}
-		}
-	}
-	return wfs, nil
+	return stored.Items, nil
 }
 
 func (b *Backend) Read(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error) {
