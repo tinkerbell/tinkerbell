@@ -117,7 +117,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 		if awf.Spec.HardwareMap == nil {
 			awf.Spec.HardwareMap = make(map[string]string)
 		}
-		awf.Spec.HardwareMap[final.wrs.Spec.AgentTemplateName] = agentID
+		awf.Spec.HardwareMap[final.wrs.Spec.AgentTemplateValue] = agentID
 		// TODO: if the awf.Spec.HardwareRef is an empty string, then query for a Hardware object with some corresponding value from the attributes.
 		// If a Hardware object is found add it to the awf.Spec.HardwareRef.
 		if err := h.AutoCapabilities.Enrollment.ReadCreator.CreateWorkflow(ctx, awf); err != nil {
