@@ -44,12 +44,12 @@ spec:
             properties:
               addAttributesAsLabels:
                 type: boolean
+              agentTemplateName:
+                type: string
               rules:
                 items:
                   type: string
                 type: array
-              workerTemplateName:
-                type: string
               workflow:
                 description: WorkflowSpec defines the desired state of Workflow.
                 properties:
