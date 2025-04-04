@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"quamina.net/go/quamina"
 )
@@ -121,6 +122,25 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 		// TODO: if the awf.Spec.HardwareRef is an empty string, then query for a Hardware object with some corresponding value from the attributes.
 		// If a Hardware object is found add it to the awf.Spec.HardwareRef.
 		if err := h.AutoCapabilities.Enrollment.ReadCreator.CreateWorkflow(ctx, awf); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				// if we get here, then we didn't find an existing Workflow above, but CreateWorkflow is reporting that there is.
+				// So we treat this as a new Workflow creation and send the same error.
+				// failed precondition and backoff permanent error so that the backoff retry loop stops and the Agent is signaled to try again immediately.
+				log.Info("debugging", "existingWorkflowFound", true, "error", err)
+				st := status.New(codes.FailedPrecondition, "existing workflow found")
+				ds, err := st.WithDetails(&epb.PreconditionFailure{
+					Violations: []*epb.PreconditionFailure_Violation{{
+						Type:        proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_WORKFLOW_CREATED.String(),
+						Subject:     fmt.Sprintf("name:%s", name),
+						Description: "enrollment workflow created, please try again",
+					}},
+				})
+				if err != nil {
+					log.Info("debugging", "error creating status with details", true, "error", err)
+					return nil, st.Err()
+				}
+				return nil, backoff.Permanent(ds.Err())
+			}
 			log.Info("debugging", "error creating enrollment workflow", true, "error", err)
 			return nil, errors.Join(errBackendWrite, status.Errorf(codes.Internal, "error creating enrollment workflow: %v", err))
 		}
