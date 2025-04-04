@@ -36,7 +36,7 @@ func TestRead(t *testing.T) {
 	}{
 		"Success": {
 			expectedSpec: spec.Action{
-				WorkerID:   "123",
+				AgentID:    "123",
 				TaskID:     "456",
 				WorkflowID: "789",
 				ID:         "0123",
@@ -61,7 +61,7 @@ func TestRead(t *testing.T) {
 			protoResponse: &proto.ActionResponse{
 				WorkflowId: toPtr("789"),
 				TaskId:     toPtr("456"),
-				WorkerId:   toPtr("123"),
+				AgentId:    toPtr("123"),
 				ActionId:   toPtr("0123"),
 				Name:       toPtr("first action"),
 				Image:      toPtr("alpine"),
@@ -92,7 +92,7 @@ func TestRead(t *testing.T) {
 
 			config := &Config{
 				TinkServerClient: mockClient,
-				WorkerID:         "worker-123",
+				AgentID:          "worker-123",
 				RetryOptions: []backoff.RetryOption{
 					backoff.WithMaxTries(1),
 				},
@@ -138,7 +138,7 @@ func TestWrite(t *testing.T) {
 
 			config := &Config{
 				TinkServerClient: mockClient,
-				WorkerID:         "worker-123",
+				AgentID:          "worker-123",
 				RetryOptions: []backoff.RetryOption{
 					backoff.WithMaxTries(1),
 				},

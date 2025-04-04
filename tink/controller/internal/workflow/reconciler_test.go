@@ -333,7 +333,7 @@ func TestReconcile(t *testing.T) {
 						{
 							Name: "os-installation",
 
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -459,7 +459,7 @@ tasks:
 						{
 							Name: "os-installation",
 
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -602,8 +602,8 @@ tasks:
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
-							Name:       "os-installation",
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							Name:    "os-installation",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -688,8 +688,8 @@ tasks:
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
-							Name:       "os-installation",
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							Name:    "os-installation",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -780,7 +780,7 @@ tasks:
 						{
 							Name: "os-installation",
 
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -913,7 +913,7 @@ tasks:
 						{
 							Name: "os-installation",
 
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -1036,8 +1036,8 @@ func TestGetStartTime(t *testing.T) {
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
-							Name:       "os-installation",
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							Name:    "os-installation",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Actions: []v1alpha1.Action{
 								{
 									Name:    "stream-debian-image",
@@ -1087,8 +1087,8 @@ func TestGetStartTime(t *testing.T) {
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
-							Name:       "os-installation",
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							Name:    "os-installation",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Actions: []v1alpha1.Action{
 								{
 									Name:    "stream-debian-image",

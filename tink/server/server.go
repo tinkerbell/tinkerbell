@@ -17,16 +17,19 @@ import (
 )
 
 type Config struct {
-	Backend      grpcinternal.BackendReadWriter
-	BindAddrPort netip.AddrPort
-	Logger       logr.Logger
+	Backend               grpcinternal.BackendReadUpdater
+	AutoBackend           grpcinternal.AutoReadCreator
+	BindAddrPort          netip.AddrPort
+	Logger                logr.Logger
+	AutoEnrollmentEnabled bool
+	AutoDiscoveryEnabled  bool
 }
 
 // Option is a functional option type.
 type Option func(*Config)
 
 // WithBackend sets the backend for the server.
-func WithBackend(b grpcinternal.BackendReadWriter) Option {
+func WithBackend(b grpcinternal.BackendReadUpdater) Option {
 	return func(c *Config) {
 		c.Backend = b
 	}
@@ -59,6 +62,15 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		BackendReadWriter: c.Backend,
 		Logger:            log,
 		NowFunc:           time.Now,
+		AutoCapabilities: grpcinternal.AutoCapabilities{
+			Enrollment: grpcinternal.AutoEnrollment{
+				Enabled:     c.AutoEnrollmentEnabled,
+				ReadCreator: c.AutoBackend,
+			},
+			Discovery: grpcinternal.AutoDiscovery{
+				Enabled: c.AutoDiscoveryEnabled,
+			},
+		},
 	}
 
 	params := []grpc.ServerOption{

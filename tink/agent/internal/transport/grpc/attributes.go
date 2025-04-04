@@ -5,12 +5,12 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/attribute"
 )
 
-// ToProto converts an attribute.AllAttributes to a proto.WorkerAttributes.
-func ToProto(a *attribute.AllAttributes) *proto.WorkerAttributes {
+// ToProto converts an attribute.AllAttributes to a proto.AgentAttributes.
+func ToProto(a *attribute.AllAttributes) *proto.AgentAttributes {
 	if a == nil {
 		return nil
 	}
-	result := &proto.WorkerAttributes{}
+	result := &proto.AgentAttributes{}
 	if a.CPU != nil {
 		result.Cpu = &proto.CPU{
 			TotalCores:   a.CPU.TotalCores,

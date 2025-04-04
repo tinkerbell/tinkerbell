@@ -21,14 +21,14 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 				Timeout:     action.Timeout,
 				Command:     action.Command,
 				Volumes:     action.Volumes,
-				State:       v1alpha1.WorkflowState(proto.StateType_PENDING.String()),
+				State:       v1alpha1.WorkflowState(proto.ActionStatusRequest_PENDING.String()),
 				Environment: action.Environment,
 				Pid:         action.Pid,
 			})
 		}
 		tasks = append(tasks, v1alpha1.Task{
 			Name:        task.Name,
-			WorkerAddr:  task.WorkerAddr,
+			AgentID:     task.WorkerAddr,
 			ID:          ulid.Make().String(),
 			Volumes:     task.Volumes,
 			Environment: task.Environment,

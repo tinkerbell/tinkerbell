@@ -15,9 +15,9 @@ option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
      */
     string workflow_id = 1;
     /*
-     * The worker id
+     * The agent id
      */
-    string worker_id = 2;
+    string agent_id = 2;
     /*
      * The name of the task this action is part of
      */
@@ -51,6 +51,44 @@ option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
      * The message returned from the action.
      */
     ActionMessage message = 10;
+
+    /*
+     * The various state a workflow can be
+     */
+    enum StateType {
+      /*
+       * Unspecified is the default state of a workflow. It means that the state of
+       * the workflow is not known.
+       */
+      UNSPECIFIED = 0;
+      /*
+       * A workflow is in pending state when it is waiting for the hardware to pick
+       * it up and start the execution.
+      */
+      PENDING = 1;
+      /*
+       * A workflow is in a running state when the Agent started the
+       * execution of it, and it is currently in execution inside the device
+       * itself.
+       */
+      RUNNING = 2;
+      /*
+       * Failed is a final state. Something wrong happened during the execution of
+       * the workflow inside the target. Have a look at the logs to see if you can
+       * spot what is going on.
+       */
+      FAILED = 3;
+      /*
+       * Timeout is final state, almost like FAILED but it communicate to you that
+       * an action or the overall workflow reached the specified timeout.
+       */
+      TIMEOUT = 4;
+      /*
+       * This is the state we all deserve. The execution of the workflow is over
+       * and everything is just fine. Sit down, and enjoy your great work.
+       */
+      SUCCESS = 5;
+    }
   }
 
 /*
@@ -61,42 +99,4 @@ message ActionMessage {
      * Message is the human readable message that can be used to describe the status of the action
      */
     string message = 1;
-}
-
-/*
- * The various state a workflow can be
- */
-enum StateType {
-  /*
-   * Unspecified is the default state of a workflow. It means that the state of
-   * the workflow is not known.
-   */
-  UNSPECIFIED = 0;
-  /*
-   * A workflow is in pending state when it is waiting for the hardware to pick
-   * it up and start the execution.
-  */
-  PENDING = 1;
-  /*
-   * A workflow is in a running state when the tink-worker started the
-   * exeuction of it, and it is currently in execution inside the device
-   * itself.
-   */
-  RUNNING = 2;
-  /*
-   * Failed is a final state. Something wrong happened during the execution of
-   * the workflow inside the target. Have a look at the logs to see if you can
-   * spot what is going on.
-   */
-  FAILED = 3;
-  /*
-   * Timeout is final state, almost like FAILED but it communicate to you that
-   * an action or the overall workflow reached the specified timeout.
-   */
-  TIMEOUT = 4;
-  /*
-   * This is the state we all deserve. The execution of the workflow is over
-   * and everything is just fine. Sit down, and enjoy your great work.
-   */
-  SUCCESS = 5;
 }

@@ -13,19 +13,22 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
+	gbackoff "google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Config struct {
 	Log              logr.Logger
 	TinkServerClient proto.WorkflowServiceClient
-	WorkerID         string
+	AgentID          string
 	RetryInterval    time.Duration
 	Actions          chan spec.Action
-	Attributes       *proto.WorkerAttributes
+	Attributes       *proto.AgentAttributes
 	RetryOptions     []backoff.RetryOption
 }
 
@@ -48,15 +51,29 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 }
 
 func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
-	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{WorkerId: toPtr(c.WorkerID), WorkerAttributes: c.Attributes})
+	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{AgentId: toPtr(c.AgentID), AgentAttributes: c.Attributes})
 	if err != nil {
+		s := status.Convert(err)
+		for _, d := range s.Details() {
+			if t, ok := d.(*epb.PreconditionFailure); ok {
+				for _, f := range t.Violations {
+					switch f.Type {
+					case proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_WORKFLOW_CREATED.String():
+						// backoff.Permanent is used to stop the backoff retry loop. This will cause a new GetAction to be called right away.
+						return spec.Action{}, backoff.Permanent(err)
+					case proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_EXISTING_WORKFLOW.String():
+						return spec.Action{}, fmt.Errorf("ignorable error, Agent is waiting for a new Workflow: %w", err)
+					}
+				}
+			}
+		}
 		return spec.Action{}, fmt.Errorf("error getting action: %w", err)
 	}
 
 	as := spec.Action{
 		TaskID:         response.GetTaskId(),
 		ID:             response.GetActionId(),
-		WorkerID:       response.GetWorkerId(),
+		AgentID:        response.GetAgentId(),
 		WorkflowID:     response.GetWorkflowId(),
 		Name:           response.GetName(),
 		Image:          response.GetImage(),
@@ -128,7 +145,7 @@ func (c *Config) Write(ctx context.Context, event spec.Event) error {
 func (c *Config) doWrite(ctx context.Context, event spec.Event) error {
 	ar := &proto.ActionStatusRequest{
 		WorkflowId:        &event.Action.WorkflowID,
-		WorkerId:          &event.Action.WorkerID,
+		AgentId:           &event.Action.AgentID,
 		TaskId:            &event.Action.TaskID,
 		ActionId:          &event.Action.ID,
 		ActionName:        &event.Action.Name,
@@ -157,7 +174,7 @@ func NewClientConn(authority string, tlsEnabled bool, tlsInsecure bool) (*grpc.C
 		creds = grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
 
-	conn, err := grpc.NewClient(authority, creds, grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
+	conn, err := grpc.NewClient(authority, creds, grpc.WithStatsHandler(otelgrpc.NewClientHandler()), grpc.WithConnectParams(grpc.ConnectParams{Backoff: gbackoff.DefaultConfig}))
 	if err != nil {
 		return nil, fmt.Errorf("dial tinkerbell server: %w", err)
 	}
@@ -165,18 +182,18 @@ func NewClientConn(authority string, tlsEnabled bool, tlsInsecure bool) (*grpc.C
 	return conn, nil
 }
 
-func specToProto(inState spec.State) *proto.StateType {
+func specToProto(inState spec.State) *proto.ActionStatusRequest_StateType {
 	switch inState {
 	case spec.StateRunning:
-		return toPtr(proto.StateType_RUNNING)
+		return toPtr(proto.ActionStatusRequest_RUNNING)
 	case spec.StateSuccess:
-		return toPtr(proto.StateType_SUCCESS)
+		return toPtr(proto.ActionStatusRequest_SUCCESS)
 	case spec.StateFailure:
-		return toPtr(proto.StateType_FAILED)
+		return toPtr(proto.ActionStatusRequest_FAILED)
 	case spec.StateTimeout:
-		return toPtr(proto.StateType_TIMEOUT)
+		return toPtr(proto.ActionStatusRequest_TIMEOUT)
 	default:
-		return toPtr(proto.StateType_UNSPECIFIED)
+		return toPtr(proto.ActionStatusRequest_UNSPECIFIED)
 	}
 }
 
