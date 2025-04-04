@@ -29,13 +29,19 @@ type WorkflowRuleSetList struct {
 	Items           []WorkflowRuleSet `json:"items"`
 }
 
+// WorkflowRuleSetSpec defines the Rules, options, and Workflow to be created on rules match.
 type WorkflowRuleSetSpec struct {
-	Rules                 []string `json:"rules,omitempty"`
-	AddAttributesAsLabels bool     `json:"addAttributesAsLabels,omitempty"`
+	// Rules is a list of quamina rules to match against the attributes of an Agent.
+	// See https://github.com/timbray/quamina/blob/main/PATTERNS.md for more information on the required format.
+	Rules []string `json:"rules,omitempty"`
+	// AddAttributesAsLabels indicates if the attributes should be added as labels to created Workflows.
+	AddAttributesAsLabels bool `json:"addAttributesAsLabels,omitempty"`
 	// AgentTemplateValue is the Go template value used in a Template for the Task[].worker value.
-	AgentTemplateValue string       `json:"agentTemplateValue,omitempty"`
-	WorkflowNamespace  string       `json:"workflowNamespace,omitempty"`
-	Workflow           WorkflowSpec `json:"workflow,omitempty"`
+	AgentTemplateValue string `json:"agentTemplateValue,omitempty"`
+	// WorkflowNamespace is the namespace in which the Workflow will be created.
+	WorkflowNamespace string `json:"workflowNamespace,omitempty"`
+	// Workflow is the Workflow to be created.
+	Workflow WorkflowSpec `json:"workflow,omitempty"`
 }
 
 type WorkflowRuleSetStatus struct{}
