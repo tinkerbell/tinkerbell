@@ -132,7 +132,11 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 			if wf.Status.State != v1alpha1.WorkflowStateRunning && wf.Status.State != v1alpha1.WorkflowStatePending {
 				return wfs
 			}
-			wfs = append(wfs, wf)
+			for _, task := range wf.Status.Tasks {
+				if task.AgentID == req.GetAgentId() {
+					wfs = append(wfs, wf)
+				}
+			}
 		}
 		return wfs
 	}()
@@ -147,7 +151,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 			wfns := func() wflowNamespace {
 				wfs := wflowNamespace{}
 				for _, wf := range wflows {
-					wfs[wf.Namespace] = wf.Namespace
+					wfs[wf.Name] = wf.Namespace
 				}
 				return wfs
 			}()
@@ -247,7 +251,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	// update the current state
 	// populate the current state and then send the action to the client.
 	wf.Status.CurrentState = &v1alpha1.CurrentState{
-		WorkerID:   req.GetAgentId(),
+		AgentID:    req.GetAgentId(),
 		TaskID:     task.ID,
 		ActionID:   action.ID,
 		State:      action.State,
@@ -351,7 +355,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 	for ti, task := range wf.Status.Tasks {
 		for ai, action := range task.Actions {
 			// action IDs match or this is the first action in a task
-			if action.ID == req.GetActionId() && task.WorkerAddr == req.GetAgentId() {
+			if action.ID == req.GetActionId() && task.AgentID == req.GetAgentId() {
 				wf.Status.Tasks[ti].Actions[ai].State = v1alpha1.WorkflowState(req.GetActionState().String())
 				wf.Status.Tasks[ti].Actions[ai].ExecutionStart = &metav1.Time{Time: req.GetExecutionStart().AsTime()}
 				wf.Status.Tasks[ti].Actions[ai].ExecutionStop = &metav1.Time{Time: req.GetExecutionStop().AsTime()}
@@ -369,7 +373,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 
 				// update the status current state
 				wf.Status.CurrentState = &v1alpha1.CurrentState{
-					WorkerID:   req.GetAgentId(),
+					AgentID:    req.GetAgentId(),
 					TaskID:     req.GetTaskId(),
 					ActionID:   req.GetActionId(),
 					State:      wf.Status.Tasks[ti].Actions[ai].State,
