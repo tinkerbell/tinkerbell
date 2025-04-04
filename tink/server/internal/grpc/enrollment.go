@@ -95,7 +95,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 			final.wrs = wr
 		}
 	}
-	if final.numMatches > 0 {
+	if final.numMatches > 0 { //nolint:nestif // This is ok for now.
 		// Create a Workflow for the AgentID
 		awf := &v1alpha1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
