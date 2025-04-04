@@ -41,7 +41,7 @@ func makeValidName(name, prefix string) (string, error) {
 	}
 
 	// Replace invalid characters with hyphen
-	result = regexp.MustCompile(`[^a-z0-9-]`).ReplaceAllString(result, "-")
+	result = regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(result, "-")
 
 	// Remove duplicate hyphens
 	result = regexp.MustCompile(`-+`).ReplaceAllString(result, "-")
