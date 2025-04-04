@@ -108,8 +108,8 @@ func WorkflowByNonTerminalStateFunc(obj client.Object) []string {
 		return resp
 	}
 	for _, task := range wf.Status.Tasks {
-		if task.WorkerAddr != "" {
-			resp = append(resp, task.WorkerAddr)
+		if task.AgentID != "" {
+			resp = append(resp, task.AgentID)
 		}
 	}
 
