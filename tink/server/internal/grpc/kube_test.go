@@ -104,6 +104,11 @@ func TestMakeValid(t *testing.T) {
 			inputPrefix:  "-prefix",
 			expectedName: "e-prefixmy-app",
 		},
+		"valid name with upper case letters": {
+			inputName:    "hello123456GaA",
+			inputPrefix:  "enrollment-",
+			expectedName: "enrollment-hello123456gaa",
+		},
 	}
 
 	for name, test := range testCases {
