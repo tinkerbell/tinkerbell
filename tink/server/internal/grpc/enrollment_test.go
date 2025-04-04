@@ -126,13 +126,13 @@ func (m *mockAutoCapabilities) CreateWorkflow(ctx context.Context, wf *v1alpha1.
 }
 
 type mockReadUpdater struct {
-	ReadAllFunc func(ctx context.Context, workerID string) ([]v1alpha1.Workflow, error)
+	ReadAllFunc func(ctx context.Context) ([]v1alpha1.Workflow, error)
 	ReadFunc    func(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error)
 	UpdateFunc  func(ctx context.Context, wf *v1alpha1.Workflow) error
 }
 
-func (m *mockReadUpdater) ReadAll(ctx context.Context, workerID string) ([]v1alpha1.Workflow, error) {
-	return m.ReadAllFunc(ctx, workerID)
+func (m *mockReadUpdater) ReadAll(ctx context.Context) ([]v1alpha1.Workflow, error) {
+	return m.ReadAllFunc(ctx)
 }
 
 func (m *mockReadUpdater) Read(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error) {
