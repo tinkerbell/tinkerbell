@@ -41,7 +41,7 @@ func TestGetAction(t *testing.T) {
 				Status: v1alpha1.WorkflowStatus{
 					State: v1alpha1.WorkflowStateRunning,
 					CurrentState: &v1alpha1.CurrentState{
-						WorkerID:   "machine-mac-1",
+						AgentID:    "machine-mac-1",
 						TaskID:     "provision",
 						ActionID:   "stream",
 						State:      v1alpha1.WorkflowStateSuccess,
@@ -50,9 +50,9 @@ func TestGetAction(t *testing.T) {
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							ID:         "provision",
+							Name:    "provision",
+							AgentID: "machine-mac-1",
+							ID:      "provision",
 							Actions: []v1alpha1.Action{
 								{
 									Name:              "stream",
@@ -113,8 +113,8 @@ func TestGetAction(t *testing.T) {
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
+							Name:    "provision",
+							AgentID: "machine-mac-1",
 							Actions: []v1alpha1.Action{
 								{
 									Name:              "stream",
