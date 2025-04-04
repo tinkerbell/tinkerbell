@@ -127,7 +127,7 @@ type AllowNetbootStatus struct {
 }
 
 type CurrentState struct {
-	WorkerID   string        `json:"workerID,omitempty"`
+	AgentID    string        `json:"agentID,omitempty"`
 	TaskID     string        `json:"taskID,omitempty"`
 	ActionID   string        `json:"actionID,omitempty"`
 	State      WorkflowState `json:"state,omitempty"`
@@ -152,7 +152,7 @@ type WorkflowStatus struct {
 	// CurrentState tracks where the workflow is in its execution.
 	CurrentState *CurrentState `json:"currentState,omitempty"`
 
-	// Tasks are the tasks to be run by the worker(s).
+	// Tasks are the tasks to be run by the Agent(s).
 	Tasks []Task `json:"tasks,omitempty"`
 
 	// Conditions are the latest available observations of an object's current state.
@@ -198,11 +198,11 @@ type WorkflowCondition struct {
 	Time *metav1.Time `json:"time,omitempty" protobuf:"bytes,7,opt,name=time"`
 }
 
-// Task represents a series of actions to be completed by a worker.
+// Task represents a series of actions to be completed by a Agent.
 type Task struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
-	WorkerAddr  string            `json:"worker"`
+	AgentID     string            `json:"agentID"`
 	Actions     []Action          `json:"actions"`
 	Volumes     []string          `json:"volumes,omitempty"`
 	Environment map[string]string `json:"environment,omitempty"`
