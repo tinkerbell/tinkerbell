@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (b *Backend) ReadAll(ctx context.Context, agentID string) ([]v1alpha1.Workflow, error) {
+func (b *Backend) ReadAll(ctx context.Context) ([]v1alpha1.Workflow, error) {
 	stored := &v1alpha1.WorkflowList{}
 	err := b.cluster.GetClient().List(ctx, stored)
 	if err != nil {

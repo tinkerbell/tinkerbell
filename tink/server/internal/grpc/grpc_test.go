@@ -179,7 +179,7 @@ func (m *mockBackendReadWriter) Read(_ context.Context, _, _ string) (*v1alpha1.
 	return m.workflow, nil
 }
 
-func (m *mockBackendReadWriter) ReadAll(_ context.Context, _ string) ([]v1alpha1.Workflow, error) {
+func (m *mockBackendReadWriter) ReadAll(_ context.Context) ([]v1alpha1.Workflow, error) {
 	if m.workflow != nil {
 		return []v1alpha1.Workflow{*m.workflow}, nil
 	}
@@ -202,7 +202,7 @@ func (m *mockBackendReadWriterForReport) Read(_ context.Context, _, _ string) (*
 	return m.workflow, nil
 }
 
-func (m *mockBackendReadWriterForReport) ReadAll(_ context.Context, _ string) ([]v1alpha1.Workflow, error) {
+func (m *mockBackendReadWriterForReport) ReadAll(_ context.Context) ([]v1alpha1.Workflow, error) {
 	return nil, nil
 }
 

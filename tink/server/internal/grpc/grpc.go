@@ -31,7 +31,7 @@ var (
 )
 
 type BackendReadUpdater interface {
-	ReadAll(ctx context.Context, agentID string) ([]v1alpha1.Workflow, error)
+	ReadAll(ctx context.Context) ([]v1alpha1.Workflow, error)
 	Read(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error)
 	Update(ctx context.Context, wf *v1alpha1.Workflow) error
 }
@@ -117,7 +117,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 		return nil, status.Errorf(codes.InvalidArgument, "invalid agent id:")
 	}
 
-	wflows, err := h.BackendReadWriter.ReadAll(ctx, req.GetAgentId())
+	wflows, err := h.BackendReadWriter.ReadAll(ctx)
 	if err != nil {
 		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
