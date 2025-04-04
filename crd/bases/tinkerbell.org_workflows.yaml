@@ -183,6 +183,8 @@ spec:
                     type: string
                   actionName:
                     type: string
+                  agentID:
+                    type: string
                   state:
                     type: string
                   taskID:
@@ -200,10 +202,10 @@ spec:
                 description: State is the current overall state of the Workflow.
                 type: string
               tasks:
-                description: Tasks are the tasks to be run by the worker(s).
+                description: Tasks are the tasks to be run by the Agent(s).
                 items:
                   description: Task represents a series of actions to be completed
-                    by a worker.
+                    by a Agent.
                   properties:
                     actions:
                       items:
@@ -248,6 +250,8 @@ spec:
                         - id
                         type: object
                       type: array
+                    agentID:
+                      type: string
                     environment:
                       additionalProperties:
                         type: string
@@ -260,13 +264,11 @@ spec:
                       items:
                         type: string
                       type: array
-                    worker:
-                      type: string
                   required:
                   - actions
+                  - agentID
                   - id
                   - name
-                  - worker
                   type: object
                 type: array
               templateRending:
