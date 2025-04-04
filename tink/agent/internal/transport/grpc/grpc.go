@@ -62,7 +62,7 @@ func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 						// backoff.Permanent is used to stop the backoff retry loop. This will cause a new GetAction to be called right away.
 						return spec.Action{}, backoff.Permanent(err)
 					case proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_EXISTING_WORKFLOW.String():
-						return spec.Action{}, err
+						return spec.Action{}, fmt.Errorf("ignorable error, Agent is waiting for a new Workflow: %w", err)
 					}
 				}
 			}
