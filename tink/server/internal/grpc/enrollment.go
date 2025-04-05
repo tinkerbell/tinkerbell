@@ -164,7 +164,9 @@ func (h *Handler) enrollRetry(ctx context.Context, req *proto.ActionRequest) (*p
 	}
 	if len(h.RetryOptions) == 0 {
 		h.RetryOptions = []backoff.RetryOption{
-			backoff.WithMaxTries(5),
+			// This needs to be sufficiently long to allow for the Tink Controller to reconcile the Workflow and any server side caches to pick up
+			// the updated Workflow.
+			backoff.WithMaxTries(10),
 			backoff.WithBackOff(backoff.NewExponentialBackOff()),
 		}
 	}
