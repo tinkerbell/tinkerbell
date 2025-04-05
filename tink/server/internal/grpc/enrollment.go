@@ -114,7 +114,10 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 			Spec: final.wrs.Spec.Workflow,
 		}
 		if final.wrs.Spec.AddAttributesAsLabels {
-			maps.Copy(awf.Labels, awf.Spec.HardwareMap)
+			if awf.Labels == nil {
+				awf.Labels = make(map[string]string)
+			}
+			maps.Copy(awf.Labels, flattenAttributes(attr))
 		}
 		if awf.Spec.HardwareMap == nil {
 			awf.Spec.HardwareMap = make(map[string]string)
@@ -161,7 +164,7 @@ func (h *Handler) enrollRetry(ctx context.Context, req *proto.ActionRequest) (*p
 	}
 	if len(h.RetryOptions) == 0 {
 		h.RetryOptions = []backoff.RetryOption{
-			backoff.WithMaxTries(3),
+			backoff.WithMaxTries(5),
 			backoff.WithBackOff(backoff.NewExponentialBackOff()),
 		}
 	}
