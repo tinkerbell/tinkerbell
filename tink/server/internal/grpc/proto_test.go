@@ -74,7 +74,7 @@ func TestFlattenAttributes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := flattenAttributes(tt.input)
+			result := flattenAttributes(tt.input, nil)
 			if len(result) != len(tt.expected) {
 				t.Errorf("expected %d attributes, got %d", len(tt.expected), len(result))
 			}
