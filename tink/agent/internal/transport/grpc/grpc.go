@@ -13,12 +13,10 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	gbackoff "google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -53,20 +51,6 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{AgentId: toPtr(c.AgentID), AgentAttributes: c.Attributes})
 	if err != nil {
-		s := status.Convert(err)
-		for _, d := range s.Details() {
-			if t, ok := d.(*epb.PreconditionFailure); ok {
-				for _, f := range t.Violations {
-					switch f.Type {
-					case proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_WORKFLOW_CREATED.String():
-						// backoff.Permanent is used to stop the backoff retry loop. This will cause a new GetAction to be called right away.
-						return spec.Action{}, backoff.Permanent(err)
-					case proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_EXISTING_WORKFLOW.String():
-						return spec.Action{}, fmt.Errorf("ignorable error, Agent is waiting for a new Workflow: %w", err)
-					}
-				}
-			}
-		}
 		return spec.Action{}, fmt.Errorf("error getting action: %w", err)
 	}
 

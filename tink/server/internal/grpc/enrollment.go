@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/cenkalti/backoff/v5"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
@@ -95,7 +96,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 			final.wrs = wr
 		}
 	}
-	if final.numMatches > 0 { //nolint:nestif // This is ok for now.
+	if final.numMatches > 0 {
 		// Create a Workflow for the AgentID
 		awf := &v1alpha1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
@@ -113,7 +114,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 			Spec: final.wrs.Spec.Workflow,
 		}
 		if final.wrs.Spec.AddAttributesAsLabels {
-			awf.Labels = flattenAttributes(attr)
+			maps.Copy(awf.Labels, awf.Spec.HardwareMap)
 		}
 		if awf.Spec.HardwareMap == nil {
 			awf.Spec.HardwareMap = make(map[string]string)
@@ -127,41 +128,49 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 				// So we treat this as a new Workflow creation and send the same error.
 				// failed precondition and backoff permanent error so that the backoff retry loop stops and the Agent is signaled to try again immediately.
 				log.Info("debugging", "existingWorkflowFound", true, "error", err)
-				st := status.New(codes.FailedPrecondition, "existing workflow found")
-				ds, err := st.WithDetails(&epb.PreconditionFailure{
-					Violations: []*epb.PreconditionFailure_Violation{{
-						Type:        proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_WORKFLOW_CREATED.String(),
-						Subject:     fmt.Sprintf("name:%s", name),
-						Description: "enrollment workflow created, please try again",
-					}},
-				})
-				if err != nil {
-					log.Info("debugging", "error creating status with details", true, "error", err)
-					return nil, st.Err()
-				}
-				return nil, backoff.Permanent(ds.Err())
+				return nil, status.Error(codes.FailedPrecondition, "existing workflow found")
 			}
 			log.Info("debugging", "error creating enrollment workflow", true, "error", err)
 			return nil, errors.Join(errBackendWrite, status.Errorf(codes.Internal, "error creating enrollment workflow: %v", err))
 		}
-		log.Info("debugging", "enrollmentWorkflowCreated", true)
-		st := status.New(codes.Aborted, "enrollment workflow created, please try again")
 
-		ds, err := st.WithDetails(&epb.PreconditionFailure{
-			Violations: []*epb.PreconditionFailure_Violation{{
-				Type:        proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_WORKFLOW_CREATED.String(),
-				Subject:     fmt.Sprintf("name:%s", name),
-				Description: "enrollment workflow created, please try again",
-			}},
-		})
-		if err != nil {
-			log.Info("debugging", "error creating status with details", true, "error", err)
-			return nil, st.Err()
+		ar := &proto.ActionRequest{
+			AgentId:         &agentID,
+			AgentAttributes: attr,
 		}
-
-		return nil, backoff.Permanent(ds.Err())
+		return h.enrollRetry(ctx, ar)
 	}
 	// If there is no match, return an error.
 	log.Info("debugging", "noWorkflowRuleSetMatch", true)
 	return nil, status.Errorf(codes.NotFound, "no Workflow Rule Sets found or matched for Agent %s", agentID)
+}
+
+func (h *Handler) enrollRetry(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
+	operation := func() (*proto.ActionResponse, error) {
+		opts := &options{
+			AutoCapabilities: AutoCapabilities{
+				Enrollment: AutoEnrollment{
+					Enabled: false,
+				},
+				Discovery: AutoDiscovery{
+					Enabled: false,
+				},
+			},
+		}
+		return h.doGetAction(ctx, req, opts)
+	}
+	if len(h.RetryOptions) == 0 {
+		h.RetryOptions = []backoff.RetryOption{
+			backoff.WithMaxTries(3),
+			backoff.WithBackOff(backoff.NewExponentialBackOff()),
+		}
+	}
+	// We retry multiple times as we read-write to the Workflow Status and there can be caching and eventually consistent issues
+	// that would cause the write to fail. A retry to get the latest Workflow resolves these types of issues.
+	resp, err := backoff.Retry(ctx, operation, h.RetryOptions...)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
