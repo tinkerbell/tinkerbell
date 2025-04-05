@@ -117,7 +117,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 			if awf.Labels == nil {
 				awf.Labels = make(map[string]string)
 			}
-			maps.Copy(awf.Labels, flattenAttributes(attr))
+			maps.Copy(awf.Labels, flattenAttributes(attr, nil))
 		}
 		if awf.Spec.HardwareMap == nil {
 			awf.Spec.HardwareMap = make(map[string]string)
