@@ -13,12 +13,10 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	gbackoff "google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
