@@ -9,6 +9,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestEnroll(t *testing.T) {
@@ -44,11 +45,22 @@ func TestEnroll(t *testing.T) {
 				},
 			},
 			mockBackendReadWriter: &mockReadUpdater{
+				ReadAllFunc: func(_ context.Context) ([]v1alpha1.Workflow, error) {
+					return []v1alpha1.Workflow{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "worker-123",
+								Namespace: "default",
+							},
+							Spec: v1alpha1.WorkflowSpec{},
+						},
+					}, nil
+				},
 				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
-					return nil, nil
+					return &v1alpha1.Workflow{}, nil
 				},
 			},
-			expectedErrorCode: codes.Aborted,
+			expectedErrorCode: codes.NotFound,
 		},
 		{
 			name:     "no matching workflow rule set",

@@ -87,7 +87,10 @@ type AutoDiscovery struct {
 
 func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
 	operation := func() (*proto.ActionResponse, error) {
-		return h.doGetAction(ctx, req)
+		opts := &options{
+			AutoCapabilities: h.AutoCapabilities,
+		}
+		return h.doGetAction(ctx, req, opts)
 	}
 	if len(h.RetryOptions) == 0 {
 		h.RetryOptions = []backoff.RetryOption{
@@ -105,7 +108,11 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 	return resp, nil
 }
 
-func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
+type options struct {
+	AutoCapabilities AutoCapabilities
+}
+
+func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opts *options) (*proto.ActionResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, status.Error(codes.Unavailable, "server shutting down")
@@ -137,12 +144,12 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	}()
 	if len(nonTerminatedWflows) == 0 {
 		// TODO: This is where we handle auto capabilities
-		if h.AutoCapabilities.Discovery.Enabled {
+		if opts != nil && opts.AutoCapabilities.Discovery.Enabled {
 			// Check if there is an existing Hardware Object.
 			// If not, create one.
 			log.Info("auto discovery is not implemented yet")
 		}
-		if h.AutoCapabilities.Enrollment.Enabled {
+		if opts != nil && opts.AutoCapabilities.Enrollment.Enabled {
 			wfns := func() wflowNamespace {
 				wfs := wflowNamespace{}
 				for _, wf := range wflows {
