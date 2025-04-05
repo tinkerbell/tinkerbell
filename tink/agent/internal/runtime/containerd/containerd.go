@@ -82,7 +82,10 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 
 func (c *Config) createContainer(ctx context.Context, image containerd.Image, action spec.Action) (containerd.Container, error) {
 	newOpts := []containerd.NewContainerOpts{}
-	args := []string{action.Cmd}
+	args := []string{}
+	if action.Cmd != "" {
+		args = []string{action.Cmd}
+	}
 	args = append(args, action.Args...)
 	specOpts := []oci.SpecOpts{
 		oci.WithImageConfig(image),
