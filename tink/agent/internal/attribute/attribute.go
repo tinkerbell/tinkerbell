@@ -5,12 +5,12 @@ import (
 	"math"
 
 	"github.com/ccoveille/go-safecast"
+	"github.com/go-logr/logr"
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/block"
 )
 
 type AllAttributes struct {
-	AgentID           string     `json:"agentID,omitempty" yaml:"agentID,omitempty"`
 	CPU               *CPU       `json:"cpu,omitempty" yaml:"cpu,omitempty"`
 	Memory            *Memory    `json:"memory,omitempty" yaml:"memory,omitempty"`
 	BlockDevices      []*Block   `json:"blockDevices,omitempty" yaml:"blockDevices,omitempty"`
@@ -86,38 +86,47 @@ type BIOS struct {
 }
 
 type Baseboard struct {
-	Vendor  *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
-	Product *string `json:"product,omitempty" yaml:"product,omitempty"`
-	Version *string `json:"version,omitempty" yaml:"version,omitempty"`
+	Vendor       *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
+	Product      *string `json:"product,omitempty" yaml:"product,omitempty"`
+	Version      *string `json:"version,omitempty" yaml:"version,omitempty"`
+	SerialNumber *string `json:"serialNumber,omitempty" yaml:"serialNumber,omitempty"`
 }
 
 type Product struct {
-	Name   *string `json:"name,omitempty" yaml:"name,omitempty"`
-	Vendor *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
+	Name         *string `json:"name,omitempty" yaml:"name,omitempty"`
+	Vendor       *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
+	SerialNumber *string `json:"serialNumber,omitempty" yaml:"serialNumber,omitempty"`
 }
 
-func DiscoverAll() *AllAttributes {
+func DiscoverAll(l logr.Logger) *AllAttributes {
 	return &AllAttributes{
-		CPU:               DiscoverCPU(),
-		Memory:            DiscoverMemory(),
-		BlockDevices:      DiscoverBlockDevices(),
-		NetworkInterfaces: DiscoverNetworks(),
-		PCIDevices:        DiscoverPCI(),
-		GPUDevices:        DiscoverGPU(),
-		Chassis:           DiscoverChassis(),
-		BIOS:              DiscoverBIOS(),
-		Baseboard:         DiscoverBaseboard(),
-		Product:           DiscoverProduct(),
+		CPU:               DiscoverCPU(l),
+		Memory:            DiscoverMemory(l),
+		BlockDevices:      DiscoverBlockDevices(l),
+		NetworkInterfaces: DiscoverNetworks(l),
+		PCIDevices:        DiscoverPCI(l),
+		GPUDevices:        DiscoverGPU(l),
+		Chassis:           DiscoverChassis(l),
+		BIOS:              DiscoverBIOS(l),
+		Baseboard:         DiscoverBaseboard(l),
+		Product:           DiscoverProduct(l),
 	}
 }
 
-func DiscoverCPU() *CPU {
+func DiscoverCPU(l logr.Logger) *CPU {
 	cpu, err := ghw.CPU(ghw.WithDisableWarnings())
 	if err != nil {
+		l.V(1).Info("error getting cpu info", "error", err)
 		return nil
+	}
+	if cpu == nil {
+		return new(CPU)
 	}
 	var processors []*Processor
 	for _, p := range cpu.Processors {
+		if p == nil {
+			continue
+		}
 		id, err := safecast.ToUint32(p.ID)
 		if err != nil {
 			id = uint32(0)
@@ -139,10 +148,14 @@ func DiscoverCPU() *CPU {
 	}
 }
 
-func DiscoverMemory() *Memory {
+func DiscoverMemory(l logr.Logger) *Memory {
 	memory, err := ghw.Memory(ghw.WithDisableWarnings())
 	if err != nil {
+		l.V(1).Info("error getting memory info", "error", err)
 		return nil
+	}
+	if memory == nil {
+		return new(Memory)
 	}
 
 	return &Memory{
@@ -151,13 +164,17 @@ func DiscoverMemory() *Memory {
 	}
 }
 
-func DiscoverBlockDevices() []*Block {
+func DiscoverBlockDevices(l logr.Logger) []*Block {
 	b, err := ghw.Block(ghw.WithDisableWarnings())
 	if err != nil {
+		l.V(1).Info("error getting block info", "error", err)
 		return nil
 	}
 	var blockDevices []*Block
 	for _, d := range b.Disks {
+		if d == nil {
+			continue
+		}
 		if d.StorageController != block.STORAGE_CONTROLLER_LOOP {
 			blockDevices = append(blockDevices, &Block{
 				Name:              toPtr(d.Name),
@@ -173,110 +190,176 @@ func DiscoverBlockDevices() []*Block {
 	return blockDevices
 }
 
-func DiscoverNetworks() []*Network {
+func DiscoverNetworks(l logr.Logger) []*Network {
 	net, err := ghw.Network(ghw.WithDisableWarnings())
 	if err != nil {
+		l.V(1).Info("error getting network info", "error", err)
 		return nil
 	}
 	var nics []*Network
+	l.Info("debugging", "NICS", net.NICs)
 	for _, n := range net.NICs {
-		if !n.IsVirtual {
-			nics = append(nics, &Network{
-				Name:  toPtr(n.Name),
-				Mac:   toPtr(n.MACAddress),
-				Speed: toPtr(n.Speed),
-				EnabledCapabilities: func() []string {
-					var capabilities []string
-					for _, c := range n.Capabilities {
-						if c.IsEnabled {
-							capabilities = append(capabilities, c.Name)
-						}
-					}
-					return capabilities
-				}(),
-			})
+		if n == nil {
+			continue
 		}
+		nics = append(nics, &Network{
+			Name:  toPtr(n.Name),
+			Mac:   toPtr(n.MACAddress),
+			Speed: toPtr(n.Speed),
+			EnabledCapabilities: func() []string {
+				var capabilities []string
+				for _, c := range n.Capabilities {
+					if c.IsEnabled {
+						capabilities = append(capabilities, c.Name)
+					}
+				}
+				return capabilities
+			}(),
+		})
 	}
 	return nics
 }
 
-func DiscoverPCI() []*PCI {
-	pci, err := ghw.PCI(ghw.WithDisableWarnings())
+func DiscoverPCI(l logr.Logger) []*PCI {
+	p, err := ghw.PCI(ghw.WithDisableWarnings())
 	if err != nil {
+		l.V(1).Info("error getting pci info", "error", err)
 		return nil
 	}
 	var pciDevices []*PCI
-	for _, d := range pci.Devices {
-		pciDevices = append(pciDevices, &PCI{
-			Vendor:  toPtr(d.Vendor.Name),
-			Product: toPtr(d.Product.Name),
-			Class:   toPtr(d.Class.Name),
-			Driver:  toPtr(d.Driver),
-		})
+	for _, d := range p.Devices {
+		if d == nil {
+			continue
+		}
+		var valueFound bool
+		dev := &PCI{}
+		if d.Vendor != nil {
+			dev.Vendor = toPtr(d.Vendor.Name)
+			valueFound = true
+		}
+		if d.Product != nil {
+			dev.Product = toPtr(d.Product.Name)
+			valueFound = true
+		}
+		if d.Class != nil {
+			dev.Class = toPtr(d.Class.Name)
+			valueFound = true
+		}
+		if d.Driver != "" {
+			dev.Driver = toPtr(d.Driver)
+			valueFound = true
+		}
+		if !valueFound {
+			continue
+		}
+
+		pciDevices = append(pciDevices, dev)
 	}
 	return pciDevices
 }
 
-func DiscoverGPU() []*GPU {
-	gpu, err := ghw.GPU(ghw.WithDisableWarnings())
+func DiscoverGPU(l logr.Logger) []*GPU {
+	g, err := ghw.GPU(ghw.WithDisableWarnings())
 	if err != nil {
+		l.V(1).Info("error getting gpu info", "error", err)
 		return nil
 	}
 	var gpus []*GPU
-	for _, d := range gpu.GraphicsCards {
-		gpus = append(gpus, &GPU{
-			Vendor:  toPtr(d.DeviceInfo.Vendor.Name),
-			Product: toPtr(d.DeviceInfo.Product.Name),
-			Class:   toPtr(d.DeviceInfo.Class.Name),
-			Driver:  toPtr(d.DeviceInfo.Driver),
-		})
+	for _, gc := range g.GraphicsCards {
+		if gc == nil {
+			continue
+		}
+		if gc.DeviceInfo == nil {
+			continue
+		}
+		var valueFound bool
+		card := &GPU{}
+		if gc.DeviceInfo.Vendor != nil {
+			card.Vendor = toPtr(gc.DeviceInfo.Vendor.Name)
+			valueFound = true
+		}
+		if gc.DeviceInfo.Product != nil {
+			card.Product = toPtr(gc.DeviceInfo.Product.Name)
+			valueFound = true
+		}
+		if gc.DeviceInfo.Class != nil {
+			card.Class = toPtr(gc.DeviceInfo.Class.Name)
+			valueFound = true
+		}
+		if gc.DeviceInfo.Driver != "" {
+			card.Driver = toPtr(gc.DeviceInfo.Driver)
+			valueFound = true
+		}
+		if !valueFound {
+			continue
+		}
+
+		gpus = append(gpus, card)
 	}
 	return gpus
 }
 
-func DiscoverChassis() *Chassis {
-	chassis, err := ghw.Chassis(ghw.WithDisableWarnings())
+func DiscoverChassis(l logr.Logger) *Chassis {
+	chass, err := ghw.Chassis(ghw.WithDisableWarnings())
 	if err != nil {
+		l.V(1).Info("error getting chassis info", "error", err)
 		return nil
+	}
+	if chass == nil {
+		return new(Chassis)
 	}
 	return &Chassis{
-		Serial: toPtr(chassis.SerialNumber),
-		Vendor: toPtr(chassis.Vendor),
+		Serial: toPtr(chass.SerialNumber),
+		Vendor: toPtr(chass.Vendor),
 	}
 }
 
-func DiscoverBIOS() *BIOS {
-	bios, err := ghw.BIOS(ghw.WithDisableWarnings())
+func DiscoverBIOS(l logr.Logger) *BIOS {
+	bio, err := ghw.BIOS(ghw.WithDisableWarnings())
 	if err != nil {
+		l.V(1).Info("error getting bios info", "error", err)
 		return nil
+	}
+	if bio == nil {
+		return new(BIOS)
 	}
 	return &BIOS{
-		Vendor:      toPtr(bios.Vendor),
-		Version:     toPtr(bios.Version),
-		ReleaseDate: toPtr(bios.Date),
+		Vendor:      toPtr(bio.Vendor),
+		Version:     toPtr(bio.Version),
+		ReleaseDate: toPtr(bio.Date),
 	}
 }
 
-func DiscoverBaseboard() *Baseboard {
+func DiscoverBaseboard(l logr.Logger) *Baseboard {
 	baseboard, err := ghw.Baseboard(ghw.WithDisableWarnings())
 	if err != nil {
+		l.V(1).Info("error getting baseboard info", "error", err)
 		return nil
 	}
+	if baseboard == nil {
+		return new(Baseboard)
+	}
 	return &Baseboard{
-		Vendor:  toPtr(baseboard.Vendor),
-		Product: toPtr(baseboard.Product),
-		Version: toPtr(baseboard.Version),
+		Vendor:       toPtr(baseboard.Vendor),
+		Product:      toPtr(baseboard.Product),
+		Version:      toPtr(baseboard.Version),
+		SerialNumber: toPtr(baseboard.SerialNumber),
 	}
 }
 
-func DiscoverProduct() *Product {
+func DiscoverProduct(l logr.Logger) *Product {
 	product, err := ghw.Product(ghw.WithDisableWarnings())
 	if err != nil {
+		l.V(1).Info("error getting product info", "error", err)
 		return nil
 	}
+	if product == nil {
+		return new(Product)
+	}
 	return &Product{
-		Name:   toPtr(product.Name),
-		Vendor: toPtr(product.Vendor),
+		Name:         toPtr(product.Name),
+		Vendor:       toPtr(product.Vendor),
+		SerialNumber: toPtr(product.SerialNumber),
 	}
 }
 
