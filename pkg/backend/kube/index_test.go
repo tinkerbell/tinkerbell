@@ -162,7 +162,7 @@ func TestWorkflowIndexFuncs(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotStateAddrs := WorkflowByNonTerminalStateFunc(tc.input)
+			gotStateAddrs := WorkflowByAgentIDFunc(tc.input)
 			if !reflect.DeepEqual(tc.wantStateAddrs, gotStateAddrs) {
 				t.Errorf("Unexpected non-terminating workflow response: wanted %#v, got %#v", tc.wantStateAddrs, gotStateAddrs)
 			}
