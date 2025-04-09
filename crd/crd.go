@@ -143,7 +143,7 @@ func (t Tinkerbell) Ready(ctx context.Context) error {
 
 			establishedCond := getCondition(crd, apiv1.Established)
 			namesAcceptedCond := getCondition(crd, apiv1.NamesAccepted)
-			if establishedCond.Status != apiv1.ConditionTrue && namesAcceptedCond.Status != apiv1.ConditionTrue {
+			if establishedCond != nil && establishedCond.Status != apiv1.ConditionTrue && namesAcceptedCond != nil && namesAcceptedCond.Status != apiv1.ConditionTrue {
 				return fmt.Errorf("CRD %s is not ready: established: %v, namesAccepted: %v", name, establishedCond.Status, namesAcceptedCond.Status)
 			}
 			return nil
