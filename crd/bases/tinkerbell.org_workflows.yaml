@@ -107,6 +107,10 @@ spec:
           status:
             description: WorkflowStatus defines the observed state of a Workflow.
             properties:
+              agentID:
+                description: AgentID is the ID of the Agent with which this Workflow
+                  is associated.
+                type: string
               bootOptions:
                 description: BootOptions holds the state of any boot options.
                 properties:

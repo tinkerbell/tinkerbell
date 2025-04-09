@@ -143,6 +143,9 @@ func loadConfig(cfg Backend) (Backend, error) {
 	if err != nil {
 		return Backend{}, fmt.Errorf("failed to load client config: %w", err)
 	}
+	// TODO: make this cli configurable.
+	config.QPS = -2000
+	config.Burst = 2000
 	cfg.ClientConfig = config
 
 	return cfg, nil

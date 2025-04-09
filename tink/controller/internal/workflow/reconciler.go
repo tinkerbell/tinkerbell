@@ -128,10 +128,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 		return reconcile.Result{}, err
 	}
-	if stored.Spec.Disabled != nil && *stored.Spec.Disabled {
-		journal.Log(ctx, "workflow disabled")
-		return reconcile.Result{}, nil
-	}
+
 	if !stored.DeletionTimestamp.IsZero() {
 		return reconcile.Result{}, nil
 	}
@@ -140,12 +137,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	wflow := stored.DeepCopy()
-	// r.processRunningWorkflow(wflow)
 
 	switch wflow.Status.State {
 	case "":
 		journal.Log(ctx, "new workflow")
 		resp, err := r.processNewWorkflow(ctx, logger, wflow)
+		// If the Workflow spec is disabled, just set the AgentID and return.
+		// The Agent ID is used as an index in the Tink Server backend, so it needs to be set even when the Workflow is disabled.
+		if wflow.Spec.Disabled != nil && *wflow.Spec.Disabled {
+			journal.Log(ctx, "workflow disabled")
+			wflow2 := stored.DeepCopy()
+			wflow2.Status.AgentID = wflow.Status.AgentID
+			return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow2)
+		}
 
 		return resp, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))
 	case v1alpha1.WorkflowStatePreparing:
@@ -161,15 +165,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	case v1alpha1.WorkflowStateRunning:
 		journal.Log(ctx, "process running workflow")
 		rr := reconcile.Result{}
-		if st := startTime(wflow); st != nil {
-			if r.nowFunc().After(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second)) {
-				wflow.Status.State = v1alpha1.WorkflowStateTimeout
-			} else {
-				// requeue after the global timeout to check for expiration
-				// TODO: this should only be done once.
-				rr = reconcile.Result{RequeueAfter: time.Until(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second))}
+		/*
+			if st := startTime(wflow); st != nil {
+				if r.nowFunc().After(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second)) {
+					wflow.Status.State = v1alpha1.WorkflowStateTimeout
+				} else {
+					// requeue after the global timeout to check for expiration
+					// TODO: this should only be done once.
+					rr = reconcile.Result{RequeueAfter: time.Until(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second))}
+				}
 			}
-		}
+		*/
 
 		// requeue after the global timeout to check for expiration
 		return rr, mergePatchStatus(ctx, r.client, stored, wflow)
@@ -180,12 +186,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			workflow: wflow,
 			backoff:  r.backoff,
 		}
-		if st := startTime(wflow); st != nil {
-			if r.nowFunc().UTC().After(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second)) {
-				wflow.Status.State = v1alpha1.WorkflowStateTimeout
-				return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow)
+		/*
+			if st := startTime(wflow); st != nil {
+				if r.nowFunc().UTC().After(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second)) {
+					wflow.Status.State = v1alpha1.WorkflowStateTimeout
+					return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow)
+				}
 			}
-		}
+		*/
 		rc, err := s.postActions(ctx)
 
 		return rc, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))

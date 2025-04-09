@@ -133,20 +133,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	if err != nil {
 		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
-	nonTerminatedWflows := func() []v1alpha1.Workflow {
-		wfs := []v1alpha1.Workflow{}
-		for _, wf := range wflows {
-			if wf.Status.State != v1alpha1.WorkflowStateRunning && wf.Status.State != v1alpha1.WorkflowStatePending {
-				return wfs
-			}
-			for _, task := range wf.Status.Tasks {
-				if task.AgentID == req.GetAgentId() {
-					wfs = append(wfs, wf)
-				}
-			}
-		}
-		return wfs
-	}()
+	nonTerminatedWflows := wflows
 	if len(nonTerminatedWflows) == 0 {
 		// TODO: This is where we handle auto capabilities
 		if opts != nil && opts.AutoCapabilities.Discovery.Enabled {
@@ -164,8 +151,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 			}()
 			return h.enroll(ctx, req.GetAgentId(), req.GetAgentAttributes(), wfns)
 		}
-		log.Info("debugging", "noWorkflowsFound", true)
-		return nil, status.Error(codes.NotFound, "no workflows found")
+		return nil, status.Error(codes.NotFound, "no allocatable workflows found")
 	}
 	var wf v1alpha1.Workflow
 	for _, w := range wfs {

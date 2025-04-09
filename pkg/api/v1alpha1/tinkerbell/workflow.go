@@ -139,6 +139,9 @@ type CurrentState struct {
 
 // WorkflowStatus defines the observed state of a Workflow.
 type WorkflowStatus struct {
+	// AgentID is the ID of the Agent with which this Workflow is associated.
+	AgentID string `json:"agentID,omitempty"`
+
 	// State is the current overall state of the Workflow.
 	State WorkflowState `json:"state,omitempty"`
 
