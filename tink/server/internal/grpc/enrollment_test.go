@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/cenkalti/backoff/v5"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
@@ -45,7 +46,7 @@ func TestEnroll(t *testing.T) {
 				},
 			},
 			mockBackendReadWriter: &mockReadUpdater{
-				ReadAllFunc: func(_ context.Context) ([]v1alpha1.Workflow, error) {
+				ReadAllFunc: func(_ context.Context, _ string) ([]v1alpha1.Workflow, error) {
 					return []v1alpha1.Workflow{
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -105,6 +106,9 @@ func TestEnroll(t *testing.T) {
 			handler := &Handler{
 				AutoCapabilities:  AutoCapabilities{Enrollment: AutoEnrollment{Enabled: true, ReadCreator: tt.mockCapabilities}},
 				BackendReadWriter: tt.mockBackendReadWriter,
+				RetryOptions: []backoff.RetryOption{
+					backoff.WithMaxTries(1),
+				},
 			}
 
 			_, err := handler.enroll(context.Background(), tt.workerID, tt.attributes, nil)
@@ -138,13 +142,13 @@ func (m *mockAutoCapabilities) CreateWorkflow(ctx context.Context, wf *v1alpha1.
 }
 
 type mockReadUpdater struct {
-	ReadAllFunc func(ctx context.Context) ([]v1alpha1.Workflow, error)
+	ReadAllFunc func(ctx context.Context, _ string) ([]v1alpha1.Workflow, error)
 	ReadFunc    func(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error)
 	UpdateFunc  func(ctx context.Context, wf *v1alpha1.Workflow) error
 }
 
-func (m *mockReadUpdater) ReadAll(ctx context.Context) ([]v1alpha1.Workflow, error) {
-	return m.ReadAllFunc(ctx)
+func (m *mockReadUpdater) ReadAll(ctx context.Context, _ string) ([]v1alpha1.Workflow, error) {
+	return m.ReadAllFunc(ctx, "")
 }
 
 func (m *mockReadUpdater) Read(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error) {

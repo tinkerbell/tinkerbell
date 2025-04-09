@@ -7,11 +7,14 @@ import (
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (b *Backend) ReadAll(ctx context.Context) ([]v1alpha1.Workflow, error) {
+func (b *Backend) ReadAll(ctx context.Context, agentID string) ([]v1alpha1.Workflow, error) {
 	stored := &v1alpha1.WorkflowList{}
-	err := b.cluster.GetClient().List(ctx, stored)
+	err := b.cluster.GetClient().List(ctx, stored, &client.MatchingFields{
+		WorkflowByAgentID: agentID,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +46,9 @@ func (b *Backend) Update(ctx context.Context, wf *v1alpha1.Workflow) error {
 
 func (b *Backend) ReadWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
 	stored := &v1alpha1.WorkflowRuleSetList{}
-	err := b.cluster.GetClient().List(ctx, stored)
+	// TODO: add pagination.
+	opts := &client.ListOptions{}
+	err := b.cluster.GetClient().List(ctx, stored, opts)
 	if err != nil {
 		return nil, err
 	}
