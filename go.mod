@@ -14,7 +14,7 @@ require (
 	github.com/diskfs/go-diskfs v1.5.2
 	github.com/distribution/reference v0.6.0
 	github.com/docker/docker v28.0.4+incompatible
-	github.com/fsnotify/fsnotify v1.8.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-logr/logr v1.4.2
