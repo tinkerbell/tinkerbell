@@ -253,9 +253,9 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 			Actions:          make(chan spec.Action),
 		}
 		if o.AttributeDetectionEnabled {
-			readWriter.Attributes = grpc.ToProto(attribute.DiscoverAll())
+			readWriter.Attributes = grpc.ToProto(attribute.DiscoverAll(log))
 		}
-		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort)
+		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort, "attributes", readWriter.Attributes)
 		tr = readWriter
 		tw = readWriter
 	}
@@ -394,6 +394,7 @@ func humanDuration(d time.Duration, precision int) string {
 	return strings.Join(parts, "")
 }
 
+<<<<<<< HEAD
 func isNoWorkflow(err error) bool {
 	type noWorkflow interface {
 		NoWorkflow() bool
@@ -405,4 +406,12 @@ func isNoWorkflow(err error) bool {
 		return true
 	}
 	return false
+=======
+func isNoActions(err error) bool {
+	type noActions interface {
+		NoActions() bool
+	}
+	te, ok := err.(noActions)
+	return ok && te.NoActions()
+>>>>>>> e5b24cd9 (Update:)
 }
