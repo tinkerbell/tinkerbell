@@ -17,7 +17,7 @@ type TinkServerConfig struct {
 }
 
 var KubeIndexesTinkServer = map[kube.IndexType]kube.Index{
-	kube.IndexTypeWorkflowByNonTerminalState: kube.Indexes[kube.IndexTypeWorkflowByNonTerminalState],
+	kube.IndexTypeWorkflowAgentID: kube.Indexes[kube.IndexTypeWorkflowAgentID],
 }
 
 func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {

@@ -13,10 +13,13 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	gbackoff "google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -37,7 +40,7 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 	opts := c.RetryOptions
 	if len(opts) == 0 {
 		opts = []backoff.RetryOption{
-			backoff.WithMaxElapsedTime(time.Minute * 5),
+			backoff.WithMaxElapsedTime(time.Minute * 2),
 			backoff.WithBackOff(backoff.NewExponentialBackOff()),
 		}
 	}
@@ -51,7 +54,16 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{AgentId: toPtr(c.AgentID), AgentAttributes: c.Attributes})
 	if err != nil {
-		return spec.Action{}, fmt.Errorf("error getting action: %w", err)
+		// if this is a "connection refused" error, then log it.
+		if status.Code(err) == codes.Unavailable {
+			c.Log.Info("connection refused", "error", err)
+		}
+		e := fmt.Errorf("error getting action: %w", err)
+		if isPFVNoActionsAvailable(err) {
+			e = newNoActionsError("no actions available", err)
+		}
+
+		return spec.Action{}, e
 	}
 
 	as := spec.Action{
@@ -181,6 +193,66 @@ func specToProto(inState spec.State) *proto.ActionStatusRequest_StateType {
 	}
 }
 
+func isPFVNoActionsAvailable(err error) bool {
+	st := status.Convert(err)
+	if st.Details() != nil {
+		for _, detail := range st.Details() {
+			if violation, ok := detail.(*epb.PreconditionFailure); ok {
+				for _, v := range violation.GetViolations() {
+					if v.GetType() == proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_NO_ACTION_AVAILABLE.String() {
+						return true
+					}
+				}
+			}
+		}
+	}
+	if st.Code() == codes.FailedPrecondition {
+		return true
+	}
+	return false
+}
+
 func toPtr[T any](v T) *T {
 	return &v
+}
+
+// noActionsError represents a structured error with additional context.
+type noActionsError struct {
+	Message string
+	Inner   error
+}
+
+// Error implements the error interface.
+func (e *noActionsError) Error() string {
+	if e.Inner != nil {
+		return fmt.Sprintf("%s: %v", e.Message, e.Inner)
+	}
+	return e.Message
+}
+
+// Unwrap implements the Wrapper interface.
+func (e *noActionsError) Unwrap() error {
+	return e.Inner
+}
+
+// As implements type assertion support.
+func (e *noActionsError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+	_, ok := target.(**noActionsError)
+	return ok
+}
+
+// NoActions implements the NoActions interface in the agent package.
+func (e *noActionsError) NoActions() bool {
+	return true
+}
+
+// newNoActionsError creates a new instance of NoActionsError.
+func newNoActionsError(message string, inner error) *noActionsError {
+	return &noActionsError{
+		Message: message,
+		Inner:   inner,
+	}
 }
