@@ -11,6 +11,7 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 		return nil
 	}
 	tasks := []v1alpha1.Task{}
+	agentID := ""
 	for _, task := range wf.Tasks {
 		actions := []v1alpha1.Action{}
 		for _, action := range task.Actions {
@@ -34,9 +35,14 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 			Environment: task.Environment,
 			Actions:     actions,
 		})
+		// only use the first Task's agentID. At the moment only support single Task Workflows.
+		if agentID == "" {
+			agentID = task.WorkerAddr
+		}
 	}
 	return &v1alpha1.WorkflowStatus{
 		GlobalTimeout: int64(wf.GlobalTimeout),
 		Tasks:         tasks,
+		AgentID:       agentID,
 	}
 }

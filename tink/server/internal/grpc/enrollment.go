@@ -29,7 +29,6 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 	log := h.Logger.WithValues("agentID", agentID)
 	name, err := makeValidName(agentID, workflowPrefix)
 	if err != nil {
-		log.Info("debugging", "error making valid", true, "error", err)
 		return nil, status.Errorf(codes.Internal, "error making agentID a valid Kubernetes name: %v", err)
 	}
 	log = log.WithValues("workflowName", name)
@@ -38,7 +37,6 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 	// If there is a match, create a Workflow for the AgentID.
 	wrs, err := h.AutoCapabilities.Enrollment.ReadCreator.ReadWorkflowRuleSets(ctx)
 	if err != nil {
-		log.Info("debugging", "error getting workflow rules", true, "error", err)
 		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))
 	}
 	type match struct {
@@ -48,30 +46,26 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 	final := &match{}
 	for _, wr := range wrs {
 		if ns, found := allWflows[name]; found && ns == wr.Spec.WorkflowNamespace {
-			// log.Info("debugging", "existingWorkflowFound", true, "error", err, "workflowName", name)
 			// Should this continue to the next WorkflowRuleSet?
 			st := status.New(codes.FailedPrecondition, "existing workflow found")
 			ds, err := st.WithDetails(&epb.PreconditionFailure{
 				Violations: []*epb.PreconditionFailure_Violation{{
-					Type:        proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_ENROLLMENT_EXISTING_WORKFLOW.String(),
-					Subject:     fmt.Sprintf("name:%s", name),
+					Type:        proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_NO_ACTION_AVAILABLE.String(),
+					Subject:     fmt.Sprintf("tinkerbell.org/%s", name),
 					Description: "existing workflow found",
 				}},
 			})
 			if err != nil {
-				log.Info("debugging", "error creating status with details", true, "error", err)
 				return nil, st.Err()
 			}
 			return nil, ds.Err()
 		}
 		q, err := quamina.New()
 		if err != nil {
-			log.Info("debugging", "error preparing WorkflowRuleSet parser", true, "error", err)
 			return nil, status.Errorf(codes.Internal, "error preparing WorkflowRuleSet parser: %v", err)
 		}
 		for idx, r := range wr.Spec.Rules {
 			if err := q.AddPattern(fmt.Sprintf("pattern-%v", idx), r); err != nil {
-				log.Info("debugging", "error with pattern in WorkflowRuleSet", true, "error", err)
 				return nil, status.Errorf(codes.Internal, "error with pattern in WorkflowRuleSet: %v", err)
 			}
 		}
@@ -80,15 +74,12 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 		if attr != nil {
 			jsonBytes, err := protojson.Marshal(attr)
 			if err != nil {
-				log.Info("debugging", "error marshalling attributes to json", true, "error", err)
 				return nil, status.Errorf(codes.Internal, "error marshalling attributes to json: %v", err)
 			}
-			// log.Info("debugging", "jsonEvent", string(jsonBytes))
 			jsonEvent = jsonBytes
 		}
 		matches, err := q.MatchesForEvent(jsonEvent)
 		if err != nil {
-			log.Info("debugging", "error matching pattern", true, "error", err)
 			return nil, status.Errorf(codes.Internal, "error matching pattern: %v", err)
 		}
 		if len(matches) > final.numMatches {
@@ -130,10 +121,8 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 				// if we get here, then we didn't find an existing Workflow above, but CreateWorkflow is reporting that there is.
 				// So we treat this as a new Workflow creation and send the same error.
 				// failed precondition and backoff permanent error so that the backoff retry loop stops and the Agent is signaled to try again immediately.
-				log.Info("debugging", "existingWorkflowFound", true, "error", err)
 				return nil, status.Error(codes.FailedPrecondition, "existing workflow found")
 			}
-			log.Info("debugging", "error creating enrollment workflow", true, "error", err)
 			return nil, errors.Join(errBackendWrite, status.Errorf(codes.Internal, "error creating enrollment workflow: %v", err))
 		}
 
@@ -144,7 +133,6 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 		return h.enrollRetry(ctx, ar)
 	}
 	// If there is no match, return an error.
-	log.Info("debugging", "noWorkflowRuleSetMatch", true)
 	return nil, status.Errorf(codes.NotFound, "no Workflow Rule Sets found or matched for Agent %s", agentID)
 }
 
