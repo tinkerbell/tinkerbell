@@ -14,7 +14,7 @@ require (
 	github.com/diskfs/go-diskfs v1.5.2
 	github.com/distribution/reference v0.6.0
 	github.com/docker/docker v28.0.4+incompatible
-	github.com/fsnotify/fsnotify v1.8.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-logr/logr v1.4.2
@@ -44,7 +44,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.36.0
 	golang.org/x/net v0.38.0
-	golang.org/x/sync v0.12.0
+	golang.org/x/sync v0.13.0
 	golang.org/x/sys v0.31.0
 	google.golang.org/grpc v1.71.1
 	google.golang.org/protobuf v1.36.6
