@@ -1,0 +1,24 @@
+# permissions for end users to edit jobs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: job-editor-role
+rules:
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - jobs/status
+  verbs:
+  - get

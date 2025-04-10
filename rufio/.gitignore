@@ -1,0 +1,21 @@
+bin/
+doc/
+.idea
+.vscode
+coverage.txt
+cover.out
+
+# Terraform
+.terraform
+terraform.tfstate
+terraform.tfstate.backup
+
+# Vagrant
+**/.vagrant
+envrc
+.env
+deploy/state
+out/
+
+.*.swp
+hack/tools

@@ -1,0 +1,13 @@
+apiVersion: bmc.tinkerbell.org/v1alpha1
+kind: Task
+metadata:
+  name: task-sample
+spec:
+  connection:
+    host: 127.0.0.1
+    authSecretRef:
+      name: sample-machine-auth
+      namespace: rufio-system
+    insecureTLS: true
+  task:
+    powerAction: "off"

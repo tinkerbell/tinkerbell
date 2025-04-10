@@ -1,0 +1,20 @@
+# permissions for end users to view tasks.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: task-viewer-role
+rules:
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - tasks
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - bmc.tinkerbell.org
+  resources:
+  - tasks/status
+  verbs:
+  - get
