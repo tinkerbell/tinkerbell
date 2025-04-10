@@ -1,0 +1,56 @@
+{{- if .Values.controller.deploy }}
+{{- $roleType := .Values.controller.rbac.type }}
+{{- $nodeSelector := .Values.controller.nodeSelector }}
+{{- if .Values.global }}
+{{- $roleType = coalesce .Values.global.rbac.type .Values.controller.rbac.type }}
+{{- $nodeSelector = coalesce .Values.controller.nodeSelector .Values.global.nodeSelector }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .Values.controller.name }}
+  name: {{ .Values.controller.name }}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  replicas: {{ .Values.controller.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.controller.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.controller.name }}
+    spec:
+      containers:
+        - image: {{ .Values.controller.image }}
+          imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
+          args:
+          {{- if eq $roleType "Role" }}
+          - --namespace={{ .Release.Namespace }}
+          {{- end }}
+          {{- range .Values.controller.args }}
+          - {{ . }}
+          {{- end }}
+          name: {{ .Values.controller.name }}
+          resources:
+            limits:
+              cpu: {{ .Values.controller.resources.limits.cpu }}
+              memory: {{ .Values.controller.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.controller.resources.requests.cpu }}
+              memory: {{ .Values.controller.resources.requests.memory }}
+      serviceAccountName: {{ .Values.controller.name }}
+      {{- with $nodeSelector }}
+      nodeSelector:
+      {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.controller.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      tolerations:
+      {{- include "singleNodeClusterConfig" . | indent 6 }}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- include "preferWorkerNodes" (dict "nodeAffinityWeight" .Values.controller.singleNodeClusterConfig.nodeAffinityWeight) | indent 10 }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,31 @@
+deploy: true
+name: hegel
+image: quay.io/tinkerbell/hegel:v0.14.2
+imagePullPolicy: IfNotPresent
+replicas: 1
+service:
+  port: 50061
+deployment:
+  port: 50061
+  portName: hegel-http
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+rbac:
+  type: Role # or ClusterRole
+  name: hegel-role # or hegel-cluster-role
+  bindingName: hegel-rolebinding # or hegel-cluster-rolebinding
+nodeSelector: {}
+
+# Trusted proxies defines a list of IP or CIDR ranges that are allowed to set the X-Forwarded-For
+# header. This typically requires all Pod CIDRs in the cluster.
+trustedProxies: []
+
+# singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+singleNodeClusterConfig:
+  controlPlaneTolerationsEnabled: false
+  nodeAffinityWeight: 1

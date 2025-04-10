@@ -1,0 +1,53 @@
+controller:
+  deploy: true
+  name: tink-controller
+  image: quay.io/tinkerbell/tink-controller:v0.12.2
+  imagePullPolicy: IfNotPresent
+  replicas: 1
+  args: []
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+  tinkLeaderElectionRoleName: tink-leader-election-role
+  tinkLeaderElectionRoleBindingName: tink-leader-election-rolebinding
+  nodeSelector: {}
+  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+  singleNodeClusterConfig:
+    controlPlaneTolerationsEnabled: false
+    weight: 1
+  rbac:
+    type: Role # or ClusterRole
+    name: tink-controller-role # or tink-controller-cluster-role
+    bindingName: tink-controller-rolebinding # or tink-controller-cluster-rolebinding
+
+server:
+  deploy: true
+  name: tink-server
+  image: quay.io/tinkerbell/tink:v0.12.2
+  imagePullPolicy: IfNotPresent
+  replicas: 1
+  service:
+    port: 42113
+  deployment:
+    port: 42113
+    portName: tink-grpc
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+  nodeSelector: {}
+  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+  singleNodeClusterConfig:
+    controlPlaneTolerationsEnabled: false
+    nodeAffinityWeight: 1
+  rbac:
+    type: Role # or ClusterRole
+    name: tink-server-role # or tink-server-cluster-role
+    bindingName: tink-server-rolebinding # or tink-server-cluster-rolebinding

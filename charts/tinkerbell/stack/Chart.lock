@@ -1,0 +1,15 @@
+dependencies:
+- name: tink
+  repository: file://../tink
+  version: 0.3.2
+- name: smee
+  repository: file://../smee
+  version: 0.6.3
+- name: rufio
+  repository: file://../rufio
+  version: 0.4.2
+- name: hegel
+  repository: file://../hegel
+  version: 0.4.1
+digest: sha256:b38111d9a09a79e26aa5e75b7ed7ac484145ea9be694489761f38d635b8120f4
+generated: "2025-01-11T11:14:43.348136337-07:00"

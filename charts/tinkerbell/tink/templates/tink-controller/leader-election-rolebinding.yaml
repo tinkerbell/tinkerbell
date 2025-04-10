@@ -1,0 +1,15 @@
+{{- if .Values.controller.deploy }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.controller.tinkLeaderElectionRoleBindingName }}
+  namespace: {{ .Release.Namespace | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.controller.tinkLeaderElectionRoleName }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.controller.name }}
+    namespace: {{ .Release.Namespace | quote }}
+{{- end }}

@@ -1,0 +1,78 @@
+{{- if .Values.deploy }}
+{{- $trustedProxies := .Values.trustedProxies }}
+{{- $roleType := .Values.rbac.type }}
+{{- $nodeSelector := .Values.nodeSelector }}
+{{- if .Values.global }}
+{{- $trustedProxies = coalesce .Values.trustedProxies .Values.global.trustedProxies }}
+{{- $nodeSelector = coalesce .Values.nodeSelector .Values.global.nodeSelector }}
+{{- $roleType = coalesce .Values.global.rbac.type .Values.rbac.type }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .Values.name }}
+  name:  {{ .Values.name }}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+      stack: tinkerbell
+      {{- with .Values.selector }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+        stack: tinkerbell
+        {{- with .Values.selector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - args:
+          - --backend=kubernetes
+          - --http-addr=:{{ .Values.deployment.port }}
+          {{- if eq $roleType "Role"}}
+          - --kubernetes-namespace={{ .Release.Namespace }}
+          {{- end }}
+          {{- range .Values.args }}
+          - {{ . }}
+          {{- end }}
+          env:
+            - name: HEGEL_TRUSTED_PROXIES
+              value: {{ required "missing trustedProxies" ( join "," $trustedProxies | quote ) }}
+            {{- range $i, $env := .Values.env }}
+            - name: {{ $env.name | quote }}
+              value: {{ $env.value | quote }}
+            {{- end }}
+          image: {{ .Values.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          name: {{ .Values.name }}
+          ports:
+            - containerPort: {{ .Values.deployment.port }}
+              name: {{ .Values.deployment.portName }}
+          resources:
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+      serviceAccountName: {{ .Values.name }}
+      {{- with $nodeSelector }}
+      nodeSelector:
+      {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      tolerations:
+      {{- include "singleNodeClusterConfig" . | indent 6 }}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- include "preferWorkerNodes" (dict "nodeAffinityWeight" .Values.singleNodeClusterConfig.nodeAffinityWeight) | indent 10 }}
+      {{- end }}
+{{- end }}

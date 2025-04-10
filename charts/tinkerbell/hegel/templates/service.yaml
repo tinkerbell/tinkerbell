@@ -1,0 +1,16 @@
+{{- if .Values.deploy -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ .Values.name }}
+  name: {{ .Values.name }}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  ports:
+  - port: {{ .Values.service.port }}
+    protocol: TCP
+    targetPort: {{ .Values.deployment.portName }}
+  selector:
+    app: {{ .Values.name }}
+{{- end -}}

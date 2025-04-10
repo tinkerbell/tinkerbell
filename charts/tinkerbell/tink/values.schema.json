@@ -1,0 +1,47 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "$comment": "This file was generated and then modified.",
+    "properties": {
+      "controller": {
+        "type": "object",
+        "properties": {
+          "rbac": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["Role", "ClusterRole"]
+              },
+              "name": {
+                "type": "string"
+              },
+              "bindingName": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "server": {
+        "type": "object",
+        "properties": {
+          "rbac": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["Role", "ClusterRole"]
+              },
+              "name": {
+                "type": "string"
+              },
+              "bindingName": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
