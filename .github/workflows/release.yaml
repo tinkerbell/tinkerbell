@@ -5,7 +5,7 @@ on:
       - "v*"
 
 env:
-  IMAGE: ghcr.io/tinkerbell
+  IMAGE_BASE: ghcr.io/tinkerbell
   REGISTRY: ghcr.io
 
 jobs:
