@@ -1,0 +1,20 @@
+extends: default
+
+rules:
+  braces:
+    max-spaces-inside: 1
+  brackets:
+    max-spaces-inside: 1
+  comments: disable
+  comments-indentation: disable
+  document-start: disable
+  line-length:
+    level: warning
+    max: 160
+    allow-non-breakable-inline-mappings: true
+  truthy: disable
+  indentation:
+    indent-sequences: whatever
+
+ignore: |
+  out

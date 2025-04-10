@@ -1,0 +1,29 @@
+bin/
+certs/
+cmd/tink-controller/tink-controller
+cmd/tink-server/tink-server
+cmd/tink-worker/tink-worker
+doc/
+.idea
+.vscode
+coverage.txt
+
+# Terraform
+.terraform
+terraform.tfstate
+terraform.tfstate.backup
+
+# Vagrant
+**/.vagrant
+envrc
+.env
+deploy/state
+out/
+
+.*.swp
+hack/tools
+
+# test worker files
+tests/worker
+tmp/
+_tmp/
