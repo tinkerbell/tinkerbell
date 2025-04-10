@@ -1,0 +1,43 @@
+changelog:
+  categories:
+    - title: Rufio
+      labels:
+        - rufio
+    - title: Second Star
+      labels:
+        - second-star
+    - title: Smee
+      labels:
+        - smee
+    - title: Tink Agent
+      labels:
+        - tink-agent
+    - title: Tink Controller
+      labels:
+        - tink-controller
+    - title: Tink Server
+      labels:
+        - tink-server
+    - title: Tootles
+      labels:
+        - tootles
+    - title: Helm Chart
+      labels:
+        - helm-chart
+    - title: Dependencies
+      labels:
+        - dependencies
+    - title: General
+      labels:
+        - '*'
+      exclude:
+        labels:
+          - dependencies
+          - helm-chart
+          - tootles
+          - tink-server
+          - tink-controller
+          - tink-agent
+          - smee
+          - second-star
+          - rufio

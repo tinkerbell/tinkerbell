@@ -1,0 +1,81 @@
+name: Create release
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  REGISTRY: ghcr.io
+
+jobs:
+  release-images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: tinkerbell
+            tag: type=sha,prefix=
+          - name: tink-agent
+            tag: type=sha,prefix=
+          - name: charts/tinkerbell
+            tag: type=semver,pattern=v{{version}},suffix=-{{sha}}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+
+      - uses: imjasonh/setup-crane@v0.4
+      - name: Get full image name for current git tag
+        run: |
+          # We do this instead of using docker/metadata-action because the helm chart
+          # uses a tag of vX.Y.Z-<sha> and with docker/metadata-action I couldn't find a
+          # way to get this tag format for the existing helm chart image.
+          echo "SRC_IMAGE=${{ env.IMAGE }}/${{ matrix.name }}:$(crane ls ${{ env.IMAGE }}/${{ matrix.name }} | grep $(git rev-parse --short HEAD))" >> "$GITHUB_ENV"
+
+      - name: Release tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          images: ${{ env.IMAGE }}/${{ matrix.name }}
+          flavor: latest=false
+          tags: |
+            # {{version}} is major.minor.patch
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push image
+        uses: akhilerm/tag-push-action@v2.2.0
+        with:
+          src: ${{ env.SRC_IMAGE }}
+          dst: |
+            ${{ steps.meta.outputs.tags }}
+
+  release-notes:
+    runs-on: ubuntu-latest
+    needs:
+      - release-images
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+
+      - name: Publish Changelog to GitHub
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifactErrorsFailBuild: true
+          generateReleaseNotes: true
+          draft: true
+          prerelease: true
