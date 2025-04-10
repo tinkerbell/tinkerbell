@@ -1,5 +1,0 @@
-{{- $first := true -}}
-{{- range .items -}}
-{{- if not $first}},{{else}}{{$first = false}}{{end -}}
-{{- .spec.podCIDR -}}
-{{- end -}}
