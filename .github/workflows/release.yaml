@@ -5,7 +5,7 @@ on:
       - "v*"
 
 env:
-  IMAGE: ghcr.io/${{ github.repository }}
+  IMAGE: ghcr.io/tinkerbell
   REGISTRY: ghcr.io
 
 jobs:
@@ -32,14 +32,14 @@ jobs:
           # We do this instead of using docker/metadata-action because the helm chart
           # uses a tag of vX.Y.Z-<sha> and with docker/metadata-action I couldn't find a
           # way to get this tag format for the existing helm chart image.
-          echo "SRC_IMAGE=${{ env.IMAGE }}/${{ matrix.name }}:$(crane ls ${{ env.IMAGE }}/${{ matrix.name }} | grep $(git rev-parse --short HEAD))" >> "$GITHUB_ENV"
+          echo "SRC_IMAGE=${{ env.IMAGE_BASE }}/${{ matrix.name }}:$(crane ls ${{ env.IMAGE_BASE }}/${{ matrix.name }} | grep $(git rev-parse --short HEAD))" >> "$GITHUB_ENV"
 
       - name: Release tags
         id: meta
         uses: docker/metadata-action@v5
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          images: ${{ env.IMAGE }}/${{ matrix.name }}
+          images: ${{ env.IMAGE_BASE }}/${{ matrix.name }}
           flavor: latest=false
           tags: |
             # {{version}} is major.minor.patch
