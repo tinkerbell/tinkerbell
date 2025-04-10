@@ -1,0 +1,6 @@
+.env
+out/
+/hegel-*
+.vscode
+/coverage.out
+/bin

@@ -1,0 +1,38 @@
+# The `check-success` should be specifying the final job in the CI workflow assuming it depends
+# directly or indirectly on all other jobs passing.
+
+shared:
+  # Rules applicable to both queueing and merge requests.
+  compulsory: &compulsory
+
+    # Ensure the minimal CI checks have passed.
+    - check-success=DCO
+    - check-success=Package
+
+    # Ensure we're targetting the default branch.
+    - base=main
+
+    # Ensure we have adequete reviews.
+    - "#approved-reviews-by>=1"
+    - "#changes-requested-reviews-by=0"
+
+queue_rules:
+  - name: default
+    queue_conditions:
+      - and: *compulsory
+      - label!=do-not-merge
+      - label=ready-to-merge
+    merge_conditions:
+      - and: *compulsory
+
+    merge_method: merge
+    commit_message_template: |
+      {{ title }} (#{{ number }})
+
+      {{ body }}
+
+pull_request_rules:
+  - name: refactored queue action rule
+    conditions: []
+    actions:
+      queue:

@@ -1,0 +1,20 @@
+- userdata: "test"
+  metadata:
+    id: "instanceid"
+    hostname: "hostname"
+    localHostname: "localhostname"
+    iqn: "iqn"
+    plan: "plan"
+    facility: "facility"
+    tags: ["foo", "bar"]
+    ipv4:
+      local: "10.10.10.11"
+      public: "10.10.10.10"
+    ipv6:
+      public: "2001:db8:0:1:1:1:1:1"
+    os:
+      slug: "slug"
+      distro: "distro"
+      version: "version"
+      imageTag: "imagetag"
+      licenseActivationState: "licenseactivationstate"
