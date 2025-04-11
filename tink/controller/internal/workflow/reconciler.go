@@ -178,9 +178,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 				return reconcile.Result{}, nil
 			}
 			now := r.nowFunc()
-			skew := now.Sub(first.ExecutionStart.Time)
+			var skew time.Duration
+			if now.After(first.ExecutionStart.Time) {
+				skew = now.Sub(first.ExecutionStart.Time).Abs()
+			}
 			wflow.Status.GlobalExecutionStop = &metav1.Time{
-				Time: now.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second).Add(time.Duration(skew) * time.Millisecond),
+				Time: now.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second).Add(skew),
 			}
 			journal.Log(ctx, "global execution times set")
 			return reconcile.Result{RequeueAfter: time.Until(wflow.Status.GlobalExecutionStop.Time)}, mergePatchStatus(ctx, r.client, stored, wflow)
