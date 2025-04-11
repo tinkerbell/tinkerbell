@@ -54,10 +54,11 @@ func TestYAMLToStatus(t *testing.T) {
 			},
 			&v1alpha1.WorkflowStatus{
 				GlobalTimeout: 600,
+				AgentID:       "00:00:53:00:53:F4",
 				Tasks: []v1alpha1.Task{
 					{
-						Name:       "do-or-do-not-there-is-no-try",
-						WorkerAddr: "00:00:53:00:53:F4",
+						Name:    "do-or-do-not-there-is-no-try",
+						AgentID: "00:00:53:00:53:F4",
 						Actions: []v1alpha1.Action{
 							{
 								Name:    "stream-image-to-disk",

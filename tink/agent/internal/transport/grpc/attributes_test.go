@@ -12,7 +12,7 @@ import (
 func TestToProto(t *testing.T) {
 	tests := map[string]struct {
 		input    *attribute.AllAttributes
-		expected *proto.WorkerAttributes
+		expected *proto.AgentAttributes
 	}{
 		"Nil input": {
 			input:    nil,
@@ -35,16 +35,16 @@ func TestToProto(t *testing.T) {
 					},
 				},
 				Memory: &attribute.Memory{
-					Total:  toPtr(uint64(16384)),
-					Usable: toPtr(uint64(8192)),
+					Total:  toPtr("16KB"),
+					Usable: toPtr("8KB"),
 				},
 				BlockDevices: []*attribute.Block{
 					{
 						Name:              toPtr("sda"),
 						ControllerType:    toPtr("SATA"),
 						DriveType:         toPtr("SSD"),
-						Size:              toPtr(uint64(512)),
-						PhysicalBlockSize: toPtr(uint64(4096)),
+						Size:              toPtr("512B"),
+						PhysicalBlockSize: toPtr("4KB"),
 						Vendor:            toPtr("Samsung"),
 						Model:             toPtr("EVO860"),
 					},
@@ -58,7 +58,7 @@ func TestToProto(t *testing.T) {
 					},
 				},
 			},
-			expected: &proto.WorkerAttributes{
+			expected: &proto.AgentAttributes{
 				Cpu: &proto.CPU{
 					TotalCores:   toPtr(uint32(8)),
 					TotalThreads: toPtr(uint32(16)),
@@ -74,16 +74,16 @@ func TestToProto(t *testing.T) {
 					},
 				},
 				Memory: &proto.Memory{
-					Total:  toPtr(uint64(16384)),
-					Usable: toPtr(uint64(8192)),
+					Total:  toPtr("16KB"),
+					Usable: toPtr("8KB"),
 				},
 				Block: []*proto.Block{
 					{
 						Name:              toPtr("sda"),
 						ControllerType:    toPtr("SATA"),
 						DriveType:         toPtr("SSD"),
-						Size:              toPtr(uint64(512)),
-						PhysicalBlockSize: toPtr(uint64(4096)),
+						Size:              toPtr("512B"),
+						PhysicalBlockSize: toPtr("4KB"),
 						Vendor:            toPtr("Samsung"),
 						Model:             toPtr("EVO860"),
 					},
@@ -105,7 +105,7 @@ func TestToProto(t *testing.T) {
 					TotalThreads: toPtr(uint32(8)),
 				},
 			},
-			expected: &proto.WorkerAttributes{
+			expected: &proto.AgentAttributes{
 				Cpu: &proto.CPU{
 					TotalCores:   toPtr(uint32(4)),
 					TotalThreads: toPtr(uint32(8)),
@@ -129,16 +129,16 @@ func TestToProto(t *testing.T) {
 					},
 				},
 				Memory: &attribute.Memory{
-					Total:  toPtr(uint64(16384)),
-					Usable: toPtr(uint64(8192)),
+					Total:  toPtr("16KB"),
+					Usable: toPtr("8KB"),
 				},
 				BlockDevices: []*attribute.Block{
 					{
 						Name:              toPtr("sda"),
 						ControllerType:    toPtr("SATA"),
 						DriveType:         toPtr("SSD"),
-						Size:              toPtr(uint64(512)),
-						PhysicalBlockSize: toPtr(uint64(4096)),
+						Size:              toPtr("512B"),
+						PhysicalBlockSize: toPtr("4KB"),
 						Vendor:            toPtr("Samsung"),
 						Model:             toPtr("EVO860"),
 					},
@@ -185,7 +185,7 @@ func TestToProto(t *testing.T) {
 					Version: toPtr("1.0"),
 				},
 			},
-			expected: &proto.WorkerAttributes{
+			expected: &proto.AgentAttributes{
 				Cpu: &proto.CPU{
 					TotalCores:   toPtr(uint32(4)),
 					TotalThreads: toPtr(uint32(8)),
@@ -201,16 +201,16 @@ func TestToProto(t *testing.T) {
 					},
 				},
 				Memory: &proto.Memory{
-					Total:  toPtr(uint64(16384)),
-					Usable: toPtr(uint64(8192)),
+					Total:  toPtr("16KB"),
+					Usable: toPtr("8KB"),
 				},
 				Block: []*proto.Block{
 					{
 						Name:              toPtr("sda"),
 						ControllerType:    toPtr("SATA"),
 						DriveType:         toPtr("SSD"),
-						Size:              toPtr(uint64(512)),
-						PhysicalBlockSize: toPtr(uint64(4096)),
+						Size:              toPtr("512B"),
+						PhysicalBlockSize: toPtr("4KB"),
 						Vendor:            toPtr("Samsung"),
 						Model:             toPtr("EVO860"),
 					},

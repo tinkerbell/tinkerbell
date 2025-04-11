@@ -65,6 +65,9 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 			if errors.Is(err, context.Canceled) {
 				return
 			}
+			if isNoActions(err) {
+				continue
+			}
 			log.Info("error reading/retrieving action", "error", err)
 			continue
 		}
@@ -245,14 +248,14 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 		readWriter := &grpc.Config{
 			Log:              log,
 			TinkServerClient: proto.NewWorkflowServiceClient(conn),
-			WorkerID:         id,
+			AgentID:          id,
 			RetryInterval:    time.Second * 5,
 			Actions:          make(chan spec.Action),
 		}
 		if o.AttributeDetectionEnabled {
-			readWriter.Attributes = grpc.ToProto(attribute.DiscoverAll())
+			readWriter.Attributes = grpc.ToProto(attribute.DiscoverAll(log))
 		}
-		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort)
+		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort, "attributes", readWriter.Attributes)
 		tr = readWriter
 		tw = readWriter
 	}
@@ -389,4 +392,12 @@ func humanDuration(d time.Duration, precision int) string {
 
 	// Join all parts with spaces
 	return strings.Join(parts, "")
+}
+
+func isNoActions(err error) bool {
+	type noActions interface {
+		NoActions() bool
+	}
+	te, ok := err.(noActions)
+	return ok && te.NoActions()
 }

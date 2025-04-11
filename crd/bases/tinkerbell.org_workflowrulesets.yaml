@@ -1,0 +1,118 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.1
+  name: workflowrulesets.tinkerbell.org
+spec:
+  group: tinkerbell.org
+  names:
+    categories:
+    - tinkerbell
+    kind: WorkflowRuleSet
+    listKind: WorkflowRuleSetList
+    plural: workflowrulesets
+    shortNames:
+    - wrs
+    singular: workflowruleset
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Workflow is the Schema for the Workflows API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: WorkflowRuleSetSpec defines the Rules, options, and Workflow
+              to be created on rules match.
+            properties:
+              addAttributesAsLabels:
+                description: AddAttributesAsLabels indicates if the attributes should
+                  be added as labels to created Workflows.
+                type: boolean
+              agentTemplateValue:
+                description: AgentTemplateValue is the Go template value used in a
+                  Template for the Task[].worker value.
+                type: string
+              rules:
+                description: |-
+                  Rules is a list of quamina rules to match against the attributes of an Agent.
+                  See https://github.com/timbray/quamina/blob/main/PATTERNS.md for more information on the required format.
+                items:
+                  type: string
+                type: array
+              workflow:
+                description: Workflow is the Workflow to be created.
+                properties:
+                  bootOptions:
+                    description: BootOptions are options that control the booting
+                      of Hardware.
+                    properties:
+                      bootMode:
+                        description: BootMode is the type of booting that will be
+                          done.
+                        enum:
+                        - netboot
+                        - isoboot
+                        - iso
+                        type: string
+                      isoURL:
+                        description: |-
+                          ISOURL is the URL of the ISO that will be one-time booted. When this field is set, the controller will create a job.bmc.tinkerbell.org object
+                          for getting the associated hardware into a CDROM booting state.
+                          A HardwareRef that contains a spec.BmcRef must be provided.
+                        format: url
+                        type: string
+                      toggleAllowNetboot:
+                        description: |-
+                          ToggleAllowNetboot indicates whether the controller should toggle the field in the associated hardware for allowing PXE booting.
+                          This will be enabled before a Workflow is executed and disabled after the Workflow has completed successfully.
+                          A HardwareRef must be provided.
+                        type: boolean
+                    type: object
+                  disabled:
+                    description: Disabled indicates whether the Workflow will be processed
+                      or not.
+                    type: boolean
+                  hardwareMap:
+                    additionalProperties:
+                      type: string
+                    description: A mapping of template devices to hardware mac addresses.
+                    type: object
+                  hardwareRef:
+                    description: Name of the Hardware associated with this workflow.
+                    type: string
+                  templateRef:
+                    description: Name of the Template associated with this workflow.
+                    type: string
+                type: object
+              workflowNamespace:
+                description: WorkflowNamespace is the namespace in which the Workflow
+                  will be created.
+                type: string
+            type: object
+          status:
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
