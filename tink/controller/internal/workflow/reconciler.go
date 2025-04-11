@@ -166,7 +166,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		journal.Log(ctx, "process running workflow")
 
 		// Check if the global timeout has been reached.
-		fmt.Printf("current time: %s\n", r.nowFunc().Local().String())
 		if wflow.Status.GlobalExecutionStop != nil && r.nowFunc().After(wflow.Status.GlobalExecutionStop.Time) {
 			journal.Log(ctx, "global timeout reached")
 			wflow.Status.State = v1alpha1.WorkflowStateTimeout
@@ -174,21 +173,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 
 		first := firstAction(wflow)
-		if first != nil && wflow.Status.CurrentState != nil && first.ID == wflow.Status.CurrentState.ActionID {
-			// calculate skew
+		if wflow.Status.GlobalExecutionStop == nil && first != nil && wflow.Status.CurrentState != nil && first.ID == wflow.Status.CurrentState.ActionID {
 			if first.ExecutionStart == nil {
-				// if the first action isnt nil then this should be populated.
-				// If it is nil then we requeue.
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{}, nil
 			}
-			skew := r.nowFunc().Sub(first.ExecutionStart.Time)
-			wflow.Status.GlobalExecutionSkew = skew.Milliseconds()
-
-			// set start time
-			wflow.Status.GlobalExecutionStart = &metav1.Time{Time: r.nowFunc()}
-			// set stop time. start time plus skew plus timeout.
+			now := r.nowFunc()
+			skew := now.Sub(first.ExecutionStart.Time)
 			wflow.Status.GlobalExecutionStop = &metav1.Time{
-				Time: wflow.Status.GlobalExecutionStart.Time.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second).Add(time.Duration(wflow.Status.GlobalExecutionSkew) * time.Millisecond),
+				Time: now.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second).Add(time.Duration(skew) * time.Millisecond),
 			}
 			journal.Log(ctx, "global execution times set")
 			return reconcile.Result{RequeueAfter: time.Until(wflow.Status.GlobalExecutionStop.Time)}, mergePatchStatus(ctx, r.client, stored, wflow)
@@ -202,14 +194,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			workflow: wflow,
 			backoff:  r.backoff,
 		}
-		/*
-			if st := startTime(wflow); st != nil {
-				if r.nowFunc().UTC().After(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second)) {
-					wflow.Status.State = v1alpha1.WorkflowStateTimeout
-					return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow)
-				}
-			}
-		*/
 		rc, err := s.postActions(ctx)
 
 		return rc, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))
@@ -451,16 +435,7 @@ func pointerToValue[V any](ptr *V) V {
 	return *ptr
 }
 
-// startTime returns the start time, for the first action of the first task.
-func startTime(w *v1alpha1.Workflow) *metav1.Time {
-	if len(w.Status.Tasks) > 0 {
-		if len(w.Status.Tasks[0].Actions) > 0 {
-			return w.Status.Tasks[0].Actions[0].ExecutionStart
-		}
-	}
-	return nil
-}
-
+// firstAction returns the first Action of the first Task in the Workflow.
 func firstAction(w *v1alpha1.Workflow) *v1alpha1.Action {
 	if len(w.Status.Tasks) > 0 {
 		if len(w.Status.Tasks[0].Actions) > 0 {
