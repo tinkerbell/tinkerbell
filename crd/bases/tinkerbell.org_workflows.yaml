@@ -198,6 +198,18 @@ spec:
                   workerID:
                     type: string
                 type: object
+              globalExecutionSkew:
+                description: |-
+                  GlobalExecutionSkew represents the time difference between the server and client.
+                  This is used to determine if the workflow has timed out.
+                format: int64
+                type: integer
+              globalExecutionStart:
+                format: date-time
+                type: string
+              globalExecutionStop:
+                format: date-time
+                type: string
               globalTimeout:
                 description: GlobalTimeout represents the max execution time.
                 format: int64

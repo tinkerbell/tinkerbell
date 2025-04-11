@@ -155,6 +155,14 @@ type WorkflowStatus struct {
 	// GlobalTimeout represents the max execution time.
 	GlobalTimeout int64 `json:"globalTimeout,omitempty"`
 
+	// GlobalExecutionSkew represents the time difference between the server and client.
+	// This is used to determine if the workflow has timed out.
+	GlobalExecutionSkew int64 `json:"globalExecutionSkew,omitempty"`
+
+	GlobalExecutionStart *metav1.Time `json:"globalExecutionStart,omitempty"`
+
+	GlobalExecutionStop *metav1.Time `json:"globalExecutionStop,omitempty"`
+
 	// CurrentState tracks where the workflow is in its execution.
 	CurrentState *CurrentState `json:"currentState,omitempty"`
 
