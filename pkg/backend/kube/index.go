@@ -120,5 +120,8 @@ func WorkflowByAgentIDFunc(obj client.Object) []string {
 	if !ok {
 		return nil
 	}
+	if wf.Status.AgentID == "" {
+		return []string{}
+	}
 	return []string{wf.Status.AgentID}
 }

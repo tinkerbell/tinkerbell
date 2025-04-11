@@ -26,12 +26,12 @@ const (
 type wflowNamespace map[string]string
 
 func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentAttributes, allWflows wflowNamespace) (*proto.ActionResponse, error) {
-	log := h.Logger.WithValues("agentID", agentID)
+	// log := h.Logger.WithValues("agentID", agentID)
 	name, err := makeValidName(agentID, workflowPrefix)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "error making agentID a valid Kubernetes name: %v", err)
 	}
-	log = log.WithValues("workflowName", name)
+	// log = log.WithValues("workflowName", name)
 	// Get all WorkflowRuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
 	// using github.com/timbray/quamina
 	// If there is a match, create a Workflow for the AgentID.

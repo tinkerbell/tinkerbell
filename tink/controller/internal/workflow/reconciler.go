@@ -164,21 +164,37 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return resp, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, s.workflow))
 	case v1alpha1.WorkflowStateRunning:
 		journal.Log(ctx, "process running workflow")
-		rr := reconcile.Result{}
-		/*
-			if st := startTime(wflow); st != nil {
-				if r.nowFunc().After(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second)) {
-					wflow.Status.State = v1alpha1.WorkflowStateTimeout
-				} else {
-					// requeue after the global timeout to check for expiration
-					// TODO: this should only be done once.
-					rr = reconcile.Result{RequeueAfter: time.Until(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second))}
-				}
-			}
-		*/
 
-		// requeue after the global timeout to check for expiration
-		return rr, mergePatchStatus(ctx, r.client, stored, wflow)
+		// Check if the global timeout has been reached.
+		fmt.Printf("current time: %s\n", r.nowFunc().Local().String())
+		if wflow.Status.GlobalExecutionStop != nil && r.nowFunc().After(wflow.Status.GlobalExecutionStop.Time) {
+			journal.Log(ctx, "global timeout reached")
+			wflow.Status.State = v1alpha1.WorkflowStateTimeout
+			return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow)
+		}
+
+		first := firstAction(wflow)
+		if first != nil && wflow.Status.CurrentState != nil && first.ID == wflow.Status.CurrentState.ActionID {
+			// calculate skew
+			if first.ExecutionStart == nil {
+				// if the first action isnt nil then this should be populated.
+				// If it is nil then we requeue.
+				return reconcile.Result{Requeue: true}, nil
+			}
+			skew := r.nowFunc().Sub(first.ExecutionStart.Time)
+			wflow.Status.GlobalExecutionSkew = skew.Milliseconds()
+
+			// set start time
+			wflow.Status.GlobalExecutionStart = &metav1.Time{Time: r.nowFunc()}
+			// set stop time. start time plus skew plus timeout.
+			wflow.Status.GlobalExecutionStop = &metav1.Time{
+				Time: wflow.Status.GlobalExecutionStart.Time.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second).Add(time.Duration(wflow.Status.GlobalExecutionSkew) * time.Millisecond),
+			}
+			journal.Log(ctx, "global execution times set")
+			return reconcile.Result{RequeueAfter: time.Until(wflow.Status.GlobalExecutionStop.Time)}, mergePatchStatus(ctx, r.client, stored, wflow)
+		}
+
+		return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow)
 	case v1alpha1.WorkflowStatePost:
 		journal.Log(ctx, "post actions")
 		s := &state{
@@ -440,6 +456,15 @@ func startTime(w *v1alpha1.Workflow) *metav1.Time {
 	if len(w.Status.Tasks) > 0 {
 		if len(w.Status.Tasks[0].Actions) > 0 {
 			return w.Status.Tasks[0].Actions[0].ExecutionStart
+		}
+	}
+	return nil
+}
+
+func firstAction(w *v1alpha1.Workflow) *v1alpha1.Action {
+	if len(w.Status.Tasks) > 0 {
+		if len(w.Status.Tasks[0].Actions) > 0 {
+			return &w.Status.Tasks[0].Actions[0]
 		}
 	}
 	return nil

@@ -1143,6 +1143,14 @@ func (in *WorkflowSpec) DeepCopy() *WorkflowSpec {
 func (in *WorkflowStatus) DeepCopyInto(out *WorkflowStatus) {
 	*out = *in
 	in.BootOptions.DeepCopyInto(&out.BootOptions)
+	if in.GlobalExecutionStart != nil {
+		in, out := &in.GlobalExecutionStart, &out.GlobalExecutionStart
+		*out = (*in).DeepCopy()
+	}
+	if in.GlobalExecutionStop != nil {
+		in, out := &in.GlobalExecutionStop, &out.GlobalExecutionStop
+		*out = (*in).DeepCopy()
+	}
 	if in.CurrentState != nil {
 		in, out := &in.CurrentState, &out.CurrentState
 		*out = new(CurrentState)
