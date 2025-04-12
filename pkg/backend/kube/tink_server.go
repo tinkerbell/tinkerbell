@@ -52,9 +52,8 @@ func (b *Backend) ReadWorkflowRuleSets(ctx context.Context) ([]v1alpha1.Workflow
 	if err != nil {
 		return nil, err
 	}
-	wfs := []v1alpha1.WorkflowRuleSet{}
-	wfs = append(wfs, stored.Items...)
-	return wfs, nil
+
+	return stored.Items, nil
 }
 
 func (b *Backend) CreateWorkflow(ctx context.Context, wf *v1alpha1.Workflow) error {

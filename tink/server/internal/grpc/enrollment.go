@@ -26,12 +26,7 @@ const (
 type wflowNamespace map[string]string
 
 func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentAttributes, allWflows wflowNamespace) (*proto.ActionResponse, error) {
-	// log := h.Logger.WithValues("agentID", agentID)
-	name, err := makeValidName(agentID, workflowPrefix)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "error making agentID a valid Kubernetes name: %v", err)
-	}
-	// log = log.WithValues("workflowName", name)
+	log := h.Logger.WithValues("agentID", agentID)
 	// Get all WorkflowRuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
 	// using github.com/timbray/quamina
 	// If there is a match, create a Workflow for the AgentID.
@@ -39,10 +34,12 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 	if err != nil {
 		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))
 	}
-	type match struct {
-		wrs        v1alpha1.WorkflowRuleSet
-		numMatches int
+	name, err := makeValidName(agentID, workflowPrefix)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "error making agentID a valid Kubernetes name: %v", err)
 	}
+	log = log.WithValues("workflowName", name)
+
 	final := &match{}
 	for _, wr := range wrs {
 		if ns, found := allWflows[name]; found && ns == wr.Spec.WorkflowNamespace {
@@ -60,31 +57,14 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 			}
 			return nil, ds.Err()
 		}
-		q, err := quamina.New()
+		m, err := findMatch(wr, attr, final.numMatches)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "error preparing WorkflowRuleSet parser: %v", err)
+			log.Error(err, "error matching pattern")
+			continue
 		}
-		for idx, r := range wr.Spec.Rules {
-			if err := q.AddPattern(fmt.Sprintf("pattern-%v", idx), r); err != nil {
-				return nil, status.Errorf(codes.Internal, "error with pattern in WorkflowRuleSet: %v", err)
-			}
-		}
-
-		var jsonEvent []byte
-		if attr != nil {
-			jsonBytes, err := protojson.Marshal(attr)
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "error marshalling attributes to json: %v", err)
-			}
-			jsonEvent = jsonBytes
-		}
-		matches, err := q.MatchesForEvent(jsonEvent)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "error matching pattern: %v", err)
-		}
-		if len(matches) > final.numMatches {
-			final.numMatches = len(matches)
-			final.wrs = wr
+		if m != nil {
+			final.numMatches = m.numMatches
+			final.wrs = m.wrs
 		}
 	}
 	if final.numMatches > 0 {
@@ -130,13 +110,50 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 			AgentId:         &agentID,
 			AgentAttributes: attr,
 		}
-		return h.enrollRetry(ctx, ar)
+		return h.enrollWithRetry(ctx, ar)
 	}
 	// If there is no match, return an error.
 	return nil, status.Errorf(codes.NotFound, "no Workflow Rule Sets found or matched for Agent %s", agentID)
 }
 
-func (h *Handler) enrollRetry(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
+type match struct {
+	wrs        v1alpha1.WorkflowRuleSet
+	numMatches int
+}
+
+func findMatch(wr v1alpha1.WorkflowRuleSet, attr *proto.AgentAttributes, curMatches int) (*match, error) {
+	q, _ := quamina.New() // errors are ignored because they can only happen when passing in options.
+	for idx, r := range wr.Spec.Rules {
+		if err := q.AddPattern(fmt.Sprintf("pattern-%v", idx), r); err != nil {
+			// TODO: pattern checking should be done before this. Maybe when a CRD is created.
+			return nil, fmt.Errorf("error adding Workflow matching pattern: %v err: %w", fmt.Sprintf("pattern-%v", idx), err)
+		}
+	}
+
+	var jsonEvent []byte
+	if attr != nil {
+		jsonBytes, err := protojson.Marshal(attr)
+		if err != nil {
+			return nil, fmt.Errorf("error marshalling attributes to json: %w", err)
+		}
+		jsonEvent = jsonBytes
+	}
+	matches, err := q.MatchesForEvent(jsonEvent)
+	if err != nil {
+		return nil, fmt.Errorf("error matching pattern: %w", err)
+	}
+	if len(matches) > curMatches {
+		return &match{
+			numMatches: len(matches),
+			wrs:        wr,
+		}, nil
+	}
+
+	return nil, nil
+}
+
+// enrollWithRetry calls to the doGetAction method with a retry mechanism.
+func (h *Handler) enrollWithRetry(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
 	operation := func() (*proto.ActionResponse, error) {
 		opts := &options{
 			AutoCapabilities: AutoCapabilities{
