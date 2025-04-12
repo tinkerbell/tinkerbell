@@ -14,16 +14,14 @@ import (
 )
 
 func TestEnroll(t *testing.T) {
-	tests := []struct {
-		name                  string
+	tests := map[string]struct {
 		workerID              string
 		attributes            *proto.AgentAttributes
 		mockCapabilities      *mockAutoCapabilities
 		mockBackendReadWriter *mockReadUpdater
 		expectedErrorCode     codes.Code
 	}{
-		{
-			name:     "successful enrollment",
+		"successful enrollment": {
 			workerID: "worker-123",
 			attributes: &proto.AgentAttributes{
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
@@ -63,8 +61,7 @@ func TestEnroll(t *testing.T) {
 			},
 			expectedErrorCode: codes.NotFound,
 		},
-		{
-			name:     "no matching workflow rule set",
+		"no matching workflow rule set": {
 			workerID: "worker-123",
 			attributes: &proto.AgentAttributes{
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
@@ -81,8 +78,7 @@ func TestEnroll(t *testing.T) {
 			},
 			expectedErrorCode: codes.NotFound,
 		},
-		{
-			name:     "error reading workflow rule sets",
+		"error reading workflow rule sets": {
 			workerID: "worker-123",
 			attributes: &proto.AgentAttributes{
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
@@ -99,10 +95,56 @@ func TestEnroll(t *testing.T) {
 			},
 			expectedErrorCode: codes.Internal,
 		},
+		"error no patterns matched": {
+			workerID: "worker-123",
+			attributes: &proto.AgentAttributes{
+				Chassis: &proto.Chassis{Serial: toPtr("12345")},
+			},
+			mockCapabilities: &mockAutoCapabilities{
+				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
+					return []v1alpha1.WorkflowRuleSet{
+						{
+							Spec: v1alpha1.WorkflowRuleSetSpec{
+								Rules: []string{`{"chassis": {"serial": ["67890"]}}`},
+							},
+						},
+					}, nil
+				},
+			},
+			mockBackendReadWriter: &mockReadUpdater{
+				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
+					return nil, nil
+				},
+			},
+			expectedErrorCode: codes.NotFound,
+		},
+		"error bad pattern": {
+			workerID: "worker-123",
+			attributes: &proto.AgentAttributes{
+				Chassis: &proto.Chassis{Serial: toPtr("12345")},
+			},
+			mockCapabilities: &mockAutoCapabilities{
+				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
+					return []v1alpha1.WorkflowRuleSet{
+						{
+							Spec: v1alpha1.WorkflowRuleSetSpec{
+								Rules: []string{`im a bad pattern`},
+							},
+						},
+					}, nil
+				},
+			},
+			mockBackendReadWriter: &mockReadUpdater{
+				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
+					return nil, nil
+				},
+			},
+			expectedErrorCode: codes.NotFound,
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			handler := &Handler{
 				AutoCapabilities:  AutoCapabilities{Enrollment: AutoEnrollment{Enabled: true, ReadCreator: tt.mockCapabilities}},
 				BackendReadWriter: tt.mockBackendReadWriter,
