@@ -197,7 +197,6 @@ func DiscoverNetworks(l logr.Logger) []*Network {
 		return nil
 	}
 	var nics []*Network
-	l.Info("debugging", "NICS", net.NICs)
 	for _, n := range net.NICs {
 		if n == nil {
 			continue
