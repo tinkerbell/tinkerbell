@@ -4,7 +4,7 @@ metadata:
   labels:
     app: tinkerbell
   name: tinkerbell
-  namespace: tinkerbell
+  namespace: {{ .Release.Namespace | quote }}
 spec:
   type: ClusterIP
   type: {{ .Values.service.type }}

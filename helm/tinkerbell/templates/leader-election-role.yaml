@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: tinkerbell
-  namespace: "tinkerbell"
+  namespace: {{ .Release.Namespace | quote }}
 rules:
 - apiGroups:
   - ""
