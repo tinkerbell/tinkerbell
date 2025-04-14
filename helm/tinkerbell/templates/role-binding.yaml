@@ -9,4 +9,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: tinkerbell
-    namespace: "tinkerbell"
+    namespace: {{ .Release.Namespace | quote }}
