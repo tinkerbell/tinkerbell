@@ -42,9 +42,23 @@ func toHackInstance(hw v1alpha1.Hardware) (data.HackInstance, error) {
 	return i, nil
 }
 
-// GetEC2InstanceByIP satisfies ec2.Client.
+// GetEC2Instance satisfies ec2.Client.
 func (b *Backend) GetEC2Instance(ctx context.Context, ip string) (data.Ec2Instance, error) {
 	hw, err := b.hwByIP(ctx, ip)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			return data.Ec2Instance{}, ErrInstanceNotFound
+		}
+
+		return data.Ec2Instance{}, err
+	}
+
+	return toEC2Instance(*hw), nil
+}
+
+// GetEC2InstanceByInstanceID satisfies ec2.Client.
+func (b *Backend) GetEC2InstanceByInstanceID(ctx context.Context, instanceID string) (data.Ec2Instance, error) {
+	hw, err := b.hwByInstanceID(ctx, instanceID)
 	if err != nil {
 		if errors.Is(err, errNotFound) {
 			return data.Ec2Instance{}, ErrInstanceNotFound
@@ -131,6 +145,37 @@ func (b *Backend) hwByIP(ctx context.Context, ip string) (*v1alpha1.Hardware, er
 
 	if len(hardwareList.Items) > 1 {
 		err := fmt.Errorf("got %d hardware objects for ip: %s, expected only 1", len(hardwareList.Items), ip)
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, err
+	}
+
+	span.SetStatus(codes.Ok, "")
+
+	return &hardwareList.Items[0], nil
+}
+
+func (b *Backend) hwByInstanceID(ctx context.Context, instanceID string) (*v1alpha1.Hardware, error) {
+	tracer := otel.Tracer(tracerName)
+	ctx, span := tracer.Start(ctx, "backend.kube.hwByInstanceID")
+	defer span.End()
+	hardwareList := &v1alpha1.HardwareList{}
+
+	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{InstanceIDIndex: instanceID}); err != nil {
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, fmt.Errorf("failed listing hardware for instanceID (%v): %w", instanceID, err)
+	}
+
+	if len(hardwareList.Items) == 0 {
+		err := hardwareNotFoundError{name: instanceID, namespace: ternary(b.Namespace == "", "all namespaces", b.Namespace)}
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, err
+	}
+
+	if len(hardwareList.Items) > 1 {
+		err := fmt.Errorf("got %d hardware objects for instanceID: %s, expected only 1", len(hardwareList.Items), instanceID)
 		span.SetStatus(codes.Error, err.Error())
 
 		return nil, err

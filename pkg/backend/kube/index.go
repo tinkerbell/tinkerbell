@@ -11,6 +11,7 @@ type IndexType string
 const (
 	IndexTypeMACAddr                    IndexType = MACAddrIndex
 	IndexTypeIPAddr                     IndexType = IPAddrIndex
+	IndexTypeInstanceID                 IndexType = InstanceIDIndex
 	IndexTypeWorkflowByNonTerminalState IndexType = WorkflowByNonTerminalState
 	IndexTypeHardwareName               IndexType = "hardware.metadata.name"
 	IndexTypeMachineName                IndexType = "machine.metadata.name"
@@ -42,6 +43,11 @@ var Indexes = map[IndexType]Index{
 		Obj:          &bmc.Machine{},
 		Field:        MachineNameIndex,
 		ExtractValue: MachineNameFunc,
+	},
+	IndexTypeInstanceID: {
+		Obj:          &v1alpha1.Hardware{},
+		Field:        InstanceIDIndex,
+		ExtractValue: InstanceIDFunc,
 	},
 }
 
@@ -90,6 +96,16 @@ func GetIPs(h *v1alpha1.Hardware) []string {
 		}
 	}
 	return ips
+}
+
+// InstanceIDIndex is an index used with a controller-runtime client to lookup hardware by its metadata instance id.
+const InstanceIDIndex = ".Spec.Metadata.Instance.ID" // #nosec G101
+func InstanceIDFunc(obj client.Object) []string {
+	hw, ok := obj.(*v1alpha1.Hardware)
+	if !ok {
+		return nil
+	}
+	return []string{hw.Spec.Metadata.Instance.ID}
 }
 
 // WorkflowByNonTerminalState is the index name for retrieving workflows in a non-terminal state.
