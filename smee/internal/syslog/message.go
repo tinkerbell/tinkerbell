@@ -53,7 +53,7 @@ const (
 )
 
 type message struct {
-	buf  [2048]byte
+	buf  [32768]byte // 32kB, this is the max buffer size.
 	size int
 	time time.Time
 	host net.IP
