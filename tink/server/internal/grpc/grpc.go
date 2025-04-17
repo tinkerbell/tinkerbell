@@ -81,7 +81,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 		log.V(1).Info("GetAction code flow journal", "journal", journal.Journal(ctx))
 	}()
 	if req.GetWorkerId() == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid agent id")
+		return nil, status.Errorf(codes.InvalidArgument, "invalid Agent ID")
 	}
 
 	wfs, err := h.BackendReadWriter.ReadAll(ctx, req.GetWorkerId())
@@ -92,7 +92,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	}
 	if len(wfs) == 0 {
 		journal.Log(ctx, "no Workflow found")
-		return nil, status.Error(codes.NotFound, "no workflows found")
+		return nil, status.Error(codes.NotFound, "no Workflows found")
 	}
 	var wf v1alpha1.Workflow
 	for _, w := range wfs {
@@ -102,10 +102,10 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 		// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
 		// This is to prevent the Agent from starting Actions before Workflow boot options are performed.
 		if w.Spec.BootOptions.BootMode != "" && w.Status.State == v1alpha1.WorkflowStatePreparing {
-			return nil, status.Error(codes.FailedPrecondition, "workflow is in preparing state")
+			return nil, status.Error(codes.FailedPrecondition, "Workflow is in preparing state")
 		}
 		if w.Status.State != v1alpha1.WorkflowStatePending && w.Status.State != v1alpha1.WorkflowStateRunning {
-			return nil, status.Error(codes.FailedPrecondition, "workflow not in pending or running state")
+			return nil, status.Error(codes.FailedPrecondition, "Workflow not in pending or running state")
 		}
 		wf = w
 		journal.Log(ctx, "found Workflow", "workflow", wf.Name)

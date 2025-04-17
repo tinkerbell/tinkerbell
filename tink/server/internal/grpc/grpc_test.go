@@ -145,17 +145,17 @@ func TestGetAction(t *testing.T) {
 					Tasks:         []v1alpha1.Task{},
 				},
 			},
-			wantErr: status.Errorf(codes.NotFound, "no tasks found"),
+			wantErr: status.Errorf(codes.NotFound, "no Tasks found in Workflow"),
 		},
 		"no workflows found": {
 			request: &proto.ActionRequest{
 				WorkerId: toPtr("machine-mac-1"),
 			},
-			wantErr: status.Errorf(codes.NotFound, "no workflows found"),
+			wantErr: status.Errorf(codes.NotFound, "no Workflows found"),
 		},
 		"no agent id": {
 			request: &proto.ActionRequest{},
-			wantErr: status.Errorf(codes.InvalidArgument, "invalid agent id"),
+			wantErr: status.Errorf(codes.InvalidArgument, "invalid Agent ID"),
 		},
 	}
 
@@ -192,7 +192,7 @@ func compareErrors(t *testing.T, got, want error) {
 		}
 		return
 	}
-	if got == nil && want != nil {
+	if want != nil {
 		t.Fatalf("Missing expected error: %v", want)
 	}
 }
