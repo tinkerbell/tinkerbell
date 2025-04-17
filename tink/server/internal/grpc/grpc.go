@@ -87,11 +87,11 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	wfs, err := h.BackendReadWriter.ReadAll(ctx, req.GetWorkerId())
 	if err != nil {
 		// TODO: This is where we handle auto capabilities
-		journal.Log(ctx, "error getting workflows", "error", err)
+		journal.Log(ctx, "error getting Workflows", "error", err)
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
 	if len(wfs) == 0 {
-		journal.Log(ctx, "debugging", "noWorkflows", true)
+		journal.Log(ctx, "no Workflow found")
 		return nil, status.Error(codes.NotFound, "no workflows found")
 	}
 	var wf v1alpha1.Workflow
@@ -108,18 +108,18 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 			return nil, status.Error(codes.FailedPrecondition, "workflow not in pending or running state")
 		}
 		wf = w
-		journal.Log(ctx, "found workflow")
+		journal.Log(ctx, "found Workflow", "workflow", wf.Name)
 		break
 	}
 	if len(wf.Status.Tasks) == 0 {
 		journal.Log(ctx, "no Tasks found in Workflow")
-		return nil, status.Error(codes.NotFound, "no tasks found")
+		return nil, status.Error(codes.NotFound, "no Tasks found in Workflow")
 	}
 
 	var task *v1alpha1.Task
 	if isFirstAction(wf.Status.Tasks[0]) {
 		task = &wf.Status.Tasks[0]
-		journal.Log(ctx, "first task, first action")
+		journal.Log(ctx, "first Task, first Action")
 	} else {
 		for _, t := range wf.Status.Tasks {
 			// check if all actions have been run successfully in this task.
@@ -128,60 +128,58 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 				continue
 			}
 			task = &t
-			journal.Log(ctx, "found task", "taskID", t.ID)
+			journal.Log(ctx, "found Task", "taskID", t.ID)
 			break
 		}
 		if task == nil {
-			journal.Log(ctx, "no tasks found")
-			return nil, status.Error(codes.NotFound, "no tasks found")
+			journal.Log(ctx, "no Tasks found")
+			return nil, status.Error(codes.NotFound, "no Tasks found")
 		}
 	}
 
 	if len(task.Actions) == 0 {
-		journal.Log(ctx, "no actions found")
-		return nil, status.Error(codes.NotFound, "no actions found")
+		journal.Log(ctx, "no Actions found")
+		return nil, status.Error(codes.NotFound, "no Actions found")
 	}
 
 	var action *v1alpha1.Action
 	if isFirstAction(*task) {
-		journal.Log(ctx, "first action")
 		if task.Actions[0].State != v1alpha1.WorkflowStatePending {
-			return nil, status.Error(codes.FailedPrecondition, "first action not in pending state")
+			journal.Log(ctx, "first Action not in pending state")
+			return nil, status.Error(codes.FailedPrecondition, "first Action not in pending state")
 		}
+		journal.Log(ctx, "first Action")
 		action = &task.Actions[0]
 	} else {
-		journal.Log(ctx, "not first action")
 		// This handles Actions after the first one
 		// Get the current Action. If it is not in a success state, return error.
 		if wf.Status.CurrentState.State != v1alpha1.WorkflowStateSuccess {
-			journal.Log(ctx, "current action not in success state")
-			return nil, status.Error(codes.FailedPrecondition, "current action not in success state")
+			journal.Log(ctx, "current Action not in success state")
+			return nil, status.Error(codes.FailedPrecondition, "current Action not in success state")
 		}
 		// Get the next Action after the one defined in the current state.
 		for idx, act := range task.Actions {
 			if act.ID == wf.Status.CurrentState.ActionID {
 				// if the action is the last one in the task, return error
 				if idx == len(task.Actions)-1 {
-					journal.Log(ctx, "last action in task")
+					journal.Log(ctx, "last Action in task")
 					// if the workflow has another task, then return the next action in that task.
-
-					return nil, status.Error(codes.NotFound, "last action in task")
+					return nil, status.Error(codes.NotFound, "last Action in task")
 				}
 				action = &task.Actions[idx+1]
-				journal.Log(ctx, "found action", "actionID", action.ID)
+				journal.Log(ctx, "found Action", "actionID", action.ID)
 				break
 			}
 		}
 		if action == nil {
-			journal.Log(ctx, "no action found")
-			return nil, status.Error(codes.NotFound, "no action found")
+			journal.Log(ctx, "no Action found")
+			return nil, status.Error(codes.NotFound, "no Action found")
 		}
-		journal.Log(ctx, "found action", "actionID", action.ID)
 	}
 	// This check goes after the action is found, so that multi task Workflows can be handled.
 	if task.WorkerAddr != req.GetWorkerId() {
-		journal.Log(ctx, "task not assigned to Agent")
-		return nil, status.Error(codes.NotFound, "task not assigned to Agent")
+		journal.Log(ctx, "Task not assigned to Agent")
+		return nil, status.Error(codes.NotFound, "Task not assigned to Agent")
 	}
 
 	// update the current state
@@ -225,6 +223,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	}
 
 	log.Info("sending action", "action", ar, "actionID", action.ID)
+	journal.Log(ctx, "sending Action", "action", ar)
 	return ar, nil
 }
 
