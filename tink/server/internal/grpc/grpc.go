@@ -12,6 +12,7 @@ import (
 	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -53,7 +54,7 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 	}
 	if len(h.RetryOptions) == 0 {
 		h.RetryOptions = []backoff.RetryOption{
-			backoff.WithMaxElapsedTime(time.Minute * 5),
+			backoff.WithMaxElapsedTime(time.Minute * 1),
 			backoff.WithBackOff(backoff.NewExponentialBackOff()),
 		}
 	}
@@ -74,50 +75,88 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	default:
 	}
 
+	ctx = journal.New(ctx)
 	log := h.Logger.WithValues("worker", req.GetWorkerId())
+	defer func() {
+		log.V(1).Info("GetAction code flow journal", "journal", journal.Journal(ctx))
+	}()
 	if req.GetWorkerId() == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid worker id:")
 	}
 
-	wflows, err := h.BackendReadWriter.ReadAll(ctx, req.GetWorkerId())
+	wfs, err := h.BackendReadWriter.ReadAll(ctx, req.GetWorkerId())
 	if err != nil {
 		// TODO: This is where we handle auto capabilities
+		journal.Log(ctx, "error getting workflows")
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
-	if len(wflows) == 0 {
+	if len(wfs) == 0 {
+		journal.Log(ctx, "debugging", "noWorkflows", true)
 		return nil, status.Error(codes.NotFound, "no workflows found")
 	}
-	wf := wflows[0]
-	if len(wf.Status.Tasks) == 0 {
-		return nil, status.Error(codes.NotFound, "no tasks found")
+	var shouldError error
+	var wf v1alpha1.Workflow
+	for _, w := range wfs {
+		if len(w.Status.Tasks) == 0 {
+			shouldError = status.Error(codes.NotFound, "no tasks found")
+			continue
+		}
+		// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
+		// This is to prevent the worker from starting Actions before Workflow boot options are performed.
+		if w.Spec.BootOptions.BootMode != "" && w.Status.State == v1alpha1.WorkflowStatePreparing {
+			return nil, status.Error(codes.FailedPrecondition, "workflow is in preparing state")
+		}
+		if w.Status.State != v1alpha1.WorkflowStatePending && w.Status.State != v1alpha1.WorkflowStateRunning {
+			return nil, status.Error(codes.FailedPrecondition, "workflow not in pending or running state")
+		}
+		wf = w
+		journal.Log(ctx, "found workflow")
+		break
 	}
-	// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
-	// This is to prevent the worker from starting Actions before Workflow boot options are performed.
-	if wf.Spec.BootOptions.BootMode != "" && wf.Status.State == v1alpha1.WorkflowStatePreparing {
-		return nil, status.Error(codes.FailedPrecondition, "workflow is in preparing state")
+	if shouldError != nil {
+		journal.Log(ctx, "error getting workflows", "error", shouldError)
+		return nil, shouldError
 	}
-	if wf.Status.State != v1alpha1.WorkflowStatePending && wf.Status.State != v1alpha1.WorkflowStateRunning {
-		return nil, status.Error(codes.FailedPrecondition, "workflow not in pending or running state")
+
+	var task *v1alpha1.Task
+	if isFirstAction(wf.Status.Tasks[0]) {
+		task = &wf.Status.Tasks[0]
+		journal.Log(ctx, "first task, first action")
+	} else {
+		for _, t := range wf.Status.Tasks {
+			// check if all actions have been run successfully in this task.
+			// if so continue to the next task.
+			if isTaskSuccessful(t) {
+				continue
+			}
+			task = &t
+			journal.Log(ctx, "found task", "taskID", t.ID)
+			break
+		}
+		if task == nil {
+			journal.Log(ctx, "no tasks found")
+			return nil, status.Error(codes.NotFound, "no tasks found")
+		}
 	}
-	// only support workflows with a single task for now
-	task := wf.Status.Tasks[0]
+
 	if len(task.Actions) == 0 {
+		journal.Log(ctx, "no actions found")
 		return nil, status.Error(codes.NotFound, "no actions found")
 	}
-	if task.WorkerAddr != req.GetWorkerId() {
-		return nil, status.Error(codes.NotFound, "task not assigned to worker")
-	}
+
 	var action *v1alpha1.Action
-	// This is the first action handler
-	if wf.Status.CurrentState == nil {
+	if isFirstAction(*task) {
+		journal.Log(ctx, "first action")
 		if task.Actions[0].State != v1alpha1.WorkflowStatePending {
 			return nil, status.Error(codes.FailedPrecondition, "first action not in pending state")
 		}
 		action = &task.Actions[0]
 	} else {
+		journal.Log(ctx, "not first action")
 		// This handles Actions after the first one
 		// Get the current Action. If it is not in a success state, return error.
 		if wf.Status.CurrentState.State != v1alpha1.WorkflowStateSuccess {
+			journal.Log(ctx, "current action not in success state")
 			return nil, status.Error(codes.FailedPrecondition, "current action not in success state")
 		}
 		// Get the next Action after the one defined in the current state.
@@ -125,15 +164,26 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 			if act.ID == wf.Status.CurrentState.ActionID {
 				// if the action is the last one in the task, return error
 				if idx == len(task.Actions)-1 {
+					journal.Log(ctx, "last action in task")
+					// if the workflow has another task, then return the next action in that task.
+
 					return nil, status.Error(codes.NotFound, "last action in task")
 				}
 				action = &task.Actions[idx+1]
+				journal.Log(ctx, "found action", "actionID", action.ID)
 				break
 			}
 		}
 		if action == nil {
+			journal.Log(ctx, "no action found")
 			return nil, status.Error(codes.NotFound, "no action found")
 		}
+		journal.Log(ctx, "found action", "actionID", action.ID)
+	}
+	// This check goes after the action is found, so that multi task Workflows can be handled.
+	if task.WorkerAddr != req.GetWorkerId() {
+		journal.Log(ctx, "task not assigned to worker")
+		return nil, status.Error(codes.NotFound, "task not assigned to worker")
 	}
 
 	// update the current state
@@ -144,6 +194,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 		ActionID:   action.ID,
 		State:      action.State,
 		ActionName: action.Name,
+		TaskName:   task.Name,
 	}
 
 	if err := h.BackendReadWriter.Write(ctx, &wf); err != nil {
@@ -177,6 +228,27 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 
 	log.Info("sending action", "action", ar, "actionID", action.ID)
 	return ar, nil
+}
+
+// isFirstAction checks if the Task is at the first Action.
+func isFirstAction(t v1alpha1.Task) bool {
+	if len(t.Actions) == 0 {
+		return false
+	}
+	if t.Actions[0].State == v1alpha1.WorkflowStatePending {
+		return true
+	}
+	return false
+}
+
+func isTaskSuccessful(t v1alpha1.Task) bool {
+	if len(t.Actions) == 0 {
+		return true
+	}
+	if t.Actions[len(t.Actions)-1].State == v1alpha1.WorkflowStateSuccess {
+		return true
+	}
+	return false
 }
 
 func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
@@ -243,6 +315,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 					ActionID:   req.GetActionId(),
 					State:      wf.Status.Tasks[ti].Actions[ai].State,
 					ActionName: req.GetActionName(),
+					TaskName:   wf.Status.Tasks[ti].Name,
 				}
 				if err := h.BackendReadWriter.Write(ctx, wf); err != nil {
 					return nil, status.Errorf(codes.Internal, "error writing report status: %v", err)

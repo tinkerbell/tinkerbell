@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
+	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

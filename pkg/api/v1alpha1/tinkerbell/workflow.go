@@ -48,8 +48,10 @@ const (
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:JSONPath=".spec.templateRef",name=Template,type=string
 // +kubebuilder:printcolumn:JSONPath=".status.state",name=State,type=string
-// +kubebuilder:printcolumn:JSONPath=".status.currentState.actionName",name=Current-Action,type=string
-// +kubebuilder:printcolumn:JSONPath=".status.templateRending",name=Template-Rendering,type=string
+// +kubebuilder:printcolumn:JSONPath=".status.currentState.taskName",name=Task,type=string,priority=1
+// +kubebuilder:printcolumn:JSONPath=".status.currentState.actionName",name=Action,type=string
+// +kubebuilder:printcolumn:JSONPath=".status.currentState.workerID",name=Agent,type=string
+// +kubebuilder:printcolumn:JSONPath=".status.templateRending",name=Template-Rendering,type=string,priority=1
 
 // Workflow is the Schema for the Workflows API.
 type Workflow struct {
@@ -125,6 +127,7 @@ type CurrentState struct {
 	ActionID   string        `json:"actionID,omitempty"`
 	State      WorkflowState `json:"state,omitempty"`
 	ActionName string        `json:"actionName,omitempty"`
+	TaskName   string        `json:"taskName,omitempty"`
 }
 
 // WorkflowStatus defines the observed state of a Workflow.

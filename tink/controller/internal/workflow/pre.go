@@ -7,7 +7,7 @@ import (
 
 	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
+	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )

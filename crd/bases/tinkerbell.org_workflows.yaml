@@ -25,11 +25,19 @@ spec:
     - jsonPath: .status.state
       name: State
       type: string
+    - jsonPath: .status.currentState.taskName
+      name: Task
+      priority: 1
+      type: string
     - jsonPath: .status.currentState.actionName
-      name: Current-Action
+      name: Action
+      type: string
+    - jsonPath: .status.currentState.workerID
+      name: Agent
       type: string
     - jsonPath: .status.templateRending
       name: Template-Rendering
+      priority: 1
       type: string
     name: v1alpha1
     schema:
@@ -174,6 +182,8 @@ spec:
                   state:
                     type: string
                   taskID:
+                    type: string
+                  taskName:
                     type: string
                   workerID:
                     type: string
