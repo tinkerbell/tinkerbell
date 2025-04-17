@@ -32,7 +32,7 @@ var (
 )
 
 type BackendReadWriter interface {
-	ReadAll(ctx context.Context, workerID string) ([]v1alpha1.Workflow, error)
+	ReadAll(ctx context.Context, agentID string) ([]v1alpha1.Workflow, error)
 	Read(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error)
 	Write(ctx context.Context, wf *v1alpha1.Workflow) error
 }
@@ -76,33 +76,31 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	}
 
 	ctx = journal.New(ctx)
-	log := h.Logger.WithValues("worker", req.GetWorkerId())
+	log := h.Logger.WithValues("agent", req.GetWorkerId())
 	defer func() {
 		log.V(1).Info("GetAction code flow journal", "journal", journal.Journal(ctx))
 	}()
 	if req.GetWorkerId() == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid worker id:")
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent id")
 	}
 
 	wfs, err := h.BackendReadWriter.ReadAll(ctx, req.GetWorkerId())
 	if err != nil {
 		// TODO: This is where we handle auto capabilities
-		journal.Log(ctx, "error getting workflows")
+		journal.Log(ctx, "error getting workflows", "error", err)
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
 	if len(wfs) == 0 {
 		journal.Log(ctx, "debugging", "noWorkflows", true)
 		return nil, status.Error(codes.NotFound, "no workflows found")
 	}
-	var shouldError error
 	var wf v1alpha1.Workflow
 	for _, w := range wfs {
 		if len(w.Status.Tasks) == 0 {
-			shouldError = status.Error(codes.NotFound, "no tasks found")
 			continue
 		}
 		// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
-		// This is to prevent the worker from starting Actions before Workflow boot options are performed.
+		// This is to prevent the Agent from starting Actions before Workflow boot options are performed.
 		if w.Spec.BootOptions.BootMode != "" && w.Status.State == v1alpha1.WorkflowStatePreparing {
 			return nil, status.Error(codes.FailedPrecondition, "workflow is in preparing state")
 		}
@@ -113,9 +111,9 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 		journal.Log(ctx, "found workflow")
 		break
 	}
-	if shouldError != nil {
-		journal.Log(ctx, "error getting workflows", "error", shouldError)
-		return nil, shouldError
+	if len(wf.Status.Tasks) == 0 {
+		journal.Log(ctx, "no Tasks found in Workflow")
+		return nil, status.Error(codes.NotFound, "no tasks found")
 	}
 
 	var task *v1alpha1.Task
@@ -182,8 +180,8 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest) (*p
 	}
 	// This check goes after the action is found, so that multi task Workflows can be handled.
 	if task.WorkerAddr != req.GetWorkerId() {
-		journal.Log(ctx, "task not assigned to worker")
-		return nil, status.Error(codes.NotFound, "task not assigned to worker")
+		journal.Log(ctx, "task not assigned to Agent")
+		return nil, status.Error(codes.NotFound, "task not assigned to Agent")
 	}
 
 	// update the current state
