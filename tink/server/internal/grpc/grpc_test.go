@@ -130,6 +130,33 @@ func TestGetAction(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		"workflow with no Tasks": {
+			request: &proto.ActionRequest{
+				WorkerId: toPtr("machine-mac-1"),
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					State:         v1alpha1.WorkflowStateRunning,
+					GlobalTimeout: 600,
+					Tasks:         []v1alpha1.Task{},
+				},
+			},
+			wantErr: status.Errorf(codes.NotFound, "no Tasks found in Workflow"),
+		},
+		"no workflows found": {
+			request: &proto.ActionRequest{
+				WorkerId: toPtr("machine-mac-1"),
+			},
+			wantErr: status.Errorf(codes.NotFound, "no Workflows found"),
+		},
+		"no agent id": {
+			request: &proto.ActionRequest{},
+			wantErr: status.Errorf(codes.InvalidArgument, "invalid Agent ID"),
+		},
 	}
 
 	for name, tc := range cases {
@@ -165,7 +192,7 @@ func compareErrors(t *testing.T, got, want error) {
 		}
 		return
 	}
-	if got == nil && want != nil {
+	if want != nil {
 		t.Fatalf("Missing expected error: %v", want)
 	}
 }

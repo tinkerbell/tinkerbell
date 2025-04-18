@@ -9,7 +9,7 @@ import (
 	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow/journal"
+	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
