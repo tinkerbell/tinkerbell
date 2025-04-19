@@ -41,7 +41,17 @@ type WorkflowRuleSetSpec struct {
 	// WorkflowNamespace is the namespace in which the Workflow will be created.
 	WorkflowNamespace string `json:"workflowNamespace,omitempty"`
 	// Workflow is the Workflow to be created.
-	Workflow WorkflowSpec `json:"workflow,omitempty"`
+	Workflow WorkflowRuleSetWorkflow `json:"workflow,omitempty"`
+}
+
+type WorkflowRuleSetWorkflow struct {
+	// Disabled indicates whether the Workflow will be processed or not.
+	// +optional
+	Disabled *bool `json:"disabled,omitempty"`
+	// TemplateRef is the name of the Template to use for the Workflow.
+	TemplateRef string `json:"templateRef,omitempty"`
+	// TemplateKVPairs are a mapping of key/value pairs used in the referenced Template.
+	TemplateKVPairs map[string]string `json:"templateKVPairs,omitempty"`
 }
 
 type WorkflowRuleSetStatus struct{}

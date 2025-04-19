@@ -17,7 +17,7 @@ import (
 )
 
 type Config struct {
-	Backend               grpcinternal.BackendReadUpdater
+	Backend               grpcinternal.BackendReadWriter
 	AutoBackend           grpcinternal.AutoReadCreator
 	BindAddrPort          netip.AddrPort
 	Logger                logr.Logger
@@ -29,7 +29,7 @@ type Config struct {
 type Option func(*Config)
 
 // WithBackend sets the backend for the server.
-func WithBackend(b grpcinternal.BackendReadUpdater) Option {
+func WithBackend(b grpcinternal.BackendReadWriter) Option {
 	return func(c *Config) {
 		c.Backend = b
 	}
