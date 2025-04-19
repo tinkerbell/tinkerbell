@@ -30,7 +30,7 @@ func TestGetAction(t *testing.T) {
 	}{
 		"successful second Action in Task": {
 			request: &proto.ActionRequest{
-				WorkerId: toPtr("machine-mac-1"),
+				AgentId: toPtr("machine-mac-1"),
 			},
 			workflow: &v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
@@ -40,7 +40,7 @@ func TestGetAction(t *testing.T) {
 				Status: v1alpha1.WorkflowStatus{
 					State: v1alpha1.WorkflowStateRunning,
 					CurrentState: &v1alpha1.CurrentState{
-						WorkerID:   "machine-mac-1",
+						AgentID:    "machine-mac-1",
 						TaskID:     "provision",
 						ActionID:   "stream",
 						State:      v1alpha1.WorkflowStateSuccess,
@@ -49,9 +49,9 @@ func TestGetAction(t *testing.T) {
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							ID:         "provision",
+							Name:    "provision",
+							AgentID: "machine-mac-1",
+							ID:      "provision",
 							Actions: []v1alpha1.Action{
 								{
 									Name:              "stream",
@@ -76,7 +76,7 @@ func TestGetAction(t *testing.T) {
 			},
 			want: &proto.ActionResponse{
 				WorkflowId:  toPtr("default/machine1"),
-				WorkerId:    toPtr("machine-mac-1"),
+				AgentId:     toPtr("machine-mac-1"),
 				TaskId:      toPtr("provision"),
 				ActionId:    toPtr("kexec"),
 				Name:        toPtr("kexec"),
@@ -89,11 +89,11 @@ func TestGetAction(t *testing.T) {
 		},
 		"successful first Action in Task": {
 			request: &proto.ActionRequest{
-				WorkerId: toPtr("machine-mac-1"),
+				AgentId: toPtr("machine-mac-1"),
 			},
 			want: &proto.ActionResponse{
 				WorkflowId:  toPtr("default/machine1"),
-				WorkerId:    toPtr("machine-mac-1"),
+				AgentId:     toPtr("machine-mac-1"),
 				TaskId:      new(string),
 				ActionId:    new(string),
 				Name:        toPtr("stream"),
@@ -112,8 +112,8 @@ func TestGetAction(t *testing.T) {
 					GlobalTimeout: 600,
 					Tasks: []v1alpha1.Task{
 						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
+							Name:    "provision",
+							AgentID: "machine-mac-1",
 							Actions: []v1alpha1.Action{
 								{
 									Name:              "stream",
@@ -132,7 +132,7 @@ func TestGetAction(t *testing.T) {
 		},
 		"workflow with no Tasks": {
 			request: &proto.ActionRequest{
-				WorkerId: toPtr("machine-mac-1"),
+				AgentId: toPtr("machine-mac-1"),
 			},
 			workflow: &v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
@@ -149,7 +149,7 @@ func TestGetAction(t *testing.T) {
 		},
 		"no workflows found": {
 			request: &proto.ActionRequest{
-				WorkerId: toPtr("machine-mac-1"),
+				AgentId: toPtr("machine-mac-1"),
 			},
 			wantErr: status.Errorf(codes.NotFound, "no Workflows found"),
 		},
@@ -212,7 +212,7 @@ func (m *mockBackendReadWriter) ReadAll(_ context.Context, _ string) ([]v1alpha1
 	return []v1alpha1.Workflow{}, nil
 }
 
-func (m *mockBackendReadWriter) Write(_ context.Context, _ *v1alpha1.Workflow) error {
+func (m *mockBackendReadWriter) Update(_ context.Context, _ *v1alpha1.Workflow) error {
 	return nil
 }
 
@@ -232,7 +232,7 @@ func (m *mockBackendReadWriterForReport) ReadAll(_ context.Context, _ string) ([
 	return nil, nil
 }
 
-func (m *mockBackendReadWriterForReport) Write(_ context.Context, _ *v1alpha1.Workflow) error {
+func (m *mockBackendReadWriterForReport) Update(_ context.Context, _ *v1alpha1.Workflow) error {
 	return m.writeErr
 }
 
@@ -249,7 +249,7 @@ func TestReportActionStatus(t *testing.T) {
 				WorkflowId:        toPtr("default/workflow1"),
 				TaskId:            toPtr("task1"),
 				ActionId:          toPtr("action1"),
-				ActionState:       toPtr(proto.StateType_SUCCESS),
+				ActionState:       toPtr(proto.ActionStatusRequest_SUCCESS),
 				ExecutionStart:    timestamppb.New(time.Now()),
 				ExecutionDuration: toPtr("30s"),
 				Message: &proto.ActionMessage{
@@ -284,7 +284,7 @@ func TestReportActionStatus(t *testing.T) {
 				WorkflowId:        toPtr("default/workflow6"),
 				TaskId:            toPtr("task1"),
 				ActionId:          toPtr("action1"),
-				ActionState:       toPtr(proto.StateType_SUCCESS),
+				ActionState:       toPtr(proto.ActionStatusRequest_SUCCESS),
 				ExecutionStart:    timestamppb.New(time.Now()),
 				ExecutionDuration: toPtr("30s"),
 				Message: &proto.ActionMessage{
