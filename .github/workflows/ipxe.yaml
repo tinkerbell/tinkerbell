@@ -1,6 +1,8 @@
 name: iPXE Build
 on:
   push:
+    paths:
+      - "smee/internal/ipxe/binary/file/script/**"
     branches:
       - main
 
