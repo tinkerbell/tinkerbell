@@ -62,46 +62,19 @@ spec:
               workflow:
                 description: Workflow is the Workflow to be created.
                 properties:
-                  bootOptions:
-                    description: BootOptions are options that control the booting
-                      of Hardware.
-                    properties:
-                      bootMode:
-                        description: BootMode is the type of booting that will be
-                          done.
-                        enum:
-                        - netboot
-                        - isoboot
-                        - iso
-                        type: string
-                      isoURL:
-                        description: |-
-                          ISOURL is the URL of the ISO that will be one-time booted. When this field is set, the controller will create a job.bmc.tinkerbell.org object
-                          for getting the associated hardware into a CDROM booting state.
-                          A HardwareRef that contains a spec.BmcRef must be provided.
-                        format: url
-                        type: string
-                      toggleAllowNetboot:
-                        description: |-
-                          ToggleAllowNetboot indicates whether the controller should toggle the field in the associated hardware for allowing PXE booting.
-                          This will be enabled before a Workflow is executed and disabled after the Workflow has completed successfully.
-                          A HardwareRef must be provided.
-                        type: boolean
-                    type: object
                   disabled:
                     description: Disabled indicates whether the Workflow will be processed
                       or not.
                     type: boolean
-                  hardwareMap:
+                  templateKVPairs:
                     additionalProperties:
                       type: string
-                    description: A mapping of template devices to hardware mac addresses.
+                    description: TemplateKVPairs are a mapping of key/value pairs
+                      used in the referenced Template.
                     type: object
-                  hardwareRef:
-                    description: Name of the Hardware associated with this workflow.
-                    type: string
                   templateRef:
-                    description: Name of the Template associated with this workflow.
+                    description: TemplateRef is the name of the Template to use for
+                      the Workflow.
                     type: string
                 type: object
               workflowNamespace:
