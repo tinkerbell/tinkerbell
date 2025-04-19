@@ -43,6 +43,11 @@ function check_github_token() {
     echo "GITHUB_TOKEN is not set"
     exit 1
   fi
+  echo "Checking for 'gh' CLI"
+  if ! command -v gh &> /dev/null; then
+    echo "'gh' CLI is not installed. Please install it to use this script."
+    exit 3
+  fi
 }
 
 # check for changes to iPXE files
@@ -160,7 +165,7 @@ function create_pull_request() {
 
     # create pull request
     echo "Creating pull request"
-    if ! script/gh pr create --base "${base}" --body "${body}" --title "${title}" --head "${branch}"; then
+    if ! gh pr create --base "${base}" --body "${body}" --title "${title}" --head "${branch}"; then
         echo "Failed to create pull request" 1>&2
         exit 1
     fi
