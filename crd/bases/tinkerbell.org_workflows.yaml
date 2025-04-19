@@ -32,7 +32,7 @@ spec:
     - jsonPath: .status.currentState.actionName
       name: Action
       type: string
-    - jsonPath: .status.currentState.workerID
+    - jsonPath: .status.currentState.agentID
       name: Agent
       type: string
     - jsonPath: .status.templateRending
@@ -194,8 +194,6 @@ spec:
                   taskID:
                     type: string
                   taskName:
-                    type: string
-                  workerID:
                     type: string
                 type: object
               globalExecutionStop:
