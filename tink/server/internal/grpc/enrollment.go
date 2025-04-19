@@ -8,8 +8,8 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
-	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -22,43 +22,68 @@ const (
 	workflowPrefix = "enrollment-"
 )
 
-// wflowNamespace is a map of workflow names to their namespaces.
-type wflowNamespace map[string]string
+type AutoReadCreator interface {
+	WorkflowRuleSetReader
+	WorkflowCreator
+}
 
-func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentAttributes, allWflows wflowNamespace) (*proto.ActionResponse, error) {
+type WorkflowRuleSetReader interface {
+	ReadWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error)
+}
+
+type WorkflowCreator interface {
+	CreateWorkflow(ctx context.Context, wf *v1alpha1.Workflow) error
+}
+
+type AutoCapabilities struct {
+	Enrollment AutoEnrollment
+	Discovery  AutoDiscovery
+}
+
+// AutoEnrollmentE is a struct that contains the auto enrollment configuration.
+// Auto Enrollment is defined as automatically running a Workflow for an Agent that
+// does not have a Workflow assigned to it. The Agent may or may not have a Hardware
+// Object defined.
+type AutoEnrollment struct {
+	Enabled     bool
+	ReadCreator AutoReadCreator
+}
+
+// AutoDiscovery is a struct that contains the auto discovery configuration.
+// Auto Discovery is defined as automatically creating a Hardware Object for an
+// Agent that does not have a Workflow or a Hardware Object assigned to it.
+// The Namespace defines the namespace to use when creating the Hardware Object.
+// An empty namespace will cause all Hardware Objects to be created in the same
+// namespace as the Tink Server.
+type AutoDiscovery struct {
+	Enabled   bool
+	Namespace string
+}
+
+// enroll creates a Workflow for an agentID by matching the attr against WorkflowRuleSets.
+// auto enrollment does not support Templates with multiple Agents defined.
+func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentAttributes) (*proto.ActionResponse, error) {
 	log := h.Logger.WithValues("agentID", agentID)
 	// Get all WorkflowRuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
 	// using github.com/timbray/quamina
 	// If there is a match, create a Workflow for the AgentID.
 	wrs, err := h.AutoCapabilities.Enrollment.ReadCreator.ReadWorkflowRuleSets(ctx)
 	if err != nil {
-		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))
+		journal.Log(ctx, "error getting workflow rules", "error", err)
+		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))
 	}
 	name, err := makeValidName(agentID, workflowPrefix)
 	if err != nil {
+		journal.Log(ctx, "error making agentID a valid Kubernetes name", "error", err)
 		return nil, status.Errorf(codes.Internal, "error making agentID a valid Kubernetes name: %v", err)
 	}
 	log = log.WithValues("workflowName", name)
 
 	final := &match{}
 	for _, wr := range wrs {
-		if ns, found := allWflows[name]; found && ns == wr.Spec.WorkflowNamespace {
-			// Should this continue to the next WorkflowRuleSet?
-			st := status.New(codes.FailedPrecondition, "existing workflow found")
-			ds, err := st.WithDetails(&epb.PreconditionFailure{
-				Violations: []*epb.PreconditionFailure_Violation{{
-					Type:        proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_NO_ACTION_AVAILABLE.String(),
-					Subject:     fmt.Sprintf("tinkerbell.org/%s", name),
-					Description: "existing workflow found",
-				}},
-			})
-			if err != nil {
-				return nil, st.Err()
-			}
-			return nil, ds.Err()
-		}
 		m, err := findMatch(wr, attr, final.numMatches)
 		if err != nil {
+			journal.Log(ctx, "error matching pattern", "error", err)
 			log.Error(err, "error matching pattern")
 			continue
 		}
@@ -82,7 +107,10 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 					},
 				},
 			},
-			Spec: final.wrs.Spec.Workflow,
+			Spec: v1alpha1.WorkflowSpec{
+				TemplateRef: final.wrs.Spec.Workflow.TemplateRef,
+				Disabled:    final.wrs.Spec.Workflow.Disabled,
+			},
 		}
 		if final.wrs.Spec.AddAttributesAsLabels {
 			if awf.Labels == nil {
@@ -94,22 +122,26 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *proto.AgentA
 			awf.Spec.HardwareMap = make(map[string]string)
 		}
 		awf.Spec.HardwareMap[final.wrs.Spec.AgentTemplateValue] = agentID
+		maps.Copy(awf.Spec.HardwareMap, final.wrs.Spec.Workflow.TemplateKVPairs)
 		// TODO: if the awf.Spec.HardwareRef is an empty string, then query for a Hardware object with some corresponding value from the attributes.
 		// If a Hardware object is found add it to the awf.Spec.HardwareRef.
 		if err := h.AutoCapabilities.Enrollment.ReadCreator.CreateWorkflow(ctx, awf); err != nil {
 			if apierrors.IsAlreadyExists(err) {
+				journal.Log(ctx, "workflow already exists", "workflow", name, "namespace", final.wrs.Spec.WorkflowNamespace)
 				// if we get here, then we didn't find an existing Workflow above, but CreateWorkflow is reporting that there is.
 				// So we treat this as a new Workflow creation and send the same error.
 				// failed precondition and backoff permanent error so that the backoff retry loop stops and the Agent is signaled to try again immediately.
 				return nil, status.Error(codes.FailedPrecondition, "existing workflow found")
 			}
-			return nil, errors.Join(errBackendWrite, status.Errorf(codes.Internal, "error creating enrollment workflow: %v", err))
+			journal.Log(ctx, "error creating enrollment workflow", "error", err)
+			return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error creating enrollment workflow: %v", err))
 		}
 
 		ar := &proto.ActionRequest{
 			AgentId:         &agentID,
 			AgentAttributes: attr,
 		}
+		journal.Log(ctx, "calling enrollWithRetry")
 		return h.enrollWithRetry(ctx, ar)
 	}
 	// If there is no match, return an error.

@@ -33,7 +33,7 @@ func TestEnroll(t *testing.T) {
 							Spec: v1alpha1.WorkflowRuleSetSpec{
 								Rules:                 []string{`{"chassis": {"serial": ["12345"]}}`},
 								WorkflowNamespace:     "default",
-								Workflow:              v1alpha1.WorkflowSpec{},
+								Workflow:              v1alpha1.WorkflowRuleSetWorkflow{},
 								AddAttributesAsLabels: true,
 							},
 						},
@@ -153,7 +153,7 @@ func TestEnroll(t *testing.T) {
 				},
 			}
 
-			_, err := handler.enroll(context.Background(), tt.workerID, tt.attributes, nil)
+			_, err := handler.enroll(context.Background(), tt.workerID, tt.attributes)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}

@@ -27,8 +27,8 @@ const (
 )
 
 var (
-	errBackendRead  = errors.New("error reading from backend")
-	errBackendWrite = errors.New("error writing to backend")
+	ErrBackendRead  = errors.New("error reading from backend")
+	ErrBackendWrite = errors.New("error writing to backend")
 )
 
 type BackendReadWriter interface {
@@ -37,23 +37,10 @@ type BackendReadWriter interface {
 	Update(ctx context.Context, wf *v1alpha1.Workflow) error
 }
 
-type AutoReadCreator interface {
-	WorkflowRuleSetReader
-	WorkflowCreator
-}
-
-type WorkflowRuleSetReader interface {
-	ReadWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error)
-}
-
-type WorkflowCreator interface {
-	CreateWorkflow(ctx context.Context, wf *v1alpha1.Workflow) error
-}
-
 // Handler is a server that implements a workflow API.
 type Handler struct {
 	Logger            logr.Logger
-	BackendReadWriter BackendReadUpdater
+	BackendReadWriter BackendReadWriter
 	NowFunc           func() time.Time
 	AutoCapabilities  AutoCapabilities
 	RetryOptions      []backoff.RetryOption
@@ -61,29 +48,8 @@ type Handler struct {
 	proto.UnimplementedWorkflowServiceServer
 }
 
-type AutoCapabilities struct {
-	Enrollment AutoEnrollment
-	Discovery  AutoDiscovery
-}
-
-// AutoEnrollmentE is a struct that contains the auto enrollment configuration.
-// Auto Enrollment is defined as automatically running a Workflow for an Agent that
-// does not have a Workflow assigned to it. The Agent may or may not have a Hardware
-// Object defined.
-type AutoEnrollment struct {
-	Enabled     bool
-	ReadCreator AutoReadCreator
-}
-
-// AutoDiscovery is a struct that contains the auto discovery configuration.
-// Auto Discovery is defined as automatically creating a Hardware Object for an
-// Agent that does not have a Workflow or a Hardware Object assigned to it.
-// The Namespace defines the namespace to use when creating the Hardware Object.
-// An empty namespace will cause all Hardware Objects to be created in the same
-// namespace as the Tink Server.
-type AutoDiscovery struct {
-	Enabled   bool
-	Namespace string
+type options struct {
+	AutoCapabilities AutoCapabilities
 }
 
 func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
@@ -109,10 +75,6 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 	return resp, nil
 }
 
-type options struct {
-	AutoCapabilities AutoCapabilities
-}
-
 func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opts *options) (*proto.ActionResponse, error) {
 	select {
 	case <-ctx.Done():
@@ -121,20 +83,22 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	}
 
 	ctx = journal.New(ctx)
-	log := h.Logger.WithValues("agent", req.GetWorkerId())
+	log := h.Logger.WithValues("agent", req.GetAgentId())
 	defer func() {
 		log.V(1).Info("GetAction code flow journal", "journal", journal.Journal(ctx))
 	}()
-	if req.GetWorkerId() == "" {
+	if req.GetAgentId() == "" {
+		journal.Log(ctx, "invalid Agent ID")
 		return nil, status.Errorf(codes.InvalidArgument, "invalid Agent ID")
 	}
 
-	wfs, err := h.BackendReadWriter.ReadAll(ctx, req.GetWorkerId())
+	wfs, err := h.BackendReadWriter.ReadAll(ctx, req.GetAgentId())
 	if err != nil {
-		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
+		// TODO: This is where we handle auto capabilities
+		journal.Log(ctx, "error getting Workflows", "error", err)
+		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
-	nonTerminatedWflows := wflows
-	if len(nonTerminatedWflows) == 0 {
+	if len(wfs) == 0 {
 		// TODO: This is where we handle auto capabilities
 		if opts != nil && opts.AutoCapabilities.Discovery.Enabled {
 			// Check if there is an existing Hardware Object.
@@ -142,17 +106,13 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 			log.Info("auto discovery is not implemented yet")
 		}
 		if opts != nil && opts.AutoCapabilities.Enrollment.Enabled {
-			wfns := func() wflowNamespace {
-				wfs := wflowNamespace{}
-				for _, wf := range wflows {
-					wfs[wf.Name] = wf.Namespace
-				}
-				return wfs
-			}()
-			return h.enroll(ctx, req.GetAgentId(), req.GetAgentAttributes(), wfns)
+			journal.Log(ctx, "auto enrollment triggered")
+			return h.enroll(ctx, req.GetAgentId(), req.GetAgentAttributes())
 		}
-		return nil, status.Error(codes.NotFound, "no allocatable workflows found")
+		journal.Log(ctx, "no Workflow found")
+		return nil, status.Error(codes.NotFound, "no Workflows found")
 	}
+	journal.Log(ctx, "found Workflows", "workflows", len(wfs))
 	var wf v1alpha1.Workflow
 	for _, w := range wfs {
 		if len(w.Status.Tasks) == 0 {
@@ -161,9 +121,11 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
 		// This is to prevent the Agent from starting Actions before Workflow boot options are performed.
 		if w.Spec.BootOptions.BootMode != "" && w.Status.State == v1alpha1.WorkflowStatePreparing {
+			journal.Log(ctx, "Workflow is in preparing state")
 			return nil, status.Error(codes.FailedPrecondition, "Workflow is in preparing state")
 		}
 		if w.Status.State != v1alpha1.WorkflowStatePending && w.Status.State != v1alpha1.WorkflowStateRunning {
+			journal.Log(ctx, "Workflow not in pending or running state")
 			return nil, status.Error(codes.FailedPrecondition, "Workflow not in pending or running state")
 		}
 		wf = w
@@ -236,7 +198,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		}
 	}
 	// This check goes after the action is found, so that multi task Workflows can be handled.
-	if task.WorkerAddr != req.GetWorkerId() {
+	if task.AgentID != req.GetAgentId() {
 		journal.Log(ctx, "Task not assigned to Agent")
 		return nil, status.Error(codes.NotFound, "Task not assigned to Agent")
 	}
@@ -253,7 +215,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	}
 
 	if err := h.BackendReadWriter.Update(ctx, &wf); err != nil {
-		return nil, errors.Join(errBackendWrite, status.Errorf(codes.Internal, "error writing current state: %v", err))
+		return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error writing current state: %v", err))
 	}
 
 	ar := &proto.ActionResponse{
@@ -342,7 +304,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 	namespace, name, _ := strings.Cut(req.GetWorkflowId(), "/")
 	wf, err := h.BackendReadWriter.Read(ctx, name, namespace)
 	if err != nil {
-		return nil, errors.Join(errBackendRead, status.Errorf(codes.Internal, "error getting workflow: %v", err))
+		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow: %v", err))
 	}
 	// 3. Find the Action in the workflow from the request
 	for ti, task := range wf.Status.Tasks {
