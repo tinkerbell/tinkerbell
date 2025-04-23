@@ -50,7 +50,7 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.32.4
-	k8s.io/apiextensions-apiserver v0.32.3
+	k8s.io/apiextensions-apiserver v0.32.4
 	k8s.io/apimachinery v0.32.4
 	k8s.io/apiserver v0.32.4
 	k8s.io/client-go v1.5.2
@@ -261,11 +261,11 @@ require (
 	k8s.io/endpointslice v0.32.0 // indirect
 	k8s.io/externaljwt v0.0.0 // indirect
 	k8s.io/kms v0.32.4 // indirect
-	k8s.io/kube-aggregator v0.32.3 // indirect
+	k8s.io/kube-aggregator v0.32.4 // indirect
 	k8s.io/kube-controller-manager v0.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	k8s.io/kube-scheduler v0.0.0 // indirect
-	k8s.io/kubectl v0.32.0 // indirect
+	k8s.io/kubectl v0.32.4 // indirect
 	k8s.io/kubelet v0.32.4 // indirect
 	k8s.io/metrics v0.32.4 // indirect
 	k8s.io/mount-utils v0.0.0 // indirect
