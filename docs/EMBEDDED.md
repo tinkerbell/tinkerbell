@@ -1,6 +1,6 @@
 # Embedded Services
 
-Tinkerbell can be build with a few embedded services. This is useful when a single binary with no external dependencies is desired.
+Tinkerbell can be built with a few embedded services. This is useful when a single binary with no external dependencies is desired.
 The following embedded services are available:
 
 - Kubernetes API server - This is the main API server for Kubernetes. It provides the API for Custom Resource definitions and objects that all other services in Tinkerbell use.
