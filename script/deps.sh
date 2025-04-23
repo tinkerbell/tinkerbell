@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# ./deps.sh v1.32.2 
-set -euo pipefail
+# ./deps.sh v1.32.4
+set -xeuo pipefail
 
 VERSION=${1#"v"}
 if [ -z "$VERSION" ]; then

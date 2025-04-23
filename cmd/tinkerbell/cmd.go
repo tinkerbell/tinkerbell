@@ -120,6 +120,10 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	flag.RegisterRufioFlags(&flag.Set{FlagSet: rfs}, rc)
 	flag.RegisterSecondStarFlags(&flag.Set{FlagSet: ssfs}, ssc)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
+	if embeddedApiserverExecute != nil && embeddedFlagSet != nil {
+		// This way the embedded flags only show up when the embedded services have been compiled in.
+		flag.RegisterEmbeddedGlobals(&flag.Set{FlagSet: gfs}, globals)
+	}
 
 	cli := &ff.Command{
 		Name:     "tinkerbell",
