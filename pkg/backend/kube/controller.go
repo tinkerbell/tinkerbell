@@ -1,0 +1,27 @@
+package kube
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
+func (b *Backend) DynamicRead(ctx context.Context, gvr schema.GroupVersionResource, name, namespace string) (map[string]interface{}, error) {
+	res := b.DynamicClient.Resource(gvr).Namespace(namespace)
+	one, err := res.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("error getting resource: %w", err)
+	}
+	v, ok := one.Object["spec"]
+	if ok {
+		m, ok := v.(map[string]interface{})
+		if ok {
+			return m, nil
+		}
+		return nil, errors.New("failed converting object spec")
+	}
+	return nil, errors.New("failed to get spec field from object")
+}

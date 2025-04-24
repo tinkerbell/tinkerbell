@@ -9,6 +9,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -42,7 +43,8 @@ type Backend struct {
 	// constructing a client using the other configuration in this object. Optional.
 	ClientConfig *rest.Config
 	// Indexes to register
-	Indexes map[IndexType]Index
+	Indexes       map[IndexType]Index
+	DynamicClient *dynamic.DynamicClient
 }
 
 type Index struct {
@@ -108,12 +110,18 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 		}
 	}
 
+	dc, err := dynamic.NewForConfig(cfg.ClientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
 	return &Backend{
 		cluster:        c,
 		ConfigFilePath: cfg.ConfigFilePath,
 		APIURL:         cfg.APIURL,
 		Namespace:      cfg.Namespace,
 		ClientConfig:   cfg.ClientConfig,
+		DynamicClient:  dc,
 	}, nil
 }
 

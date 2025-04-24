@@ -13,28 +13,35 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+type dynamicClient interface {
+	DynamicRead(ctx context.Context, gvr schema.GroupVersionResource, name, namespace string) (map[string]interface{}, error)
+}
+
 // Reconciler is a type for managing Workflows.
 type Reconciler struct {
-	client  ctrlclient.Client
-	nowFunc func() time.Time
-	backoff *backoff.ExponentialBackOff
+	client        ctrlclient.Client
+	nowFunc       func() time.Time
+	backoff       *backoff.ExponentialBackOff
+	dynamicClient dynamicClient
 }
 
 // TODO(jacobweinstock): add functional arguments to the signature.
 // TODO(jacobweinstock): write functional argument for customizing the backoff.
-func NewReconciler(client ctrlclient.Client) *Reconciler {
+func NewReconciler(client ctrlclient.Client, dc dynamicClient) *Reconciler {
 	bo := backoff.NewExponentialBackOff()
 	bo.MaxInterval = 5 * time.Second // this should keep all NextBackOff's under 10 seconds
 	return &Reconciler{
-		client:  client,
-		nowFunc: time.Now,
-		backoff: bo,
+		client:        client,
+		nowFunc:       time.Now,
+		backoff:       bo,
+		dynamicClient: dc,
 	}
 }
 
@@ -224,6 +231,16 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	}
 	contract := toTemplateHardwareData(hardware)
 	data["Hardware"] = contract
+	references := make(map[string]interface{})
+	for name, rf := range hardware.Spec.References {
+		gvr := schema.GroupVersionResource{Group: rf.Group, Version: rf.Version, Resource: rf.Resource}
+		if v, err := r.dynamicClient.DynamicRead(ctx, gvr, rf.Name, rf.Namespace); err == nil {
+			references[name] = v
+		} else {
+			logger.Info("error getting reference", "name", rf.Name, "namespace", rf.Namespace, "gvr", gvr, "error", err)
+		}
+	}
+	data["References"] = references
 
 	tinkWf, err := renderTemplateHardware(stored.Name, pointerToValue(tpl.Spec.Data), data)
 	if err != nil {
