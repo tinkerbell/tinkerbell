@@ -58,6 +58,12 @@ type HardwareSpec struct {
 	//+optional
 	Interfaces []Interface `json:"interfaces,omitempty"`
 
+	// References allow for linking custom resource objects of any kind to this Hardware object.
+	// These are available in Templates for templating. They are referenced by the name of the reference.
+	// For example, given a reference with the name "lvm", you can access it in a template with {{ .References.lvm }}.
+	//+optional
+	References map[string]Reference `json:"references,omitempty"`
+
 	//+optional
 	// Metadata string `json:"metadata,omitempty"`
 
@@ -84,6 +90,26 @@ type HardwareSpec struct {
 	// metadata
 	//+optional
 	VendorData *string `json:"vendorData,omitempty"`
+}
+
+type Reference struct {
+	// Namespace of the referent.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+	// Name of the referent.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	Group string `json:"group,omitempty"`
+	// API version of the referent.
+	// +optional
+	Version string `json:"version,omitempty"`
+	// Resource of the referent. Must be the pluralized kind of the referent. Must be all lowercase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	Resource string `json:"resource,omitempty"`
 }
 
 // Interface represents a network interface configuration for Hardware.
