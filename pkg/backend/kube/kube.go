@@ -44,7 +44,7 @@ type Backend struct {
 	ClientConfig *rest.Config
 	// Indexes to register
 	Indexes       map[IndexType]Index
-	DynamicClient *dynamic.DynamicClient
+	DynamicClient dynamic.Interface
 }
 
 type Index struct {
