@@ -84,7 +84,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 5
+          fetch-depth: 0
           fetch-tags: true
 
       - name: install helm
@@ -207,7 +207,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 5
+          fetch-depth: 0
           fetch-tags: true
 
       # Go is needed to get the VERSION in the Makefile which is used in the Helm packaging
