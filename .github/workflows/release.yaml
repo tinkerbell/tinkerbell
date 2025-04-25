@@ -24,7 +24,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 5
+          fetch-depth: 0
+          fetch-tags: true
 
       - uses: imjasonh/setup-crane@v0.4
       - name: Get full image name for current git tag
@@ -69,7 +70,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 5
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Publish Changelog to GitHub
         uses: ncipollo/release-action@v1
