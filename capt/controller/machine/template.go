@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	tinkv1 "github.com/tinkerbell/tink/api/v1alpha1"
+	tinkv1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

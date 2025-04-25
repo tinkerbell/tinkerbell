@@ -1,8 +1,8 @@
 # Cluster API Provider Tinkerbell
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/tinkerbell/cluster-api-provider-tinkerbell.svg)](https://pkg.go.dev/github.com/tinkerbell/cluster-api-provider-tinkerbell)
-[![CRD - reference](https://img.shields.io/badge/CRD-reference-2ea44f)](https://doc.crds.dev/github.com/tinkerbell/cluster-api-provider-tinkerbell)
-[![Go Report Card](https://goreportcard.com/badge/github.com/tinkerbell/cluster-api-provider-tinkerbell)](https://goreportcard.com/report/github.com/tinkerbell/cluster-api-provider-tinkerbell)
+[![Go Reference](https://pkg.go.dev/badge/github.com/tinkerbell/tinkerbell/capt.svg)](https://pkg.go.dev/github.com/tinkerbell/tinkerbell/capt)
+[![CRD - reference](https://img.shields.io/badge/CRD-reference-2ea44f)](https://doc.crds.dev/github.com/tinkerbell/tinkerbell/capt)
+[![Go Report Card](https://goreportcard.com/badge/github.com/tinkerbell/tinkerbell/capt)](https://goreportcard.com/report/github.com/tinkerbell/tinkerbell/capt)
 
 <a href="https://kubernetes.io"><img src="https://github.com/kubernetes/kubernetes/raw/master/logo/logo.png"  height="100"></a>
 <a href="https://tinkerbell.org"><img src="https://raw.githubusercontent.com/tinkerbell/artwork/main/Tinkerbell-Logo-Landscape-Dark.png" height="100"></a>
@@ -44,7 +44,7 @@ policy may be made to more closely align with other providers in the Cluster API
 
 ## Kubernetes versions with published Images
 
-Pre-built images are pushed to the [GitHub Container Registry](https://github.com/orgs/tinkerbell/packages?repo_name=cluster-api-provider-tinkerbell). We currently publish images for [Ubuntu 18.04](https://github.com/tinkerbell/cluster-api-provider-tinkerbell/pkgs/container/cluster-api-provider-tinkerbell%2Fubuntu-1804) and [Ubuntu 20.04](https://github.com/tinkerbell/cluster-api-provider-tinkerbell/pkgs/container/cluster-api-provider-tinkerbell%2Fubuntu-2004).
+Pre-built images are pushed to the [GitHub Container Registry](https://github.com/orgs/tinkerbell/packages?repo_name=cluster-api-provider-tinkerbell). We currently publish images for [Ubuntu 18.04](https://github.com/tinkerbell/tinkerbell/capt/pkgs/container/cluster-api-provider-tinkerbell%2Fubuntu-1804) and [Ubuntu 20.04](https://github.com/tinkerbell/tinkerbell/capt/pkgs/container/cluster-api-provider-tinkerbell%2Fubuntu-2004).
 
 ## Current state
 

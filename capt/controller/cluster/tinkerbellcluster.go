@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
-	infrastructurev1 "github.com/tinkerbell/cluster-api-provider-tinkerbell/api/v1beta1"
+	infrastructurev1 "github.com/tinkerbell/tinkerbell/pkg/api/v1beta1/capt"
 )
 
 const (
@@ -270,12 +270,12 @@ func (tcr *TinkerbellClusterReconciler) SetupWithManager(
 	builder := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrastructurev1.TinkerbellCluster{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, tcr.WatchFilterValue)).
-		WithEventFilter(predicates.ResourceIsNotExternallyManaged(log)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, tcr.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceIsNotExternallyManaged(mgr.GetScheme(), log)).
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(mapper),
-			builder.WithPredicates(predicates.ClusterUnpaused(log)),
+			builder.WithPredicates(predicates.ClusterUnpaused(mgr.GetScheme(), log)),
 		)
 
 	if err := builder.Complete(tcr); err != nil {

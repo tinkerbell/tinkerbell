@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package capt
 
 import (
 	"strings"
@@ -28,8 +28,6 @@ const (
 	osUbuntu             = "ubuntu"
 	defaultUbuntuVersion = "20.04"
 )
-
-var _ admission.Validator = &TinkerbellCluster{}
 
 // SetupWebhookWithManager sets up and registers the webhook with the manager.
 func (c *TinkerbellCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {

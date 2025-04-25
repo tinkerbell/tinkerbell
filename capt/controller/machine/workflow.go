@@ -7,9 +7,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/tinkerbell/cluster-api-provider-tinkerbell/api/v1beta1"
-
-	tinkv1 "github.com/tinkerbell/tink/api/v1alpha1"
+	tinkv1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	v1beta1 "github.com/tinkerbell/tinkerbell/pkg/api/v1beta1/capt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

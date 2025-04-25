@@ -34,10 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
-	rufiov1 "github.com/tinkerbell/rufio/api/v1alpha1"
-	tinkv1 "github.com/tinkerbell/tink/api/v1alpha1"
+	rufiov1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
+	tinkv1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 
-	infrastructurev1 "github.com/tinkerbell/cluster-api-provider-tinkerbell/api/v1beta1"
+	infrastructurev1 "github.com/tinkerbell/tinkerbell/pkg/api/v1beta1/capt"
 )
 
 // TinkerbellMachineReconciler implements Reconciler interface by managing Tinkerbell machines.
@@ -158,7 +158,7 @@ func (r *TinkerbellMachineReconciler) SetupWithManager(
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		For(&infrastructurev1.TinkerbellMachine{}).
 		Watches(
 			&clusterv1.Machine{},
@@ -173,7 +173,7 @@ func (r *TinkerbellMachineReconciler) SetupWithManager(
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-			builder.WithPredicates(predicates.ClusterUnpausedAndInfrastructureReady(log)),
+			builder.WithPredicates(predicates.ClusterUnpausedAndInfrastructureReady(mgr.GetScheme(), log)),
 		).
 		Watches(
 			&tinkv1.Workflow{},

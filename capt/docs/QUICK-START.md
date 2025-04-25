@@ -26,7 +26,7 @@ and `kubeadm` control-plane providers.
 cat >> ~/.cluster-api/clusterctl.yaml <<EOF
 providers:
   - name: "tinkerbell"
-    url: "https://github.com/tinkerbell/cluster-api-provider-tinkerbell/releases/v0.4.0/infrastructure-components.yaml"
+    url: "https://github.com/tinkerbell/tinkerbell/capt/releases/v0.4.0/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 EOF
 

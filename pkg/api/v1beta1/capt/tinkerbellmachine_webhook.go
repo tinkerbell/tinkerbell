@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package capt
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,8 +22,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
-
-var _ admission.Validator = &TinkerbellMachine{}
 
 // SetupWebhookWithManager sets up and registers the webhook with the manager.
 func (m *TinkerbellMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {

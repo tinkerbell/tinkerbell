@@ -4,7 +4,7 @@ This document describes how to set up a development environment for CAPT using t
 
 The following repositories are required for the CAPT development setup.
 
-- `github.com/tinkerbell/cluster-api-provider-tinkerbell`
+- `github.com/tinkerbell/tinkerbell/capt`
 - `github.com/tinkerbell/playground`.
 
 ## Setup

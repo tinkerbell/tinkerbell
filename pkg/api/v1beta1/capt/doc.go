@@ -14,5 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1beta1 contains API Schema definitions for the infrastructure v1beta1 API group.
-package v1beta1
+// Package capt contains API Schema definitions for the infrastructure v1beta1 API group.
+package capt

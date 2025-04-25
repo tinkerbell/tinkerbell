@@ -14,13 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package capt
 
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 )
+
+//nolint:gochecknoinits
+func init() {
+	SchemeBuilder.Register(&TinkerbellMachine{}, &TinkerbellMachineList{})
+}
 
 const (
 	// MachineFinalizer allows ReconcileTinkerbellMachine to clean up Tinkerbell resources before
@@ -206,7 +211,14 @@ type TinkerbellMachineList struct {
 	Items           []TinkerbellMachine `json:"items"`
 }
 
-//nolint:gochecknoinits
-func init() {
-	SchemeBuilder.Register(&TinkerbellMachine{}, &TinkerbellMachineList{})
-}
+// TinkerbellResourceStatus describes the status of a Tinkerbell resource.
+type TinkerbellResourceStatus int
+
+//nolint:gomnd,gochecknoglobals
+var (
+	TinkerbellResourceStatusPending = TinkerbellResourceStatus(0)
+	TinkerbellResourceStatusRunning = TinkerbellResourceStatus(1)
+	TinkerbellResourceStatusFailed  = TinkerbellResourceStatus(2)
+	TinkerbellResourceStatusTimeout = TinkerbellResourceStatus(3)
+	TinkerbellResourceStatusSuccess = TinkerbellResourceStatus(4)
+)

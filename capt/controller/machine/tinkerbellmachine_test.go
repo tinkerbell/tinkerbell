@@ -34,10 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	tinkv1 "github.com/tinkerbell/tink/api/v1alpha1"
+	"github.com/tinkerbell/tinkerbell/capt/controller/machine"
+	tinkv1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 
-	infrastructurev1 "github.com/tinkerbell/cluster-api-provider-tinkerbell/api/v1beta1"
-	"github.com/tinkerbell/cluster-api-provider-tinkerbell/controller/machine"
+	infrastructurev1 "github.com/tinkerbell/tinkerbell/pkg/api/v1beta1/capt"
 )
 
 const (
@@ -265,8 +265,8 @@ func validWorkflow(name, namespace string) *tinkv1.Workflow {
 					Name: name,
 					Actions: []tinkv1.Action{
 						{
-							Name:   name,
-							Status: tinkv1.WorkflowStateSuccess,
+							Name:  name,
+							State: tinkv1.WorkflowStateSuccess,
 						},
 					},
 				},

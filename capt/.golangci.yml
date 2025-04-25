@@ -141,7 +141,7 @@ linters-settings:
     sections:
       - standard # Standard section: captures all standard packages.
       - default # Default section: contains all imports that could not be matched to another section type.
-      - prefix(github.com/tinkerbell/cluster-api-provider-tinkerbell) # Custom section: groups all imports with the specified Prefix.
+      - prefix(github.com/tinkerbell/tinkerbell/capt) # Custom section: groups all imports with the specified Prefix.
       - blank # Blank section: contains all blank imports. This section is not present unless explicitly enabled.
       - dot # Dot section: contains all dot imports. This section is not present unless explicitly enabled.
       - alias # Alias section: contains all alias imports. This section is not present unless explicitly enabled.
@@ -156,7 +156,7 @@ linters-settings:
   goimports:
     # put imports beginning with prefix after 3rd-party packages;
     # it's a comma-separated list of prefixes
-    local-prefixes: github.com/tinkerbell/cluster-api-provider-tinkerbell
+    local-prefixes: github.com/tinkerbell/tinkerbell/capt
   nolintlint:
     # Enable to ensure that nolint directives are all used. Default is true.
     allow-unused: false

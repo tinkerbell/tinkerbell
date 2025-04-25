@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/gomega" //nolint:revive // one day we will remove gomega
 	"sigs.k8s.io/yaml"
 
-	"github.com/tinkerbell/cluster-api-provider-tinkerbell/controller/machine"
+	"github.com/tinkerbell/tinkerbell/capt/controller/machine"
 )
 
 func validWorkflowTemplate() *machine.WorkflowTemplate {

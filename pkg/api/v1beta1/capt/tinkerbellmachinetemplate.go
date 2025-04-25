@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package capt
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,6 +23,12 @@ import (
 // TinkerbellMachineTemplateSpec defines the desired state of TinkerbellMachineTemplate.
 type TinkerbellMachineTemplateSpec struct {
 	Template TinkerbellMachineTemplateResource `json:"template"`
+}
+
+// TinkerbellMachineTemplateResource describes the data needed to create am TinkerbellMachine from a template.
+type TinkerbellMachineTemplateResource struct {
+	// Spec is the specification of the desired behavior of the machine.
+	Spec TinkerbellMachineSpec `json:"spec"`
 }
 
 // +kubebuilder:object:root=true
