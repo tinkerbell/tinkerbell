@@ -1,0 +1,75 @@
+name: Build Image
+on:
+  workflow_dispatch:
+    inputs:
+      kubernetesDebVersion:
+        description: "Kubernetes Deb Version"
+        required: true
+      kubernetesRPMVersion:
+        description: "Kubernetes RPM Version"
+        required: true
+      kubernetesSemanticVersion:
+        description: "Kubernetes Semantic Version"
+        required: true
+      kubernetesSeries:
+        description: "Kubernetes Series"
+        required: true
+
+env:
+  REGISTRY: ghcr.io
+  # these variable are from image-builder: https://image-builder.sigs.k8s.io/capi/capi#customization
+  # example versions can be found here: https://github.com/kubernetes-sigs/image-builder/tree/main/images/capi/packer/gce/ci/nightly
+  KUBERNETES_DEB_VERSION: ${{ github.event.inputs.kubernetesDebVersion }}
+  KUBERNETES_RPM_VERSION: ${{ github.event.inputs.kubernetesRPMVersion }}
+  KUBERNETES_SEM_VERSION: ${{ github.event.inputs.kubernetesSemanticVersion }}
+  KUBERNETES_SERIES: ${{ github.event.inputs.kubernetesSeries }}
+
+jobs:
+  buildImage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          repository: kubernetes-sigs/image-builder
+          path: image-builder
+          ref: v0.1.29
+
+      - name: Install QEMU
+        run: |
+          sudo apt update
+          sudo -i apt install -y qemu-kvm libvirt-daemon-system libvirt-clients virtinst cpu-checker libguestfs-tools libosinfo-bin qemu-system-x86 wget unzip
+
+      - name: Build the images
+        run: |
+          set -x
+          # https://github.com/hashicorp/packer/issues/12830
+          wget https://releases.hashicorp.com/packer/1.9.5/packer_1.9.5_linux_amd64.zip
+          unzip packer_1.9.5_linux_amd64.zip
+          sudo mv packer /usr/local/bin/
+          export PATH=$PWD/.bin:$PATH
+          cd image-builder/images/capi
+          cat << EOF > packer/raw/overwrite-kubernetes.json
+          {
+            "accelerator": "tcg",
+            "kubernetes_deb_version": "${KUBERNETES_DEB_VERSION}",
+            "kubernetes_rpm_version": "${KUBERNETES_RPM_VERSION}",
+            "kubernetes_semver": "${KUBERNETES_SEM_VERSION}",
+            "kubernetes_series": "${KUBERNETES_SERIES}"
+          }
+          EOF
+          make deps-raw
+          packer plugins install github.com/hashicorp/qemu
+          PACKER_VAR_FILES=packer/raw/overwrite-kubernetes.json make build-raw-ubuntu-2004
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push the images
+        run: |
+          oras version
+          oras push ${REGISTRY}/${{ github.repository }}/ubuntu-2004:${KUBERNETES_SEM_VERSION}.gz --artifact-type application/vnd.acme.rocket.config image-builder/images/capi/output/ubuntu-2004-kube-${KUBERNETES_SEM_VERSION}.gz

@@ -1,0 +1,4 @@
+providers:
+- name: tinkerbell
+  url: URL
+  type: InfrastructureProvider

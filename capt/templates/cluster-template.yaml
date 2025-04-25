@@ -1,0 +1,129 @@
+kind: KubeadmControlPlane
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+metadata:
+  name: "${CLUSTER_NAME}-control-plane"
+spec:
+  version: ${KUBERNETES_VERSION}
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT}
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: TinkerbellMachineTemplate
+      name: ${CLUSTER_NAME}-control-plane
+  kubeadmConfigSpec:
+    preKubeadmCommands:
+      - mkdir -p /etc/kubernetes/manifests && ctr images pull ghcr.io/kube-vip/kube-vip:v0.6.4 && ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v0.6.4 vip /kube-vip manifest pod --arp --interface $(ip -4 -j route list default | jq -r .[0].dev) --address ${CONTROL_PLANE_VIP} --controlplane --leaderElection > /etc/kubernetes/manifests/kube-vip.yaml
+    # initConfiguration and joinConfiguration must be in sync to have the same features
+    # for both cluster bootstrapping and new controller nodes joining.
+    #
+    # This is not super important at the moment, as Tinkerbell provider only supports
+    # single controller node.
+    initConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          # This field is replaced by controller when rendering cloud-init config
+          # until we have Tinkerbell CCM.
+          provider-id: "PROVIDER_ID"
+    # This key is required by 'kubeadm init'.
+    clusterConfiguration: {}
+    joinConfiguration:
+      nodeRegistration:
+        ignorePreflightErrors:
+          - DirAvailable--etc-kubernetes-manifests
+        kubeletExtraArgs:
+          # This field is replaced by controller when rendering cloud-init config
+          # until we have Tinkerbell CCM.
+          provider-id: "PROVIDER_ID"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: TinkerbellMachineTemplate
+metadata:
+  name: "${CLUSTER_NAME}-control-plane"
+spec:
+  template:
+    spec: {}
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  controlPlaneEndpoint:
+    host: "${CONTROL_PLANE_VIP}"
+    port: 6443
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - ${POD_CIDR:=192.168.0.0/16}
+    services:
+      cidrBlocks:
+        - ${SERVICE_CIDR:=172.26.0.0/16}
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: TinkerbellCluster
+    name: "${CLUSTER_NAME}"
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: "${CLUSTER_NAME}-control-plane"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: TinkerbellCluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  imageLookupBaseRegistry: ${BASE_REGISTRY_URL:=""}
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: ${CLUSTER_NAME}-worker-a
+  labels:
+    cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+    pool: worker-a
+spec:
+  replicas: ${WORKER_MACHINE_COUNT}
+  clusterName: ${CLUSTER_NAME}
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+      pool: worker-a
+  template:
+    metadata:
+      labels:
+        cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+        pool: worker-a
+    spec:
+      version: ${KUBERNETES_VERSION}
+      clusterName: ${CLUSTER_NAME}
+      bootstrap:
+        configRef:
+          name: ${CLUSTER_NAME}-worker-a
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+      infrastructureRef:
+        name: ${CLUSTER_NAME}-worker-a
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: TinkerbellMachineTemplate
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: TinkerbellMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-worker-a
+spec:
+  template:
+    spec: {}
+---
+kind: KubeadmConfigTemplate
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+metadata:
+  name: "${CLUSTER_NAME}-worker-a"
+spec:
+  template:
+    spec:
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            # This field is replaced by controller when rendering cloud-init config
+            # until we have Tinkerbell CCM.
+            provider-id: "PROVIDER_ID"
