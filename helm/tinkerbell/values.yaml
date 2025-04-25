@@ -13,9 +13,15 @@ deployment:
   daemonSet:
     enabled: false
   image: ghcr.io/tinkerbell/tinkerbell
+  # imageTag is here as a placeholder and to show its possible to be set.
+  # It is not set because in the deployment.yaml a coalesce is used with this value
+  # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
   imageTag:
   imagePullPolicy: IfNotPresent
   agentImage: ghcr.io/tinkerbell/tink-agent
+  # agentImageTag is here as a placeholder and to show its possible to be set.
+  # It is not set because in the deployment.yaml a coalesce is used with this value
+  # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
   agentImageTag:
   replicas: 1
   args: []
