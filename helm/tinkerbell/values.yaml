@@ -112,6 +112,7 @@ deployment:
       enableTinkController: true
       enableRufioController: true
       enableSecondstar: true
+      enableCRDMigrations: true
   hostNetwork: false
   ports:
     tftp:
