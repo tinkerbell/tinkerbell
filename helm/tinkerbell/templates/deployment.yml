@@ -202,6 +202,8 @@ spec:
               value: {{ .Values.deployment.envs.globals.enableRufioController | quote }}
             - name: TINKERBELL_ENABLE_SECONDSTAR
               value: {{ .Values.deployment.envs.globals.enableSecondstar | quote }}
+            - name: TINKERBELL_ENABLE_CRD_MIGRATIONS
+              value: {{ .Values.deployment.envs.globals.enableCRDMigrations | quote }}
           ports:
           {{- if .Values.deployment.envs.globals.enableSmee }}
             {{- with .Values.deployment.ports.tftp }}
