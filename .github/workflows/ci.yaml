@@ -36,9 +36,7 @@ jobs:
             ~/.cache/go-build
           # always grab from the restore-keys pattern below,
           # like Linux-go-$hash-YYYY-MM-DD as saved by CI
-          key: nonexistent
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('go.mod') }}-
+          key: ${{ runner.os }}-go-${{ hashFiles('go.mod') }}
 
       - name: Fix no space errors and Fetch Deps
         run: |
@@ -128,9 +126,7 @@ jobs:
             ~/.cache/go-build
           # always grab from the restore-keys pattern below,
           # like Linux-go-$hash-YYYY-MM-DD as saved by CI
-          key: nonexistent
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('go.mod') }}-
+          key: ${{ runner.os }}-go-${{ hashFiles('go.mod') }}
 
       - name: Fix no space errors and Fetch Deps
         run: |
@@ -229,9 +225,7 @@ jobs:
             ~/.cache/go-build
           # always grab from the restore-keys pattern below,
           # like Linux-go-$hash-YYYY-MM-DD as saved by CI
-          key: nonexistent
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('go.mod') }}-
+          key: ${{ runner.os }}-go-${{ hashFiles('go.mod') }}
 
       - name: Login to ghcr.io
         uses: docker/login-action@v3
