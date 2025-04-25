@@ -23,7 +23,7 @@ ifeq ($(GIT_TAG),)
 endif
 VERSION ?=
 ifeq ($(VERSION),)
-	VERSION := $(GIT_TAG)-$(GIT_COMMIT)
+	VERSION := $(shell go run --buildvcs=true ./script/version/)
 endif
 CGO_ENABLED := 0
 export CGO_ENABLED
@@ -178,7 +178,7 @@ dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
 helm-files := $(shell git ls-files helm/tinkerbell/ | grep -v helm/tinkerbell/docs)
 helm-package: out/helm/tinkerbell-$(VERSION).tgz ## Helm chart for Tinkerbell
 out/helm/tinkerbell-$(VERSION).tgz: $(helm-files)
-	helm package -d out/helm/ helm/tinkerbell --version $(VERSION)
+	helm package -d out/helm/ helm/tinkerbell --version $(VERSION) --app-version $(VERSION)
 
 .PHONY: helm-publish
 helm-publish: out/helm/tinkerbell-$(VERSION).tgz ## Publish the Helm chart

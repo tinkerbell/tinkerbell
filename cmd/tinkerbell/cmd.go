@@ -19,6 +19,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/crd"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
+	"github.com/tinkerbell/tinkerbell/pkg/build"
 	"github.com/tinkerbell/tinkerbell/rufio"
 	"github.com/tinkerbell/tinkerbell/secondstar"
 	"github.com/tinkerbell/tinkerbell/smee"
@@ -163,7 +164,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	log := defaultLogger(globals.LogLevel)
 	log.Info("starting tinkerbell",
-		"version", gitRevision(),
+		"version", build.GitRevision(),
 		"smeeEnabled", globals.EnableSmee,
 		"tootlesEnabled", globals.EnableTootles,
 		"tinkServerEnabled", globals.EnableTinkServer,

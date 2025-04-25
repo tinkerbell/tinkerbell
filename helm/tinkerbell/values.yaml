@@ -12,9 +12,11 @@ artifactsFileServer:
 deployment:
   daemonSet:
     enabled: false
-  image: ghcr.io/tinkerbell/tinkerbell:latest
+  image: ghcr.io/tinkerbell/tinkerbell
+  imageTag:
   imagePullPolicy: IfNotPresent
-  agentImage: ghcr.io/tinkerbell/tink-agent:latest
+  agentImage: ghcr.io/tinkerbell/tink-agent
+  agentImageTag:
   replicas: 1
   args: []
   additionalEnvs: []
