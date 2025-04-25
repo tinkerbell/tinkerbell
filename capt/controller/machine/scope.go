@@ -81,9 +81,9 @@ func (scope *machineReconcileScope) addFinalizer() error {
 	return nil
 }
 
-type errRequeueRequested struct{}
+type requeueRequestedError struct{}
 
-func (e *errRequeueRequested) Error() string {
+func (e *requeueRequestedError) Error() string {
 	return "requeue requested"
 }
 
@@ -100,7 +100,7 @@ func (scope *machineReconcileScope) ensureTemplateAndWorkflow(hw *tinkv1.Hardwar
 			return nil, fmt.Errorf("failed to create workflow: %w", err)
 		}
 
-		return nil, &errRequeueRequested{}
+		return nil, &requeueRequestedError{}
 	case err != nil:
 		return nil, fmt.Errorf("failed to get workflow: %w", err)
 	default:
@@ -122,12 +122,12 @@ func (scope *machineReconcileScope) Reconcile() error {
 		return fmt.Errorf("failed to ensure hardware: %w", err)
 	}
 
-	return scope.reconcile(hw)
+	return scope.doReconcile(hw)
 }
 
-func (scope *machineReconcileScope) reconcile(hw *tinkv1.Hardware) error {
+func (scope *machineReconcileScope) doReconcile(hw *tinkv1.Hardware) error {
 	// If the workflow has completed the TinkerbellMachine is ready.
-	if v, found := hw.ObjectMeta.GetAnnotations()[HardwareProvisionedAnnotation]; found && v == "true" {
+	if v, found := hw.GetAnnotations()[HardwareProvisionedAnnotation]; found && v == "true" {
 		scope.log.Info("Marking TinkerbellMachine as Ready")
 		scope.tinkerbellMachine.Status.Ready = true
 
@@ -136,7 +136,7 @@ func (scope *machineReconcileScope) reconcile(hw *tinkv1.Hardware) error {
 
 	wf, err := scope.ensureTemplateAndWorkflow(hw)
 	if err != nil {
-		if errors.Is(err, &errRequeueRequested{}) {
+		if errors.Is(err, &requeueRequestedError{}) {
 			return nil
 		}
 
@@ -193,11 +193,11 @@ func (scope *machineReconcileScope) setStatus(hw *tinkv1.Hardware) error {
 // MachineScheduledForDeletion implements machineReconcileContext interface method
 // using TinkerbellMachine deletion timestamp.
 func (scope *machineReconcileScope) MachineScheduledForDeletion() bool {
-	return !scope.tinkerbellMachine.ObjectMeta.DeletionTimestamp.IsZero()
+	return !scope.tinkerbellMachine.GetDeletionTimestamp().IsZero()
 }
 
 // DeleteMachineWithDependencies removes template and workflow objects associated with given machine.
-func (scope *machineReconcileScope) DeleteMachineWithDependencies() error { //nolint:cyclop
+func (scope *machineReconcileScope) DeleteMachineWithDependencies() error {
 	scope.log.Info("Removing machine", "hardwareName", scope.tinkerbellMachine.Spec.HardwareName)
 	// Fetch hw for the machine.
 	hw := &tinkv1.Hardware{}
@@ -358,7 +358,7 @@ func (scope *machineReconcileScope) getReadyBootstrapCloudConfig(machine *cluste
 }
 
 // getTinkerbellCluster returns associated TinkerbellCluster object for a given machine.
-func (scope *machineReconcileScope) getReadyTinkerbellCluster(machine *clusterv1.Machine) (*infrastructurev1.TinkerbellCluster, error) { //nolint:lll
+func (scope *machineReconcileScope) getReadyTinkerbellCluster(machine *clusterv1.Machine) (*infrastructurev1.TinkerbellCluster, error) {
 	cluster, err := util.GetClusterFromMetadata(scope.ctx, scope.client, machine.ObjectMeta)
 	if err != nil {
 		return nil, fmt.Errorf("getting cluster from metadata: %w", err)

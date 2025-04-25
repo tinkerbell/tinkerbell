@@ -22,7 +22,7 @@ func (scope *machineReconcileScope) createPowerOffJob(hw *tinkv1.Hardware) error
 					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 					Kind:       "TinkerbellMachine",
 					Name:       scope.tinkerbellMachine.Name,
-					UID:        scope.tinkerbellMachine.ObjectMeta.UID,
+					UID:        scope.tinkerbellMachine.GetUID(),
 					Controller: &controller,
 				},
 			},
@@ -48,7 +48,7 @@ func (scope *machineReconcileScope) createPowerOffJob(hw *tinkv1.Hardware) error
 		"Name", bmcJob.Name,
 		"Namespace", bmcJob.Namespace)
 
-	return fmt.Errorf("requeue to wait for job.bmc completion: %s/%s", bmcJob.Namespace, bmcJob.Name) //nolint:goerr113
+	return fmt.Errorf("requeue to wait for job.bmc completion: %s/%s", bmcJob.Namespace, bmcJob.Name)
 }
 
 // getJob fetches the Job by name.
@@ -87,8 +87,8 @@ func (scope *machineReconcileScope) ensureBMCJobCompletionForDelete(hardware *ti
 	}
 
 	if bmcJob.HasCondition(rufiov1.JobFailed, rufiov1.ConditionTrue) {
-		return fmt.Errorf("bmc job %s/%s failed", bmcJob.Namespace, bmcJob.Name) //nolint:goerr113
+		return fmt.Errorf("bmc job %s/%s failed", bmcJob.Namespace, bmcJob.Name)
 	}
 
-	return fmt.Errorf("requeue, bmc job %s/%s is not completed", bmcJob.Namespace, bmcJob.Name) //nolint:goerr113
+	return fmt.Errorf("requeue, bmc job %s/%s is not completed", bmcJob.Namespace, bmcJob.Name)
 }

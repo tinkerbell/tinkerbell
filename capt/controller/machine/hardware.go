@@ -80,12 +80,12 @@ func (scope *machineReconcileScope) patchHardwareAnnotations(hw *tinkv1.Hardware
 		return fmt.Errorf("initializing patch helper for selected hardware: %w", err)
 	}
 
-	if hw.ObjectMeta.Annotations == nil {
-		hw.ObjectMeta.Annotations = map[string]string{}
+	if hw.Annotations == nil {
+		hw.Annotations = map[string]string{}
 	}
 
 	for k, v := range annotations {
-		hw.ObjectMeta.Annotations[k] = v
+		hw.Annotations[k] = v
 	}
 
 	if err := patchHelper.Patch(scope.ctx, hw); err != nil {
@@ -96,12 +96,12 @@ func (scope *machineReconcileScope) patchHardwareAnnotations(hw *tinkv1.Hardware
 }
 
 func (scope *machineReconcileScope) takeHardwareOwnership(hw *tinkv1.Hardware) error {
-	if len(hw.ObjectMeta.Labels) == 0 {
-		hw.ObjectMeta.Labels = map[string]string{}
+	if len(hw.GetLabels()) == 0 {
+		hw.Labels = map[string]string{}
 	}
 
-	hw.ObjectMeta.Labels[HardwareOwnerNameLabel] = scope.tinkerbellMachine.Name
-	hw.ObjectMeta.Labels[HardwareOwnerNamespaceLabel] = scope.tinkerbellMachine.Namespace
+	hw.Labels[HardwareOwnerNameLabel] = scope.tinkerbellMachine.Name
+	hw.Labels[HardwareOwnerNamespaceLabel] = scope.tinkerbellMachine.Namespace
 
 	// Add finalizer to hardware as well to make sure we release it before Machine object is removed.
 	controllerutil.AddFinalizer(hw, infrastructurev1.MachineFinalizer)
@@ -233,7 +233,6 @@ func (scope *machineReconcileScope) assignedHardware() (*tinkv1.Hardware, error)
 	return nil, nil
 }
 
-//nolint:lll
 func byHardwareAffinity(hardware []tinkv1.Hardware, preferred []infrastructurev1.WeightedHardwareAffinityTerm) (func(i int, j int) bool, error) {
 	scores := map[client.ObjectKey]int32{}
 	// compute scores for each item based on the preferred term weights
@@ -276,9 +275,9 @@ func (scope *machineReconcileScope) releaseHardware(hw *tinkv1.Hardware) error {
 		return fmt.Errorf("initializing patch helper for selected hardware: %w", err)
 	}
 
-	delete(hw.ObjectMeta.Labels, HardwareOwnerNameLabel)
-	delete(hw.ObjectMeta.Labels, HardwareOwnerNamespaceLabel)
-	delete(hw.ObjectMeta.Annotations, HardwareProvisionedAnnotation)
+	delete(hw.GetLabels(), HardwareOwnerNameLabel)
+	delete(hw.GetLabels(), HardwareOwnerNamespaceLabel)
+	delete(hw.GetAnnotations(), HardwareProvisionedAnnotation)
 
 	controllerutil.RemoveFinalizer(hw, infrastructurev1.MachineFinalizer)
 

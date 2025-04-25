@@ -86,8 +86,6 @@ func (tcr *TinkerbellClusterReconciler) validate() error {
 // If unexpected case occurs, error is returned.
 //
 // If some data is not yet available, nil is returned.
-//
-//nolint:lll
 func (tcr *TinkerbellClusterReconciler) newReconcileContext(ctx context.Context, namespacedName types.NamespacedName) (*clusterReconcileContext, error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -227,7 +225,7 @@ func (tcr *TinkerbellClusterReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	if !crc.tinkerbellCluster.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !crc.tinkerbellCluster.GetDeletionTimestamp().IsZero() {
 		if annotations.HasPaused(crc.tinkerbellCluster) {
 			crc.log.Info("TinkerbellCluster is marked as paused. Won't reconcile deletion")
 
@@ -267,7 +265,7 @@ func (tcr *TinkerbellClusterReconciler) SetupWithManager(
 		&infrastructurev1.TinkerbellCluster{},
 	)
 
-	builder := ctrl.NewControllerManagedBy(mgr).
+	bldr := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrastructurev1.TinkerbellCluster{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, tcr.WatchFilterValue)).
@@ -278,7 +276,7 @@ func (tcr *TinkerbellClusterReconciler) SetupWithManager(
 			builder.WithPredicates(predicates.ClusterUnpaused(mgr.GetScheme(), log)),
 		)
 
-	if err := builder.Complete(tcr); err != nil {
+	if err := bldr.Complete(tcr); err != nil {
 		return fmt.Errorf("failed to configure controller: %w", err)
 	}
 

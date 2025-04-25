@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-//nolint:gochecknoglobals
 var (
 	// GroupVersion is group version used to register these objects.
 	GroupVersion = schema.GroupVersion{Group: "infrastructure.cluster.x-k8s.io", Version: "v1beta1"}

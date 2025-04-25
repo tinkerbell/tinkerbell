@@ -196,7 +196,7 @@ func (scope *machineReconcileScope) createTemplate(hw *tinkv1.Hardware) error {
 					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 					Kind:       "TinkerbellMachine",
 					Name:       scope.tinkerbellMachine.Name,
-					UID:        scope.tinkerbellMachine.ObjectMeta.UID,
+					UID:        scope.tinkerbellMachine.GetUID(),
 				},
 			},
 		},
@@ -247,9 +247,9 @@ func (scope *machineReconcileScope) removeTemplate() error {
 		Namespace: scope.tinkerbellMachine.Namespace,
 	}
 
-	template := &tinkv1.Template{}
+	tmpl := &tinkv1.Template{}
 
-	err := scope.client.Get(scope.ctx, namespacedName, template)
+	err := scope.client.Get(scope.ctx, namespacedName, tmpl)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			scope.log.Info("Template already removed", "name", namespacedName)
@@ -262,7 +262,7 @@ func (scope *machineReconcileScope) removeTemplate() error {
 
 	scope.log.Info("Removing Template", "name", namespacedName)
 
-	if err := scope.client.Delete(scope.ctx, template); err != nil {
+	if err := scope.client.Delete(scope.ctx, tmpl); err != nil {
 		return fmt.Errorf("ensuring template has been removed: %w", err)
 	}
 
@@ -316,12 +316,12 @@ func imageURL(imageFormat, baseRegistry, osDistro, osVersion, kubernetesVersion 
 
 	var buf bytes.Buffer
 
-	template, err := template.New("image").Parse(imageFormat)
+	tmpl, err := template.New("image").Parse(imageFormat)
 	if err != nil {
 		return "", fmt.Errorf("failed to create template from string %q: %w", imageFormat, err)
 	}
 
-	if err := template.Execute(&buf, imageParams); err != nil {
+	if err := tmpl.Execute(&buf, imageParams); err != nil {
 		return "", fmt.Errorf("failed to populate template %q: %w", imageFormat, err)
 	}
 

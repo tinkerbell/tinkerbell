@@ -104,7 +104,6 @@ type TinkerbellClusterList struct {
 	Items           []TinkerbellCluster `json:"items"`
 }
 
-//nolint:gochecknoinits
 func init() {
 	SchemeBuilder.Register(&TinkerbellCluster{}, &TinkerbellClusterList{})
 }

@@ -63,8 +63,7 @@ type testOptions struct {
 	HardwareAffinity *infrastructurev1.HardwareAffinity
 }
 
-//nolint:unparam
-func validTinkerbellMachine(name, namespace, machineName, hardwareUUID string, options ...testOptions) *infrastructurev1.TinkerbellMachine {
+func validTinkerbellMachine(name, namespace, machineName, hardwareUUID string, options ...testOptions) *infrastructurev1.TinkerbellMachine { //nolint:unparam // better to have flexible now, than to change it later.
 	m := &infrastructurev1.TinkerbellMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -98,8 +97,7 @@ func validTinkerbellMachine(name, namespace, machineName, hardwareUUID string, o
 	return m
 }
 
-//nolint:unparam
-func validCluster(name, namespace string) *clusterv1.Cluster {
+func validCluster(name, namespace string) *clusterv1.Cluster { //nolint:unparam // better to have flexible now, than to change it later.
 	return &clusterv1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -113,8 +111,7 @@ func validCluster(name, namespace string) *clusterv1.Cluster {
 	}
 }
 
-//nolint:unparam
-func validTinkerbellCluster(name, namespace string) *infrastructurev1.TinkerbellCluster {
+func validTinkerbellCluster(name, namespace string) *infrastructurev1.TinkerbellCluster { //nolint:unparam // better to have flexible now, than to change it later.
 	tinkCluster := &infrastructurev1.TinkerbellCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       name,
@@ -144,8 +141,7 @@ func validTinkerbellCluster(name, namespace string) *infrastructurev1.Tinkerbell
 	return tinkCluster
 }
 
-//nolint:unparam
-func validMachine(name, namespace, clusterName string) *clusterv1.Machine {
+func validMachine(name, namespace, clusterName string) *clusterv1.Machine { //nolint:unparam // better to have flexible now, than to change it later.
 	return &clusterv1.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -163,8 +159,7 @@ func validMachine(name, namespace, clusterName string) *clusterv1.Machine {
 	}
 }
 
-//nolint:unparam
-func validSecret(name, namespace string) *corev1.Secret {
+func validSecret(name, namespace string) *corev1.Secret { //nolint:unparam // better to have flexible now, than to change it later.
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -176,12 +171,12 @@ func validSecret(name, namespace string) *corev1.Secret {
 	}
 }
 
-func validHardware(name, uuid, ip string, options ...testOptions) *tinkv1.Hardware {
+func validHardware(name, uid, ip string, options ...testOptions) *tinkv1.Hardware {
 	hw := &tinkv1.Hardware{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: clusterNamespace,
-			UID:       types.UID(uuid),
+			UID:       types.UID(uid),
 		},
 		Spec: tinkv1.HardwareSpec{
 			Disks: []tinkv1.Disk{
@@ -294,7 +289,6 @@ func kubernetesClientWithObjects(t *testing.T, objects []runtime.Object) client.
 	return fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objects...).WithStatusSubresource(objs...).Build()
 }
 
-//nolint:funlen
 func Test_Machine_reconciliation_with_available_hardware(t *testing.T) {
 	t.Parallel()
 	g := NewWithT(t)
@@ -310,9 +304,9 @@ func Test_Machine_reconciliation_with_available_hardware(t *testing.T) {
 		validSecret(machineName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	_, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+	_, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred(), "Unexpected reconciliation error")
 
 	ctx := context.Background()
@@ -328,7 +322,7 @@ func Test_Machine_reconciliation_with_available_hardware(t *testing.T) {
 
 		template := &tinkv1.Template{}
 
-		g.Expect(client.Get(ctx, globalResourceName, template)).To(Succeed(), "Expected template to be created")
+		g.Expect(cl.Get(ctx, globalResourceName, template)).To(Succeed(), "Expected template to be created")
 
 		// Owner reference is required to make use of Kubernetes GC for removing dependent objects, so if
 		// machine gets force-removed, template will be cleaned up.
@@ -348,7 +342,7 @@ func Test_Machine_reconciliation_with_available_hardware(t *testing.T) {
 
 		workflow := &tinkv1.Workflow{}
 
-		g.Expect(client.Get(ctx, globalResourceName, workflow)).To(Succeed(), "Expected workflow to be created")
+		g.Expect(cl.Get(ctx, globalResourceName, workflow)).To(Succeed(), "Expected workflow to be created")
 
 		// Owner reference is required to make use of Kubernetes GC for removing dependent objects, so if
 		// machine gets force-removed, workflow will be cleaned up.
@@ -368,7 +362,7 @@ func Test_Machine_reconciliation_with_available_hardware(t *testing.T) {
 	}
 
 	updatedMachine := &infrastructurev1.TinkerbellMachine{}
-	g.Expect(client.Get(ctx, namespacedName, updatedMachine)).To(Succeed())
+	g.Expect(cl.Get(ctx, namespacedName, updatedMachine)).To(Succeed())
 
 	// From https://cluster-api.sigs.k8s.io/developer/providers/machine-infrastructure.html#normal-resource.
 	t.Run("sets_provider_id_with_selected_hardware_id", func(t *testing.T) {
@@ -409,7 +403,7 @@ func Test_Machine_reconciliation_with_available_hardware(t *testing.T) {
 		}
 
 		updatedHardware := &tinkv1.Hardware{}
-		g.Expect(client.Get(ctx, hardwareNamespacedName, updatedHardware)).To(Succeed())
+		g.Expect(cl.Get(ctx, hardwareNamespacedName, updatedHardware)).To(Succeed())
 
 		g.Expect(updatedHardware.ObjectMeta.Labels).To(
 			HaveKeyWithValue(machine.HardwareOwnerNameLabel, tinkerbellMachineName),
@@ -426,23 +420,23 @@ func Test_Machine_reconciliation_with_available_hardware(t *testing.T) {
 		t.Parallel()
 		g := NewWithT(t)
 
-		_, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+		_, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 		g.Expect(err).NotTo(HaveOccurred(), "Unexpected reconciliation error")
 	})
 
 	// Status should be updated on every run.
 	//
 	// Don't execute this test in parallel, as we reset status here.
-	t.Run("refreshes_status_when_machine_is_already_provisioned", func(t *testing.T) { //nolint:paralleltest
+	t.Run("refreshes_status_when_machine_is_already_provisioned", func(t *testing.T) {
 		updatedMachine.Status.Addresses = nil
 		g := NewWithT(t)
 
-		g.Expect(client.Update(context.Background(), updatedMachine)).To(Succeed())
-		_, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+		g.Expect(cl.Update(context.Background(), updatedMachine)).To(Succeed())
+		_, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		updatedMachine = &infrastructurev1.TinkerbellMachine{}
-		g.Expect(client.Get(ctx, namespacedName, updatedMachine)).To(Succeed())
+		g.Expect(cl.Get(ctx, namespacedName, updatedMachine)).To(Succeed())
 		g.Expect(updatedMachine.Status.Addresses).NotTo(BeEmpty(), "Machine status should be updated on every reconciliation")
 	})
 
@@ -456,7 +450,7 @@ func Test_Machine_reconciliation_with_available_hardware(t *testing.T) {
 		}
 
 		updatedHardware := &tinkv1.Hardware{}
-		g.Expect(client.Get(ctx, hardwareNamespacedName, updatedHardware)).To(Succeed())
+		g.Expect(cl.Get(ctx, hardwareNamespacedName, updatedHardware)).To(Succeed())
 
 		if diff := cmp.Diff(updatedHardware.Spec.Interfaces[0].Netboot.AllowPXE, ptr.To(true)); diff != "" {
 			t.Error(diff)
@@ -464,7 +458,6 @@ func Test_Machine_reconciliation_with_available_hardware(t *testing.T) {
 	})
 }
 
-//nolint:funlen
 func Test_Machine_reconciliation_workflow_complete(t *testing.T) {
 	t.Parallel()
 	g := NewWithT(t)
@@ -482,9 +475,9 @@ func Test_Machine_reconciliation_workflow_complete(t *testing.T) {
 		validWorkflow(tinkerbellMachineName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	_, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+	_, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred(), "Unexpected reconciliation error")
 
 	ctx := context.Background()
@@ -495,7 +488,7 @@ func Test_Machine_reconciliation_workflow_complete(t *testing.T) {
 	}
 
 	updatedMachine := &infrastructurev1.TinkerbellMachine{}
-	g.Expect(client.Get(ctx, namespacedName, updatedMachine)).To(Succeed())
+	g.Expect(cl.Get(ctx, namespacedName, updatedMachine)).To(Succeed())
 
 	// From https://cluster-api.sigs.k8s.io/developer/providers/machine-infrastructure.html#normal-resource.
 	t.Run("sets_provider_id_with_selected_hardware_id", func(t *testing.T) {
@@ -544,7 +537,7 @@ func Test_Machine_reconciliation_workflow_complete(t *testing.T) {
 		}
 
 		updatedHardware := &tinkv1.Hardware{}
-		g.Expect(client.Get(ctx, hardwareNamespacedName, updatedHardware)).To(Succeed())
+		g.Expect(cl.Get(ctx, hardwareNamespacedName, updatedHardware)).To(Succeed())
 
 		g.Expect(updatedHardware.ObjectMeta.Labels).To(
 			HaveKeyWithValue(machine.HardwareOwnerNameLabel, tinkerbellMachineName),
@@ -561,23 +554,23 @@ func Test_Machine_reconciliation_workflow_complete(t *testing.T) {
 		t.Parallel()
 		g := NewWithT(t)
 
-		_, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+		_, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 		g.Expect(err).NotTo(HaveOccurred(), "Unexpected reconciliation error")
 	})
 
 	// Status should be updated on every run.
 	//
 	// Don't execute this test in parallel, as we reset status here.
-	t.Run("refreshes_status_when_machine_is_already_provisioned", func(t *testing.T) { //nolint:paralleltest
+	t.Run("refreshes_status_when_machine_is_already_provisioned", func(t *testing.T) {
 		updatedMachine.Status.Addresses = nil
 		g := NewWithT(t)
 
-		g.Expect(client.Update(context.Background(), updatedMachine)).To(Succeed())
-		_, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+		g.Expect(cl.Update(context.Background(), updatedMachine)).To(Succeed())
+		_, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		updatedMachine = &infrastructurev1.TinkerbellMachine{}
-		g.Expect(client.Get(ctx, namespacedName, updatedMachine)).To(Succeed())
+		g.Expect(cl.Get(ctx, namespacedName, updatedMachine)).To(Succeed())
 		g.Expect(updatedMachine.Status.Addresses).NotTo(BeEmpty(), "Machine status should be updated on every reconciliation")
 	})
 }
@@ -589,75 +582,75 @@ func Test_Machine_reconciliation(t *testing.T) {
 		t.Parallel()
 
 		// Requeue will be handled when resource is created.
-		t.Run("is_requeued_when_machine_object_is_missing", //nolint:paralleltest
+		t.Run("is_requeued_when_machine_object_is_missing",
 			machineReconciliationIsRequeuedWhenTinkerbellMachineObjectIsMissing)
 
 		// From https://cluster-api.sigs.k8s.io/developer/providers/cluster-infrastructure.html#behavior
 		// Requeue will be handled when ownerRef is set
-		t.Run("machine_has_no_owner_set", machineReconciliationIsRequeuedWhenTinkerbellMachineHasNoOwnerSet) //nolint:paralleltest
+		t.Run("machine_has_no_owner_set", machineReconciliationIsRequeuedWhenTinkerbellMachineHasNoOwnerSet)
 
 		// From https://cluster-api.sigs.k8s.io/developer/providers/cluster-infrastructure.html#behavior
 		// Requeue will be handled when bootstrap secret is set through the Watch on Machines
-		t.Run("bootstrap_secret_is_not_ready", machineReconciliationIsRequeuedWhenBootstrapSecretIsNotReady) //nolint:paralleltest
+		t.Run("bootstrap_secret_is_not_ready", machineReconciliationIsRequeuedWhenBootstrapSecretIsNotReady)
 
 		// From https://cluster-api.sigs.k8s.io/developer/providers/cluster-infrastructure.html#behavior
 		// Requeue will be handled when bootstrap secret is set through the Watch on Clusters
-		t.Run("cluster_infrastructure_is_not_ready", machineReconciliationIsRequeuedWhenClusterInfrastructureIsNotReady) //nolint:paralleltest
+		t.Run("cluster_infrastructure_is_not_ready", machineReconciliationIsRequeuedWhenClusterInfrastructureIsNotReady)
 	})
 
 	t.Run("fails_when", func(t *testing.T) {
 		t.Parallel()
 
-		t.Run("reconciler_is_nil", machineReconciliationPanicsWhenReconcilerIsNil)                     //nolint:paralleltest
-		t.Run("reconciler_has_no_client_set", machineReconciliationPanicsWhenReconcilerHasNoClientSet) //nolint:paralleltest
+		t.Run("reconciler_is_nil", machineReconciliationPanicsWhenReconcilerIsNil)
+		t.Run("reconciler_has_no_client_set", machineReconciliationPanicsWhenReconcilerHasNoClientSet)
 
 		// CAPI spec says this is optional, but @detiber says it's effectively required, so treat it as so.
-		t.Run("machine_has_no_version_set", machineReconciliationFailsWhenMachineHasNoVersionSet) //nolint:paralleltest
+		t.Run("machine_has_no_version_set", machineReconciliationFailsWhenMachineHasNoVersionSet)
 
-		t.Run("associated_cluster_object_does_not_exist", //nolint:paralleltest
+		t.Run("associated_cluster_object_does_not_exist",
 			machineReconciliationFailsWhenAssociatedClusterObjectDoesNotExist)
 
-		t.Run("associated_tinkerbell_cluster_object_does_not_exist", //nolint:paralleltest
+		t.Run("associated_tinkerbell_cluster_object_does_not_exist",
 			machineReconciliationFailsWhenAssociatedTinkerbellClusterObjectDoesNotExist)
 
 		// If for example CAPI changes key used to store bootstrap date, we shouldn't try to create machines
 		// with empty bootstrap config, we should fail early instead.
-		t.Run("bootstrap_config_is_empty", machineReconciliationFailsWhenBootstrapConfigIsEmpty)               //nolint:paralleltest
-		t.Run("bootstrap_config_has_no_value_key", machineReconciliationFailsWhenBootstrapConfigHasNoValueKey) //nolint:paralleltest
+		t.Run("bootstrap_config_is_empty", machineReconciliationFailsWhenBootstrapConfigIsEmpty)
+		t.Run("bootstrap_config_has_no_value_key", machineReconciliationFailsWhenBootstrapConfigHasNoValueKey)
 
-		t.Run("there_is_no_hardware_available", machineReconciliationFailsWhenThereIsNoHardwareAvailable) //nolint:paralleltest
+		t.Run("there_is_no_hardware_available", machineReconciliationFailsWhenThereIsNoHardwareAvailable)
 
-		t.Run("selected_hardware_has_no_ip_address_set", machineReconciliationFailsWhenSelectedHardwareHasNoIPAddressSet) //nolint:paralleltest
+		t.Run("selected_hardware_has_no_ip_address_set", machineReconciliationFailsWhenSelectedHardwareHasNoIPAddressSet)
 	})
 
 	// Single hardware should only ever be used for a single machine.
-	t.Run("selects_unique_and_available_hardware_for_each_machine", //nolint:paralleltest
+	t.Run("selects_unique_and_available_hardware_for_each_machine",
 		machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachine)
 
-	t.Run("selects_unique_and_available_hardware_for_each_machine_filtering_by_required_hardware_affinity", //nolint:paralleltest
+	t.Run("selects_unique_and_available_hardware_for_each_machine_filtering_by_required_hardware_affinity",
 		machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachineFilteringByRequiredHardwareAffinity)
 
-	t.Run("selects_unique_and_available_hardware_for_each_machine_filtering_by_preferred_hardware_affinity", //nolint:paralleltest
+	t.Run("selects_unique_and_available_hardware_for_each_machine_filtering_by_preferred_hardware_affinity",
 		machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachineFilteringByPreferredHardwareAffinity)
 
-	t.Run("selects_unique_and_available_hardware_for_each_machine_filtering_by_required_and_preferred_hardware_affinity", //nolint:paralleltest
+	t.Run("selects_unique_and_available_hardware_for_each_machine_filtering_by_required_and_preferred_hardware_affinity",
 		machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachineFilteringByRequiredAndPreferredHardwareAffinity)
 
 	// Patching Hardware and TinkerbellMachine are not atomic operations, so we should handle situation, when
 	// misspelling process is aborted in the middle.
 	//
 	// Without that, new Hardware will be selected each time.
-	t.Run("uses_already_selected_hardware_if_patching_tinkerbell_machine_failed", //nolint:paralleltest
+	t.Run("uses_already_selected_hardware_if_patching_tinkerbell_machine_failed",
 		machineReconciliationUsesAlreadySelectedHardwareIfPatchingTinkerbellMachineFailed)
 
 	t.Run("when_machine_is_scheduled_for_removal_it", func(t *testing.T) {
 		t.Parallel()
 
 		// From https://cluster-api.sigs.k8s.io/developer/providers/machine-infrastructure.html#behavior
-		t.Run("removes_tinkerbell_finalizer", notImplemented) //nolint:paralleltest
+		t.Run("removes_tinkerbell_finalizer", notImplemented)
 
 		// Removing machine should release used hardware.
-		t.Run("marks_hardware_as_available_for_other_machines", notImplemented) //nolint:paralleltest
+		t.Run("marks_hardware_as_available_for_other_machines", notImplemented)
 	})
 }
 
@@ -674,9 +667,9 @@ func Test_Machine_reconciliation_when_machine_is_scheduled_for_removal_it(t *tes
 		validSecret(machineName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	_, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+	_, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	ctx := context.Background()
@@ -687,10 +680,10 @@ func Test_Machine_reconciliation_when_machine_is_scheduled_for_removal_it(t *tes
 	}
 
 	updatedMachine := &infrastructurev1.TinkerbellMachine{}
-	g.Expect(client.Get(ctx, tinkerbellMachineNamespacedName, updatedMachine)).To(Succeed())
+	g.Expect(cl.Get(ctx, tinkerbellMachineNamespacedName, updatedMachine)).To(Succeed())
 
-	g.Expect(client.Delete(ctx, updatedMachine)).To(Succeed())
-	_, err = reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+	g.Expect(cl.Delete(ctx, updatedMachine)).To(Succeed())
+	_, err = reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	hardwareNamespacedName := types.NamespacedName{
@@ -699,7 +692,7 @@ func Test_Machine_reconciliation_when_machine_is_scheduled_for_removal_it(t *tes
 	}
 
 	updatedHardware := &tinkv1.Hardware{}
-	g.Expect(client.Get(ctx, hardwareNamespacedName, updatedHardware)).To(Succeed())
+	g.Expect(cl.Get(ctx, hardwareNamespacedName, updatedHardware)).To(Succeed())
 
 	t.Run("removes_tinkerbell_machine_finalizer_from_hardware", func(t *testing.T) {
 		t.Parallel()
@@ -765,10 +758,9 @@ func machineReconciliationPanicsWhenReconcilerHasNoClientSet(t *testing.T) {
 	g.Expect(err).To(MatchError(machine.ErrMissingClient))
 }
 
-//nolint:unparam
-func reconcileMachineWithClient(client client.Client, name, namespace string) (ctrl.Result, error) {
+func reconcileMachineWithClient(cc client.Client, name, namespace string) (ctrl.Result, error) { //nolint:unparam // better to have flexible now, than to change it later.
 	machineController := &machine.TinkerbellMachineReconciler{
-		Client: client,
+		Client: cc,
 	}
 
 	request := ctrl.Request{
@@ -800,7 +792,7 @@ func machineReconciliationIsRequeuedWhenTinkerbellMachineHasNoOwnerSet(t *testin
 	g := NewWithT(t)
 	hardwareUUID := uuid.New().String()
 	tinkerbellMachine := validTinkerbellMachine(tinkerbellMachineName, clusterNamespace, machineName, hardwareUUID)
-	tinkerbellMachine.ObjectMeta.OwnerReferences = nil
+	tinkerbellMachine.OwnerReferences = nil
 
 	objects := []runtime.Object{
 		tinkerbellMachine,
@@ -811,9 +803,9 @@ func machineReconciliationIsRequeuedWhenTinkerbellMachineHasNoOwnerSet(t *testin
 		validSecret(machineName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	result, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+	result, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred(), "Reconciling when machine object does not exist should not return error")
 	g.Expect(result.IsZero()).To(BeTrue(), "Expected no requeue to be requested")
 }
@@ -835,9 +827,9 @@ func machineReconciliationIsRequeuedWhenBootstrapSecretIsNotReady(t *testing.T) 
 		validSecret(machineName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	result, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+	result, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(result.IsZero()).To(BeTrue(), "Expected no requeue to be requested")
 }
@@ -859,9 +851,9 @@ func machineReconciliationIsRequeuedWhenClusterInfrastructureIsNotReady(t *testi
 		validSecret(machineName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	result, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+	result, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(result.IsZero()).To(BeTrue(), "Expected no requeue to be requested")
 }
@@ -883,9 +875,9 @@ func machineReconciliationFailsWhenMachineHasNoVersionSet(t *testing.T) {
 		validSecret(machineName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	_, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+	_, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 	g.Expect(err).To(MatchError(machine.ErrMachineVersionEmpty))
 }
 
@@ -1036,9 +1028,9 @@ func machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachine(t *tes
 		validSecret(secondMachineName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	_, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+	_, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	tinkerbellMachineNamespacedName := types.NamespacedName{
@@ -1049,15 +1041,15 @@ func machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachine(t *tes
 	ctx := context.Background()
 
 	firstMachine := &infrastructurev1.TinkerbellMachine{}
-	g.Expect(client.Get(ctx, tinkerbellMachineNamespacedName, firstMachine)).To(Succeed(), "Getting first updated machine")
+	g.Expect(cl.Get(ctx, tinkerbellMachineNamespacedName, firstMachine)).To(Succeed(), "Getting first updated machine")
 
-	_, err = reconcileMachineWithClient(client, secondTinkerbellMachineName, clusterNamespace)
+	_, err = reconcileMachineWithClient(cl, secondTinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	tinkerbellMachineNamespacedName.Name = secondTinkerbellMachineName
 
 	secondMachine := &infrastructurev1.TinkerbellMachine{}
-	g.Expect(client.Get(ctx, tinkerbellMachineNamespacedName, secondMachine)).To(Succeed())
+	g.Expect(cl.Get(ctx, tinkerbellMachineNamespacedName, secondMachine)).To(Succeed())
 
 	g.Expect(firstMachine.Spec.HardwareName).NotTo(BeEquivalentTo(secondMachine.Spec.HardwareName),
 		"Two machines use the same hardware")
@@ -1069,7 +1061,7 @@ func machineReconciliationUsesAlreadySelectedHardwareIfPatchingTinkerbellMachine
 
 	expectedHardwareName := "alreadyOwnedHardware"
 	alreadyOwnedHardware := validHardware(expectedHardwareName, uuid.New().String(), "2.2.2.2")
-	alreadyOwnedHardware.ObjectMeta.Labels = map[string]string{
+	alreadyOwnedHardware.Labels = map[string]string{
 		machine.HardwareOwnerNameLabel:      tinkerbellMachineName,
 		machine.HardwareOwnerNamespaceLabel: clusterNamespace,
 	}
@@ -1086,9 +1078,9 @@ func machineReconciliationUsesAlreadySelectedHardwareIfPatchingTinkerbellMachine
 		validSecret(machineName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	_, err := reconcileMachineWithClient(client, tinkerbellMachineName, clusterNamespace)
+	_, err := reconcileMachineWithClient(cl, tinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	ctx := context.Background()
@@ -1099,7 +1091,7 @@ func machineReconciliationUsesAlreadySelectedHardwareIfPatchingTinkerbellMachine
 	}
 
 	updatedMachine := &infrastructurev1.TinkerbellMachine{}
-	g.Expect(client.Get(ctx, tinkerbellMachineNamespacedName, updatedMachine)).To(Succeed())
+	g.Expect(cl.Get(ctx, tinkerbellMachineNamespacedName, updatedMachine)).To(Succeed())
 
 	g.Expect(updatedMachine.Spec.HardwareName).To(BeEquivalentTo(expectedHardwareName),
 		"Wrong hardware selected. Expected %q", expectedHardwareName)
@@ -1158,7 +1150,6 @@ func machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachineFilteri
 		})
 }
 
-//nolint:funlen
 func machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachineFilteringByPreferredHardwareAffinity(t *testing.T) {
 	machineReconciliationHardwareAffinityHelper(t, testOptions{
 		HardwareAffinity: &infrastructurev1.HardwareAffinity{
@@ -1261,7 +1252,6 @@ func machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachineFilteri
 		})
 }
 
-//nolint:funlen
 func machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachineFilteringByRequiredAndPreferredHardwareAffinity(t *testing.T) {
 	machineReconciliationHardwareAffinityHelper(t,
 		testOptions{
@@ -1405,7 +1395,6 @@ func machineReconciliationSelectsUniqueAndAvailablehardwareForEachMachineFilteri
 		})
 }
 
-//nolint:funlen
 func machineReconciliationHardwareAffinityHelper(t *testing.T, fooOptions testOptions, barOptions testOptions, bazOptions testOptions) {
 	t.Helper()
 	t.Parallel()
@@ -1446,9 +1435,9 @@ func machineReconciliationHardwareAffinityHelper(t *testing.T, fooOptions testOp
 		validSecret(bazMachineName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	_, err := reconcileMachineWithClient(client, fooTinkerbellMachineName, clusterNamespace)
+	_, err := reconcileMachineWithClient(cl, fooTinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	tinkerbellMachineNamespacedName := types.NamespacedName{
@@ -1459,21 +1448,21 @@ func machineReconciliationHardwareAffinityHelper(t *testing.T, fooOptions testOp
 	ctx := context.Background()
 
 	fooMachine := &infrastructurev1.TinkerbellMachine{}
-	g.Expect(client.Get(ctx, tinkerbellMachineNamespacedName, fooMachine)).To(Succeed(), "Getting first updated machine")
+	g.Expect(cl.Get(ctx, tinkerbellMachineNamespacedName, fooMachine)).To(Succeed(), "Getting first updated machine")
 
-	_, err = reconcileMachineWithClient(client, barTinkerbellMachineName, clusterNamespace)
+	_, err = reconcileMachineWithClient(cl, barTinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	tinkerbellMachineNamespacedName.Name = barTinkerbellMachineName
 	barMachine := &infrastructurev1.TinkerbellMachine{}
-	g.Expect(client.Get(ctx, tinkerbellMachineNamespacedName, barMachine)).To(Succeed())
+	g.Expect(cl.Get(ctx, tinkerbellMachineNamespacedName, barMachine)).To(Succeed())
 
-	_, err = reconcileMachineWithClient(client, bazTinkerbellMachineName, clusterNamespace)
+	_, err = reconcileMachineWithClient(cl, bazTinkerbellMachineName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	tinkerbellMachineNamespacedName.Name = bazTinkerbellMachineName
 	bazMachine := &infrastructurev1.TinkerbellMachine{}
-	g.Expect(client.Get(ctx, tinkerbellMachineNamespacedName, bazMachine)).To(Succeed())
+	g.Expect(cl.Get(ctx, tinkerbellMachineNamespacedName, bazMachine)).To(Succeed())
 
 	g.Expect(fooMachine.Spec.HardwareName).To(Equal(fooHardwareName))
 	g.Expect(barMachine.Spec.HardwareName).To(Equal(barHardwareName))

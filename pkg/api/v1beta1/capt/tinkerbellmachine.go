@@ -19,10 +19,8 @@ package capt
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
-//nolint:gochecknoinits
 func init() {
 	SchemeBuilder.Register(&TinkerbellMachine{}, &TinkerbellMachineList{})
 }
@@ -161,7 +159,7 @@ type TinkerbellMachineStatus struct {
 	// can be added as events to the Machine object and/or logged in the
 	// controller's output.
 	// +optional
-	ErrorReason *capierrors.MachineStatusError `json:"errorReason,omitempty"`
+	ErrorReason *MachineStatusError `json:"errorReason,omitempty"`
 
 	// ErrorMessage will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a more verbose string suitable
@@ -214,7 +212,6 @@ type TinkerbellMachineList struct {
 // TinkerbellResourceStatus describes the status of a Tinkerbell resource.
 type TinkerbellResourceStatus int
 
-//nolint:gomnd,gochecknoglobals
 var (
 	TinkerbellResourceStatusPending = TinkerbellResourceStatus(0)
 	TinkerbellResourceStatusRunning = TinkerbellResourceStatus(1)

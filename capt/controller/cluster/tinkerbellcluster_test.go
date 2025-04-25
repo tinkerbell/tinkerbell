@@ -38,11 +38,10 @@ import (
 	infrastructurev1 "github.com/tinkerbell/tinkerbell/pkg/api/v1beta1/capt"
 )
 
-//nolint:unparam
-func unreadyTinkerbellCluster(name, namespace string) *infrastructurev1.TinkerbellCluster {
+func unreadyTinkerbellCluster(name, namespace string) *infrastructurev1.TinkerbellCluster { //nolint:unparam // better to have flexible now, than to change it later.
 	unreadyTinkerbellCluster := validTinkerbellCluster(name, namespace)
 	unreadyTinkerbellCluster.Status.Ready = false
-	unreadyTinkerbellCluster.ObjectMeta.Finalizers = nil
+	unreadyTinkerbellCluster.Finalizers = nil
 	unreadyTinkerbellCluster.Spec.ControlPlaneEndpoint.Host = ""
 	unreadyTinkerbellCluster.Spec.ControlPlaneEndpoint.Port = 0
 
@@ -59,9 +58,9 @@ func Test_Cluster_reconciliation_when_controlplane_endpoint_not_set(t *testing.T
 		unreadyTinkerbellCluster(clusterName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	_, err := reconcileClusterWithClient(client, clusterName, clusterNamespace)
+	_, err := reconcileClusterWithClient(cl, clusterName, clusterNamespace)
 	g.Expect(err).To(MatchError(cluster.ErrControlPlaneEndpointNotSet))
 }
 
@@ -69,19 +68,19 @@ func Test_Cluster_reconciliation_when_controlplane_endpoint_set_on_cluster(t *te
 	t.Parallel()
 	g := NewWithT(t)
 
-	cluster := validCluster(clusterName, clusterNamespace)
-	cluster.Spec.ControlPlaneEndpoint.Host = "192.168.1.10"
-	cluster.Spec.ControlPlaneEndpoint.Port = 443
+	clstr := validCluster(clusterName, clusterNamespace)
+	clstr.Spec.ControlPlaneEndpoint.Host = "192.168.1.10"
+	clstr.Spec.ControlPlaneEndpoint.Port = 443
 
 	objects := []runtime.Object{
 		validHardware(hardwareName, uuid.New().String(), hardwareIP),
-		cluster.DeepCopy(),
+		clstr.DeepCopy(),
 		unreadyTinkerbellCluster(clusterName, clusterNamespace),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	_, err := reconcileClusterWithClient(client, clusterName, clusterNamespace)
+	_, err := reconcileClusterWithClient(cl, clusterName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	namespacedName := types.NamespacedName{
@@ -91,13 +90,13 @@ func Test_Cluster_reconciliation_when_controlplane_endpoint_set_on_cluster(t *te
 
 	updatedTinkerbellCluster := &infrastructurev1.TinkerbellCluster{}
 
-	g.Expect(client.Get(context.Background(), namespacedName, updatedTinkerbellCluster)).To(Succeed())
+	g.Expect(cl.Get(context.Background(), namespacedName, updatedTinkerbellCluster)).To(Succeed())
 
 	g.Expect(updatedTinkerbellCluster.Spec.ControlPlaneEndpoint.Host).
-		To(BeEquivalentTo(cluster.Spec.ControlPlaneEndpoint.Host), "Expected controlplane endpoint host to be set")
+		To(BeEquivalentTo(clstr.Spec.ControlPlaneEndpoint.Host), "Expected controlplane endpoint host to be set")
 
 	g.Expect(updatedTinkerbellCluster.Spec.ControlPlaneEndpoint.Port).
-		To(BeEquivalentTo(cluster.Spec.ControlPlaneEndpoint.Port), "Expected controlplane endpoint port to be set")
+		To(BeEquivalentTo(clstr.Spec.ControlPlaneEndpoint.Port), "Expected controlplane endpoint port to be set")
 
 	g.Expect(updatedTinkerbellCluster.Status.Ready).To(BeTrue(), "Expected infrastructure to be ready")
 }
@@ -108,12 +107,12 @@ type testOptions struct {
 	HardwareAffinity *infrastructurev1.HardwareAffinity
 }
 
-func validHardware(name, uuid, ip string, options ...testOptions) *tinkv1.Hardware {
+func validHardware(name, uid, ip string, options ...testOptions) *tinkv1.Hardware {
 	hw := &tinkv1.Hardware{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: clusterNamespace,
-			UID:       types.UID(uuid),
+			UID:       types.UID(uid),
 		},
 		Spec: tinkv1.HardwareSpec{
 			Disks: []tinkv1.Disk{
@@ -168,9 +167,9 @@ func Test_Cluster_reconciliation_when_controlplane_endpoint_set_on_tinkerbellClu
 		tinkCluster.DeepCopy(),
 	}
 
-	client := kubernetesClientWithObjects(t, objects)
+	cl := kubernetesClientWithObjects(t, objects)
 
-	_, err := reconcileClusterWithClient(client, clusterName, clusterNamespace)
+	_, err := reconcileClusterWithClient(cl, clusterName, clusterNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	namespacedName := types.NamespacedName{
@@ -180,7 +179,7 @@ func Test_Cluster_reconciliation_when_controlplane_endpoint_set_on_tinkerbellClu
 
 	updatedTinkerbellCluster := &infrastructurev1.TinkerbellCluster{}
 
-	g.Expect(client.Get(context.Background(), namespacedName, updatedTinkerbellCluster)).To(Succeed())
+	g.Expect(cl.Get(context.Background(), namespacedName, updatedTinkerbellCluster)).To(Succeed())
 
 	g.Expect(updatedTinkerbellCluster.Spec.ControlPlaneEndpoint.Host).
 		To(BeEquivalentTo(tinkCluster.Spec.ControlPlaneEndpoint.Host), "Expected controlplane endpoint host to be set")
@@ -199,25 +198,25 @@ func Test_Cluster_reconciliation(t *testing.T) {
 
 		// This is introduced in v1alpha3 of CAPI even though behavior diagram does not reflect it.
 		// This will be automatically requeued when the tinkerbellCluster is unpaused.
-		t.Run("tinkerbellcluster_is_paused", clusterReconciliationIsNotRequeuedWhenTinkerbellClusterIsPaused) //nolint:paralleltest
+		t.Run("tinkerbellcluster_is_paused", clusterReconciliationIsNotRequeuedWhenTinkerbellClusterIsPaused)
 
 		// This is introduced in v1alpha3 of CAPI even though behavior diagram does not reflect it.
 		// Requeue happens through watch of Cluster.
-		t.Run("cluster_is_paused", clusterReconciliationIsNotRequeuedWhenClusterIsPaused) //nolint:paralleltest
+		t.Run("cluster_is_paused", clusterReconciliationIsNotRequeuedWhenClusterIsPaused)
 
 		// From https://cluster-api.sigs.k8s.io/developer/providers/cluster-infrastructure.html#behavior.
 		// This will be automatically requeued when the ownerRef is set.
-		t.Run("cluster_has_no_owner_set", clusterReconciliationIsNotRequeuedWhenClusterHasNoOwnerSet) //nolint:paralleltest
+		t.Run("cluster_has_no_owner_set", clusterReconciliationIsNotRequeuedWhenClusterHasNoOwnerSet)
 
 		// If reconciliation process started, but we cannot find cluster object anymore, it means object has been
 		// removed in the meanwhile. This means there is nothing to do.
-		t.Run("cluster_object_is_missing", clusterReconciliationIsNotRequeuedWhenClusterObjectIsMissing) //nolint:paralleltest
+		t.Run("cluster_object_is_missing", clusterReconciliationIsNotRequeuedWhenClusterObjectIsMissing)
 	})
 
 	t.Run("fails_when", func(t *testing.T) {
 		t.Parallel()
 
-		t.Run("reconciler_has_no_client_set", clusterReconciliationFailsWhenReconcilerHasNoClientSet) //nolint:paralleltest
+		t.Run("reconciler_has_no_client_set", clusterReconciliationFailsWhenReconcilerHasNoClientSet)
 	})
 }
 
@@ -257,10 +256,9 @@ func kubernetesClientWithObjects(t *testing.T, objects []runtime.Object) client.
 	return fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objects...).WithStatusSubresource(objs...).Build()
 }
 
-//nolint:unparam
-func reconcileClusterWithClient(client client.Client, name, namespace string) (ctrl.Result, error) {
+func reconcileClusterWithClient(cc client.Client, name, namespace string) (ctrl.Result, error) { //nolint:unparam // better to have flexible now, than to change it later.
 	clusterController := &cluster.TinkerbellClusterReconciler{
-		Client: client,
+		Client: cc,
 	}
 
 	request := ctrl.Request{
@@ -270,7 +268,7 @@ func reconcileClusterWithClient(client client.Client, name, namespace string) (c
 		},
 	}
 
-	return clusterController.Reconcile(context.TODO(), request) //nolint:wrapcheck
+	return clusterController.Reconcile(context.TODO(), request)
 }
 
 func clusterReconciliationIsNotRequeuedWhenClusterObjectIsMissing(t *testing.T) {
@@ -289,8 +287,7 @@ const (
 	hardwareName     = "myHardwareName"
 )
 
-//nolint:unparam
-func validCluster(name, namespace string) *clusterv1.Cluster {
+func validCluster(name, namespace string) *clusterv1.Cluster { //nolint:unparam // better to have flexible now, than to change it later.
 	return &clusterv1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -339,7 +336,7 @@ func clusterReconciliationIsNotRequeuedWhenClusterHasNoOwnerSet(t *testing.T) {
 	g := NewWithT(t)
 
 	unreadyTinkerbellClusterWithoutOwner := unreadyTinkerbellCluster(clusterName, clusterNamespace)
-	unreadyTinkerbellClusterWithoutOwner.ObjectMeta.OwnerReferences = nil
+	unreadyTinkerbellClusterWithoutOwner.OwnerReferences = nil
 
 	objects := []runtime.Object{
 		validCluster(clusterName, clusterNamespace),
@@ -357,7 +354,7 @@ func clusterReconciliationIsNotRequeuedWhenTinkerbellClusterIsPaused(t *testing.
 	g := NewWithT(t)
 
 	pausedTinkerbellCluster := validTinkerbellCluster(clusterName, clusterNamespace)
-	pausedTinkerbellCluster.ObjectMeta.Annotations = map[string]string{
+	pausedTinkerbellCluster.Annotations = map[string]string{
 		clusterv1.PausedAnnotation: "true",
 	}
 

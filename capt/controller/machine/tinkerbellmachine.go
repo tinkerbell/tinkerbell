@@ -42,7 +42,7 @@ import (
 
 // TinkerbellMachineReconciler implements Reconciler interface by managing Tinkerbell machines.
 type TinkerbellMachineReconciler struct {
-	client.Client
+	Client           client.Client
 	WatchFilterValue string
 }
 
@@ -56,8 +56,6 @@ type TinkerbellMachineReconciler struct {
 // +kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=jobs,verbs=get;list;watch;create
 
 // Reconcile ensures that all Tinkerbell machines are aligned with a given spec.
-//
-//nolint:funlen,cyclop
 func (r *TinkerbellMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// If the TinkerbellMachineReconciler instant is invalid we can't continue. There's also no way
 	// for us to recover the TinkerbellMachineReconciler instance (i.e. there's a programmer error).
@@ -156,7 +154,7 @@ func (r *TinkerbellMachineReconciler) SetupWithManager(
 		return fmt.Errorf("failed to create mapper for Cluster to TinkrebellMachines: %w", err)
 	}
 
-	builder := ctrl.NewControllerManagedBy(mgr).
+	bldr := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		For(&infrastructurev1.TinkerbellMachine{}).
@@ -173,7 +171,7 @@ func (r *TinkerbellMachineReconciler) SetupWithManager(
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-			builder.WithPredicates(predicates.ClusterUnpausedAndInfrastructureReady(mgr.GetScheme(), log)),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureReady(mgr.GetScheme(), log)),
 		).
 		Watches(
 			&tinkv1.Workflow{},
@@ -194,7 +192,7 @@ func (r *TinkerbellMachineReconciler) SetupWithManager(
 			),
 		)
 
-	if err := builder.Complete(r); err != nil {
+	if err := bldr.Complete(r); err != nil {
 		return fmt.Errorf("failed to create controller: %w", err)
 	}
 
@@ -210,7 +208,7 @@ func (r *TinkerbellMachineReconciler) TinkerbellClusterToTinkerbellMachines(ctx 
 		c, ok := o.(*infrastructurev1.TinkerbellCluster)
 		if !ok {
 			log.Error(
-				fmt.Errorf("expected a TinkerbellCluster but got a %T", o), //nolint:goerr113
+				fmt.Errorf("expected a TinkerbellCluster but got a %T", o),
 				"failed to get TinkerbellMachine for TinkerbellCluster",
 			)
 
@@ -220,8 +218,8 @@ func (r *TinkerbellMachineReconciler) TinkerbellClusterToTinkerbellMachines(ctx 
 		log = log.WithValues("TinkerbellCluster", c.Name, "Namespace", c.Namespace)
 
 		// Don't handle deleted TinkerbellClusters
-		if !c.ObjectMeta.DeletionTimestamp.IsZero() {
-			log.V(4).Info("TinkerbellCluster has a deletion timestamp, skipping mapping.") //nolint:gomnd
+		if !c.DeletionTimestamp.IsZero() {
+			log.V(4).Info("TinkerbellCluster has a deletion timestamp, skipping mapping.")
 
 			return nil
 		}

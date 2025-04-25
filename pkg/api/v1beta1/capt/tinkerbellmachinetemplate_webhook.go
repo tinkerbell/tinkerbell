@@ -28,7 +28,7 @@ import (
 
 // SetupWebhookWithManager sets up and registers the webhook with the manager.
 func (m *TinkerbellMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(m).Complete() //nolint:wrapcheck
+	return ctrl.NewWebhookManagedBy(mgr).For(m).Complete()
 }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-tinkerbellmachinetemplate,mutating=false,failurePolicy=fail,matchPolicy=Equivalent,groups=infrastructure.cluster.x-k8s.io,resources=tinkerbellmachinetemplates,versions=v1beta1,name=validation.tinkerbellmachinetemplate.infrastructure.x-k8s.io,sideEffects=None,admissionReviewVersions=v1;v1beta1

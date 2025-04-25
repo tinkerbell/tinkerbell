@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package machine //nolint:testpackage
+package machine
 
 import (
 	"testing"
@@ -37,7 +37,6 @@ func readyMachine() *clusterv1.Machine {
 	}
 }
 
-//nolint:funlen
 func Test_Machine(t *testing.T) {
 	t.Parallel()
 

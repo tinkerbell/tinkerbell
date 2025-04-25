@@ -35,7 +35,6 @@ func validWorkflowTemplate() *machine.WorkflowTemplate {
 	}
 }
 
-//nolint:funlen
 func Test_Cloud_config_template(t *testing.T) {
 	t.Parallel()
 
@@ -66,7 +65,7 @@ func Test_Cloud_config_template(t *testing.T) {
 		},
 
 		"rendered_output_should_be_valid_YAML": {
-			validateF: func(t *testing.T, _ *machine.WorkflowTemplate, renderResult string) { //nolint:thelper
+			validateF: func(t *testing.T, _ *machine.WorkflowTemplate, renderResult string) { //nolint:thelper // come back to this.
 				g := NewWithT(t)
 				x := &map[string]interface{}{}
 
