@@ -30,6 +30,7 @@ const (
 
 // GitRevision retrieves the revision of the current build. If the build contains uncommitted
 // changes the revision will be suffixed with "-dirty".
+// This is written based on https://go.dev/ref/mod#pseudo-versions.
 func GitRevision() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
