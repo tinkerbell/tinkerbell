@@ -79,7 +79,7 @@ func parse(versionString string) (*pseudoVersion, error) {
 		}
 
 		// Parse commit hash
-		pv.CommitHash = matches[len(matches)-1][:8] // Truncate to 7 characters
+		pv.CommitHash = matches[len(matches)-1][:8] // Truncate to 8 characters, same length as a git short hash.
 
 		return pv, nil
 	}
