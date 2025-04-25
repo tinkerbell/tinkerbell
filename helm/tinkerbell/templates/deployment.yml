@@ -45,7 +45,7 @@ spec:
       {{- end }}
       containers:
         - name: tinkerbell
-          image: {{ .Values.deployment.image }}
+          image: {{ .Values.deployment.image }}:{{ coalesce .Values.deployment.imageTag .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.deployment.imagePullPolicy }}
           args:
           {{- range .Values.deployment.additionalArgs }}
@@ -132,7 +132,7 @@ spec:
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_BIND_PORT
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindPort | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS
-              value: {{ join " " ( append .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs ( printf "tink_worker_image=%s" .Values.deployment.agentImage ) ) | quote }}
+              value: {{ join " " ( append .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs ( printf "tink_worker_image=%s:%s" .Values.deployment.agentImage (coalesce .Values.deployment.agentImageTag .Chart.AppVersion) ) ) | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TRUSTED_PROXIES
               value: {{ ( join "," $trustedProxies ) | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRIES

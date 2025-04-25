@@ -36,9 +36,7 @@ jobs:
             ~/.cache/go-build
           # always grab from the restore-keys pattern below,
           # like Linux-go-$hash-YYYY-MM-DD as saved by CI
-          key: nonexistent
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('go.mod') }}-
+          key: ${{ runner.os }}-go-${{ hashFiles('go.mod') }}
 
       - name: Fix no space errors and Fetch Deps
         run: |
@@ -128,9 +126,7 @@ jobs:
             ~/.cache/go-build
           # always grab from the restore-keys pattern below,
           # like Linux-go-$hash-YYYY-MM-DD as saved by CI
-          key: nonexistent
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('go.mod') }}-
+          key: ${{ runner.os }}-go-${{ hashFiles('go.mod') }}
 
       - name: Fix no space errors and Fetch Deps
         run: |
@@ -213,6 +209,23 @@ jobs:
         with:
           fetch-depth: 5
           fetch-tags: true
+
+      # Go is needed to get the VERSION in the Makefile which is used in the Helm packaging
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+          cache: false
+
+      - name: Restore Go cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          # always grab from the restore-keys pattern below,
+          # like Linux-go-$hash-YYYY-MM-DD as saved by CI
+          key: ${{ runner.os }}-go-${{ hashFiles('go.mod') }}
 
       - name: Login to ghcr.io
         uses: docker/login-action@v3
