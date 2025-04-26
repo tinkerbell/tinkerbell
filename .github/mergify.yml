@@ -2,7 +2,9 @@ queue_rules:
   - name: default
     queue_conditions:
       - base=main
-      - "#approved-reviews-by>=1"
+      - or:
+          - "#approved-reviews-by>=1"
+          - author=jacobweinstock
       - "#changes-requested-reviews-by=0"
       - check-success=DCO
       - check-success=validation
