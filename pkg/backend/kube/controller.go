@@ -2,7 +2,6 @@ package kube
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -24,13 +23,6 @@ func (b *Backend) DynamicRead(ctx context.Context, gvr schema.GroupVersionResour
 	if err != nil {
 		return nil, fmt.Errorf("error getting resource: %w", err)
 	}
-	v, ok := one.Object["spec"]
-	if ok {
-		m, ok := v.(map[string]interface{})
-		if ok {
-			return m, nil
-		}
-		return nil, errors.New("failed converting object spec")
-	}
-	return nil, errors.New("failed to get spec field from object")
+
+	return one.Object, nil
 }
