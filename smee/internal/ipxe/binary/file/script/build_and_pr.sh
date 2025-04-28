@@ -35,13 +35,18 @@ binaries=(
 
 git_email="github-actions[bot]@users.noreply.github.com"
 git_name="github-actions[bot]"
-repo="tinkerbell/tinkerbell"
+repo="${IPXE_TARGET_GH_OWNER_REPO:-"tinkerbell/tinkerbell"}"
 
 # check for the GITHUB_TOKEN environment variable
 function check_github_token() {
   if [ -z "${GITHUB_TOKEN}" ]; then
     echo "GITHUB_TOKEN is not set"
     exit 1
+  fi
+  echo "Checking for 'gh' CLI"
+  if ! command -v gh &> /dev/null; then
+    echo "'gh' CLI is not installed. Please install it to use this script."
+    exit 3
   fi
 }
 
@@ -137,7 +142,7 @@ function commit_changes() {
 # push changes to origin
 function push_changes() {
     local branch="${1}"
-    local repository="${2:-tinkerbell/tinkerbell}"
+    local repository="${2:-"${IPXE_TARGET_GH_OWNER_REPO:-"tinkerbell/tinkerbell"}"}"
     local git_actor="${3:-github-actions[bot]}"
     local token="${4:-${GITHUB_TOKEN}}"
 
@@ -160,7 +165,7 @@ function create_pull_request() {
 
     # create pull request
     echo "Creating pull request"
-    if ! script/gh pr create --base "${base}" --body "${body}" --title "${title}" --head "${branch}"; then
+    if ! gh pr create --base "${base}" --body "${body}" --title "${title}" --head "${branch}"; then
         echo "Failed to create pull request" 1>&2
         exit 1
     fi

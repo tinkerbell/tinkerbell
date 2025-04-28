@@ -21,6 +21,7 @@ in
             expect
             gcc12
             git
+            gh
             gnumake
             gnused
             go
