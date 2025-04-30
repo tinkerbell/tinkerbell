@@ -82,7 +82,7 @@ func NewReconciler(client ctrlclient.Client, dc dynamicClient, opts ...Option) *
 		dynamicClient: dc,
 		referenceRules: ReferenceRules{
 			Allowlist: []string{},
-			Denylist:  []string{`{"name": [{"wildcard": "*"}]}`}, // by default deny all.
+			Denylist:  []string{`{"reference": {"name": [{"wildcard": "*"}]}}`}, // deny all by default.
 		},
 	}
 
@@ -290,12 +290,19 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	data[templateDataHardwareLegacy] = contract
 	references := make(map[string]interface{})
 	for name, rf := range hardware.Spec.References {
-		denied, drules, err := match(ctx, r.referenceRules.Denylist, rf)
+		ed := evaluationData{
+			Source: source{
+				Name:      hardware.Name,
+				Namespace: hardware.Namespace,
+			},
+			Reference: rf,
+		}
+		denied, drules, err := evaluate(ctx, r.referenceRules.Denylist, ed)
 		if err != nil {
 			logger.Info("error applying denylist rules", "error", err)
 			continue
 		}
-		allowed, arules, err := match(ctx, r.referenceRules.Allowlist, rf)
+		allowed, arules, err := evaluate(ctx, r.referenceRules.Allowlist, ed)
 		if err != nil {
 			logger.Info("error applying allowlist rules", "error", err)
 			continue
