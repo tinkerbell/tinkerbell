@@ -29,12 +29,12 @@ func TestMatch(t *testing.T) {
 			expectedMatch: false,
 		},
 		"no match empty data struct": {
-			rules:         []string{`{"reference": {"name": [{"wildcard": "*"}]}}`},
+			rules:         []string{`{"reference":{"name":[{"wildcard":"*"}]}}`},
 			data:          evaluationData{Reference: tinkerbell.Reference{}},
 			expectedMatch: false,
 		},
 		"no match": {
-			rules: []string{`{"reference": {"resource": ["workflows"]}}`, `{"version": ["example"]}`},
+			rules: []string{`{"reference":{"resource":["workflows"]}},{"version":["example"]}`},
 			data: evaluationData{
 				Reference: tinkerbell.Reference{
 					Namespace: "tink",
@@ -47,7 +47,7 @@ func TestMatch(t *testing.T) {
 			expectedMatch: false,
 		},
 		"match": {
-			rules: []string{`{"reference": {"name": ["example"]}}`},
+			rules: []string{`{"reference":{"name":["example"]}}`},
 			data: evaluationData{
 				Reference: tinkerbell.Reference{
 					Namespace: "tink",
@@ -58,10 +58,10 @@ func TestMatch(t *testing.T) {
 				},
 			},
 			expectedMatch: true,
-			expectedRules: `pattern-{"reference": {"name": ["example"]}}`,
+			expectedRules: `pattern-{"reference":{"name":["example"]}}`,
 		},
 		"deny all": {
-			rules: []string{`{"reference": {"name": [{"wildcard": "*"}]}}`},
+			rules: []string{`{"reference":{"name":[{"wildcard":"*"}]}}`},
 			data: evaluationData{
 				Reference: tinkerbell.Reference{
 					Namespace: "tink",
@@ -72,7 +72,7 @@ func TestMatch(t *testing.T) {
 				},
 			},
 			expectedMatch: true,
-			expectedRules: `pattern-{"reference": {"name": [{"wildcard": "*"}]}}`,
+			expectedRules: `pattern-{"reference":{"name":[{"wildcard":"*"}]}}`,
 		},
 		"bad rule": {
 			rules: []string{"this is not the rule format"},
@@ -87,6 +87,23 @@ func TestMatch(t *testing.T) {
 			},
 			expectedMatch: false,
 			expectedErr:   true,
+		},
+		"match reference and source": {
+			rules: []string{`{"reference":{"resource":["hardware"],"namespace":["tink"]},"source":{"namespace":["tink-system"]}}`},
+			data: evaluationData{
+				Source: source{
+					Namespace: "tink-system",
+				},
+				Reference: tinkerbell.Reference{
+					Namespace: "tink",
+					Name:      "example",
+					Group:     "tinkerbell.org",
+					Version:   "v1alpha1",
+					Resource:  "hardware",
+				},
+			},
+			expectedMatch: true,
+			expectedRules: `pattern-{"reference":{"resource":["hardware"],"namespace":["tink"]},"source":{"namespace":["tink-system"]}}`,
 		},
 	}
 

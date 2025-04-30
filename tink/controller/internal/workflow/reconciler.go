@@ -289,7 +289,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	}()
 	data[templateDataHardwareLegacy] = contract
 	references := make(map[string]interface{})
-	for name, rf := range hardware.Spec.References {
+	for refName, rf := range hardware.Spec.References {
 		ed := evaluationData{
 			Source: source{
 				Name:      hardware.Name,
@@ -299,24 +299,24 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		}
 		denied, drules, err := evaluate(ctx, r.referenceRules.Denylist, ed)
 		if err != nil {
-			logger.Info("error applying denylist rules", "error", err)
+			logger.V(1).Info("error applying denylist rules", "error", err, "denyRules", r.referenceRules.Denylist)
 			continue
 		}
 		allowed, arules, err := evaluate(ctx, r.referenceRules.Allowlist, ed)
 		if err != nil {
-			logger.Info("error applying allowlist rules", "error", err)
+			logger.V(1).Info("error applying allowlist rules", "error", err, "allowRules", r.referenceRules.Allowlist)
 			continue
 		}
 		if denied && !allowed {
-			logger.Info("reference denied", "name", name, "denyRules", drules, "allowRules", arules)
+			logger.V(1).Info("reference denied", "referenceName", refName, "denyRules", drules, "allowRules", arules)
 			continue
 		}
-		logger.V(1).Info("reference allowed", "name", name, "denyRules", drules, "allowRules", arules)
+		logger.V(1).Info("reference allowed", "referenceName", refName, "denyRules", drules, "allowRules", arules)
 		gvr := schema.GroupVersionResource{Group: rf.Group, Version: rf.Version, Resource: rf.Resource}
 		if v, err := r.dynamicClient.DynamicRead(ctx, gvr, rf.Name, rf.Namespace); err == nil {
-			references[name] = v
+			references[refName] = v
 		} else {
-			logger.Info("error getting reference", "name", rf.Name, "namespace", rf.Namespace, "gvr", gvr, "error", err)
+			logger.V(1).Info("error getting reference", "referenceName", rf.Name, "namespace", rf.Namespace, "gvr", gvr, "error", err)
 		}
 	}
 	data[templateDataReferences] = references

@@ -359,6 +359,9 @@ spec:
                 additionalProperties:
                   properties:
                     group:
+                      description: |-
+                        Group of the referent.
+                        More info: https://kubernetes.io/docs/reference/using-api/#api-groups
                       type: string
                     name:
                       description: |-
@@ -376,13 +379,15 @@ spec:
                         More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
                       type: string
                     version:
-                      description: API version of the referent.
+                      description: |-
+                        API version of the referent.
+                        More info: https://kubernetes.io/docs/reference/using-api/#api-versioning
                       type: string
                   type: object
                 description: |-
                   References allow for linking custom resource objects of any kind to this Hardware object.
                   These are available in Templates for templating. They are referenced by the name of the reference.
-                  For example, given a reference with the name "lvm", you can access it in a template with {{ .References.lvm }}.
+                  For example, given a reference with the name "lvm", you can access it in a template with {{ .references.lvm }}.
                 type: object
               resources:
                 additionalProperties:
