@@ -10,14 +10,21 @@ import (
 	"quamina.net/go/quamina"
 )
 
+// evaluateData is the data structure used for evaluating rules.
+// In Quamina, this is called the "event".
 type evaluationData struct {
-	Source    source               `json:"source"`
-	Reference tinkerbell.Reference `json:"reference"`
+	// Source is the Object that contains the references.
+	Source source `json:"source,omitempty"`
+	// Reference is a reference to another Object from the source.
+	Reference tinkerbell.Reference `json:"reference,omitempty"`
 }
 
+// source is the Object that contains the references.
 type source struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
+	// Name is the name of the source object.
+	Name string `json:"name,omitempty"`
+	// Namespace is the namespace of the source object.
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // evaluate checks if the data matches any rules defined.
