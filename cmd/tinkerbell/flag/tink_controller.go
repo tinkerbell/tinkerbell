@@ -17,6 +17,8 @@ func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
 	fs.Register(TinkControllerMetricsAddr, &netip.AddrPort{AddrPort: &t.Config.MetricsAddr})
 	fs.Register(TinkControllerProbeAddr, &netip.AddrPort{AddrPort: &t.Config.ProbeAddr})
 	fs.Register(TinkControllerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
+	fs.Register(TinkControllerReferenceAllowListRules, ffval.NewList(&t.Config.ReferenceAllowListRules))
+	fs.Register(TinkControllerReferenceDenyListRules, ffval.NewList(&t.Config.ReferenceDenyListRules))
 }
 
 var TinkControllerEnableLeaderElection = Config{
@@ -42,4 +44,14 @@ var TinkControllerLeaderElectionNamespace = Config{
 var TinkControllerLogLevel = Config{
 	Name:  "tink-controller-log-level",
 	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
+}
+
+var TinkControllerReferenceAllowListRules = Config{
+	Name:  "tink-controller-reference-allow-list-rules",
+	Usage: "rules for which Hardware Reference objects are accessible to Templates",
+}
+
+var TinkControllerReferenceDenyListRules = Config{
+	Name:  "tink-controller-reference-deny-list-rules",
+	Usage: "rules for which Hardware Reference objects are not accessible to Templates, defaults to deny all",
 }

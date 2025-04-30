@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	serrors "errors"
 	"fmt"
 	"time"
@@ -20,29 +21,76 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const (
+	// templateDataReferences is the key used to access the Hardware references in the template data.
+	// This is lowercase as it is new and follows the all lowercase convention used when referencing
+	// fields in the reference object.
+	templateDataReferences = "references"
+	// templateDataHardware is the key used to access the Hardware data in the template data.
+	templateDataHardware = "hardware"
+	// templateDataHardwareLegacy is the key used to access the Hardware data in the template data.
+	// This is Title cased as it was the original convention used in the template data and is
+	// used for backwards compatibility.
+	//
+	// Deprecated: use templateDataHardware instead. This key will be removed in a future release.
+	templateDataHardwareLegacy = "Hardware"
+)
+
 type dynamicClient interface {
 	DynamicRead(ctx context.Context, gvr schema.GroupVersionResource, name, namespace string) (map[string]interface{}, error)
 }
 
 // Reconciler is a type for managing Workflows.
 type Reconciler struct {
-	client        ctrlclient.Client
-	nowFunc       func() time.Time
-	backoff       *backoff.ExponentialBackOff
-	dynamicClient dynamicClient
+	client         ctrlclient.Client
+	nowFunc        func() time.Time
+	backoff        *backoff.ExponentialBackOff
+	dynamicClient  dynamicClient
+	referenceRules ReferenceRules
+}
+
+type ReferenceRules struct {
+	Allowlist []string
+	Denylist  []string
+}
+
+type Option func(*Reconciler)
+
+// WithReferenceRules sets the reference rules for the Reconciler.
+func WithAllowReferenceRules(allowlist []string) Option {
+	return func(r *Reconciler) {
+		r.referenceRules.Allowlist = allowlist
+	}
+}
+
+// WithDenyReferenceRules sets the reference rules for the Reconciler.
+func WithDenyReferenceRules(denylist []string) Option {
+	return func(r *Reconciler) {
+		r.referenceRules.Denylist = denylist
+	}
 }
 
 // TODO(jacobweinstock): add functional arguments to the signature.
 // TODO(jacobweinstock): write functional argument for customizing the backoff.
-func NewReconciler(client ctrlclient.Client, dc dynamicClient) *Reconciler {
+func NewReconciler(client ctrlclient.Client, dc dynamicClient, opts ...Option) *Reconciler {
 	bo := backoff.NewExponentialBackOff()
 	bo.MaxInterval = 5 * time.Second // this should keep all NextBackOff's under 10 seconds
-	return &Reconciler{
+	d := &Reconciler{
 		client:        client,
 		nowFunc:       time.Now,
 		backoff:       bo,
 		dynamicClient: dc,
+		referenceRules: ReferenceRules{
+			Allowlist: []string{},                                //[]string{`{"resource": ["hardware"]}`},    // by default allow all.
+			Denylist:  []string{`{"name": [{"wildcard": "*"}]}`}, // by default deny all.
+		},
 	}
+
+	for _, opt := range opts {
+		opt(d)
+	}
+
+	return d
 }
 
 func (r *Reconciler) SetupWithManager(mgr manager.Manager) error {
@@ -230,9 +278,33 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		data[key] = val
 	}
 	contract := toTemplateHardwareData(hardware)
-	data["Hardware"] = contract
+	data[templateDataHardware] = func() interface{} {
+		// structToMap is used so that fields are accessible in Templates by their json struct tag names instead of
+		// their Go struct field names and their case.
+		// for example, {{ hardware.spec.metadata.instance.id }} instead of {{ hardware.Spec.Metadata.Instance.ID }}.
+		if v, err := structToMap(hardware); err == nil {
+			return v
+		}
+		return hardware.Spec
+	}()
+	data[templateDataHardwareLegacy] = contract
 	references := make(map[string]interface{})
 	for name, rf := range hardware.Spec.References {
+		denied, drules, err := match(ctx, r.referenceRules.Denylist, rf)
+		if err != nil {
+			logger.Info("error applying denylist rules", "error", err)
+			continue
+		}
+		allowed, arules, err := match(ctx, r.referenceRules.Allowlist, rf)
+		if err != nil {
+			logger.Info("error applying allowlist rules", "error", err)
+			continue
+		}
+		if denied && !allowed {
+			logger.Info("reference denied", "name", name, "denyRules", drules, "allowRules", arules)
+			continue
+		}
+		logger.V(1).Info("reference allowed", "name", name, "denyRules", drules, "allowRules", arules)
 		gvr := schema.GroupVersionResource{Group: rf.Group, Version: rf.Version, Resource: rf.Resource}
 		if v, err := r.dynamicClient.DynamicRead(ctx, gvr, rf.Name, rf.Namespace); err == nil {
 			references[name] = v
@@ -240,7 +312,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 			logger.Info("error getting reference", "name", rf.Name, "namespace", rf.Namespace, "gvr", gvr, "error", err)
 		}
 	}
-	data["References"] = references
+	data[templateDataReferences] = references
 
 	tinkWf, err := renderTemplateHardware(stored.Name, pointerToValue(tpl.Spec.Data), data)
 	if err != nil {
@@ -277,6 +349,24 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	stored.Status.State = v1alpha1.WorkflowStatePending
 
 	return reconcile.Result{}, nil
+}
+
+// structToMap converts a struct to a map[string]interface{}.
+func structToMap(item interface{}) (map[string]interface{}, error) {
+	result := make(map[string]interface{})
+
+	// Marshal the struct to JSON.
+	jsonBytes, err := json.Marshal(item)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal the JSON to a map[string]interface{}.
+	if err = json.Unmarshal(jsonBytes, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // templateHardwareData defines the data exposed for a Hardware instance to a Template.
