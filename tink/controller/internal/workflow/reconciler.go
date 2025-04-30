@@ -81,7 +81,7 @@ func NewReconciler(client ctrlclient.Client, dc dynamicClient, opts ...Option) *
 		backoff:       bo,
 		dynamicClient: dc,
 		referenceRules: ReferenceRules{
-			Allowlist: []string{},                                //[]string{`{"resource": ["hardware"]}`},    // by default allow all.
+			Allowlist: []string{},
 			Denylist:  []string{`{"name": [{"wildcard": "*"}]}`}, // by default deny all.
 		},
 	}

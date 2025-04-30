@@ -12,7 +12,7 @@ import (
 
 // match checks if the data matches any rules defined.
 // It returns a boolean indicating if at least one rule was matched, the rule that matched for the decision, and an error if any occurred.
-func match(ctx context.Context, rules []string, data tinkerbell.Reference) (bool, string, error) {
+func match(_ context.Context, rules []string, data tinkerbell.Reference) (bool, string, error) {
 	q, _ := quamina.New() // errors are ignored because they can only happen when passing in options.
 	for _, r := range rules {
 		if err := q.AddPattern(fmt.Sprintf("pattern-%v", r), r); err != nil {
@@ -33,8 +33,12 @@ func match(ctx context.Context, rules []string, data tinkerbell.Reference) (bool
 	}
 
 	var rs []string
-	for _, match := range matches {
-		rs = append(rs, match.(string))
+	for idx, match := range matches {
+		if m, ok := match.(string); ok {
+			rs = append(rs, m)
+		} else {
+			rs = append(rs, fmt.Sprintf("pattern-%d", idx))
+		}
 	}
 
 	return true, strings.Join(rs, ";"), nil
