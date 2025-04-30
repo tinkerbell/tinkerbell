@@ -58,6 +58,7 @@ require (
 	k8s.io/component-base v0.32.4
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubernetes v1.32.4
+	quamina.net/go/quamina v1.5.1
 	sigs.k8s.io/controller-runtime v0.20.4
 )
 

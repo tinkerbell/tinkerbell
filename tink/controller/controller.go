@@ -34,6 +34,8 @@ type Config struct {
 	MetricsAddr             netip.AddrPort
 	ProbeAddr               netip.AddrPort
 	DynamicClient           dynamicClient
+	ReferenceAllowListRules []string
+	ReferenceDenyListRules  []string
 }
 
 type dynamicClient interface {
@@ -84,6 +86,18 @@ func WithLeaderElectionNamespace(namespace string) Option {
 	}
 }
 
+func WithReferenceAllowListRules(rules []string) Option {
+	return func(c *Config) {
+		c.ReferenceAllowListRules = rules
+	}
+}
+
+func WithReferenceDenyListRules(rules []string) Option {
+	return func(c *Config) {
+		c.ReferenceDenyListRules = rules
+	}
+}
+
 func NewConfig(opts ...Option) *Config {
 	defatuls := &Config{
 		EnableLeaderElection: true,
@@ -114,7 +128,15 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	controllerruntime.SetLogger(log)
 	clog.SetLogger(log)
 
-	mgr, err := newManager(c.Client, c.DynamicClient, options)
+	wfOpts := []workflow.Option{}
+	if len(c.ReferenceAllowListRules) > 0 {
+		wfOpts = append(wfOpts, workflow.WithAllowReferenceRules(c.ReferenceAllowListRules))
+	}
+	if len(c.ReferenceDenyListRules) > 0 {
+		wfOpts = append(wfOpts, workflow.WithDenyReferenceRules(c.ReferenceDenyListRules))
+	}
+
+	mgr, err := newManager(c.Client, c.DynamicClient, options, wfOpts...)
 	if err != nil {
 		return err
 	}
@@ -124,7 +146,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 // NewManager creates a new controller manager with tink controller controllers pre-registered.
 // If opts.Scheme is nil, DefaultScheme() is used.
-func newManager(cfg *rest.Config, dc dynamicClient, opts controllerruntime.Options) (controllerruntime.Manager, error) {
+func newManager(cfg *rest.Config, dc dynamicClient, opts controllerruntime.Options, wfOpts ...workflow.Option) (controllerruntime.Manager, error) {
 	if opts.Scheme == nil {
 		s := runtime.NewScheme()
 		_ = schemeBuilder.AddToScheme(s)
@@ -144,7 +166,7 @@ func newManager(cfg *rest.Config, dc dynamicClient, opts controllerruntime.Optio
 		return nil, fmt.Errorf("set up ready check: %w", err)
 	}
 
-	if err = workflow.NewReconciler(mgr.GetClient(), dc).SetupWithManager(mgr); err != nil {
+	if err = workflow.NewReconciler(mgr.GetClient(), dc, wfOpts...).SetupWithManager(mgr); err != nil {
 		return nil, fmt.Errorf("setup workflow reconciler: %w", err)
 	}
 
