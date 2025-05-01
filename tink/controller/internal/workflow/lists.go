@@ -30,7 +30,10 @@ type source struct {
 // evaluate checks if the data matches any rules defined.
 // It returns a boolean indicating if at least one rule was matched, the rule that matched for the decision, and an error if any occurred.
 func evaluate(_ context.Context, rules []string, data evaluationData) (bool, string, error) {
-	q, _ := quamina.New() // errors are ignored because they can only happen when passing in options.
+	q, err := quamina.New()
+	if err != nil {
+		return false, "", fmt.Errorf("error creating rule evaluation engine: %w", err)
+	}
 	for _, r := range rules {
 		if err := q.AddPattern(fmt.Sprintf("pattern-%v", r), r); err != nil {
 			return false, "", fmt.Errorf("error adding matching pattern: %v err: %w", r, err)
