@@ -134,7 +134,8 @@ Rules are defined in JSON format. Each rule must contains at least 1 pattern. A 
 
 All examples use the example event above. The examples are meant to provide an understanding of rule and pattern construction. For advanced rule and pattern construction, please refer to the [Quamina documentation](https://github.com/timbray/quamina)
 
-> NOTE: These are only examples. We recommend building production rules with caution and consideration.
+> [!NOTE]  
+> These are only examples. We recommend building production rules with caution and consideration.
 
 ##### Single rule, single pattern
 
