@@ -105,7 +105,7 @@ func TestMatch(t *testing.T) {
 			expectedMatch: true,
 			expectedRules: `pattern-{"reference":{"resource":["hardware"],"namespace":["tink"]},"source":{"namespace":["tink-system"]}}`,
 		},
-		"case insensitive match": {
+		"case insensitive no match": {
 			rules: []string{`{"reference":{"resource":["hardware"],"namespace":["tink"]},"source":{"namespace":["tink-system"]}}`},
 			data: evaluationData{
 				Source: source{
@@ -119,8 +119,7 @@ func TestMatch(t *testing.T) {
 					Resource:  "Hardware",
 				},
 			},
-			expectedMatch: true,
-			expectedRules: `pattern-{"reference":{"resource":["Hardware"],"namespace":["tink"]},"source":{"namespace":["tink-system"]}}`,
+			expectedMatch: false,
 		},
 	}
 
