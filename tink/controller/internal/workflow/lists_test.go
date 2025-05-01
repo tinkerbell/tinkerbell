@@ -105,6 +105,23 @@ func TestMatch(t *testing.T) {
 			expectedMatch: true,
 			expectedRules: `pattern-{"reference":{"resource":["hardware"],"namespace":["tink"]},"source":{"namespace":["tink-system"]}}`,
 		},
+		"case insensitive match": {
+			rules: []string{`{"reference":{"resource":["hardware"],"namespace":["tink"]},"source":{"namespace":["tink-system"]}}`},
+			data: evaluationData{
+				Source: source{
+					Namespace: "tink-system",
+				},
+				Reference: tinkerbell.Reference{
+					Namespace: "tink",
+					Name:      "example",
+					Group:     "tinkerbell.org",
+					Version:   "v1alpha1",
+					Resource:  "Hardware",
+				},
+			},
+			expectedMatch: true,
+			expectedRules: `pattern-{"reference":{"resource":["Hardware"],"namespace":["tink"]},"source":{"namespace":["tink-system"]}}`,
+		},
 	}
 
 	for name, test := range tests {
