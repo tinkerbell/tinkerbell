@@ -1,17 +1,18 @@
-package spacelist
+package delimitedlist
 
 import (
 	"strings"
 )
 
-// Value implements a space-delimited list flag value.
+// Value implements a user defined delimited list flag value.
 type Value struct {
-	target *[]string
+	target    *[]string
+	delimiter rune
 }
 
-// New creates a new space-delimited list value.
-func New(target *[]string) *Value {
-	return &Value{target: target}
+// New creates a new user defined delimited list value.
+func New(target *[]string, d rune) *Value {
+	return &Value{target: target, delimiter: d}
 }
 
 // FromEnv implements ff/v4's environmentally-sourced flag values.
@@ -26,7 +27,9 @@ func (v *Value) FromFile(s string) error {
 
 // Set implements the flag.Value interface.
 func (v *Value) Set(s string) error {
-	values := strings.Fields(s)
+	values := strings.FieldsFunc(s, func(r rune) bool {
+		return r == v.delimiter
+	})
 	*v.target = append(*v.target, values...)
 	return nil
 }
@@ -36,5 +39,5 @@ func (v *Value) String() string {
 	if v.target == nil {
 		return ""
 	}
-	return strings.Join(*v.target, " ")
+	return strings.Join(*v.target, string(v.delimiter))
 }

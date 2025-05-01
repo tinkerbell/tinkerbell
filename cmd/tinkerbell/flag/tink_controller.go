@@ -2,8 +2,8 @@ package flag
 
 import (
 	"github.com/peterbourgon/ff/v4/ffval"
+	"github.com/tinkerbell/tinkerbell/pkg/flag/delimitedlist"
 	"github.com/tinkerbell/tinkerbell/pkg/flag/netip"
-	"github.com/tinkerbell/tinkerbell/pkg/flag/spacelist"
 	"github.com/tinkerbell/tinkerbell/tink/controller"
 )
 
@@ -18,8 +18,8 @@ func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
 	fs.Register(TinkControllerMetricsAddr, &netip.AddrPort{AddrPort: &t.Config.MetricsAddr})
 	fs.Register(TinkControllerProbeAddr, &netip.AddrPort{AddrPort: &t.Config.ProbeAddr})
 	fs.Register(TinkControllerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
-	fs.Register(TinkControllerReferenceAllowListRules, spacelist.New(&t.Config.ReferenceAllowListRules))
-	fs.Register(TinkControllerReferenceDenyListRules, spacelist.New(&t.Config.ReferenceDenyListRules))
+	fs.Register(TinkControllerReferenceAllowListRules, delimitedlist.New(&t.Config.ReferenceAllowListRules, '|'))
+	fs.Register(TinkControllerReferenceDenyListRules, delimitedlist.New(&t.Config.ReferenceDenyListRules, '|'))
 }
 
 var TinkControllerEnableLeaderElection = Config{

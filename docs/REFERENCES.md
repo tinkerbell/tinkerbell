@@ -1,8 +1,14 @@
 # Hardware References
 
-This doc will explain what Hardware references are, how to define them, and how to use them in a Template.
+This doc will explain what Hardware references are, how to define them, how to use them in a Template, and how to configure access to them.
 
 ## What are References?
+
+References are a way to link a Hardware resource to other Kubernetes objects. Once these links are established the fields in the referenced objects are accessible and can be used for templating in a Tinkerbell Template.
+
+### Why is this useful?
+
+This opens up Tinkerbell to integrate with any Kubernetes object and data available. You can create CRDs for things like LVM configurations, network bonding setups, and more. 
 
 The Hardware custom resource defines a field, `spec.references`, which allows for 
 
@@ -78,11 +84,11 @@ spec:
             command: ["echo", "{{ .references.hw.spec.userData }}"]
 ```
 
-## Limiting Access to References
+## Configuring Access to References
 
-By default, Tink Controller is configured to deny access to all Reference objects. This is a security feature to limit what can be accessed as the Tink Controller might have cluster wide access. In order to allow access to a specific resource, the Tink Controller must be configured with the CLI flag, `--tink-controller-reference-allow-list-rules`. There is also a CLI flag, `--tink-controller-reference-deny-list-rules`, which will deny access to a specific resource. The allow list takes precedence over the deny list. The allow list is a list of rules that define what resources are allowed to be accessed by the Hardware References. The deny list is a list of rules that define what resources are denied access by the Hardware References.
+### Events, Rules, and Patterns
 
-Rules JSON Object, this is what Quamina calls an "event".
+Tinkerbell uses the Quamina library for handling both the allow and deny list. Quamina's pattern matching syntax and semantics are used to define the rules. We recommend reading the [Quamina documentation](https://github.com/timbray/quamina). Rules are JSON Objects. The data with which the rules are compared are what Quamina calls an "event". The following is the specification of the event that is passed to Quamina for matching against rules.
 
 ```json
 {
@@ -102,18 +108,99 @@ Rules JSON Object, this is what Quamina calls an "event".
 }
 ```
 
-Rules are defined in JSON format. Each rule contains greater than 0 patterns.
+The `source` object refers to the Hardware object where the reference is defined. The `name` field is the name of the Hardware object. The `namespace` field is the namespace of the Hardware object. The `reference` object refers to a single referenced object. The `name` field is the name of the referenced object. The `namespace` field is the namespace of the referenced object. The `group` field is the group of the referenced object. The `version` field is the version of the referenced object. The `resource` field is the resource of the referenced object.
 
-Example of specifying multiple allow rules. Multiple rules are separated by a space.
+The following is an example event.
 
-```bash
-# This is two rules that will be "or"ed together. Space delimited.
---tink-controller-reference-allow-list-rules '{"reference":{"resource":["hardware"]}} {"reference":{"resource":["workflows"]}}'
-
-# This is one rule, encapsulated by an outer `{}`, that must match all patterns. All patterns are "and"ed together.
---tink-controller-reference-allow-list-rules '{"reference":{"resource":["hardware"],"source":{"namespace":["tink-system"]}}}'
+```json
+{
+  "source":
+    {
+      "name":"myhardware",
+      "namespace":"tink-system"
+    },
+  "reference":
+    {
+      "namespace":"example",
+      "name":"exampleLVM",
+      "group":"example.org",
+      "version":"v1alpha1",
+      "resource":"lvms"
+    }
+}
 ```
 
+Rules are defined in JSON format. Each rule must contains at least 1 pattern. A pattern is a JSON object that follows the syntax and semantics defined by [Quamina](https://github.com/timbray/quamina/blob/main/PATTERNS.md). Multiple patterns are separated by a comma (`,`). All patterns in a single rule are combined with an AND operation. Multiple rules are separated by a pipe (`|`). All rules are combined with an OR operation.
+
+#### Examples
+
+All examples use the example event above. The examples are meant to provide an understanding of rule and pattern construction. For advanced rule and pattern construction, please refer to the [Quamina documentation](https://github.com/timbray/quamina)
+
+> NOTE: These are only examples. We recommend building production rules with caution and consideration.
+
+##### Single rule, single pattern
+
+These examples are a single rule with a single pattern.
+
+- This rule allows access for all `Hardware` objects in the `tink-system` namespace to any referenced object in any namespace.
+
+  ```json
+  {"source":{"namespace":["tink-system"]}}
+  ```
+
+- This rule allows access for all `Hardware` objects, in any namespace to all `lvms` resources, in any namespace.
+
+  ```json
+  {"reference":{"resource":["lvms"]}}
+  ```
+
+##### Single rule, multiple pattern
+
+These examples are single rules with multiple patterns.
+
+- This rule allows access for all `Hardware` objects in the `tink-system` namespace to all `lvms` objects, in any namespace.
+
+  ```json
+  {"source":{"namespace":["tink-system"]},"reference":{"resource":["lvms"]}}
+  ```
+
+- This rule allows access for the `example1` `Hardware` object in the `tink-system` namespace to only the `exampleLVM` `lvms` object in the `example` namespace.
+
+  ```json
+  {"source":{"name":["example1"],"namespace":["tink-system"]},"reference":{"name":["exampleLVM"],"namespace":["example"],"resource":["lvms"]}} 
+  ```
+
+##### Multiple rules
+
+These examples are multiple rules.
+
+- This rule allows access for all `Hardware` objects in the `tink-system` to all `lvms` resources in any namespace OR for all `Hardware` objects in the `tink-system` namespace to all `bonds` resources in any namespace.
+
+  ```json
+  {"source":{"namespace":["tink-system"]},"reference":{"resource":["lvms"]}}|{"source":{"namespace":["tink-system"]},"reference":{"resource":["bonds"]}}
+  ```
+
+### Access control
+
+By default, all access to References is denied. Tink Controller is responsible for Reference lookups, so what ever access Tink Controller has is the upper bound for access. The deny all by default is a security feature to limit what can be accessed as the Tink Controller might have cluster wide access. Use the CLI flags or environment variables to define both the allow and deny rules. The allow list takes precedence over the deny list.
+
+> [!NOTE]  
+> If a deny rule is defined, it will override the default deny all access.
+
+CLI Flags:
+
+- `--tink-controller-reference-allow-list-rules`
+- `--tink-controller-reference-deny-list-rules`
+
 ```bash
---tink-controller-reference-allow-list-rules '{"reference":{"resource":["hardware"],"namespace":["tink-system"]},"source":{"namespace":["tink-system"]}} {"reference":{"resource":["pods"]}}'
+--tink-controller-reference-allow-list-rules='{"reference":{"resource":["hardware"]}}|{"reference":{"resource":["workflows"]}}'
+```
+
+Environment Variables:
+
+- `TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES`
+- `TINKERBELL_TINK_CONTROLLER_REFERENCE_DENY_LIST_RULES`
+
+```bash
+export TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES='{"reference":{"resource":["hardware"]}}|{"reference":{"resource":["workflows"]}}'
 ```

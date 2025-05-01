@@ -1,4 +1,4 @@
-package spacelist
+package delimitedlist
 
 import (
 	"testing"
@@ -66,7 +66,7 @@ func TestSpaceList(t *testing.T) {
 				target = append(target, tt.initWith...)
 			}
 
-			v := New(&target)
+			v := New(&target, ' ')
 
 			var err error
 			switch tt.source {
