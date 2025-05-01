@@ -282,10 +282,12 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		// structToMap is used so that fields are accessible in Templates by their json struct tag names instead of
 		// their Go struct field names and their case.
 		// for example, {{ hardware.spec.metadata.instance.id }} instead of {{ hardware.Spec.Metadata.Instance.ID }}.
-		if v, err := structToMap(hardware); err == nil {
-			return v
+		v, err := structToMap(hardware)
+		if err != nil {
+			logger.V(1).Info("error converting hardware to map for use in template data", "error", err)
+			return map[string]interface{}{}
 		}
-		return hardware.Spec
+		return v
 	}()
 	data[templateDataHardwareLegacy] = contract
 	references := make(map[string]interface{})
