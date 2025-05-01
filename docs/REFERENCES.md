@@ -4,21 +4,15 @@ This doc will explain what Hardware references are, how to define them, how to u
 
 ## What are References?
 
-References are a way to link a Hardware resource to other Kubernetes objects. Once these links are established the fields in the referenced objects are accessible and can be used for templating in a Tinkerbell Template.
+References are a way to link a Hardware resource to other Kubernetes objects. Once these links are established the fields in the referenced objects are accessible for use in templating a Tinkerbell Template.
 
 ### Why is this useful?
 
-This opens up Tinkerbell to integrate with any Kubernetes object and data available. You can create CRDs for things like LVM configurations, network bonding setups, and more. 
-
-The Hardware custom resource defines a field, `spec.references`, which allows for 
-
-The string name under `spec.references` can be anything and will be used to reference the object in the Template. The name is not required to be the same as the name of the object being referenced.
-
-The `resource` field must be all lowercase and the plural version of the object.
+This opens up Tinkerbell to integrate with any Kubernetes object and data available. You can create CRDs for things like LVM configurations, network bonding setups, and more.
 
 ## How to define References
 
-Here's an example of referencing a fictional CRD for LVM data. All fields are required, except for `group`, which is optional for some resources like `pods`, for example. There is a script that will retrieve this information from a cluster located [here](../script/reference_format.sh).
+Here's an example of a reference for a fictional CRD, `lvm.example.org`. All fields are required, except for `group`, which is optional for some resources like `pods`, for example. The `resource` and `group` should generally always be lowercase. The `resource` fields must be the plural version of the object. There is a helper script, [here](../script/reference_format.sh), for getting this info from a cluster. The string name under `spec.references` can be anything and will be used to reference the object in the Template.
 
 ```yaml
 spec:
@@ -90,6 +84,8 @@ spec:
 
 Tinkerbell uses the Quamina library for handling both the allow and deny list. Quamina's pattern matching syntax and semantics are used to define the rules. We recommend reading the [Quamina documentation](https://github.com/timbray/quamina). Rules are JSON Objects. The data with which the rules are compared are what Quamina calls an "event". The following is the specification of the event that is passed to Quamina for matching against rules.
 
+#### Events
+
 ```json
 {
   "source":
@@ -130,7 +126,9 @@ The following is an example event.
 }
 ```
 
-Rules are defined in JSON format. Each rule must contains at least 1 pattern. A pattern is a JSON object that follows the syntax and semantics defined by [Quamina](https://github.com/timbray/quamina/blob/main/PATTERNS.md). Multiple patterns are separated by a comma (`,`). All patterns in a single rule are combined with an AND operation. Multiple rules are separated by a pipe (`|`). All rules are combined with an OR operation.
+#### Rules and Patterns
+
+Rules are defined in JSON format. Each rule must contains at least 1 pattern. A pattern is a JSON object that follows the syntax and semantics defined by [Quamina](https://github.com/timbray/quamina/blob/main/PATTERNS.md). Multiple patterns are separated by a comma (`,`). All patterns in a single rule are combined with an AND operation. Multiple rules are separated by a pipe (`|`). All rules are combined with an OR operation. By default all patterns are case-sensitive. There is a case-insensitive pattern, see the [Quamina documentation](https://github.com/timbray/quamina/blob/0526acc321a81d4df535caf790879648ace11c86/PATTERNS.md#equals-ignore-case-pattern) for details.
 
 #### Examples
 

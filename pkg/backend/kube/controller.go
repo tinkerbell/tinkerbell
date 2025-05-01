@@ -12,10 +12,11 @@ import (
 // DynamicRead reads any Kubernetes resource, defined via gvr, name, and namespace, and returns the spec field
 // as a map[string]interface{}. It uses the Kubernetes dynamic client to perform the read operation.
 func (b *Backend) DynamicRead(ctx context.Context, gvr schema.GroupVersionResource, name, namespace string) (map[string]interface{}, error) {
-	// make sure all gvr field values are lowercase
+	// Here's the spec (https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources):
+	// Resource collections should be all lowercase and plural, [...], Group names must be lower case and be valid DNS subdomains.
 	sanitizedGVR := schema.GroupVersionResource{
 		Group:    strings.ToLower(gvr.Group),
-		Version:  strings.ToLower(gvr.Version),
+		Version:  gvr.Version,
 		Resource: strings.ToLower(gvr.Resource),
 	}
 	res := b.DynamicClient.Resource(sanitizedGVR).Namespace(namespace)
