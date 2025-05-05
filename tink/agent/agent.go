@@ -65,6 +65,9 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 			if errors.Is(err, context.Canceled) {
 				return
 			}
+			if isNoWorkflow(err) {
+				continue
+			}
 			log.Info("error reading/retrieving action", "error", err)
 			continue
 		}
@@ -389,4 +392,17 @@ func humanDuration(d time.Duration, precision int) string {
 
 	// Join all parts with spaces
 	return strings.Join(parts, "")
+}
+
+func isNoWorkflow(err error) bool {
+	type noWorkflow interface {
+		NoWorkflow() bool
+	}
+	if err == nil {
+		return false
+	}
+	if _, ok := err.(noWorkflow); ok {
+		return true
+	}
+	return false
 }

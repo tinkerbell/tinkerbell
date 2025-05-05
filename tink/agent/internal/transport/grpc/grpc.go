@@ -14,8 +14,10 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -50,6 +52,9 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{WorkerId: toPtr(c.WorkerID), WorkerAttributes: c.Attributes})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return spec.Action{}, &NoWorkflowError{}
+		}
 		return spec.Action{}, fmt.Errorf("error getting action: %w", err)
 	}
 
