@@ -1,5 +1,4 @@
-Who is using Tinkerbell?
-====================
+# Are you using Tinkerbell?
 
 Sharing experiences and learning from other users is essential. We are
 frequently asked who is using Tinkerbell in some fashion. so people can get in
@@ -11,19 +10,18 @@ users to get in touch, it can be challenging to find this information quickly.
 The following is a directory of adopters to help identify users of individual
 features. The users themselves directly maintain the list.
 
-Adding yourself as a user
--------------------------
+## Adding yourself (company) as an adopter
 
 If you are using Tinkerbell or it is integrated into your product, service, or
-platform, please consider adding yourself as a user with a quick
-description of your use case by opening a pull request to this file and adding
-a section describing your usage of Tinkerbell. If you are open to others contacting
-you about your use of Tinkerbell on Slack, add your Slack nickname as well.
+platform, please consider adding yourself (company) as an adopter. Open a pull request
+with you or your company's info and a description of your use case.
+If you are open to others contacting you about your use of Tinkerbell, add a way for folks
+to get in touch with you. A good place to interact with others is in the [CNCF Slack (Tinkerbell Channel)](https://cloud-native.slack.com/archives/D038VL51XMZ).
 
     N: Name of user (company)
-    D: Description
-    U: Usage of features
-    L: Link with further information (optional)
+    D: Description of the user (company)
+    U: Usage of Tinkerbell
+    L: Link(s) with further information (optional)
     Q: Contacts available for questions (optional)
 
 Example entry:
@@ -33,18 +31,16 @@ Example entry:
       U: Tinkerbell, CAPT, PBnJ
       Q: @slacknick1, @slacknick2
 
-Requirements to be listed
--------------------------
+## Requirements to be listed
 
-* You must represent the user listed. Do *NOT* add entries on behalf of other users.
+* You must represent the user (company) listed. Do *NOT* add entries on behalf of other users.
 * There is no minimum deployment size but we request to list permanent
-  production deployments only, i.e., no demo or trial deployments. Commercial
+  production deployments only, i.e., no demo or trial deployments. Company
   use is not required. A well-done home lab setup can be as equally
-  interesting as a large-scale commercial deployment.
+  interesting as a large-scale company deployment.
 
-Users (Alphabetically)
-----------------------
+## Adopters (Alphabetically)
 
-| Name | Description | Usage | Link | Contacts |
+| Name | Description | Usage | Link(s) | Contacts |
 |------|-------------|-------|------|----------|
-| EKS Anywhere | Managed Kubernetes software | The Tinkerbell stack and CAPT are used to provision bare metal EKS Anywhere clusters. | [GitHub](https://github.com/aws/eks-anywhere), [Docs](https://anywhere.eks.amazonaws.com/docs/) | @Jacob Weinstock |
+| EKS Anywhere | Managed Kubernetes software | The Tinkerbell stack and CAPT are used to provision bare metal EKS Anywhere clusters. | [GitHub](https://github.com/aws/eks-anywhere), [Docs](https://anywhere.eks.amazonaws.com/docs/) | `@Jacob Weinstock` |
