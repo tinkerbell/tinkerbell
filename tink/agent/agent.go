@@ -394,7 +394,6 @@ func humanDuration(d time.Duration, precision int) string {
 	return strings.Join(parts, "")
 }
 
-<<<<<<< HEAD
 func isNoWorkflow(err error) bool {
 	type noWorkflow interface {
 		NoWorkflow() bool
@@ -406,12 +405,4 @@ func isNoWorkflow(err error) bool {
 		return true
 	}
 	return false
-=======
-func isNoActions(err error) bool {
-	type noActions interface {
-		NoActions() bool
-	}
-	te, ok := err.(noActions)
-	return ok && te.NoActions()
->>>>>>> e5b24cd9 (Update:)
 }
