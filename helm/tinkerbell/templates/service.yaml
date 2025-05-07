@@ -6,7 +6,6 @@ metadata:
   name: tinkerbell
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  type: ClusterIP
   type: {{ .Values.service.type }}
   {{- if eq .Values.service.type "LoadBalancer" }}
   {{- if .Values.service.lbClass }}
