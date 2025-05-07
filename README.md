@@ -19,9 +19,13 @@ Tinkerbell is a bare metal provisioning engine. It supports network and ISO boot
 
 For more details, see the [Tinkerbell documentation](https://tinkerbell.org).
 
+## Code of Conduct
+
+Before getting started, please read and understand our [Code of Conduct](docs/CODE_OF_CONDUCT.md).
+
 ## Contributing
 
-If you are interested in contributing to Tinkerbell, please see our [contributing guidelines](CONTRIBUTING.md).
+If you are interested in contributing to Tinkerbell, please see our [contributing guidelines](docs/CONTRIBUTING.md).
 
 ## Roadmap
 
@@ -29,8 +33,20 @@ To follow along and contribute to the Tinkerbell roadmap, please see our [roadma
 
 ## Adopters
 
-A list of adopters and a brief description of their use cases can be found in our [adopters document](ADOPTERS.md).
+A list of adopters and a brief description of their use cases can be found in our [adopters document](docs/ADOPTERS.md).
 
 ## Governance
 
 The Tinkerbell project is governed by a group of Maintainers and Committers. How they are selected and govern is outlined in our [governance document](https://github.com/tinkerbell/org/blob/main/GOVERNANCE.md).
+
+## Design Philosophy
+
+The Tinkerbell project has a set of design principles that guide the development of the project. These principles are outlined in our [design philosophy document](docs/DESIGN_PHILOSOPHY.md).
+
+## Release Process
+
+The Tinkerbell project follows a release process that is outlined in our [release process document](docs/RELEASING.md).
+
+## Security
+
+For security issues, please see our [security document](docs/SECURITY.md).
