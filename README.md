@@ -19,6 +19,10 @@ Tinkerbell is a bare metal provisioning engine. It supports network and ISO boot
 
 For more details, see the [Tinkerbell documentation](https://tinkerbell.org).
 
+## Adopters
+
+A list of adopters and a brief description of their use cases can be found in our [adopters document](docs/ADOPTERS.md).
+
 ## Code of Conduct
 
 Before getting started, please read and understand our [Code of Conduct](docs/CODE_OF_CONDUCT.md).
@@ -27,25 +31,21 @@ Before getting started, please read and understand our [Code of Conduct](docs/CO
 
 If you are interested in contributing to Tinkerbell, please see our [contributing guidelines](docs/CONTRIBUTING.md).
 
-## Roadmap
+## Design Philosophy
 
-To follow along and contribute to the Tinkerbell roadmap, please see our [roadmap repository](https://github.com/tinkerbell/roadmap).
-
-## Adopters
-
-A list of adopters and a brief description of their use cases can be found in our [adopters document](docs/ADOPTERS.md).
+The Tinkerbell project has a set of design principles that guide the development of the project. These principles are outlined in our [design philosophy document](docs/DESIGN_PHILOSOPHY.md).
 
 ## Governance
 
 The Tinkerbell project is governed by a group of Maintainers and Committers. How they are selected and govern is outlined in our [governance document](https://github.com/tinkerbell/org/blob/main/GOVERNANCE.md).
 
-## Design Philosophy
-
-The Tinkerbell project has a set of design principles that guide the development of the project. These principles are outlined in our [design philosophy document](docs/DESIGN_PHILOSOPHY.md).
-
 ## Release Process
 
 The Tinkerbell project follows a release process that is outlined in our [release process document](docs/RELEASING.md).
+
+## Roadmap
+
+To follow along and contribute to the Tinkerbell roadmap, please see our [roadmap repository](https://github.com/tinkerbell/roadmap).
 
 ## Security
 
