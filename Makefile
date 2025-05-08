@@ -92,7 +92,7 @@ fmt: $(GOIMPORTS_FQP) ## Run go fmt
 	go fmt ./...
 	$(GOIMPORTS_FQP) -w .
 
-FILE_TO_NOT_INCLUDE_IN_COVERAGE := workflow_grpc.pb.go|workflow.pb.go|zz_generated.deepcopy.go|facility_string.go|severity_string.go
+FILE_TO_NOT_INCLUDE_IN_COVERAGE := script/version/main.go|*.pb.go|zz_generated.deepcopy.go|facility_string.go|severity_string.go
 
 .PHONY: coverage
 coverage: test ## Show test coverage
