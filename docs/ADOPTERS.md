@@ -42,6 +42,16 @@ Use this template in the [Adopters List](#adopters-list) section:
 
 ## Adopters List
 
+### Colony
+
+- **Description**: Autodiscover data center hardware and provision Kubernetes cluster with native support for Tinkerbell.
+- **Usage**: The Tinkerbell stack to orchestrate bare metal automations.
+- **Links**:
+  - [GitHub](https://github.com/konstructio/colony)
+  - [Documentation](https://colony.konstruct.io/docs/)
+- **Contacts**:
+  - CNCF Slack: @John Dietz, @Jared Edwards 
+
 ### EKS Anywhere
 
 - **Description**: AWS's managed Kubernetes distribution that enables customers to create and operate Kubernetes clusters on-premises
