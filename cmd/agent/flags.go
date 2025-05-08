@@ -100,6 +100,7 @@ func RegisterRootFlags(c *config, fs *flag.FlagSet) {
 	fs.IntVar(&c.LogLevel, "log-level", 0, "Log level")
 	fs.Var(&c.Options.RuntimeSelected, "runtime", fmt.Sprintf("Container runtime used to run Actions, must be one of [%s, %s]", agent.DockerRuntimeType, agent.ContainerdRuntimeType))
 	fs.Var(&c.Options.TransportSelected, "transport", fmt.Sprintf("Transport used to receive Workflows/Actions and to send results, must be one of [%s, %s, %s]", agent.GRPCTransportType, agent.NATSTransportType, agent.FileTransportType))
+	fs.BoolVar(&c.Options.AttributeDetectionEnabled, "attribute-detection", true, "Enable attribute detection")
 }
 
 func RegisterRepositoryFlags(c *config, fs *flag.FlagSet) {
