@@ -62,4 +62,13 @@ Use this template in the [Adopters List](#adopters-list) section:
 - **Contacts**:
   - CNCF Slack: @Jacob Weinstock
 
+### Ingenuity Cloud Services
 
+- **Description**: Bare metal hosting provider with presence in 35 global locations
+- **Usage**: Using components of the tinkerbell stack to automate ~12,000 bare metal deployments globally.
+- **Links**:
+  - [Website](https://www.ingenuitycloudservices.com/)
+  - [Docs](https://docs.ingenuitycloudservices.com/)
+- **Contacts**:
+  - GitHub: @jasonyates
+  - CNCF Slack: @Jason Y
