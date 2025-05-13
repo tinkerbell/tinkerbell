@@ -30,7 +30,7 @@ Before getting started, please read and understand our [Code of Conduct](docs/CO
 
 ## Community
 
-The Tinkerbell community meets for a video call weekly on Tuesdays. The details are in our [meeting doc](https://docs.google.com/document/d/1Hmqrhj2rPjZ5W0DvRynFNY2cJq6jFCbNOc4p26U5Dgg/edit?usp=sharing).
+The Tinkerbell community meets for a video call weekly on Tuesdays. The details are in our [community meeting doc](https://docs.google.com/document/d/1Hmqrhj2rPjZ5W0DvRynFNY2cJq6jFCbNOc4p26U5Dgg/edit?usp=sharing).
 
 ## Contributing
 
