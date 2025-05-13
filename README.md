@@ -7,6 +7,7 @@
 [![CNCF Slack Channel](https://img.shields.io/badge/slack-%23tinkerbell-blue?logo=slack)](https://cloud-native.slack.com/archives/C01SRB41GMT)
 [![CNCF Landscape](https://img.shields.io/badge/CNCF%20Landscape-5699C6?logo=cncf)](https://landscape.cncf.io/?item=provisioning--automation-configuration--tinkerbell)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftinkerbell%2Ftinkerbell.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftinkerbell%2Ftinkerbell?ref=badge_shield&issueType=license)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/10553/badge)](https://www.bestpractices.dev/projects/10553)
 
 Tinkerbell is a bare metal provisioning engine. It supports network and ISO booting and BMC interactions as well as a metadata service, and a workflow engine for provisioning. Some of the features include:
 
