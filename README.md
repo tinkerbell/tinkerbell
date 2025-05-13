@@ -27,6 +27,10 @@ A list of adopters and a brief description of their use cases can be found in ou
 
 Before getting started, please read and understand our [Code of Conduct](docs/CODE_OF_CONDUCT.md).
 
+## Community
+
+The Tinkerbell community meets for a video call weekly on Tuesdays. The details are in our [meeting doc](https://docs.google.com/document/d/1Hmqrhj2rPjZ5W0DvRynFNY2cJq6jFCbNOc4p26U5Dgg/edit?usp=sharing).
+
 ## Contributing
 
 If you are interested in contributing to Tinkerbell, please see our [contributing guidelines](docs/CONTRIBUTING.md).
