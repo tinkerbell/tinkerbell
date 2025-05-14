@@ -3,7 +3,7 @@ module github.com/tinkerbell/tinkerbell
 go 1.24.1
 
 require (
-	dario.cat/mergo v1.0.1
+	dario.cat/mergo v1.0.2
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20250331132619-80c6fe5a0a65
