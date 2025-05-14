@@ -12,6 +12,7 @@ import (
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,6 +36,15 @@ func GetFakeClientBuilder() *fake.ClientBuilder {
 	).WithRuntimeObjects(
 		&v1alpha1.Hardware{}, &v1alpha1.Template{}, &v1alpha1.Workflow{},
 	)
+}
+
+type fakeDynamicClient struct {
+	unstructured map[string]interface{}
+	error        error
+}
+
+func (f *fakeDynamicClient) DynamicRead(_ context.Context, _ schema.GroupVersionResource, _, _ string) (map[string]interface{}, error) {
+	return f.unstructured, f.error
 }
 
 var minimalTemplate = `version: "0.1"
@@ -817,6 +827,15 @@ tasks:
 					Namespace: "default",
 				},
 				Spec: v1alpha1.HardwareSpec{
+					References: map[string]v1alpha1.Reference{
+						"hw": {
+							Name:      "machine1",
+							Namespace: "default",
+							Group:     "tinkerbell.org",
+							Version:   "v1alpha1",
+							Resource:  "hardware",
+						},
+					},
 					Disks: []v1alpha1.Disk{
 						{Device: "/dev/nvme0n1"},
 					},
@@ -964,8 +983,9 @@ tasks:
 			kc = kc.WithStatusSubresource(tc.seedWorkflow)
 		}
 		controller := &Reconciler{
-			client:  kc.Build(),
-			nowFunc: TestTime.Now,
+			client:        kc.Build(),
+			nowFunc:       TestTime.Now,
+			dynamicClient: &fakeDynamicClient{},
 		}
 
 		t.Run(tc.name, func(t *testing.T) {
