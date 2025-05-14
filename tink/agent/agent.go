@@ -65,7 +65,7 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 			if errors.Is(err, context.Canceled) {
 				return
 			}
-			if isNoWorkflow(err) {
+			if isNoAction(err) {
 				continue
 			}
 			log.Info("error reading/retrieving action", "error", err)
@@ -394,14 +394,15 @@ func humanDuration(d time.Duration, precision int) string {
 	return strings.Join(parts, "")
 }
 
-func isNoWorkflow(err error) bool {
-	type noWorkflow interface {
-		NoWorkflow() bool
+// isNoWorkflow checks if the error is a no action available error.
+func isNoAction(err error) bool {
+	type noAction interface {
+		NoAction() bool
 	}
 	if err == nil {
 		return false
 	}
-	if _, ok := err.(noWorkflow); ok {
+	if _, ok := err.(noAction); ok {
 		return true
 	}
 	return false
