@@ -1,16 +1,16 @@
 # Auto Enrollment in Tinkerbell
 
-This document explains how Tinkerbell's auto enrollment feature works and how to enable it.
+This document explains how Tinkerbell's auto enrollment feature works, how to enable it, and how to configure a Workflow Ruleset.
 
 ## Overview
 
 Auto enrollment automatically assigns Workflows to Tink Agents without having the need for a pre-existing Hardware object.
 
-Auto enrollment works by:
+This is accomplished by:
 
-1. Matching hardware attributes against predefined rules
-2. Creating appropriate workflows for devices that match those rules
-3. Running those workflows to provision the hardware
+1. Matching attributes against predefined rules
+1. Creating appropriate Workflows for Agents that match those rules
+1. Running those Workflows
 
 ## How Auto Enrollment Works
 
