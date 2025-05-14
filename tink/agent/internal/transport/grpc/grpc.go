@@ -247,8 +247,8 @@ func (e *noActionsError) As(target interface{}) bool {
 	return ok
 }
 
-// NoActions implements the NoActions interface in the agent package.
-func (e *noActionsError) NoActions() bool {
+// NoAction implements the NoAction interface in the agent package.
+func (e *noActionsError) NoAction() bool {
 	return true
 }
 
