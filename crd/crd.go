@@ -27,6 +27,9 @@ var TemplateCRD []byte
 //go:embed bases/tinkerbell.org_workflows.yaml
 var WorkflowCRD []byte
 
+//go:embed bases/tinkerbell.org_workflowrulesets.yaml
+var WorkflowRuleSetCRD []byte
+
 //go:embed bases/bmc.tinkerbell.org_jobs.yaml
 var JobCRD []byte
 
@@ -50,6 +53,8 @@ const (
 	TemplateCRDName = "templates.tinkerbell.org"
 	// WorkflowCRDName is the name of the Workflow CRD.
 	WorkflowCRDName = "workflows.tinkerbell.org"
+	// WorkflowRuleSetCRDName is the name of the WorkflowRuleSet CRD.
+	WorkflowRuleSetCRDName = "workflowrulesets.tinkerbell.org"
 	// JobCRDName is the name of the Job CRD.
 	JobCRDName = "jobs.bmc.tinkerbell.org"
 	// MachineCRDName is the name of the Machine CRD.
@@ -60,12 +65,13 @@ const (
 
 // TinkerbellDefaults contains all the Tinkerbell CRDs.
 var TinkerbellDefaults = map[string][]byte{
-	HardwareCRDName: HardwareCRD,
-	TemplateCRDName: TemplateCRD,
-	WorkflowCRDName: WorkflowCRD,
-	JobCRDName:      JobCRD,
-	MachineCRDName:  MachineCRD,
-	TaskCRDName:     TaskCRD,
+	HardwareCRDName:        HardwareCRD,
+	TemplateCRDName:        TemplateCRD,
+	WorkflowCRDName:        WorkflowCRD,
+	WorkflowRuleSetCRDName: WorkflowRuleSetCRD,
+	JobCRDName:             JobCRD,
+	MachineCRDName:         MachineCRD,
+	TaskCRDName:            TaskCRD,
 }
 
 // ConfigOption is a function that sets a configuration option.
@@ -137,7 +143,7 @@ func (t Tinkerbell) Ready(ctx context.Context) error {
 
 			establishedCond := getCondition(crd, apiv1.Established)
 			namesAcceptedCond := getCondition(crd, apiv1.NamesAccepted)
-			if establishedCond.Status != apiv1.ConditionTrue && namesAcceptedCond.Status != apiv1.ConditionTrue {
+			if establishedCond != nil && establishedCond.Status != apiv1.ConditionTrue && namesAcceptedCond != nil && namesAcceptedCond.Status != apiv1.ConditionTrue {
 				return fmt.Errorf("CRD %s is not ready: established: %v, namesAccepted: %v", name, establishedCond.Status, namesAcceptedCond.Status)
 			}
 			return nil
