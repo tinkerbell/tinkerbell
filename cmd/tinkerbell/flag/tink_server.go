@@ -25,7 +25,6 @@ func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {
 	fs.Register(TinkServerBindPort, ffval.NewValueDefault(&t.BindPort, t.BindPort))
 	fs.Register(TinkServerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
 	fs.Register(TinkServerAutoEnrollmentEnabled, ffval.NewValueDefault(&t.Config.AutoEnrollmentEnabled, t.Config.AutoEnrollmentEnabled))
-	fs.Register(TinkServerAutoDiscoveryEnabled, ffval.NewValueDefault(&t.Config.AutoDiscoveryEnabled, t.Config.AutoDiscoveryEnabled))
 }
 
 // Convert TinkServerConfig data types to tink server server.Config data types.
@@ -51,9 +50,4 @@ var TinkServerLogLevel = Config{
 var TinkServerAutoEnrollmentEnabled = Config{
 	Name:  "tink-server-auto-enrollment-enabled",
 	Usage: "enable auto enrollment capabilities for the Tink server",
-}
-
-var TinkServerAutoDiscoveryEnabled = Config{
-	Name:  "tink-server-auto-discovery-enabled",
-	Usage: "enable auto discovery capabilities for the Tink server",
 }
