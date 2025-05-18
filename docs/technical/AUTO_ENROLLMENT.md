@@ -1,29 +1,32 @@
 # Auto Enrollment in Tinkerbell
 
-This document explains how Tinkerbell's auto enrollment feature works, how to enable it, and how to configure a Workflow Ruleset.
+This document explains how Tinkerbell's auto enrollment feature works, how to enable it, how to configure a WorkflowRuleSet, and how to discover Agent attributes.
 
 ## Overview
 
-Auto enrollment automatically assigns Workflows to Tink Agents without having the need for a pre-existing Hardware object.
+Auto enrollment automatically assigns Workflows to Tink Agents without having the need for a pre-existing Hardware object by matching the agent's attributes against a set of rules defined in a WorkflowRuleSet. This allows for dynamic provisioning of workflows based on the agent's characteristics, such as its serial number, MAC address, and other hardware details.
 
-This is accomplished by:
+## How Auto Enrollment works
 
-1. Matching attributes against predefined rules
-1. Creating appropriate Workflows for Agents that match those rules
-1. Running those Workflows
+When an Agent connects to the Tink Server:
 
-## How Auto Enrollment Works
+1. The Agent sends its attributes (serial numbers, MAC addresses, etc.) to the Tink server
+1. If no workflow exists for the Agent, and auto enrollment is enabled, Tink server:
+   - Searches for WorkflowRuleSets that match the Agent's attributes
+   - Creates a Workflow for the Agent based on the matched rule set
+1. The Agent then executes the Workflow
 
-When an agent connects to Tinkerbell:
+## How to enable Auto Enrollment
 
-1. The agent sends its attributes (serial numbers, MAC addresses, etc.) to the Tinkerbell server
-2. If no workflow exists for the agent, and auto enrollment is enabled, Tinkerbell:
-   - Searches for WorkflowRuleSets that match the agent's attributes
-   - Creates a workflow for the agent based on the best matching rule set
-   - Returns the workflow actions to the agent
-3. The agent then executes the workflow actions
+Theres a CLI flag and an environment variable.
 
-This process includes a retry mechanism to handle potential race conditions or caching issues.
+## How to configure a WorkflowRuleSet
+
+WorkflowRuleSets are Kubernetes Custom Resource Definitions (CRDs).
+
+
+
+## How to discover Agent attributes
 
 ## Configuration
 
