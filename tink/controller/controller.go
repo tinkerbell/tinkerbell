@@ -10,6 +10,7 @@ import (
 	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	controllerruntime "sigs.k8s.io/controller-runtime"
@@ -32,6 +33,13 @@ type Config struct {
 	LeaderElectionNamespace string
 	MetricsAddr             netip.AddrPort
 	ProbeAddr               netip.AddrPort
+	DynamicClient           dynamicClient
+	ReferenceAllowListRules []string
+	ReferenceDenyListRules  []string
+}
+
+type dynamicClient interface {
+	DynamicRead(ctx context.Context, gvr schema.GroupVersionResource, name, namespace string) (map[string]interface{}, error)
 }
 
 type Option func(*Config)
@@ -45,6 +53,12 @@ func WithNamespace(namespace string) Option {
 func WithClient(client *rest.Config) Option {
 	return func(c *Config) {
 		c.Client = client
+	}
+}
+
+func WithDynamicClient(dynamicClient dynamicClient) Option {
+	return func(c *Config) {
+		c.DynamicClient = dynamicClient
 	}
 }
 
@@ -69,6 +83,18 @@ func WithProbeAddr(addrPort netip.AddrPort) Option {
 func WithLeaderElectionNamespace(namespace string) Option {
 	return func(c *Config) {
 		c.LeaderElectionNamespace = namespace
+	}
+}
+
+func WithReferenceAllowListRules(rules []string) Option {
+	return func(c *Config) {
+		c.ReferenceAllowListRules = rules
+	}
+}
+
+func WithReferenceDenyListRules(rules []string) Option {
+	return func(c *Config) {
+		c.ReferenceDenyListRules = rules
 	}
 }
 
@@ -102,7 +128,15 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	controllerruntime.SetLogger(log)
 	clog.SetLogger(log)
 
-	mgr, err := newManager(c.Client, options)
+	wfOpts := []workflow.Option{}
+	if len(c.ReferenceAllowListRules) > 0 {
+		wfOpts = append(wfOpts, workflow.WithAllowReferenceRules(c.ReferenceAllowListRules))
+	}
+	if len(c.ReferenceDenyListRules) > 0 {
+		wfOpts = append(wfOpts, workflow.WithDenyReferenceRules(c.ReferenceDenyListRules))
+	}
+
+	mgr, err := newManager(c.Client, c.DynamicClient, options, wfOpts...)
 	if err != nil {
 		return err
 	}
@@ -112,7 +146,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 // NewManager creates a new controller manager with tink controller controllers pre-registered.
 // If opts.Scheme is nil, DefaultScheme() is used.
-func newManager(cfg *rest.Config, opts controllerruntime.Options) (controllerruntime.Manager, error) {
+func newManager(cfg *rest.Config, dc dynamicClient, opts controllerruntime.Options, wfOpts ...workflow.Option) (controllerruntime.Manager, error) {
 	if opts.Scheme == nil {
 		s := runtime.NewScheme()
 		_ = schemeBuilder.AddToScheme(s)
@@ -132,8 +166,7 @@ func newManager(cfg *rest.Config, opts controllerruntime.Options) (controllerrun
 		return nil, fmt.Errorf("set up ready check: %w", err)
 	}
 
-	err = workflow.NewReconciler(mgr.GetClient()).SetupWithManager(mgr)
-	if err != nil {
+	if err = workflow.NewReconciler(mgr.GetClient(), dc, wfOpts...).SetupWithManager(mgr); err != nil {
 		return nil, fmt.Errorf("setup workflow reconciler: %w", err)
 	}
 
