@@ -80,6 +80,10 @@ spec:
 
 ## Configuring Access to References
 
+### Access Control
+
+By default, all access to References is denied. The deny all by default is a security feature to limit what can be accessed as the Tink Controller might have cluster wide access. Tink Controller is responsible for Reference lookups, so the access Tink Controller has is the upper bound for Reference access.
+
 ### Events, Rules, and Patterns
 
 Tinkerbell uses the Quamina library for handling both the allow and deny list. Quamina's pattern matching syntax and semantics are used to define the rules. We recommend reading the [Quamina documentation](https://github.com/timbray/quamina). Rules are JSON Objects. The data with which the rules are compared are what Quamina calls an "event". The following is the specification of the event that is passed to Quamina for matching against rules.
@@ -179,9 +183,9 @@ These examples are multiple rules.
   {"source":{"namespace":["tink-system"]},"reference":{"resource":["lvms"]}}|{"source":{"namespace":["tink-system"]},"reference":{"resource":["bonds"]}}
   ```
 
-### Access control
+### Configuring Access
 
-By default, all access to References is denied. Tink Controller is responsible for Reference lookups, so what ever access Tink Controller has is the upper bound for access. The deny all by default is a security feature to limit what can be accessed as the Tink Controller might have cluster wide access. Use the CLI flags or environment variables to define both the allow and deny rules. The allow list takes precedence over the deny list.
+Use the CLI flags or environment variables to define both the allow and deny rules. The allow list takes precedence over the deny list.
 
 > [!NOTE]  
 > If a deny rule is defined, it will override the default deny all access.
