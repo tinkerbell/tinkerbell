@@ -48,6 +48,8 @@ deployment:
     tinkServer:
       bindAddr: ""
       bindPort: 42113
+      logLevel: 0
+      autoEnrollmentEnabled: false
     tootles:
       bindAddr: ""
       bindPort: 50061
