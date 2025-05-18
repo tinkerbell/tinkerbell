@@ -94,13 +94,13 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		<-ctx.Done()
 		time.Sleep(1 * time.Second)
 		log.Info("Initiating graceful shutdown")
-		timer := time.AfterFunc(10*time.Second, func() {
-			log.Info("Server couldn't stop gracefully in time. Doing force stop.")
+		timer := time.AfterFunc(5*time.Second, func() {
+			log.Info("Server couldn't stop gracefully in time, doing force stop")
 			gs.Stop()
 		})
 		defer timer.Stop()
 		gs.GracefulStop() // gracefully stop server after in-flight server streaming rpc finishes
-		log.Info("Server stopped gracefully.")
+		log.Info("Server stopped")
 	}()
 
 	log.Info("starting gRPC server", "bindAddr", c.BindAddrPort.String())
