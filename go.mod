@@ -15,7 +15,7 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/docker/docker v28.1.1+incompatible
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/gin-gonic/gin v1.10.0
+	github.com/gin-gonic/gin v1.10.1
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-logr/logr v1.4.2
 	github.com/go-playground/validator/v10 v10.26.0
