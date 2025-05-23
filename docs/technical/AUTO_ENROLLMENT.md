@@ -21,8 +21,8 @@ When an Agent connects to the Tink Server:
 
 There is a CLI flag and an environment variable.
 
-- **CLI flag**: `--tink-controller-auto-enrollment=true`
-- **Environment variable**: `TINKERBELL_TINK_CONTROLLER_AUTO_ENROLLMENT=true`
+- **CLI flag**: `--tink-server-auto-enrollment-enabled=true`
+- **Environment variable**: `TINKERBELL_TINK_SERVER_AUTO_ENROLLMENT_ENABLED=true`
 
 In the Helm chart, use the following configuration in the `values.yaml` file:
 
@@ -30,7 +30,7 @@ In the Helm chart, use the following configuration in the `values.yaml` file:
 deployment:
   envs:
     tinkServer:
-      autoEnrollment: true
+      autoEnrollmentEnabled: true
 ```
 
 ## How to configure a WorkflowRuleSet
@@ -263,5 +263,5 @@ kubectl get workflowrulesets
 kubectl describe workflowruleset <name>
 
 # Check server logs
-kubectl logs -l app=tinkerbell -c server
+kubectl logs -l app=tinkerbell
 ```

@@ -208,7 +208,7 @@ type WorkflowCondition struct {
 	Time *metav1.Time `json:"time,omitempty" protobuf:"bytes,7,opt,name=time"`
 }
 
-// Task represents a series of actions to be completed by a Agent.
+// Task represents a series of actions to be completed by an Agent.
 type Task struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
