@@ -155,6 +155,8 @@ type WorkflowStatus struct {
 	// GlobalTimeout represents the max execution time.
 	GlobalTimeout int64 `json:"globalTimeout,omitempty"`
 
+	// GlobalExecutionStop represents the time when the Workflow should stop executing.
+	// After this time, the Workflow will be marked as TIMEOUT.
 	GlobalExecutionStop *metav1.Time `json:"globalExecutionStop,omitempty"`
 
 	// CurrentState tracks where the workflow is in its execution.

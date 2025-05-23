@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/cenkalti/backoff/v5"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -27,36 +27,37 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
-					return []v1alpha1.WorkflowRuleSet{
+				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]tinkerbell.WorkflowRuleSet, error) {
+					return []tinkerbell.WorkflowRuleSet{
 						{
-							Spec: v1alpha1.WorkflowRuleSetSpec{
-								Rules:                 []string{`{"chassis": {"serial": ["12345"]}}`},
-								WorkflowNamespace:     "default",
-								Workflow:              v1alpha1.WorkflowRuleSetWorkflow{},
-								AddAttributesAsLabels: true,
+							Spec: tinkerbell.WorkflowRuleSetSpec{
+								Rules: []string{`{"chassis": {"serial": ["12345"]}}`},
+								Workflow: tinkerbell.WorkflowRuleSetWorkflow{
+									Namespace:     "default",
+									AddAttributes: true,
+								},
 							},
 						},
 					}, nil
 				},
-				CreateFunc: func(_ context.Context, _ *v1alpha1.Workflow) error {
+				CreateFunc: func(_ context.Context, _ *tinkerbell.Workflow) error {
 					return nil
 				},
 			},
 			mockBackendReadWriter: &mockReadUpdater{
-				ReadAllFunc: func(_ context.Context, _ string) ([]v1alpha1.Workflow, error) {
-					return []v1alpha1.Workflow{
+				ReadAllFunc: func(_ context.Context, _ string) ([]tinkerbell.Workflow, error) {
+					return []tinkerbell.Workflow{
 						{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      "worker-123",
 								Namespace: "default",
 							},
-							Spec: v1alpha1.WorkflowSpec{},
+							Spec: tinkerbell.WorkflowSpec{},
 						},
 					}, nil
 				},
-				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
-					return &v1alpha1.Workflow{}, nil
+				ReadFunc: func(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
+					return &tinkerbell.Workflow{}, nil
 				},
 			},
 			expectedErrorCode: codes.NotFound,
@@ -67,12 +68,12 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
+				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]tinkerbell.WorkflowRuleSet, error) {
 					return nil, nil
 				},
 			},
 			mockBackendReadWriter: &mockReadUpdater{
-				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
+				ReadFunc: func(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
 					return nil, nil
 				},
 			},
@@ -84,12 +85,12 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
+				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]tinkerbell.WorkflowRuleSet, error) {
 					return nil, errors.New("failed to read workflow rule sets")
 				},
 			},
 			mockBackendReadWriter: &mockReadUpdater{
-				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
+				ReadFunc: func(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
 					return nil, nil
 				},
 			},
@@ -101,10 +102,10 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
-					return []v1alpha1.WorkflowRuleSet{
+				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]tinkerbell.WorkflowRuleSet, error) {
+					return []tinkerbell.WorkflowRuleSet{
 						{
-							Spec: v1alpha1.WorkflowRuleSetSpec{
+							Spec: tinkerbell.WorkflowRuleSetSpec{
 								Rules: []string{`{"chassis": {"serial": ["67890"]}}`},
 							},
 						},
@@ -112,7 +113,7 @@ func TestEnroll(t *testing.T) {
 				},
 			},
 			mockBackendReadWriter: &mockReadUpdater{
-				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
+				ReadFunc: func(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
 					return nil, nil
 				},
 			},
@@ -124,10 +125,10 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
-					return []v1alpha1.WorkflowRuleSet{
+				ReadAllWorkflowRuleSetsFunc: func(_ context.Context) ([]tinkerbell.WorkflowRuleSet, error) {
+					return []tinkerbell.WorkflowRuleSet{
 						{
-							Spec: v1alpha1.WorkflowRuleSetSpec{
+							Spec: tinkerbell.WorkflowRuleSetSpec{
 								Rules: []string{`im a bad pattern`},
 							},
 						},
@@ -135,7 +136,7 @@ func TestEnroll(t *testing.T) {
 				},
 			},
 			mockBackendReadWriter: &mockReadUpdater{
-				ReadFunc: func(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
+				ReadFunc: func(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
 					return nil, nil
 				},
 			},
@@ -153,7 +154,7 @@ func TestEnroll(t *testing.T) {
 				},
 			}
 
-			_, err := handler.enroll(context.Background(), tt.workerID, tt.attributes)
+			_, err := handler.enroll(context.Background(), tt.workerID, convert(tt.attributes))
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
@@ -171,32 +172,32 @@ func TestEnroll(t *testing.T) {
 }
 
 type mockAutoCapabilities struct {
-	ReadAllWorkflowRuleSetsFunc func(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error)
-	CreateFunc                  func(ctx context.Context, wf *v1alpha1.Workflow) error
+	ReadAllWorkflowRuleSetsFunc func(ctx context.Context) ([]tinkerbell.WorkflowRuleSet, error)
+	CreateFunc                  func(ctx context.Context, wf *tinkerbell.Workflow) error
 }
 
-func (m *mockAutoCapabilities) ReadWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
+func (m *mockAutoCapabilities) ReadWorkflowRuleSets(ctx context.Context) ([]tinkerbell.WorkflowRuleSet, error) {
 	return m.ReadAllWorkflowRuleSetsFunc(ctx)
 }
 
-func (m *mockAutoCapabilities) CreateWorkflow(ctx context.Context, wf *v1alpha1.Workflow) error {
+func (m *mockAutoCapabilities) CreateWorkflow(ctx context.Context, wf *tinkerbell.Workflow) error {
 	return m.CreateFunc(ctx, wf)
 }
 
 type mockReadUpdater struct {
-	ReadAllFunc func(ctx context.Context, _ string) ([]v1alpha1.Workflow, error)
-	ReadFunc    func(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error)
-	UpdateFunc  func(ctx context.Context, wf *v1alpha1.Workflow) error
+	ReadAllFunc func(ctx context.Context, _ string) ([]tinkerbell.Workflow, error)
+	ReadFunc    func(ctx context.Context, workflowID, namespace string) (*tinkerbell.Workflow, error)
+	UpdateFunc  func(ctx context.Context, wf *tinkerbell.Workflow) error
 }
 
-func (m *mockReadUpdater) ReadAll(ctx context.Context, _ string) ([]v1alpha1.Workflow, error) {
+func (m *mockReadUpdater) ReadAll(ctx context.Context, _ string) ([]tinkerbell.Workflow, error) {
 	return m.ReadAllFunc(ctx, "")
 }
 
-func (m *mockReadUpdater) Read(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error) {
+func (m *mockReadUpdater) Read(ctx context.Context, workflowID, namespace string) (*tinkerbell.Workflow, error) {
 	return m.ReadFunc(ctx, workflowID, namespace)
 }
 
-func (m *mockReadUpdater) Update(ctx context.Context, wf *v1alpha1.Workflow) error {
+func (m *mockReadUpdater) Update(ctx context.Context, wf *tinkerbell.Workflow) error {
 	return m.UpdateFunc(ctx, wf)
 }

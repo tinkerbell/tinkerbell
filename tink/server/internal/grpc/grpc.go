@@ -11,7 +11,7 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
@@ -32,9 +32,9 @@ var (
 )
 
 type BackendReadWriter interface {
-	ReadAll(ctx context.Context, agentID string) ([]v1alpha1.Workflow, error)
-	Read(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error)
-	Update(ctx context.Context, wf *v1alpha1.Workflow) error
+	ReadAll(ctx context.Context, agentID string) ([]tinkerbell.Workflow, error)
+	Read(ctx context.Context, workflowID, namespace string) (*tinkerbell.Workflow, error)
+	Update(ctx context.Context, wf *tinkerbell.Workflow) error
 }
 
 // Handler is a server that implements a workflow API.
@@ -107,24 +107,24 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		}
 		if opts != nil && opts.AutoCapabilities.Enrollment.Enabled {
 			journal.Log(ctx, "auto enrollment triggered")
-			return h.enroll(ctx, req.GetAgentId(), req.GetAgentAttributes())
+			return h.enroll(ctx, req.GetAgentId(), convert(req.GetAgentAttributes()))
 		}
 		journal.Log(ctx, "no Workflow found")
 		return nil, status.Error(codes.NotFound, "no Workflows found")
 	}
 	journal.Log(ctx, "found Workflows", "workflows", len(wfs))
-	var wf v1alpha1.Workflow
+	var wf tinkerbell.Workflow
 	for _, w := range wfs {
 		if len(w.Status.Tasks) == 0 {
 			continue
 		}
-		// Don't serve Actions when in a v1alpha1.WorkflowStatePreparing state.
+		// Don't serve Actions when in a tinkerbell.WorkflowStatePreparing state.
 		// This is to prevent the Agent from starting Actions before Workflow boot options are performed.
-		if w.Spec.BootOptions.BootMode != "" && w.Status.State == v1alpha1.WorkflowStatePreparing {
+		if w.Spec.BootOptions.BootMode != "" && w.Status.State == tinkerbell.WorkflowStatePreparing {
 			journal.Log(ctx, "Workflow is in preparing state")
 			return nil, status.Error(codes.FailedPrecondition, "Workflow is in preparing state")
 		}
-		if w.Status.State != v1alpha1.WorkflowStatePending && w.Status.State != v1alpha1.WorkflowStateRunning {
+		if w.Status.State != tinkerbell.WorkflowStatePending && w.Status.State != tinkerbell.WorkflowStateRunning {
 			journal.Log(ctx, "Workflow not in pending or running state")
 			return nil, status.Error(codes.FailedPrecondition, "Workflow not in pending or running state")
 		}
@@ -137,7 +137,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		return nil, status.Error(codes.NotFound, "no Tasks found in Workflow")
 	}
 
-	var task *v1alpha1.Task
+	var task *tinkerbell.Task
 	if isFirstAction(wf.Status.Tasks[0]) {
 		task = &wf.Status.Tasks[0]
 		journal.Log(ctx, "first Task, first Action")
@@ -163,9 +163,9 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		return nil, status.Error(codes.NotFound, "no Actions found")
 	}
 
-	var action *v1alpha1.Action
+	var action *tinkerbell.Action
 	if isFirstAction(*task) {
-		if task.Actions[0].State != v1alpha1.WorkflowStatePending {
+		if task.Actions[0].State != tinkerbell.WorkflowStatePending {
 			journal.Log(ctx, "first Action not in pending state")
 			return nil, status.Error(codes.FailedPrecondition, "first Action not in pending state")
 		}
@@ -174,7 +174,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	} else {
 		// This handles Actions after the first one
 		// Get the current Action. If it is not in a success state, return error.
-		if wf.Status.CurrentState.State != v1alpha1.WorkflowStateSuccess {
+		if wf.Status.CurrentState.State != tinkerbell.WorkflowStateSuccess {
 			journal.Log(ctx, "current Action not in success state")
 			return nil, status.Error(codes.FailedPrecondition, "current Action not in success state")
 		}
@@ -205,7 +205,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 
 	// update the current state
 	// populate the current state and then send the action to the client.
-	wf.Status.CurrentState = &v1alpha1.CurrentState{
+	wf.Status.CurrentState = &tinkerbell.CurrentState{
 		AgentID:    req.GetAgentId(),
 		TaskID:     task.ID,
 		ActionID:   action.ID,
@@ -249,21 +249,21 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 }
 
 // isFirstAction checks if the Task is at the first Action.
-func isFirstAction(t v1alpha1.Task) bool {
+func isFirstAction(t tinkerbell.Task) bool {
 	if len(t.Actions) == 0 {
 		return false
 	}
-	if t.Actions[0].State == v1alpha1.WorkflowStatePending {
+	if t.Actions[0].State == tinkerbell.WorkflowStatePending {
 		return true
 	}
 	return false
 }
 
-func isTaskSuccessful(t v1alpha1.Task) bool {
+func isTaskSuccessful(t tinkerbell.Task) bool {
 	if len(t.Actions) == 0 {
 		return true
 	}
-	if t.Actions[len(t.Actions)-1].State == v1alpha1.WorkflowStateSuccess {
+	if t.Actions[len(t.Actions)-1].State == tinkerbell.WorkflowStateSuccess {
 		return true
 	}
 	return false
@@ -311,7 +311,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 		for ai, action := range task.Actions {
 			// action IDs match or this is the first action in a task
 			if action.ID == req.GetActionId() && task.AgentID == req.GetAgentId() {
-				wf.Status.Tasks[ti].Actions[ai].State = v1alpha1.WorkflowState(req.GetActionState().String())
+				wf.Status.Tasks[ti].Actions[ai].State = tinkerbell.WorkflowState(req.GetActionState().String())
 				wf.Status.Tasks[ti].Actions[ai].ExecutionStart = &metav1.Time{Time: req.GetExecutionStart().AsTime()}
 				wf.Status.Tasks[ti].Actions[ai].ExecutionStop = &metav1.Time{Time: req.GetExecutionStop().AsTime()}
 				wf.Status.Tasks[ti].Actions[ai].ExecutionDuration = req.GetExecutionDuration()
@@ -323,11 +323,11 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 				}
 				if len(wf.Status.Tasks) == ti+1 && len(task.Actions) == ai+1 && req.GetActionState() == proto.ActionStatusRequest_SUCCESS {
 					// This is the last action in the last task
-					wf.Status.State = v1alpha1.WorkflowStatePost
+					wf.Status.State = tinkerbell.WorkflowStatePost
 				}
 
 				// update the status current state
-				wf.Status.CurrentState = &v1alpha1.CurrentState{
+				wf.Status.CurrentState = &tinkerbell.CurrentState{
 					AgentID:    req.GetAgentId(),
 					TaskID:     req.GetTaskId(),
 					ActionID:   req.GetActionId(),

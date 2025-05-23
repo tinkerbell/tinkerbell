@@ -93,9 +93,11 @@ message Baseboard {
     string vendor = 1;
     string product = 2;
     string version = 3;
+    string serial_number = 4;
 }
 
 message Product {
     string name = 1;
     string vendor = 2;
+    string serial_number = 3;
 }

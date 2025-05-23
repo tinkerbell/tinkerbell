@@ -10,6 +10,7 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -29,7 +30,7 @@ type Config struct {
 	AgentID          string
 	RetryInterval    time.Duration
 	Actions          chan spec.Action
-	Attributes       *proto.AgentAttributes
+	Attributes       *data.AgentAttributes
 	RetryOptions     []backoff.RetryOption
 }
 
@@ -52,7 +53,7 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 }
 
 func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
-	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{AgentId: toPtr(c.AgentID), AgentAttributes: c.Attributes})
+	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{AgentId: toPtr(c.AgentID), AgentAttributes: ToProto(c.Attributes)})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return spec.Action{}, &NoWorkflowError{}
@@ -155,6 +156,9 @@ func (c *Config) doWrite(ctx context.Context, event spec.Event) error {
 		Message:           &proto.ActionMessage{Message: toPtr(event.Message)},
 	}
 	_, err := c.TinkServerClient.ReportActionStatus(ctx, ar)
+	if status.Code(err) == codes.Internal {
+		return backoff.Permanent(err)
+	}
 	if err != nil {
 		return fmt.Errorf("error reporting action: %v: %w", ar, err)
 	}

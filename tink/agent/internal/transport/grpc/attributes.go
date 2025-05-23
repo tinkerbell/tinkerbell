@@ -1,12 +1,12 @@
 package grpc
 
 import (
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
-	"github.com/tinkerbell/tinkerbell/tink/agent/internal/attribute"
 )
 
 // ToProto converts an attribute.AllAttributes to a proto.AgentAttributes.
-func ToProto(a *attribute.AllAttributes) *proto.AgentAttributes {
+func ToProto(a *data.AgentAttributes) *proto.AgentAttributes {
 	if a == nil {
 		return nil
 	}
@@ -91,16 +91,18 @@ func ToProto(a *attribute.AllAttributes) *proto.AgentAttributes {
 
 	if a.Baseboard != nil {
 		result.Baseboard = &proto.Baseboard{
-			Vendor:  a.Baseboard.Vendor,
-			Product: a.Baseboard.Product,
-			Version: a.Baseboard.Version,
+			Vendor:       a.Baseboard.Vendor,
+			Product:      a.Baseboard.Product,
+			Version:      a.Baseboard.Version,
+			SerialNumber: a.Baseboard.SerialNumber,
 		}
 	}
 
 	if a.Product != nil {
 		result.Product = &proto.Product{
-			Name:   a.Product.Name,
-			Vendor: a.Product.Vendor,
+			Name:         a.Product.Name,
+			Vendor:       a.Product.Vendor,
+			SerialNumber: a.Product.SerialNumber,
 		}
 	}
 

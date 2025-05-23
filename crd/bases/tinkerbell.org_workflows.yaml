@@ -197,6 +197,9 @@ spec:
                     type: string
                 type: object
               globalExecutionStop:
+                description: |-
+                  GlobalExecutionStop represents the time when the Workflow should stop executing.
+                  After this time, the Workflow will be marked as TIMEOUT.
                 format: date-time
                 type: string
               globalTimeout:

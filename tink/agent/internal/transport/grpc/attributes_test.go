@@ -4,14 +4,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
-	"github.com/tinkerbell/tinkerbell/tink/agent/internal/attribute"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestToProto(t *testing.T) {
 	tests := map[string]struct {
-		input    *attribute.AllAttributes
+		input    *data.AgentAttributes
 		expected *proto.AgentAttributes
 	}{
 		"Nil input": {
@@ -19,11 +19,11 @@ func TestToProto(t *testing.T) {
 			expected: nil,
 		},
 		"Fully populated input": {
-			input: &attribute.AllAttributes{
-				CPU: &attribute.CPU{
+			input: &data.AgentAttributes{
+				CPU: &data.CPU{
 					TotalCores:   toPtr(uint32(8)),
 					TotalThreads: toPtr(uint32(16)),
-					Processors: []*attribute.Processor{
+					Processors: []*data.Processor{
 						{
 							ID:           toPtr(uint32(1)),
 							Cores:        toPtr(uint32(4)),
@@ -34,11 +34,11 @@ func TestToProto(t *testing.T) {
 						},
 					},
 				},
-				Memory: &attribute.Memory{
+				Memory: &data.Memory{
 					Total:  toPtr("16KB"),
 					Usable: toPtr("8KB"),
 				},
-				BlockDevices: []*attribute.Block{
+				BlockDevices: []*data.Block{
 					{
 						Name:              toPtr("sda"),
 						ControllerType:    toPtr("SATA"),
@@ -49,7 +49,7 @@ func TestToProto(t *testing.T) {
 						Model:             toPtr("EVO860"),
 					},
 				},
-				NetworkInterfaces: []*attribute.Network{
+				NetworkInterfaces: []*data.Network{
 					{
 						Name:                toPtr("eth0"),
 						Mac:                 toPtr("00:1A:2B:3C:4D:5E"),
@@ -99,8 +99,8 @@ func TestToProto(t *testing.T) {
 			},
 		},
 		"Partially populated input (only CPU)": {
-			input: &attribute.AllAttributes{
-				CPU: &attribute.CPU{
+			input: &data.AgentAttributes{
+				CPU: &data.CPU{
 					TotalCores:   toPtr(uint32(4)),
 					TotalThreads: toPtr(uint32(8)),
 				},
@@ -113,11 +113,11 @@ func TestToProto(t *testing.T) {
 			},
 		},
 		"All fields populated": {
-			input: &attribute.AllAttributes{
-				CPU: &attribute.CPU{
+			input: &data.AgentAttributes{
+				CPU: &data.CPU{
 					TotalCores:   toPtr(uint32(4)),
 					TotalThreads: toPtr(uint32(8)),
-					Processors: []*attribute.Processor{
+					Processors: []*data.Processor{
 						{
 							ID:           toPtr(uint32(1)),
 							Cores:        toPtr(uint32(4)),
@@ -128,11 +128,11 @@ func TestToProto(t *testing.T) {
 						},
 					},
 				},
-				Memory: &attribute.Memory{
+				Memory: &data.Memory{
 					Total:  toPtr("16KB"),
 					Usable: toPtr("8KB"),
 				},
-				BlockDevices: []*attribute.Block{
+				BlockDevices: []*data.Block{
 					{
 						Name:              toPtr("sda"),
 						ControllerType:    toPtr("SATA"),
@@ -143,7 +143,7 @@ func TestToProto(t *testing.T) {
 						Model:             toPtr("EVO860"),
 					},
 				},
-				NetworkInterfaces: []*attribute.Network{
+				NetworkInterfaces: []*data.Network{
 					{
 						Name:                toPtr("eth0"),
 						Mac:                 toPtr("00:1A:2B:3C:4D:5E"),
@@ -151,7 +151,7 @@ func TestToProto(t *testing.T) {
 						EnabledCapabilities: []string{"rx-checksum", "tx-checksum"},
 					},
 				},
-				PCIDevices: []*attribute.PCI{
+				PCIDevices: []*data.PCI{
 					{
 						Vendor:  toPtr("Intel"),
 						Product: toPtr("Ethernet"),
@@ -159,7 +159,7 @@ func TestToProto(t *testing.T) {
 						Driver:  toPtr("e1000e"),
 					},
 				},
-				GPUDevices: []*attribute.GPU{
+				GPUDevices: []*data.GPU{
 					{
 						Vendor:  toPtr("NVIDIA"),
 						Product: toPtr("GeForce RTX 2080"),
@@ -167,19 +167,19 @@ func TestToProto(t *testing.T) {
 						Driver:  toPtr("nouveau"),
 					},
 				},
-				Chassis: &attribute.Chassis{
+				Chassis: &data.Chassis{
 					Serial: toPtr("123456"),
 					Vendor: toPtr("HP"),
 				},
-				BIOS: &attribute.BIOS{
+				BIOS: &data.BIOS{
 					Vendor:  toPtr("American Megatrends Inc."),
 					Version: toPtr("F.42"),
 				},
-				Product: &attribute.Product{
+				Product: &data.Product{
 					Name:   toPtr("HP EliteDesk 800 G5"),
 					Vendor: toPtr("HP"),
 				},
-				Baseboard: &attribute.Baseboard{
+				Baseboard: &data.Baseboard{
 					Vendor:  toPtr("HP"),
 					Product: toPtr("8606"),
 					Version: toPtr("1.0"),

@@ -204,7 +204,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		journal.Log(ctx, "controller will not trigger another reconcile", "state", wflow.Status.State)
 		return reconcile.Result{}, nil
 	}
-	logger.Info("debugging", "state", wflow.Status.State, "outsideofswitch", true, "storedState", stored.Status.State)
 
 	return reconcile.Result{}, nil
 }
@@ -308,7 +307,6 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	references := make(map[string]interface{})
 	var refErr error
 	for refName, rf := range hardware.Spec.References {
-		logger.Info("debugging", "refName", refName, "rf", rf)
 		ed := evaluationData{
 			Source: source{
 				Name:      hardware.Name,

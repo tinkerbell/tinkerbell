@@ -8,98 +8,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/block"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 )
 
-type AllAttributes struct {
-	CPU               *CPU       `json:"cpu,omitempty" yaml:"cpu,omitempty"`
-	Memory            *Memory    `json:"memory,omitempty" yaml:"memory,omitempty"`
-	BlockDevices      []*Block   `json:"blockDevices,omitempty" yaml:"blockDevices,omitempty"`
-	NetworkInterfaces []*Network `json:"networkInterfaces,omitempty" yaml:"networkInterfaces,omitempty"`
-	PCIDevices        []*PCI     `json:"pciDevices,omitempty" yaml:"pciDevices,omitempty"`
-	GPUDevices        []*GPU     `json:"gpuDevices,omitempty" yaml:"gpuDevices,omitempty"`
-	Chassis           *Chassis   `json:"chassis,omitempty" yaml:"chassis,omitempty"`
-	BIOS              *BIOS      `json:"bios,omitempty" yaml:"bios,omitempty"`
-	Baseboard         *Baseboard `json:"baseboard,omitempty" yaml:"baseboard,omitempty"`
-	Product           *Product   `json:"product,omitempty" yaml:"product,omitempty"`
-}
-
-type CPU struct {
-	TotalCores   *uint32      `json:"totalCores,omitempty" yaml:"totalCores,omitempty"`
-	TotalThreads *uint32      `json:"totalThreads,omitempty" yaml:"totalThreads,omitempty"`
-	Processors   []*Processor `json:"processors,omitempty" yaml:"processors,omitempty"`
-}
-
-type Processor struct {
-	ID           *uint32  `json:"id,omitempty" yaml:"id,omitempty"`
-	Cores        *uint32  `json:"cores,omitempty" yaml:"cores,omitempty"`
-	Threads      *uint32  `json:"threads,omitempty" yaml:"threads,omitempty"`
-	Vendor       *string  `json:"vendor,omitempty" yaml:"vendor,omitempty"`
-	Model        *string  `json:"model,omitempty" yaml:"model,omitempty"`
-	Capabilities []string `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
-}
-
-type Memory struct {
-	Total  *string `json:"total,omitempty" yaml:"total,omitempty"`
-	Usable *string `json:"usable,omitempty" yaml:"usable,omitempty"`
-}
-
-type Block struct {
-	Name              *string `json:"name,omitempty" yaml:"name,omitempty"`
-	ControllerType    *string `json:"controllerType,omitempty" yaml:"controllerType,omitempty"`
-	DriveType         *string `json:"driveType,omitempty" yaml:"driveType,omitempty"`
-	Size              *string `json:"size,omitempty" yaml:"size,omitempty"`
-	PhysicalBlockSize *string `json:"physicalBlockSize,omitempty" yaml:"physicalBlockSize,omitempty"`
-	Vendor            *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
-	Model             *string `json:"model,omitempty" yaml:"model,omitempty"`
-}
-
-type Network struct {
-	Name                *string  `json:"name,omitempty" yaml:"name,omitempty"`
-	Mac                 *string  `json:"mac,omitempty" yaml:"mac,omitempty"`
-	Speed               *string  `json:"speed,omitempty" yaml:"speed,omitempty"`
-	EnabledCapabilities []string `json:"enabledCapabilities,omitempty" yaml:"enabledCapabilities,omitempty"`
-}
-
-type PCI struct {
-	Vendor  *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
-	Product *string `json:"product,omitempty" yaml:"product,omitempty"`
-	Class   *string `json:"class,omitempty" yaml:"class,omitempty"`
-	Driver  *string `json:"driver,omitempty" yaml:"driver,omitempty"`
-}
-
-type GPU struct {
-	Vendor  *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
-	Product *string `json:"product,omitempty" yaml:"product,omitempty"`
-	Class   *string `json:"class,omitempty" yaml:"class,omitempty"`
-	Driver  *string `json:"driver,omitempty" yaml:"driver,omitempty"`
-}
-
-type Chassis struct {
-	Serial *string `json:"serial,omitempty" yaml:"serial,omitempty"`
-	Vendor *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
-}
-
-type BIOS struct {
-	Vendor      *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
-	Version     *string `json:"version,omitempty" yaml:"version,omitempty"`
-	ReleaseDate *string `json:"releaseDate,omitempty" yaml:"releaseDate,omitempty"`
-}
-
-type Baseboard struct {
-	Vendor       *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
-	Product      *string `json:"product,omitempty" yaml:"product,omitempty"`
-	Version      *string `json:"version,omitempty" yaml:"version,omitempty"`
-	SerialNumber *string `json:"serialNumber,omitempty" yaml:"serialNumber,omitempty"`
-}
-
-type Product struct {
-	Name         *string `json:"name,omitempty" yaml:"name,omitempty"`
-	Vendor       *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
-	SerialNumber *string `json:"serialNumber,omitempty" yaml:"serialNumber,omitempty"`
-}
-
-func DiscoverAll(l logr.Logger) *AllAttributes {
-	return &AllAttributes{
+func DiscoverAll(l logr.Logger) *data.AgentAttributes {
+	return &data.AgentAttributes{
 		CPU:               DiscoverCPU(l),
 		Memory:            DiscoverMemory(l),
 		BlockDevices:      DiscoverBlockDevices(l),
@@ -113,16 +26,16 @@ func DiscoverAll(l logr.Logger) *AllAttributes {
 	}
 }
 
-func DiscoverCPU(l logr.Logger) *CPU {
+func DiscoverCPU(l logr.Logger) *data.CPU {
 	cpu, err := ghw.CPU(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting cpu info", "error", err)
 		return nil
 	}
 	if cpu == nil {
-		return new(CPU)
+		return new(data.CPU)
 	}
-	var processors []*Processor
+	var processors []*data.Processor
 	for _, p := range cpu.Processors {
 		if p == nil {
 			continue
@@ -131,7 +44,7 @@ func DiscoverCPU(l logr.Logger) *CPU {
 		if err != nil {
 			id = uint32(0)
 		}
-		processors = append(processors, &Processor{
+		processors = append(processors, &data.Processor{
 			ID:           toPtr(id),
 			Cores:        toPtr(p.TotalCores),
 			Threads:      toPtr(p.TotalHardwareThreads),
@@ -141,42 +54,42 @@ func DiscoverCPU(l logr.Logger) *CPU {
 		})
 	}
 
-	return &CPU{
+	return &data.CPU{
 		TotalCores:   toPtr(cpu.TotalCores),
 		TotalThreads: toPtr(cpu.TotalHardwareThreads),
 		Processors:   processors,
 	}
 }
 
-func DiscoverMemory(l logr.Logger) *Memory {
+func DiscoverMemory(l logr.Logger) *data.Memory {
 	memory, err := ghw.Memory(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting memory info", "error", err)
 		return nil
 	}
 	if memory == nil {
-		return new(Memory)
+		return new(data.Memory)
 	}
 
-	return &Memory{
+	return &data.Memory{
 		Total:  toPtr(humanReadable(memory.TotalPhysicalBytes)),
 		Usable: toPtr(humanReadable(memory.TotalUsableBytes)),
 	}
 }
 
-func DiscoverBlockDevices(l logr.Logger) []*Block {
+func DiscoverBlockDevices(l logr.Logger) []*data.Block {
 	b, err := ghw.Block(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting block info", "error", err)
 		return nil
 	}
-	var blockDevices []*Block
+	var blockDevices []*data.Block
 	for _, d := range b.Disks {
 		if d == nil {
 			continue
 		}
 		if d.StorageController != block.STORAGE_CONTROLLER_LOOP {
-			blockDevices = append(blockDevices, &Block{
+			blockDevices = append(blockDevices, &data.Block{
 				Name:              toPtr(d.Name),
 				ControllerType:    toPtr(d.StorageController.String()),
 				DriveType:         toPtr(d.DriveType.String()),
@@ -190,18 +103,18 @@ func DiscoverBlockDevices(l logr.Logger) []*Block {
 	return blockDevices
 }
 
-func DiscoverNetworks(l logr.Logger) []*Network {
+func DiscoverNetworks(l logr.Logger) []*data.Network {
 	net, err := ghw.Network(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting network info", "error", err)
 		return nil
 	}
-	var nics []*Network
+	var nics []*data.Network
 	for _, n := range net.NICs {
 		if n == nil {
 			continue
 		}
-		nics = append(nics, &Network{
+		nics = append(nics, &data.Network{
 			Name:  toPtr(n.Name),
 			Mac:   toPtr(n.MACAddress),
 			Speed: toPtr(n.Speed),
@@ -219,19 +132,19 @@ func DiscoverNetworks(l logr.Logger) []*Network {
 	return nics
 }
 
-func DiscoverPCI(l logr.Logger) []*PCI {
+func DiscoverPCI(l logr.Logger) []*data.PCI {
 	p, err := ghw.PCI(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting pci info", "error", err)
 		return nil
 	}
-	var pciDevices []*PCI
+	var pciDevices []*data.PCI
 	for _, d := range p.Devices {
 		if d == nil {
 			continue
 		}
 		var valueFound bool
-		dev := &PCI{}
+		dev := &data.PCI{}
 		if d.Vendor != nil {
 			dev.Vendor = toPtr(d.Vendor.Name)
 			valueFound = true
@@ -257,13 +170,13 @@ func DiscoverPCI(l logr.Logger) []*PCI {
 	return pciDevices
 }
 
-func DiscoverGPU(l logr.Logger) []*GPU {
+func DiscoverGPU(l logr.Logger) []*data.GPU {
 	g, err := ghw.GPU(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting gpu info", "error", err)
 		return nil
 	}
-	var gpus []*GPU
+	var gpus []*data.GPU
 	for _, gc := range g.GraphicsCards {
 		if gc == nil {
 			continue
@@ -272,7 +185,7 @@ func DiscoverGPU(l logr.Logger) []*GPU {
 			continue
 		}
 		var valueFound bool
-		card := &GPU{}
+		card := &data.GPU{}
 		if gc.DeviceInfo.Vendor != nil {
 			card.Vendor = toPtr(gc.DeviceInfo.Vendor.Name)
 			valueFound = true
@@ -298,47 +211,47 @@ func DiscoverGPU(l logr.Logger) []*GPU {
 	return gpus
 }
 
-func DiscoverChassis(l logr.Logger) *Chassis {
+func DiscoverChassis(l logr.Logger) *data.Chassis {
 	chass, err := ghw.Chassis(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting chassis info", "error", err)
 		return nil
 	}
 	if chass == nil {
-		return new(Chassis)
+		return new(data.Chassis)
 	}
-	return &Chassis{
+	return &data.Chassis{
 		Serial: toPtr(chass.SerialNumber),
 		Vendor: toPtr(chass.Vendor),
 	}
 }
 
-func DiscoverBIOS(l logr.Logger) *BIOS {
+func DiscoverBIOS(l logr.Logger) *data.BIOS {
 	bio, err := ghw.BIOS(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting bios info", "error", err)
 		return nil
 	}
 	if bio == nil {
-		return new(BIOS)
+		return new(data.BIOS)
 	}
-	return &BIOS{
+	return &data.BIOS{
 		Vendor:      toPtr(bio.Vendor),
 		Version:     toPtr(bio.Version),
 		ReleaseDate: toPtr(bio.Date),
 	}
 }
 
-func DiscoverBaseboard(l logr.Logger) *Baseboard {
+func DiscoverBaseboard(l logr.Logger) *data.Baseboard {
 	baseboard, err := ghw.Baseboard(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting baseboard info", "error", err)
 		return nil
 	}
 	if baseboard == nil {
-		return new(Baseboard)
+		return new(data.Baseboard)
 	}
-	return &Baseboard{
+	return &data.Baseboard{
 		Vendor:       toPtr(baseboard.Vendor),
 		Product:      toPtr(baseboard.Product),
 		Version:      toPtr(baseboard.Version),
@@ -346,16 +259,16 @@ func DiscoverBaseboard(l logr.Logger) *Baseboard {
 	}
 }
 
-func DiscoverProduct(l logr.Logger) *Product {
+func DiscoverProduct(l logr.Logger) *data.Product {
 	product, err := ghw.Product(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting product info", "error", err)
 		return nil
 	}
 	if product == nil {
-		return new(Product)
+		return new(data.Product)
 	}
-	return &Product{
+	return &data.Product{
 		Name:         toPtr(product.Name),
 		Vendor:       toPtr(product.Vendor),
 		SerialNumber: toPtr(product.SerialNumber),
