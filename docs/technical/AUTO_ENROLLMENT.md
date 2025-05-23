@@ -151,6 +151,14 @@ The following is an example of the attributes data structure and data types of a
       "driver": "pcieport"
     }
   ],
+  "gpu": [
+    {
+      "vendor": "NVIDIA Corporation",
+      "product": "GP107 [GeForce GTX 1050 Ti]",
+      "class": "Display controller",
+      "driver": "GP107"
+    }
+  ],
   "chassis": {
     "serial": "To Be Filled By O.E.M.",
     "vendor": "To Be Filled By O.E.M."
