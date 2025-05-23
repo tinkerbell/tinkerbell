@@ -128,6 +128,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 		return reconcile.Result{}, err
 	}
+
 	if !stored.DeletionTimestamp.IsZero() {
 		return reconcile.Result{}, nil
 	}
@@ -136,12 +137,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	wflow := stored.DeepCopy()
-	// r.processRunningWorkflow(wflow)
 
 	switch wflow.Status.State {
 	case "":
 		journal.Log(ctx, "new workflow")
 		resp, err := r.processNewWorkflow(ctx, logger, wflow)
+		// If the Workflow spec is disabled, just set the AgentID and return.
+		// The Agent ID is used as an index in the Tink Server backend, so it needs to be set even when the Workflow is disabled.
+		if wflow.Spec.Disabled != nil && *wflow.Spec.Disabled {
+			journal.Log(ctx, "workflow disabled")
+			wflow2 := stored.DeepCopy()
+			wflow2.Status.AgentID = wflow.Status.AgentID
+			return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow2)
+		}
 
 		return resp, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))
 	case v1alpha1.WorkflowStatePreparing:
@@ -156,31 +164,38 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return resp, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, s.workflow))
 	case v1alpha1.WorkflowStateRunning:
 		journal.Log(ctx, "process running workflow")
-		rr := reconcile.Result{}
-		if st := startTime(wflow); st != nil {
-			if r.nowFunc().After(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second)) {
-				wflow.Status.State = v1alpha1.WorkflowStateTimeout
-			} else {
-				// requeue after the global timeout to check for expiration
-				// TODO: this should only be done once.
-				rr = reconcile.Result{RequeueAfter: time.Until(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second))}
-			}
+
+		// Check if the global timeout has been reached.
+		if wflow.Status.GlobalExecutionStop != nil && r.nowFunc().After(wflow.Status.GlobalExecutionStop.Time) {
+			journal.Log(ctx, "global timeout reached")
+			wflow.Status.State = v1alpha1.WorkflowStateTimeout
+			return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow)
 		}
 
-		// requeue after the global timeout to check for expiration
-		return rr, mergePatchStatus(ctx, r.client, stored, wflow)
+		first := firstAction(wflow)
+		if wflow.Status.GlobalExecutionStop == nil && first != nil && wflow.Status.CurrentState != nil && first.ID == wflow.Status.CurrentState.ActionID {
+			if first.ExecutionStart == nil {
+				return reconcile.Result{}, nil
+			}
+			now := r.nowFunc()
+			var skew time.Duration
+			if now.After(first.ExecutionStart.Time) {
+				skew = now.Sub(first.ExecutionStart.Time).Abs()
+			}
+			wflow.Status.GlobalExecutionStop = &metav1.Time{
+				Time: now.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second).Add(skew),
+			}
+			journal.Log(ctx, "global execution times set")
+			return reconcile.Result{RequeueAfter: time.Until(wflow.Status.GlobalExecutionStop.Time)}, mergePatchStatus(ctx, r.client, stored, wflow)
+		}
+
+		return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow)
 	case v1alpha1.WorkflowStatePost:
 		journal.Log(ctx, "post actions")
 		s := &state{
 			client:   r.client,
 			workflow: wflow,
 			backoff:  r.backoff,
-		}
-		if st := startTime(wflow); st != nil {
-			if r.nowFunc().UTC().After(st.Add(time.Duration(wflow.Status.GlobalTimeout) * time.Second)) {
-				wflow.Status.State = v1alpha1.WorkflowStateTimeout
-				return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow)
-			}
 		}
 		rc, err := s.postActions(ctx)
 
@@ -189,7 +204,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		journal.Log(ctx, "controller will not trigger another reconcile", "state", wflow.Status.State)
 		return reconcile.Result{}, nil
 	}
-	logger.Info("debugging", "state", wflow.Status.State, "outsideofswitch", true, "storedState", stored.Status.State)
 
 	return reconcile.Result{}, nil
 }
@@ -293,7 +307,6 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	references := make(map[string]interface{})
 	var refErr error
 	for refName, rf := range hardware.Spec.References {
-		logger.Info("debugging", "refName", refName, "rf", rf)
 		ed := evaluationData{
 			Source: source{
 				Name:      hardware.Name,
@@ -423,11 +436,11 @@ func pointerToValue[V any](ptr *V) V {
 	return *ptr
 }
 
-// startTime returns the start time, for the first action of the first task.
-func startTime(w *v1alpha1.Workflow) *metav1.Time {
+// firstAction returns the first Action of the first Task in the Workflow.
+func firstAction(w *v1alpha1.Workflow) *v1alpha1.Action {
 	if len(w.Status.Tasks) > 0 {
 		if len(w.Status.Tasks[0].Actions) > 0 {
-			return w.Status.Tasks[0].Actions[0].ExecutionStart
+			return &w.Status.Tasks[0].Actions[0]
 		}
 	}
 	return nil

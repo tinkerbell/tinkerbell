@@ -12,7 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,41 +23,41 @@ import (
 
 func TestGetAction(t *testing.T) {
 	cases := map[string]struct {
-		workflow *v1alpha1.Workflow
+		workflow *tinkerbell.Workflow
 		request  *proto.ActionRequest
 		want     *proto.ActionResponse
 		wantErr  error
 	}{
 		"successful second Action in Task": {
 			request: &proto.ActionRequest{
-				WorkerId: toPtr("machine-mac-1"),
+				AgentId: toPtr("machine-mac-1"),
 			},
-			workflow: &v1alpha1.Workflow{
+			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "machine1",
 					Namespace: "default",
 				},
-				Status: v1alpha1.WorkflowStatus{
-					State: v1alpha1.WorkflowStateRunning,
-					CurrentState: &v1alpha1.CurrentState{
-						WorkerID:   "machine-mac-1",
+				Status: tinkerbell.WorkflowStatus{
+					State: tinkerbell.WorkflowStateRunning,
+					CurrentState: &tinkerbell.CurrentState{
+						AgentID:    "machine-mac-1",
 						TaskID:     "provision",
 						ActionID:   "stream",
-						State:      v1alpha1.WorkflowStateSuccess,
+						State:      tinkerbell.WorkflowStateSuccess,
 						ActionName: "stream",
 					},
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							ID:         "provision",
-							Actions: []v1alpha1.Action{
+							Name:    "provision",
+							AgentID: "machine-mac-1",
+							ID:      "provision",
+							Actions: []tinkerbell.Action{
 								{
 									Name:              "stream",
 									Image:             "quay.io/tinkerbell-actions/image2disk:v1.0.0",
 									Timeout:           300,
-									State:             v1alpha1.WorkflowStateSuccess,
+									State:             tinkerbell.WorkflowStateSuccess,
 									ExecutionStart:    nil,
 									ExecutionDuration: "30s",
 									ID:                "stream",
@@ -66,7 +66,7 @@ func TestGetAction(t *testing.T) {
 									Name:    "kexec",
 									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
 									Timeout: 5,
-									State:   v1alpha1.WorkflowStatePending,
+									State:   tinkerbell.WorkflowStatePending,
 									ID:      "kexec",
 								},
 							},
@@ -76,7 +76,7 @@ func TestGetAction(t *testing.T) {
 			},
 			want: &proto.ActionResponse{
 				WorkflowId:  toPtr("default/machine1"),
-				WorkerId:    toPtr("machine-mac-1"),
+				AgentId:     toPtr("machine-mac-1"),
 				TaskId:      toPtr("provision"),
 				ActionId:    toPtr("kexec"),
 				Name:        toPtr("kexec"),
@@ -89,11 +89,11 @@ func TestGetAction(t *testing.T) {
 		},
 		"successful first Action in Task": {
 			request: &proto.ActionRequest{
-				WorkerId: toPtr("machine-mac-1"),
+				AgentId: toPtr("machine-mac-1"),
 			},
 			want: &proto.ActionResponse{
 				WorkflowId:  toPtr("default/machine1"),
-				WorkerId:    toPtr("machine-mac-1"),
+				AgentId:     toPtr("machine-mac-1"),
 				TaskId:      new(string),
 				ActionId:    new(string),
 				Name:        toPtr("stream"),
@@ -102,24 +102,24 @@ func TestGetAction(t *testing.T) {
 				Environment: []string{},
 				Pid:         new(string),
 			},
-			workflow: &v1alpha1.Workflow{
+			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "machine1",
 					Namespace: "default",
 				},
-				Status: v1alpha1.WorkflowStatus{
-					State:         v1alpha1.WorkflowStateRunning,
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStateRunning,
 					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
+					Tasks: []tinkerbell.Task{
 						{
-							Name:       "provision",
-							WorkerAddr: "machine-mac-1",
-							Actions: []v1alpha1.Action{
+							Name:    "provision",
+							AgentID: "machine-mac-1",
+							Actions: []tinkerbell.Action{
 								{
 									Name:              "stream",
 									Image:             "quay.io/tinkerbell-actions/image2disk:v1.0.0",
 									Timeout:           300,
-									State:             v1alpha1.WorkflowStatePending,
+									State:             tinkerbell.WorkflowStatePending,
 									ExecutionStart:    nil,
 									ExecutionDuration: "30s",
 								},
@@ -132,24 +132,24 @@ func TestGetAction(t *testing.T) {
 		},
 		"workflow with no Tasks": {
 			request: &proto.ActionRequest{
-				WorkerId: toPtr("machine-mac-1"),
+				AgentId: toPtr("machine-mac-1"),
 			},
-			workflow: &v1alpha1.Workflow{
+			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "machine1",
 					Namespace: "default",
 				},
-				Status: v1alpha1.WorkflowStatus{
-					State:         v1alpha1.WorkflowStateRunning,
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStateRunning,
 					GlobalTimeout: 600,
-					Tasks:         []v1alpha1.Task{},
+					Tasks:         []tinkerbell.Task{},
 				},
 			},
 			wantErr: status.Errorf(codes.NotFound, "no Tasks found in Workflow"),
 		},
 		"no workflows found": {
 			request: &proto.ActionRequest{
-				WorkerId: toPtr("machine-mac-1"),
+				AgentId: toPtr("machine-mac-1"),
 			},
 			wantErr: status.Errorf(codes.NotFound, "no Workflows found"),
 		},
@@ -198,48 +198,48 @@ func compareErrors(t *testing.T, got, want error) {
 }
 
 type mockBackendReadWriter struct {
-	workflow *v1alpha1.Workflow
+	workflow *tinkerbell.Workflow
 }
 
-func (m *mockBackendReadWriter) Read(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
+func (m *mockBackendReadWriter) Read(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
 	return m.workflow, nil
 }
 
-func (m *mockBackendReadWriter) ReadAll(_ context.Context, _ string) ([]v1alpha1.Workflow, error) {
+func (m *mockBackendReadWriter) ReadAll(_ context.Context, _ string) ([]tinkerbell.Workflow, error) {
 	if m.workflow != nil {
-		return []v1alpha1.Workflow{*m.workflow}, nil
+		return []tinkerbell.Workflow{*m.workflow}, nil
 	}
-	return []v1alpha1.Workflow{}, nil
+	return []tinkerbell.Workflow{}, nil
 }
 
-func (m *mockBackendReadWriter) Write(_ context.Context, _ *v1alpha1.Workflow) error {
+func (m *mockBackendReadWriter) Update(_ context.Context, _ *tinkerbell.Workflow) error {
 	return nil
 }
 
 type mockBackendReadWriterForReport struct {
-	workflow *v1alpha1.Workflow
+	workflow *tinkerbell.Workflow
 	writeErr error
 }
 
-func (m *mockBackendReadWriterForReport) Read(_ context.Context, _, _ string) (*v1alpha1.Workflow, error) {
+func (m *mockBackendReadWriterForReport) Read(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
 	if m.workflow == nil {
 		return nil, errors.New("workflow not found")
 	}
 	return m.workflow, nil
 }
 
-func (m *mockBackendReadWriterForReport) ReadAll(_ context.Context, _ string) ([]v1alpha1.Workflow, error) {
+func (m *mockBackendReadWriterForReport) ReadAll(_ context.Context, _ string) ([]tinkerbell.Workflow, error) {
 	return nil, nil
 }
 
-func (m *mockBackendReadWriterForReport) Write(_ context.Context, _ *v1alpha1.Workflow) error {
+func (m *mockBackendReadWriterForReport) Update(_ context.Context, _ *tinkerbell.Workflow) error {
 	return m.writeErr
 }
 
 func TestReportActionStatus(t *testing.T) {
 	tests := map[string]struct {
 		request      *proto.ActionStatusRequest
-		workflow     *v1alpha1.Workflow
+		workflow     *tinkerbell.Workflow
 		writeErr     error
 		expectedResp *proto.ActionStatusResponse
 		expectedErr  error
@@ -249,26 +249,26 @@ func TestReportActionStatus(t *testing.T) {
 				WorkflowId:        toPtr("default/workflow1"),
 				TaskId:            toPtr("task1"),
 				ActionId:          toPtr("action1"),
-				ActionState:       toPtr(proto.StateType_SUCCESS),
+				ActionState:       toPtr(proto.ActionStatusRequest_SUCCESS),
 				ExecutionStart:    timestamppb.New(time.Now()),
 				ExecutionDuration: toPtr("30s"),
 				Message: &proto.ActionMessage{
 					Message: toPtr("Action completed successfully"),
 				},
 			},
-			workflow: &v1alpha1.Workflow{
+			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "workflow1",
 					Namespace: "default",
 				},
-				Status: v1alpha1.WorkflowStatus{
-					Tasks: []v1alpha1.Task{
+				Status: tinkerbell.WorkflowStatus{
+					Tasks: []tinkerbell.Task{
 						{
 							ID: "task1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									ID:    "action1",
-									State: v1alpha1.WorkflowStatePending,
+									State: tinkerbell.WorkflowStatePending,
 								},
 							},
 						},
@@ -284,26 +284,26 @@ func TestReportActionStatus(t *testing.T) {
 				WorkflowId:        toPtr("default/workflow6"),
 				TaskId:            toPtr("task1"),
 				ActionId:          toPtr("action1"),
-				ActionState:       toPtr(proto.StateType_SUCCESS),
+				ActionState:       toPtr(proto.ActionStatusRequest_SUCCESS),
 				ExecutionStart:    timestamppb.New(time.Now()),
 				ExecutionDuration: toPtr("30s"),
 				Message: &proto.ActionMessage{
 					Message: toPtr("Action completed successfully"),
 				},
 			},
-			workflow: &v1alpha1.Workflow{
+			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "workflow1",
 					Namespace: "default",
 				},
-				Status: v1alpha1.WorkflowStatus{
-					Tasks: []v1alpha1.Task{
+				Status: tinkerbell.WorkflowStatus{
+					Tasks: []tinkerbell.Task{
 						{
 							ID: "task1",
-							Actions: []v1alpha1.Action{
+							Actions: []tinkerbell.Action{
 								{
 									ID:    "action1",
-									State: v1alpha1.WorkflowStatePending,
+									State: tinkerbell.WorkflowStatePending,
 								},
 							},
 						},

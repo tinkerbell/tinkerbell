@@ -9,11 +9,11 @@ import (
 type IndexType string
 
 const (
-	IndexTypeMACAddr                    IndexType = MACAddrIndex
-	IndexTypeIPAddr                     IndexType = IPAddrIndex
-	IndexTypeWorkflowByNonTerminalState IndexType = WorkflowByNonTerminalState
-	IndexTypeHardwareName               IndexType = "hardware.metadata.name"
-	IndexTypeMachineName                IndexType = "machine.metadata.name"
+	IndexTypeMACAddr         IndexType = MACAddrIndex
+	IndexTypeIPAddr          IndexType = IPAddrIndex
+	IndexTypeHardwareName    IndexType = "hardware.metadata.name"
+	IndexTypeMachineName     IndexType = "machine.metadata.name"
+	IndexTypeWorkflowAgentID IndexType = WorkflowByAgentID
 )
 
 // Indexes that are currently known.
@@ -28,11 +28,6 @@ var Indexes = map[IndexType]Index{
 		Field:        IPAddrIndex,
 		ExtractValue: IPAddrs,
 	},
-	IndexTypeWorkflowByNonTerminalState: {
-		Obj:          &v1alpha1.Workflow{},
-		Field:        WorkflowByNonTerminalState,
-		ExtractValue: WorkflowByNonTerminalStateFunc,
-	},
 	IndexTypeHardwareName: {
 		Obj:          &v1alpha1.Hardware{},
 		Field:        HardwareNameIndex,
@@ -42,6 +37,11 @@ var Indexes = map[IndexType]Index{
 		Obj:          &bmc.Machine{},
 		Field:        MachineNameIndex,
 		ExtractValue: MachineNameFunc,
+	},
+	IndexTypeWorkflowAgentID: {
+		Obj:          &v1alpha1.Workflow{},
+		Field:        WorkflowByAgentID,
+		ExtractValue: WorkflowByAgentIDFunc,
 	},
 }
 
@@ -92,30 +92,6 @@ func GetIPs(h *v1alpha1.Hardware) []string {
 	return ips
 }
 
-// WorkflowByNonTerminalState is the index name for retrieving workflows in a non-terminal state.
-const WorkflowByNonTerminalState = ".status.state.nonTerminalWorker"
-
-// WorkflowByNonTerminalStateFunc inspects obj - which must be a Workflow - for a Pending or
-// Running state. If in either Pending or Running it returns a list of worker addresses.
-func WorkflowByNonTerminalStateFunc(obj client.Object) []string {
-	wf, ok := obj.(*v1alpha1.Workflow)
-	if !ok {
-		return nil
-	}
-
-	resp := []string{}
-	if wf.Status.State != v1alpha1.WorkflowStateRunning && wf.Status.State != v1alpha1.WorkflowStatePending {
-		return resp
-	}
-	for _, task := range wf.Status.Tasks {
-		if task.WorkerAddr != "" {
-			resp = append(resp, task.WorkerAddr)
-		}
-	}
-
-	return resp
-}
-
 // NameIndex is an index used with a controller-runtime client to lookup objects by name.
 const HardwareNameIndex = ".metadata.name"
 
@@ -135,4 +111,17 @@ func MachineNameFunc(obj client.Object) []string {
 		return nil
 	}
 	return []string{m.Name}
+}
+
+const WorkflowByAgentID = ".status.agentID"
+
+func WorkflowByAgentIDFunc(obj client.Object) []string {
+	wf, ok := obj.(*v1alpha1.Workflow)
+	if !ok {
+		return nil
+	}
+	if wf.Status.AgentID == "" {
+		return []string{}
+	}
+	return []string{wf.Status.AgentID}
 }

@@ -10,10 +10,13 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
+	gbackoff "google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -24,10 +27,10 @@ import (
 type Config struct {
 	Log              logr.Logger
 	TinkServerClient proto.WorkflowServiceClient
-	WorkerID         string
+	AgentID          string
 	RetryInterval    time.Duration
 	Actions          chan spec.Action
-	Attributes       *proto.WorkerAttributes
+	Attributes       *data.AgentAttributes
 	RetryOptions     []backoff.RetryOption
 }
 
@@ -38,7 +41,7 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 	opts := c.RetryOptions
 	if len(opts) == 0 {
 		opts = []backoff.RetryOption{
-			backoff.WithMaxElapsedTime(time.Minute * 5),
+			backoff.WithMaxElapsedTime(time.Minute * 2),
 			backoff.WithBackOff(backoff.NewExponentialBackOff()),
 		}
 	}
@@ -50,18 +53,27 @@ func (c *Config) Read(ctx context.Context) (spec.Action, error) {
 }
 
 func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
-	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{WorkerId: toPtr(c.WorkerID), WorkerAttributes: c.Attributes})
+	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{AgentId: toPtr(c.AgentID), AgentAttributes: ToProto(c.Attributes)})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return spec.Action{}, &NoWorkflowError{}
 		}
-		return spec.Action{}, fmt.Errorf("error getting action: %w", err)
+		// if this is a "connection refused" error, then log it.
+		if status.Code(err) == codes.Unavailable {
+			c.Log.Info("connection refused", "error", err)
+		}
+		e := fmt.Errorf("error getting action: %w", err)
+		if isPFVNoActionsAvailable(err) {
+			e = newNoActionsError("no actions available", err)
+		}
+
+		return spec.Action{}, e
 	}
 
 	as := spec.Action{
 		TaskID:         response.GetTaskId(),
 		ID:             response.GetActionId(),
-		WorkerID:       response.GetWorkerId(),
+		AgentID:        response.GetAgentId(),
 		WorkflowID:     response.GetWorkflowId(),
 		Name:           response.GetName(),
 		Image:          response.GetImage(),
@@ -133,7 +145,7 @@ func (c *Config) Write(ctx context.Context, event spec.Event) error {
 func (c *Config) doWrite(ctx context.Context, event spec.Event) error {
 	ar := &proto.ActionStatusRequest{
 		WorkflowId:        &event.Action.WorkflowID,
-		WorkerId:          &event.Action.WorkerID,
+		AgentId:           &event.Action.AgentID,
 		TaskId:            &event.Action.TaskID,
 		ActionId:          &event.Action.ID,
 		ActionName:        &event.Action.Name,
@@ -144,6 +156,9 @@ func (c *Config) doWrite(ctx context.Context, event spec.Event) error {
 		Message:           &proto.ActionMessage{Message: toPtr(event.Message)},
 	}
 	_, err := c.TinkServerClient.ReportActionStatus(ctx, ar)
+	if status.Code(err) == codes.Internal {
+		return backoff.Permanent(err)
+	}
 	if err != nil {
 		return fmt.Errorf("error reporting action: %v: %w", ar, err)
 	}
@@ -162,7 +177,7 @@ func NewClientConn(authority string, tlsEnabled bool, tlsInsecure bool) (*grpc.C
 		creds = grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
 
-	conn, err := grpc.NewClient(authority, creds, grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
+	conn, err := grpc.NewClient(authority, creds, grpc.WithStatsHandler(otelgrpc.NewClientHandler()), grpc.WithConnectParams(grpc.ConnectParams{Backoff: gbackoff.DefaultConfig}))
 	if err != nil {
 		return nil, fmt.Errorf("dial tinkerbell server: %w", err)
 	}
@@ -170,21 +185,81 @@ func NewClientConn(authority string, tlsEnabled bool, tlsInsecure bool) (*grpc.C
 	return conn, nil
 }
 
-func specToProto(inState spec.State) *proto.StateType {
+func specToProto(inState spec.State) *proto.ActionStatusRequest_StateType {
 	switch inState {
 	case spec.StateRunning:
-		return toPtr(proto.StateType_RUNNING)
+		return toPtr(proto.ActionStatusRequest_RUNNING)
 	case spec.StateSuccess:
-		return toPtr(proto.StateType_SUCCESS)
+		return toPtr(proto.ActionStatusRequest_SUCCESS)
 	case spec.StateFailure:
-		return toPtr(proto.StateType_FAILED)
+		return toPtr(proto.ActionStatusRequest_FAILED)
 	case spec.StateTimeout:
-		return toPtr(proto.StateType_TIMEOUT)
+		return toPtr(proto.ActionStatusRequest_TIMEOUT)
 	default:
-		return toPtr(proto.StateType_UNSPECIFIED)
+		return toPtr(proto.ActionStatusRequest_UNSPECIFIED)
 	}
+}
+
+func isPFVNoActionsAvailable(err error) bool {
+	st := status.Convert(err)
+	if st.Details() != nil {
+		for _, detail := range st.Details() {
+			if violation, ok := detail.(*epb.PreconditionFailure); ok {
+				for _, v := range violation.GetViolations() {
+					if v.GetType() == proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_NO_ACTION_AVAILABLE.String() {
+						return true
+					}
+				}
+			}
+		}
+	}
+	if st.Code() == codes.FailedPrecondition {
+		return true
+	}
+	return false
 }
 
 func toPtr[T any](v T) *T {
 	return &v
+}
+
+// noActionsError represents a structured error with additional context.
+type noActionsError struct {
+	Message string
+	Inner   error
+}
+
+// Error implements the error interface.
+func (e *noActionsError) Error() string {
+	if e.Inner != nil {
+		return fmt.Sprintf("%s: %v", e.Message, e.Inner)
+	}
+	return e.Message
+}
+
+// Unwrap implements the Wrapper interface.
+func (e *noActionsError) Unwrap() error {
+	return e.Inner
+}
+
+// As implements type assertion support.
+func (e *noActionsError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+	_, ok := target.(**noActionsError)
+	return ok
+}
+
+// NoAction implements the NoAction interface in the agent package.
+func (e *noActionsError) NoAction() bool {
+	return true
+}
+
+// newNoActionsError creates a new instance of NoActionsError.
+func newNoActionsError(message string, inner error) *noActionsError {
+	return &noActionsError{
+		Message: message,
+		Inner:   inner,
+	}
 }

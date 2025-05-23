@@ -13,9 +13,9 @@ message ActionResponse {
    /* The name of the task to which the action belongs */
    string task_id = 2;
    /*
-    * worker_id is the id of the worker that is executing the action
+    * agent_id is the id of the worker that is executing the action
     */
-   string worker_id = 3;
+   string agent_id = 3;
    /* Action id */
    string action_id = 4;
    /*
@@ -48,4 +48,10 @@ message ActionResponse {
     * Set the namespace that the process IDs will be in.
     */
    string pid = 11;
+}
+
+
+enum PreconditionFailureViolation {
+   PRECONDITION_FAILURE_VIOLATION_UNSPECIFIED = 0;
+   PRECONDITION_FAILURE_VIOLATION_NO_ACTION_AVAILABLE = 1;
 }

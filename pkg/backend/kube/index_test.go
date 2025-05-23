@@ -92,66 +92,65 @@ func TestIPAddrs(t *testing.T) {
 	}
 }
 
-func TestWorkflowIndexFuncs(t *testing.T) {
+func TestWorkflowByAgentIDFunc(t *testing.T) {
 	cases := []struct {
 		name           string
 		input          client.Object
 		wantStateAddrs []string
 	}{
 		{
-			"non workflow",
+			"noworkflow",
 			&v1alpha1.Hardware{},
 			nil,
 		},
 		{
-			"empty workflow",
+			"emptyworkflow",
 			&v1alpha1.Workflow{
-				Status: v1alpha1.WorkflowStatus{
-					State: "",
-					Tasks: []v1alpha1.Task{},
-				},
+				Status: v1alpha1.WorkflowStatus{},
 			},
 			[]string{},
 		},
 		{
-			"pending workflow",
+			"pendingworkflow",
 			&v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
-					State: v1alpha1.WorkflowStatePending,
+					State:   v1alpha1.WorkflowStatePending,
+					AgentID: "agent1",
 					Tasks: []v1alpha1.Task{
 						{
-							WorkerAddr: "worker1",
+							AgentID: "agent1",
 						},
 					},
 				},
 			},
-			[]string{"worker1"},
+			[]string{"agent1"},
 		},
 		{
-			"running workflow",
+			"runningworkflow",
 			&v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
-					State: v1alpha1.WorkflowStateRunning,
+					State:   v1alpha1.WorkflowStateRunning,
+					AgentID: "agent1",
 					Tasks: []v1alpha1.Task{
 						{
-							WorkerAddr: "worker1",
+							AgentID: "agent1",
 						},
 						{
-							WorkerAddr: "worker2",
+							AgentID: "agent2",
 						},
 					},
 				},
 			},
-			[]string{"worker1", "worker2"},
+			[]string{"agent1"},
 		},
 		{
-			"complete workflow",
+			"completeworkflow",
 			&v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
 					State: v1alpha1.WorkflowStateSuccess,
 					Tasks: []v1alpha1.Task{
 						{
-							WorkerAddr: "worker1",
+							AgentID: "agent1",
 						},
 					},
 				},
@@ -162,9 +161,9 @@ func TestWorkflowIndexFuncs(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotStateAddrs := WorkflowByNonTerminalStateFunc(tc.input)
+			gotStateAddrs := WorkflowByAgentIDFunc(tc.input)
 			if !reflect.DeepEqual(tc.wantStateAddrs, gotStateAddrs) {
-				t.Errorf("Unexpected non-terminating workflow response: wanted %#v, got %#v", tc.wantStateAddrs, gotStateAddrs)
+				t.Errorf("Unexpected WorkflowByAgentIDFunc workflow response: wanted %#v, got %#v", tc.wantStateAddrs, gotStateAddrs)
 			}
 		})
 	}

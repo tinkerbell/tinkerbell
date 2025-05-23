@@ -8,13 +8,13 @@ option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
  * ActionRequest 
  */
 message ActionRequest {
-    /* The ID of the worker that is requesting the action */
-    string worker_id = 1;
-    /* Attributes of the worker, this enables more sophisticated server-side Workflow selection and creation capabilities */
-    WorkerAttributes worker_attributes = 2;
+    /* The ID of the Agent that is requesting the action */
+    string agent_id = 1;
+    /* Attributes of the Agent, this enables more sophisticated server-side Workflow selection and creation capabilities */
+    AgentAttributes agent_attributes = 2;
 }
 
-message WorkerAttributes {
+message AgentAttributes {
     CPU cpu = 1;
     Memory memory = 2;
     repeated Block block = 3;
@@ -43,16 +43,16 @@ message Processor {
 }
 
 message Memory {
-    uint64 total = 1;
-    uint64 usable = 2;
+    string total = 1;
+    string usable = 2;
 }
 
 message Block {
     string name = 1;
     string controller_type = 2;
     string drive_type = 3;
-    uint64 size = 4;
-    uint64 physical_block_size = 5;
+    string size = 4;
+    string physical_block_size = 5;
     string vendor = 6;
     string model = 7;
 }
@@ -93,9 +93,11 @@ message Baseboard {
     string vendor = 1;
     string product = 2;
     string version = 3;
+    string serial_number = 4;
 }
 
 message Product {
     string name = 1;
     string vendor = 2;
+    string serial_number = 3;
 }

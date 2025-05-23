@@ -79,6 +79,10 @@ spec:
               value: {{ .Values.deployment.envs.tinkServer.bindAddr | quote }}
             - name: TINKERBELL_TINK_SERVER_BIND_PORT
               value: {{ .Values.deployment.envs.tinkServer.bindPort | quote }}
+            - name: TINKERBELL_TINK_SERVER_LOG_LEVEL
+              value: {{ .Values.deployment.envs.tinkServer.logLevel | quote }}
+            - name: TINKERBELL_TINK_SERVER_AUTO_ENROLLMENT_ENABLED
+              value: {{ .Values.deployment.envs.tinkServer.autoEnrollmentEnabled | quote }}
           # TOOTLES
             - name: TINKERBELL_TOOTLES_BIND_ADDR
               value: {{ .Values.deployment.envs.tootles.bindAddr | quote }}

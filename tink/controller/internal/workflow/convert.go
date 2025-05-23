@@ -11,6 +11,7 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 		return nil
 	}
 	tasks := []v1alpha1.Task{}
+	agentID := ""
 	for _, task := range wf.Tasks {
 		actions := []v1alpha1.Action{}
 		for _, action := range task.Actions {
@@ -21,22 +22,27 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 				Timeout:     action.Timeout,
 				Command:     action.Command,
 				Volumes:     action.Volumes,
-				State:       v1alpha1.WorkflowState(proto.StateType_PENDING.String()),
+				State:       v1alpha1.WorkflowState(proto.ActionStatusRequest_PENDING.String()),
 				Environment: action.Environment,
 				Pid:         action.Pid,
 			})
 		}
 		tasks = append(tasks, v1alpha1.Task{
 			Name:        task.Name,
-			WorkerAddr:  task.WorkerAddr,
+			AgentID:     task.WorkerAddr,
 			ID:          ulid.Make().String(),
 			Volumes:     task.Volumes,
 			Environment: task.Environment,
 			Actions:     actions,
 		})
+		// only use the first Task's agentID. At the moment only support single Task Workflows.
+		if agentID == "" {
+			agentID = task.WorkerAddr
+		}
 	}
 	return &v1alpha1.WorkflowStatus{
 		GlobalTimeout: int64(wf.GlobalTimeout),
 		Tasks:         tasks,
+		AgentID:       agentID,
 	}
 }

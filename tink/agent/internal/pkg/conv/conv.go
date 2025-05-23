@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/tinkerbell/tinkerbell/tink/agent/internal/pkg/rand"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 )
 
@@ -13,10 +12,9 @@ func ParseName(actionID, name string) string {
 	validContainerName := regexp.MustCompile(`[^a-zA-Z0-9_.-]`)
 	// Prepend 'tinkerbell_' so we guarantee the additional constraints on the first character.
 	return fmt.Sprintf(
-		"tinkerbell_%s_%s_%s",
+		"tinkerbell_%s_%s",
 		validContainerName.ReplaceAllString(name, "_"),
 		validContainerName.ReplaceAllString(actionID, "_"),
-		rand.String(6),
 	)
 }
 

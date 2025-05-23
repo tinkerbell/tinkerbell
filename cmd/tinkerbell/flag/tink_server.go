@@ -17,13 +17,14 @@ type TinkServerConfig struct {
 }
 
 var KubeIndexesTinkServer = map[kube.IndexType]kube.Index{
-	kube.IndexTypeWorkflowByNonTerminalState: kube.Indexes[kube.IndexTypeWorkflowByNonTerminalState],
+	kube.IndexTypeWorkflowAgentID: kube.Indexes[kube.IndexTypeWorkflowAgentID],
 }
 
 func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {
 	fs.Register(TinkServerBindAddr, &ntip.Addr{Addr: &t.BindAddr})
 	fs.Register(TinkServerBindPort, ffval.NewValueDefault(&t.BindPort, t.BindPort))
 	fs.Register(TinkServerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
+	fs.Register(TinkServerAutoEnrollmentEnabled, ffval.NewValueDefault(&t.Config.AutoEnrollmentEnabled, t.Config.AutoEnrollmentEnabled))
 }
 
 // Convert TinkServerConfig data types to tink server server.Config data types.
@@ -44,4 +45,9 @@ var TinkServerBindPort = Config{
 var TinkServerLogLevel = Config{
 	Name:  "tink-server-log-level",
 	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
+}
+
+var TinkServerAutoEnrollmentEnabled = Config{
+	Name:  "tink-server-auto-enrollment-enabled",
+	Usage: "enable auto enrollment capabilities for the Tink server",
 }

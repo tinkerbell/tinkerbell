@@ -50,7 +50,7 @@ const (
 // +kubebuilder:printcolumn:JSONPath=".status.state",name=State,type=string
 // +kubebuilder:printcolumn:JSONPath=".status.currentState.taskName",name=Task,type=string,priority=1
 // +kubebuilder:printcolumn:JSONPath=".status.currentState.actionName",name=Action,type=string
-// +kubebuilder:printcolumn:JSONPath=".status.currentState.workerID",name=Agent,type=string
+// +kubebuilder:printcolumn:JSONPath=".status.currentState.agentID",name=Agent,type=string
 // +kubebuilder:printcolumn:JSONPath=".status.templateRending",name=Template-Rendering,type=string,priority=1
 
 // Workflow is the Schema for the Workflows API.
@@ -73,6 +73,9 @@ type WorkflowList struct {
 
 // WorkflowSpec defines the desired state of Workflow.
 type WorkflowSpec struct {
+	// Disabled indicates whether the Workflow will be processed or not.
+	// +optional
+	Disabled *bool `json:"disabled,omitempty"`
 	// Name of the Template associated with this workflow.
 	TemplateRef string `json:"templateRef,omitempty"`
 
@@ -80,11 +83,11 @@ type WorkflowSpec struct {
 	// +optional
 	HardwareRef string `json:"hardwareRef,omitempty"`
 
-	// A mapping of template devices to hadware mac addresses.
+	// A mapping of template devices to hardware mac addresses.
 	HardwareMap map[string]string `json:"hardwareMap,omitempty"`
 
 	// BootOptions are options that control the booting of Hardware.
-	BootOptions BootOptions `json:"bootOptions,omitempty"`
+	BootOptions BootOptions `json:"bootOptions,omitempty,omitzero"`
 }
 
 // BootOptions are options that control the booting of Hardware.
@@ -108,6 +111,10 @@ type BootOptions struct {
 	BootMode BootMode `json:"bootMode,omitempty"`
 }
 
+func (b BootOptions) IsZero() bool {
+	return b.ISOURL == "" && !b.ToggleAllowNetboot && b.BootMode == ""
+}
+
 // BootOptionsStatus holds the state of any boot options.
 type BootOptionsStatus struct {
 	// AllowNetboot holds the state of the the controller's interactions with the allowPXE field in a Hardware object.
@@ -122,7 +129,7 @@ type AllowNetbootStatus struct {
 }
 
 type CurrentState struct {
-	WorkerID   string        `json:"workerID,omitempty"`
+	AgentID    string        `json:"agentID,omitempty"`
 	TaskID     string        `json:"taskID,omitempty"`
 	ActionID   string        `json:"actionID,omitempty"`
 	State      WorkflowState `json:"state,omitempty"`
@@ -132,6 +139,9 @@ type CurrentState struct {
 
 // WorkflowStatus defines the observed state of a Workflow.
 type WorkflowStatus struct {
+	// AgentID is the ID of the Agent with which this Workflow is associated.
+	AgentID string `json:"agentID,omitempty"`
+
 	// State is the current overall state of the Workflow.
 	State WorkflowState `json:"state,omitempty"`
 
@@ -145,10 +155,14 @@ type WorkflowStatus struct {
 	// GlobalTimeout represents the max execution time.
 	GlobalTimeout int64 `json:"globalTimeout,omitempty"`
 
+	// GlobalExecutionStop represents the time when the Workflow should stop executing.
+	// After this time, the Workflow will be marked as TIMEOUT.
+	GlobalExecutionStop *metav1.Time `json:"globalExecutionStop,omitempty"`
+
 	// CurrentState tracks where the workflow is in its execution.
 	CurrentState *CurrentState `json:"currentState,omitempty"`
 
-	// Tasks are the tasks to be run by the worker(s).
+	// Tasks are the tasks to be run by the Agent(s).
 	Tasks []Task `json:"tasks,omitempty"`
 
 	// Conditions are the latest available observations of an object's current state.
@@ -194,11 +208,11 @@ type WorkflowCondition struct {
 	Time *metav1.Time `json:"time,omitempty" protobuf:"bytes,7,opt,name=time"`
 }
 
-// Task represents a series of actions to be completed by a worker.
+// Task represents a series of actions to be completed by an Agent.
 type Task struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
-	WorkerAddr  string            `json:"worker"`
+	AgentID     string            `json:"agentID"`
 	Actions     []Action          `json:"actions"`
 	Volumes     []string          `json:"volumes,omitempty"`
 	Environment map[string]string `json:"environment,omitempty"`

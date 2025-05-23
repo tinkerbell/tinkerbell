@@ -32,7 +32,7 @@ spec:
     - jsonPath: .status.currentState.actionName
       name: Action
       type: string
-    - jsonPath: .status.currentState.workerID
+    - jsonPath: .status.currentState.agentID
       name: Agent
       type: string
     - jsonPath: .status.templateRending
@@ -88,10 +88,14 @@ spec:
                       A HardwareRef must be provided.
                     type: boolean
                 type: object
+              disabled:
+                description: Disabled indicates whether the Workflow will be processed
+                  or not.
+                type: boolean
               hardwareMap:
                 additionalProperties:
                   type: string
-                description: A mapping of template devices to hadware mac addresses.
+                description: A mapping of template devices to hardware mac addresses.
                 type: object
               hardwareRef:
                 description: Name of the Hardware associated with this workflow.
@@ -103,6 +107,10 @@ spec:
           status:
             description: WorkflowStatus defines the observed state of a Workflow.
             properties:
+              agentID:
+                description: AgentID is the ID of the Agent with which this Workflow
+                  is associated.
+                type: string
               bootOptions:
                 description: BootOptions holds the state of any boot options.
                 properties:
@@ -179,15 +187,21 @@ spec:
                     type: string
                   actionName:
                     type: string
+                  agentID:
+                    type: string
                   state:
                     type: string
                   taskID:
                     type: string
                   taskName:
                     type: string
-                  workerID:
-                    type: string
                 type: object
+              globalExecutionStop:
+                description: |-
+                  GlobalExecutionStop represents the time when the Workflow should stop executing.
+                  After this time, the Workflow will be marked as TIMEOUT.
+                format: date-time
+                type: string
               globalTimeout:
                 description: GlobalTimeout represents the max execution time.
                 format: int64
@@ -196,10 +210,10 @@ spec:
                 description: State is the current overall state of the Workflow.
                 type: string
               tasks:
-                description: Tasks are the tasks to be run by the worker(s).
+                description: Tasks are the tasks to be run by the Agent(s).
                 items:
                   description: Task represents a series of actions to be completed
-                    by a worker.
+                    by an Agent.
                   properties:
                     actions:
                       items:
@@ -244,6 +258,8 @@ spec:
                         - id
                         type: object
                       type: array
+                    agentID:
+                      type: string
                     environment:
                       additionalProperties:
                         type: string
@@ -256,13 +272,11 @@ spec:
                       items:
                         type: string
                       type: array
-                    worker:
-                      type: string
                   required:
                   - actions
+                  - agentID
                   - id
                   - name
-                  - worker
                   type: object
                 type: array
               templateRending:

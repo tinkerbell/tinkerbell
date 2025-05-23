@@ -333,6 +333,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				Status: v1alpha1.WorkflowStatus{
+					AgentID:           "3c:ec:ef:4c:4f:54",
 					State:             v1alpha1.WorkflowStatePending,
 					GlobalTimeout:     1800,
 					TemplateRendering: "successful",
@@ -343,7 +344,7 @@ func TestReconcile(t *testing.T) {
 						{
 							Name: "os-installation",
 
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -469,7 +470,7 @@ tasks:
 						{
 							Name: "os-installation",
 
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -608,12 +609,13 @@ tasks:
 					},
 				},
 				Status: v1alpha1.WorkflowStatus{
-					State:         v1alpha1.WorkflowStateRunning,
-					GlobalTimeout: 600,
+					State:               v1alpha1.WorkflowStateRunning,
+					GlobalTimeout:       50,
+					GlobalExecutionStop: TestTime.MetaV1BeforeSec(60),
 					Tasks: []v1alpha1.Task{
 						{
-							Name:       "os-installation",
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							Name:    "os-installation",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -623,14 +625,15 @@ tasks:
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout: 60,
+									Timeout: 10,
 									Environment: map[string]string{
 										"COMPRESSED": "true",
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
 									State:          v1alpha1.WorkflowStateRunning,
-									ExecutionStart: TestTime.MetaV1BeforeSec(601),
+									ExecutionStart: TestTime.MetaV1BeforeSec(120),
+									ExecutionStop:  TestTime.MetaV1BeforeSec(60),
 								},
 							},
 						},
@@ -694,12 +697,13 @@ tasks:
 					},
 				},
 				Status: v1alpha1.WorkflowStatus{
-					State:         v1alpha1.WorkflowStateTimeout,
-					GlobalTimeout: 600,
+					State:               v1alpha1.WorkflowStateTimeout,
+					GlobalTimeout:       50,
+					GlobalExecutionStop: TestTime.MetaV1BeforeSec(60),
 					Tasks: []v1alpha1.Task{
 						{
-							Name:       "os-installation",
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							Name:    "os-installation",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -709,14 +713,15 @@ tasks:
 								{
 									Name:    "stream-debian-image",
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout: 60,
+									Timeout: 10,
 									Environment: map[string]string{
 										"COMPRESSED": "true",
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
 									State:          v1alpha1.WorkflowStateRunning,
-									ExecutionStart: TestTime.MetaV1BeforeSec(601),
+									ExecutionStart: TestTime.MetaV1BeforeSec(120),
+									ExecutionStop:  TestTime.MetaV1BeforeSec(60),
 									Message:        "",
 								},
 							},
@@ -790,7 +795,7 @@ tasks:
 						{
 							Name: "os-installation",
 
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -922,6 +927,7 @@ tasks:
 					},
 				},
 				Status: v1alpha1.WorkflowStatus{
+					AgentID:           "3c:ec:ef:4c:4f:54",
 					State:             v1alpha1.WorkflowStatePending,
 					GlobalTimeout:     1800,
 					TemplateRendering: "successful",
@@ -932,7 +938,7 @@ tasks:
 						{
 							Name: "os-installation",
 
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
+							AgentID: "3c:ec:ef:4c:4f:54",
 							Volumes: []string{
 								"/dev:/dev",
 								"/dev/console:/dev/console",
@@ -1016,128 +1022,10 @@ tasks:
 				return
 			}
 
-			if diff := cmp.Diff(tc.wantWflow, wflow, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time"), cmpopts.IgnoreFields(v1alpha1.Task{}, "ID"), cmpopts.IgnoreFields(v1alpha1.Action{}, "ID")); diff != "" {
+			if diff := cmp.Diff(wflow, tc.wantWflow, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time"), cmpopts.IgnoreFields(v1alpha1.Task{}, "ID"), cmpopts.IgnoreFields(v1alpha1.Action{}, "ID")); diff != "" {
+				t.Logf("got: %+v", wflow)
+				t.Logf("want: %+v", tc.wantWflow)
 				t.Errorf("unexpected difference:\n%v", diff)
-			}
-		})
-	}
-}
-
-func TestGetStartTime(t *testing.T) {
-	cases := []struct {
-		name  string
-		input *v1alpha1.Workflow
-		want  *metav1.Time
-	}{
-		{
-			"Empty wflow",
-			&v1alpha1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "debian",
-					Namespace: "default",
-				},
-			},
-			nil,
-		},
-		{
-			"Running workflow",
-			&v1alpha1.Workflow{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Workflow",
-					APIVersion: "tinkerbell.org/v1alpha1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "debian",
-					Namespace: "default",
-				},
-				Spec: v1alpha1.WorkflowSpec{},
-				Status: v1alpha1.WorkflowStatus{
-					State:         v1alpha1.WorkflowStateRunning,
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "os-installation",
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
-							Actions: []v1alpha1.Action{
-								{
-									Name:    "stream-debian-image",
-									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout: 60,
-									Environment: map[string]string{
-										"COMPRESSED": "true",
-										"DEST_DISK":  "/dev/nvme0n1",
-										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
-									},
-									State: v1alpha1.WorkflowStateSuccess,
-
-									ExecutionDuration: "20s",
-								},
-								{
-									Name:    "stream-debian-image",
-									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout: 60,
-									Environment: map[string]string{
-										"COMPRESSED": "true",
-										"DEST_DISK":  "/dev/nvme0n1",
-										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
-									},
-									State: v1alpha1.WorkflowStateRunning,
-								},
-							},
-						},
-					},
-				},
-			},
-			nil,
-		},
-		{
-			"pending without a start time",
-			&v1alpha1.Workflow{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Workflow",
-					APIVersion: "tinkerbell.org/v1alpha1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "debian",
-					Namespace: "default",
-				},
-				Spec: v1alpha1.WorkflowSpec{},
-				Status: v1alpha1.WorkflowStatus{
-					State:         v1alpha1.WorkflowStatePending,
-					GlobalTimeout: 600,
-					Tasks: []v1alpha1.Task{
-						{
-							Name:       "os-installation",
-							WorkerAddr: "3c:ec:ef:4c:4f:54",
-							Actions: []v1alpha1.Action{
-								{
-									Name:    "stream-debian-image",
-									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
-									Timeout: 60,
-									Environment: map[string]string{
-										"COMPRESSED": "true",
-										"DEST_DISK":  "/dev/nvme0n1",
-										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
-									},
-									State:          v1alpha1.WorkflowStatePending,
-									ExecutionStart: nil,
-								},
-							},
-						},
-					},
-				},
-			},
-			nil,
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := startTime(tc.input)
-			if got == nil && tc.want == nil {
-				return
-			}
-			if !got.Time.Equal(tc.want.Time) {
-				t.Errorf("Got time %s, wanted %s", got.Format(time.RFC1123), tc.want.Format(time.RFC1123))
 			}
 		})
 	}
@@ -1161,7 +1049,17 @@ func (f *FrozenTime) BeforeSec(s int64) time.Time {
 	return f.Now().Add(time.Duration(-s) * time.Second)
 }
 
+// After Now() by int64 seconds.
+func (f *FrozenTime) AfterSec(s int64) time.Time {
+	return f.Now().Add(time.Duration(s) * time.Second)
+}
+
 func (f *FrozenTime) MetaV1BeforeSec(s int64) *metav1.Time {
 	t := metav1.NewTime(f.BeforeSec(s))
+	return &t
+}
+
+func (f *FrozenTime) MetaV1AfterSec(s int64) *metav1.Time {
+	t := metav1.NewTime(f.AfterSec(s))
 	return &t
 }
