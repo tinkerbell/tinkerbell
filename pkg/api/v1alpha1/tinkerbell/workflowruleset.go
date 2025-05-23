@@ -36,7 +36,7 @@ type WorkflowRuleSetSpec struct {
 	// All rules are combined using the OR operator.
 	// If any rule matches, the corresponding Workflow will be created.
 	Rules []string `json:"rules,omitempty"`
-	// Workflow is the Workflow to be created when a rule matches.
+	// Workflow holds the data used to configure the created Workflow.
 	Workflow WorkflowRuleSetWorkflow `json:"workflow,omitempty"`
 }
 
@@ -48,7 +48,7 @@ type WorkflowRuleSetWorkflow struct {
 	// TemplateRef is the name of the Template to use for the Workflow.
 	// Namespace is the namespace in which the Workflow will be created.
 	Namespace string `json:"namespace,omitempty"`
-	// AddAttributes indicates if the attributes should be added to the .Status.AgentAttributes field for created Workflows.
+	// AddAttributes indicates if the Agent attributes should be added as an Annotation in the created Workflow.
 	// +optional
 	AddAttributes bool `json:"addAttributes,omitempty"`
 	// Template is the Template specific configuration to use when creating the Workflow.

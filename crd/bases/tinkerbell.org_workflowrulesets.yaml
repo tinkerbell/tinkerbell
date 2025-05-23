@@ -54,11 +54,12 @@ spec:
                   type: string
                 type: array
               workflow:
-                description: Workflow is the Workflow to be created when a rule matches.
+                description: Workflow holds the data used to configure the created
+                  Workflow.
                 properties:
                   addAttributes:
-                    description: AddAttributes indicates if the attributes should
-                      be added to the .Status.AgentAttributes field for created Workflows.
+                    description: AddAttributes indicates if the Agent attributes should
+                      be added as an Annotation in the created Workflow.
                     type: boolean
                   disabled:
                     description: Disabled indicates whether the Workflow will be enabled

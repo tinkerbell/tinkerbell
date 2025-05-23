@@ -10,26 +10,82 @@ Auto enrollment automatically creates a Workflow for Tink Agents without having 
 
 When an Agent connects to the Tink Server:
 
-1. The Agent sends its attributes (serial numbers, MAC addresses, etc.) to the Tink server
+1. The Agent sends its attributes (serial numbers, MAC addresses, etc.) to the Tink server.
 1. If no workflow exists for the Agent, and auto enrollment is enabled, Tink server:
-   - Searches for WorkflowRuleSets that match the Agent's attributes
-   - Creates a Workflow for the Agent based on the matched rule set
-1. The Agent then executes the Workflow
+   1. Iterates through all WorkflowRuleSets and checks for a rule that matches the Agent's attributes.
+   2. Creates a Workflow for the Agent based on the matched WorkflowRuleSet.
+1. Tink Server serves the first Workflow Action to the Agent.
+1. The Agent executes the Workflow Actions.
 
 ## How to enable Auto Enrollment
 
-Theres a CLI flag and an environment variable.
+There is a CLI flag and an environment variable.
+
+- **CLI flag**: `--tink-controller-auto-enrollment=true`
+- **Environment variable**: `TINKERBELL_TINK_CONTROLLER_AUTO_ENROLLMENT=true`
+
+In the Helm chart, use the following configuration in the `values.yaml` file:
+
+```yaml
+deployment:
+  envs:
+    tinkServer:
+      autoEnrollment: true
+```
 
 ## How to configure a WorkflowRuleSet
 
-WorkflowRuleSets are Kubernetes Custom Resource Definitions (CRDs).
+WorkflowRuleSets are Kubernetes Custom Resource Definitions (CRDs). Here is an example WorkflowRuleSet.
 
+```yaml
+apiVersion: tinkerbell.org/v1alpha1
+kind: WorkflowRuleSet
+metadata:
+  name: ruleset1
+  namespace: tink-system
+spec:
+  rules:
+  - '{"networkInterfaces": {"mac": [{"wildcard": "*"}]}}'
+  workflow:
+    addAttributes: true
+    disabled: false
+    namespace: tink-system
+    template:
+      agentValue: worker_id
+      kvs:
+        additional_value: im a value
+      ref: sleep
+```
 
+### WorkflowRuleSet fields
+
+- **rules [array]**: Rules is a list of Quamina patterns used to match against the attributes of an Agent. See [https://github.com/timbray/quamina/blob/main/PATTERNS.md](https://github.com/timbray/quamina/blob/main/PATTERNS.md]) for more information on the required format. All rules are combined using the `OR` operator. If any rule matches, the corresponding Workflow will be created.
+- **workflow [object]**: Workflow holds the data used to configure the created Workflow.
+  - **addAttributes [boolean]**: This indicates if the Agent attributes should be added as an Annotation in the created Workflow.
+  - **disabled [boolean]**: Disabled indicates whether the Workflow will be enabled or not when created.
+  - **namespace [string]**: The namespace to use when creating the Workflow.
+  - **template [object]**: Data related to the configuration of the Template used in the created Workflow.
+    - **agentValue [string]**: A value used in the referenced Template for the `Task[].worker` value. For example: "`device_id`" or "`worker_id`".
+    - **kvs [map]**: Key-value pairs usable in the referenced Template.
+    - **ref [string]**: The name of a Template object used in the created Workflow.
 
 ## How to discover Agent attributes
 
-When the WorkflowRuleSet has `spec.addAttributesToStatus: true` then matching Agents that send attributes will have those attributes added to the Workflow `status.agentAttributes` field. These attributes can be inspected in order to create WorkflowRuleSet rules. When used in conjunction with a WorkflowRuleSet `spec.workflow.disabled: true`, the attributes can be inspected before a Workflow is executed.
-Example JSON :
+When starting out, it is recommended to create a WorkflowRuleSet that matches all Agents and disables running of a Workflow. This will create a disabled Workflow for each Agent that connects to Tink server. The Workflow will contain the Agent's attributes as an Annotation (`tinkerbell.org/agent-attributes`), which can be inspected to determine the Agent's characteristics for use in creating more specific rules. Attributes can be inspected using the following command:
+
+```bash
+kubectl get wf -n <namespace> enrollment-<agent id> -o jsonpath='{.metadata.annotations.tinkerbell\.org/agent-attributes}' | jq
+```
+
+Once familiar with the attributes, you can create more specific WorkflowRuleSets to match your environment.
+
+> [!NOTE]  
+> A disabled Workflow can be enabled using the following command:  
+> `kubectl patch wf -n <namespace> enrollment-<agent id> -p '{"spec":{"disabled":false}}' --type merge`
+
+### Example of Agent attributes
+
+The following is an example of the attributes data structure and data types of an Agent. See also the Go struct definition [here](../../pkg/data/attributes.go).
 
 ```json
 {
@@ -45,153 +101,14 @@ Example JSON :
         "model": "11th Gen Intel(R) Core(TM) i5-1145G7E @ 2.60GHz",
         "capabilities": [
           "fpu",
-          "vme",
-          "de",
-          "pse",
-          "tsc",
-          "msr",
-          "pae",
-          "mce",
-          "cx8",
-          "apic",
-          "sep",
-          "mtrr",
-          "pge",
-          "mca",
-          "cmov",
-          "pat",
-          "pse36",
-          "clflush",
-          "dts",
-          "acpi",
-          "mmx",
-          "fxsr",
-          "sse",
-          "sse2",
-          "ss",
-          "ht",
-          "tm",
-          "pbe",
-          "syscall",
-          "nx",
-          "pdpe1gb",
-          "rdtscp",
-          "lm",
-          "constant_tsc",
-          "art",
-          "arch_perfmon",
-          "pebs",
-          "bts",
-          "rep_good",
-          "nopl",
-          "xtopology",
-          "nonstop_tsc",
-          "cpuid",
-          "aperfmperf",
-          "tsc_known_freq",
-          "pni",
-          "pclmulqdq",
-          "dtes64",
-          "monitor",
-          "ds_cpl",
-          "vmx",
-          "smx",
-          "est",
-          "tm2",
-          "ssse3",
-          "sdbg",
-          "fma",
-          "cx16",
-          "xtpr",
-          "pdcm",
-          "pcid",
-          "sse4_1",
-          "sse4_2",
-          "x2apic",
-          "movbe",
-          "popcnt",
-          "tsc_deadline_timer",
-          "aes",
-          "xsave",
-          "avx",
-          "f16c",
-          "rdrand",
-          "lahf_lm",
-          "abm",
-          "3dnowprefetch",
-          "cpuid_fault",
-          "epb",
-          "cat_l2",
-          "invpcid_single",
-          "cdp_l2",
-          "ssbd",
-          "ibrs",
-          "ibpb",
-          "stibp",
-          "ibrs_enhanced",
-          "tpr_shadow",
-          "vnmi",
-          "flexpriority",
-          "ept",
-          "vpid",
-          "ept_ad",
-          "fsgsbase",
-          "tsc_adjust",
-          "bmi1",
-          "avx2",
-          "smep",
-          "bmi2",
-          "erms",
-          "invpcid",
-          "rdt_a",
-          "avx512f",
-          "avx512dq",
-          "rdseed",
-          "adx",
-          "smap",
-          "avx512ifma",
-          "clflushopt",
-          "clwb",
-          "intel_pt",
-          "avx512cd",
-          "sha_ni",
-          "avx512bw",
-          "avx512vl",
-          "xsaveopt",
-          "xsavec",
-          "xgetbv1",
-          "xsaves",
-          "split_lock_detect",
-          "dtherm",
-          "ida",
-          "arat",
-          "pln",
-          "pts",
-          "avx512vbmi",
-          "umip",
-          "pku",
-          "ospke",
-          "avx512_vbmi2",
-          "gfni",
-          "vaes",
-          "vpclmulqdq",
-          "avx512_vnni",
-          "avx512_bitalg",
-          "tme",
-          "avx512_vpopcntdq",
-          "rdpid",
-          "movdiri",
-          "movdir64b",
-          "fsrm",
-          "avx512_vp2intersect",
-          "md_clear",
-          "flush_l1d",
-          "arch_capabilities"
         ]
       }
     ]
   },
-  "memory": { "total": "32GB", "usable": "31GB" },
+  "memory": {
+    "total": "32GB",
+    "usable": "31GB"
+  },
   "blockDevices": [
     {
       "name": "nvme0n1",
@@ -200,328 +117,24 @@ Example JSON :
       "size": "239GB",
       "physicalBlockSize": "512B",
       "vendor": "unknown",
-      "model": "KINGSTON OM8PDP3256B-A01"
+      "model": "KINGSTON ABCDEF-01"
     }
   ],
   "networkInterfaces": [
-    {
-      "name": "br-3d1549d4f99f",
-      "mac": "",
-      "speed": "Unknown!",
-      "enabledCapabilities": [
-        "tx-checksumming",
-        "tx-checksum-ip-generic",
-        "scatter-gather",
-        "tx-scatter-gather",
-        "tx-scatter-gather-fraglist",
-        "tcp-segmentation-offload",
-        "tx-tcp-segmentation",
-        "tx-tcp-ecn-segmentation",
-        "tx-tcp-mangleid-segmentation",
-        "tx-tcp6-segmentation",
-        "generic-segmentation-offload",
-        "generic-receive-offload",
-        "tx-vlan-offload",
-        "highdma",
-        "tx-lockless",
-        "netns-local",
-        "tx-gso-robust",
-        "tx-fcoe-segmentation",
-        "tx-gre-segmentation",
-        "tx-gre-csum-segmentation",
-        "tx-ipxip4-segmentation",
-        "tx-ipxip6-segmentation",
-        "tx-udp_tnl-segmentation",
-        "tx-udp_tnl-csum-segmentation",
-        "tx-gso-partial",
-        "tx-tunnel-remcsum-segmentation",
-        "tx-sctp-segmentation",
-        "tx-esp-segmentation",
-        "tx-udp-segmentation",
-        "tx-gso-list",
-        "tx-vlan-stag-hw-insert"
-      ]
-    },
-    {
-      "name": "cni0",
-      "mac": "",
-      "speed": "10000Mb/s",
-      "enabledCapabilities": [
-        "tx-checksumming",
-        "tx-checksum-ip-generic",
-        "scatter-gather",
-        "tx-scatter-gather",
-        "tx-scatter-gather-fraglist",
-        "tcp-segmentation-offload",
-        "tx-tcp-segmentation",
-        "tx-tcp-ecn-segmentation",
-        "tx-tcp-mangleid-segmentation",
-        "tx-tcp6-segmentation",
-        "generic-segmentation-offload",
-        "generic-receive-offload",
-        "tx-vlan-offload",
-        "highdma",
-        "tx-lockless",
-        "netns-local",
-        "tx-gre-segmentation",
-        "tx-gre-csum-segmentation",
-        "tx-ipxip4-segmentation",
-        "tx-ipxip6-segmentation",
-        "tx-udp_tnl-segmentation",
-        "tx-udp_tnl-csum-segmentation",
-        "tx-gso-partial",
-        "tx-tunnel-remcsum-segmentation",
-        "tx-sctp-segmentation",
-        "tx-esp-segmentation",
-        "tx-udp-segmentation",
-        "tx-gso-list",
-        "tx-vlan-stag-hw-insert"
-      ]
-    },
     {
       "name": "docker0",
       "mac": "",
       "speed": "10000Mb/s",
       "enabledCapabilities": [
         "tx-checksumming",
-        "tx-checksum-ip-generic",
-        "scatter-gather",
-        "tx-scatter-gather",
-        "tx-scatter-gather-fraglist",
-        "tcp-segmentation-offload",
-        "tx-tcp-segmentation",
-        "tx-tcp-ecn-segmentation",
-        "tx-tcp-mangleid-segmentation",
-        "tx-tcp6-segmentation",
-        "generic-segmentation-offload",
-        "generic-receive-offload",
-        "tx-vlan-offload",
-        "highdma",
-        "tx-lockless",
-        "netns-local",
-        "tx-gre-segmentation",
-        "tx-gre-csum-segmentation",
-        "tx-ipxip4-segmentation",
-        "tx-ipxip6-segmentation",
-        "tx-udp_tnl-segmentation",
-        "tx-udp_tnl-csum-segmentation",
-        "tx-gso-partial",
-        "tx-tunnel-remcsum-segmentation",
-        "tx-sctp-segmentation",
-        "tx-esp-segmentation",
-        "tx-udp-segmentation",
-        "tx-gso-list",
-        "tx-vlan-stag-hw-insert"
       ]
     },
     {
       "name": "eno1",
-      "mac": "a8:a1:59:d0:e2:52",
+      "mac": "de:ad:be:ef:00:00",
       "speed": "1000Mb/s",
       "enabledCapabilities": [
         "auto-negotiation",
-        "rx-checksumming",
-        "tx-checksumming",
-        "tx-checksum-ip-generic",
-        "scatter-gather",
-        "tx-scatter-gather",
-        "tcp-segmentation-offload",
-        "tx-tcp-segmentation",
-        "tx-tcp6-segmentation",
-        "generic-segmentation-offload",
-        "generic-receive-offload",
-        "rx-vlan-offload",
-        "tx-vlan-offload",
-        "receive-hashing",
-        "highdma"
-      ]
-    },
-    {
-      "name": "flannel.1",
-      "mac": "",
-      "speed": "1000Mb/s",
-      "enabledCapabilities": [
-        "auto-negotiation",
-        "rx-checksumming",
-        "tx-checksumming",
-        "tx-checksum-ip-generic",
-        "scatter-gather",
-        "tx-scatter-gather",
-        "tx-scatter-gather-fraglist",
-        "tcp-segmentation-offload",
-        "tx-tcp-segmentation",
-        "tx-tcp-ecn-segmentation",
-        "tx-tcp-mangleid-segmentation",
-        "tx-tcp6-segmentation",
-        "generic-segmentation-offload",
-        "generic-receive-offload",
-        "tx-lockless",
-        "tx-sctp-segmentation",
-        "tx-udp-segmentation",
-        "tx-gso-list"
-      ]
-    },
-    {
-      "name": "tailscale0",
-      "mac": "",
-      "speed": "Unknown!",
-      "enabledCapabilities": [
-        "tx-checksumming",
-        "tx-checksum-ip-generic",
-        "scatter-gather",
-        "tx-scatter-gather",
-        "tx-scatter-gather-fraglist",
-        "tcp-segmentation-offload",
-        "tx-tcp-segmentation",
-        "tx-tcp6-segmentation",
-        "generic-segmentation-offload",
-        "generic-receive-offload",
-        "tx-vlan-offload",
-        "tx-lockless",
-        "tx-vlan-stag-hw-insert"
-      ]
-    },
-    {
-      "name": "veth3be0d58",
-      "mac": "",
-      "speed": "10000Mb/s",
-      "enabledCapabilities": [
-        "rx-checksumming",
-        "tx-checksumming",
-        "tx-checksum-ip-generic",
-        "tx-checksum-sctp",
-        "scatter-gather",
-        "tx-scatter-gather",
-        "tx-scatter-gather-fraglist",
-        "tcp-segmentation-offload",
-        "tx-tcp-segmentation",
-        "tx-tcp-ecn-segmentation",
-        "tx-tcp-mangleid-segmentation",
-        "tx-tcp6-segmentation",
-        "generic-segmentation-offload",
-        "rx-vlan-offload",
-        "tx-vlan-offload",
-        "highdma",
-        "tx-lockless",
-        "tx-gre-segmentation",
-        "tx-gre-csum-segmentation",
-        "tx-ipxip4-segmentation",
-        "tx-ipxip6-segmentation",
-        "tx-udp_tnl-segmentation",
-        "tx-udp_tnl-csum-segmentation",
-        "tx-sctp-segmentation",
-        "tx-udp-segmentation",
-        "tx-gso-list",
-        "tx-vlan-stag-hw-insert",
-        "rx-vlan-stag-hw-parse"
-      ]
-    },
-    {
-      "name": "veth867f6914",
-      "mac": "",
-      "speed": "10000Mb/s",
-      "enabledCapabilities": [
-        "rx-checksumming",
-        "tx-checksumming",
-        "tx-checksum-ip-generic",
-        "tx-checksum-sctp",
-        "scatter-gather",
-        "tx-scatter-gather",
-        "tx-scatter-gather-fraglist",
-        "tcp-segmentation-offload",
-        "tx-tcp-segmentation",
-        "tx-tcp-ecn-segmentation",
-        "tx-tcp-mangleid-segmentation",
-        "tx-tcp6-segmentation",
-        "generic-segmentation-offload",
-        "rx-vlan-offload",
-        "tx-vlan-offload",
-        "highdma",
-        "tx-lockless",
-        "tx-gre-segmentation",
-        "tx-gre-csum-segmentation",
-        "tx-ipxip4-segmentation",
-        "tx-ipxip6-segmentation",
-        "tx-udp_tnl-segmentation",
-        "tx-udp_tnl-csum-segmentation",
-        "tx-sctp-segmentation",
-        "tx-udp-segmentation",
-        "tx-gso-list",
-        "tx-vlan-stag-hw-insert",
-        "rx-vlan-stag-hw-parse"
-      ]
-    },
-    {
-      "name": "vethda0f174",
-      "mac": "",
-      "speed": "10000Mb/s",
-      "enabledCapabilities": [
-        "rx-checksumming",
-        "tx-checksumming",
-        "tx-checksum-ip-generic",
-        "tx-checksum-sctp",
-        "scatter-gather",
-        "tx-scatter-gather",
-        "tx-scatter-gather-fraglist",
-        "tcp-segmentation-offload",
-        "tx-tcp-segmentation",
-        "tx-tcp-ecn-segmentation",
-        "tx-tcp-mangleid-segmentation",
-        "tx-tcp6-segmentation",
-        "generic-segmentation-offload",
-        "rx-vlan-offload",
-        "tx-vlan-offload",
-        "highdma",
-        "tx-lockless",
-        "tx-gre-segmentation",
-        "tx-gre-csum-segmentation",
-        "tx-ipxip4-segmentation",
-        "tx-ipxip6-segmentation",
-        "tx-udp_tnl-segmentation",
-        "tx-udp_tnl-csum-segmentation",
-        "tx-sctp-segmentation",
-        "tx-udp-segmentation",
-        "tx-gso-list",
-        "tx-vlan-stag-hw-insert",
-        "rx-vlan-stag-hw-parse"
-      ]
-    },
-    {
-      "name": "virbr0",
-      "mac": "",
-      "speed": "Unknown!",
-      "enabledCapabilities": [
-        "tx-checksumming",
-        "tx-checksum-ip-generic",
-        "scatter-gather",
-        "tx-scatter-gather",
-        "tx-scatter-gather-fraglist",
-        "tcp-segmentation-offload",
-        "tx-tcp-segmentation",
-        "tx-tcp-ecn-segmentation",
-        "tx-tcp-mangleid-segmentation",
-        "tx-tcp6-segmentation",
-        "generic-segmentation-offload",
-        "generic-receive-offload",
-        "tx-vlan-offload",
-        "highdma",
-        "tx-lockless",
-        "netns-local",
-        "tx-gso-robust",
-        "tx-fcoe-segmentation",
-        "tx-gre-segmentation",
-        "tx-gre-csum-segmentation",
-        "tx-ipxip4-segmentation",
-        "tx-ipxip6-segmentation",
-        "tx-udp_tnl-segmentation",
-        "tx-udp_tnl-csum-segmentation",
-        "tx-gso-partial",
-        "tx-tunnel-remcsum-segmentation",
-        "tx-sctp-segmentation",
-        "tx-esp-segmentation",
-        "tx-udp-segmentation",
-        "tx-gso-list",
-        "tx-vlan-stag-hw-insert"
       ]
     }
   ],
@@ -533,164 +146,9 @@ Example JSON :
     },
     {
       "vendor": "Intel Corporation",
-      "product": "TigerLake-LP GT2 [Iris Xe Graphics]",
-      "class": "Display controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "TigerLake-LP Dynamic Tuning Processor Participant",
-      "class": "Signal processing controller"
-    },
-    {
-      "vendor": "Intel Corporation",
       "product": "11th Gen Core Processor PCIe Controller",
       "class": "Bridge",
       "driver": "pcieport"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Thunderbolt 4 PCI Express Root Port #2",
-      "class": "Bridge",
-      "driver": "pcieport"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Thunderbolt 4 PCI Express Root Port #3",
-      "class": "Bridge",
-      "driver": "pcieport"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tigerlake Telemetry Aggregator Driver",
-      "class": "Signal processing controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Thunderbolt 4 USB Controller",
-      "class": "Serial bus controller",
-      "driver": "xhci_hcd"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Thunderbolt 4 NHI #1",
-      "class": "Serial bus controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP USB 3.2 Gen 2x1 xHCI Host Controller",
-      "class": "Serial bus controller",
-      "driver": "xhci_hcd"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Shared SRAM",
-      "class": "Memory controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Serial IO I2C Controller #0",
-      "class": "Serial bus controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Serial IO I2C Controller #2",
-      "class": "Serial bus controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Serial IO I2C Controller #3",
-      "class": "Serial bus controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Management Engine Interface",
-      "class": "Communication controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Active Management Technology - SOL",
-      "class": "Communication controller",
-      "driver": "serial"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Serial IO I2C Controller #4",
-      "class": "Serial bus controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Serial IO I2C Controller #5",
-      "class": "Serial bus controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "unknown",
-      "class": "Bridge",
-      "driver": "pcieport"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tigerlake PCH-LP PCI Express Root Port #6",
-      "class": "Bridge",
-      "driver": "pcieport"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP PCI Express Root Port #8",
-      "class": "Bridge",
-      "driver": "pcieport"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Serial IO UART Controller #0",
-      "class": "Communication controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Serial IO SPI Controller #1",
-      "class": "Serial bus controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP LPC Controller",
-      "class": "Bridge"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP Smart Sound Technology Audio Controller",
-      "class": "Multimedia controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP SMBus Controller",
-      "class": "Serial bus controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Tiger Lake-LP SPI Controller",
-      "class": "Serial bus controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Ethernet Connection (13) I219-LM",
-      "class": "Network controller",
-      "driver": "e1000e"
-    },
-    {
-      "vendor": "Kingston Technology Company, Inc.",
-      "product": "OM3PDP3 NVMe SSD",
-      "class": "Mass storage controller",
-      "driver": "nvme"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Wi-Fi 6 AX200",
-      "class": "Network controller"
-    },
-    {
-      "vendor": "Intel Corporation",
-      "product": "Ethernet Controller I225-LM",
-      "class": "Network controller"
     }
   ],
   "chassis": {
@@ -699,132 +157,74 @@ Example JSON :
   },
   "bios": {
     "vendor": "American Megatrends International, LLC.",
-    "version": "P1.50J",
+    "version": "11.2233",
     "releaseDate": "12/13/2021"
   },
   "baseboard": {
-    "vendor": "ASRock",
-    "product": "NUC-TGL",
+    "vendor": "example vendor",
+    "product": "ABC-DEF",
     "version": "",
-    "serialNumber": "T80-F5002000130"
+    "serialNumber": "xxxxxxx"
   },
   "product": {
-    "name": "LLN11CRv5",
-    "vendor": "Simply NUC",
-    "serialNumber": "7B60007P"
+    "name": "abcd123",
+    "vendor": "example vendor",
+    "serialNumber": "xxxxxxx"
   }
 }
 ```
 
+## Workflow Creation
 
-## Configuration
+When a matching WorkflowRuleSet is found, a Workflow is created with the following:
 
-To enable auto enrollment in your Tinkerbell deployment:
+1. The name is prefixed by `enrollment-`.
+1. The owner reference is set to the matching WorkflowRuleSet.
+1. If enabled adds Agent attributes as an annotation.
 
-```yaml
-# In your Tinkerbell configuration (e.g., helm values)
-deployment:
-  envs:
-    globals:
-      enableTinkController: true
-    tinkServer:
-      autoEnrollment: true
-```
-
-## Workflow Rule Sets
-
-A WorkflowRuleSet defines the rules for matching agents to workflows. A WorkflowRuleSet contains:
-
-- **rules**: JSON patterns that match against agent attributes
-- **workflowNamespace**: The namespace where the workflow will be created
-- **workflow**: Configuration for the created workflow, including template reference
-- **addAttributesAsLabels**: Whether to add agent attributes as labels on the workflow
-
-### Matching Rules
-
-Rules are defined as JSON patterns that match against the agent's attributes. The matching uses [quamina](https://github.com/timbray/quamina), a pattern-matching engine.
-
-Example patterns:
-
-```json
-{"chassis": {"serial": ["12345"]}}
-{"network": {"interfaces": [{"mac": ["00:00:00:00:00:01"]}]}}
-```
-
-### Example WorkflowRuleSet
+Given this example WorkflowRuleSet:
 
 ```yaml
 apiVersion: tinkerbell.org/v1alpha1
 kind: WorkflowRuleSet
 metadata:
-  name: dell-r6515-ruleset
+  name: ruleset1
+  namespace: tink-system
 spec:
   rules:
-  - '{"chassis": {"manufacturer": ["Dell Inc."], "product": ["PowerEdge R6515"]}}'
-  workflowNamespace: default
-  agentTemplateValue: worker
-  addAttributesAsLabels: true
+  - '{"networkInterfaces": {"mac": [{"wildcard": "*"}]}}'
   workflow:
-    templateRef:
-      name: ubuntu-template
-      namespace: default
-    templateKVPairs:
-      os: ubuntu
-      version: "22.04"
+    addAttributes: true
+    disabled: false
+    namespace: tink-system
+    template:
+      agentValue: worker_id
+      kvs:
+        additional_value: im a value
+      ref: example
 ```
 
-## Attribute Matching
-
-The auto enrollment system attempts to find the best match for an agent by:
-
-1. Evaluating all WorkflowRuleSets against the agent's attributes
-2. Selecting the rule set with the most matching patterns
-3. Using that rule set to create a workflow
-
-The agent attributes include:
-
-- Chassis information (serial, manufacturer, product)
-- BMC details
-- Network interfaces
-- Storage devices
-- CPU information
-- Memory configuration
-
-## Workflow Creation
-
-When a matching rule set is found, Tinkerbell:
-
-1. Creates a workflow with a name prefixed by `enrollment-`
-2. Sets the owner reference to the matching WorkflowRuleSet
-3. Applies the template reference from the rule set
-4. Maps the agent ID to the specified hardware map entry
-5. Adds agent attributes as labels if configured
-6. Creates the workflow in the specified namespace
-
-Example generated workflow:
+The following Workflow will be created for any Agent:
 
 ```yaml
 apiVersion: tinkerbell.org/v1alpha1
 kind: Workflow
 metadata:
-  name: enrollment-worker-123abc
-  namespace: default
-  labels:
-    chassis.serial: "12345"
-    chassis.manufacturer: "Dell Inc."
+  name: enrollment-hello123456
+  namespace: tink-system
   ownerReferences:
   - apiVersion: tinkerbell.org/v1alpha1
     kind: WorkflowRuleSet
-    name: dell-r6515-ruleset
-    uid: 12345678-1234-1234-1234-123456789012
+    name: ruleset1
+    uid: a8a6e8a7-6a8c-4fee-bcba-2318e4b7ae5b
+  resourceVersion: "374571"
+  uid: f81d3e11-d9c7-46bd-aa0b-fbfa16c90ca4
 spec:
-  templateRef:
-    name: ubuntu-template
-    namespace: default
+  disabled: false
   hardwareMap:
-    worker: worker-123abc
-    os: ubuntu
-    version: "22.04"
+    additional_value: im a value
+    worker_id: hello123456
+  templateRef: example
 ```
 
 ## Troubleshooting
@@ -857,18 +257,3 @@ kubectl describe workflowruleset <name>
 # Check server logs
 kubectl logs -l app=tinkerbell -c server
 ```
-
-## Reference
-
-This implementation leverages several key components:
-
-- **WorkflowRuleSet**: Custom Resource Definition that defines matching rules
-- **Enrollment Handler**: Server-side logic that processes matching and workflow creation
-- **Retry Mechanism**: Ensures reliable workflow creation with exponential backoff
-- **Agent Attributes**: Properties sent by the agent that are used for rule matching
-
-For more details on the implementation, see:
-
-- [`tink/server/internal/grpc/enrollment.go`](tink/server/internal/grpc/enrollment.go)
-- [Tinkerbell API Documentation](https://docs.tinkerbell.org/services/tink-server/)
-- [Quamina Documentation](https://github.com/timbray/quamina)
