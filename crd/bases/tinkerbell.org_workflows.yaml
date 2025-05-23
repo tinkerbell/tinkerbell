@@ -213,7 +213,7 @@ spec:
                 description: Tasks are the tasks to be run by the Agent(s).
                 items:
                   description: Task represents a series of actions to be completed
-                    by a Agent.
+                    by an Agent.
                   properties:
                     actions:
                       items:
