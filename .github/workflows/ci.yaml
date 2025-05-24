@@ -152,7 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.ref == 'refs/heads/main' ||
-      ${{ startsWith(github.event.ref, 'refs/tags/v') }}
+      startsWith(github.event.ref, 'refs/tags/v')
     needs:
       - validation
       - build-binaries
