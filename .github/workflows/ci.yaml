@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - "*"
-    tags-ignore:
+    tags:
       - "v*"
   pull_request:
 
@@ -148,7 +148,9 @@ jobs:
 
   build-publish-container-images:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: |
+      github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/tags/v')
     needs:
       - validation
       - build-binaries
@@ -203,7 +205,9 @@ jobs:
 
   package-publish-helm-chart:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: |
+      github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/tags/v')
     needs:
       - validate-helm-chart
     steps:
@@ -244,3 +248,25 @@ jobs:
 
       - name: Package and publish the Helm chart
         run: make helm-publish
+
+  release-notes:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - build-publish-container-images
+      - package-publish-helm-chart
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Publish Changelog to GitHub
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifactErrorsFailBuild: true
+          generateReleaseNotes: true
+          draft: true
+          prerelease: true
