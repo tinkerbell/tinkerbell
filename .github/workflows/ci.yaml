@@ -255,7 +255,6 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.event.ref, 'refs/tags/v')
     needs:
-      - build-binaries
       - build-publish-container-images
       - package-publish-helm-chart
     steps:
