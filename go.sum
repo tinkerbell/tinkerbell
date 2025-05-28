@@ -286,8 +286,8 @@ github.com/jacobweinstock/iamt v0.0.0-20230502042727-d7cdbe67d9ef h1:G4k02HGmBUf
 github.com/jacobweinstock/iamt v0.0.0-20230502042727-d7cdbe67d9ef/go.mod h1:FgmiLTU6cJewV4Xgrq6m5o8CUlTQOJtqzaFLGA0mG+E=
 github.com/jacobweinstock/registrar v0.4.7 h1:s4dOExccgD+Pc7rJC+f3Mc3D+NXHcXUaOibtcEsPxOc=
 github.com/jacobweinstock/registrar v0.4.7/go.mod h1:PWmkdGFG5/ZdCqgMo7pvB3pXABOLHc5l8oQ0sgmBNDU=
-github.com/jaypipes/ghw v0.16.0 h1:3HurCTS38VNpeQLo5fIdZsySuo/qAfpPSJ5t05QBFPM=
-github.com/jaypipes/ghw v0.16.0/go.mod h1:In8SsaDqlb1oTyrbmTC14uy+fbBMvp+xdqX51MidlD8=
+github.com/jaypipes/ghw v0.17.0 h1:EVLJeNcy5z6GK/Lqby0EhBpynZo+ayl8iJWY0kbEUJA=
+github.com/jaypipes/ghw v0.17.0/go.mod h1:In8SsaDqlb1oTyrbmTC14uy+fbBMvp+xdqX51MidlD8=
 github.com/jaypipes/pcidb v1.0.1 h1:WB2zh27T3nwg8AE8ei81sNRb9yWBii3JGNJtT7K9Oic=
 github.com/jaypipes/pcidb v1.0.1/go.mod h1:6xYUz/yYEyOkIkUt2t2J2folIuZ4Yg6uByCGFXMCeE4=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
