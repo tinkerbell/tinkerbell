@@ -59,7 +59,7 @@ spec:
 
 ### WorkflowRuleSet fields
 
-- **rules [array]**: Rules is a list of Quamina patterns used to match against the attributes of an Agent. See [https://github.com/timbray/quamina/blob/main/PATTERNS.md](https://github.com/timbray/quamina/blob/main/PATTERNS.md]) for more information on the required format. All rules are combined using the `OR` operator. If any rule matches, the corresponding Workflow will be created.
+- **rules [array]**: Rules is a list of Quamina patterns used to match against the attributes of an Agent. See [https://github.com/timbray/quamina/blob/main/PATTERNS.md](https://github.com/timbray/quamina/blob/main/PATTERNS.md) for more information on the required format. All rules are combined using the `OR` operator. If any rule matches, the corresponding Workflow will be created.
 - **workflow [object]**: Workflow holds the data used to configure the created Workflow.
   - **addAttributes [boolean]**: This indicates if the Agent attributes should be added as an Annotation in the created Workflow.
   - **disabled [boolean]**: Disabled indicates whether the Workflow will be enabled or not when created.
