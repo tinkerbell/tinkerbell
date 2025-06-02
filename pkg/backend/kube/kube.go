@@ -6,8 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -73,11 +72,11 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 		return nil, err
 	}
 
-	if err := v1alpha1.AddToScheme(rs); err != nil {
+	if err := api.AddToSchemeTinkerbell(rs); err != nil {
 		return nil, err
 	}
 
-	if err := bmc.AddToScheme(rs); err != nil {
+	if err := api.AddToSchemeBMC(rs); err != nil {
 		return nil, err
 	}
 

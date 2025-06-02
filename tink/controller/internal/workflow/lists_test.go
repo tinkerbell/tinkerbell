@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 )
 
 func TestMatch(t *testing.T) {

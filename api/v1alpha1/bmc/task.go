@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	SchemeBuilder.Register(&Task{}, &TaskList{})
+
 }
 
 // TaskConditionType represents the condition type on for Tasks.

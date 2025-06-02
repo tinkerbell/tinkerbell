@@ -33,6 +33,7 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.10.0
+	github.com/tinkerbell/tinkerbell/api v0.0.0 // v0.0.0 is used as a placeholder because a replace directive is used to point to the local api directory
 	github.com/vishvananda/netlink v1.3.1
 	go.etcd.io/etcd/server/v3 v3.6.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0
@@ -51,9 +52,9 @@ require (
 	google.golang.org/grpc v1.72.2
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.32.4
+	k8s.io/api v0.33.1
 	k8s.io/apiextensions-apiserver v0.32.4
-	k8s.io/apimachinery v0.32.4
+	k8s.io/apimachinery v0.33.1
 	k8s.io/apiserver v0.32.4
 	k8s.io/client-go v1.5.2
 	k8s.io/component-base v0.32.4
@@ -272,11 +273,12 @@ require (
 	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 replace (
+	github.com/tinkerbell/tinkerbell/api => ./api
 	// version 0.51.0 is a pre-release version and causes an "undefined: errdefs.FromGRPC" error.
 	github.com/google/cadvisor => github.com/google/cadvisor v0.52.1
 	k8s.io/api => k8s.io/api v0.32.4

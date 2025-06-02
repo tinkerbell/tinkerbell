@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	SchemeBuilder.Register(&Machine{}, &MachineList{})
+
 }
 
 // PowerState represents power state of a Machine.

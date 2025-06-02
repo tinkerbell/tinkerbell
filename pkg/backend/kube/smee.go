@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/ccoveille/go-safecast"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"

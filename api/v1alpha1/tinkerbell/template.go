@@ -5,7 +5,7 @@ import (
 )
 
 func init() {
-	SchemeBuilder.Register(&Template{}, &TemplateList{})
+	//SchemeBuilder.Register(&Template{}, &TemplateList{})
 }
 
 // TemplateState represents the template state.

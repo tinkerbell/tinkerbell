@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	SchemeBuilder.Register(&Job{}, &JobList{})
+
 }
 
 // JobConditionType represents the condition of the BMC Job.

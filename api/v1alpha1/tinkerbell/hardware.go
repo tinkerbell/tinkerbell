@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	SchemeBuilder.Register(&Hardware{}, &HardwareList{})
+	//SchemeBuilder.Register(&Hardware{}, &HardwareList{})
 }
 
 // HardwareState represents the hardware state.

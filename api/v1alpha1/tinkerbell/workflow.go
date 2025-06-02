@@ -6,7 +6,7 @@ import (
 )
 
 func init() {
-	SchemeBuilder.Register(&Workflow{}, &WorkflowList{})
+	//SchemeBuilder.Register(&Workflow{}, &WorkflowList{})
 }
 
 type (
