@@ -278,9 +278,9 @@ require (
 )
 
 replace (
-	github.com/tinkerbell/tinkerbell/api => ./api
 	// version 0.51.0 is a pre-release version and causes an "undefined: errdefs.FromGRPC" error.
 	github.com/google/cadvisor => github.com/google/cadvisor v0.52.1
+	github.com/tinkerbell/tinkerbell/api => ./api
 	k8s.io/api => k8s.io/api v0.32.4
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.32.4
 	k8s.io/apimachinery => k8s.io/apimachinery v0.32.4
