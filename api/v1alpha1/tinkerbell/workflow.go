@@ -5,10 +5,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func init() {
-	//SchemeBuilder.Register(&Workflow{}, &WorkflowList{})
-}
-
 type (
 	WorkflowState         string
 	WorkflowConditionType string

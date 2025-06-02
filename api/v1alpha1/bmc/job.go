@@ -22,10 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func init() {
-
-}
-
 // JobConditionType represents the condition of the BMC Job.
 type JobConditionType string
 

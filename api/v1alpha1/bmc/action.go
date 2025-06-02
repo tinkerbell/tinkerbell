@@ -12,12 +12,6 @@ const (
 	PowerStatus  PowerAction = "status"
 )
 
-// Pointer provides an easy way to retrieve the power action as a pointer for use in job
-// tasks.
-func (p PowerAction) Ptr() *PowerAction {
-	return &p
-}
-
 // BootDevice represents boot device of the Machine.
 type BootDevice string
 
