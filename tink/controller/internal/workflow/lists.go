@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"quamina.net/go/quamina"
 )
 

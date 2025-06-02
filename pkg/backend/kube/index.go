@@ -1,8 +1,8 @@
 package kube
 
 import (
-	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -19,17 +19,17 @@ const (
 // Indexes that are currently known.
 var Indexes = map[IndexType]Index{
 	IndexTypeMACAddr: {
-		Obj:          &v1alpha1.Hardware{},
+		Obj:          &tinkerbell.Hardware{},
 		Field:        MACAddrIndex,
 		ExtractValue: MACAddrs,
 	},
 	IndexTypeIPAddr: {
-		Obj:          &v1alpha1.Hardware{},
+		Obj:          &tinkerbell.Hardware{},
 		Field:        IPAddrIndex,
 		ExtractValue: IPAddrs,
 	},
 	IndexTypeHardwareName: {
-		Obj:          &v1alpha1.Hardware{},
+		Obj:          &tinkerbell.Hardware{},
 		Field:        HardwareNameIndex,
 		ExtractValue: HardwareNameFunc,
 	},
@@ -39,7 +39,7 @@ var Indexes = map[IndexType]Index{
 		ExtractValue: MachineNameFunc,
 	},
 	IndexTypeWorkflowAgentID: {
-		Obj:          &v1alpha1.Workflow{},
+		Obj:          &tinkerbell.Workflow{},
 		Field:        WorkflowByAgentID,
 		ExtractValue: WorkflowByAgentIDFunc,
 	},
@@ -50,7 +50,7 @@ const MACAddrIndex = ".Spec.Interfaces.MAC"
 
 // MACAddrs returns a list of MAC addresses for a Hardware object.
 func MACAddrs(obj client.Object) []string {
-	hw, ok := obj.(*v1alpha1.Hardware)
+	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {
 		return nil
 	}
@@ -58,7 +58,7 @@ func MACAddrs(obj client.Object) []string {
 }
 
 // GetMACs retrieves all MACs associated with h.
-func GetMACs(h *v1alpha1.Hardware) []string {
+func GetMACs(h *tinkerbell.Hardware) []string {
 	var macs []string
 	for _, i := range h.Spec.Interfaces {
 		if i.DHCP != nil && i.DHCP.MAC != "" {
@@ -74,7 +74,7 @@ const IPAddrIndex = ".Spec.Interfaces.DHCP.IP"
 
 // IPAddrs returns a list of IP addresses for a Hardware object.
 func IPAddrs(obj client.Object) []string {
-	hw, ok := obj.(*v1alpha1.Hardware)
+	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {
 		return nil
 	}
@@ -82,7 +82,7 @@ func IPAddrs(obj client.Object) []string {
 }
 
 // GetIPs retrieves all IP addresses.
-func GetIPs(h *v1alpha1.Hardware) []string {
+func GetIPs(h *tinkerbell.Hardware) []string {
 	var ips []string
 	for _, i := range h.Spec.Interfaces {
 		if i.DHCP != nil && i.DHCP.IP != nil && i.DHCP.IP.Address != "" {
@@ -96,7 +96,7 @@ func GetIPs(h *v1alpha1.Hardware) []string {
 const HardwareNameIndex = ".metadata.name"
 
 func HardwareNameFunc(obj client.Object) []string {
-	hw, ok := obj.(*v1alpha1.Hardware)
+	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {
 		return nil
 	}
@@ -116,7 +116,7 @@ func MachineNameFunc(obj client.Object) []string {
 const WorkflowByAgentID = ".status.agentID"
 
 func WorkflowByAgentIDFunc(obj client.Object) []string {
-	wf, ok := obj.(*v1alpha1.Workflow)
+	wf, ok := obj.(*tinkerbell.Workflow)
 	if !ok {
 		return nil
 	}

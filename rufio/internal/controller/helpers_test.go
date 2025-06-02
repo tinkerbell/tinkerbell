@@ -7,7 +7,7 @@ import (
 	"github.com/bmc-toolbox/bmclib/v2/providers"
 	"github.com/go-logr/logr"
 	"github.com/jacobweinstock/registrar"
-	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
+	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,7 +21,7 @@ import (
 // corev1 schemes.
 func newClientBuilder() *fake.ClientBuilder {
 	scheme := runtime.NewScheme()
-	if err := bmc.AddToScheme(scheme); err != nil {
+	if err := api.AddToSchemeBMC(scheme); err != nil {
 		panic(err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {

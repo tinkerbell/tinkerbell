@@ -10,7 +10,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -231,7 +232,7 @@ func TestGetByIP(t *testing.T) {
 			if err := scheme.AddToScheme(rs); err != nil {
 				t.Fatal(err)
 			}
-			if err := v1alpha1.AddToScheme(rs); err != nil {
+			if err := api.AddToSchemeTinkerbell(rs); err != nil {
 				t.Fatal(err)
 			}
 
@@ -329,7 +330,7 @@ func TestGetByMac(t *testing.T) {
 			if err := scheme.AddToScheme(rs); err != nil {
 				t.Fatal(err)
 			}
-			if err := v1alpha1.AddToScheme(rs); err != nil {
+			if err := api.AddToSchemeTinkerbell(rs); err != nil {
 				t.Fatal(err)
 			}
 
@@ -395,7 +396,7 @@ func newWorkingClient(t *testing.T) client.WithWatch {
 	if err := scheme.AddToScheme(rs); err != nil {
 		t.Fatal(err)
 	}
-	if err := v1alpha1.AddToScheme(rs); err != nil {
+	if err := api.AddToSchemeTinkerbell(rs); err != nil {
 		t.Fatal(err)
 	}
 

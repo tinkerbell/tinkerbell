@@ -7,8 +7,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -214,8 +215,8 @@ func TestPrepareWorkflow(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			scheme := runtime.NewScheme()
-			bmc.AddToScheme(scheme)
-			v1alpha1.AddToScheme(scheme)
+			api.AddToSchemeBMC(scheme)
+			api.AddToSchemeTinkerbell(scheme)
 			ro := []runtime.Object{}
 			if tc.hardware != nil {
 				ro = append(ro, tc.hardware)

@@ -6,10 +6,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func init() {
-	SchemeBuilder.Register(&Hardware{}, &HardwareList{})
-}
-
 // HardwareState represents the hardware state.
 type HardwareState string
 

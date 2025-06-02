@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,14 +16,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+func toPtr[T any](v T) *T {
+	return &v
+}
+
 func getAction(s string) bmc.Action {
 	switch s {
 	case "PowerOn":
-		return bmc.Action{PowerAction: bmc.PowerOn.Ptr()}
+		return bmc.Action{PowerAction: toPtr(bmc.PowerOn)}
 	case "HardOff":
-		return bmc.Action{PowerAction: bmc.PowerHardOff.Ptr()}
+		return bmc.Action{PowerAction: toPtr(bmc.PowerHardOff)}
 	case "SoftOff":
-		return bmc.Action{PowerAction: bmc.PowerSoftOff.Ptr()}
+		return bmc.Action{PowerAction: toPtr(bmc.PowerSoftOff)}
 	case "BootPXE":
 		return bmc.Action{OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{Devices: []bmc.BootDevice{bmc.PXE}}}
 	case "VirtualMedia":

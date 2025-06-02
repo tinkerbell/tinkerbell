@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
-	"github.com/tinkerbell/tinkerbell/pkg/api/v1alpha1/bmc"
+	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -17,7 +17,7 @@ import (
 
 var schemeBuilder = runtime.NewSchemeBuilder(
 	scheme.AddToScheme,
-	bmc.AddToScheme,
+	api.AddToSchemeBMC,
 )
 
 // DefaultScheme returns a scheme with all the types necessary for the Rufio controller.
