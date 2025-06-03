@@ -8,8 +8,8 @@ if [ -z "${1-}" ]; then
 fi
 
 new_tag=${1-}
-[[ $new_tag =~ (^v|^api\/v)[0-9]*\.[0-9]*\.[0-9]*$ ]] || (
-	echo "Tag must be in the form of vX.Y.Z or api/vX.Y.Z"
+[[ $new_tag =~ ^v[0-9]*\.[0-9]*\.[0-9]*$ ]] || (
+	echo "Tag must be in the form of vX.Y.Z"
 	exit 1
 )
 
@@ -26,7 +26,7 @@ git fetch --all
 
 last_tag=$(git describe --abbrev=0)
 last_tag_commit=$(git rev-list -n1 "$last_tag")
-last_specific_tag=$(git tag --contains="$last_tag_commit" | grep -E "(^v|^api\/v)[0-9]*\.[0-9]*\.[0-9]*$" | tail -n 1)
+last_specific_tag=$(git tag --contains="$last_tag_commit" | grep -E "^v[0-9]*\.[0-9]*\.[0-9]*$" | tail -n 1)
 last_specific_tag_commit=$(git rev-list -n1 "$last_specific_tag")
 if [[ $last_specific_tag_commit == $(git rev-list -n1 HEAD) ]]; then
 	echo "No commits since last tag" >&2
@@ -34,7 +34,9 @@ if [[ $last_specific_tag_commit == $(git rev-list -n1 HEAD) ]]; then
 fi
 
 if [[ -n ${SIGN_TAG-} ]]; then
-	git tag -s -m "${new_tag}" "${new_tag}" &>/dev/null && echo "created signed tag ${new_tag}" >&2 && exit
+	git tag -s -m "${new_tag}" "${new_tag}" &>/dev/null && echo "created signed tag ${new_tag}" >&2
+	git tag -s -m "api/${new_tag}" "api/${new_tag}" &>/dev/null && echo "created signed tag api/${new_tag}" >&2
 else
-	git tag -a -m "${new_tag}" "${new_tag}" &>/dev/null && echo "created annotated tag ${new_tag}" >&2 && exit
+	git tag -a -m "${new_tag}" "${new_tag}" &>/dev/null && echo "created annotated tag ${new_tag}" >&2
+	git tag -s -m "api/${new_tag}" "api/${new_tag}" &>/dev/null && echo "created annotated tag api/${new_tag}" >&2
 fi
