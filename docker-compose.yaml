@@ -1,4 +1,4 @@
-# Example run command: OSIE_URL="http://192.168.2.50:8787" PARENT_INTERFACE=eno1 docker compose up
+# Example run command: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL="http://192.168.2.50:8787" PARENT_INTERFACE=eno1 docker compose up
 services:
 
   etcd:
@@ -67,7 +67,7 @@ services:
       01-tinkerbell_default:
     environment:
       TINKERBELL_BACKEND_KUBE_CONFIG: /certs/kubeconfig
-      TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL: ${OSIE_URL:?Error:"OSIE_URL env var is not set"}
+      TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL: ${TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL:?Error:"TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL env var is not set"}
       TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS: "tink_worker_image=ghcr.io/tinkerbell/tink-agent"
       TINKERBELL_PUBLIC_IPV4: 192.168.2.50
       TINKERBELL_ENABLE_EMBEDDED_ETCD: "false"
