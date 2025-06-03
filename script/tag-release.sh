@@ -34,7 +34,9 @@ if [[ $last_specific_tag_commit == $(git rev-list -n1 HEAD) ]]; then
 fi
 
 if [[ -n ${SIGN_TAG-} ]]; then
-	git tag -s -m "${new_tag}" "${new_tag}" &>/dev/null && echo "created signed tag ${new_tag}" >&2 && exit
+	git tag -s -m "${new_tag}" "${new_tag}" &>/dev/null && echo "created signed tag ${new_tag}" >&2
+	git tag -s -m "api/${new_tag}" "api/${new_tag}" &>/dev/null && echo "created signed tag api/${new_tag}" >&2
 else
-	git tag -a -m "${new_tag}" "${new_tag}" &>/dev/null && echo "created annotated tag ${new_tag}" >&2 && exit
+	git tag -a -m "${new_tag}" "${new_tag}" &>/dev/null && echo "created annotated tag ${new_tag}" >&2
+	git tag -s -m "api/${new_tag}" "api/${new_tag}" &>/dev/null && echo "created annotated tag api/${new_tag}" >&2
 fi
