@@ -3,36 +3,18 @@ kind: ClusterRole
 metadata:
   name: tinkerbell
 rules:
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
     verbs: ["create", "get", "list", "patch", "update", "delete"]
-  - apiGroups:
-      - tinkerbell.org
-    resources:
-      - hardware
-      - hardware/status
-      - templates
-      - templates/status
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - tinkerbell.org
-    resources:
-      - workflows
-      - workflows/status
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
+  - apiGroups: ["tinkerbell.org"]
+    resources: ["hardware", "hardware/status", "templates", "templates/status"]
+    verbs: ["get", "list", "patch", "update", "watch"]
+  - apiGroups: ["tinkerbell.org"]
+    resources: ["workflows", "workflows/status"]
+    verbs: ["get", "list", "patch", "update", "watch", "delete", "create"]
+  - apiGroups: ["tinkerbell.org"]
+    resources: ["workflowrulesets"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list", "watch"]
