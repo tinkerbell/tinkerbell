@@ -1,9 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
-    app: tinkerbell
-  name: tinkerbell
+    {{- with .Values.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ .Values.service.name }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
   type: {{ .Values.service.type }}
@@ -52,4 +58,6 @@ spec:
     name: {{ .Values.deployment.ports.ssh.name }}
   {{- end }}
   selector:
-    app: tinkerbell
+    {{- with .Values.service.selector }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}

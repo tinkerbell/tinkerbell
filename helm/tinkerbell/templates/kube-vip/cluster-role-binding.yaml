@@ -1,0 +1,14 @@
+{{- if and .Values.kubevip.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.kubevip.roleBindingName }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.kubevip.roleName }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.kubevip.name }}
+  namespace: {{ .Release.Namespace | quote }}
+{{- end }}

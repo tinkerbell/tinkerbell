@@ -1,0 +1,30 @@
+{{- if and .Values.kubevip.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: {{ .Values.kubevip.roleName }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - "services"
+      - "services/status"
+      - "nodes"
+      - "endpoints"
+    verbs:
+      - "list"
+      - "get"
+      - "watch"
+      - "update"
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - "leases"
+    verbs:
+      - "list"
+      - "get"
+      - "watch"
+      - "update"
+      - "create"
+{{- end }}
