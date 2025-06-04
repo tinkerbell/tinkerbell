@@ -15,37 +15,41 @@ spec:
   externalTrafficPolicy: Local
   {{- end }}
   ports:
-  - port: 42113
-    targetPort: 42113
-    protocol: TCP
-    name: grpc
-  - port: 50061
-    targetPort: 50061
-    protocol: TCP
-    name: http-tootles
-  {{- if .Values.deployment.envs.globals.enableSmee }}
-  - port: 69
-    targetPort: 69
-    protocol: UDP
-    name: tftp
-  - port: 514
-    targetPort: 514
-    protocol: UDP
-    name: syslog
-  - port: 67
-    targetPort: 67
-    protocol: UDP
-    name: dhcp
-  - port: 7171
-    targetPort: 7171
-    protocol: TCP
-    name: http-ipxe
+  {{- if .Values.deployment.envs.globals.enableSmee}}
+  - port: {{ .Values.service.ports.dhcp.port }}
+    targetPort: {{ .Values.deployment.ports.dhcp.port}}
+    protocol: {{ .Values.deployment.ports.dhcp.protocol }}
+    name: {{ .Values.deployment.ports.dhcp.name }}
+  - port: {{ .Values.service.ports.tftp.port }}
+    targetPort: {{ .Values.deployment.ports.tftp.port }}
+    protocol: {{ .Values.deployment.ports.tftp.protocol }}
+    name: {{ .Values.deployment.ports.tftp.name }}
+  - port: {{ .Values.service.ports.syslog.port }}
+    targetPort: {{ .Values.deployment.ports.syslog.port }}
+    protocol: {{ .Values.deployment.ports.syslog.protocol }}
+    name: {{ .Values.deployment.ports.syslog.name }}
+  - port: {{ .Values.service.ports.httpSmee.port }}
+    targetPort: {{ .Values.deployment.ports.httpSmee.port }}
+    protocol: {{ .Values.deployment.ports.httpSmee.protocol }}
+    name: {{ .Values.deployment.ports.httpSmee.name }}
   {{- end }}
-  {{- if .Values.deployment.envs.globals.enableSecondstar }}
-  - port: 2222
-    targetPort: 2222
-    protocol: TCP
-    name: ssh
+  {{- if .Values.deployment.envs.globals.enableTootles }}
+  - port: {{ .Values.service.ports.httpTootles.port }}
+    targetPort: {{ .Values.deployment.ports.httpTootles.port }}
+    protocol: {{ .Values.deployment.ports.httpTootles.protocol }}
+    name: {{ .Values.deployment.ports.httpTootles.name }}
+  {{- end }}
+  {{- if .Values.deployment.envs.globals.enableTinkServer }}
+  - port: {{ .Values.service.ports.grpc.port }}
+    targetPort: {{ .Values.deployment.ports.grpc.port }}
+    protocol: {{ .Values.deployment.ports.grpc.protocol }}
+    name: {{ .Values.deployment.ports.grpc.name }}
+  {{- end}}
+  {{- if .Values.deployment.envs.globals.enableSecondstar}}
+  - port: {{ .Values.service.ports.ssh.port }}
+    targetPort: {{ .Values.deployment.ports.ssh.port }}
+    protocol: {{ .Values.deployment.ports.ssh.protocol }}
+    name: {{ .Values.deployment.ports.ssh.name }}
   {{- end }}
   selector:
     app: tinkerbell

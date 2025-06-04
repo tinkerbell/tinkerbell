@@ -254,7 +254,7 @@ spec:
               add:
                 - NET_RAW
       hostNetwork: {{ .Values.deployment.hostNetwork }}
-      serviceAccountName: {{ .Values.rbac.serviceAccountName }}
+      serviceAccountName: {{ .Values.rbac.name }}-service-account
       volumes:
       {{- if .Values.deployment.init.enabled }}
       - name: script

@@ -52,7 +52,7 @@ deployment:
       autoEnrollmentEnabled: false
     tootles:
       bindAddr: ""
-      bindPort: 50061
+      bindPort: 7172
       debugMode: false
     smee:
       dhcpEnabled: true
@@ -117,6 +117,10 @@ deployment:
       enableCRDMigrations: true
   hostNetwork: false
   ports:
+    dhcp:
+      port: 67
+      name: dhcp
+      protocol: UDP
     tftp:
       port: 69
       name: tftp
@@ -125,25 +129,21 @@ deployment:
       port: 514
       name: syslog
       protocol: UDP
-    dhcp:
-      port: 67
-      name: dhcp
-      protocol: UDP
+    ssh:
+      port: 2222
+      name: ssh
+      protocol: TCP
     httpSmee:
       port: 7171
       name: http-smee
       protocol: TCP
     httpTootles:
-      port: 50061
+      port: 7172
       name: http-tootles
       protocol: TCP
     grpc:
       port: 42113
       name: grpc
-      protocol: TCP
-    ssh:
-      port: 2222
-      name: ssh
       protocol: TCP
   resources:
     limits:
@@ -168,28 +168,24 @@ service:
   lbClass: "kube-vip.io/kube-vip-class"
   loadBalancerIP: ""
   ports:
+    dhcp:
+      port: 67
     tftp:
       port: 69
     syslog:
       port: 514
-    http-smee:
+    httpSmee:
       port: 7171
-    http-tootles:
-      port: 50061
+    httpTootles:
+      port: 7172
     grpc:
-      port: 4211
-leaderElection:
-  name:
-  roleBindingName:
-
-tinkLeaderElectionRoleName: tink-leader-election-role
-tinkLeaderElectionRoleBindingName: tink-leader-election-rolebinding
+      port: 42113
+    ssh:
+      port: 2222
 
 rbac:
-  type: Role # or ClusterRole
-  name: tink-controller-role # or tink-controller-cluster-role
-  bindingName: tink-controller-rolebinding # or tink-controller-cluster-rolebinding
-  serviceAccountName: tinkerbell
+  type: ClusterRole # or Role
+  name: tinkerbell
 
 # hookos objects enables downloading and serving HookOS artifacts.
 # it is optional and enabled by default.

@@ -1,12 +1,15 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: {{ .Values.rbac.type }}Binding
 metadata:
-  name: tinkerbell
+  name: {{ .Values.rbac.name }}-binding
+  {{- if eq .Values.rbac.type "Role"  }}
+  namespace: {{ .Release.Namespace | quote }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: tinkerbell
+  kind: {{ .Values.rbac.type }}
+  name: {{ .Values.rbac.name }}-role
 subjects:
   - kind: ServiceAccount
-    name: tinkerbell
+    name: {{ .Values.rbac.name }}-service-account
     namespace: {{ .Release.Namespace | quote }}
