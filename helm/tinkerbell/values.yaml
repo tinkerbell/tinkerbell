@@ -3,36 +3,39 @@
 # the ARTIFACTS_FILE_SERVER is used to set the load balancer IP for the HookOS/nginx service object and will be used to configure TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL in the Tinkerbell deployment.
 # ARTIFACTS_FILE_SERVER=http://192.168.2.117:8080
 # helm install tinkerbell tinkerbell/ --create-namespace --namespace tinkerbell --wait --set "trustedProxies={${trusted_proxies}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER"
-deploy: true
-name: tinkerbell
-
-publicIP:
-trustedProxies: []
 artifactsFileServer:
+
+deploy: true
+
 deployment:
-  daemonSet:
-    enabled: false
-  image: ghcr.io/tinkerbell/tinkerbell
-  # imageTag is here as a placeholder and to show its possible to be set.
-  # It is not set because in the deployment.yaml a coalesce is used with this value
-  # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
-  imageTag:
-  imagePullPolicy: IfNotPresent
+  additionalEnvs: []
+  affinity: {}
   agentImage: ghcr.io/tinkerbell/tink-agent
   # agentImageTag is here as a placeholder and to show its possible to be set.
   # It is not set because in the deployment.yaml a coalesce is used with this value
   # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
   agentImageTag:
-  replicas: 1
   args: []
-  additionalEnvs: []
-  strategy:
-    type: RollingUpdate
-  toleration: []
-  affinity: {}
-  selector: {}
-  nodeSelector: {}
+  daemonSet:
+    enabled: false
   envs:
+    globals:
+      logLevel: 0
+      backend: "kube"
+      backendFilePath: ""
+      backendKubeConfig: ""
+      backendKubeNamespace: ""
+      otelEndpoint: ""
+      otelInsecure: false
+      trustedProxies: ""
+      #publicIpv4: ""
+      enableSmee: true
+      enableTootles: true
+      enableTinkServer: true
+      enableTinkController: true
+      enableRufioController: true
+      enableSecondstar: true
+      enableCRDMigrations: true
     rufio:
       enableLeaderElection: true
       leaderElectionNamespace: ""
@@ -40,20 +43,6 @@ deployment:
       probeAddr: ""
       bmcConnectTimeout: "2m0s"
       powerCheckInterval: "30m0s"
-    tinkController:
-      enableLeaderElection: true
-      leaderElectionNamespace: ""
-      metricsAddr: ""
-      probeAddr: ""
-    tinkServer:
-      bindAddr: ""
-      bindPort: 42113
-      logLevel: 0
-      autoEnrollmentEnabled: false
-    tootles:
-      bindAddr: ""
-      bindPort: 7172
-      debugMode: false
     smee:
       dhcpEnabled: true
       dhcpMode: "reservation"
@@ -98,24 +87,38 @@ deployment:
       ipxeScriptTinkServerAddrPort: ""
       ipxeScriptTinkServerUseTLS: false
       ipxeScriptTinkServerInsecureTLS: false
-    globals:
+    tinkController:
+      enableLeaderElection: true
+      leaderElectionNamespace: ""
+      metricsAddr: ""
+      probeAddr: ""
+    tinkServer:
+      bindAddr: ""
+      bindPort: 42113
       logLevel: 0
-      backend: "kube"
-      backendFilePath: ""
-      backendKubeConfig: ""
-      backendKubeNamespace: ""
-      otelEndpoint: ""
-      otelInsecure: false
-      trustedProxies: ""
-      #publicIpv4: ""
-      enableSmee: true
-      enableTootles: true
-      enableTinkServer: true
-      enableTinkController: true
-      enableRufioController: true
-      enableSecondstar: true
-      enableCRDMigrations: true
+      autoEnrollmentEnabled: false
+    tootles:
+      bindAddr: ""
+      bindPort: 7172
+      debugMode: false
   hostNetwork: false
+  image: ghcr.io/tinkerbell/tinkerbell
+  imagePullPolicy: IfNotPresent
+  # imageTag is here as a placeholder and to show its possible to be set.
+  # It is not set because in the deployment.yaml a coalesce is used with this value
+  # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
+  imageTag:
+  init:
+    enabled: true
+    # if `interfaceMode: ipvlan`, then ghcr.io/jacobweinstock/relay-init:v0.1.0 (has nmap and nmap-scripts) is required. Otherwise, alpine can be used. 
+    image: ghcr.io/jacobweinstock/relay-init:v0.1.0
+    # interfaceMode determines how we create the interface needed to listen for DHCP broadcast traffic.
+    # by default macvlan is used. ipvlan is the only other option.
+    interfaceMode: macvlan
+    # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
+    # When unset, the interface from the default route will be used.
+    # sourceInterface: eno1
+  nodeSelector: {}
   ports:
     dhcp:
       port: 67
@@ -145,6 +148,7 @@ deployment:
       port: 42113
       name: grpc
       protocol: TCP
+  replicas: 1
   resources:
     limits:
       cpu: 500m
@@ -152,21 +156,29 @@ deployment:
     requests:
       cpu: 500m
       memory: 128Mi
-  init:
-    enabled: true
-    # if `interfaceMode: ipvlan`, then ghcr.io/jacobweinstock/relay-init:v0.1.0 (has nmap and nmap-scripts) is required. Otherwise, alpine can be used. 
-    image: ghcr.io/jacobweinstock/relay-init:v0.1.0
-    # interfaceMode determines how we create the interface needed to listen for DHCP broadcast traffic.
-    # by default macvlan is used. ipvlan is the only other option.
-    interfaceMode: macvlan
-    # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
-    # When unset, the interface from the default route will be used.
-    # sourceInterface: eno1
+  selector: {}
+  strategy:
+    type: RollingUpdate
+  toleration: []
+
+name: tinkerbell
+
+publicIP:
+
+rbac:
+  type: ClusterRole # or Role
+  name: tinkerbell
 
 service:
+  name: tinkerbell
   type: LoadBalancer
   lbClass: "kube-vip.io/kube-vip-class"
   loadBalancerIP: ""
+  selector:
+    app: tinkerbell
+  labels:
+    app: tinkerbell
+  annotations: {}
   ports:
     dhcp:
       port: 67
@@ -183,12 +195,10 @@ service:
     ssh:
       port: 2222
 
-rbac:
-  type: ClusterRole # or Role
-  name: tinkerbell
+trustedProxies: []
 
-# hookos objects enables downloading and serving HookOS artifacts.
-# it is optional and enabled by default.
+# hookos objects enable downloading and serving HookOS artifacts.
+# Optional, enabled by default.
 hookos:
   enabled: true
   image: nginx:1.27.2
@@ -231,6 +241,8 @@ hookos:
       size: 2Gi
       extraLabels: {}
 
+# kubevip objects are used to provide a LoadBalancer IP for the Tinkerbell services.
+# Optional, enabled by default.
 kubevip:
   enabled: true
   name: kube-vip
