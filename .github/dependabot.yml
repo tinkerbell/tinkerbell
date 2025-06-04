@@ -7,8 +7,6 @@ updates:
       day: "wednesday"
       time: "07:00"
       timezone: "America/Denver"
-    reviewers:
-      - jacobweinstock
     open-pull-requests-limit: 10
 
   - package-ecosystem: "gomod"
@@ -18,8 +16,6 @@ updates:
       day: "wednesday"
       time: "07:10"
       timezone: "America/Denver"
-    reviewers:
-      - jacobweinstock
     open-pull-requests-limit: 10
 
   - package-ecosystem: "docker"
@@ -29,6 +25,4 @@ updates:
       day: "wednesday"
       time: "07:30"
       timezone: "America/Denver"
-    reviewers:
-      - jacobweinstock
     open-pull-requests-limit: 10
