@@ -1,30 +1,30 @@
-{{- if .Values.hookos.enabled }}
+{{- if .Values.optional.hookos.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.hookos.name}}
+  name: {{ .Values.optional.hookos.name}}
   namespace: {{ .Release.Namespace | quote }}
 spec:
   selector:
     matchLabels:
-      {{- with .Values.hookos.selector }}
+      {{- with .Values.optional.hookos.selector }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
   replicas: 1
   strategy:
-    type: {{ .Values.hookos.deployment.strategy.type }}
+    type: {{ .Values.optional.hookos.deployment.strategy.type }}
   template:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/hookos/nginx-configmap.yaml") . | sha256sum }}
       labels:
-        {{- with .Values.hookos.selector }}
+        {{- with .Values.optional.hookos.selector }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
       containers:
-      - name: {{ .Values.hookos.name }}
-        image: {{ .Values.hookos.image }}
+      - name: {{ .Values.optional.hookos.name }}
+        image: {{ .Values.optional.hookos.image }}
         command: ["/bin/bash", "-xeuc"]
         args:
         - |
@@ -35,7 +35,7 @@ spec:
             >/etc/nginx/nginx.conf
           exec nginx -g 'daemon off;'
         ports:
-        - containerPort: {{ .Values.hookos.port }}
+        - containerPort: {{ .Values.optional.hookos.port }}
           protocol: TCP
           name: hook-http
         resources:
@@ -52,9 +52,9 @@ spec:
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts
       - name: download-hook
-        image: {{ .Values.hookos.scriptImage }}
+        image: {{ .Values.optional.hookos.scriptImage }}
         command: ["/script/entrypoint.sh"]
-        args: ["--url", "{{ .Values.hookos.downloadURL }}", "--output-dir", "/output", "--arch", "{{ .Values.hookos.arch }}", "--version", "{{ .Values.hookos.kernelVersion }}", "--ext", "{{ .Values.hookos.extension }}"]
+        args: ["--url", "{{ .Values.optional.hookos.downloadURL }}", "--output-dir", "/output", "--arch", "{{ .Values.optional.hookos.arch }}", "--version", "{{ .Values.optional.hookos.kernelVersion }}", "--ext", "{{ .Values.optional.hookos.extension }}"]
         volumeMounts:
           - mountPath: /output
             name: hook-artifacts
@@ -69,21 +69,21 @@ spec:
               path: nginx.conf.template
       - name: hook-artifacts
         persistentVolumeClaim:
-          claimName: {{ coalesce .Values.hookos.persistence.existingClaim .Values.hookos.persistence.localPersistentVolume.name }}
+          claimName: {{ coalesce .Values.optional.hookos.persistence.existingClaim .Values.optional.hookos.persistence.localPersistentVolume.name }}
       - name: configmap-volume
         configMap:
           defaultMode: 0700
           name: download-hook
-      {{- with .Values.hookos.nodeSelector }}
+      {{- with .Values.optional.hookos.nodeSelector }}
       nodeSelector:
       {{ toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.hookos.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      {{- if .Values.optional.hookos.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       tolerations:
       {{- include "singleNodeClusterConfig" . | indent 6 }}
       affinity:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-          {{- include "preferWorkerNodes" (dict "nodeAffinityWeight" .Values.hookos.singleNodeClusterConfig.nodeAffinityWeight) | indent 10 }}
+          {{- include "preferWorkerNodes" (dict "nodeAffinityWeight" .Values.optional.hookos.singleNodeClusterConfig.nodeAffinityWeight) | indent 10 }}
       {{- end }}
 {{- end }}

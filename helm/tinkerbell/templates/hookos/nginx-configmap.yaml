@@ -1,4 +1,4 @@
-{{- if .Values.hookos.enabled }}
+{{- if .Values.optional.hookos.enabled }}
 # The NGINX ConfigMap is in a separate file because its checksum is used to trigger updates in
 # the deployment.
 apiVersion: v1
@@ -15,7 +15,7 @@ data:
     user root;
     http {
       server {
-        listen {{ .Values.hookos.port }};
+        listen {{ .Values.optional.hookos.port }};
         location / {
           sendfile           on;
           sendfile_max_chunk 1m;

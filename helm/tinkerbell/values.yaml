@@ -4,9 +4,7 @@
 # ARTIFACTS_FILE_SERVER=http://192.168.2.117:8080
 # helm install tinkerbell tinkerbell/ --create-namespace --namespace tinkerbell --wait --set "trustedProxies={${trusted_proxies}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER"
 artifactsFileServer:
-
 deploy: true
-
 deployment:
   additionalEnvs: []
   affinity: {}
@@ -159,15 +157,11 @@ deployment:
   strategy:
     type: RollingUpdate
   toleration: []
-
 name: tinkerbell
-
 publicIP:
-
 rbac:
   name: tinkerbell
   type: ClusterRole # or Role
-
 service:
   annotations: {}
   labels:
@@ -193,74 +187,73 @@ service:
   selector:
     app: tinkerbell
   type: LoadBalancer
-
 trustedProxies: []
 
-# hookos objects enable downloading and serving HookOS artifacts.
-# Optional, enabled by default.
-hookos:
-  enabled: true
-  image: nginx:1.27.2
-  scriptImage: bash:5.2.37
-  name: hookos
-  port: 8080
-  selector:
-    app: hookos
-  nodeSelector: {}
-  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
-  singleNodeClusterConfig:
-    controlPlaneTolerationsEnabled: false
-    nodeAffinityWeight: 1
-  service:
-    annotations: {}
-    type: LoadBalancer
-    lbClass: "kube-vip.io/kube-vip-class"
-    loadBalancerIP: ""
-  deployment:
-    strategy:
-      type: RollingUpdate
-  # downloadURL only works with the > 0.8.1 Hook release because
-  # previous Hook versions didn't provide a checksum file.
-  downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.10.0
-  arch: both # x86_64, aarch64, both
-  extension: tar.gz # iso, tar.gz, both
-  kernelVersion: both # 5.10, 6.6, both
-  persistence:
-    # If existingClaim is set, the local persistence volume (localPersistentVolume) objects will NOT be created.
-    # Use this to point to an existing production grade storage class.
-    existingClaim: ""
-    # While local storage is the default, it is not recommended for production use.
-    localPersistentVolume:
-      storageClassName: local-storage
-      # this path must already exist on the node
-      path: /tmp
-      name: hook-artifacts
-      accessModes:
-        - ReadWriteMany
-      size: 2Gi
-      extraLabels: {}
-
-# kubevip objects are used to provide a LoadBalancer IP for the Tinkerbell services.
-# Optional, enabled by default.
-kubevip:
-  enabled: true
-  name: kube-vip
-  image: ghcr.io/kube-vip/kube-vip:v0.8.7
-  imagePullPolicy: IfNotPresent
-  roleName: kube-vip-role
-  roleBindingName: kube-vip-rolebinding
-  # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
-  # interface: enp0s8
-
-  # Additional environment variables to pass to the kubevip container. Each entry is expected to have a
-  # name and value key. Some keys are already defined - refer to the deployment.yaml template for
-  # details.
-  #
-  # Example
-  #   - name: MY_ENV_VAR
-  #     value: my-value
-  additionalEnv: []
-  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
-  singleNodeClusterConfig:
-    controlPlaneTolerationsEnabled: false
-    nodeAffinityWeight: 1
+optional:
+  # hookos objects enable downloading and serving HookOS artifacts.
+  # Optional, enabled by default.
+  hookos:
+    arch: both # x86_64, aarch64, both
+    deployment:
+      strategy:
+        type: RollingUpdate
+    # downloadURL only works with the > 0.8.1 Hook release because
+    # previous Hook versions didn't provide a checksum file.
+    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.10.0
+    enabled: true
+    extension: tar.gz # iso, tar.gz, both
+    image: nginx:1.27.2
+    kernelVersion: both # 5.10, 6.6, both
+    name: hookos
+    nodeSelector: {}
+    persistence:
+      # If existingClaim is set, the local persistence volume (localPersistentVolume) objects will NOT be created.
+      # Use this to point to an existing production grade storage class.
+      existingClaim: ""
+      # While local storage is the default, it is not recommended for production use.
+      localPersistentVolume:
+        accessModes:
+          - ReadWriteMany
+        extraLabels: {}
+        name: hook-artifacts
+        # this path must already exist on the node
+        path: /tmp
+        size: 2Gi
+        storageClassName: local-storage
+    port: 8080
+    scriptImage: bash:5.2.37
+    selector:
+      app: hookos
+    service:
+      annotations: {}
+      lbClass: "kube-vip.io/kube-vip-class"
+      loadBalancerIP: ""
+      type: LoadBalancer
+    # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+    singleNodeClusterConfig:
+      controlPlaneTolerationsEnabled: false
+      nodeAffinityWeight: 1
+  
+  # kubevip objects are used to provide a LoadBalancer IP for the Tinkerbell services.
+  # Optional, enabled by default.
+  kubevip:
+    # Additional environment variables to pass to the kubevip container. Each entry is expected to have a
+    # name and value key. Some keys are already defined - refer to the deployment.yaml template for
+    # details.
+    #
+    # Example
+    #   - name: MY_ENV_VAR
+    #     value: my-value
+    additionalEnv: []
+    enabled: true
+    image: ghcr.io/kube-vip/kube-vip:v0.8.7
+    imagePullPolicy: IfNotPresent
+    # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
+    # interface: enp0s8
+    name: kube-vip
+    roleBindingName: kube-vip-rolebinding
+    roleName: kube-vip-role
+    # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+    singleNodeClusterConfig:
+      controlPlaneTolerationsEnabled: false
+      nodeAffinityWeight: 1
