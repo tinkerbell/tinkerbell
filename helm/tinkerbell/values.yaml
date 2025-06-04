@@ -20,83 +20,82 @@ deployment:
     enabled: false
   envs:
     globals:
-      logLevel: 0
       backend: "kube"
       backendFilePath: ""
       backendKubeConfig: ""
       backendKubeNamespace: ""
-      otelEndpoint: ""
-      otelInsecure: false
-      trustedProxies: ""
-      #publicIpv4: ""
+      enableCRDMigrations: true
+      enableRufioController: true
+      enableSecondstar: true
       enableSmee: true
       enableTootles: true
       enableTinkServer: true
       enableTinkController: true
-      enableRufioController: true
-      enableSecondstar: true
-      enableCRDMigrations: true
+      logLevel: 0
+      otelEndpoint: ""
+      otelInsecure: false
+      #publicIpv4: ""
+      trustedProxies: ""
     rufio:
+      bmcConnectTimeout: "2m0s"
       enableLeaderElection: true
       leaderElectionNamespace: ""
       metricsAddr: ""
-      probeAddr: ""
-      bmcConnectTimeout: "2m0s"
       powerCheckInterval: "30m0s"
+      probeAddr: ""
     smee:
-      dhcpEnabled: true
-      dhcpMode: "reservation"
       dhcpBindAddr: ""
       dhcpBindInterface: ""
+      dhcpEnabled: true
       dhcpIPForPacket: ""
+      dhcpIpxeHttpBinaryHost: ""
+      dhcpIpxeHttpBinaryPath: "/ipxe"
+      dhcpIpxeHttpBinaryPort: 7171
+      dhcpIpxeHttpBinaryScheme: "http"
+      dhcpIpxeHttpScriptHost: ""
+      dhcpIpxeHttpScriptPath: "auto.ipxe"
+      dhcpIpxeHttpScriptPort: 7171
+      dhcpIpxeHttpScriptPrependMac: false
+      dhcpIpxeHttpScriptScheme: "http"
+      dhcpMode: "reservation"
       dhcpSyslogIP: ""
       dhcpTftpIP: ""
       dhcpTftpPort: 69
-      dhcpIpxeHttpScriptPrependMac: false
-      dhcpIpxeHttpBinaryScheme: "http"
-      dhcpIpxeHttpBinaryHost: ""
-      dhcpIpxeHttpBinaryPort: 7171
-      dhcpIpxeHttpBinaryPath: "/ipxe"
-      dhcpIpxeHttpScriptScheme: "http"
-      dhcpIpxeHttpScriptHost: ""
-      dhcpIpxeHttpScriptPort: 7171
-      dhcpIpxeHttpScriptPath: "auto.ipxe"
       ipxeEmbeddedScriptPatch: ""
       ipxeHttpBinaryEnabled: true
-      ipxeHttpScriptEnabled: true
       ipxeHttpScriptBindAddr: ""
       ipxeHttpScriptBindPort: 7171
-      # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
-      ipxeHttpScriptExtraKernelArgs: []
+      ipxeHttpScriptEnabled: true
+      ipxeHttpScriptExtraKernelArgs: [] # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
       #ipxeHttpScriptTrustedProxies: ""
+      ipxeHttpScriptOsieURL: ""
       ipxeHttpScriptRetries: 1
       ipxeHttpScriptRetryDelay: 1
-      ipxeHttpScriptOsieURL: ""
+      ipxeScriptTinkServerAddrPort: ""
+      ipxeScriptTinkServerInsecureTLS: false
+      ipxeScriptTinkServerUseTLS: false
       isoEnabled: true
-      isoUpstreamURL: ""
       isoPatchMagicString: ""
       isoStaticIPAMEnabled: true
-      syslogEnabled: true
+      isoUpstreamURL: ""
       syslogBindAddr: ""
       syslogBindPort: 514
-      tftpServerEnabled: true
+      syslogEnabled: true
+      tftpBlockSize: 512
       tftpServerBindAddr: ""
       tftpServerBindPort: 69
+      tftpServerEnabled: true
       tftpTimeout: "10s"
-      tftpBlockSize: 512
-      ipxeScriptTinkServerAddrPort: ""
-      ipxeScriptTinkServerUseTLS: false
-      ipxeScriptTinkServerInsecureTLS: false
     tinkController:
       enableLeaderElection: true
       leaderElectionNamespace: ""
       metricsAddr: ""
       probeAddr: ""
     tinkServer:
+      autoEnrollmentEnabled: false
       bindAddr: ""
       bindPort: 42113
       logLevel: 0
-      autoEnrollmentEnabled: false
     tootles:
       bindAddr: ""
       bindPort: 7172
@@ -121,33 +120,33 @@ deployment:
   nodeSelector: {}
   ports:
     dhcp:
-      port: 67
       name: dhcp
+      port: 67
       protocol: UDP
-    tftp:
-      port: 69
-      name: tftp
-      protocol: UDP
-    syslog:
-      port: 514
-      name: syslog
-      protocol: UDP
-    ssh:
-      port: 2222
-      name: ssh
+    grpc:
+      name: grpc
+      port: 42113
       protocol: TCP
     httpSmee:
-      port: 7171
       name: http-smee
+      port: 7171
       protocol: TCP
     httpTootles:
-      port: 7172
       name: http-tootles
+      port: 7172
       protocol: TCP
-    grpc:
-      port: 42113
-      name: grpc
+    ssh:
+      name: ssh
+      port: 2222
       protocol: TCP
+    syslog:
+      name: syslog
+      port: 514
+      protocol: UDP
+    tftp:
+      name: tftp
+      port: 69
+      protocol: UDP
   replicas: 1
   resources:
     limits:
@@ -166,34 +165,34 @@ name: tinkerbell
 publicIP:
 
 rbac:
-  type: ClusterRole # or Role
   name: tinkerbell
+  type: ClusterRole # or Role
 
 service:
-  name: tinkerbell
-  type: LoadBalancer
-  lbClass: "kube-vip.io/kube-vip-class"
-  loadBalancerIP: ""
-  selector:
-    app: tinkerbell
+  annotations: {}
   labels:
     app: tinkerbell
-  annotations: {}
+  lbClass: "kube-vip.io/kube-vip-class"
+  loadBalancerIP: ""
+  name: tinkerbell
   ports:
     dhcp:
       port: 67
-    tftp:
-      port: 69
-    syslog:
-      port: 514
+    grpc:
+      port: 42113
     httpSmee:
       port: 7171
     httpTootles:
       port: 7172
-    grpc:
-      port: 42113
     ssh:
       port: 2222
+    syslog:
+      port: 514
+    tftp:
+      port: 69
+  selector:
+    app: tinkerbell
+  type: LoadBalancer
 
 trustedProxies: []
 
