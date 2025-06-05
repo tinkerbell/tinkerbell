@@ -47,6 +47,6 @@ spec:
       serviceAccountName: {{ .Values.optional.kubevip.name }}
       {{- if .Values.optional.kubevip.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       tolerations:
-      {{- include "singleNodeClusterConfig" (dict "nodeAffinityWeight" .Values.optional.stack.singleNodeClusterConfig.nodeAffinityWeight) | indent 6 }}
+      {{- include "singleNodeClusterConfig" (dict "nodeAffinityWeight" .Values.optional.kubevip.singleNodeClusterConfig.nodeAffinityWeight) | indent 6 }}
       {{- end }}
 {{- end }}
