@@ -171,19 +171,33 @@ service:
   name: tinkerbell
   ports:
     dhcp:
+      name: dhcp
       port: 67
+      protocol: UDP
     grpc:
+      name: grpc
       port: 42113
+      protocol: TCP
     httpSmee:
+      name: http-smee
       port: 7171
+      protocol: TCP
     httpTootles:
+      name: http-tootles
       port: 7172
+      protocol: TCP
     ssh:
+      name: ssh
       port: 2222
+      protocol: TCP
     syslog:
+      name: syslog
       port: 514
+      protocol: UDP
     tftp:
+      name: tftp
       port: 69
+      protocol: UDP
   selector:
     app: tinkerbell
   type: LoadBalancer
