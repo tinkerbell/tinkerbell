@@ -1,9 +1,9 @@
-{{- if and .Values.hookos.enabled (empty .Values.hookos.persistence.existingClaim ) }}
+{{- if and .Values.optional.hookos.enabled (empty .Values.optional.hookos.persistence.existingClaim ) }}
 ---
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
-  name: {{ .Values.hookos.persistence.localPersistentVolume.storageClassName }}
+  name: {{ .Values.optional.hookos.persistence.localPersistentVolume.storageClassName }}
   namespace: {{ .Release.Namespace | quote }}
 provisioner: kubernetes.io/no-provisioner
 volumeBindingMode: WaitForFirstConsumer
@@ -11,19 +11,19 @@ volumeBindingMode: WaitForFirstConsumer
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ .Values.hookos.persistence.localPersistentVolume.name }}
+  name: {{ .Values.optional.hookos.persistence.localPersistentVolume.name }}
   namespace: {{ .Release.Namespace }}
 spec:
   capacity:
-    storage: {{ .Values.hookos.persistence.localPersistentVolume.size }}
+    storage: {{ .Values.optional.hookos.persistence.localPersistentVolume.size }}
   accessModes:
-  {{- range .Values.hookos.persistence.localPersistentVolume.accessModes }}
+  {{- range .Values.optional.hookos.persistence.localPersistentVolume.accessModes }}
   - {{ . | quote }}
   {{- end }}
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: {{ .Values.hookos.persistence.localPersistentVolume.storageClassName }}
+  storageClassName: {{ .Values.optional.hookos.persistence.localPersistentVolume.storageClassName }}
   local:
-    path: {{ .Values.hookos.persistence.localPersistentVolume.path }}
+    path: {{ .Values.optional.hookos.persistence.localPersistentVolume.path }}
   nodeAffinity:
     required:
       nodeSelectorTerms:
@@ -37,16 +37,16 @@ metadata:
   name: hook-artifacts
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    {{- with .Values.hookos.persistence.localPersistentVolume.extraLabels }}
+    {{- with .Values.optional.hookos.persistence.localPersistentVolume.extraLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   accessModes:
-  {{- range .Values.hookos.persistence.localPersistentVolume.accessModes }}
+  {{- range .Values.optional.hookos.persistence.localPersistentVolume.accessModes }}
   - {{ . | quote }}
   {{- end }}
   resources:
     requests:
-      storage: {{ .Values.hookos.persistence.localPersistentVolume.size | quote }}
-  storageClassName: {{ .Values.hookos.persistence.localPersistentVolume.storageClassName }}
+      storage: {{ .Values.optional.hookos.persistence.localPersistentVolume.size | quote }}
+  storageClassName: {{ .Values.optional.hookos.persistence.localPersistentVolume.storageClassName }}
 {{- end }}

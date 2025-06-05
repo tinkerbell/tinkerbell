@@ -231,30 +231,34 @@ spec:
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
+          {{- if .Values.deployment.envs.globals.enableTootles }}
             {{- with .Values.deployment.ports.httpTootles }}
             - containerPort: {{ .port }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
+          {{- end }}
+          {{- if .Values.deployment.envs.globals.enableTinkServer }}
             {{- with .Values.deployment.ports.grpc }}
             - containerPort: {{ .port }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
+          {{- end }}
           {{- if .Values.deployment.envs.globals.enableSecondstar }}
             {{- with .Values.deployment.ports.ssh }}
             - containerPort: {{ .port }}
               name: {{ .name }}
               protocol: {{ .protocol }}
-          {{- end }}
             {{- end }}
+          {{- end }}
           resources: {{ toYaml .Values.deployment.resources | nindent 12 }}
           securityContext:
             capabilities:
               add:
                 - NET_RAW
       hostNetwork: {{ .Values.deployment.hostNetwork }}
-      serviceAccountName: {{ .Values.rbac.serviceAccountName }}
+      serviceAccountName: {{ .Values.rbac.name }}-service-account
       volumes:
       {{- if .Values.deployment.init.enabled }}
       - name: script

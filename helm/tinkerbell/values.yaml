@@ -1,157 +1,110 @@
 # trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
 # LB_IP=192.168.2.116
 # the ARTIFACTS_FILE_SERVER is used to set the load balancer IP for the HookOS/nginx service object and will be used to configure TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL in the Tinkerbell deployment.
-# ARTIFACTS_FILE_SERVER=http://192.168.2.117:8080
-# helm install tinkerbell tinkerbell/ --create-namespace --namespace tinkerbell --wait --set "trustedProxies={${trusted_proxies}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER"
-deploy: true
-name: tinkerbell
-
-publicIP:
-trustedProxies: []
+# ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
+# helm install tinkerbell tinkerbell/ --create-namespace --namespace tinkerbell --wait --set "trustedProxies={${trusted_proxies}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" --set "deployment.agentImageTag=latest"
 artifactsFileServer:
+deploy: true
 deployment:
-  daemonSet:
-    enabled: false
-  image: ghcr.io/tinkerbell/tinkerbell
-  # imageTag is here as a placeholder and to show its possible to be set.
-  # It is not set because in the deployment.yaml a coalesce is used with this value
-  # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
-  imageTag:
-  imagePullPolicy: IfNotPresent
+  additionalEnvs: []
+  affinity: {}
   agentImage: ghcr.io/tinkerbell/tink-agent
   # agentImageTag is here as a placeholder and to show its possible to be set.
   # It is not set because in the deployment.yaml a coalesce is used with this value
   # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
   agentImageTag:
-  replicas: 1
   args: []
-  additionalEnvs: []
-  strategy:
-    type: RollingUpdate
-  toleration: []
-  affinity: {}
-  selector: {}
-  nodeSelector: {}
+  daemonSet:
+    enabled: false
   envs:
+    globals:
+      backend: "kube"
+      backendFilePath: ""
+      backendKubeConfig: ""
+      backendKubeNamespace: ""
+      enableCRDMigrations: true
+      enableRufioController: true
+      enableSecondstar: true
+      enableSmee: true
+      enableTootles: true
+      enableTinkServer: true
+      enableTinkController: true
+      logLevel: 0
+      otelEndpoint: ""
+      otelInsecure: false
+      #publicIpv4: ""
+      trustedProxies: ""
     rufio:
+      bmcConnectTimeout: "2m0s"
       enableLeaderElection: true
       leaderElectionNamespace: ""
       metricsAddr: ""
-      probeAddr: ""
-      bmcConnectTimeout: "2m0s"
       powerCheckInterval: "30m0s"
+      probeAddr: ""
+    smee:
+      dhcpBindAddr: ""
+      dhcpBindInterface: ""
+      dhcpEnabled: true
+      dhcpIPForPacket: ""
+      dhcpIpxeHttpBinaryHost: ""
+      dhcpIpxeHttpBinaryPath: "/ipxe"
+      dhcpIpxeHttpBinaryPort: 7171
+      dhcpIpxeHttpBinaryScheme: "http"
+      dhcpIpxeHttpScriptHost: ""
+      dhcpIpxeHttpScriptPath: "auto.ipxe"
+      dhcpIpxeHttpScriptPort: 7171
+      dhcpIpxeHttpScriptPrependMac: true
+      dhcpIpxeHttpScriptScheme: "http"
+      dhcpMode: "reservation" # reservation, proxy, auto-proxy
+      dhcpSyslogIP: ""
+      dhcpTftpIP: ""
+      dhcpTftpPort: 69
+      ipxeEmbeddedScriptPatch: ""
+      ipxeHttpBinaryEnabled: true
+      ipxeHttpScriptBindAddr: ""
+      ipxeHttpScriptBindPort: 7171
+      ipxeHttpScriptEnabled: true
+      ipxeHttpScriptExtraKernelArgs: [] # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
+      #ipxeHttpScriptTrustedProxies: ""
+      ipxeHttpScriptOsieURL: ""
+      ipxeHttpScriptRetries: 1
+      ipxeHttpScriptRetryDelay: 1
+      ipxeScriptTinkServerAddrPort: ""
+      ipxeScriptTinkServerInsecureTLS: false
+      ipxeScriptTinkServerUseTLS: false
+      isoEnabled: true
+      isoPatchMagicString: ""
+      isoStaticIPAMEnabled: true
+      isoUpstreamURL: ""
+      syslogBindAddr: ""
+      syslogBindPort: 514
+      syslogEnabled: true
+      tftpBlockSize: 512
+      tftpServerBindAddr: ""
+      tftpServerBindPort: 69
+      tftpServerEnabled: true
+      tftpTimeout: "10s"
     tinkController:
       enableLeaderElection: true
       leaderElectionNamespace: ""
       metricsAddr: ""
       probeAddr: ""
     tinkServer:
+      autoEnrollmentEnabled: false
       bindAddr: ""
       bindPort: 42113
       logLevel: 0
-      autoEnrollmentEnabled: false
     tootles:
       bindAddr: ""
-      bindPort: 50061
+      bindPort: 7172
       debugMode: false
-    smee:
-      dhcpEnabled: true
-      dhcpMode: "reservation"
-      dhcpBindAddr: ""
-      dhcpBindInterface: ""
-      dhcpIPForPacket: ""
-      dhcpSyslogIP: ""
-      dhcpTftpIP: ""
-      dhcpTftpPort: 69
-      dhcpIpxeHttpScriptPrependMac: false
-      dhcpIpxeHttpBinaryScheme: "http"
-      dhcpIpxeHttpBinaryHost: ""
-      dhcpIpxeHttpBinaryPort: 7171
-      dhcpIpxeHttpBinaryPath: "/ipxe"
-      dhcpIpxeHttpScriptScheme: "http"
-      dhcpIpxeHttpScriptHost: ""
-      dhcpIpxeHttpScriptPort: 7171
-      dhcpIpxeHttpScriptPath: "auto.ipxe"
-      ipxeEmbeddedScriptPatch: ""
-      ipxeHttpBinaryEnabled: true
-      ipxeHttpScriptEnabled: true
-      ipxeHttpScriptBindAddr: ""
-      ipxeHttpScriptBindPort: 7171
-      # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
-      ipxeHttpScriptExtraKernelArgs: []
-      #ipxeHttpScriptTrustedProxies: ""
-      ipxeHttpScriptRetries: 1
-      ipxeHttpScriptRetryDelay: 1
-      ipxeHttpScriptOsieURL: ""
-      isoEnabled: true
-      isoUpstreamURL: ""
-      isoPatchMagicString: ""
-      isoStaticIPAMEnabled: true
-      syslogEnabled: true
-      syslogBindAddr: ""
-      syslogBindPort: 514
-      tftpServerEnabled: true
-      tftpServerBindAddr: ""
-      tftpServerBindPort: 69
-      tftpTimeout: "10s"
-      tftpBlockSize: 512
-      ipxeScriptTinkServerAddrPort: ""
-      ipxeScriptTinkServerUseTLS: false
-      ipxeScriptTinkServerInsecureTLS: false
-    globals:
-      logLevel: 0
-      backend: "kube"
-      backendFilePath: ""
-      backendKubeConfig: ""
-      backendKubeNamespace: ""
-      otelEndpoint: ""
-      otelInsecure: false
-      trustedProxies: ""
-      #publicIpv4: ""
-      enableSmee: true
-      enableTootles: true
-      enableTinkServer: true
-      enableTinkController: true
-      enableRufioController: true
-      enableSecondstar: true
-      enableCRDMigrations: true
   hostNetwork: false
-  ports:
-    tftp:
-      port: 69
-      name: tftp
-      protocol: UDP
-    syslog:
-      port: 514
-      name: syslog
-      protocol: UDP
-    dhcp:
-      port: 67
-      name: dhcp
-      protocol: UDP
-    httpSmee:
-      port: 7171
-      name: http-smee
-      protocol: TCP
-    httpTootles:
-      port: 50061
-      name: http-tootles
-      protocol: TCP
-    grpc:
-      port: 42113
-      name: grpc
-      protocol: TCP
-    ssh:
-      port: 2222
-      name: ssh
-      protocol: TCP
-  resources:
-    limits:
-      cpu: 500m
-      memory: 128Mi
-    requests:
-      cpu: 500m
-      memory: 128Mi
+  image: ghcr.io/tinkerbell/tinkerbell
+  imagePullPolicy: IfNotPresent
+  # imageTag is here as a placeholder and to show its possible to be set.
+  # It is not set because in the deployment.yaml a coalesce is used with this value
+  # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
+  imageTag:
   init:
     enabled: true
     # if `interfaceMode: ipvlan`, then ghcr.io/jacobweinstock/relay-init:v0.1.0 (has nmap and nmap-scripts) is required. Otherwise, alpine can be used. 
@@ -162,98 +115,159 @@ deployment:
     # sourceInterface is the Host/Node interface to use for listening for DHCP broadcast packets.
     # When unset, the interface from the default route will be used.
     # sourceInterface: eno1
-
+  nodeSelector: {}
+  ports:
+    dhcp:
+      name: dhcp
+      port: 67
+      protocol: UDP
+    grpc:
+      name: grpc
+      port: 42113
+      protocol: TCP
+    httpSmee:
+      name: http-smee
+      port: 7171
+      protocol: TCP
+    httpTootles:
+      name: http-tootles
+      port: 7172
+      protocol: TCP
+    ssh:
+      name: ssh
+      port: 2222
+      protocol: TCP
+    syslog:
+      name: syslog
+      port: 514
+      protocol: UDP
+    tftp:
+      name: tftp
+      port: 69
+      protocol: UDP
+  replicas: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 500m
+      memory: 128Mi
+  selector: {}
+  strategy:
+    type: RollingUpdate
+  toleration: []
+name: tinkerbell
+publicIP:
+rbac:
+  name: tinkerbell
+  type: ClusterRole # or Role
 service:
-  type: LoadBalancer
+  annotations: {}
+  labels:
+    app: tinkerbell
   lbClass: "kube-vip.io/kube-vip-class"
   loadBalancerIP: ""
+  name: tinkerbell
   ports:
-    tftp:
-      port: 69
-    syslog:
-      port: 514
-    http-smee:
-      port: 7171
-    http-tootles:
-      port: 50061
+    dhcp:
+      name: dhcp
+      port: 67
+      protocol: UDP
     grpc:
-      port: 4211
-leaderElection:
-  name:
-  roleBindingName:
-
-tinkLeaderElectionRoleName: tink-leader-election-role
-tinkLeaderElectionRoleBindingName: tink-leader-election-rolebinding
-
-rbac:
-  type: Role # or ClusterRole
-  name: tink-controller-role # or tink-controller-cluster-role
-  bindingName: tink-controller-rolebinding # or tink-controller-cluster-rolebinding
-  serviceAccountName: tinkerbell
-
-# hookos objects enables downloading and serving HookOS artifacts.
-# it is optional and enabled by default.
-hookos:
-  enabled: true
-  image: nginx:1.27.2
-  scriptImage: bash:5.2.37
-  name: hookos
-  port: 8080
+      name: grpc
+      port: 42113
+      protocol: TCP
+    httpSmee:
+      name: http-smee
+      port: 7171
+      protocol: TCP
+    httpTootles:
+      name: http-tootles
+      port: 7172
+      protocol: TCP
+    ssh:
+      name: ssh
+      port: 2222
+      protocol: TCP
+    syslog:
+      name: syslog
+      port: 514
+      protocol: UDP
+    tftp:
+      name: tftp
+      port: 69
+      protocol: UDP
   selector:
-    app: hookos
-  nodeSelector: {}
-  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
-  singleNodeClusterConfig:
-    controlPlaneTolerationsEnabled: false
-    nodeAffinityWeight: 1
-  service:
-    annotations: {}
-    type: LoadBalancer
-    lbClass: "kube-vip.io/kube-vip-class"
-    loadBalancerIP: ""
-  deployment:
-    strategy:
-      type: RollingUpdate
-  # downloadURL only works with the > 0.8.1 Hook release because
-  # previous Hook versions didn't provide a checksum file.
-  downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.10.0
-  arch: both # x86_64, aarch64, both
-  extension: tar.gz # iso, tar.gz, both
-  kernelVersion: both # 5.10, 6.6, both
-  persistence:
-    # If existingClaim is set, the local persistence volume (localPersistentVolume) objects will NOT be created.
-    # Use this to point to an existing production grade storage class.
-    existingClaim: ""
-    # While local storage is the default, it is not recommended for production use.
-    localPersistentVolume:
-      storageClassName: local-storage
-      # this path must already exist on the node
-      path: /tmp
-      name: hook-artifacts
-      accessModes:
-        - ReadWriteMany
-      size: 2Gi
-      extraLabels: {}
+    app: tinkerbell
+  type: LoadBalancer
+trustedProxies: []
 
-kubevip:
-  enabled: true
-  name: kube-vip
-  image: ghcr.io/kube-vip/kube-vip:v0.8.7
-  imagePullPolicy: IfNotPresent
-  roleName: kube-vip-role
-  roleBindingName: kube-vip-rolebinding
-  # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
-  # interface: enp0s8
-
-  # Additional environment variables to pass to the kubevip container. Each entry is expected to have a
-  # name and value key. Some keys are already defined - refer to the deployment.yaml template for
-  # details.
-  #
-  # Example
-  #   - name: MY_ENV_VAR
-  #     value: my-value
-  additionalEnv: []
-  # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
-  singleNodeClusterConfig:
-    controlPlaneTolerationsEnabled: false
-    nodeAffinityWeight: 1
+optional:
+  # hookos objects enable downloading and serving HookOS artifacts.
+  # Optional, enabled by default.
+  hookos:
+    arch: both # x86_64, aarch64, both
+    deployment:
+      strategy:
+        type: RollingUpdate
+    # downloadURL only works with the > 0.8.1 Hook release because
+    # previous Hook versions didn't provide a checksum file.
+    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.10.0
+    enabled: true
+    extension: tar.gz # iso, tar.gz, both
+    image: nginx:1.27.2
+    kernelVersion: both # 5.10, 6.6, both
+    name: hookos
+    nodeSelector: {}
+    persistence:
+      # If existingClaim is set, the local persistence volume (localPersistentVolume) objects will NOT be created.
+      # Use this to point to an existing production grade storage class.
+      existingClaim: ""
+      # While local storage is the default, it is not recommended for production use.
+      localPersistentVolume:
+        accessModes:
+          - ReadWriteMany
+        extraLabels: {}
+        name: hook-artifacts
+        # this path must already exist on the node
+        path: /tmp
+        size: 2Gi
+        storageClassName: local-storage
+    port: 7173
+    scriptImage: bash:5.2.37
+    selector:
+      app: hookos
+    service:
+      annotations: {}
+      lbClass: "kube-vip.io/kube-vip-class"
+      loadBalancerIP: ""
+      type: LoadBalancer
+    # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+    singleNodeClusterConfig:
+      controlPlaneTolerationsEnabled: false
+      nodeAffinityWeight: 1
+  
+  # kubevip objects are used to provide a LoadBalancer IP for the Tinkerbell services.
+  # Optional, enabled by default.
+  kubevip:
+    # Additional environment variables to pass to the kubevip container. Each entry is expected to have a
+    # name and value key. Some keys are already defined - refer to the deployment.yaml template for
+    # details.
+    #
+    # Example
+    #   - name: MY_ENV_VAR
+    #     value: my-value
+    additionalEnv: []
+    enabled: true
+    image: ghcr.io/kube-vip/kube-vip:v0.9.1
+    imagePullPolicy: IfNotPresent
+    # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
+    # interface: enp0s8
+    name: kube-vip
+    roleBindingName: kube-vip-rolebinding
+    roleName: kube-vip-role
+    # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
+    singleNodeClusterConfig:
+      controlPlaneTolerationsEnabled: false
+      nodeAffinityWeight: 1

@@ -1,0 +1,52 @@
+{{- if .Values.optional.kubevip.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Values.optional.kubevip.name }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.optional.kubevip.name }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.optional.kubevip.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Values.optional.kubevip.name }}
+    spec:
+      containers:
+      - args:
+        - manager
+        env:
+        - name: vip_arp
+          value: "true"
+        - name: svc_enable
+          value: "true"
+        - name: svc_election
+          value: "true"
+        - name: enableServicesElection
+          value: "true"
+        {{- range .Values.optional.kubevip.additionalEnv }}
+        - name: {{ .name | quote }}
+          value: {{ .value | quote }}
+        {{- end }}
+        {{- with .Values.optional.kubevip.interface }}
+        - name: vip_interface
+          value: {{ . }}
+        {{- end }}
+        image: {{ .Values.optional.kubevip.image }}
+        imagePullPolicy: {{ .Values.optional.kubevip.imagePullPolicy }}
+        name: {{ .Values.optional.kubevip.name }}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+      hostNetwork: true
+      serviceAccountName: {{ .Values.optional.kubevip.name }}
+      {{- if .Values.optional.kubevip.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      tolerations:
+      {{- include "singleNodeClusterConfig" (dict "nodeAffinityWeight" .Values.optional.kubevip.singleNodeClusterConfig.nodeAffinityWeight) | indent 6 }}
+      {{- end }}
+{{- end }}
