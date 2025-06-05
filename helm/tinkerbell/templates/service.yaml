@@ -27,33 +27,33 @@ spec:
     protocol: {{ .Values.service.ports.dhcp.protocol }}
     name: {{ .Values.service.ports.dhcp.name }}
   - port: {{ .Values.service.ports.tftp.port }}
-    targetPort: {{ .Values.deployment.ports.tftp.port }}
+    targetPort: {{ .Values.deployment.ports.tftp.name }}
     protocol: {{ .Values.service.ports.tftp.protocol }}
     name: {{ .Values.service.ports.tftp.name }}
   - port: {{ .Values.service.ports.syslog.port }}
-    targetPort: {{ .Values.deployment.ports.syslog.port }}
+    targetPort: {{ .Values.deployment.ports.syslog.name }}
     protocol: {{ .Values.service.ports.syslog.protocol }}
     name: {{ .Values.service.ports.syslog.name }}
   - port: {{ .Values.service.ports.httpSmee.port }}
-    targetPort: {{ .Values.deployment.ports.httpSmee.port }}
+    targetPort: {{ .Values.deployment.ports.httpSmee.name }}
     protocol: {{ .Values.service.ports.httpSmee.protocol }}
     name: {{ .Values.service.ports.httpSmee.name }}
   {{- end }}
   {{- if .Values.deployment.envs.globals.enableTootles }}
   - port: {{ .Values.service.ports.httpTootles.port }}
-    targetPort: {{ .Values.deployment.ports.httpTootles.port }}
+    targetPort: {{ .Values.deployment.ports.httpTootles.name }}
     protocol: {{ .Values.service.ports.httpTootles.protocol }}
     name: {{ .Values.service.ports.httpTootles.name }}
   {{- end }}
   {{- if .Values.deployment.envs.globals.enableTinkServer }}
   - port: {{ .Values.service.ports.grpc.port }}
-    targetPort: {{ .Values.deployment.ports.grpc.port }}
+    targetPort: {{ .Values.deployment.ports.grpc.name }}
     protocol: {{ .Values.service.ports.grpc.protocol }}
     name: {{ .Values.service.ports.grpc.name }}
   {{- end}}
   {{- if .Values.deployment.envs.globals.enableSecondstar}}
   - port: {{ .Values.service.ports.ssh.port }}
-    targetPort: {{ .Values.deployment.ports.ssh.port }}
+    targetPort: {{ .Values.deployment.ports.ssh.name }}
     protocol: {{ .Values.service.ports.ssh.protocol }}
     name: {{ .Values.service.ports.ssh.name }}
   {{- end }}
