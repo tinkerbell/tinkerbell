@@ -53,7 +53,7 @@ deployment:
       dhcpIpxeHttpScriptHost: ""
       dhcpIpxeHttpScriptPath: "auto.ipxe"
       dhcpIpxeHttpScriptPort: 7171
-      dhcpIpxeHttpScriptPrependMac: false
+      dhcpIpxeHttpScriptPrependMac: true
       dhcpIpxeHttpScriptScheme: "http"
       dhcpMode: "reservation" # reservation, proxy, auto-proxy
       dhcpSyslogIP: ""
@@ -260,7 +260,7 @@ optional:
     #     value: my-value
     additionalEnv: []
     enabled: true
-    image: ghcr.io/kube-vip/kube-vip:v0.8.7
+    image: ghcr.io/kube-vip/kube-vip:v0.9.1
     imagePullPolicy: IfNotPresent
     # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
     # interface: enp0s8
