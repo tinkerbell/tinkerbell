@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
@@ -28,7 +27,6 @@ type Config struct {
 	Log              logr.Logger
 	TinkServerClient proto.WorkflowServiceClient
 	AgentID          string
-	RetryInterval    time.Duration
 	Actions          chan spec.Action
 	Attributes       *data.AgentAttributes
 }
