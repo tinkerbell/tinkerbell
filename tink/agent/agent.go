@@ -249,7 +249,6 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 			Log:              log,
 			TinkServerClient: proto.NewWorkflowServiceClient(conn),
 			AgentID:          id,
-			RetryInterval:    time.Second * 5,
 			Actions:          make(chan spec.Action),
 		}
 		if o.AttributeDetectionEnabled {
