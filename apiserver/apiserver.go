@@ -50,7 +50,9 @@ func ConfigAndFlags() (*pflag.FlagSet, func(context.Context, logr.Logger) error)
 			return utilerrors.NewAggregate(errs)
 		}
 		// add feature enablement metrics
-		featureGate.(featuregate.MutableFeatureGate).AddMetrics()
+		if f, ok := featureGate.(featuregate.MutableFeatureGate); ok {
+			f.AddMetrics()
+		}
 
 		klog.SetLogger(log)
 		return apiapp.Run(ctx, completedOptions)
