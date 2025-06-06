@@ -57,6 +57,7 @@ export TINKERBELL_TLS_CERT_FILE=script/certs/server.crt
 export TINKERBELL_TLS_PRIVATE_KEY_FILE=script/certs/server.key
 export TINKERBELL_CLIENT_CA_FILE=script/certs/ca.crt
 export TINKERBELL_LOGGING_FORMAT=json
+export TINKERBELL_BACKEND_KUBE_CONFIG=script/certs/kubeconfig
 
 # CLI flags
 --etcd-servers=http://localhost:2379
@@ -67,6 +68,7 @@ export TINKERBELL_LOGGING_FORMAT=json
 --tls-private-key-file=script/certs/server.key
 --client-ca-file=script/certs/ca.crt
 --logging-format=json
+--backend-kube-config=script/certs/kubeconfig
 ```
 
 To further configure the embedded Kubernetes API server, please refer to the [Kubernetes API server documentation](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/) and/or the Tinkerbell help command `tinkerbell --help`.
