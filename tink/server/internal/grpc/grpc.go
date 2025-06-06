@@ -62,7 +62,7 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 	if len(h.RetryOptions) == 0 {
 		h.RetryOptions = []backoff.RetryOption{
 			backoff.WithMaxElapsedTime(time.Minute),
-			backoff.WithBackOff(backoff.NewExponentialBackOff()),
+			backoff.WithBackOff(backoff.NewConstantBackOff(time.Second)),
 		}
 	}
 	// We retry multiple times as we read-write to the Workflow Status and there can be caching and eventually consistent issues
@@ -276,7 +276,7 @@ func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatu
 	if len(h.RetryOptions) == 0 {
 		h.RetryOptions = []backoff.RetryOption{
 			backoff.WithMaxElapsedTime(time.Minute),
-			backoff.WithBackOff(backoff.NewExponentialBackOff()),
+			backoff.WithBackOff(backoff.NewConstantBackOff(time.Second)),
 		}
 	}
 	// We retry multiple times as we read-write to the Workflow Status and there can be caching and eventually consistent issues
