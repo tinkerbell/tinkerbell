@@ -31,25 +31,10 @@ type Config struct {
 	RetryInterval    time.Duration
 	Actions          chan spec.Action
 	Attributes       *data.AgentAttributes
-	RetryOptions     []backoff.RetryOption
 }
 
 func (c *Config) Read(ctx context.Context) (spec.Action, error) {
-	operation := func() (spec.Action, error) {
-		return c.doRead(ctx)
-	}
-	opts := c.RetryOptions
-	if len(opts) == 0 {
-		opts = []backoff.RetryOption{
-			backoff.WithMaxElapsedTime(time.Minute * 2),
-			backoff.WithBackOff(backoff.NewExponentialBackOff()),
-		}
-	}
-	resp, err := backoff.Retry(ctx, operation, opts...)
-	if err != nil {
-		return spec.Action{}, err
-	}
-	return resp, nil
+	return c.doRead(ctx)
 }
 
 func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
@@ -125,21 +110,7 @@ func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 }
 
 func (c *Config) Write(ctx context.Context, event spec.Event) error {
-	operation := func() (*bool, error) {
-		return nil, c.doWrite(ctx, event)
-	}
-	opts := c.RetryOptions
-	if len(opts) == 0 {
-		opts = []backoff.RetryOption{
-			backoff.WithMaxElapsedTime(time.Minute * 10),
-			backoff.WithBackOff(backoff.NewExponentialBackOff()),
-		}
-	}
-	_, err := backoff.Retry(ctx, operation, opts...)
-	if err != nil {
-		return fmt.Errorf("error reporting action: %w", err)
-	}
-	return nil
+	return c.doWrite(ctx, event)
 }
 
 func (c *Config) doWrite(ctx context.Context, event spec.Event) error {

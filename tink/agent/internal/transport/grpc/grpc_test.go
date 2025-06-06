@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
@@ -93,9 +92,6 @@ func TestRead(t *testing.T) {
 			config := &Config{
 				TinkServerClient: mockClient,
 				AgentID:          "worker-123",
-				RetryOptions: []backoff.RetryOption{
-					backoff.WithMaxTries(1),
-				},
 			}
 
 			ctx := context.Background()
@@ -139,9 +135,6 @@ func TestWrite(t *testing.T) {
 			config := &Config{
 				TinkServerClient: mockClient,
 				AgentID:          "worker-123",
-				RetryOptions: []backoff.RetryOption{
-					backoff.WithMaxTries(1),
-				},
 			}
 
 			ctx := context.Background()
