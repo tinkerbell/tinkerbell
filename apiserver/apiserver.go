@@ -10,16 +10,15 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/cli/globalflag"
+	basecompatibility "k8s.io/component-base/compatibility"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
 	_ "k8s.io/component-base/logs/json/register"          // for JSON log format registration
 	_ "k8s.io/component-base/metrics/prometheus/clientgo" // load all the prometheus client-go plugins
 	_ "k8s.io/component-base/metrics/prometheus/version"  // for version metric registration
-	utilversion "k8s.io/component-base/version"
 	"k8s.io/component-base/version/verflag"
 	"k8s.io/klog/v2"
 	apiapp "k8s.io/kubernetes/cmd/kube-apiserver/app"
@@ -29,9 +28,8 @@ import (
 )
 
 func ConfigAndFlags() (*pflag.FlagSet, func(context.Context, logr.Logger) error) {
-	_, featureGate := featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(
-		featuregate.DefaultKubeComponent, utilversion.DefaultBuildEffectiveVersion(), utilfeature.DefaultMutableFeatureGate)
 	s := apioptions.NewServerRunOptions()
+	featureGate := s.GenericServerRunOptions.ComponentGlobalsRegistry.FeatureGateFor(basecompatibility.DefaultKubeComponent)
 
 	runFunc := func(ctx context.Context, log logr.Logger) error {
 		// Activate logging as soon as possible, after that
@@ -52,7 +50,7 @@ func ConfigAndFlags() (*pflag.FlagSet, func(context.Context, logr.Logger) error)
 			return utilerrors.NewAggregate(errs)
 		}
 		// add feature enablement metrics
-		featureGate.AddMetrics()
+		featureGate.(featuregate.MutableFeatureGate).AddMetrics()
 
 		klog.SetLogger(log)
 		return apiapp.Run(ctx, completedOptions)
@@ -71,9 +69,6 @@ func ConfigAndFlags() (*pflag.FlagSet, func(context.Context, logr.Logger) error)
 }
 
 func Kubecontrollermanager(ctx context.Context, kubeconfig string) error {
-	_, _ = featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(
-		featuregate.DefaultKubeComponent, utilversion.DefaultBuildEffectiveVersion(), utilfeature.DefaultMutableFeatureGate)
-
 	s, err := ctrloptions.NewKubeControllerManagerOptions()
 	if err != nil {
 		return err
@@ -101,7 +96,7 @@ func Kubecontrollermanager(ctx context.Context, kubeconfig string) error {
 	}
 
 	// add feature enablement metrics
-	fg := s.ComponentGlobalsRegistry.FeatureGateFor(featuregate.DefaultKubeComponent)
+	fg := s.ComponentGlobalsRegistry.FeatureGateFor(basecompatibility.DefaultKubeComponent)
 	if f, ok := fg.(featuregate.MutableFeatureGate); ok {
 		f.AddMetrics()
 	}
