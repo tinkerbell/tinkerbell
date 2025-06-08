@@ -125,7 +125,7 @@ data:
     }
 
     function rename_6_6_artifacts() {
-        # If 6.6 is selected, rename them to the expected kernel and initramfs naming convention expected by auto.ipxe
+        # rename them to the expected kernel and initramfs naming convention expected by auto.ipxe
         mv ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
         mv ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
         mv ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
@@ -233,7 +233,7 @@ data:
             cd "${output_dir}"
             echo "==> Extracting existing artifacts"
             for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done    
-            # If 6.6 is selected, create a symlink to the expected kernel naming convention
+            # If 6.6 is selected, rename them to the expected kernel and initramfs naming convention expected by auto.ipxe
             if [[ "${version}" == "6.6" ]]; then
                 echo "==> Renaming 6.6 kernel artifacts"
                 rename_6_6_artifacts
@@ -253,7 +253,7 @@ data:
         cd "${output_dir}"
         echo "==> Extracting artifacts"
         for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done
-        # If 6.6 is selected, create a symlink to the expected kernel naming convention
+        # If 6.6 is selected, rename them to the expected kernel and initramfs naming convention expected by auto.ipxe
         if [[ "${version}" == "6.6" ]]; then
             echo "==> Renaming 6.6 kernel artifacts"
             rename_6_6_artifacts
