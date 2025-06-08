@@ -26,15 +26,15 @@ data:
     }
     
     function validate_option() {
-      local option="$1"
-      local valid_values="$2"
-      local value="$3"
+        local option="$1"
+        local valid_values="$2"
+        local value="$3"
     
-      if [[ ! " ${valid_values[@]} " =~ " ${value} " ]]; then
+        if [[ ! " ${valid_values[@]} " =~ " ${value} " ]]; then
         >&2 echo "Invalid value: '$value' for '${option}'. Valid values are: [${valid_values[*]}]"
         usage
         exit 1
-      fi
+        fi
     }
     
     
@@ -106,7 +106,7 @@ data:
         
         (cd "${out_dir}" && sha512sum -c <<< "${checksum_data}")
         if [ $? -ne 0 ]; then
-          return 1
+            return 1
         fi
         return 0
     }
@@ -139,55 +139,55 @@ data:
     
     args=$(getopt -a -o u:a:v:e:s:o:h --long url:,arch:,version:,ext:,specific-artifacts:,output-dir:,help -- "$@")
     if [[ $? -gt 0 ]]; then
-      usage
+        usage
     fi
     
     eval set -- ${args}
     while :
     do
-      case $1 in
+        case $1 in
         -u | --url)
-          if [[ ! -z $2 ]]; then
+            if [[ ! -z $2 ]]; then
             url=$2
-          fi
-          shift 2 ;;
+            fi
+            shift 2 ;;
         -a | --arch)
-          if [[ ! -z $2 ]]; then
+            if [[ ! -z $2 ]]; then
             validate_option "arch" "${valid_arches[*]}" $2
             arch=$2
-          fi
-          shift 2 ;;
+            fi
+            shift 2 ;;
         -v | --version)
-          if [[ ! -z $2 ]]; then
+            if [[ ! -z $2 ]]; then
             validate_option "version" "${valid_versions[*]}" $2
             version=$2
-          fi
-          shift 2 ;;
+            fi
+            shift 2 ;;
         -e | --ext)
-          if [[ ! -z $2 ]]; then
+            if [[ ! -z $2 ]]; then
             validate_option "ext" "${valid_exts[*]}" $2
             ext=$2
-          fi
-          shift 2 ;;
+            fi
+            shift 2 ;;
         -s | --specific-artifacts)
-          if [[ ! -z $2 ]]; then
+            if [[ ! -z $2 ]]; then
             specific_artifacts=$2
-          fi
-          shift 2 ;;
+            fi
+            shift 2 ;;
         -o | --output-dir)
-          if [[ ! -z $2 ]]; then
+            if [[ ! -z $2 ]]; then
             output_dir=$2
-          fi
-          shift 2 ;;
+            fi
+            shift 2 ;;
         -h | --help)
-          usage
-          exit 1
-          shift ;;
+            usage
+            exit 1
+            shift ;;
         # -- means the end of the arguments; drop this, and break out of the while loop
         --) shift; break ;;
         *) >&2 echo Unsupported option: $1
-           usage ;;
-      esac
+            usage ;;
+        esac
     done
     
     echo "==> Downloading HookOS artifacts from ${url} for architecture(s): ${arch} and extension(s): ${ext} and version(s): ${version}"
@@ -196,7 +196,7 @@ data:
     # 2. Generate a list of artifacts to download based on the options provided
     # 3. Run a checksum check for all artifacts to be downloaded. For artifacts that pass (meaning the artifact is already downloaded), do nothing. Make a list of artifacts that need downloaded.
     # 4. If all artifacts are already downloaded, sleep and wait for signals.
-    # 5. Download artifacts that need downloaded.
+    # 5. Download and extract artifacts that need downloaded.
     # 6. Run a checksum check for all downloaded artifacts.
     # 7. If all checksums pass, sleep and wait for signals. If any checksum fails, exit with 1.
     
@@ -224,7 +224,15 @@ data:
         if run_checksum512 "${checksums}" "${output_dir}"; then
             cd "${output_dir}"
             echo "==> Extracting existing artifacts"
-            for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done
+            for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done    
+            # If 6.6 is selected, create a symlink to the expected kernel naming convention
+            if [[ "${version}" == "6.6" ]]; then
+                echo "==> Creating symlinks for 6.6 kernel artifacts"
+                ln -sf ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
+                ln -sf ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
+                ln -sf ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
+                ln -sf ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
+            fi
             return 0
         fi
     
@@ -240,6 +248,14 @@ data:
         cd "${output_dir}"
         echo "==> Extracting artifacts"
         for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done
+        # If 6.6 is selected, create a symlink to the expected kernel naming convention
+        if [[ "${version}" == "6.6" ]]; then
+            echo "==> Creating symlinks for 6.6 artifacts"
+            ln -sf ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
+            ln -sf ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
+            ln -sf ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
+            ln -sf ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
+        fi
     }
     
     if ! main; then
