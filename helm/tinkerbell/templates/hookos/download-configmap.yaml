@@ -123,6 +123,14 @@ data:
     
         echo "${checksums}"
     }
+
+    func rename_6_6_artifacts() {
+        # If 6.6 is selected, rename them to the expected kernel and initramfs naming convention expected by auto.ipxe
+        mv ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
+        mv ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
+        mv ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
+        mv ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
+    }
     
     # default values
     url="https://github.com/tinkerbell/hook/releases/download/latest"
@@ -228,10 +236,7 @@ data:
             # If 6.6 is selected, create a symlink to the expected kernel naming convention
             if [[ "${version}" == "6.6" ]]; then
                 echo "==> Renaming 6.6 kernel artifacts"
-                mv ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
-                mv ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
-                mv ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
-                mv ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
+                rename_6_6_artifacts
             fi
             return 0
         fi
@@ -251,10 +256,7 @@ data:
         # If 6.6 is selected, create a symlink to the expected kernel naming convention
         if [[ "${version}" == "6.6" ]]; then
             echo "==> Renaming 6.6 kernel artifacts"
-            mv ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
-            mv ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
-            mv ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
-            mv ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
+            rename_6_6_artifacts
         fi
     }
     
