@@ -124,7 +124,7 @@ data:
         echo "${checksums}"
     }
 
-    func rename_6_6_artifacts() {
+    function rename_6_6_artifacts() {
         # If 6.6 is selected, rename them to the expected kernel and initramfs naming convention expected by auto.ipxe
         mv ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
         mv ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
