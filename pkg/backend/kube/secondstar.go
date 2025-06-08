@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// GetByMac implements the handler.BackendReader interface and returns DHCP and netboot data based on a mac address.
+// ReadBMCMachine implements the handler.BackendReader interface and returns DHCP and netboot data based on a mac address.
 func (b *Backend) ReadBMCMachine(ctx context.Context, name string) (*data.BMCMachine, error) {
 	// get the hardware object, using the name, from the cluster
 	// get the ssh public keys from the hardware object, add them to the return data.BMCMachine object

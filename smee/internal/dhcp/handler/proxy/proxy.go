@@ -200,15 +200,13 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	if !h.AutoProxyEnabled {
 		// check the backend, if PXE is NOT allowed, set the boot file name to "/<mac address>/not-allowed"
 		_, n, err := h.Backend.GetByMac(ctx, dp.Pkt.ClientHWAddr)
-		if err != nil || (n != nil && !n.AllowNetboot) {
-			l := log.V(1)
-			if err != nil {
-				l = l.WithValues("error", err.Error())
-			}
-			if n != nil {
-				l = l.WithValues("netbootAllowed", n.AllowNetboot)
-			}
-			l.Info("Ignoring packet")
+		if err != nil {
+			log.Info("Ignoring packet", "error", err.Error())
+			span.SetStatus(codes.Error, err.Error())
+			return
+		}
+		if n != nil && !n.AllowNetboot {
+			log.Info("Ignoring packet: netboot not allowed")
 			span.SetStatus(codes.Ok, "netboot not allowed")
 			return
 		}

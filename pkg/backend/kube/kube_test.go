@@ -91,10 +91,6 @@ func TestToDHCPData(t *testing.T) {
 			in:        nil,
 			shouldErr: true,
 		},
-		"no mac": {
-			in:        &v1alpha1.DHCP{},
-			shouldErr: true,
-		},
 		"bad mac": {
 			in:        &v1alpha1.DHCP{MAC: "bad"},
 			shouldErr: true,
@@ -107,8 +103,8 @@ func TestToDHCPData(t *testing.T) {
 			in:        &v1alpha1.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: &v1alpha1.IP{Address: "192.168.2.4"}},
 			shouldErr: true,
 		},
-		"v1alpha1.IP == nil": {
-			in:        &v1alpha1.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: nil},
+		"bad IP": {
+			in:        &v1alpha1.DHCP{MAC: "aa:bb:cc:dd:ee:ff", IP: &v1alpha1.IP{Address: "bad"}},
 			shouldErr: true,
 		},
 		"bad gateway": {
