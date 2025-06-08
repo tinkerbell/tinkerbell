@@ -25,15 +25,6 @@ spec:
       containers:
       - name: {{ .Values.optional.hookos.name }}
         image: {{ .Values.optional.hookos.image }}
-        command: ["/bin/bash", "-xeuc"]
-        args:
-        - |
-          export POD_NAMESERVER=$(awk '/nameserver/ {print $2}' /etc/resolv.conf);
-          [[ $POD_NAMESERVER == *.* ]] || POD_NAMESERVER="[$POD_NAMESERVER]";
-          envsubst '$POD_NAMESERVER' \
-            </tmp/nginx.conf.template \
-            >/etc/nginx/nginx.conf
-          exec nginx -g 'daemon off;'
         ports:
         - containerPort: {{ .Values.optional.hookos.port }}
           protocol: TCP
@@ -46,7 +37,7 @@ spec:
             cpu: 10m
             memory: 64Mi
         volumeMounts:
-        - mountPath: /tmp
+        - mountPath: /etc/nginx
           readOnly: true
           name: nginx-conf
         - mountPath: /usr/share/nginx/html
@@ -64,9 +55,6 @@ spec:
       - name: nginx-conf
         configMap:
           name: nginx-conf
-          items:
-            - key: nginx.conf
-              path: nginx.conf.template
       - name: hook-artifacts
         persistentVolumeClaim:
           claimName: {{ coalesce .Values.optional.hookos.persistence.existingClaim .Values.optional.hookos.persistence.localPersistentVolume.name }}
