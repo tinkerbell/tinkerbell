@@ -227,11 +227,11 @@ data:
             for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done    
             # If 6.6 is selected, create a symlink to the expected kernel naming convention
             if [[ "${version}" == "6.6" ]]; then
-                echo "==> Creating symlinks for 6.6 kernel artifacts"
-                ln -sf ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
-                ln -sf ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
-                ln -sf ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
-                ln -sf ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
+                echo "==> Renaming 6.6 kernel artifacts"
+                mv ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
+                mv ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
+                mv ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
+                mv ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
             fi
             return 0
         fi
@@ -250,11 +250,11 @@ data:
         for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done
         # If 6.6 is selected, create a symlink to the expected kernel naming convention
         if [[ "${version}" == "6.6" ]]; then
-            echo "==> Creating symlinks for 6.6 artifacts"
-            ln -sf ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
-            ln -sf ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
-            ln -sf ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
-            ln -sf ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
+            echo "==> Renaming 6.6 kernel artifacts"
+            mv ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
+            mv ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
+            mv ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
+            mv ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
         fi
     }
     
