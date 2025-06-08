@@ -122,8 +122,7 @@ func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 }
 
 // toDHCPData converts a v1alpha1.DHCP to a data.DHCP data structure.
-// if required fields are missing, an error is returned.
-// Required fields: v1alpha1.Interface.DHCP.MAC, v1alpha1.Interface.DHCP.IP.Address, v1alpha1.Interface.DHCP.IP.Netmask.
+// Fields that are set are checked for correctness of their types.
 func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 	if h == nil {
 		return nil, errors.New("no DHCP data")
@@ -131,28 +130,28 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 	d := new(data.DHCP)
 
 	var err error
-	// MACAddress is required
-	if d.MACAddress, err = net.ParseMAC(h.MAC); err != nil {
-		return nil, err
+	if h.MAC != "" {
+		// A valid MACAddress is required
+		if d.MACAddress, err = net.ParseMAC(h.MAC); err != nil {
+			return nil, err
+		}
 	}
 
 	if h.IP != nil {
-		// IPAddress is required
+		// A valid IPAddress is required
 		if d.IPAddress, err = netip.ParseAddr(h.IP.Address); err != nil {
 			return nil, err
 		}
-		// Netmask is required
+		// A valid Netmask is required
 		sm := net.ParseIP(h.IP.Netmask)
 		if sm == nil {
 			return nil, errors.New("no netmask")
 		}
 		d.SubnetMask = net.IPMask(sm.To4())
-	} else {
-		return nil, errors.New("no IP data")
 	}
 
 	// Gateway is optional, but should be a valid IP address if present
-	if h.IP.Gateway != "" {
+	if h.IP != nil && h.IP.Gateway != "" {
 		if d.DefaultGateway, err = netip.ParseAddr(h.IP.Gateway); err != nil {
 			return nil, err
 		}
