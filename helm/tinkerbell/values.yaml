@@ -32,7 +32,7 @@ deployment:
       logLevel: 0
       otelEndpoint: ""
       otelInsecure: false
-      #publicIpv4: ""
+      publicIpv4: ""
       trustedProxies: ""
     rufio:
       bmcConnectTimeout: "2m0s"

@@ -193,7 +193,7 @@ spec:
             - name: TINKERBELL_TRUSTED_PROXIES
               value: {{ ( join "," $trustedProxies ) | quote }}
             - name: TINKERBELL_PUBLIC_IPV4
-              value: {{ $publicIP | quote }}
+              value: {{ (coalesce .Values.deployment.envs.globals.publicIpv4 $publicIP) | quote }}
             - name: TINKERBELL_ENABLE_SMEE
               value: {{ .Values.deployment.envs.globals.enableSmee | quote }}
             - name: TINKERBELL_ENABLE_TOOTLES
