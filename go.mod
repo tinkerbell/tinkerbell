@@ -35,7 +35,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/tinkerbell/tinkerbell/api v0.0.0 // v0.0.0 is used as a placeholder because a replace directive is used to point to the local api directory
 	github.com/vishvananda/netlink v1.3.1
-	go.etcd.io/etcd/server/v3 v3.6.0
+	go.etcd.io/etcd/server/v3 v3.6.1
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0
 	go.opentelemetry.io/otel v1.36.0
@@ -220,10 +220,10 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xiang90/probing v0.0.0-20221125231312-a49e3df8f510 // indirect
 	go.etcd.io/bbolt v1.4.0 // indirect
-	go.etcd.io/etcd/api/v3 v3.6.0 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.6.0 // indirect
-	go.etcd.io/etcd/client/v3 v3.6.0 // indirect
-	go.etcd.io/etcd/pkg/v3 v3.6.0 // indirect
+	go.etcd.io/etcd/api/v3 v3.6.1 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.6.1 // indirect
+	go.etcd.io/etcd/client/v3 v3.6.1 // indirect
+	go.etcd.io/etcd/pkg/v3 v3.6.1 // indirect
 	go.etcd.io/raft/v3 v3.6.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
