@@ -107,6 +107,9 @@ jobs:
           - name: tink-agent
             make-target: cross-compile-agent
             artifact-name: tink-agent-binaries
+          - name: tinkerbell-embedded
+            make-target: cross-compile GO_TAGS=embedded
+            artifact-name: tinkerbell-embedded-binaries
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -262,6 +265,16 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Download embedded binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: tinkerbell-embedded-binaries
+          path: ./out
+          merge-multiple: true
+      # Artifact upload doesn't preserve permissions so we need to fix them.
+      - name: Fix permissions
+        run: chmod +x out/*
+
       - name: Publish Changelog to GitHub
         uses: ncipollo/release-action@v1
         with:
@@ -270,3 +283,4 @@ jobs:
           generateReleaseNotes: true
           draft: true
           prerelease: true
+          artifacts: "out/tinkerbell-linux-*"
