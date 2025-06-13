@@ -136,6 +136,19 @@ out/tinkerbell: $(generated_go_files) $(TINKERBELL_SOURCES) ## Compile Tinkerbel
 
 cross-compile: $(crossbinaries) ## Compile for all architectures
 
+embeddedbinaries := out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64
+out/tinkerbell-embedded-linux-amd64: FLAGS=GOARCH=amd64
+out/tinkerbell-embedded-linux-arm64: FLAGS=GOARCH=arm64
+out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64: $(generated_go_files) $(TINKERBELL_SOURCES)
+	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -tags "embedded" -ldflags="-s -w" -v -o $@ ./cmd/tinkerbell
+	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
+
+cross-compile-embedded: $(embeddedbinaries) ## Compile Tinkerbell for all architectures with embedded tags
+
+checksums-embedded: out/checksums-embedded.txt ## Generate checksums for the cross-compiled binaries
+out/checksums-embedded.txt: out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64
+	(cd out; sha256sum tinkerbell-embedded-linux-amd64 tinkerbell-embedded-linux-arm64 > checksums-embedded.txt)
+
 AGENT_SOURCES := $(shell find $(go list -deps ./cmd/agent | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
 
 crossbinaries-agent := out/tink-agent-linux-amd64 out/tink-agent-linux-arm64
