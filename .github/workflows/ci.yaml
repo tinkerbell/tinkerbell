@@ -107,9 +107,10 @@ jobs:
           - name: tink-agent
             make-target: cross-compile-agent
             artifact-name: tink-agent-binaries
-          - name: tinkerbell-linux
-            make-target: cross-compile GO_TAGS=embedded
+          - name: tinkerbell-embedded-linux
+            make-target: checksums-embedded
             artifact-name: tinkerbell-embedded-binaries
+            extra-paths: out/checksums-embedded.txt
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -140,7 +141,7 @@ jobs:
           go get -t ./... && go mod tidy && go mod download
 
       - name: Compile binaries for ${{ matrix.name }}
-        run: make ${{ matrix.make-target }} checksums
+        run: make ${{ matrix.make-target }}
       
       - name: Upload binaries
         uses: actions/upload-artifact@v4
@@ -148,7 +149,7 @@ jobs:
           name: ${{ matrix.artifact-name }}
           path: |
             out/${{ matrix.name }}-*
-            out/checksums.txt
+            ${{ matrix.extra-paths || '' }}
           if-no-files-found: error
 
   build-publish-container-images:
@@ -275,7 +276,7 @@ jobs:
           merge-multiple: true
       # Artifact upload doesn't preserve permissions so we need to fix them.
       - name: Fix permissions
-        run: chmod +x out/*
+        run: chmod +x out/tinkerbell-*
 
       - name: Publish Changelog to GitHub
         uses: ncipollo/release-action@v1
@@ -285,4 +286,4 @@ jobs:
           generateReleaseNotes: true
           draft: true
           prerelease: true
-          artifacts: "out/tinkerbell-linux-*,out/checksums.txt"
+          artifacts: "out/tinkerbell-embedded-linux-*,out/checksums-embedded.txt"
