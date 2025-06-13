@@ -13,7 +13,7 @@ This Helm chart deploys Tinkerbell, the bare metal provisioning engine that supp
 
 ```bash
 # Get the pod CIDRs to set as trusted proxies
-trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
+TRUSTED_PROXIES=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
 
 # Set the LoadBalancer IP for Tinkerbell services
 LB_IP=192.168.2.116
@@ -25,7 +25,7 @@ helm template tinkerbell . \
   --create-namespace \
   --namespace tinkerbell \
   --wait \
-  --set "trustedProxies={${trusted_proxies}}" \
+  --set "trustedProxies={${TRUSTED_PROXIES}}" \
   --set "publicIP=$LB_IP" \
   --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" \
   --set "deployment.agentImageTag=latest" \
@@ -41,7 +41,7 @@ For a production setup, configure the necessary parameters:
 
 ```bash
 # Get the pod CIDRs to set as trusted proxies
-trusted_proxies=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
+TRUSTED_PROXIES=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
 
 # Set the LoadBalancer IP for Tinkerbell services
 LB_IP=192.168.2.116
@@ -57,7 +57,7 @@ helm install tinkerbell oci://ghcr.io/tinkerbell/charts/tinkerbell \
   --create-namespace \
   --namespace tinkerbell \
   --wait \
-  --set "trustedProxies={${trusted_proxies}}" \
+  --set "trustedProxies={${TRUSTED_PROXIES}}" \
   --set "publicIP=$LB_IP" \
   --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" 
 ```
