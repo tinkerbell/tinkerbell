@@ -149,7 +149,7 @@ jobs:
           name: ${{ matrix.artifact-name }}
           path: |
             out/${{ matrix.name }}-*
-            ${{ matrix.extra-paths || '' }}
+            ${{ matrix.extra-paths }}
           if-no-files-found: error
 
   build-publish-container-images:
