@@ -285,4 +285,4 @@ jobs:
           generateReleaseNotes: true
           draft: true
           prerelease: true
-          artifacts: "out/tinkerbell-linux-*"
+          artifacts: "out/tinkerbell-linux-*,out/checksums.txt"
