@@ -107,7 +107,7 @@ jobs:
           - name: tink-agent
             make-target: cross-compile-agent
             artifact-name: tink-agent-binaries
-          - name: tinkerbell-embedded
+          - name: tinkerbell-linux
             make-target: cross-compile GO_TAGS=embedded
             artifact-name: tinkerbell-embedded-binaries
     steps:
