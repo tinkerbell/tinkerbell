@@ -140,7 +140,7 @@ jobs:
           go get -t ./... && go mod tidy && go mod download
 
       - name: Compile binaries for ${{ matrix.name }}
-        run: make ${{ matrix.make-target }}
+        run: make ${{ matrix.make-target }} checksums
       
       - name: Upload binaries
         uses: actions/upload-artifact@v4
