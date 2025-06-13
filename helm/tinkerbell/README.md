@@ -23,7 +23,7 @@ ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
 
 helm template tinkerbell . \
   --create-namespace \
-  --namespace tinkerbell
+  --namespace tinkerbell \
   --wait \
   --set "trustedProxies={${trusted_proxies}}" \
   --set "publicIP=$LB_IP" \
