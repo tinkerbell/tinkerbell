@@ -136,9 +136,9 @@ out/tinkerbell: $(generated_go_files) $(TINKERBELL_SOURCES) ## Compile Tinkerbel
 
 cross-compile: $(crossbinaries) ## Compile for all architectures
 
-checksums: out/checksums.text ## Generate checksums for the cross-compiled binaries
-out/checksums.text: out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64
-	(cd out; sha256sum tinkerbell-linux-amd64 tinkerbell-linux-arm64 > checksums.text)
+checksums: out/checksums.txt ## Generate checksums for the cross-compiled binaries
+out/checksums.txt: out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64
+	(cd out; sha256sum tinkerbell-linux-amd64 tinkerbell-linux-arm64 > checksums.txt)
 
 AGENT_SOURCES := $(shell find $(go list -deps ./cmd/agent | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
 
