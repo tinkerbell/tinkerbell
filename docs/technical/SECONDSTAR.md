@@ -25,7 +25,7 @@ spec:
 The `bmcRef` itself must be a machine that has ipmi serial-over-lan enabled. See your BMC documentation for details on how to enable this.
 The `bmcRef` must also have a `spec.connection.host` and `spec.connection.authSecretRef` defined. The `machine.bmc.tinkerbell.org` object must have a `status.conditions` of `type: Contactable` with a `status: "True"`.
 
-To connect to the serial-over-ssh console, ssh to the Tinkerbell IP using the Hardware object's `spec.metadata.name` as the user and with the `-p 2222` option.
+To connect to the serial-over-ssh console, ssh to the Tinkerbell IP (`kubectl get svc -n tinkerbell tinkerbell -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`) using the Hardware object's `spec.metadata.name` as the user and with the `-p 2222` option.
 
 ```bash
 ssh -p 2222 example-hardware@192.168.2.50
