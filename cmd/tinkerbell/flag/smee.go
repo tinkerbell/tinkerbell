@@ -39,6 +39,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(SmeeLogLevel, ffval.NewValueDefault(&sc.LogLevel, sc.LogLevel))
 	// DHCP flags
 	fs.Register(DHCPEnabled, ffval.NewValueDefault(&sc.Config.DHCP.Enabled, sc.Config.DHCP.Enabled))
+	fs.Register(DHCPEnableNetbootOptions, ffval.NewValueDefault(&sc.Config.DHCP.EnableNetbootOptions, sc.Config.DHCP.EnableNetbootOptions))
 	fs.Register(DHCPModeFlag, &sc.Config.DHCP.Mode)
 	fs.Register(DHCPBindAddr, &ntip.Addr{Addr: &sc.Config.DHCP.BindAddr})
 	fs.Register(DHCPBindInterface, ffval.NewValueDefault(&sc.Config.DHCP.BindInterface, sc.Config.DHCP.BindInterface))
@@ -380,4 +381,9 @@ var TinkServerInsecureTLS = Config{
 var SmeeLogLevel = Config{
 	Name:  "smee-log-level",
 	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
+}
+
+var DHCPEnableNetbootOptions = Config{
+	Name:  "dhcp-enable-netboot-options",
+	Usage: "[dhcp] enable sending netboot DHCP options",
 }
