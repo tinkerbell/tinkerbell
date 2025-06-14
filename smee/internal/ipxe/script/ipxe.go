@@ -53,6 +53,7 @@ type info struct {
 	IPXEScript    string
 	IPXEScriptURL *url.URL
 	OSIE          OSIE
+	Hostname      string
 }
 
 // OSIE or OS Installation Environment is the data about where the OSIE parts are located.
@@ -83,6 +84,7 @@ func getByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (info
 		Arch:          d.Arch,
 		VLANID:        d.VLANID,
 		WorkflowID:    d.MACAddress.String(),
+		Hostname:      d.Hostname,
 		Facility:      n.Facility,
 		IPXEScript:    n.IPXEScript,
 		IPXEScriptURL: n.IPXEScriptURL,
@@ -106,6 +108,7 @@ func getByIP(ctx context.Context, ip net.IP, br BackendReader) (info, error) {
 		Arch:          d.Arch,
 		VLANID:        d.VLANID,
 		WorkflowID:    d.MACAddress.String(),
+		Hostname:      d.Hostname,
 		Facility:      n.Facility,
 		IPXEScript:    n.IPXEScript,
 		IPXEScriptURL: n.IPXEScriptURL,
@@ -298,6 +301,7 @@ func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
 		WorkerID:              wID,
 		Retries:               h.IPXEScriptRetries,
 		RetryDelay:            h.IPXEScriptRetryDelay,
+		Hostname:              hw.Hostname,
 	}
 	if hw.OSIE.BaseURL != nil && hw.OSIE.BaseURL.String() != "" {
 		auto.DownloadURL = hw.OSIE.BaseURL.String()
