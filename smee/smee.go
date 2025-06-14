@@ -144,7 +144,10 @@ type IPXEHTTPScriptServer struct {
 }
 
 type DHCP struct {
+	// Enabled configures whether the DHCP server is enabled.
 	Enabled bool
+	// EnableNetbootOptions configures whether sending netboot options is enabled.
+	EnableNetbootOptions bool
 	// Mode determines the behavior of the DHCP server.
 	// See the DHCPMode type for valid values.
 	Mode DHCPMode
@@ -197,11 +200,12 @@ type TinkServer struct {
 func NewConfig(c Config, publicIP netip.Addr) *Config {
 	defaults := &Config{
 		DHCP: DHCP{
-			Enabled:       true,
-			Mode:          DefaultDHCPMode,
-			BindAddr:      netip.MustParseAddr("0.0.0.0"),
-			BindPort:      67,
-			BindInterface: "",
+			Enabled:              true,
+			EnableNetbootOptions: true,
+			Mode:                 DefaultDHCPMode,
+			BindAddr:             netip.MustParseAddr("0.0.0.0"),
+			BindPort:             67,
+			BindInterface:        "",
 			IPXEHTTPBinaryURL: &url.URL{
 				Scheme: "http",
 				Path:   "/ipxe",
@@ -479,7 +483,7 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 				IPXEBinServerTFTP: tftpIP,
 				IPXEBinServerHTTP: &httpBinaryURL,
 				IPXEScriptURL:     ipxeScript,
-				Enabled:           true,
+				Enabled:           c.DHCP.EnableNetbootOptions,
 			},
 			OTELEnabled: true,
 			SyslogAddr:  c.DHCP.SyslogIP,
@@ -494,7 +498,7 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 				IPXEBinServerTFTP: tftpIP,
 				IPXEBinServerHTTP: &httpBinaryURL,
 				IPXEScriptURL:     ipxeScript,
-				Enabled:           true,
+				Enabled:           c.DHCP.EnableNetbootOptions,
 			},
 			OTELEnabled:      true,
 			AutoProxyEnabled: false,
@@ -509,7 +513,7 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 				IPXEBinServerTFTP: tftpIP,
 				IPXEBinServerHTTP: &httpBinaryURL,
 				IPXEScriptURL:     ipxeScript,
-				Enabled:           true,
+				Enabled:           c.DHCP.EnableNetbootOptions,
 			},
 			OTELEnabled:      true,
 			AutoProxyEnabled: true,
