@@ -38,6 +38,7 @@ func PubkeyAuth(r Reader, log logr.Logger) func(ssh.Context, ssh.PublicKey) bool
 		for _, k := range hw.SSHPublicKeys {
 			pkey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 			if err != nil {
+				log.Info("error parsing authorized key", "error", err, "key", k)
 				continue
 			}
 			if ssh.KeysEqual(key, pkey) {
