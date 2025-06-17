@@ -62,7 +62,7 @@ func (h *Handler) Discover(ctx context.Context, id string, attrs *data.AgentAttr
 	journal.Log(ctx, "Populated hardware object with discovered attributes", "hardware", hw)
 
 	// Create the Hardware object in the cluster
-	if err := h.AutoCapabilities.Discovery.AutoDiscoveryReadCreator.CreateHardware(ctx, hw); err != nil {
+	if err := h.AutoCapabilities.Discovery.CreateHardware(ctx, hw); err != nil {
 		journal.Log(ctx, "Error creating hardware object", "error", err)
 		return nil, fmt.Errorf("failed to create hardware object %s/%s: %w", ns, hwName, err)
 	}

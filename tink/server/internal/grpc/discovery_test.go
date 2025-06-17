@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,8 +22,8 @@ func TestHandlerDiscover(t *testing.T) {
 	tests := map[string]struct {
 		id           string
 		attrs        *data.AgentAttributes
-		existingHw   *v1alpha1.Hardware
-		wantHardware *v1alpha1.Hardware
+		existingHw   *tinkerbell.Hardware
+		wantHardware *tinkerbell.Hardware
 		clientErrors map[string]error
 		wantErr      bool
 		wantCreated  bool
@@ -62,7 +61,7 @@ func TestHandlerDiscover(t *testing.T) {
 			},
 			wantErr:     false,
 			wantCreated: true,
-			wantHardware: &v1alpha1.Hardware{
+			wantHardware: &tinkerbell.Hardware{
 				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "discovery-test-id",
@@ -73,7 +72,7 @@ func TestHandlerDiscover(t *testing.T) {
 					},
 					ResourceVersion: "1",
 				},
-				Spec: v1alpha1.HardwareSpec{
+				Spec: tinkerbell.HardwareSpec{
 					Interfaces: []tinkerbell.Interface{{DHCP: &tinkerbell.DHCP{MAC: "00:11:22:33:44:55"}}},
 				},
 			},
@@ -86,7 +85,7 @@ func TestHandlerDiscover(t *testing.T) {
 					TotalThreads: toPtr(uint32(8)),
 				},
 			},
-			existingHw: &v1alpha1.Hardware{
+			existingHw: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "existing-id",
 					Namespace: "test-namespace",
@@ -185,7 +184,7 @@ func TestHandlerDiscover(t *testing.T) {
 
 			// If an existing hardware was provided, verify it wasn't modified
 			if tc.existingHw != nil {
-				hw := &v1alpha1.Hardware{}
+				hw := &tinkerbell.Hardware{}
 				err = fakeClient.Get(context.Background(), types.NamespacedName{
 					Name:      tc.id,
 					Namespace: "test-namespace",
@@ -212,14 +211,14 @@ func TestHandlerDiscover(t *testing.T) {
 	}
 }
 
-// mockClient implements client.Client with the ability to inject errors
+// mockClient implements client.Client with the ability to inject errors.
 type mockClient struct {
 	client.Client
 	errorMap    map[string]error
 	createdObjs map[string]runtime.Object
 }
 
-func (m *mockClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+func (m *mockClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
 	if err, ok := m.errorMap["get"]; ok {
 		return err
 	}
@@ -241,7 +240,7 @@ func (m *mockClient) Create(ctx context.Context, obj client.Object, opts ...clie
 	}
 
 	// Store the object that was created for later verification
-	hw, ok := obj.(*v1alpha1.Hardware)
+	hw, ok := obj.(*tinkerbell.Hardware)
 	if ok {
 		m.createdObjs[hw.Name] = obj
 	}
@@ -249,13 +248,13 @@ func (m *mockClient) Create(ctx context.Context, obj client.Object, opts ...clie
 	return m.Client.Create(ctx, obj, opts...)
 }
 
-// mockAutoDiscoveryClient implements AutoDiscoveryReaderCreator
+// mockAutoDiscoveryClient implements AutoDiscoveryReaderCreator.
 type mockAutoDiscoveryClient struct {
 	client client.Client
 }
 
-func (m *mockAutoDiscoveryClient) ReadHardware(ctx context.Context, id, namespace string) (*v1alpha1.Hardware, error) {
-	hw := &v1alpha1.Hardware{}
+func (m *mockAutoDiscoveryClient) ReadHardware(ctx context.Context, id, namespace string) (*tinkerbell.Hardware, error) {
+	hw := &tinkerbell.Hardware{}
 	err := m.client.Get(ctx, types.NamespacedName{
 		Name:      id,
 		Namespace: namespace,
@@ -263,6 +262,6 @@ func (m *mockAutoDiscoveryClient) ReadHardware(ctx context.Context, id, namespac
 	return hw, err
 }
 
-func (m *mockAutoDiscoveryClient) CreateHardware(ctx context.Context, hw *v1alpha1.Hardware) error {
+func (m *mockAutoDiscoveryClient) CreateHardware(ctx context.Context, hw *tinkerbell.Hardware) error {
 	return m.client.Create(ctx, hw)
 }
