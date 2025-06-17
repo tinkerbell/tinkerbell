@@ -70,7 +70,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		BindPort: 50061,
 	}
 	ts := &flag.TinkServerConfig{
-		Config:   server.NewConfig(),
+		Config:   server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
 		BindAddr: detectPublicIPv4(),
 		BindPort: 42113,
 	}
@@ -246,7 +246,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		h.Config.BackendEc2 = b
 		h.Config.BackendHack = b
 		ts.Config.Backend = b
-		ts.Config.AutoBackend = b
+		ts.Config.AutoEnrollmentBackend = b
+		ts.Config.AutoDiscoverBackend = b
 		tc.Config.Client = b.ClientConfig
 		tc.Config.DynamicClient = b
 		rc.Config.Client = b.ClientConfig

@@ -31,7 +31,7 @@ type match struct {
 
 // enroll creates a Workflow for an agentID by matching the attr against WorkflowRuleSets.
 // auto enrollment does not support Templates with multiple Agents defined.
-func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAttributes) (*proto.ActionResponse, error) {
+func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAttributes, hardwareRef *string) (*proto.ActionResponse, error) {
 	log := h.Logger.WithValues("agentID", agentID)
 	// Get all WorkflowRuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
 	// using github.com/timbray/quamina
@@ -67,6 +67,9 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: final.wrs.Spec.Workflow.Namespace,
+				Labels: map[string]string{
+					"tinkerbell.org/auto-enrollment": "true",
+				},
 				OwnerReferences: []metav1.OwnerReference{
 					{
 						APIVersion: final.wrs.APIVersion,
@@ -80,6 +83,9 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 				TemplateRef: final.wrs.Spec.Workflow.Template.Ref,
 				Disabled:    final.wrs.Spec.Workflow.Disabled,
 			},
+		}
+		if hardwareRef != nil && *hardwareRef != "" {
+			awf.Spec.HardwareRef = *hardwareRef
 		}
 
 		if final.wrs.Spec.Workflow.AddAttributes {

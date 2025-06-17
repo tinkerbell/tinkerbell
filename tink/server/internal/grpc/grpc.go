@@ -92,6 +92,20 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		return nil, status.Errorf(codes.InvalidArgument, "invalid Agent ID")
 	}
 
+	var hwRef *string
+	// handle auto discovery
+	if opts != nil && opts.AutoCapabilities.Discovery.Enabled {
+		// Check if there is an existing Hardware Object.
+		// If not, create one.
+		hw, err := h.Discover(ctx, req.GetAgentId(), convert(req.GetAgentAttributes()))
+		if err != nil {
+			journal.Log(ctx, "error auto discovering Hardware", "error", err)
+			log.Info("error auto discovering Hardware", "error", err)
+			return nil, status.Errorf(codes.Internal, "error auto discovering Hardware: %v", err)
+		}
+		hwRef = &hw.Name
+	}
+
 	wfs, err := h.BackendReadWriter.ReadAll(ctx, req.GetAgentId())
 	if err != nil {
 		// TODO: This is where we handle auto capabilities
@@ -99,15 +113,9 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
 	if len(wfs) == 0 {
-		// TODO: This is where we handle auto capabilities
-		if opts != nil && opts.AutoCapabilities.Discovery.Enabled {
-			// Check if there is an existing Hardware Object.
-			// If not, create one.
-			log.Info("auto discovery is not implemented yet")
-		}
 		if opts != nil && opts.AutoCapabilities.Enrollment.Enabled {
 			journal.Log(ctx, "auto enrollment triggered")
-			return h.enroll(ctx, req.GetAgentId(), convert(req.GetAgentAttributes()))
+			return h.enroll(ctx, req.GetAgentId(), convert(req.GetAgentAttributes()), hwRef)
 		}
 		journal.Log(ctx, "no Workflow found")
 		return nil, status.Error(codes.NotFound, "no Workflows found")

@@ -17,16 +17,25 @@ import (
 )
 
 type Config struct {
-	Backend               grpcinternal.BackendReadWriter
-	AutoBackend           grpcinternal.AutoReadCreator
-	BindAddrPort          netip.AddrPort
-	Logger                logr.Logger
-	AutoEnrollmentEnabled bool
-	AutoDiscoveryEnabled  bool
+	Backend                grpcinternal.BackendReadWriter
+	AutoEnrollmentBackend  grpcinternal.AutoEnrollmentReadCreator
+	AutoDiscoverBackend    grpcinternal.AutoDiscoveryReadCreator
+	BindAddrPort           netip.AddrPort
+	Logger                 logr.Logger
+	AutoEnrollmentEnabled  bool
+	AutoDiscoveryEnabled   bool
+	AutoDiscoveryNamespace string
 }
 
 // Option is a functional option type.
 type Option func(*Config)
+
+// WithAutoDiscoveryNamespace sets the namespace for auto discovery.
+func WithAutoDiscoveryNamespace(ns string) Option {
+	return func(c *Config) {
+		c.AutoDiscoveryNamespace = ns
+	}
+}
 
 // WithBackend sets the backend for the server.
 func WithBackend(b grpcinternal.BackendReadWriter) Option {
@@ -65,10 +74,12 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		AutoCapabilities: grpcinternal.AutoCapabilities{
 			Enrollment: grpcinternal.AutoEnrollment{
 				Enabled:     c.AutoEnrollmentEnabled,
-				ReadCreator: c.AutoBackend,
+				ReadCreator: c.AutoEnrollmentBackend,
 			},
 			Discovery: grpcinternal.AutoDiscovery{
-				Enabled: c.AutoDiscoveryEnabled,
+				Enabled:                  c.AutoDiscoveryEnabled,
+				Namespace:                c.AutoDiscoveryNamespace,
+				AutoDiscoveryReadCreator: c.AutoDiscoverBackend,
 			},
 		},
 	}

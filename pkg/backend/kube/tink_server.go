@@ -63,3 +63,20 @@ func (b *Backend) CreateWorkflow(ctx context.Context, wf *v1alpha1.Workflow) err
 
 	return nil
 }
+
+func (b *Backend) ReadHardware(ctx context.Context, id, namespace string) (*v1alpha1.Hardware, error) {
+	hw := &v1alpha1.Hardware{}
+	err := b.cluster.GetClient().Get(ctx, types.NamespacedName{Name: id, Namespace: namespace}, hw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hardware %s/%s: %w", namespace, id, err)
+	}
+	return hw, nil
+}
+
+func (b *Backend) CreateHardware(ctx context.Context, hw *v1alpha1.Hardware) error {
+	if err := b.cluster.GetClient().Create(ctx, hw); err != nil {
+		return fmt.Errorf("failed to create hardware %s/%s: %w", hw.Namespace, hw.Name, err)
+	}
+
+	return nil
+}
