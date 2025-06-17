@@ -67,7 +67,7 @@ When a Hardware object is created by auto discovery, the following fields are po
 | Field | Value | description |
 |-------|-------|-------------|
 | `metadata.name` | `discovery-{Agent ID}` | Unique name for the discovered hardware. |
-| `metadata.namespace` | `tinkerbell` | Namespace where the Hardware object is created, configured in the Tink server. |
+| `metadata.namespace` | `default` | Namespace where the Hardware object is created, configured in the Tink server. |
 | `metadata.labels` | `{"tinkerbell.org/auto-discovered": "true"}` | Label indicating that this Hardware object was created by auto discovery. |
 | `metadata.annotations` | `tinkerbell.org/agent-attributes: '{"cpu":...}'` | Contains the full Agent attributes in JSON format. |
 | `spec.disks` | `- device: /dev/sda` | All disks, from the Agent attributes, with a non empty size will be added to the `spec.disks` list. |
