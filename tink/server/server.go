@@ -19,7 +19,7 @@ import (
 type Config struct {
 	Backend                grpcinternal.BackendReadWriter
 	AutoEnrollmentBackend  grpcinternal.AutoEnrollmentReadCreator
-	AutoDiscoverBackend    grpcinternal.AutoDiscoveryReadCreator
+	AutoDiscoveryBackend   grpcinternal.AutoDiscoveryReadCreator
 	BindAddrPort           netip.AddrPort
 	Logger                 logr.Logger
 	AutoEnrollmentEnabled  bool
@@ -79,7 +79,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			Discovery: grpcinternal.AutoDiscovery{
 				Enabled:                  c.AutoDiscoveryEnabled,
 				Namespace:                c.AutoDiscoveryNamespace,
-				AutoDiscoveryReadCreator: c.AutoDiscoverBackend,
+				AutoDiscoveryReadCreator: c.AutoDiscoveryBackend,
 			},
 		},
 	}
