@@ -53,7 +53,8 @@ func (h *Handler) Discover(ctx context.Context, id string, attrs *data.AgentAttr
 	if hw.Annotations == nil {
 		hw.Annotations = make(map[string]string)
 	}
-	if a, err := json.Marshal(attrs); err == nil {
+
+	if a, err := json.Marshal(attrs); err == nil && attrs != nil {
 		hw.Annotations[attributesAnnotation] = string(a)
 	}
 
