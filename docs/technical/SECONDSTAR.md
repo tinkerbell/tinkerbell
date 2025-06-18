@@ -44,7 +44,7 @@ ssh -p 2222 example-hardware@192.168.2.50
 A host key is a cryptographic key used to verify the identity of a server when connecting via SSH.
 It ensures that the client is connecting to the correct server and not an imposter. If a host key is not provided to Second Star, one will be generated on the fly every time Tinkerbell starts up. This is not recommended for production use, as it can lead to security issues. For production environments, provide Tinkerbell with a host key path via the `TINKERBELL_SECONDSTAR_HOST_KEY` environment variable.
 
-### Example persisten host key configuration
+### Example persistent host key configuration
 
 The following is an example of how to create and configure Tinkerbell to use a persisten ssh host key.
 
