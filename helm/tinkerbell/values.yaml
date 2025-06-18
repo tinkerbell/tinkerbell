@@ -40,9 +40,16 @@ deployment:
       bmcConnectTimeout: "2m0s"
       enableLeaderElection: true
       leaderElectionNamespace: ""
+      logLevel: 0
       metricsAddr: ""
       powerCheckInterval: "30m0s"
       probeAddr: ""
+    secondstar:
+      bindPort: 2222
+      hostKeyPath: ""
+      ipmitoolPath: "/usr/sbin/ipmitool"
+      idleTimeout: "15m"
+      logLevel: 0
     smee:
       dhcpBindAddr: ""
       dhcpBindInterface: ""
@@ -67,7 +74,7 @@ deployment:
       ipxeHttpScriptBindPort: 7171
       ipxeHttpScriptEnabled: true
       ipxeHttpScriptExtraKernelArgs: [] # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
-      #ipxeHttpScriptTrustedProxies: ""
+      ipxeHttpScriptTrustedProxies: ""
       ipxeHttpScriptOsieURL: ""
       ipxeHttpScriptRetries: 1
       ipxeHttpScriptRetryDelay: 1
@@ -78,6 +85,7 @@ deployment:
       isoPatchMagicString: ""
       isoStaticIPAMEnabled: true
       isoUpstreamURL: ""
+      logLevel: 0
       syslogBindAddr: ""
       syslogBindPort: 514
       syslogEnabled: true
@@ -89,6 +97,7 @@ deployment:
     tinkController:
       enableLeaderElection: true
       leaderElectionNamespace: ""
+      logLevel: 0
       metricsAddr: ""
       probeAddr: ""
     tinkServer:
@@ -100,6 +109,7 @@ deployment:
       bindAddr: ""
       bindPort: 7172
       debugMode: false
+      logLevel: 0
   hostNetwork: false
   image: ghcr.io/tinkerbell/tinkerbell
   imagePullPolicy: IfNotPresent
@@ -118,35 +128,6 @@ deployment:
     # When unset, the interface from the default route will be used.
     # sourceInterface: eno1
   nodeSelector: {}
-  ports:
-    dhcp:
-      name: dhcp
-      port: 67
-      protocol: UDP
-    grpc:
-      name: grpc
-      port: 42113
-      protocol: TCP
-    httpSmee:
-      name: http-smee
-      port: 7171
-      protocol: TCP
-    httpTootles:
-      name: http-tootles
-      port: 7172
-      protocol: TCP
-    ssh:
-      name: ssh
-      port: 2222
-      protocol: TCP
-    syslog:
-      name: syslog
-      port: 514
-      protocol: UDP
-    tftp:
-      name: tftp
-      port: 69
-      protocol: UDP
   replicas: 1
   resources:
     limits:

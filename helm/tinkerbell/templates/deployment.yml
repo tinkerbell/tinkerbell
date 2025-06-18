@@ -57,6 +57,8 @@ spec:
               value: {{ .Values.deployment.envs.rufio.enableLeaderElection | quote }}
             - name: TINKERBELL_RUFIO_CONTROLLER_LEADER_ELECTION_NAMESPACE
               value: {{ .Values.deployment.envs.rufio.leaderElectionNamespace | quote }}
+            - name: TINKERBELL_RUFIO_CONTROLLER_LOG_LEVEL
+              value: {{ .Values.deployment.envs.rufio.logLevel | quote }}
             - name: TINKERBELL_RUFIO_CONTROLLER_METRICS_ADDR
               value: {{ .Values.deployment.envs.rufio.metricsAddr | quote }}
             - name: TINKERBELL_RUFIO_CONTROLLER_PROBE_ADDR
@@ -70,6 +72,8 @@ spec:
               value: {{ .Values.deployment.envs.tinkController.enableLeaderElection | quote }}
             - name: TINKERBELL_TINK_CONTROLLER_LEADER_ELECTION_NAMESPACE
               value: {{ .Values.deployment.envs.tinkController.leaderElectionNamespace | quote }}
+            - name: TINKERBELL_TINK_CONTROLLER_LOG_LEVEL
+              value: {{ .Values.deployment.envs.tinkController.logLevel | quote }}
             - name: TINKERBELL_TINK_CONTROLLER_METRICS_ADDR
               value: {{ .Values.deployment.envs.tinkController.metricsAddr | quote }}
             - name: TINKERBELL_TINK_CONTROLLER_PROBE_ADDR
@@ -90,6 +94,8 @@ spec:
               value: {{ .Values.deployment.envs.tootles.bindPort | quote }}
             - name: TINKERBELL_TOOTLES_DEBUG_MODE
               value: {{ .Values.deployment.envs.tootles.debugMode | quote }}
+            - name: TINKERBELL_TOOTLES_LOG_LEVEL
+              value: {{ .Values.deployment.envs.tootles.logLevel | quote }}
           # SMEE
             - name: TINKERBELL_DHCP_ENABLED
               value: {{ .Values.deployment.envs.smee.dhcpEnabled | quote }}
@@ -138,7 +144,7 @@ spec:
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS
               value: {{ join " " ( append .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs ( printf "tink_worker_image=%s:%s" .Values.deployment.agentImage (coalesce .Values.deployment.agentImageTag .Chart.AppVersion) ) ) | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TRUSTED_PROXIES
-              value: {{ ( join "," $trustedProxies ) | quote }}
+              value: {{ coalesce .Values.deployment.envs.smee.ipxeHttpScriptTrustedProxies ( join "," $trustedProxies ) | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRIES
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetries | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRY_DELAY
@@ -153,6 +159,8 @@ spec:
               value: {{ .Values.deployment.envs.smee.isoPatchMagicString | quote }}
             - name: TINKERBELL_ISO_STATIC_IPAM_ENABLED
               value: {{ .Values.deployment.envs.smee.isoStaticIPAMEnabled | quote }}
+            - name: TINKERBELL_SMEE_LOG_LEVEL
+              value: {{ .Values.deployment.envs.smee.logLevel | quote }}
             - name: TINKERBELL_SYSLOG_ENABLED
               value: {{ .Values.deployment.envs.smee.syslogEnabled | quote }}
             - name: TINKERBELL_SYSLOG_BIND_ADDR
@@ -175,6 +183,17 @@ spec:
               value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerUseTLS | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_INSECURE_TLS
               value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerInsecureTLS | quote }}
+          # SECONDSTAR
+            - name: TINKERBELL_SECONDSTAR_PORT
+              value: {{ .Values.deployment.envs.secondstar.bindPort | quote }}
+            - name: TINKERBELL_SECONDSTAR_HOST_KEY
+              value: {{ .Values.deployment.envs.secondstar.hostKeyPath | quote }}
+            - name: TINKERBELL_SECONDSTAR_IPMITOOL_PATH
+              value: {{ .Values.deployment.envs.secondstar.ipmitoolPath | quote }}
+            - name: TINKERBELL_SECONDSTAR_IDLE_TIMEOUT
+              value: {{ .Values.deployment.envs.secondstar.idleTimeout | quote }}
+            - name: TINKERBELL_SECONDSTAR_LOG_LEVEL
+              value: {{ .Values.deployment.envs.secondstar.logLevel | quote }}
           # GLOBALS
             - name: TINKERBELL_LOG_LEVEL
               value: {{ .Values.deployment.envs.globals.logLevel | quote }}
@@ -214,44 +233,44 @@ spec:
             {{- end }}
           ports:
           {{- if .Values.deployment.envs.globals.enableSmee }}
-            {{- with .Values.deployment.ports.tftp }}
+            - containerPort: {{ .Values.deployment.envs.smee.tftpServerBindPort }}
+            {{- with .Values.service.ports.tftp }}
+              name: {{ .name }}
+              protocol: {{ .protocol }}
+            {{- end }}
+            - containerPort: {{ .Values.deployment.envs.smee.syslogBindPort }}
+            {{- with .Values.service.ports.syslog }}
+              name: {{ .name }}
+              protocol: {{ .protocol }}
+            {{- end }}
+            {{- with .Values.service.ports.dhcp }}
             - containerPort: {{ .port }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
-            {{- with .Values.deployment.ports.syslog }}
-            - containerPort: {{ .port }}
-              name: {{ .name }}
-              protocol: {{ .protocol }}
-            {{- end }}
-            {{- with .Values.deployment.ports.dhcp }}
-            - containerPort: {{ .port }}
-              name: {{ .name }}
-              protocol: {{ .protocol }}
-            {{- end }}
-            {{- with .Values.deployment.ports.httpSmee }}
-            - containerPort: {{ .port }}
+            - containerPort: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindPort }}
+            {{- with .Values.service.ports.httpSmee }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
           {{- if .Values.deployment.envs.globals.enableTootles }}
-            {{- with .Values.deployment.ports.httpTootles }}
-            - containerPort: {{ .port }}
+            - containerPort: {{ .Values.deployment.envs.tootles.bindPort }}
+            {{- with .Values.service.ports.httpTootles }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
           {{- if .Values.deployment.envs.globals.enableTinkServer }}
-            {{- with .Values.deployment.ports.grpc }}
-            - containerPort: {{ .port }}
+            - containerPort: {{ .Values.deployment.envs.tinkServer.bindPort }}
+            {{- with .Values.service.ports.grpc }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
           {{- if .Values.deployment.envs.globals.enableSecondstar }}
-            {{- with .Values.deployment.ports.ssh }}
-            - containerPort: {{ .port }}
+            - containerPort: {{ .Values.deployment.envs.secondstar.bindPort }}
+            {{- with .Values.service.ports.ssh }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
