@@ -208,6 +208,10 @@ spec:
               value: {{ .Values.deployment.envs.globals.enableSecondstar | quote }}
             - name: TINKERBELL_ENABLE_CRD_MIGRATIONS
               value: {{ .Values.deployment.envs.globals.enableCRDMigrations | quote }}
+            # Additional environment variables
+            {{- with .Values.deployment.additionalEnvs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           ports:
           {{- if .Values.deployment.envs.globals.enableSmee }}
             {{- with .Values.deployment.ports.tftp }}
@@ -257,6 +261,10 @@ spec:
             capabilities:
               add:
                 - NET_RAW
+          {{- with .Values.deployment.volumeMounts }}
+          volumeMounts:
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
       hostNetwork: {{ .Values.deployment.hostNetwork }}
       serviceAccountName: {{ .Values.rbac.name }}-service-account
       volumes:
@@ -265,6 +273,9 @@ spec:
         configMap:
           name: host-interface-script
           defaultMode: 0500
+      {{- end }}
+      {{- with  .Values.deployment.volumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
       {{- if .Values.deployment.init.enabled }}
       initContainers:
