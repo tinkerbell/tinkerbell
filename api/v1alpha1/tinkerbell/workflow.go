@@ -47,6 +47,7 @@ const (
 // +kubebuilder:printcolumn:JSONPath=".status.currentState.taskName",name=Task,type=string,priority=1
 // +kubebuilder:printcolumn:JSONPath=".status.currentState.actionName",name=Action,type=string
 // +kubebuilder:printcolumn:JSONPath=".status.currentState.agentID",name=Agent,type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.hardwareRef",name=Hardware,type=string
 // +kubebuilder:printcolumn:JSONPath=".status.templateRending",name=Template-Rendering,type=string,priority=1
 
 // Workflow is the Schema for the Workflows API.

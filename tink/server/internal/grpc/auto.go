@@ -6,9 +6,14 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 )
 
-type AutoReadCreator interface {
+type AutoEnrollmentReadCreator interface {
 	WorkflowRuleSetReader
 	WorkflowCreator
+}
+
+type AutoDiscoveryReadCreator interface {
+	HardwareReader
+	HardwareCreator
 }
 
 type WorkflowRuleSetReader interface {
@@ -17,6 +22,14 @@ type WorkflowRuleSetReader interface {
 
 type WorkflowCreator interface {
 	CreateWorkflow(ctx context.Context, wf *tinkerbell.Workflow) error
+}
+
+type HardwareReader interface {
+	ReadHardware(ctx context.Context, id, namespace string) (*tinkerbell.Hardware, error)
+}
+
+type HardwareCreator interface {
+	CreateHardware(ctx context.Context, hw *tinkerbell.Hardware) error
 }
 
 type AutoCapabilities struct {
@@ -30,7 +43,7 @@ type AutoCapabilities struct {
 // Object defined.
 type AutoEnrollment struct {
 	Enabled     bool
-	ReadCreator AutoReadCreator
+	ReadCreator AutoEnrollmentReadCreator
 }
 
 // AutoDiscovery is a struct that contains the auto discovery configuration.
@@ -42,4 +55,5 @@ type AutoEnrollment struct {
 type AutoDiscovery struct {
 	Enabled   bool
 	Namespace string
+	AutoDiscoveryReadCreator
 }

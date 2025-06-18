@@ -101,6 +101,8 @@ deployment:
       metricsAddr: ""
       probeAddr: ""
     tinkServer:
+      autoDiscoveryEnabled: false
+      autoDiscoveryNamespace: "default"
       autoEnrollmentEnabled: false
       bindAddr: ""
       bindPort: 42113

@@ -87,6 +87,10 @@ spec:
               value: {{ .Values.deployment.envs.tinkServer.logLevel | quote }}
             - name: TINKERBELL_TINK_SERVER_AUTO_ENROLLMENT_ENABLED
               value: {{ .Values.deployment.envs.tinkServer.autoEnrollmentEnabled | quote }}
+            - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_ENABLED
+              value: {{ .Values.deployment.envs.tinkServer.autoDiscoveryEnabled | quote }}
+            - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_NAMESPACE
+              value: {{ .Values.deployment.envs.tinkServer.autoDiscoveryNamespace | quote }}
           # TOOTLES
             - name: TINKERBELL_TOOTLES_BIND_ADDR
               value: {{ .Values.deployment.envs.tootles.bindAddr | quote }}

@@ -35,6 +35,9 @@ spec:
     - jsonPath: .status.currentState.agentID
       name: Agent
       type: string
+    - jsonPath: .spec.hardwareRef
+      name: Hardware
+      type: string
     - jsonPath: .status.templateRending
       name: Template-Rendering
       priority: 1

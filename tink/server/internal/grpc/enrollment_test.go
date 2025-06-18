@@ -154,7 +154,7 @@ func TestEnroll(t *testing.T) {
 				},
 			}
 
-			_, err := handler.enroll(context.Background(), tt.workerID, convert(tt.attributes))
+			_, err := handler.enroll(context.Background(), tt.workerID, convert(tt.attributes), nil)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
