@@ -30,3 +30,42 @@ To connect to the serial-over-ssh console, ssh to the Tinkerbell IP (`kubectl ge
 ```bash
 ssh -p 2222 example-hardware@192.168.2.50
 ```
+
+## Host key
+
+### What is a host key?
+
+A host key is a cryptographic key used to verify the identity of a server when connecting via SSH.
+It ensures that the client is connecting to the correct server and not an imposter.
+
+
+
+If a host key is not provided one will be generated on the fly. This is not recommended for production use, as it can lead to security issues. To provide a host key, create a Kubernetes secret in the `tinkerbell` namespace with the name `secondstar-hostkey` and the key `hostkey`. The value should be the private key in OpenSSH format.
+
+```bash
+kubectl create secret generic secondstar-hostkey \
+  --namespace tinkerbell \
+  --from-file=hostkey=/path/to/your/private/key
+```
+
+Mount the secret in the Second Star deployment by specifying a volume mount in the Helm chart:
+
+```bash
+--set "deployment.volumes[0].name=secondstar-hostkey" \
+--set "deployment.volumes[0].secret.secretName=secondstar-hostkey"
+```
+
+And then mount it in the container by specifying the mount path in the Helm chart:
+
+```bash
+--set "deployment.volumeMounts[0].name=secondstar-hostkey" \
+--set "deployment.volumeMounts[0].mountPath=/etc/ssh/secondstar_hostkey" \
+--set "deployment.volumeMounts[0].subPath=hostkey" \
+--set "deployment.volumeMounts[0].readOnly=true"
+```
+
+Finally, set the Second Star host key environment variable in the Second Star deployment to point to the mounted host key:
+
+```bash
+--set "deployment.envs.secondstar.hostKeyPath=/etc/ssh/secondstar_hostkey"
+```
