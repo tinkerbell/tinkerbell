@@ -10,9 +10,9 @@ data:
     # This script allows us to listen and respond to DHCP requests on a host network interface and interact with Smee properly.
     # This is used instead of `hostNetwork: true` because the dhcp relay requires clear paths for listening for broadcast traffic
     # and sending/receiving unicast traffic to/from Smee.
-    
+
     set -xeuo pipefail
-    
+
     function usage() {
         echo "Usage: $0 [OPTION]..."
         echo "Init script for setting up a network interface to listen and respond to DHCP requests from the Host and move it into a container."
@@ -23,17 +23,17 @@ data:
         echo "  -c, --clean   Clean up any interfaces created"
         echo "  -h, --help    Display this help and exit"
     }
-    
+
     function binary_exists() {
         command -v "$1" >/dev/null 2>&1
     }
-    
+
     function main() {
         local src_interface="$1"
         local interface_type="$2"
         local interface_mode="$3"
         local interface_name="${interface_type}0"
-    
+
         # Preparation
         # Delete existing interfaces in the container
         ip link del macvlan0 || true
@@ -44,9 +44,11 @@ data:
         nsenter -t1 -n ip link del ipvlan0 || true
         nsenter -t1 -n ip link del ipvlan0-wa || true
         # Create the interface
+        echo  "Creating interface ${interface_name} of type ${interface_type} with mode ${interface_mode} linked to ${src_interface}"
         nsenter -t1 -n ip link add "${interface_name}" link "${src_interface}" type "${interface_type}" mode "${interface_mode}" || true
         # Move the interface into the Pod container
         pid=$(echo $$)
+        echo "Moving interface ${interface_name} into container with PID ${pid}"
         nsenter -t1 -n ip link set "${interface_name}" netns ${pid} || nsenter -t1 -n ip link delete "${interface_name}"
         # Bring up the interface
         ip link set dev "${interface_name}" up
@@ -63,28 +65,36 @@ data:
         fi
     }
 
-    src_interface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}' | head -n1)
+    src_interface=""
     interface_type="macvlan"
     interface_mode="bridge"
     clean=false
-    args=$(getopt -a -o s:t:ch --long src:,type:,clean,help -- "$@")
+    # s: means -s requires an argument
+    # s:: means -s has an optional argument
+    # s (without colon) means -s doesn't accept arguments
+    args=$(getopt -a -o s::t:ch --long src::,type:,clean,help -- "$@")
     if [[ $? -gt 0 ]]; then
-      usage
+    usage
     fi
-    
+
     eval set -- ${args}
     while :
     do
       case $1 in
         -s | --src)
-          if [[ ! -z $2 ]]; then
-            src_interface=$2
+          # If $2 starts with '-' or is empty (--), it's not a value but another option
+          if [[ "$2" == "--" || "$2" == -* ]]; then
+              src_interface=""
+              shift
+          else
+              src_interface="$2"
+              shift 2
           fi
-          shift 2 ;;
+          ;;
         -t | --type)
           if [[ "$2" == "ipvlan" ]]; then
-            interface_type="ipvlan"
-            interface_mode="l2"
+              interface_type="ipvlan"
+              interface_mode="l2"
           fi
           shift 2 ;;
         -c | --clean)
@@ -97,10 +107,14 @@ data:
         # -- means the end of the arguments; drop this, and break out of the while loop
         --) shift; break ;;
         *) >&2 echo Unsupported option: $1
-           usage ;;
+          usage ;;
       esac
     done    
-    
+
+    if [[ -z "${src_interface}" ]]; then
+        src_interface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}' | head -n1)
+    fi
+
     if "${clean}"; then
         # Delete existing interfaces in the container
         ip link del macvlan0 || true
