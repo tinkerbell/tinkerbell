@@ -31,6 +31,7 @@ func (b *Backend) ReadBMCMachine(ctx context.Context, name string) (*data.BMCMac
 	hardwareList := &v1alpha1.HardwareList{}
 
 	// list hardware objects with the given name
+	// We List objects instead of a Get because namespace support is not implemented yet.
 	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{".metadata.name": name}); err != nil {
 		span.SetStatus(codes.Error, err.Error())
 

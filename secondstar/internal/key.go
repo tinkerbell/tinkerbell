@@ -6,6 +6,7 @@ import (
 	"github.com/gliderlabs/ssh"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	gossh "golang.org/x/crypto/ssh"
 )
 
 type Reader interface {
@@ -34,7 +35,6 @@ func PubkeyAuth(r Reader, log logr.Logger) func(ssh.Context, ssh.PublicKey) bool
 			return false
 		}
 
-		ctx.SetValue(BMCDataKey, *hw)
 		for _, k := range hw.SSHPublicKeys {
 			pkey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 			if err != nil {
@@ -42,11 +42,12 @@ func PubkeyAuth(r Reader, log logr.Logger) func(ssh.Context, ssh.PublicKey) bool
 				continue
 			}
 			if ssh.KeysEqual(key, pkey) {
+				ctx.SetValue(BMCDataKey, *hw)
 				return true
 			}
 		}
 
-		log.Info("no matching key found", "user", ctx.User())
+		log.V(1).Info("no matching key found", "user", ctx.User(), "publicKey", string(gossh.MarshalAuthorizedKey(key)))
 		return false
 	}
 }
