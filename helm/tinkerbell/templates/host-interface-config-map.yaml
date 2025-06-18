@@ -80,35 +80,35 @@ data:
     eval set -- ${args}
     while :
     do
-    case $1 in
-        -s | --src)
-        # If $2 starts with '-' or is empty (--), it's not a value but another option
-        if [[ "$2" == "--" || "$2" == -* ]]; then
-            src_interface=""
-            shift
-        else
-            src_interface="$2"
-            shift 2
-        fi
-        ;;
-        -t | --type)
-        if [[ "$2" == "ipvlan" ]]; then
-            interface_type="ipvlan"
-            interface_mode="l2"
-        fi
-        shift 2 ;;
-        -c | --clean)
-        clean=true
-        shift ;;
-        -h | --help)
-        usage
-        exit 1
-        shift ;;
-        # -- means the end of the arguments; drop this, and break out of the while loop
-        --) shift; break ;;
-        *) >&2 echo Unsupported option: $1
+      case $1 in
+          -s | --src)
+            # If $2 starts with '-' or is empty (--), it's not a value but another option
+            if [[ "$2" == "--" || "$2" == -* ]]; then
+                src_interface=""
+                shift
+            else
+                src_interface="$2"
+                shift 2
+            fi
+            ;;
+          -t | --type)
+            if [[ "$2" == "ipvlan" ]]; then
+                interface_type="ipvlan"
+                interface_mode="l2"
+            fi
+            shift 2 ;;
+          -c | --clean)
+            clean=true
+            shift ;;
+          -h | --help)
+            usage
+            exit 1
+            shift ;;
+          # -- means the end of the arguments; drop this, and break out of the while loop
+          --) shift; break ;;
+          *) >&2 echo Unsupported option: $1
             usage ;;
-    esac
+      esac
     done    
 
     if [[ -z "${src_interface}" ]]; then
