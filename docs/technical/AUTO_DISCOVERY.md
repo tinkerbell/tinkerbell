@@ -11,9 +11,8 @@ Auto discovery allows Tinkerbell to automatically create Hardware objects for ma
 When an Agent connects to Tink Server:
 
 1. The Agent sends its attributes (serial numbers, MAC addresses, etc.) to the Tink server.
-1. If no workflow exists for the Agent, and auto discovery is enabled, Tink server:
-   1. Checks if an existing Hardware object exists for the Agent in the configured namespace. The name of the Hardware object is `discovery-{Agent ID}`.
-   1. If no Hardware object exists, Tink server creates a new Hardware object with the name `discovery-{Agent ID}` and populates it with the Agent's attributes.
+1. Tink Server checks if an existing Hardware object exists for the Agent in the configured namespace. The name of the Hardware object is `discovery-{Agent ID}`.
+1. If no Hardware object exists, Tink server creates a new Hardware object with the name `discovery-{Agent ID}` and populates it with the Agent's attributes.
 
 ## How to Enable Auto Discovery
 
