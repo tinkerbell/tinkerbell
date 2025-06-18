@@ -7,6 +7,8 @@ artifactsFileServer:
 deploy: true
 deployment:
   additionalEnvs: []
+  # - name: MY_ENV_VAR
+  #   value: "my-value"
   affinity: {}
   agentImage: ghcr.io/tinkerbell/tink-agent
   # agentImageTag is here as a placeholder and to show its possible to be set.
@@ -157,6 +159,19 @@ deployment:
   strategy:
     type: RollingUpdate
   toleration: []
+  # Additional volumes on the output Deployment definition.
+  volumes: []
+  # - name: foo
+  #   secret:
+  #     secretName: mysecret
+  #     optional: false
+
+  # Additional volumeMounts on the output Deployment definition.
+  volumeMounts: []
+  # - name: foo
+  #   mountPath: "/etc/foo"
+  #   subPath: "foo"
+  #   readOnly: true
 name: tinkerbell
 publicIP:
 rbac:
