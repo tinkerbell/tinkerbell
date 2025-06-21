@@ -68,7 +68,9 @@ spec:
             description: WorkflowSpec defines the desired state of Workflow.
             properties:
               bootOptions:
-                description: BootOptions are options that control the booting of Hardware.
+                description: |-
+                  BootOptions are options that control the booting of Hardware.
+                  These are only applicable when a HardwareRef is provided.
                 properties:
                   bootMode:
                     description: BootMode is the type of booting that will be done.
@@ -84,6 +86,122 @@ spec:
                       A HardwareRef that contains a spec.BmcRef must be provided.
                     format: url
                     type: string
+                  postTasks:
+                    description: |-
+                      OverridePost are tasks that will be run after the main workflow tasks.
+                      When defined in conjunction with BootMode, these tasks will be run instead of the default build-in tasks.
+                    items:
+                      description: |-
+                        Action represents the action to be performed.
+                        A single task can only perform one type of action.
+                        For example either PowerAction or OneTimeBootDeviceAction.
+                      maxProperties: 1
+                      properties:
+                        oneTimeBootDeviceAction:
+                          description: OneTimeBootDeviceAction represents a baseboard
+                            management one time set boot device operation.
+                          properties:
+                            device:
+                              description: |-
+                                Devices represents the boot devices, in order for setting one time boot.
+                                Currently only the first device in the slice is used to set one time boot.
+                              items:
+                                description: BootDevice represents boot device of
+                                  the Machine.
+                                type: string
+                              type: array
+                            efiBoot:
+                              description: EFIBoot instructs the machine to use EFI
+                                boot.
+                              type: boolean
+                          required:
+                          - device
+                          type: object
+                        powerAction:
+                          description: PowerAction represents a baseboard management
+                            power operation.
+                          enum:
+                          - "on"
+                          - "off"
+                          - soft
+                          - status
+                          - cycle
+                          - reset
+                          type: string
+                        virtualMediaAction:
+                          description: VirtualMediaAction represents a baseboard management
+                            virtual media insert/eject.
+                          properties:
+                            kind:
+                              type: string
+                            mediaURL:
+                              description: |-
+                                mediaURL represents the URL of the image to be inserted into the virtual media, or empty to
+                                eject media.
+                              type: string
+                          required:
+                          - kind
+                          type: object
+                      type: object
+                    type: array
+                  preparingTasks:
+                    description: |-
+                      OverridePreparing are tasks that will be run before the main workflow tasks.
+                      When defined in conjunction with BootMode, these tasks will be run instead of the default build-in tasks.
+                    items:
+                      description: |-
+                        Action represents the action to be performed.
+                        A single task can only perform one type of action.
+                        For example either PowerAction or OneTimeBootDeviceAction.
+                      maxProperties: 1
+                      properties:
+                        oneTimeBootDeviceAction:
+                          description: OneTimeBootDeviceAction represents a baseboard
+                            management one time set boot device operation.
+                          properties:
+                            device:
+                              description: |-
+                                Devices represents the boot devices, in order for setting one time boot.
+                                Currently only the first device in the slice is used to set one time boot.
+                              items:
+                                description: BootDevice represents boot device of
+                                  the Machine.
+                                type: string
+                              type: array
+                            efiBoot:
+                              description: EFIBoot instructs the machine to use EFI
+                                boot.
+                              type: boolean
+                          required:
+                          - device
+                          type: object
+                        powerAction:
+                          description: PowerAction represents a baseboard management
+                            power operation.
+                          enum:
+                          - "on"
+                          - "off"
+                          - soft
+                          - status
+                          - cycle
+                          - reset
+                          type: string
+                        virtualMediaAction:
+                          description: VirtualMediaAction represents a baseboard management
+                            virtual media insert/eject.
+                          properties:
+                            kind:
+                              type: string
+                            mediaURL:
+                              description: |-
+                                mediaURL represents the URL of the image to be inserted into the virtual media, or empty to
+                                eject media.
+                              type: string
+                          required:
+                          - kind
+                          type: object
+                      type: object
+                    type: array
                   toggleAllowNetboot:
                     description: |-
                       ToggleAllowNetboot indicates whether the controller should toggle the field in the associated hardware for allowing PXE booting.

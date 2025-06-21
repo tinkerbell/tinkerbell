@@ -1,6 +1,7 @@
 package tinkerbell
 
 import (
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -84,6 +85,7 @@ type WorkflowSpec struct {
 	HardwareMap map[string]string `json:"hardwareMap,omitempty"`
 
 	// BootOptions are options that control the booting of Hardware.
+	// These are only applicable when a HardwareRef is provided.
 	BootOptions BootOptions `json:"bootOptions,omitempty,omitzero"`
 }
 
@@ -106,6 +108,14 @@ type BootOptions struct {
 	// +optional
 	// +kubebuilder:validation:Enum=netboot;isoboot;iso
 	BootMode BootMode `json:"bootMode,omitempty"`
+
+	// OverridePreparing are tasks that will be run before the main workflow tasks.
+	// When defined in conjunction with BootMode, these tasks will be run instead of the default build-in tasks.
+	OverridePreparing []bmc.Action `json:"preparingTasks,omitempty"`
+
+	// OverridePost are tasks that will be run after the main workflow tasks.
+	// When defined in conjunction with BootMode, these tasks will be run instead of the default build-in tasks.
+	OverridePost []bmc.Action `json:"postTasks,omitempty"`
 }
 
 func (b BootOptions) IsZero() bool {
