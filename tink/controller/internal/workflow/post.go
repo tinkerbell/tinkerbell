@@ -24,7 +24,7 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 
 	// 2. Handle ISO eject scenario.
 	switch s.workflow.Spec.BootOptions.BootMode {
-	case v1alpha1.BootModeISO, v1alpha1.BootModeISOBoot:
+	case v1alpha1.BootModeISO, v1alpha1.BootModeIsoboot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameISOEject, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode isoboot")
@@ -54,7 +54,7 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 			}
 			return r, nil
 		}
-	case v1alpha1.BootModeCustomBoot:
+	case v1alpha1.BootModeCustomboot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPost, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode customboot post")

@@ -82,7 +82,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			return r, nil
 		}
 		// what do i set the state to? I think if we get here then the preparing was successful
-	case v1alpha1.BootModeISO, v1alpha1.BootModeISOBoot:
+	case v1alpha1.BootModeISO, v1alpha1.BootModeIsoboot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameISOMount, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode isoboot")
@@ -151,7 +151,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			return r, nil
 		}
 		// what do i set the state to? I think if we get here then the preparing was successful
-	case v1alpha1.BootModeCustomBoot:
+	case v1alpha1.BootModeCustomboot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPreparing, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode customboot preparing")

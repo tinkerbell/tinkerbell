@@ -36,8 +36,8 @@ const (
 
 	BootModeNetboot    BootMode = "netboot"
 	BootModeISO        BootMode = "iso"
-	BootModeISOBoot    BootMode = "isoboot"
-	BootModeCustomBoot BootMode = "customboot"
+	BootModeIsoboot    BootMode = "isoboot"
+	BootModeCustomboot BootMode = "customboot"
 )
 
 // +kubebuilder:subresource:status
