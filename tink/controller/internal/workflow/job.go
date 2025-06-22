@@ -19,8 +19,8 @@ const (
 	jobNameNetboot             jobName = "netboot"
 	jobNameISOMount            jobName = "iso-mount"
 	jobNameISOEject            jobName = "iso-eject"
-	jobNameCustombootPreparing jobName = "custom-preparing"
-	jobNameCustomBootPost      jobName = "custom-post"
+	jobNameCustombootPreparing jobName = "customboot-preparing"
+	jobNameCustomBootPost      jobName = "customboot-post"
 )
 
 func (j jobName) String() string {
