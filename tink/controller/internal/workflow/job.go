@@ -16,11 +16,11 @@ import (
 type jobName string
 
 const (
-	jobNameNetboot      jobName = "netboot"
-	jobNameISOMount     jobName = "iso-mount"
-	jobNameISOEject     jobName = "iso-eject"
-	jobNamePreOverride  jobName = "pre-override"
-	jobNamePostOverride jobName = "post-override"
+	jobNameNetboot             jobName = "netboot"
+	jobNameISOMount            jobName = "iso-mount"
+	jobNameISOEject            jobName = "iso-eject"
+	jobNameCustombootPreparing jobName = "custom-preparing"
+	jobNameCustomBootPost      jobName = "custom-post"
 )
 
 func (j jobName) String() string {

@@ -30,52 +30,45 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 	// 2. Handle booting scenarios.
 	switch s.workflow.Spec.BootOptions.BootMode {
 	case v1alpha1.BootModeNetboot:
-		jname := ternary((len(s.workflow.Spec.BootOptions.OverridePreparing) > 0), jobNamePreOverride, jobNameNetboot)
-		name := jobName(fmt.Sprintf("%s-%s", jname, s.workflow.GetName()))
+		name := jobName(fmt.Sprintf("%s-%s", jobNameNetboot, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode netboot")
-			var actions []bmc.Action
-			// by specifying the preparing override the user takes responsibility for all BMC Actions.
-			if len(s.workflow.Spec.BootOptions.OverridePreparing) > 0 {
-				actions = s.workflow.Spec.BootOptions.OverridePreparing
-			} else {
-				hw, err := hardwareFrom(ctx, s.client, s.workflow)
-				if err != nil {
-					// update a condition to indicate the error
-					s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
-						Type:    v1alpha1.BootJobSetupFailed,
-						Status:  metav1.ConditionFalse,
-						Reason:  "Error",
-						Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
-						Time:    &metav1.Time{Time: metav1.Now().UTC()},
-					})
-					s.workflow.Status.State = v1alpha1.WorkflowStateFailed
-					return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
-				}
-				efiBoot := func() bool {
-					for _, iface := range hw.Spec.Interfaces {
-						if iface.DHCP != nil && iface.DHCP.UEFI {
-							return true
-						}
+			hw, err := hardwareFrom(ctx, s.client, s.workflow)
+			if err != nil {
+				// update a condition to indicate the error
+				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+					Type:    v1alpha1.BootJobSetupFailed,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Error",
+					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
+					Time:    &metav1.Time{Time: metav1.Now().UTC()},
+				})
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
+			}
+			efiBoot := func() bool {
+				for _, iface := range hw.Spec.Interfaces {
+					if iface.DHCP != nil && iface.DHCP.UEFI {
+						return true
 					}
-					return false
-				}()
-				actions = []bmc.Action{
-					{
-						PowerAction: valueToPointer(bmc.PowerHardOff),
-					},
-					{
-						OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{
-							Devices: []bmc.BootDevice{
-								bmc.PXE,
-							},
-							EFIBoot: efiBoot,
-						},
-					},
-					{
-						PowerAction: valueToPointer(bmc.PowerOn),
-					},
 				}
+				return false
+			}()
+			actions := []bmc.Action{
+				{
+					PowerAction: valueToPointer(bmc.PowerHardOff),
+				},
+				{
+					OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{
+						Devices: []bmc.BootDevice{
+							bmc.PXE,
+						},
+						EFIBoot: efiBoot,
+					},
+				},
+				{
+					PowerAction: valueToPointer(bmc.PowerOn),
+				},
 			}
 
 			r, err := s.handleJob(ctx, actions, name)
@@ -90,68 +83,61 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 		}
 		// what do i set the state to? I think if we get here then the preparing was successful
 	case v1alpha1.BootModeISO, v1alpha1.BootModeISOBoot:
-		jname := ternary((len(s.workflow.Spec.BootOptions.OverridePreparing) > 0), jobNamePreOverride, jobNameISOMount)
-		name := jobName(fmt.Sprintf("%s-%s", jname, s.workflow.GetName()))
+		name := jobName(fmt.Sprintf("%s-%s", jobNameISOMount, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode isoboot")
-			var actions []bmc.Action
-			// by specifying the preparing override the user takes responsibility for all BMC Actions.
-			if len(s.workflow.Spec.BootOptions.OverridePreparing) > 0 {
-				actions = s.workflow.Spec.BootOptions.OverridePreparing
-			} else {
-				if s.workflow.Spec.BootOptions.ISOURL == "" {
-					s.workflow.Status.State = v1alpha1.WorkflowStateFailed
-					return reconcile.Result{}, errors.New("iso url must be a valid url")
-				}
-				hw, err := hardwareFrom(ctx, s.client, s.workflow)
-				if err != nil {
-					// update a condition to indicate the error
-					s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
-						Type:    v1alpha1.BootJobSetupComplete,
-						Status:  metav1.ConditionFalse,
-						Reason:  "Error",
-						Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
-						Time:    &metav1.Time{Time: metav1.Now().UTC()},
-					})
-					s.workflow.Status.State = v1alpha1.WorkflowStateFailed
-					return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
-				}
-				efiBoot := func() bool {
-					for _, iface := range hw.Spec.Interfaces {
-						if iface.DHCP != nil && iface.DHCP.UEFI {
-							return true
-						}
+			if s.workflow.Spec.BootOptions.ISOURL == "" {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return reconcile.Result{}, errors.New("iso url must be a valid url")
+			}
+			hw, err := hardwareFrom(ctx, s.client, s.workflow)
+			if err != nil {
+				// update a condition to indicate the error
+				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+					Type:    v1alpha1.BootJobSetupComplete,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Error",
+					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
+					Time:    &metav1.Time{Time: metav1.Now().UTC()},
+				})
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
+			}
+			efiBoot := func() bool {
+				for _, iface := range hw.Spec.Interfaces {
+					if iface.DHCP != nil && iface.DHCP.UEFI {
+						return true
 					}
-					return false
-				}()
-				actions = []bmc.Action{
-					{
-						PowerAction: valueToPointer(bmc.PowerHardOff),
-					},
-					{
-						VirtualMediaAction: &bmc.VirtualMediaAction{
-							MediaURL: "", // empty to unmount/eject the media
-							Kind:     bmc.VirtualMediaCD,
-						},
-					},
-					{
-						VirtualMediaAction: &bmc.VirtualMediaAction{
-							MediaURL: s.workflow.Spec.BootOptions.ISOURL,
-							Kind:     bmc.VirtualMediaCD,
-						},
-					},
-					{
-						OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{
-							Devices: []bmc.BootDevice{
-								bmc.CDROM,
-							},
-							EFIBoot: efiBoot,
-						},
-					},
-					{
-						PowerAction: valueToPointer(bmc.PowerOn),
-					},
 				}
+				return false
+			}()
+			actions := []bmc.Action{
+				{
+					PowerAction: valueToPointer(bmc.PowerHardOff),
+				},
+				{
+					VirtualMediaAction: &bmc.VirtualMediaAction{
+						MediaURL: "", // empty to unmount/eject the media
+						Kind:     bmc.VirtualMediaCD,
+					},
+				},
+				{
+					VirtualMediaAction: &bmc.VirtualMediaAction{
+						MediaURL: s.workflow.Spec.BootOptions.ISOURL,
+						Kind:     bmc.VirtualMediaCD,
+					},
+				},
+				{
+					OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{
+						Devices: []bmc.BootDevice{
+							bmc.CDROM,
+						},
+						EFIBoot: efiBoot,
+					},
+				},
+				{
+					PowerAction: valueToPointer(bmc.PowerOn),
+				},
 			}
 
 			r, err := s.handleJob(ctx, actions, name)
@@ -165,17 +151,24 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			return r, nil
 		}
 		// what do i set the state to? I think if we get here then the preparing was successful
+	case v1alpha1.BootModeCustomBoot:
+		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPreparing, s.workflow.GetName()))
+		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
+			journal.Log(ctx, "boot mode customboot preparing")
+			actions := s.workflow.Spec.BootOptions.CustombootConfig.PreparingActions
+			r, err := s.handleJob(ctx, actions, name)
+			if err != nil {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return r, err
+			}
+			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete && s.workflow.Status.State == v1alpha1.WorkflowStatePreparing {
+				s.workflow.Status.State = v1alpha1.WorkflowStatePending
+			}
+			return r, nil
+		}
 	default:
 		s.workflow.Status.State = v1alpha1.WorkflowStatePending
 	}
-	// s.workflow.Status.State = v1alpha1.WorkflowStatePending
 
 	return reconcile.Result{}, nil
-}
-
-func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {
-	if condition {
-		return valueIfTrue
-	}
-	return valueIfFalse
 }

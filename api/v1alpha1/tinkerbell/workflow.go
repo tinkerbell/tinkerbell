@@ -34,9 +34,10 @@ const (
 	TemplateRenderingSuccessful TemplateRendering = "successful"
 	TemplateRenderingFailed     TemplateRendering = "failed"
 
-	BootModeNetboot BootMode = "netboot"
-	BootModeISO     BootMode = "iso"
-	BootModeISOBoot BootMode = "isoboot"
+	BootModeNetboot    BootMode = "netboot"
+	BootModeISO        BootMode = "iso"
+	BootModeISOBoot    BootMode = "isoboot"
+	BootModeCustomBoot BootMode = "customboot"
 )
 
 // +kubebuilder:subresource:status
@@ -106,20 +107,31 @@ type BootOptions struct {
 
 	// BootMode is the type of booting that will be done.
 	// +optional
-	// +kubebuilder:validation:Enum=netboot;isoboot;iso
+	// +kubebuilder:validation:Enum=netboot;isoboot;iso;customboot
 	BootMode BootMode `json:"bootMode,omitempty"`
 
-	// OverridePreparing are tasks that will be run before the main workflow tasks.
-	// When defined in conjunction with BootMode, these tasks will be run instead of the default build-in tasks.
-	OverridePreparing []bmc.Action `json:"preparingTasks,omitempty"`
+	// CustombootConfig is the configuration for the customboot boot mode.
+	// This allows users to define custom BMC Actions.
+	CustombootConfig CustombootConfig `json:"custombootConfig,omitempty,omitzero"`
+}
 
-	// OverridePost are tasks that will be run after the main workflow tasks.
-	// When defined in conjunction with BootMode, these tasks will be run instead of the default build-in tasks.
-	OverridePost []bmc.Action `json:"postTasks,omitempty"`
+// CustombootConfig defines the configuration for the customboot boot mode.
+type CustombootConfig struct {
+	// PreparingActions are the BMC Actions that will be run before any Workflow Actions.
+	// In most cases these Action should get a Machine into a state where a Tink Agent is running.
+	PreparingActions []bmc.Action `json:"preparingActions,omitempty"`
+	// PostActions are the BMC Actions that will be run after all Workflow Actions have completed.
+	// In most cases these Action should get a Machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
+	// These Actions will be run only if the main Workflow Actions complete successfully.
+	PostActions []bmc.Action `json:"postActions,omitempty"`
 }
 
 func (b BootOptions) IsZero() bool {
 	return b.ISOURL == "" && !b.ToggleAllowNetboot && b.BootMode == ""
+}
+
+func (c CustombootConfig) IsZero() bool {
+	return len(c.PreparingActions) == 0 && len(c.PostActions) == 0
 }
 
 // BootOptionsStatus holds the state of any boot options.

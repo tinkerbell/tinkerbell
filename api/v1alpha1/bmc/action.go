@@ -23,7 +23,7 @@ const (
 	Safe  BootDevice = "safe"
 )
 
-// OnTimeBootDeviceAction represents a baseboard management one time set boot device operation.
+// OneTimeBootDeviceAction represents a baseboard management controller one time set boot device operation.
 type OneTimeBootDeviceAction struct {
 	// Devices represents the boot devices, in order for setting one time boot.
 	// Currently only the first device in the slice is used to set one time boot.
