@@ -20,7 +20,7 @@ const (
 	jobNameISOMount            jobName = "iso-mount"
 	jobNameISOEject            jobName = "iso-eject"
 	jobNameCustombootPreparing jobName = "customboot-preparing"
-	jobNameCustomBootPost      jobName = "customboot-post"
+	jobNameCustombootPost      jobName = "customboot-post"
 )
 
 func (j jobName) String() string {

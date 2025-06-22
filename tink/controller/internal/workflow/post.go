@@ -55,7 +55,7 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 			return r, nil
 		}
 	case v1alpha1.BootModeCustomBoot:
-		name := jobName(fmt.Sprintf("%s-%s", jobNameCustomBootPost, s.workflow.GetName()))
+		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPost, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode customboot post")
 			r, err := s.handleJob(ctx, s.workflow.Spec.BootOptions.CustombootConfig.PostActions, name)
