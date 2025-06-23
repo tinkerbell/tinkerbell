@@ -210,6 +210,71 @@ func TestPrepareWorkflow(t *testing.T) {
 				},
 			},
 		},
+		"boot mode customboot": {
+			wantResult: reconcile.Result{Requeue: true},
+			hardware: &v1alpha1.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hardware",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.HardwareSpec{
+					BMCRef: &v1.TypedLocalObjectReference{
+						Name: "test-bmc",
+						Kind: "machine.bmc.tinkerbell.org",
+					},
+				},
+			},
+			wantHardware: &v1alpha1.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hardware",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.HardwareSpec{
+					BMCRef: &v1.TypedLocalObjectReference{
+						Name: "test-bmc",
+						Kind: "machine.bmc.tinkerbell.org",
+					},
+				},
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-workflow",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					HardwareRef: "test-hardware",
+					BootOptions: v1alpha1.BootOptions{
+						BootMode: v1alpha1.BootModeCustomboot,
+						CustombootConfig: v1alpha1.CustombootConfig{
+							PreparingActions: []bmc.Action{
+								{
+									PowerAction: valueToPointer(bmc.PowerOn),
+								},
+							},
+							PostActions: []bmc.Action{
+								{
+									PowerAction: valueToPointer(bmc.PowerHardOff),
+								},
+							},
+						},
+					},
+				},
+				Status: v1alpha1.WorkflowStatus{
+					BootOptions: v1alpha1.BootOptionsStatus{
+						Jobs: map[string]v1alpha1.JobStatus{},
+					},
+				},
+			},
+			wantWorkflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					BootOptions: v1alpha1.BootOptionsStatus{
+						Jobs: map[string]v1alpha1.JobStatus{
+							fmt.Sprintf("%s-test-workflow", jobNameCustombootPreparing): {ExistingJobDeleted: true},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for name, tc := range tests {
