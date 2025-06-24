@@ -71,6 +71,23 @@ spec:
                     For example either PowerAction or OneTimeBootDeviceAction.
                   maxProperties: 1
                   properties:
+                    bootDevice:
+                      description: BootDevice is the device to set as the first boot
+                        device on the Machine.
+                      properties:
+                        device:
+                          description: Device is the name of the device to set as
+                            the first boot device.
+                          type: string
+                        efiBoot:
+                          description: EFIBoot indicates whether the boot device should
+                            be set to efiboot mode.
+                          type: boolean
+                        persistent:
+                          description: Persistent indicates whether the boot device
+                            should be set persistently as the first boot device.
+                          type: boolean
+                      type: object
                     oneTimeBootDeviceAction:
                       description: OneTimeBootDeviceAction represents a baseboard
                         management one time set boot device operation.
@@ -106,11 +123,12 @@ spec:
                         virtual media insert/eject.
                       properties:
                         kind:
+                          description: Kind represents the kind of virtual media.
                           type: string
                         mediaURL:
-                          description: |-
-                            mediaURL represents the URL of the image to be inserted into the virtual media, or empty to
-                            eject media.
+                          description: mediaURL represents the URL of the image to
+                            be inserted into the virtual media, or empty to eject
+                            media.
                           type: string
                       required:
                       - kind
