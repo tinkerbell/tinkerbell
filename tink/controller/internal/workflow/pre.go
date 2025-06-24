@@ -82,10 +82,10 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			return r, nil
 		}
 		// what do i set the state to? I think if we get here then the preparing was successful
-	case v1alpha1.BootModeISO, v1alpha1.BootModeISOBoot:
+	case v1alpha1.BootModeISO, v1alpha1.BootModeIsoboot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameISOMount, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
-			journal.Log(ctx, "boot mode iso")
+			journal.Log(ctx, "boot mode isoboot")
 			if s.workflow.Spec.BootOptions.ISOURL == "" {
 				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 				return reconcile.Result{}, errors.New("iso url must be a valid url")
@@ -151,10 +151,23 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 			return r, nil
 		}
 		// what do i set the state to? I think if we get here then the preparing was successful
+	case v1alpha1.BootModeCustomboot:
+		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPreparing, s.workflow.GetName()))
+		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
+			journal.Log(ctx, "boot mode customboot preparing")
+			r, err := s.handleJob(ctx, s.workflow.Spec.BootOptions.CustombootConfig.PreparingActions, name)
+			if err != nil {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return r, err
+			}
+			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete && s.workflow.Status.State == v1alpha1.WorkflowStatePreparing {
+				s.workflow.Status.State = v1alpha1.WorkflowStatePending
+			}
+			return r, nil
+		}
 	default:
 		s.workflow.Status.State = v1alpha1.WorkflowStatePending
 	}
-	// s.workflow.Status.State = v1alpha1.WorkflowStatePending
 
 	return reconcile.Result{}, nil
 }

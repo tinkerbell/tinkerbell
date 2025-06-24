@@ -68,7 +68,9 @@ spec:
             description: WorkflowSpec defines the desired state of Workflow.
             properties:
               bootOptions:
-                description: BootOptions are options that control the booting of Hardware.
+                description: |-
+                  BootOptions are options that control the booting of Hardware.
+                  These are only applicable when a HardwareRef is provided.
                 properties:
                   bootMode:
                     description: BootMode is the type of booting that will be done.
@@ -76,7 +78,131 @@ spec:
                     - netboot
                     - isoboot
                     - iso
+                    - customboot
                     type: string
+                  custombootConfig:
+                    description: |-
+                      CustombootConfig is the configuration for the customboot boot mode.
+                      This allows users to define custom BMC Actions.
+                    properties:
+                      postActions:
+                        description: |-
+                          PostActions are the BMC Actions that will be run after all Workflow Actions have completed.
+                          In most cases these Action should get a Machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
+                          These Actions will be run only if the main Workflow Actions complete successfully.
+                        items:
+                          description: |-
+                            Action represents the action to be performed.
+                            A single task can only perform one type of action.
+                            For example either PowerAction or OneTimeBootDeviceAction.
+                          maxProperties: 1
+                          properties:
+                            oneTimeBootDeviceAction:
+                              description: OneTimeBootDeviceAction represents a baseboard
+                                management one time set boot device operation.
+                              properties:
+                                device:
+                                  description: |-
+                                    Devices represents the boot devices, in order for setting one time boot.
+                                    Currently only the first device in the slice is used to set one time boot.
+                                  items:
+                                    description: BootDevice represents boot device
+                                      of the Machine.
+                                    type: string
+                                  type: array
+                                efiBoot:
+                                  description: EFIBoot instructs the machine to use
+                                    EFI boot.
+                                  type: boolean
+                              required:
+                              - device
+                              type: object
+                            powerAction:
+                              description: PowerAction represents a baseboard management
+                                power operation.
+                              enum:
+                              - "on"
+                              - "off"
+                              - soft
+                              - status
+                              - cycle
+                              - reset
+                              type: string
+                            virtualMediaAction:
+                              description: VirtualMediaAction represents a baseboard
+                                management virtual media insert/eject.
+                              properties:
+                                kind:
+                                  type: string
+                                mediaURL:
+                                  description: |-
+                                    mediaURL represents the URL of the image to be inserted into the virtual media, or empty to
+                                    eject media.
+                                  type: string
+                              required:
+                              - kind
+                              type: object
+                          type: object
+                        type: array
+                      preparingActions:
+                        description: |-
+                          PreparingActions are the BMC Actions that will be run before any Workflow Actions.
+                          In most cases these Action should get a Machine into a state where a Tink Agent is running.
+                        items:
+                          description: |-
+                            Action represents the action to be performed.
+                            A single task can only perform one type of action.
+                            For example either PowerAction or OneTimeBootDeviceAction.
+                          maxProperties: 1
+                          properties:
+                            oneTimeBootDeviceAction:
+                              description: OneTimeBootDeviceAction represents a baseboard
+                                management one time set boot device operation.
+                              properties:
+                                device:
+                                  description: |-
+                                    Devices represents the boot devices, in order for setting one time boot.
+                                    Currently only the first device in the slice is used to set one time boot.
+                                  items:
+                                    description: BootDevice represents boot device
+                                      of the Machine.
+                                    type: string
+                                  type: array
+                                efiBoot:
+                                  description: EFIBoot instructs the machine to use
+                                    EFI boot.
+                                  type: boolean
+                              required:
+                              - device
+                              type: object
+                            powerAction:
+                              description: PowerAction represents a baseboard management
+                                power operation.
+                              enum:
+                              - "on"
+                              - "off"
+                              - soft
+                              - status
+                              - cycle
+                              - reset
+                              type: string
+                            virtualMediaAction:
+                              description: VirtualMediaAction represents a baseboard
+                                management virtual media insert/eject.
+                              properties:
+                                kind:
+                                  type: string
+                                mediaURL:
+                                  description: |-
+                                    mediaURL represents the URL of the image to be inserted into the virtual media, or empty to
+                                    eject media.
+                                  type: string
+                              required:
+                              - kind
+                              type: object
+                          type: object
+                        type: array
+                    type: object
                   isoURL:
                     description: |-
                       ISOURL is the URL of the ISO that will be one-time booted. When this field is set, the controller will create a job.bmc.tinkerbell.org object

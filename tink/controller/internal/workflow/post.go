@@ -23,11 +23,11 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	// 2. Handle ISO eject scenario.
-	//nolint: nestif // This is what it is.
-	if s.workflow.Spec.BootOptions.BootMode == v1alpha1.BootModeISO || s.workflow.Spec.BootOptions.BootMode == v1alpha1.BootModeISOBoot {
+	switch s.workflow.Spec.BootOptions.BootMode {
+	case v1alpha1.BootModeISO, v1alpha1.BootModeIsoboot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameISOEject, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
-			journal.Log(ctx, "boot mode iso")
+			journal.Log(ctx, "boot mode isoboot")
 			if s.workflow.Spec.BootOptions.ISOURL == "" {
 				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 				return reconcile.Result{}, errors.New("iso url must be a valid url")
@@ -54,6 +54,25 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 			}
 			return r, nil
 		}
+	case v1alpha1.BootModeCustomboot:
+		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPost, s.workflow.GetName()))
+		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
+			journal.Log(ctx, "boot mode customboot post")
+			r, err := s.handleJob(ctx, s.workflow.Spec.BootOptions.CustombootConfig.PostActions, name)
+			if err != nil {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return r, err
+			}
+			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete {
+				// Post Action handling must only change the Status.State if the status.State was not a failure state (i.e. not FAILED, TIMEOUT).
+				if s.workflow.Status.CurrentState != nil {
+					s.workflow.Status.State = s.workflow.Status.CurrentState.State
+				}
+			}
+			return r, nil
+		}
+	case v1alpha1.BootModeNetboot:
+		// Nothing to do here for netboot mode.
 	}
 
 	if s.workflow.Status.CurrentState != nil {
