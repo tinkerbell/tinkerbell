@@ -105,7 +105,7 @@ spec:
       - oneTimeBootDeviceAction:
           device: ["disk"]
           efiBoot: true 
-      - powerAction: reset
+      - powerAction: "reset"
 ```
 
 [PREPARING Reference](../../tink/controller/internal/workflow/pre.go#L158)  
