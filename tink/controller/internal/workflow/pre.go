@@ -155,8 +155,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPreparing, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode customboot preparing")
-			actions := s.workflow.Spec.BootOptions.CustombootConfig.PreparingActions
-			r, err := s.handleJob(ctx, actions, name)
+			r, err := s.handleJob(ctx, s.workflow.Spec.BootOptions.CustombootConfig.PreparingActions, name)
 			if err != nil {
 				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 				return r, err
