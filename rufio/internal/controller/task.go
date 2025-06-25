@@ -15,6 +15,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -206,6 +207,8 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 		}
 		md := bmcClient.GetMetadata()
 		logger.Info("power state set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
+
+		return nil
 	}
 
 	if task.OneTimeBootDeviceAction != nil {
@@ -216,7 +219,20 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 			return fmt.Errorf("failed to perform OneTimeBootDeviceAction: %w", err)
 		}
 		md := bmcClient.GetMetadata()
-		logger.Info("one time boot device set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
+		logger.Info("one time boot device set successfully", "notice", "oneTimeBootDeviceAction is deprecated and will be remove in a future release. Please use bootDevice instead.", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
+
+		return nil
+	}
+
+	if task.BootDevice != nil {
+		ok, err := bmcClient.SetBootDevice(ctx, task.BootDevice.Device.String(), task.BootDevice.Persistent, task.BootDevice.EFIBoot)
+		if err != nil || !ok {
+			return fmt.Errorf("failed to set BootDevice, ok: %v, err: %w", ok, err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("boot device set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
+
+		return nil
 	}
 
 	if task.VirtualMediaAction != nil {
@@ -226,9 +242,13 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 		}
 		md := bmcClient.GetMetadata()
 		logger.Info("virtual media set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
+
+		return nil
 	}
 
-	return nil
+	logger.Info("no action specified in Task, nothing to do", "task", task)
+
+	return errors.New("no action specified in Task, nothing to do")
 }
 
 // checkTaskStatus checks if Task action completed.

@@ -97,14 +97,15 @@ spec:
     custombootConfig:
       preparingActions:
       - powerAction: "off"
-      - oneTimeBootDeviceAction:
-          device: ["pxe"]
+      - bootDevice:
+          device: "pxe"
           efiBoot: true
       - powerAction: "on"
       postActions:
-      - oneTimeBootDeviceAction:
-          device: ["disk"]
-          efiBoot: true 
+      - bootDevice:
+          device: "disk"
+          persistent: true
+          efiBoot: true
       - powerAction: "reset"
 ```
 

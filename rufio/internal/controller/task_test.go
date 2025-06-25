@@ -113,12 +113,41 @@ func TestTaskReconcile(t *testing.T) {
 			provider:   &testProvider{Powerstate: "off", PowerSetOK: true},
 			timeoutErr: true,
 		},
-		"fail to find secret": {
+		"failure to find secret": {
 			taskName:  "PowerOn",
 			action:    getAction("PowerOn"),
 			provider:  &testProvider{Powerstate: "off", PowerSetOK: true},
 			secret:    &corev1.Secret{},
 			task:      createTask("PowerOn", getAction("PowerOn"), &corev1.Secret{}),
+			shouldErr: true,
+		},
+		"success with boot device": {
+			taskName: "boot device pxe",
+			action: bmc.Action{
+				BootDevice: &bmc.BootDeviceConfig{
+					Device:     bmc.PXE,
+					Persistent: true,
+					EFIBoot:    true,
+				},
+			},
+			provider: &testProvider{BootdeviceOK: true},
+		},
+		"failure on boot device set": {
+			taskName: "boot device pxe",
+			action: bmc.Action{
+				BootDevice: &bmc.BootDeviceConfig{
+					Device:     bmc.PXE,
+					Persistent: true,
+					EFIBoot:    true,
+				},
+			},
+			provider:  &testProvider{ErrBootDeviceSet: errors.New("failed to set boot device")},
+			shouldErr: true,
+		},
+		"failure to find task": {
+			taskName:  "empty task",
+			action:    bmc.Action{},
+			provider:  &testProvider{},
 			shouldErr: true,
 		},
 	}
