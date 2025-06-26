@@ -40,6 +40,9 @@ Most DHCP services all customization of a `next server` option. This option gene
 
 The following code snippets are generic examples of the config needed to enable the two-step process to an existing DHCP service. It does not cover the IPAM info that is also required.
 
+**NOTE:** The HTTP URL pointing to the `auto.ipxe` script may need a port defined, depending on how Tinkerbell is deployed.
+          At the time of writing, the Tinkerbell Helm chart deploys the Smee HTTP server responsible for delivering the iPXE script on port `7171`.
+
 [dnsmasq](https://linux.die.net/man/8/dnsmasq)
 
 `dnsmasq.conf`
@@ -47,7 +50,7 @@ The following code snippets are generic examples of the config needed to enable 
 ```text
 dhcp-match=tinkerbell, option:user-class, Tinkerbell
 dhcp-boot=tag:!tinkerbell,ipxe.efi,none,192.168.2.112
-dhcp-boot=tag:tinkerbell,http://192.168.2.112/auto.ipxe
+dhcp-boot=tag:tinkerbell,http://192.168.2.112:7171/auto.ipxe
 ```
 
 [Kea DHCP](https://www.isc.org/kea/)
@@ -61,7 +64,7 @@ dhcp-boot=tag:tinkerbell,http://192.168.2.112/auto.ipxe
       {
         "name": "tinkerbell",
         "test": "substring(option[77].hex,0,10) == 'Tinkerbell'",
-        "boot-file-name": "http://192.168.2.112/auto.ipxe"
+        "boot-file-name": "http://192.168.2.112:7171/auto.ipxe"
       },
       {
         "name": "default",
@@ -84,7 +87,7 @@ dhcp-boot=tag:tinkerbell,http://192.168.2.112/auto.ipxe
 
 ```text
  if exists user-class and option user-class = "Tinkerbell" {
-     filename "http://192.168.2.112/auto.ipxe";
+     filename "http://192.168.2.112:7171/auto.ipxe";
  } else {
      filename "ipxe.efi";
  }
