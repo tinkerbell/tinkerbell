@@ -65,12 +65,24 @@ func (b *Backend) CreateWorkflow(ctx context.Context, wf *v1alpha1.Workflow) err
 }
 
 func (b *Backend) ReadHardware(ctx context.Context, id, namespace string) (*v1alpha1.Hardware, error) {
-	hw := &v1alpha1.Hardware{}
-	err := b.cluster.GetClient().Get(ctx, types.NamespacedName{Name: id, Namespace: namespace}, hw)
-	if err != nil {
+	hw := &v1alpha1.HardwareList{}
+	if err := b.cluster.GetClient().List(ctx, hw, &client.MatchingFields{
+		HardwareByAgentID: id,
+	}); err != nil {
 		return nil, fmt.Errorf("failed to get hardware %s/%s: %w", namespace, id, err)
 	}
-	return hw, nil
+	if len(hw.Items) == 0 {
+		err := hardwareNotFoundError{name: id, namespace: ternary(b.Namespace == "", "all namespaces", b.Namespace)}
+
+		return nil, err
+	}
+
+	if len(hw.Items) > 1 {
+		// This is unexpected, as we should not have multiple hardware objects with the same agent ID.
+		return nil, &foundMultipleHardwareError{id: id, namespace: namespace, count: len(hw.Items)}
+	}
+
+	return &hw.Items[0], nil
 }
 
 func (b *Backend) CreateHardware(ctx context.Context, hw *v1alpha1.Hardware) error {

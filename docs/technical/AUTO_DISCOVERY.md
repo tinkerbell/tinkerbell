@@ -11,8 +11,11 @@ Auto discovery allows Tinkerbell to automatically create Hardware objects for ma
 When an Agent connects to Tink Server:
 
 1. The Agent sends its attributes (serial numbers, MAC addresses, etc.) to the Tink server.
-1. Tink Server checks if an existing Hardware object exists for the Agent in the configured namespace. The name of the Hardware object is `discovery-{Agent ID}`.
+1. Tink Server checks if there is a Hardware object with the `spec.agentID` that matches the Agent ID.
 1. If no Hardware object exists, Tink server creates a new Hardware object with the name `discovery-{Agent ID}` and populates it with the Agent's attributes.
+
+> [!Note]
+> To create a Hardware object in Kubernetes using the Agent ID, we must follow the Kubernetes naming conventions. This means that the Hardware object name might be modified to fit the requirements, such as replacing invalid characters or truncating the name if it exceeds the maximum length. If the Agent ID is a MAC address, the `:` characters will be replaced with `-` to ensure the name is valid.
 
 > [!NOTE]  
 > As Auto Discovery requires the Tink Agent to connect to the Tink Server and the expectation is that no Hardware object exists, it is generally required that Auto Enrollment be enabled.

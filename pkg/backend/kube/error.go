@@ -26,3 +26,15 @@ func (h hardwareNotFoundError) Status() metav1.Status {
 		Code:   http.StatusNotFound,
 	}
 }
+
+type foundMultipleHardwareError struct {
+	id        string
+	namespace string
+	count     int
+}
+
+func (f foundMultipleHardwareError) MultipleFound() bool { return true }
+
+func (f foundMultipleHardwareError) Error() string {
+	return fmt.Sprintf("found %d hardware objects for agentID: %s, namespace: %s", f.count, f.id, f.namespace)
+}

@@ -50,6 +50,12 @@ spec:
           spec:
             description: HardwareSpec defines the desired state of Hardware.
             properties:
+              agentID:
+                description: |-
+                  AgentID is the unique identifier an Agent uses that is associated with this Hardware.
+                  This is used to identify Hardware during the discovery and enrollment process.
+                  It is typically the MAC address of the primary network interface.
+                type: string
               bmcRef:
                 description: |-
                   BMCRef contains a relation to a BMC state management type in the same

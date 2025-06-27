@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -12,21 +13,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	discoveryPrefix = "discovery-"
+)
+
 // Discover will create a Hardware object for an ID if it does not already exist.
 // The attrs will be used to populate the Hardware object.
 // If the Hardware object already exists, it will not be modified.
 // If the Hardware object is created, it will be created in the namespace defined in the AutoDiscovery configuration.
-func (h *Handler) Discover(ctx context.Context, id string, attrs *data.AgentAttributes) (*v1alpha1.Hardware, error) {
+func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.AgentAttributes) (*v1alpha1.Hardware, error) {
 	ns := h.AutoCapabilities.Discovery.Namespace
-	hwName := fmt.Sprintf("discovery-%s", id)
-	journal.Log(ctx, "Discovering hardware", "id", id, "hardwareName", hwName, "namespace", ns)
+	hwName, err := makeValidName(agentID, discoveryPrefix)
+	if err != nil {
+		journal.Log(ctx, "Error making discovery ID a valid Kubernetes name", "error", err)
+		return nil, fmt.Errorf("failed to make discovery ID %s a valid Kubernetes name: %w", agentID, err)
+	}
+	journal.Log(ctx, "Discovering hardware", "agentID", agentID, "hardwareName", hwName, "namespace", ns)
 
 	// Check if Hardware object already exists
-	existing, err := h.AutoCapabilities.Discovery.ReadHardware(ctx, hwName, ns)
+	existing, err := h.AutoCapabilities.Discovery.ReadHardware(ctx, agentID, ns)
 	if err == nil {
 		// Hardware object already exists, do not modify
 		journal.Log(ctx, "Hardware object already exists, skipping creation")
 		return existing, nil
+	}
+
+	if foundMultipleHardware(err) {
+		// Multiple Hardware objects found for the same ID, this is unexpected
+		journal.Log(ctx, "Multiple hardware objects found for the same ID", "error", err)
+		return nil, fmt.Errorf("multiple hardware objects found for ID %s in namespace %s: %w", agentID, ns, err)
 	}
 
 	if !apierrors.IsNotFound(err) {
@@ -47,7 +62,9 @@ func (h *Handler) Discover(ctx context.Context, id string, attrs *data.AgentAttr
 				"tinkerbell.org/auto-discovered": "true",
 			},
 		},
-		Spec: v1alpha1.HardwareSpec{},
+		Spec: v1alpha1.HardwareSpec{
+			AgentID: agentID,
+		},
 	}
 
 	if hw.Annotations == nil {
@@ -59,7 +76,7 @@ func (h *Handler) Discover(ctx context.Context, id string, attrs *data.AgentAttr
 	}
 
 	// Populate Hardware object with discovered attributes
-	updateHardware(hw, attrs)
+	updateHardware(ctx, hw, attrs)
 	journal.Log(ctx, "Populated hardware object with discovered attributes", "hardware", hw)
 
 	// Create the Hardware object in the cluster
@@ -72,7 +89,7 @@ func (h *Handler) Discover(ctx context.Context, id string, attrs *data.AgentAttr
 	return hw, nil
 }
 
-func updateHardware(hw *v1alpha1.Hardware, attrs *data.AgentAttributes) {
+func updateHardware(ctx context.Context, hw *v1alpha1.Hardware, attrs *data.AgentAttributes) {
 	if hw == nil || attrs == nil {
 		return
 	}
@@ -92,6 +109,11 @@ func updateHardware(hw *v1alpha1.Hardware, attrs *data.AgentAttributes) {
 	for _, iface := range attrs.NetworkInterfaces {
 		if iface != nil {
 			if iface.Mac != nil && *iface.Mac != "" {
+				// validate MAC address format
+				if _, err := net.ParseMAC(*iface.Mac); err != nil {
+					journal.Log(ctx, "Invalid MAC address format", "mac", *iface.Mac)
+					continue
+				}
 				hw.Spec.Interfaces = append(hw.Spec.Interfaces, v1alpha1.Interface{
 					DHCP: &v1alpha1.DHCP{
 						MAC: *iface.Mac,
@@ -100,4 +122,12 @@ func updateHardware(hw *v1alpha1.Hardware, attrs *data.AgentAttributes) {
 			}
 		}
 	}
+}
+
+func foundMultipleHardware(e error) bool {
+	type foundMultiple interface {
+		MultipleFound() bool
+	}
+	fn, ok := e.(foundMultiple)
+	return ok && fn.MultipleFound()
 }
