@@ -4,18 +4,18 @@
 # ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
 # helm install tinkerbell tinkerbell/ --create-namespace --namespace tinkerbell --wait --set "trustedProxies={${TRUSTED_PROXIES}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" --set "deployment.agentImageTag=latest" --set "deployment.imageTag=latest"
 artifactsFileServer:
-deploy: true
 deployment:
   additionalEnvs: []
   # - name: MY_ENV_VAR
   #   value: "my-value"
+  additionalArgs: []
+  # - "--my-arg=my-value"
   affinity: {}
   agentImage: ghcr.io/tinkerbell/tink-agent
   # agentImageTag is here as a placeholder and to show its possible to be set.
   # It is not set because in the deployment.yaml a coalesce is used with this value
   # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
   agentImageTag:
-  args: []
   daemonSet:
     enabled: false
   envs:
@@ -102,7 +102,7 @@ deployment:
       probeAddr: ""
     tinkServer:
       autoDiscoveryEnabled: false
-      autoDiscoveryNamespace: "default"
+      autoDiscoveryNamespace: "" # defaults to the namespace in which Tinkerbell is deployed.
       autoEnrollmentEnabled: false
       bindAddr: ""
       bindPort: 42113
@@ -141,7 +141,7 @@ deployment:
   selector: {}
   strategy:
     type: RollingUpdate
-  toleration: []
+  tolerations: []
   # Additional volumes on the output Deployment definition.
   volumes: []
   # - name: foo
