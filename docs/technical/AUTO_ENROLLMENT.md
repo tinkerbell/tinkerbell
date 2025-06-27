@@ -17,6 +17,10 @@ When an Agent connects to the Tink Server:
 1. Tink Server serves the first Workflow Action to the Agent.
 1. The Agent executes the Workflow Actions.
 
+> [!NOTE]  
+> As Auto Enrollment requires the Tink Agent to connect to the Tink Server and the expectation is that no Hardware object exists, it is generally required that the `--dhcp-mode` CLI flag or the `TINKERBELL_DHCP_MODE` environment variable be set to `auto-proxy`.
+> `auto-proxy` mode will gets a Machine into HookOS and running the Tink Agent without needing a pre-existing Hardware object. See the [DHCP Boot Modes documentation](DHCP_BOOT_MODES.md) for more details on the `auto-proxy` mode.
+
 ## How to enable Auto Enrollment
 
 There is a CLI flag and an environment variable.
