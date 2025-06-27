@@ -129,6 +129,60 @@ func TestHandlerDiscover(t *testing.T) {
 			wantErr:     false,
 			wantCreated: false,
 		},
+		"hardware with an invalid mac address": {
+			id: "test-id",
+			attrs: &data.AgentAttributes{
+				CPU: &data.CPU{
+					TotalCores:   toPtr(uint32(4)),
+					TotalThreads: toPtr(uint32(8)),
+				},
+				Memory: &data.Memory{
+					Total:  toPtr("8GB"),
+					Usable: toPtr("7GB"),
+				},
+				NetworkInterfaces: []*data.Network{
+					{
+						Name: toPtr("eth0"),
+						Mac:  toPtr("00:11:22:33:44:55"),
+					},
+					{
+						Name: toPtr("tunl0"),
+						Mac:  toPtr("00:00:00:00"), // This is a real example from a Raspberry Pi 4b
+					},
+				},
+				BlockDevices: []*data.Block{
+					{
+						Name: toPtr("sda"),
+					},
+				},
+				BIOS: &data.BIOS{
+					Vendor:  toPtr("TestVendor"),
+					Version: toPtr("1.0.0"),
+				},
+				Chassis: &data.Chassis{
+					Vendor: toPtr("TestManufacturer"),
+					Serial: toPtr("TestType"),
+				},
+			},
+			wantErr:     false,
+			wantCreated: true,
+			wantHardware: &tinkerbell.Hardware{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "discovery-test-id",
+					Namespace: "test-namespace",
+					Labels:    map[string]string{"tinkerbell.org/auto-discovered": "true"},
+					Annotations: map[string]string{
+						"tinkerbell.org/agent-attributes": `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"},{"name":"tunl0","mac":"00:00:00:00"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
+					},
+					ResourceVersion: "1",
+				},
+				Spec: tinkerbell.HardwareSpec{
+					AgentID:    "test-id",
+					Interfaces: []tinkerbell.Interface{{DHCP: &tinkerbell.DHCP{MAC: "00:11:22:33:44:55"}}},
+				},
+			},
+		},
 	}
 
 	for name, tc := range tests {
