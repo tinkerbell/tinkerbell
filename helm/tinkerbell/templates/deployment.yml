@@ -38,17 +38,12 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      nodeSelector:
-        {{- toYaml .Values.deployment.nodeSelector | nindent 8 }}
-      {{- if .Values.deployment.init.enabled }}
-      hostPID: true
-      {{- end }}
       containers:
         - name: tinkerbell
           image: {{ .Values.deployment.image }}:{{ coalesce .Values.deployment.imageTag .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.deployment.imagePullPolicy }}
-          args:
           {{- range .Values.deployment.additionalArgs }}
+          args:
             - {{ . }}
           {{- end }}
           env:
@@ -90,7 +85,7 @@ spec:
             - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_ENABLED
               value: {{ .Values.deployment.envs.tinkServer.autoDiscoveryEnabled | quote }}
             - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_NAMESPACE
-              value: {{ .Values.deployment.envs.tinkServer.autoDiscoveryNamespace | quote }}
+              value: {{ coalesce .Values.deployment.envs.tinkServer.autoDiscoveryNamespace .Release.Namespace | quote }}
           # TOOTLES
             - name: TINKERBELL_TOOTLES_BIND_ADDR
               value: {{ .Values.deployment.envs.tootles.bindAddr | quote }}
@@ -231,8 +226,8 @@ spec:
               value: {{ .Values.deployment.envs.globals.enableSecondstar | quote }}
             - name: TINKERBELL_ENABLE_CRD_MIGRATIONS
               value: {{ .Values.deployment.envs.globals.enableCRDMigrations | quote }}
-            # Additional environment variables
             {{- with .Values.deployment.additionalEnvs }}
+          # Additional environment variables
             {{- toYaml . | nindent 12 }}
             {{- end }}
           ports:
@@ -299,6 +294,21 @@ spec:
       {{- end }}
       {{- with  .Values.deployment.volumes }}
       {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.deployment.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.deployment.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.deployment.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.deployment.init.enabled }}
+      hostPID: true
       {{- end }}
       {{- if .Values.deployment.init.enabled }}
       initContainers:
