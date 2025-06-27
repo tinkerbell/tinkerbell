@@ -16,7 +16,7 @@ When an Agent connects to Tink Server:
 
 > [!NOTE]  
 > As Auto Discovery requires the Tink Agent to connect to the Tink Server and the expectation is that no Hardware object exists, it is generally required that Auto Enrollment be enabled.
-> To enable Auto Enrollment, see the [Auto Enrollment documentation](AUTO_ENROLLMENT.md) for more details.
+> To enable Auto Enrollment, see the [Auto Enrollment documentation](./AUTO_ENROLLMENT.md) for more details.
 
 ## How to Enable Auto Discovery
 

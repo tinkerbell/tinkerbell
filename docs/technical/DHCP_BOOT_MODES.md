@@ -39,7 +39,7 @@ This mode is used to disable all DHCP functionality in Tinkerbell. In this mode,
 
 #### DHCP Disabled Configuration
 
-To enable this mode set the CLI flag `--dhcp-enabled=false` or the environment variable `TINKERBELL_DHCP_ENABLED=false`. Smee will not respond to DHCP requests from clients.
+To enable this mode set the CLI flag `--dhcp-enabled=false` or the environment variable `TINKERBELL_DHCP_ENABLED=false`.
 
 ## Interoperability with other DHCP servers
 

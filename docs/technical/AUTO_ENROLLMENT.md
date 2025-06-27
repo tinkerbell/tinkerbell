@@ -19,7 +19,7 @@ When an Agent connects to the Tink Server:
 
 > [!NOTE]  
 > As Auto Enrollment requires the Tink Agent to connect to the Tink Server and the expectation is that no Hardware object exists, it is generally required that the `--dhcp-mode` CLI flag or the `TINKERBELL_DHCP_MODE` environment variable be set to `auto-proxy`.
-> `auto-proxy` mode will get a Machine into HookOS and running the Tink Agent without needing a pre-existing Hardware object. See the [DHCP Boot Modes documentation](DHCP_BOOT_MODES.md) for more details on the `auto-proxy` mode.
+> `auto-proxy` mode will get a Machine into HookOS and running the Tink Agent without needing a pre-existing Hardware object. See the [DHCP Boot Modes documentation](./DHCP_BOOT_MODES.md) for more details on the `auto-proxy` mode.
 
 ## How to enable Auto Enrollment
 
@@ -89,7 +89,7 @@ Once familiar with the attributes, you can create more specific WorkflowRuleSets
 
 ### Example of Agent attributes
 
-The following is an example of the attributes data structure and data types of an Agent. See also the Go struct definition [here](../../pkg/data/attributes.go).
+The following is an example of the attributes data structure and data types of an Agent. See also the [Go struct definition](../../pkg/data/attributes.go).
 
 ```json
 {
