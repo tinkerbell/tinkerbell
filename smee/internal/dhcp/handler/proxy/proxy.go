@@ -206,9 +206,11 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 		return
 	}
 	if n != nil && !n.AllowNetboot {
-		log.Info("Ignoring packet: netboot not allowed")
+		// if the netboot is not allowed, set the boot file name to "/<mac address>/netboot-not-allowed"
+		// this follows the same pattern and keeps the same user experience as the reservation handler.
+		reply.BootFileName = fmt.Sprintf("/%s/netboot-not-allowed", dp.Pkt.ClientHWAddr.String())
+		log.V(1).Info("netboot not allowed")
 		span.SetStatus(codes.Ok, "netboot not allowed")
-		return
 	}
 
 	log.Info(

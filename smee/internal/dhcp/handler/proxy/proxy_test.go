@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/netip"
 	"net/url"
@@ -118,9 +119,25 @@ func TestHandle(t *testing.T) {
 					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}),
 				),
 			},
-			peer:    &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 68},
-			md:      &dhcp.Metadata{IfName: lo.Name, IfIndex: lo.Index},
-			want:    nil,
+			peer: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 68},
+			md:   &dhcp.Metadata{IfName: lo.Name, IfIndex: lo.Index},
+			want: &dhcpv4.DHCPv4{
+				OpCode:         dhcpv4.OpcodeBootReply,
+				ClientHWAddr:   []byte{1, 2, 3, 4, 5, 6},
+				ClientIPAddr:   []byte{0, 0, 0, 0},
+				YourIPAddr:     []byte{0, 0, 0, 0},
+				ServerIPAddr:   []byte{127, 0, 0, 1},
+				GatewayIPAddr:  []byte{0, 0, 0, 0},
+				ServerHostName: "127.0.0.1",
+				BootFileName:   fmt.Sprintf("/%s/netboot-not-allowed", net.HardwareAddr([]byte{1, 2, 3, 4, 5, 6})),
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeOffer),
+					dhcpv4.OptServerIdentifier(net.IP{127, 0, 0, 1}),
+					dhcpv4.OptClassIdentifier("PXEClient"),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}),
+					dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{6: []byte{8}}.ToBytes()),
+				),
+			},
 			wantErr: false,
 		},
 		"valid netboot client discover": {
