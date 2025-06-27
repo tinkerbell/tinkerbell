@@ -33,11 +33,11 @@ This mode is used to provide next boot information to clients without requiring 
 
 To enable this mode set the CLI flag `--dhcp-mode=auto-proxy` or the environment variable `TINKERBELL_DHCP_MODE=auto-proxy`.
 
-### DHCP disabled
+### DHCP Disabled
 
 This mode is used to disable all DHCP functionality in Tinkerbell. In this mode, the user is required to handle all DHCP functionality.
 
-#### DHCP disabled Configuration
+#### DHCP Disabled Configuration
 
 To enable this mode set the CLI flag `--dhcp-enabled=false` or the environment variable `TINKERBELL_DHCP_ENABLED=false`. Smee will not respond to DHCP requests from clients.
 
