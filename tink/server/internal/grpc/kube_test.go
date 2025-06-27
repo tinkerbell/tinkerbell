@@ -109,6 +109,11 @@ func TestMakeValid(t *testing.T) {
 			inputPrefix:  "enrollment-",
 			expectedName: "enrollment-hello123456gaa",
 		},
+		"convert MAC address to valid name": {
+			inputName:    "3c:ec:ef:4c:4f:54",
+			inputPrefix:  "enrollment-",
+			expectedName: "enrollment-3c-ec-ef-4c-4f-54",
+		},
 	}
 
 	for name, test := range testCases {

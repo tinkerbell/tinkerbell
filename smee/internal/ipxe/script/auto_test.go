@@ -29,6 +29,7 @@ func TestGenerateTemplate(t *testing.T) {
 			},
 			script: HookScript,
 			want: `#!ipxe
+set syslog 1.2.3.4
 
 echo Loading the Tinkerbell Hook iPXE script...
 
@@ -88,6 +89,7 @@ exit
 			},
 			script: HookScript,
 			want: `#!ipxe
+set syslog 1.2.3.4
 
 echo Loading the Tinkerbell Hook iPXE script...
 

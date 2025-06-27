@@ -73,6 +73,7 @@ func TestHandlerDiscover(t *testing.T) {
 					ResourceVersion: "1",
 				},
 				Spec: tinkerbell.HardwareSpec{
+					AgentID:    "test-id",
 					Interfaces: []tinkerbell.Interface{{DHCP: &tinkerbell.DHCP{MAC: "00:11:22:33:44:55"}}},
 				},
 			},

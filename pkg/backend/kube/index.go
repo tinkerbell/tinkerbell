@@ -14,6 +14,7 @@ const (
 	IndexTypeHardwareName    IndexType = "hardware.metadata.name"
 	IndexTypeMachineName     IndexType = "machine.metadata.name"
 	IndexTypeWorkflowAgentID IndexType = WorkflowByAgentID
+	IndexTypeHardwareAgentID IndexType = HardwareByAgentID
 )
 
 // Indexes that are currently known.
@@ -42,6 +43,11 @@ var Indexes = map[IndexType]Index{
 		Obj:          &tinkerbell.Workflow{},
 		Field:        WorkflowByAgentID,
 		ExtractValue: WorkflowByAgentIDFunc,
+	},
+	IndexTypeHardwareAgentID: {
+		Obj:          &tinkerbell.Hardware{},
+		Field:        HardwareByAgentID,
+		ExtractValue: HardwareByAgentIDFunc,
 	},
 }
 
@@ -124,4 +130,17 @@ func WorkflowByAgentIDFunc(obj client.Object) []string {
 		return []string{}
 	}
 	return []string{wf.Status.AgentID}
+}
+
+const HardwareByAgentID = ".spec.agentID"
+
+func HardwareByAgentIDFunc(obj client.Object) []string {
+	hw, ok := obj.(*tinkerbell.Hardware)
+	if !ok {
+		return nil
+	}
+	if hw.Spec.AgentID == "" {
+		return []string{}
+	}
+	return []string{hw.Spec.AgentID}
 }

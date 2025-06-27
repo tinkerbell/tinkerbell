@@ -3,6 +3,10 @@ package script
 // HookScript is the default iPXE script for loading Hook.
 var HookScript = `#!ipxe
 
+{{- if .SyslogHost }}
+set syslog {{ .SyslogHost }}
+{{- end}}
+
 echo Loading the Tinkerbell Hook iPXE script...
 {{- if .TraceID }}
 echo Debug TraceID: {{ .TraceID }}
