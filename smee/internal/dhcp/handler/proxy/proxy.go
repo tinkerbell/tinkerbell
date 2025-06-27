@@ -91,7 +91,8 @@ type Netboot struct {
 	UserClass dhcp.UserClass
 }
 
-// Redirection name comes from section 2.5 of http://www.pix.net/software/pxeboot/archive/pxespec.pdf
+// Handle implements a ProxyDHCP Redirection server.
+// The Redirection name comes from section 2.5 of http://www.pix.net/software/pxeboot/archive/pxespec.pdf
 func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Packet) {
 	// validations
 	if dp.Pkt == nil {
@@ -197,19 +198,17 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	// set bootfile header
 	reply.BootFileName = i.Bootfile("", h.Netboot.IPXEScriptURL(dp.Pkt), h.Netboot.IPXEBinServerHTTP, h.Netboot.IPXEBinServerTFTP)
 
-	if !h.AutoProxyEnabled {
-		// check the backend, if PXE is NOT allowed, set the boot file name to "/<mac address>/not-allowed"
-		_, n, err := h.Backend.GetByMac(ctx, dp.Pkt.ClientHWAddr)
-		if err != nil {
-			log.Info("Ignoring packet", "error", err.Error())
-			span.SetStatus(codes.Error, err.Error())
-			return
-		}
-		if n != nil && !n.AllowNetboot {
-			log.Info("Ignoring packet: netboot not allowed")
-			span.SetStatus(codes.Ok, "netboot not allowed")
-			return
-		}
+	// check the backend, if PXE is NOT allowed, set the boot file name to "/<mac address>/not-allowed"
+	_, n, err := h.Backend.GetByMac(ctx, dp.Pkt.ClientHWAddr)
+	if err != nil && !h.AutoProxyEnabled {
+		log.Info("Ignoring packet", "error", err.Error())
+		span.SetStatus(codes.Error, err.Error())
+		return
+	}
+	if n != nil && !n.AllowNetboot {
+		log.Info("Ignoring packet: netboot not allowed")
+		span.SetStatus(codes.Ok, "netboot not allowed")
+		return
 	}
 
 	log.Info(
