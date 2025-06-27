@@ -14,6 +14,10 @@ When an Agent connects to Tink Server:
 1. Tink Server checks if an existing Hardware object exists for the Agent in the configured namespace. The name of the Hardware object is `discovery-{Agent ID}`.
 1. If no Hardware object exists, Tink server creates a new Hardware object with the name `discovery-{Agent ID}` and populates it with the Agent's attributes.
 
+> [!NOTE]  
+> As Auto Discovery requires the Tink Agent to connect to the Tink Server and the expectation is that no Hardware object exists, it is generally required that Auto Enrollment be enabled.
+> To enable Auto Enrollment, see the [Auto Enrollment documentation](./AUTO_ENROLLMENT.md) for more details.
+
 ## How to Enable Auto Discovery
 
 There is a CLI flag and an environment variable to enable auto discovery.
