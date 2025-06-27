@@ -79,7 +79,7 @@ func (b *Backend) ReadHardware(ctx context.Context, id, namespace string) (*v1al
 
 	if len(hw.Items) > 1 {
 		// This is unexpected, as we should not have multiple hardware objects with the same agent ID.
-		return nil, &foundMultipleHardwareError{name: id, namespace: namespace, count: len(hw.Items)}
+		return nil, &foundMultipleHardwareError{id: id, namespace: namespace, count: len(hw.Items)}
 	}
 
 	return &hw.Items[0], nil

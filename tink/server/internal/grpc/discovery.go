@@ -21,17 +21,17 @@ const (
 // The attrs will be used to populate the Hardware object.
 // If the Hardware object already exists, it will not be modified.
 // If the Hardware object is created, it will be created in the namespace defined in the AutoDiscovery configuration.
-func (h *Handler) Discover(ctx context.Context, id string, attrs *data.AgentAttributes) (*v1alpha1.Hardware, error) {
+func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.AgentAttributes) (*v1alpha1.Hardware, error) {
 	ns := h.AutoCapabilities.Discovery.Namespace
-	hwName, err := makeValidName(id, discoveryPrefix)
+	hwName, err := makeValidName(agentID, discoveryPrefix)
 	if err != nil {
 		journal.Log(ctx, "Error making discovery ID a valid Kubernetes name", "error", err)
-		return nil, fmt.Errorf("failed to make discovery ID %s a valid Kubernetes name: %w", id, err)
+		return nil, fmt.Errorf("failed to make discovery ID %s a valid Kubernetes name: %w", agentID, err)
 	}
-	journal.Log(ctx, "Discovering hardware", "id", id, "hardwareName", hwName, "namespace", ns)
+	journal.Log(ctx, "Discovering hardware", "agentID", agentID, "hardwareName", hwName, "namespace", ns)
 
 	// Check if Hardware object already exists
-	existing, err := h.AutoCapabilities.Discovery.ReadHardware(ctx, id, ns)
+	existing, err := h.AutoCapabilities.Discovery.ReadHardware(ctx, agentID, ns)
 	if err == nil {
 		// Hardware object already exists, do not modify
 		journal.Log(ctx, "Hardware object already exists, skipping creation")
@@ -41,7 +41,7 @@ func (h *Handler) Discover(ctx context.Context, id string, attrs *data.AgentAttr
 	if foundMultipleHardware(err) {
 		// Multiple Hardware objects found for the same ID, this is unexpected
 		journal.Log(ctx, "Multiple hardware objects found for the same ID", "error", err)
-		return nil, fmt.Errorf("multiple hardware objects found for ID %s in namespace %s: %w", id, ns, err)
+		return nil, fmt.Errorf("multiple hardware objects found for ID %s in namespace %s: %w", agentID, ns, err)
 	}
 
 	if !apierrors.IsNotFound(err) {
@@ -63,7 +63,7 @@ func (h *Handler) Discover(ctx context.Context, id string, attrs *data.AgentAttr
 			},
 		},
 		Spec: v1alpha1.HardwareSpec{
-			AgentID: id,
+			AgentID: agentID,
 		},
 	}
 

@@ -28,7 +28,7 @@ func (h hardwareNotFoundError) Status() metav1.Status {
 }
 
 type foundMultipleHardwareError struct {
-	name      string
+	id        string
 	namespace string
 	count     int
 }
@@ -36,5 +36,5 @@ type foundMultipleHardwareError struct {
 func (f foundMultipleHardwareError) MultipleFound() bool { return true }
 
 func (f foundMultipleHardwareError) Error() string {
-	return fmt.Sprintf("found %d hardware objects for name: %s, namespace: %s", f.count, f.name, f.namespace)
+	return fmt.Sprintf("found %d hardware objects for agentID: %s, namespace: %s", f.count, f.id, f.namespace)
 }
