@@ -4,8 +4,8 @@ go 1.24.1
 
 require (
 	github.com/google/go-cmp v0.7.0
-	k8s.io/api v0.33.1
-	k8s.io/apimachinery v0.33.1
+	k8s.io/api v0.33.2
+	k8s.io/apimachinery v0.33.2
 )
 
 require (
