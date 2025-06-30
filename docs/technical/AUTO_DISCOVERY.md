@@ -45,7 +45,7 @@ or set the Helm value from the CLI:
 
 ## Configuring Auto Discovery
 
-Auto discovery has a couple configuration options. Theses are the `namespace` and what value should be used for `Hardware.spec.auto.enrollmentEnabled`. 
+Auto discovery has a couple configuration options. These are the `namespace` and the value for `Hardware.spec.auto.enrollmentEnabled`.
 
 ### Namespace Configuration
 

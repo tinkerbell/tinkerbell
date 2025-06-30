@@ -41,6 +41,12 @@ deployment:
       autoEnrollmentEnabled: true
 ```
 
+or set the Helm value from the CLI:
+
+```bash
+--set "deployment.envs.tinkServer.autoEnrollmentEnabled=true"
+```
+
 ## How to configure a WorkflowRuleSet
 
 WorkflowRuleSets are Kubernetes Custom Resource Definitions (CRDs). Here is an example WorkflowRuleSet.
