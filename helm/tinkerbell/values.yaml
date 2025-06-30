@@ -101,6 +101,7 @@ deployment:
       metricsAddr: ""
       probeAddr: ""
     tinkServer:
+      autoDiscoveryAutoEnrollmentEnabled: false
       autoDiscoveryEnabled: false
       autoDiscoveryNamespace: "" # defaults to the namespace in which Tinkerbell is deployed.
       autoEnrollmentEnabled: false

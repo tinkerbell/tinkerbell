@@ -31,17 +31,11 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 	journal.Log(ctx, "Discovering hardware", "agentID", agentID, "hardwareName", hwName, "namespace", ns)
 
 	// Check if Hardware object already exists
-	existing, err := h.AutoCapabilities.Discovery.ReadHardware(ctx, agentID, ns)
+	existing, err := h.hardware(ctx, agentID)
 	if err == nil {
 		// Hardware object already exists, do not modify
 		journal.Log(ctx, "Hardware object already exists, skipping creation")
 		return existing, nil
-	}
-
-	if foundMultipleHardware(err) {
-		// Multiple Hardware objects found for the same ID, this is unexpected
-		journal.Log(ctx, "Multiple hardware objects found for the same ID", "error", err)
-		return nil, fmt.Errorf("multiple hardware objects found for ID %s in namespace %s: %w", agentID, ns, err)
 	}
 
 	if !apierrors.IsNotFound(err) {
@@ -64,6 +58,9 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 		},
 		Spec: v1alpha1.HardwareSpec{
 			AgentID: agentID,
+			Auto: v1alpha1.AutoCapabilities{
+				EnrollmentEnabled: h.AutoCapabilities.Discovery.EnrollmentEnabled,
+			},
 		},
 	}
 
@@ -84,6 +81,15 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 		journal.Log(ctx, "Error creating hardware object", "error", err)
 		return nil, fmt.Errorf("failed to create hardware object %s/%s: %w", ns, hwName, err)
 	}
+
+	// If we created the Hardware object we use the h.AutoCapabilities.Discovery.EnrollmentEnabled field to set
+	// the enrollmentEnabled field in the Hardware spec. This is the value that gets persisted in the cluster.
+	// In order to allow auto enrollment to create Workflows for this Hardware, we set this field to true here.
+	// This only sets the field in memory so that auto enrollment will create a Workflow.
+	// This enables a one-time auto enrollment for this Hardware object.
+	// If the desired behavior is to always have auto enrollment enabled for discovered Hardware,
+	// then the user should edit the Hardware object after creation.
+	hw.Spec.Auto.EnrollmentEnabled = true
 
 	journal.Log(ctx, "Hardware object created successfully", "hardwareName", hwName, "namespace", ns)
 	return hw, nil
@@ -122,12 +128,4 @@ func updateHardware(ctx context.Context, hw *v1alpha1.Hardware, attrs *data.Agen
 			}
 		}
 	}
-}
-
-func foundMultipleHardware(e error) bool {
-	type foundMultiple interface {
-		MultipleFound() bool
-	}
-	fn, ok := e.(foundMultiple)
-	return ok && fn.MultipleFound()
 }
