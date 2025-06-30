@@ -54,7 +54,7 @@ type options struct {
 
 func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
 	operation := func() (*proto.ActionResponse, error) {
-		opts := &options{
+		opts := options{
 			AutoCapabilities: h.AutoCapabilities,
 		}
 		return h.doGetAction(ctx, req, opts)
@@ -75,7 +75,7 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 	return resp, nil
 }
 
-func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opts *options) (*proto.ActionResponse, error) {
+func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opts options) (*proto.ActionResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, status.Error(codes.Unavailable, "server shutting down")
@@ -92,18 +92,18 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		return nil, status.Errorf(codes.InvalidArgument, "invalid Agent ID")
 	}
 
-	var hwRef *string
+	var hwRef *tinkerbell.Hardware
 	// handle auto discovery
-	if opts != nil && opts.AutoCapabilities.Discovery.Enabled {
+	if opts.AutoCapabilities.Discovery.Enabled {
+		journal.Log(ctx, "auto discovery triggered")
 		// Check if there is an existing Hardware Object.
-		// If not, create one.
+		// If not, Discovery creates one.
 		hw, err := h.Discover(ctx, req.GetAgentId(), convert(req.GetAgentAttributes()))
 		if err != nil {
 			journal.Log(ctx, "error auto discovering Hardware", "error", err)
-			log.Info("error auto discovering Hardware", "error", err)
 			return nil, status.Errorf(codes.Internal, "error auto discovering Hardware: %v", err)
 		}
-		hwRef = &hw.Name
+		hwRef = hw
 	}
 
 	wfs, err := h.BackendReadWriter.ReadAll(ctx, req.GetAgentId())
@@ -113,8 +113,16 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
 	if len(wfs) == 0 {
-		if opts != nil && opts.AutoCapabilities.Enrollment.Enabled {
+		if opts.AutoCapabilities.Enrollment.Enabled {
 			journal.Log(ctx, "auto enrollment triggered")
+			// If auto discovery is disabled, we do a Hardware object lookup.
+			// If auto discovery is enabled, we rely on the lookup and/or creation of a Hardware object from the Discover method.
+			// This means that only one Hardware lookup call is every made to the backend.
+			if !opts.AutoCapabilities.Discovery.Enabled {
+				if hw, err := h.hardware(ctx, req.GetAgentId()); err == nil {
+					hwRef = hw
+				}
+			}
 			return h.enroll(ctx, req.GetAgentId(), convert(req.GetAgentAttributes()), hwRef)
 		}
 		journal.Log(ctx, "no Workflow found")

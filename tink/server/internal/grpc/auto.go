@@ -53,7 +53,12 @@ type AutoEnrollment struct {
 // An empty namespace will cause all Hardware Objects to be created in the same
 // namespace as the Tink Server.
 type AutoDiscovery struct {
-	Enabled   bool
+	// Enabled defines whether auto discovery is enabled.
+	Enabled bool
+	// Namespace defines the namespace to use when creating the Hardware Object.
 	Namespace string
+	// This sets the value of the tinkerbell.Hardware.Spec.Auto.EnrollmentEnabled field.
+	// If this is true, then auto enrollment will create Workflows for this Hardware.
+	EnrollmentEnabled bool
 	AutoDiscoveryReadCreator
 }

@@ -56,6 +56,16 @@ spec:
                   This is used to identify Hardware during the discovery and enrollment process.
                   It is typically the MAC address of the primary network interface.
                 type: string
+              auto:
+                description: Auto is the configuration for the automatic capabilities.
+                properties:
+                  enrollmentEnabled:
+                    default: false
+                    description: |-
+                      EnrollmentEnabled enables automatic enrollment of the Hardware.
+                      When set to true, auto enrollment will create Workflows for this Hardware.
+                    type: boolean
+                type: object
               bmcRef:
                 description: |-
                   BMCRef contains a relation to a BMC state management type in the same
