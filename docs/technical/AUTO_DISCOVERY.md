@@ -45,7 +45,11 @@ or set the Helm value from the CLI:
 
 ## Configuring Auto Discovery
 
-Auto discovery has one configuration option. This option is for the namespace where new Hardware objects will be created. The default namespace is `default`.
+Auto discovery has a couple configuration options. Theses are the `namespace` and what value should be used for `Hardware.spec.auto.enrollmentEnabled`. 
+
+### Namespace Configuration
+
+This option is for the namespace where new Hardware objects will be created. The default namespace is `default`.
 There is a CLI flag and an environment variable to set the namespace.
 
 - **CLI flag**: `--tink-server-auto-discovery-namespace=<namespace>`
@@ -66,6 +70,28 @@ or set the Helm value from the CLI:
 --set "deployment.envs.tinkServer.autoDiscoveryNamespace=<namespace>"
 ```
 
+### Auto Enrollment Enabled Configuration
+
+This option is for the value that will be set for `Hardware.spec.auto.enrollmentEnabled` when a new Hardware object is created by auto discovery. The default value is `false`. False means that a newly created Hardware object will only run an enrollment Workflow once. There is a CLI flag and an environment variable to set this value.
+
+- **CLI flag**: `--tink-server-auto-discovery-auto-enrollment-enabled=<true|false>`
+- **Environment variable**: `TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_AUTO_ENROLLMENT_ENABLED=<true|false>`
+
+In the Helm chart, use the following configuration in the `values.yaml` file:
+
+```yaml
+deployment:
+  envs:
+    tinkServer:
+      autoDiscoveryAutoEnrollmentEnabled: <true|false>
+```
+
+or set the Helm value from the CLI:
+
+```bash
+--set "deployment.envs.tinkServer.autoDiscoveryAutoEnrollmentEnabled=<true|false>"
+```
+
 ## Hardware Object Creation
 
 When a Hardware object is created by auto discovery, the following fields are populated. The example `Value` below are only examples and will vary based on the Agent's actual attributes and configuration.
@@ -76,6 +102,8 @@ When a Hardware object is created by auto discovery, the following fields are po
 | `metadata.namespace` | `default` | Namespace where the Hardware object is created, configured in the Tink server. |
 | `metadata.labels` | `{"tinkerbell.org/auto-discovered": "true"}` | Label indicating that this Hardware object was created by auto discovery. |
 | `metadata.annotations` | `tinkerbell.org/agent-attributes: '{"cpu":...}'` | Contains the full Agent attributes in JSON format. |
+| `spec.agentID` | `{Agent ID}` | The Agent ID of the discovered hardware, typically the MAC address. |
+| `spec.auto.enrollmentEnabled` | `true` or `false` | The value configured for `Hardware.spec.auto.enrollmentEnabled` in the Tink server. |
 | `spec.disks` | `- device: /dev/sda` | All disks, from the Agent attributes, with a non empty size will be added to the `spec.disks` list. |
 | `spec.interfaces.dhcp` | `- mac: {MAC address}` | All non empty MAC address, from the Agent attributes, will be added to a new item in the `spec.interfaces` list. |
 

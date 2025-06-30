@@ -31,8 +31,14 @@ type match struct {
 
 // enroll creates a Workflow for an agentID by matching the attr against WorkflowRuleSets.
 // auto enrollment does not support Templates with multiple Agents defined.
-func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAttributes, hardwareRef *string) (*proto.ActionResponse, error) {
+func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAttributes, hardware *tinkerbell.Hardware) (*proto.ActionResponse, error) {
 	log := h.Logger.WithValues("agentID", agentID)
+	// If auto enrollment is not enabled, then we do not create a Workflow for the AgentID.
+	if hardware != nil && !hardware.Spec.Auto.EnrollmentEnabled {
+		journal.Log(ctx, "auto enrollment is disabled for this hardware", "hardware", hardware.Name)
+		return nil, status.Errorf(codes.FailedPrecondition, "auto enrollment is disabled for this hardware")
+	}
+
 	// Get all WorkflowRuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
 	// using github.com/timbray/quamina
 	// If there is a match, create a Workflow for the AgentID.
@@ -84,8 +90,8 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 				Disabled:    final.wrs.Spec.Workflow.Disabled,
 			},
 		}
-		if hardwareRef != nil && *hardwareRef != "" {
-			awf.Spec.HardwareRef = *hardwareRef
+		if hardware != nil {
+			awf.Spec.HardwareRef = hardware.Name
 		}
 
 		if final.wrs.Spec.Workflow.AddAttributes {
@@ -164,7 +170,7 @@ func findMatch(wr tinkerbell.WorkflowRuleSet, attr *data.AgentAttributes, curMat
 // getActionNoAuto calls to the doGetAction method with a retry mechanism that disables auto capabilities.
 func (h *Handler) getActionNoAuto(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
 	operation := func() (*proto.ActionResponse, error) {
-		opts := &options{
+		opts := options{
 			AutoCapabilities: AutoCapabilities{
 				Enrollment: AutoEnrollment{
 					Enabled: false,

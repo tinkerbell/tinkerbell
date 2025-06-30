@@ -17,14 +17,28 @@ import (
 )
 
 type Config struct {
-	Backend                grpcinternal.BackendReadWriter
-	AutoEnrollmentBackend  grpcinternal.AutoEnrollmentReadCreator
-	AutoDiscoveryBackend   grpcinternal.AutoDiscoveryReadCreator
-	BindAddrPort           netip.AddrPort
-	Logger                 logr.Logger
-	AutoEnrollmentEnabled  bool
-	AutoDiscoveryEnabled   bool
-	AutoDiscoveryNamespace string
+	Backend grpcinternal.BackendReadWriter
+
+	BindAddrPort netip.AddrPort
+	Logger       logr.Logger
+	Auto         AutoCapabilities
+}
+
+type AutoCapabilities struct {
+	Enrollment Enrollment
+	Discovery  Discovery
+}
+
+type Enrollment struct {
+	Enabled bool
+	Backend grpcinternal.AutoEnrollmentReadCreator
+}
+
+type Discovery struct {
+	Enabled           bool
+	Namespace         string
+	EnrollmentEnabled bool
+	Backend           grpcinternal.AutoDiscoveryReadCreator
 }
 
 // Option is a functional option type.
@@ -33,7 +47,14 @@ type Option func(*Config)
 // WithAutoDiscoveryNamespace sets the namespace for auto discovery.
 func WithAutoDiscoveryNamespace(ns string) Option {
 	return func(c *Config) {
-		c.AutoDiscoveryNamespace = ns
+		c.Auto.Discovery.Namespace = ns
+	}
+}
+
+// WithAutoDiscoveryAutoEnrollmentEnabled sets the value for hardware.spec.auto.enrollmentEnabled when auto discovery creates Hardware objects.
+func WithAutoDiscoveryAutoEnrollmentEnabled(enabled bool) Option {
+	return func(c *Config) {
+		c.Auto.Discovery.EnrollmentEnabled = enabled
 	}
 }
 
@@ -73,13 +94,14 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		NowFunc:           time.Now,
 		AutoCapabilities: grpcinternal.AutoCapabilities{
 			Enrollment: grpcinternal.AutoEnrollment{
-				Enabled:     c.AutoEnrollmentEnabled,
-				ReadCreator: c.AutoEnrollmentBackend,
+				Enabled:     c.Auto.Enrollment.Enabled,
+				ReadCreator: c.Auto.Enrollment.Backend,
 			},
 			Discovery: grpcinternal.AutoDiscovery{
-				Enabled:                  c.AutoDiscoveryEnabled,
-				Namespace:                c.AutoDiscoveryNamespace,
-				AutoDiscoveryReadCreator: c.AutoDiscoveryBackend,
+				Enabled:                  c.Auto.Discovery.Enabled,
+				Namespace:                c.Auto.Discovery.Namespace,
+				EnrollmentEnabled:        c.Auto.Discovery.EnrollmentEnabled,
+				AutoDiscoveryReadCreator: c.Auto.Discovery.Backend,
 			},
 		},
 	}

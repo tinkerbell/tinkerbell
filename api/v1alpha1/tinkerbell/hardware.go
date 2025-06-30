@@ -50,6 +50,9 @@ type HardwareSpec struct {
 	// It is typically the MAC address of the primary network interface.
 	AgentID string `json:"agentID,omitempty"`
 
+	// Auto is the configuration for the automatic capabilities.
+	Auto AutoCapabilities `json:"auto,omitempty"`
+
 	// BMCRef contains a relation to a BMC state management type in the same
 	// namespace as the Hardware. This may be used for BMC management by
 	// orchestrators.
@@ -304,4 +307,12 @@ type Disk struct {
 type HardwareStatus struct {
 	//+optional
 	State HardwareState `json:"state,omitempty"`
+}
+
+// AutoCapabilities defines the configuration for the automatic capabilities of this Hardware.
+type AutoCapabilities struct {
+	// EnrollmentEnabled enables automatic enrollment of the Hardware.
+	// When set to true, auto enrollment will create Workflows for this Hardware.
+	// +kubebuilder:default=false
+	EnrollmentEnabled bool `json:"enrollmentEnabled,omitempty"`
 }
