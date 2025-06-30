@@ -246,8 +246,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		h.Config.BackendEc2 = b
 		h.Config.BackendHack = b
 		ts.Config.Backend = b
-		ts.Config.AutoEnrollmentBackend = b
-		ts.Config.AutoDiscoveryBackend = b
+		ts.Config.Auto.Enrollment.Backend = b
+		ts.Config.Auto.Discovery.Backend = b
 		tc.Config.Client = b.ClientConfig
 		tc.Config.DynamicClient = b
 		rc.Config.Client = b.ClientConfig

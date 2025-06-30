@@ -11,9 +11,10 @@ Auto enrollment automatically creates a Workflow for Tink Agents without having 
 When an Agent connects to the Tink Server:
 
 1. The Agent sends its attributes (serial numbers, MAC addresses, etc.) to the Tink server.
-1. If no workflow exists for the Agent, and auto enrollment is enabled, Tink server:
+1. Check if there is a Hardware object with the `spec.agentID` that matches the Agent ID.
+1. If no workflow exists for the Agent, and auto enrollment is enabled and no Hardware object exists or `Hardware.spec.auto.enrollmentEnabled=true`, Tink server:
    1. Iterates through all WorkflowRuleSets and checks for a rule that matches the Agent's attributes.
-   2. Creates a Workflow for the Agent based on the matched WorkflowRuleSet.
+   1. Creates a Workflow for the Agent based on the matched WorkflowRuleSet.
 1. Tink Server serves the first Workflow Action to the Agent.
 1. The Agent executes the Workflow Actions.
 

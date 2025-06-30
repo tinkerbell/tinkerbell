@@ -25,9 +25,10 @@ func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {
 	fs.Register(TinkServerBindAddr, &ntip.Addr{Addr: &t.BindAddr})
 	fs.Register(TinkServerBindPort, ffval.NewValueDefault(&t.BindPort, t.BindPort))
 	fs.Register(TinkServerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
-	fs.Register(TinkServerAutoEnrollmentEnabled, ffval.NewValueDefault(&t.Config.AutoEnrollmentEnabled, t.Config.AutoEnrollmentEnabled))
-	fs.Register(TinkerbellAutoDiscoveryNamespace, ffval.NewValueDefault(&t.Config.AutoDiscoveryNamespace, t.Config.AutoDiscoveryNamespace))
-	fs.Register(TinkerbellAutoDiscoveryEnabled, ffval.NewValueDefault(&t.Config.AutoDiscoveryEnabled, t.Config.AutoDiscoveryEnabled))
+	fs.Register(TinkServerAutoEnrollmentEnabled, ffval.NewValueDefault(&t.Config.Auto.Enrollment.Enabled, t.Config.Auto.Enrollment.Enabled))
+	fs.Register(TinkerbellAutoDiscoveryEnabled, ffval.NewValueDefault(&t.Config.Auto.Discovery.Enabled, t.Config.Auto.Discovery.Enabled))
+	fs.Register(TinkerbellAutoDiscoveryAutoEnrollmentEnabled, ffval.NewValueDefault(&t.Config.Auto.Discovery.EnrollmentEnabled, t.Config.Auto.Discovery.EnrollmentEnabled))
+	fs.Register(TinkerbellAutoDiscoveryNamespace, ffval.NewValueDefault(&t.Config.Auto.Discovery.Namespace, t.Config.Auto.Discovery.Namespace))
 }
 
 // Convert TinkServerConfig data types to tink server server.Config data types.
@@ -63,4 +64,9 @@ var TinkerbellAutoDiscoveryEnabled = Config{
 var TinkerbellAutoDiscoveryNamespace = Config{
 	Name:  "tink-server-auto-discovery-namespace",
 	Usage: "namespace in which the Tink server will create auto discovered Hardware objects",
+}
+
+var TinkerbellAutoDiscoveryAutoEnrollmentEnabled = Config{
+	Name:  "tink-server-auto-discovery-auto-enrollment-enabled",
+	Usage: "this tells auto discovery the value to set for the hardware.spec.auto.enrollmentEnabled field when creating Hardware objects",
 }
