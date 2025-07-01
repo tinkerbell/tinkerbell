@@ -124,12 +124,38 @@ data:
         echo "${checksums}"
     }
 
-    function rename_6_6_artifacts() {
-        # rename them to the expected kernel and initramfs naming convention expected by auto.ipxe
-        mv ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
-        mv ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
-        mv ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
-        mv ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
+    function rename_all_artifacts() {
+        # this will rename the 5.10 artifacts and create symlinks for the requested version.
+        # if version 5.10 is requested, then it will be renamed and symlinked to vmlinuz-x86_64 and initramfs-x86_64
+        # if version 6.6 is requested, then it will be symlinked to vmlinuz-x86_64 and initramfs-x86_64
+        # if version both is requested, then the 6.6 kernel will be symlinked to vmlinuz-x86_64 and initramfs-x86_64
+        local version="$1"
+        if [[ "${version}" == "5.10" ]]; then
+            mv ./vmlinuz-x86_64 ./vmlinuz-x86_64-5.10
+            mv ./initramfs-x86_64 ./initramfs-x86_64-5.10
+            mv ./vmlinuz-aarch64 ./vmlinuz-aarch64-5.10
+            mv ./initramfs-aarch64 ./initramfs-aarch64-5.10
+            # create symlinks for the latest version
+            ln -nfs ./vmlinuz-x86_64-5.10 ./vmlinuz-x86_64
+            ln -nfs ./initramfs-x86_64-5.10 ./initramfs-x86_64
+            ln -nfs ./vmlinuz-aarch64-5.10 ./vmlinuz-aarch64
+            ln -nfs ./initramfs-aarch64-5.10 ./initramfs-aarch64
+        elif [[ "${version}" == "6.6" ]]; then
+            ln -nfs ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
+            ln -nfs ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
+            ln -nfs ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
+            ln -nfs ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
+        elif [[ "${version}" == "both" ]]; then
+            mv ./vmlinuz-x86_64 ./vmlinuz-x86_64-5.10
+            mv ./initramfs-x86_64 ./initramfs-x86_64-5.10
+            mv ./vmlinuz-aarch64 ./vmlinuz-aarch64-5.10
+            mv ./initramfs-aarch64 ./initramfs-aarch64-5.10
+            ln -nfs ./vmlinuz-latest-lts-x86_64 ./vmlinuz-x86_64
+            ln -nfs ./initramfs-latest-lts-x86_64 ./initramfs-x86_64
+            ln -nfs ./vmlinuz-latest-lts-aarch64 ./vmlinuz-aarch64
+            ln -nfs ./initramfs-latest-lts-aarch64 ./initramfs-aarch64
+        fi
+        echo "==> Renamed artifacts for version ${version}"
     }
     
     # default values
@@ -232,12 +258,9 @@ data:
         if run_checksum512 "${checksums}" "${output_dir}"; then
             cd "${output_dir}"
             echo "==> Extracting existing artifacts"
-            for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done    
-            # If 6.6 is selected, rename them to the expected kernel and initramfs naming convention expected by auto.ipxe
-            if [[ "${version}" == "6.6" ]]; then
-                echo "==> Renaming 6.6 kernel artifacts"
-                rename_6_6_artifacts
-            fi
+            for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done
+            echo "==> Renaming all artifacts to expected naming convention"
+            rename_all_artifacts "${version}"
             return 0
         fi
     
@@ -253,11 +276,8 @@ data:
         cd "${output_dir}"
         echo "==> Extracting artifacts"
         for f in $(ls *.tar.gz | grep -vE "^dtbs"); do echo "==> Extracting ${f}"; tar --no-same-permissions --overwrite -ozxvf "${f}"; done
-        # If 6.6 is selected, rename them to the expected kernel and initramfs naming convention expected by auto.ipxe
-        if [[ "${version}" == "6.6" ]]; then
-            echo "==> Renaming 6.6 kernel artifacts"
-            rename_6_6_artifacts
-        fi
+        echo "==> Renaming all artifacts to expected naming convention"
+        rename_all_artifacts "${version}"
     }
     
     if ! main; then
