@@ -25,3 +25,15 @@ import (
 )
 
 var GroupVersion = schema.GroupVersion{Group: "bmc.tinkerbell.org", Version: "v1alpha1"}
+
+// Hub is a marker function to indicate that this v1alpha1 spec is a Hub.
+// See https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts
+func (m *Machine) Hub() {}
+
+// Hub is a marker function to indicate that this v1alpha1 spec is a Hub.
+// See https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts
+func (t *Task) Hub() {}
+
+// Hub is a marker function to indicate that this v1alpha1 spec is a Hub.
+// See https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts
+func (j *Job) Hub() {}

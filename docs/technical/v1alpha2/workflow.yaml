@@ -1,0 +1,30 @@
+---
+apiVersion: "tinkerbell.org/v1alpha2"
+kind: Workflow
+metadata:
+  name: example
+  namespace: tinkerbell
+spec:
+  name: example
+  actions:
+    - name: "action 1"
+      image: "alpine"
+      command: "/bin/sleep"
+      args:
+        - "1"
+      environment:
+        - key: "key"
+          value: "value"
+      volumes:
+        - "/var/data:/var-data:ro"
+      namespaces:
+        network: "host"
+        pid: "1"
+      retries: 4
+      timeoutSeconds: 120
+  volumes:
+    - "/etc/data:/data:ro"
+  environment:
+    - key: "one"
+      value: "1"
+  timeoutSeconds: 600
