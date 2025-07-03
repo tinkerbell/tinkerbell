@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/tinkerbell/tinkerbell/api/v1alpha2/tinkerbell/bmc"
 	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
@@ -81,6 +82,8 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 	if err := api.AddToSchemeTinkerbell(rs); err != nil {
 		return nil, err
 	}
+
+	bmc.AddToScheme(rs)
 
 	if err := api.AddToSchemeBMC(rs); err != nil {
 		return nil, err
