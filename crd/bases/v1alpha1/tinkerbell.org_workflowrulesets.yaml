@@ -1,0 +1,101 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: workflowrulesets.tinkerbell.org
+spec:
+  group: tinkerbell.org
+  names:
+    categories:
+    - tinkerbell
+    kind: WorkflowRuleSet
+    listKind: WorkflowRuleSetList
+    plural: workflowrulesets
+    shortNames:
+    - wrs
+    singular: workflowruleset
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Workflow is the Schema for the Workflows API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: WorkflowRuleSetSpec defines the Rules, options, and Workflow
+              to be created on rules match.
+            properties:
+              rules:
+                description: |-
+                  Rules is a list of Quamina patterns used to match against the attributes of an Agent.
+                  See https://github.com/timbray/quamina/blob/main/PATTERNS.md for more information on the required format.
+                  All rules are combined using the OR operator.
+                  If any rule matches, the corresponding Workflow will be created.
+                items:
+                  type: string
+                type: array
+              workflow:
+                description: Workflow holds the data used to configure the created
+                  Workflow.
+                properties:
+                  addAttributes:
+                    description: AddAttributes indicates if the Agent attributes should
+                      be added as an Annotation in the created Workflow.
+                    type: boolean
+                  disabled:
+                    description: Disabled indicates whether the Workflow will be enabled
+                      or not when created.
+                    type: boolean
+                  namespace:
+                    description: |-
+                      TemplateRef is the name of the Template to use for the Workflow.
+                      Namespace is the namespace in which the Workflow will be created.
+                    type: string
+                  template:
+                    description: Template is the Template specific configuration to
+                      use when creating the Workflow.
+                    properties:
+                      agentValue:
+                        description: |-
+                          AgentValue is the Go template value used in the TemplateRef for the Task[].worker value.
+                          For example: "device_id" or "worker_id".
+                        type: string
+                      kvs:
+                        additionalProperties:
+                          type: string
+                        description: KVs are a mapping of key/value pairs usable in
+                          the referenced Template.
+                        type: object
+                      ref:
+                        description: Ref is the name of an existing in cluster Template
+                          object to use in the Workflow.
+                        type: string
+                    type: object
+                type: object
+            type: object
+          status:
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
