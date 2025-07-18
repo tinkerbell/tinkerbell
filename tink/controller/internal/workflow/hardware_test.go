@@ -2,7 +2,9 @@ package workflow
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
@@ -33,6 +35,21 @@ func (c *conflictingClient) Update(ctx context.Context, obj client.Object, opts 
 		)
 	}
 	return c.Client.Update(ctx, obj, opts...)
+}
+
+// errorClient wraps a fake client to simulate non-conflict errors on update.
+type errorClient struct {
+	client.Client
+}
+
+func (c *errorClient) Update(_ context.Context, _ client.Object, _ ...client.UpdateOption) error {
+	return apierrors.NewInternalError(fmt.Errorf("simulated update error"))
+}
+
+func withDuration(duration func() time.Duration) backoffOpts {
+	return func(cfg *backoffConfig) {
+		cfg.duration = duration
+	}
 }
 
 func TestSetAllowPXE(t *testing.T) {
@@ -468,6 +485,34 @@ func TestSetAllowPXE(t *testing.T) {
 				},
 			},
 		},
+		"update error that is not conflict": {
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-workflow",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					HardwareRef: "test-hardware",
+				},
+			},
+			hardware: &v1alpha1.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hardware",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{
+							Netboot: &v1alpha1.Netboot{
+								AllowPXE: valueToPointer(false),
+							},
+						},
+					},
+				},
+			},
+			allowPXE:    true,
+			expectError: true, // This will be tested with a non-conflict error
+		},
 	}
 
 	for name, tc := range tests {
@@ -482,8 +527,14 @@ func TestSetAllowPXE(t *testing.T) {
 			}
 			fakeClient := clientBuilder.Build()
 
+			// Wrap with error client for specific test case
+			var testClient client.Client = fakeClient
+			if name == "update error that is not conflict" {
+				testClient = &errorClient{Client: fakeClient}
+			}
+
 			// Call the function
-			err := setAllowPXE(context.Background(), fakeClient, tc.workflow, tc.hardware, tc.allowPXE)
+			err := setAllowPXE(context.Background(), testClient, tc.workflow, tc.hardware, tc.allowPXE, withDuration(func() time.Duration { return 0 }))
 
 			// Check error expectation
 			if tc.expectError {
@@ -589,7 +640,7 @@ func TestSetAllowPXE_RetryMechanism(t *testing.T) {
 			}
 
 			// Call the function
-			err := setAllowPXE(context.Background(), conflictClient, workflow, nil, true)
+			err := setAllowPXE(context.Background(), conflictClient, workflow, nil, true, withDuration(func() time.Duration { return 0 }))
 
 			// Check error expectation
 			if tc.expectError {

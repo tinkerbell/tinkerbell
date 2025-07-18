@@ -197,7 +197,7 @@ func TestHandleHardwareAllowPXE(t *testing.T) {
 					HardwareRef: "machine1",
 				},
 			}
-			err := setAllowPXE(context.Background(), fakeClient, wf, nil, tt.AllowPXE)
+			err := setAllowPXE(context.Background(), fakeClient, wf, nil, tt.AllowPXE, withDuration(func() time.Duration { return 0 }))
 
 			got := &v1alpha1.Hardware{}
 			if err := fakeClient.Get(context.Background(), client.ObjectKeyFromObject(tt.OriginalHardware), got); err != nil {
