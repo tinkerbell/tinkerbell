@@ -22,31 +22,37 @@ func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h 
 	if h == nil && w == nil {
 		return fmt.Errorf("both workflow and hardware cannot be nil")
 	}
-	var retries int
-RETRY:
-	if h == nil {
-		h = &v1alpha1.Hardware{}
-		if err := cc.Get(ctx, client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}, h); err != nil {
-			return fmt.Errorf("hardware not found: name=%v; namespace=%v, error: %w", w.Spec.HardwareRef, w.Namespace, err)
-		}
-	}
-
-	for _, iface := range h.Spec.Interfaces {
-		iface.Netboot.AllowPXE = valueToPointer(allowPXE)
-	}
-
-	if err := cc.Update(ctx, h); err != nil {
-		if apierrors.IsConflict(err) {
-			if retries >= 3 {
-				return fmt.Errorf("error updating allow pxe after 3 retries to get the hardware object: %w", err)
+	for retry := range 4 {
+		if h == nil {
+			h = &v1alpha1.Hardware{}
+			if err := cc.Get(ctx, client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}, h); err != nil {
+				return fmt.Errorf("hardware not found: name=%v; namespace=%v, error: %w", w.Spec.HardwareRef, w.Namespace, err)
 			}
-			retries++
-			h = nil // reset h to nil to retry fetching the hardware
-			// This is a conflict error, which means the hardware object was updated by another process
-			// We will retry fetching the hardware object and updating it again.
-			goto RETRY
 		}
-		return fmt.Errorf("error updating allow pxe: %w", err)
+
+		for _, iface := range h.Spec.Interfaces {
+			if iface.Netboot != nil {
+				iface.Netboot.AllowPXE = valueToPointer(allowPXE)
+			} else {
+				iface.Netboot = &v1alpha1.Netboot{
+					AllowPXE: valueToPointer(allowPXE),
+				}
+			}
+		}
+
+		if err := cc.Update(ctx, h); err != nil {
+			if apierrors.IsConflict(err) {
+				if retry >= 3 {
+					return fmt.Errorf("error updating allow pxe after 3 retries to get the hardware object: %w", err)
+				}
+				h = nil // reset h to nil to retry fetching the hardware
+				// This is a conflict error, which means the hardware object was updated by another process
+				// We will retry fetching the hardware object and updating it again.
+				continue
+			}
+			return fmt.Errorf("error updating allow pxe: %w", err)
+		}
+		break
 	}
 
 	return nil
