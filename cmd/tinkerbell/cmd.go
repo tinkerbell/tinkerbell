@@ -144,6 +144,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	// Smee
 	s.Convert(&globals.TrustedProxies, globals.PublicIP)
+	s.Config.OTEL.Endpoint = globals.OTELEndpoint
+	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
 
 	// Tootles
 	h.Convert(&globals.TrustedProxies)
