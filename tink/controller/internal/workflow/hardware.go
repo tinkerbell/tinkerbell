@@ -75,7 +75,7 @@ func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h 
 			}
 			return fmt.Errorf("error updating allow pxe: %w", err)
 		}
-		break
+		return nil
 	}
 
 	return nil
