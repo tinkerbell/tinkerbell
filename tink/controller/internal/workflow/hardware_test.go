@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-// conflictingClient wraps a fake client to simulate conflict errors on update
+// conflictingClient wraps a fake client to simulate conflict errors on update.
 type conflictingClient struct {
 	client.Client
 	conflictCount int
