@@ -38,13 +38,13 @@ func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h 
 		return fmt.Errorf("both workflow and hardware cannot be nil")
 	}
 	bc := &backoffConfig{
-		maxRetries: 3,
+		maxRetries: 4,
 		duration:   defaultBackoff(),
 	}
 	for _, opt := range opts {
 		opt(bc)
 	}
-	for retry := 1; retry <= bc.maxRetries+1; retry++ {
+	for attempt := 1; attempt <= bc.maxRetries; attempt++ {
 		if h == nil {
 			h = &v1alpha1.Hardware{}
 			if err := cc.Get(ctx, client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}, h); err != nil {
@@ -64,13 +64,13 @@ func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h 
 
 		if err := cc.Update(ctx, h); err != nil {
 			if apierrors.IsConflict(err) {
-				if retry > bc.maxRetries {
-					return fmt.Errorf("error updating allow pxe after %d retries to get the hardware object: %w", retry, err)
+				if attempt >= bc.maxRetries {
+					return fmt.Errorf("error updating allow pxe after %d retries: %w", attempt, err)
 				}
 				h = nil // reset h to nil to retry fetching the hardware
 				// This is a conflict error, which means the hardware object was updated by another process
 				// We will retry fetching the hardware object and updating it again.
-				<-time.After(bc.duration())
+				time.Sleep(bc.duration())
 				continue
 			}
 			return fmt.Errorf("error updating allow pxe: %w", err)
