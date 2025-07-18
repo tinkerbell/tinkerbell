@@ -30,11 +30,11 @@ func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h 
 			}
 		}
 
-		for _, iface := range h.Spec.Interfaces {
-			if iface.Netboot != nil {
-				iface.Netboot.AllowPXE = valueToPointer(allowPXE)
+		for idx := range h.Spec.Interfaces {
+			if h.Spec.Interfaces[idx].Netboot != nil {
+				h.Spec.Interfaces[idx].Netboot.AllowPXE = valueToPointer(allowPXE)
 			} else {
-				iface.Netboot = &v1alpha1.Netboot{
+				h.Spec.Interfaces[idx].Netboot = &v1alpha1.Netboot{
 					AllowPXE: valueToPointer(allowPXE),
 				}
 			}

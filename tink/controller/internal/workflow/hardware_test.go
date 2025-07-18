@@ -280,7 +280,9 @@ func TestSetAllowPXE(t *testing.T) {
 				Spec: v1alpha1.HardwareSpec{
 					Interfaces: []v1alpha1.Interface{
 						{
-							Netboot: nil, // Should remain nil
+							Netboot: &v1alpha1.Netboot{
+								AllowPXE: valueToPointer(true), // Should be updated
+							},
 						},
 						{
 							Netboot: &v1alpha1.Netboot{
