@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -21,6 +22,8 @@ func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h 
 	if h == nil && w == nil {
 		return fmt.Errorf("both workflow and hardware cannot be nil")
 	}
+	var retries int
+RETRY:
 	if h == nil {
 		h = &v1alpha1.Hardware{}
 		if err := cc.Get(ctx, client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}, h); err != nil {
@@ -33,6 +36,16 @@ func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h 
 	}
 
 	if err := cc.Update(ctx, h); err != nil {
+		if apierrors.IsConflict(err) {
+			if retries >= 3 {
+				return fmt.Errorf("error updating allow pxe after 3 retries to get the hardware object: %w", err)
+			}
+			retries++
+			h = nil // reset h to nil to retry fetching the hardware
+			// This is a conflict error, which means the hardware object was updated by another process
+			// We will retry fetching the hardware object and updating it again.
+			goto RETRY
+		}
 		return fmt.Errorf("error updating allow pxe: %w", err)
 	}
 
