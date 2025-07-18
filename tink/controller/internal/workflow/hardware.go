@@ -3,8 +3,11 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -14,26 +17,65 @@ func valueToPointer[T any](v T) *T {
 	return &v
 }
 
+func defaultBackoff() func() time.Duration {
+	backoffPolicy := backoff.NewExponentialBackOff()
+	backoffPolicy.MaxInterval = time.Second
+	return backoffPolicy.NextBackOff
+}
+
+type backoffConfig struct {
+	maxRetries int
+	duration   func() time.Duration
+}
+
+type backoffOpts func(*backoffConfig)
+
 // setAllowPXE sets the allowPXE field on the hardware network interfaces.
 // If hardware is nil then it will be retrieved using the client.
 // The hardware object will be updated in the cluster.
-func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h *v1alpha1.Hardware, allowPXE bool) error {
+func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h *v1alpha1.Hardware, allowPXE bool, opts ...backoffOpts) error {
 	if h == nil && w == nil {
 		return fmt.Errorf("both workflow and hardware cannot be nil")
 	}
-	if h == nil {
-		h = &v1alpha1.Hardware{}
-		if err := cc.Get(ctx, client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}, h); err != nil {
-			return fmt.Errorf("hardware not found: name=%v; namespace=%v, error: %w", w.Spec.HardwareRef, w.Namespace, err)
+	bc := &backoffConfig{
+		maxRetries: 4,
+		duration:   defaultBackoff(),
+	}
+	for _, opt := range opts {
+		opt(bc)
+	}
+	for attempt := 1; attempt <= bc.maxRetries; attempt++ {
+		if h == nil {
+			h = &v1alpha1.Hardware{}
+			if err := cc.Get(ctx, client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}, h); err != nil {
+				return fmt.Errorf("hardware not found: name=%v; namespace=%v, error: %w", w.Spec.HardwareRef, w.Namespace, err)
+			}
 		}
-	}
 
-	for _, iface := range h.Spec.Interfaces {
-		iface.Netboot.AllowPXE = valueToPointer(allowPXE)
-	}
+		for idx := range h.Spec.Interfaces {
+			if h.Spec.Interfaces[idx].Netboot != nil {
+				h.Spec.Interfaces[idx].Netboot.AllowPXE = valueToPointer(allowPXE)
+			} else {
+				h.Spec.Interfaces[idx].Netboot = &v1alpha1.Netboot{
+					AllowPXE: valueToPointer(allowPXE),
+				}
+			}
+		}
 
-	if err := cc.Update(ctx, h); err != nil {
-		return fmt.Errorf("error updating allow pxe: %w", err)
+		if err := cc.Update(ctx, h); err != nil {
+			if apierrors.IsConflict(err) {
+				if attempt >= bc.maxRetries {
+					return fmt.Errorf("error updating allow pxe after %d retries: %w", attempt, err)
+				}
+				h = nil // reset h to nil to retry fetching the hardware
+				// This is a conflict error, which means the hardware object was updated by another process
+				// We will retry fetching the hardware object and updating it again.
+				time.Sleep(bc.duration())
+				continue
+			}
+			return fmt.Errorf("error updating allow pxe: %w", err)
+		}
+		return nil
 	}
 
 	return nil
