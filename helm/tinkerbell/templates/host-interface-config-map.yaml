@@ -18,10 +18,12 @@ data:
         echo "Init script for setting up a network interface to listen and respond to DHCP requests from the Host and move it into a container."
         echo
         echo "Options:"
-        echo "  -s, --src     Source interface for listening and responding to DHCP requests (default: default gateway interface)"
-        echo "  -t, --type    Create the interface of type, must be either ipvlan or macvlan (default: macvlan)"
-        echo "  -c, --clean   Clean up any interfaces created"
-        echo "  -h, --help    Display this help and exit"
+        echo "  -s, --src [INTERFACE]  Source interface for listening and responding to DHCP requests"
+        echo "                         Can use -s eth0, --src eth0, -s=eth0, or --src=eth0 syntax"
+        echo "                         (default: default gateway interface)"
+        echo "  -t, --type TYPE        Create the interface of type, must be either ipvlan or macvlan (default: macvlan)"
+        echo "  -c, --clean            Clean up any interfaces created"
+        echo "  -h, --help             Display this help and exit"
     }
 
     function binary_exists() {
@@ -69,47 +71,70 @@ data:
     interface_type="macvlan"
     interface_mode="bridge"
     clean=false
-    # s: means -s requires an argument
-    # s:: means -s has an optional argument
-    # s (without colon) means -s doesn't accept arguments
-    args=$(getopt -a -o s::t:ch --long src::,type:,clean,help -- "$@")
-    if [[ $? -gt 0 ]]; then
-    usage
-    fi
 
-    eval set -- ${args}
-    while :
-    do
+    # Parse arguments manually to support both -s value and -s=value syntax
+    while [[ $# -gt 0 ]]; do
       case $1 in
-        -s | --src)
-          # If $2 starts with '-' or is empty (--), it's not a value but another option
-          if [[ "$2" == "--" || "$2" == -* ]]; then
-              src_interface=""
-              shift
+        -s=*|--src=*)
+          # Handle -s=value or --src=value syntax
+          src_interface="${1#*=}"
+          shift
+          ;;
+        -s|--src)
+          # Handle -s value or --src value syntax
+          if [[ $# -gt 1 && "$2" != -* ]]; then
+            src_interface="$2"
+            shift 2
           else
-              src_interface="$2"
-              shift 2
+            # No value provided, use default (empty string)
+            src_interface=""
+            shift
           fi
           ;;
-        -t | --type)
-          if [[ "$2" == "ipvlan" ]]; then
+        -t|--type)
+          if [[ $# -gt 1 ]]; then
+            if [[ "$2" == "ipvlan" ]]; then
               interface_type="ipvlan"
               interface_mode="l2"
+            elif [[ "$2" == "macvlan" ]]; then
+              interface_type="macvlan"
+              interface_mode="bridge"
+            else
+              echo "Error: Invalid interface type '$2'. Must be 'ipvlan' or 'macvlan'."
+              usage
+              exit 1
+            fi
+            shift 2
+          else
+            echo "Error: --type requires an argument."
+            usage
+            exit 1
           fi
-          shift 2 ;;
-        -c | --clean)
+          ;;
+        -c|--clean)
           clean=true
-          shift ;;
-        -h | --help)
+          shift
+          ;;
+        -h|--help)
+          usage
+          exit 0
+          ;;
+        --)
+          # End of options
+          shift
+          break
+          ;;
+        -*)
+          echo "Error: Unknown option $1"
           usage
           exit 1
-          shift ;;
-        # -- means the end of the arguments; drop this, and break out of the while loop
-        --) shift; break ;;
-        *) >&2 echo Unsupported option: $1
-          usage ;;
+          ;;
+        *)
+          # Positional argument
+          break
+          ;;
       esac
-    done    
+    done
 
     if [[ -z "${src_interface}" ]]; then
         src_interface=$(nsenter -t1 -n ip route | awk '/default/ {print $5}' | head -n1)
