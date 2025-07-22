@@ -4,7 +4,13 @@ This document describes the different boot modes available in the Workflow `spec
 
 ## netboot
 
+The following is an example Workflow with the boot mode set to `netboot`.
+
 ```yaml
+apiVersion: bmc.tinkerbell.org/v1alpha1
+kind: Workflow
+metadata:
+  name: example-workflow
 spec:
   bootOptions:
     bootMode: netboot
@@ -33,6 +39,22 @@ spec:
 [Reference](../../tink/controller/internal/workflow/pre.go#L49-L72)
 
 ## isoboot
+
+The following is an example Workflow with the boot mode set to `isoboot`. When `isoboot` is specified, the `spec.bootMode.isoURL` is required.
+This URL should point to the Tinkerbell IP and the port defined in the Helm chart values. The port is defined at `service.ports.httpSmee.port`, which defaults to 7171.
+The MAC Address in the `spec.bootMode.isoURL` should match the Hardware that this Workflow references (`spec.hardwareRef`). Also, the MAC Address should be `-` (minus sign) delimited.
+This is a limitation observed in most BMCs. Experiment with your Hardware to find exceptions.
+
+```yaml
+apiVersion: bmc.tinkerbell.org/v1alpha1
+kind: Workflow
+metadata:
+  name: example-workflow
+spec:
+  bootOptions:
+    bootMode: isoboot
+    isoURL: http://<tinkerbell VIP>:7171/iso/02-7f-92-bd-2d-57/hook.iso
+```
 
 The `isoboot` mode gets a Machine booted into HookOS by mounting the HookOS ISO, served by the Smee service, as a virtual CD-ROM and then ejecting the virtual CD-ROM after the Workflow. This is accomplished by the Tink Controller by automatically creating a `job.bmc.tinkerbell.org` during the `PREPARING` and `POST` Workflow states. During the `PREPARING` Workflow state the following `job.bmc.tinkerbell.org` to mount the HookOS ISO is created:
 
