@@ -118,7 +118,8 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	reflection.Register(gs)
 	grpcprometheus.Register(gs)
 
-	lis, err := net.Listen("tcp", c.BindAddrPort.String())
+	n := net.ListenConfig{}
+	lis, err := n.Listen(ctx, "tcp", c.BindAddrPort.String())
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
