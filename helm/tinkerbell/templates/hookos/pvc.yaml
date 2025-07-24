@@ -34,7 +34,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: hook-artifacts
+  name: {{ .Values.optional.hookos.persistence.localPersistentVolume.name }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- with .Values.optional.hookos.persistence.localPersistentVolume.extraLabels }}
