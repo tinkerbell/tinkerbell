@@ -1,10 +1,5 @@
 {{- if .Values.optional.migration.enabled -}}
-# This file requires a values.yaml file from a v0.6.2 ghcr.io/tinkerbell/charts/stack deployment.
-# Get the values.yaml file from a running stack deployment with:
-# helm get values <release_name> -n <namespace> -a -o yaml > v0.6.2_values.yaml
-# Then run the migration with:
-# helm template migration oci://ghcr.io/tinkerbell/charts/tinkerbell --version v0.19.1 --namespace tinkerbell -f v0.6.2_values.yaml --set "trustedProxies={${TRUSTED_PROXIES}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" --set "optional.migration.enabled=true" --show-only="templates/migration/from-0.6.2.yaml"
-artifactsFileServer:
+artifactsFileServer: {{ .Values.artifactsFileServer }}
 deployment:
   additionalEnvs: {{- .Values.deployment.additionalEnvs | toYaml | nindent 4 }}
   additionalArgs: {{- .Values.deployment.additionalArgs | toYaml | nindent 4 }}
@@ -176,7 +171,7 @@ service:
   selector:
     app: {{ .Values.service.selector.app }}
   type: {{ .Values.service.type }}
-trustedProxies: {{ .Values.global.trustedProxies }}
+trustedProxies: {{ .Values.global.trustedProxies | toYaml | nindent 2 }}
 
 optional:
   hookos:

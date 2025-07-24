@@ -37,7 +37,7 @@ Before you begin the migration process, ensure you have the following:
    # Tinkerbell Helm chart version
    TINKERBELL_VERSION=v0.19.2
 
-   helm template migration oci://tinkerbell/charts/tinkerbell \
+   helm template migration oci://ghcr.io/tinkerbell/charts/tinkerbell \
      --version ${TINKERBELL_VERSION} \
      --values v0.6.2_values.yaml \
      --show-only="templates/migration/from-0.6.2.yaml" \
