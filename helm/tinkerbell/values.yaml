@@ -203,6 +203,9 @@ service:
 trustedProxies: []
 
 optional:
+  migration:
+    enabled: false
+
   # hookos objects enable downloading and serving HookOS artifacts.
   # Optional, enabled by default.
   hookos:

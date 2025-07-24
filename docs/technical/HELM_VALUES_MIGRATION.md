@@ -12,56 +12,26 @@ Before you begin the migration process, ensure you have the following:
 
 - A Tinkerbell stack Helm chart version 0.6.2 deployed in your Kubernetes cluster.
 - Helm 3.x installed and configured to interact with your Kubernetes cluster.
-- Docker installed.
 
 ## Migration Steps
 
-Option 1: Populate a values.yaml from the existing stack chart.
-
-1. Use the `helm get values` command to retrieve the current values from the `stack` chart:
+1. Get the current Helm values from a v0.6.2 Tinkerbell Helm chart release:
 
    ```bash
-   helm get values <release-name> -n <namespace> -a -o yaml > values.yaml
+   helm get values <release-name> -n <namespace> -a -o yaml > v0.6.2_values.yaml
    ```
 
-1. Run the migration command to convert the values to the new format:
+1. Run the migration command to convert the v0.6.2 values to the v0.19.x format:
 
    ```bash
+   # Get the pod CIDRs to set as trusted proxies
+   TRUSTED_PROXIES=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
    
-   ```
+   # Set the LoadBalancer IP for Tinkerbell services
+   LB_IP=192.168.2.116
+   
+   # Set the artifacts file server URL for HookOS
+   ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
 
-1. Pipe an existing values file into the migration command running in a container:
-
-   ```bash
-   cat helm/tinkerbell/value-migrations/v0.6.2.yaml | docker run -i --rm -v ${PWD}:/code -w /code tinkerbell/tinkerbell migrate helm -m /code/helm/tinkerbell/value-migrations/to-v0.19.yaml 
-   ```
-
-1. Pipe the existing values file from an existing release into the migration command running in a container:
-
-   ```bash
-   helm get values stack-release -n tink -a -o yaml | docker run -i --rm -v ${PWD}:/code -w /code tinkerbell/tinkerbell migrate helm -m /code/helm/tinkerbell/value-migrations/to-v0.19.yaml
-   ```
-
-1. Specify an existing values file as a flag to the migration command running in a container:
-
-   ```bash
-   docker run -it --rm -v ${PWD}:/code -w /code tinkerbell/tinkerbell migrate helm -m /code/helm/tinkerbell/value-migrations/to-v0.19.yaml -p /code/helm/tinkerbell/value-migrations/v0.6.2.yaml
-   ```
-
-1. Pipe the existing values file from an existing release into the migration command:
-
-   ```bash
-   helm get values stack-release -n tink -a -o yaml | tinkerbell migrate helm -m helm/tinkerbell/value-migrations/to-v0.19.yaml
-   ```
-
-1. Pipe an existing values file into the migration command:
-
-   ```bash
-   cat helm/tinkerbell/value-migrations/v0.6.2.yaml | tinkerbell migrate helm -m helm/tinkerbell/value-migrations/to-v0.19.yaml
-   ```
-
-1. Specify an existing values file as a flag to the migration command:
-
-   ```bash
-   tinkerbell migrate helm --set "trustedProxies={${TRUSTED_PROXIES}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" --set "deployment.envs.smee.dhcpEnabled=false" -m helm/tinkerbell/value-migrations/to-v0.19.yaml -p helm/tinkerbell/value-migrations/v0.6.2.yaml
+   helm template migration oci://tinkerbell/charts/tinkerbell --version v0.19.2 -f v0.6.2_values.yaml --show-only="templates/migration/from-0.6.2.yaml" --set "trustedProxies={${TRUSTED_PROXIES}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" --set "optional.migration.enabled=true"
    ```

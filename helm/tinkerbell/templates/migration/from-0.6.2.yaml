@@ -1,0 +1,228 @@
+{{- if .Values.optional.migration.enabled -}}
+# This file requires a values.yaml file from a ghcr.io/tinkerbell/charts/stack deployment.
+# Get the values.yaml file from a running stack deployment with:
+# helm get values <release_name> -n <namespace> -a -o yaml > v0.6.2_values.yaml
+# Then run the migration with:
+# helm template migration oci://ghcr.io/tinkerbell/charts/tinkerbell --version v0.19.1 --namespace tinkerbell -f v0.6.2_values.yaml --set "trustedProxies={${TRUSTED_PROXIES}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" --set "optional.migration.enabled=true" --show-only="templates/migration/from-0.6.2.yaml"
+artifactsFileServer:
+deployment:
+  additionalEnvs: {{- .Values.deployment.additionalEnvs | toYaml | nindent 4 }}
+  additionalArgs: {{- .Values.deployment.additionalArgs | toYaml | nindent 4 }}
+  affinity: {{- .Values.deployment.affinity | toYaml | nindent 4 }}
+  agentImage: {{ .Values.deployment.agentImage }}
+  agentImageTag: {{ .Values.deployment.agentImageTag }}
+  daemonSet:
+    enabled: {{ .Values.deployment.daemonSet.enabled }}
+  envs:
+    globals:
+      backend: {{ .Values.deployment.envs.globals.backend }}
+      backendFilePath: {{ .Values.deployment.envs.globals.backendFilePath }}
+      backendKubeConfig: {{ .Values.deployment.envs.globals.backendKubeConfig }}
+      backendKubeNamespace: {{ .Values.deployment.envs.globals.backendKubeNamespace }}
+      enableCRDMigrations: {{ .Values.deployment.envs.globals.enableCRDMigrations }}
+      enableRufioController: {{ .Values.rufio.deploy }}
+      enableSecondstar: {{ .Values.deployment.envs.globals.enableSecondstar }}
+      enableSmee: {{ .Values.smee.deploy }}
+      enableTootles: {{ .Values.hegel.deploy }}
+      enableTinkServer: {{ .Values.tink.server.deploy }}
+      enableTinkController: {{ .Values.tink.controller.deploy }}
+      logLevel: {{ .Values.deployment.envs.globals.logLevel }}
+      otelEndpoint: {{ .Values.deployment.envs.globals.otelEndpoint }}
+      otelInsecure: {{ .Values.deployment.envs.globals.otelInsecure }}
+      publicIpv4: {{ .Values.global.publicIP }}
+      trustedProxies: {{ .Values.global.trustedProxies }}
+    rufio:
+      bmcConnectTimeout: {{ .Values.deployment.envs.rufio.bmcConnectTimeout }}
+      enableLeaderElection: {{ .Values.deployment.envs.rufio.enableLeaderElection }}
+      leaderElectionNamespace: {{ .Values.deployment.envs.rufio.leaderElectionNamespace }}
+      logLevel: {{ .Values.deployment.envs.rufio.logLevel }}
+      metricsAddr: {{ .Values.deployment.envs.rufio.metricsAddr }}
+      powerCheckInterval: {{ .Values.deployment.envs.rufio.powerCheckInterval }}
+      probeAddr: {{ .Values.deployment.envs.rufio.probeAddr }}
+    secondstar:
+      bindPort: {{ .Values.deployment.envs.secondstar.bindPort }}
+      hostKeyPath: {{ .Values.deployment.envs.secondstar.hostKeyPath }}
+      ipmitoolPath: {{ .Values.deployment.envs.secondstar.ipmitoolPath }}
+      idleTimeout: {{ .Values.deployment.envs.secondstar.idleTimeout }}
+      logLevel: {{ .Values.deployment.envs.secondstar.logLevel }}
+    smee:
+      dhcpBindAddr: {{ .Values.deployment.envs.smee.dhcpBindAddr }}
+      dhcpBindInterface: {{ .Values.deployment.envs.smee.dhcpBindInterface }}
+      dhcpEnabled: {{ .Values.deployment.envs.smee.dhcpEnabled }}
+      dhcpIPForPacket: {{ .Values.deployment.envs.smee.dhcpIPForPacket }}
+      dhcpIpxeHttpBinaryHost: {{ .Values.deployment.envs.smee.dhcpIpxeHttpBinaryHost }}
+      dhcpIpxeHttpBinaryPath: {{ .Values.deployment.envs.smee.dhcpIpxeHttpBinaryPath }}
+      dhcpIpxeHttpBinaryPort: {{ .Values.deployment.envs.smee.dhcpIpxeHttpBinaryPort }}
+      dhcpIpxeHttpBinaryScheme: {{ .Values.deployment.envs.smee.dhcpIpxeHttpBinaryScheme }}
+      dhcpIpxeHttpScriptHost: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptHost }}
+      dhcpIpxeHttpScriptPath: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptPath }}
+      dhcpIpxeHttpScriptPort: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptPort }}
+      dhcpIpxeHttpScriptPrependMac: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptPrependMac }}
+      dhcpIpxeHttpScriptScheme: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptScheme }}
+      dhcpMode: {{ .Values.deployment.envs.smee.dhcpMode }}
+      dhcpSyslogIP: {{ .Values.deployment.envs.smee.dhcpSyslogIP }}
+      dhcpTftpIP: {{ .Values.deployment.envs.smee.dhcpTftpIP }}
+      dhcpTftpPort: {{ .Values.deployment.envs.smee.dhcpTftpPort }}
+      ipxeEmbeddedScriptPatch: {{ .Values.deployment.envs.smee.ipxeEmbeddedScriptPatch }}
+      ipxeHttpBinaryEnabled: {{ .Values.deployment.envs.smee.ipxeHttpBinaryEnabled }}
+      ipxeHttpScriptBindAddr: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindAddr }}
+      ipxeHttpScriptBindPort: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindPort }}
+      ipxeHttpScriptEnabled: {{ .Values.deployment.envs.smee.ipxeHttpScriptEnabled }}
+      ipxeHttpScriptExtraKernelArgs: {{ .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs | toYaml | nindent 8 }}
+      ipxeHttpScriptTrustedProxies: {{ .Values.deployment.envs.smee.ipxeHttpScriptTrustedProxies }}
+      ipxeHttpScriptOsieURL: {{ .Values.deployment.envs.smee.ipxeHttpScriptOsieURL }}
+      ipxeHttpScriptRetries: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetries }}
+      ipxeHttpScriptRetryDelay: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetryDelay }}
+      ipxeScriptTinkServerAddrPort: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerAddrPort }}
+      ipxeScriptTinkServerInsecureTLS: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerInsecureTLS }}
+      ipxeScriptTinkServerUseTLS: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerUseTLS }}
+      isoEnabled: {{ .Values.deployment.envs.smee.isoEnabled }}
+      isoPatchMagicString: {{ .Values.deployment.envs.smee.isoPatchMagicString }}
+      isoStaticIPAMEnabled: {{ .Values.deployment.envs.smee.isoStaticIPAMEnabled }}
+      isoUpstreamURL: {{ .Values.deployment.envs.smee.isoUpstreamURL }}
+      logLevel: {{ .Values.deployment.envs.smee.logLevel }}
+      syslogBindAddr: {{ .Values.deployment.envs.smee.syslogBindAddr }}
+      syslogBindPort: {{ .Values.deployment.envs.smee.syslogBindPort }}
+      syslogEnabled: {{ .Values.deployment.envs.smee.syslogEnabled }}
+      tftpBlockSize: {{ .Values.deployment.envs.smee.tftpBlockSize }}
+      tftpServerBindAddr: {{ .Values.deployment.envs.smee.tftpServerBindAddr }}
+      tftpServerBindPort: {{ .Values.deployment.envs.smee.tftpServerBindPort }}
+      tftpServerEnabled: {{ .Values.deployment.envs.smee.tftpServerEnabled }}
+      tftpTimeout: {{ .Values.deployment.envs.smee.tftpTimeout }}
+    tinkController:
+      enableLeaderElection: {{ .Values.deployment.envs.tinkController.enableLeaderElection }}
+      leaderElectionNamespace: {{ .Values.deployment.envs.tinkController.leaderElectionNamespace }}
+      logLevel: {{ .Values.deployment.envs.tinkController.logLevel }}
+      metricsAddr: {{ .Values.deployment.envs.tinkController.metricsAddr }}
+      probeAddr: {{ .Values.deployment.envs.tinkController.probeAddr }}
+    tinkServer:
+      autoDiscoveryAutoEnrollmentEnabled: {{ .Values.deployment.envs.tinkServer.autoDiscoveryAutoEnrollmentEnabled }}
+      autoDiscoveryEnabled: {{ .Values.deployment.envs.tinkServer.autoDiscoveryEnabled }}
+      autoDiscoveryNamespace: {{ .Values.deployment.envs.tinkServer.autoDiscoveryNamespace }}
+      autoEnrollmentEnabled: {{ .Values.deployment.envs.tinkServer.autoEnrollmentEnabled }}
+      bindAddr: {{ .Values.deployment.envs.tinkServer.bindAddr }}
+      bindPort: {{ .Values.deployment.envs.tinkServer.bindPort }}
+      logLevel: {{ .Values.deployment.envs.tinkServer.logLevel }}
+    tootles:
+      bindAddr: {{ .Values.deployment.envs.tootles.bindAddr }}
+      bindPort: {{ .Values.deployment.envs.tootles.bindPort }}
+      debugMode: {{ .Values.deployment.envs.tootles.debugMode }}
+      logLevel: {{ .Values.deployment.envs.tootles.logLevel }}
+  hostNetwork: {{ .Values.deployment.hostNetwork }}
+  image: {{ .Values.deployment.image }}
+  imagePullPolicy: {{ .Values.deployment.imagePullPolicy }}
+  imageTag: {{ .Values.deployment.imageTag }}
+  init:
+    enabled: {{ .Values.deployment.init.enabled }}
+    image: {{ .Values.deployment.init.image }}
+    interfaceMode: {{ .Values.deployment.init.interfaceMode }}
+    sourceInterface: {{ .Values.deployment.init.sourceInterface }}
+  nodeSelector: {{ .Values.nodeSelector | toYaml | nindent 4 }}
+  replicas: {{ .Values.deployment.replicas }}
+  resources:
+    limits:
+      cpu: {{ .Values.deployment.resources.limits.cpu }}
+      memory: {{ .Values.deployment.resources.limits.memory }}
+    requests:
+      cpu: {{ .Values.deployment.resources.requests.cpu }}
+      memory: {{ .Values.deployment.resources.requests.memory }}
+  selector: {{ .Values.deployment.selector | toYaml | nindent 4 }}
+  strategy:
+    type: {{ .Values.deployment.strategy.type }}
+  tolerations: {{ .Values.deployment.tolerations | toYaml | nindent 4 }}
+  volumes: {{ .Values.deployment.volumes | toYaml | nindent 4 }}
+  volumeMounts: {{ .Values.deployment.volumeMounts | toYaml | nindent 4 }}
+name: {{ .Values.name }}
+publicIP: {{ .Values.global.publicIP }}
+rbac:
+  name: {{ .Values.rbac.name }}
+  type: {{ .Values.global.rbac.type }} # or Role
+service:
+  annotations: {{ .Values.service.annotations | toYaml | nindent 4 }}
+  labels:
+    app: {{ .Values.service.labels.app }}
+  lbClass: {{ .Values.service.lbClass }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  name: {{ .Values.service.name}}
+  ports:
+    dhcp:
+      name: {{ .Values.service.ports.dhcp.name }}
+      port: {{ .Values.service.ports.dhcp.port }}
+      protocol: {{ .Values.service.ports.dhcp.protocol }}
+    grpc:
+      name: {{ .Values.service.ports.grpc.name }}
+      port: {{ .Values.service.ports.grpc.port }}
+      protocol: {{ .Values.service.ports.grpc.protocol }}
+    httpSmee:
+      name: {{ .Values.service.ports.httpSmee.name }}
+      port: {{ .Values.service.ports.httpSmee.port }}
+      protocol: {{ .Values.service.ports.httpSmee.protocol }}
+    httpTootles:
+      name: {{ .Values.service.ports.httpTootles.name }}
+      port: {{ .Values.hegel.service.port }}
+      protocol: {{ .Values.service.ports.httpTootles.protocol }}
+    ssh:
+      name: {{ .Values.service.ports.ssh.name }}
+      port: {{ .Values.service.ports.ssh.port }}
+      protocol: {{ .Values.service.ports.ssh.protocol }}
+    syslog:
+      name: {{ .Values.service.ports.syslog.name }}
+      port: {{ .Values.service.ports.syslog.port }}
+      protocol: {{ .Values.service.ports.syslog.protocol }}
+    tftp:
+      name: {{ .Values.service.ports.tftp.name }}
+      port: {{ .Values.service.ports.tftp.port }}
+      protocol: {{ .Values.service.ports.tftp.protocol }}
+  selector:
+    app: {{ .Values.service.selector.app }}
+  type: {{ .Values.service.type }}
+trustedProxies: {{ .Values.global.trustedProxies }}
+
+optional:
+  hookos:
+    arch: {{ .Values.stack.hook.arch }}
+    deployment:
+      strategy:
+        type: {{ .Values.stack.deployment.strategy.type }}
+    downloadURL: {{ .Values.stack.hook.downloadURL }}
+    enabled: {{ .Values.stack.hook.enabled }}
+    extension: {{ .Values.stack.hook.extension }} # iso, tar.gz, both
+    image: {{ .Values.stack.image }}
+    kernelVersion: {{ .Values.stack.hook.kernelVersion }} # 5.10, 6.6, both
+    name: {{ .Values.optional.hookos.name }}
+    nodeSelector: {{ .Values.optional.hookos.nodeSelector | toYaml | nindent 6 }}
+    persistence:
+      existingClaim: {{ .Values.stack.hook.persistence.existingClaim }}
+      localPersistentVolume:
+        accessModes: {{ .Values.stack.hook.persistence.localPersistentVolume.accessModes | toYaml | nindent 10 }}
+        extraLabels: {{ .Values.stack.hook.persistence.localPersistentVolume.extraLabels | toYaml | nindent 10 }}
+        name: {{ .Values.stack.hook.persistence.localPersistentVolume.name }}
+        path: {{ .Values.stack.hook.persistence.localPersistentVolume.path }}
+        size: {{ .Values.stack.hook.persistence.localPersistentVolume.size }}
+        storageClassName: {{ .Values.stack.hook.persistence.localPersistentVolume.storageClassName }}
+    port: {{ .Values.optional.hookos.port }}
+    scriptImage: {{ .Values.optional.hookos.scriptImage }}
+    selector:
+      app: {{ .Values.optional.hookos.selector.app }}
+    service:
+      annotations: {{ .Values.optional.hookos.service.annotations | toYaml | nindent 8 }}
+      lbClass: {{ .Values.optional.hookos.service.lbClass }}
+      loadBalancerIP: {{ .Values.optional.hookos.service.loadBalancerIP }}
+      type: {{ .Values.optional.hookos.service.type }}
+    singleNodeClusterConfig:
+      controlPlaneTolerationsEnabled: {{ .Values.optional.hookos.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      nodeAffinityWeight: {{ .Values.optional.hookos.singleNodeClusterConfig.nodeAffinityWeight }}
+  
+  kubevip:
+    additionalEnv: {{ .Values.optional.kubevip.additionalEnv | toYaml | nindent 6 }}
+    enabled: {{ .Values.stack.kubevip.enabled }}
+    image: {{ .Values.optional.kubevip.image }}
+    imagePullPolicy: {{ .Values.optional.kubevip.imagePullPolicy }}
+    interface: {{ .Values.optional.kubevip.interface }}
+    name: {{ .Values.optional.kubevip.name }}
+    roleBindingName: {{ .Values.optional.kubevip.roleBindingName }}
+    roleName: {{ .Values.optional.kubevip.roleName }}
+    singleNodeClusterConfig:
+      controlPlaneTolerationsEnabled: {{ .Values.optional.kubevip.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      nodeAffinityWeight: {{ .Values.optional.kubevip.singleNodeClusterConfig.nodeAffinityWeight }}
+{{- end -}}
