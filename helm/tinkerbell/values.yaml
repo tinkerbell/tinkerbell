@@ -203,6 +203,9 @@ service:
 trustedProxies: []
 
 optional:
+  # enable migration to convert a 0.6.2 values.yaml to a v0.19.x values.yaml.
+  # See the migration documentation for more details.
+  # https://github.com/tinkerbell/tinkerbell/blob/main/docs/technical/HELM_VALUES_MIGRATION.md
   migration:
     enabled: false
 
