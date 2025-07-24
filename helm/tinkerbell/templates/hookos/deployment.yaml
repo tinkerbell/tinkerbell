@@ -17,6 +17,7 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/hookos/nginx-configmap.yaml") . | sha256sum }}
+        checksum/download-hook: {{ include (print $.Template.BasePath "/hookos/download-configmap.yaml") . | sha256sum }}
       labels:
         {{- with .Values.optional.hookos.selector }}
         {{- toYaml . | nindent 8 }}
