@@ -17,7 +17,6 @@ import (
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
-	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/migrate"
 	"github.com/tinkerbell/tinkerbell/crd"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
 	"github.com/tinkerbell/tinkerbell/pkg/build"
@@ -38,72 +37,7 @@ var (
 	embeddedKubeControllerManagerExecute func(context.Context, string) error
 )
 
-type Config struct {
-	GlobalConfig         *flag.GlobalConfig
-	SmeeConfig           *flag.SmeeConfig
-	TootlesConfig        *flag.TootlesConfig
-	TinkServerConfig     *flag.TinkServerConfig
-	TinkControllerConfig *flag.TinkControllerConfig
-	RufioConfig          *flag.RufioConfig
-	SecondStarConfig     *flag.SecondStarConfig
-}
-
-func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error {
-	c := flags()
-	gfs := rootFlagSet(c)
-	cli := &ff.Command{
-		Name:     "tinkerbell",
-		Usage:    "tinkerbell [flags]",
-		LongHelp: "Tinkerbell stack.",
-		Flags:    gfs,
-		Subcommands: []*ff.Command{
-			migrate.NewCommand(),
-		},
-		Exec: func(ctx context.Context, _ []string) error {
-			return rootCommand(ctx, cancel, c)
-		},
-	}
-
-	if err := cli.ParseAndRun(ctx, args, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
-		e := errors.New(ffhelp.Command(cli).String())
-		if !errors.Is(err, ff.ErrHelp) {
-			e = fmt.Errorf("%w\n%s", e, err)
-		}
-
-		return e
-	}
-
-	return nil
-}
-
-func rootFlagSet(c Config) *ff.FlagSet {
-	// order here determines the help output.
-	top := ff.NewFlagSet("smee - DHCP and iPXE service")
-	if embeddedFlagSet != nil {
-		top = ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(embeddedFlagSet)
-	}
-	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(top)
-	hfs := ff.NewFlagSet("tootles - Metadata service").SetParent(sfs)
-	tfs := ff.NewFlagSet("tink server - Workflow service").SetParent(hfs)
-	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
-	rfs := ff.NewFlagSet("rufio - BMC controller").SetParent(cfs)
-	ssfs := ff.NewFlagSet("secondstar - SSH over serial service").SetParent(rfs)
-	gfs := ff.NewFlagSet("globals").SetParent(ssfs)
-	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, c.SmeeConfig)
-	flag.RegisterTootlesFlags(&flag.Set{FlagSet: hfs}, c.TootlesConfig)
-	flag.RegisterTinkServerFlags(&flag.Set{FlagSet: tfs}, c.TinkServerConfig)
-	flag.RegisterTinkControllerFlags(&flag.Set{FlagSet: cfs}, c.TinkControllerConfig)
-	flag.RegisterRufioFlags(&flag.Set{FlagSet: rfs}, c.RufioConfig)
-	flag.RegisterSecondStarFlags(&flag.Set{FlagSet: ssfs}, c.SecondStarConfig)
-	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, c.GlobalConfig)
-	if embeddedApiserverExecute != nil && embeddedFlagSet != nil {
-		// This way the embedded flags only show up when the embedded services have been compiled in.
-		flag.RegisterEmbeddedGlobals(&flag.Set{FlagSet: gfs}, c.GlobalConfig)
-	}
-	return gfs
-}
-
-func flags() Config {
+func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop // Will need to look into reducing the cyclomatic complexity.
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig:    kubeConfig(),
 		PublicIP:             detectPublicIPv4(),
@@ -168,6 +102,46 @@ func flags() Config {
 		},
 	}
 
+	// order here determines the help output.
+	top := ff.NewFlagSet("smee - DHCP and iPXE service")
+	if embeddedFlagSet != nil {
+		top = ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(embeddedFlagSet)
+	}
+	sfs := ff.NewFlagSet("smee - DHCP and iPXE service").SetParent(top)
+	hfs := ff.NewFlagSet("tootles - Metadata service").SetParent(sfs)
+	tfs := ff.NewFlagSet("tink server - Workflow service").SetParent(hfs)
+	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
+	rfs := ff.NewFlagSet("rufio - BMC controller").SetParent(cfs)
+	ssfs := ff.NewFlagSet("secondstar - SSH over serial service").SetParent(rfs)
+	gfs := ff.NewFlagSet("globals").SetParent(ssfs)
+	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
+	flag.RegisterTootlesFlags(&flag.Set{FlagSet: hfs}, h)
+	flag.RegisterTinkServerFlags(&flag.Set{FlagSet: tfs}, ts)
+	flag.RegisterTinkControllerFlags(&flag.Set{FlagSet: cfs}, tc)
+	flag.RegisterRufioFlags(&flag.Set{FlagSet: rfs}, rc)
+	flag.RegisterSecondStarFlags(&flag.Set{FlagSet: ssfs}, ssc)
+	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
+	if embeddedApiserverExecute != nil && embeddedFlagSet != nil {
+		// This way the embedded flags only show up when the embedded services have been compiled in.
+		flag.RegisterEmbeddedGlobals(&flag.Set{FlagSet: gfs}, globals)
+	}
+
+	cli := &ff.Command{
+		Name:     "tinkerbell",
+		Usage:    "tinkerbell [flags]",
+		LongHelp: "Tinkerbell stack.",
+		Flags:    gfs,
+	}
+
+	if err := cli.Parse(args, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
+		e := errors.New(ffhelp.Command(cli).String())
+		if !errors.Is(err, ff.ErrHelp) {
+			e = fmt.Errorf("%w\n%s", e, err)
+		}
+
+		return e
+	}
+
 	// Smee
 	s.Convert(&globals.TrustedProxies, globals.PublicIP)
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
@@ -187,46 +161,33 @@ func flags() Config {
 
 	// Second star
 	if err := ssc.Convert(); err != nil {
-		// return fmt.Errorf("failed to convert secondstar config: %w", err)
-		return Config{}
+		return fmt.Errorf("failed to convert secondstar config: %w", err)
 	}
 
-	return Config{
-		GlobalConfig:         globals,
-		SmeeConfig:           s,
-		TootlesConfig:        h,
-		TinkServerConfig:     ts,
-		TinkControllerConfig: tc,
-		RufioConfig:          rc,
-		SecondStarConfig:     ssc,
-	}
-}
-
-func rootCommand(ctx context.Context, cancel context.CancelFunc, c Config) error {
-	log := defaultLogger(c.GlobalConfig.LogLevel)
+	log := defaultLogger(globals.LogLevel)
 	log.Info("starting tinkerbell",
 		"version", build.GitRevision(),
-		"smeeEnabled", c.GlobalConfig.EnableSmee,
-		"tootlesEnabled", c.GlobalConfig.EnableTootles,
-		"tinkServerEnabled", c.GlobalConfig.EnableTinkServer,
-		"tinkControllerEnabled", c.GlobalConfig.EnableTinkController,
-		"rufioEnabled", c.GlobalConfig.EnableRufio,
-		"secondStarEnabled", c.GlobalConfig.EnableSecondStar,
-		"publicIP", c.GlobalConfig.PublicIP,
-		"embeddedKubeAPIServer", c.GlobalConfig.EmbeddedGlobalConfig.EnableKubeAPIServer,
-		"embeddedEtcd", c.GlobalConfig.EmbeddedGlobalConfig.EnableETCD,
+		"smeeEnabled", globals.EnableSmee,
+		"tootlesEnabled", globals.EnableTootles,
+		"tinkServerEnabled", globals.EnableTinkServer,
+		"tinkControllerEnabled", globals.EnableTinkController,
+		"rufioEnabled", globals.EnableRufio,
+		"secondStarEnabled", globals.EnableSecondStar,
+		"publicIP", globals.PublicIP,
+		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
+		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
 	)
 
 	g, ctx := errgroup.WithContext(ctx)
 	// Etcd server
 	g.Go(func() error {
-		if !c.GlobalConfig.EmbeddedGlobalConfig.EnableETCD {
+		if !globals.EmbeddedGlobalConfig.EnableETCD {
 			log.Info("embedded etcd is disabled")
 			return nil
 		}
 		if embeddedEtcdExecute != nil {
 			if err := retry.Do(func() error {
-				if err := embeddedEtcdExecute(ctx, c.GlobalConfig.LogLevel); err != nil {
+				if err := embeddedEtcdExecute(ctx, globals.LogLevel); err != nil {
 					return fmt.Errorf("etcd server error: %w", err)
 				}
 				return nil
@@ -239,7 +200,7 @@ func rootCommand(ctx context.Context, cancel context.CancelFunc, c Config) error
 
 	// API Server
 	g.Go(func() error {
-		if !c.GlobalConfig.EmbeddedGlobalConfig.EnableKubeAPIServer {
+		if !globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
 			log.Info("embedded kube-apiserver is disabled")
 			return nil
 		}
@@ -256,13 +217,13 @@ func rootCommand(ctx context.Context, cancel context.CancelFunc, c Config) error
 		return nil
 	})
 
-	if numEnabled(c.GlobalConfig) == 0 {
-		c.GlobalConfig.Backend = "pass"
+	if numEnabled(globals) == 0 {
+		globals.Backend = "pass"
 	}
-	switch c.GlobalConfig.Backend {
+	switch globals.Backend {
 	case "kube":
-		if c.GlobalConfig.EnableCRDMigrations {
-			backendNoIndexes, err := newKubeBackend(ctx, c.GlobalConfig.BackendKubeConfig, "", c.GlobalConfig.BackendKubeNamespace, nil)
+		if globals.EnableCRDMigrations {
+			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil)
 			if err != nil {
 				return fmt.Errorf("failed to create kube backend with no indexes: %w", err)
 			}
@@ -279,43 +240,43 @@ func rootCommand(ctx context.Context, cancel context.CancelFunc, c Config) error
 			log.Info("CRD migrations completed")
 		}
 
-		b, err := newKubeBackend(ctx, c.GlobalConfig.BackendKubeConfig, "", c.GlobalConfig.BackendKubeNamespace, enabledIndexes(c.GlobalConfig.EnableSmee, c.GlobalConfig.EnableTootles, c.GlobalConfig.EnableTinkServer, c.GlobalConfig.EnableSecondStar))
+		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar))
 		if err != nil {
 			return fmt.Errorf("failed to create kube backend: %w", err)
 		}
-		c.SmeeConfig.Config.Backend = b
-		c.TootlesConfig.Config.BackendEc2 = b
-		c.TootlesConfig.Config.BackendHack = b
-		c.TinkServerConfig.Config.Backend = b
-		c.TinkServerConfig.Config.Auto.Enrollment.Backend = b
-		c.TinkServerConfig.Config.Auto.Discovery.Backend = b
-		c.TinkControllerConfig.Config.Client = b.ClientConfig
-		c.TinkControllerConfig.Config.DynamicClient = b
-		c.RufioConfig.Config.Client = b.ClientConfig
-		c.SecondStarConfig.Config.Backend = b
+		s.Config.Backend = b
+		h.Config.BackendEc2 = b
+		h.Config.BackendHack = b
+		ts.Config.Backend = b
+		ts.Config.Auto.Enrollment.Backend = b
+		ts.Config.Auto.Discovery.Backend = b
+		tc.Config.Client = b.ClientConfig
+		tc.Config.DynamicClient = b
+		rc.Config.Client = b.ClientConfig
+		ssc.Config.Backend = b
 	case "file":
-		b, err := newFileBackend(ctx, log, c.GlobalConfig.BackendFilePath)
+		b, err := newFileBackend(ctx, log, globals.BackendFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to create file backend: %w", err)
 		}
-		c.SmeeConfig.Config.Backend = b
+		s.Config.Backend = b
 	case "none":
 		b := newNoopBackend()
-		c.SmeeConfig.Config.Backend = b
-		c.TootlesConfig.Config.BackendEc2 = b
-		c.TootlesConfig.Config.BackendHack = b
+		s.Config.Backend = b
+		h.Config.BackendEc2 = b
+		h.Config.BackendHack = b
 	case "pass":
 	default:
-		return fmt.Errorf("unknown backend %q", c.GlobalConfig.Backend)
+		return fmt.Errorf("unknown backend %q", globals.Backend)
 	}
 
 	// Kube Controller Manager
 	g.Go(func() error {
-		if !c.GlobalConfig.EmbeddedGlobalConfig.EnableKubeAPIServer {
+		if !globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
 			log.Info("embedded kube-controller-manager is disabled")
 			return nil
 		}
-		if err := embeddedKubeControllerManagerExecute(ctx, c.GlobalConfig.BackendKubeConfig); err != nil {
+		if err := embeddedKubeControllerManagerExecute(ctx, globals.BackendKubeConfig); err != nil {
 			return fmt.Errorf("kube-controller-manager error: %w", err)
 		}
 		return nil
@@ -323,12 +284,12 @@ func rootCommand(ctx context.Context, cancel context.CancelFunc, c Config) error
 
 	// Smee
 	g.Go(func() error {
-		if !c.GlobalConfig.EnableSmee {
+		if !globals.EnableSmee {
 			log.Info("smee service is disabled")
 			return nil
 		}
-		ll := ternary((c.SmeeConfig.LogLevel != 0), c.SmeeConfig.LogLevel, c.GlobalConfig.LogLevel)
-		if err := c.SmeeConfig.Config.Start(ctx, defaultLogger(ll).WithValues("service", "smee")); err != nil {
+		ll := ternary((s.LogLevel != 0), s.LogLevel, globals.LogLevel)
+		if err := s.Config.Start(ctx, defaultLogger(ll).WithValues("service", "smee")); err != nil {
 			return fmt.Errorf("failed to start smee service: %w", err)
 		}
 		return nil
@@ -336,12 +297,12 @@ func rootCommand(ctx context.Context, cancel context.CancelFunc, c Config) error
 
 	// Tootles
 	g.Go(func() error {
-		if !c.GlobalConfig.EnableTootles {
+		if !globals.EnableTootles {
 			log.Info("tootles service is disabled")
 			return nil
 		}
-		ll := ternary((c.TootlesConfig.LogLevel != 0), c.TootlesConfig.LogLevel, c.GlobalConfig.LogLevel)
-		if err := c.TootlesConfig.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tootles")); err != nil {
+		ll := ternary((h.LogLevel != 0), h.LogLevel, globals.LogLevel)
+		if err := h.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tootles")); err != nil {
 			return fmt.Errorf("failed to start tootles service: %w", err)
 		}
 		return nil
@@ -349,12 +310,12 @@ func rootCommand(ctx context.Context, cancel context.CancelFunc, c Config) error
 
 	// Tink Server
 	g.Go(func() error {
-		if !c.GlobalConfig.EnableTinkServer {
+		if !globals.EnableTinkServer {
 			log.Info("tink server service is disabled")
 			return nil
 		}
-		ll := ternary((c.TinkServerConfig.LogLevel != 0), c.TinkServerConfig.LogLevel, c.GlobalConfig.LogLevel)
-		if err := c.TinkServerConfig.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tink-server")); err != nil {
+		ll := ternary((ts.LogLevel != 0), ts.LogLevel, globals.LogLevel)
+		if err := ts.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tink-server")); err != nil {
 			return fmt.Errorf("failed to start tink server service: %w", err)
 		}
 		return nil
@@ -362,12 +323,12 @@ func rootCommand(ctx context.Context, cancel context.CancelFunc, c Config) error
 
 	// Tink Controller
 	g.Go(func() error {
-		if !c.GlobalConfig.EnableTinkController {
+		if !globals.EnableTinkController {
 			log.Info("tink controller service is disabled")
 			return nil
 		}
-		ll := ternary((c.TinkControllerConfig.LogLevel != 0), c.TinkControllerConfig.LogLevel, c.GlobalConfig.LogLevel)
-		if err := c.TinkControllerConfig.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tink-controller")); err != nil {
+		ll := ternary((tc.LogLevel != 0), tc.LogLevel, globals.LogLevel)
+		if err := tc.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tink-controller")); err != nil {
 			return fmt.Errorf("failed to start tink controller service: %w", err)
 		}
 		return nil
@@ -375,12 +336,12 @@ func rootCommand(ctx context.Context, cancel context.CancelFunc, c Config) error
 
 	// Rufio Controller
 	g.Go(func() error {
-		if !c.GlobalConfig.EnableRufio {
+		if !globals.EnableRufio {
 			log.Info("rufio service is disabled")
 			return nil
 		}
-		ll := ternary((c.RufioConfig.LogLevel != 0), c.RufioConfig.LogLevel, c.GlobalConfig.LogLevel)
-		if err := c.RufioConfig.Config.Start(ctx, defaultLogger(ll).WithValues("service", "rufio")); err != nil {
+		ll := ternary((rc.LogLevel != 0), rc.LogLevel, globals.LogLevel)
+		if err := rc.Config.Start(ctx, defaultLogger(ll).WithValues("service", "rufio")); err != nil {
 			return fmt.Errorf("failed to start rufio service: %w", err)
 		}
 		return nil
@@ -388,12 +349,12 @@ func rootCommand(ctx context.Context, cancel context.CancelFunc, c Config) error
 
 	// SecondStar
 	g.Go(func() error {
-		if !c.GlobalConfig.EnableSecondStar {
+		if !globals.EnableSecondStar {
 			log.Info("secondstar service is disabled")
 			return nil
 		}
-		ll := ternary((c.SecondStarConfig.LogLevel != 0), c.SecondStarConfig.LogLevel, c.GlobalConfig.LogLevel)
-		if err := c.SecondStarConfig.Config.Start(ctx, defaultLogger(ll).WithValues("service", "secondstar")); err != nil {
+		ll := ternary((ssc.LogLevel != 0), ssc.LogLevel, globals.LogLevel)
+		if err := ssc.Config.Start(ctx, defaultLogger(ll).WithValues("service", "secondstar")); err != nil {
 			return fmt.Errorf("failed to start secondstar service: %w", err)
 		}
 		return nil
