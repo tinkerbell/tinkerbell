@@ -1,5 +1,5 @@
 {{- if .Values.optional.migration.enabled -}}
-# This file requires a values.yaml file from a ghcr.io/tinkerbell/charts/stack deployment.
+# This file requires a values.yaml file from a v0.6.2 ghcr.io/tinkerbell/charts/stack deployment.
 # Get the values.yaml file from a running stack deployment with:
 # helm get values <release_name> -n <namespace> -a -o yaml > v0.6.2_values.yaml
 # Then run the migration with:
@@ -136,7 +136,7 @@ name: {{ .Values.name }}
 publicIP: {{ .Values.global.publicIP }}
 rbac:
   name: {{ .Values.rbac.name }}
-  type: {{ .Values.global.rbac.type }} # or Role
+  type: {{ .Values.rbac.type }}
 service:
   annotations: {{ .Values.service.annotations | toYaml | nindent 4 }}
   labels:

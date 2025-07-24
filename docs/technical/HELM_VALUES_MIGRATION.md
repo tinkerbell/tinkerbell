@@ -33,5 +33,13 @@ Before you begin the migration process, ensure you have the following:
    # Set the artifacts file server URL for HookOS
    ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
 
-   helm template migration oci://tinkerbell/charts/tinkerbell --version v0.19.2 -f v0.6.2_values.yaml --show-only="templates/migration/from-0.6.2.yaml" --set "trustedProxies={${TRUSTED_PROXIES}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" --set "optional.migration.enabled=true"
+   helm template migration oci://tinkerbell/charts/tinkerbell --version v0.19.2 -f v0.6.2_values.yaml --show-only="templates/migration/from-0.6.2.yaml" --set "optional.migration.enabled=true" --set "trustedProxies={${TRUSTED_PROXIES}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER"
    ```
+
+When you install the v0.19.x chart, use the output from the migration command. For example:
+
+```bash
+helm upgrade --install tinkerbell oci://ghcr.io/tinkerbell/charts/tinkerbell \
+  --version v0.19.2 \
+  --namespace tinkerbell --create-namespace  --wait  -f <output-from-migration-command>  --set "trustedProxies={${TRUSTED_PROXIES}}"  --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER"
+```
