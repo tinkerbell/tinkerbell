@@ -41,4 +41,3 @@ certs/
 # helm chart files and directories
 *.tgz
 Chart.lock
-helm/tinkerbell/ignore/*.yaml

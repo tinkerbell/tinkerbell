@@ -154,7 +154,6 @@ linters:
       - smee/internal/iso/internal/acsii.go
       - smee/internal/iso/internal/acsii_test.go
       - cmd/tinkerbell/flag/url.go
-      - cmd/tinkerbell/migrate/helm/strvals
       - third_party$
       - builtin$
       - examples$
