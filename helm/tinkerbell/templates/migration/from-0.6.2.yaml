@@ -1,9 +1,9 @@
 {{- if .Values.optional.migration.enabled -}}
 artifactsFileServer: {{ .Values.artifactsFileServer }}
 deployment:
-  additionalEnvs: {{- .Values.deployment.additionalEnvs | toYaml | nindent 4 }}
-  additionalArgs: {{- .Values.deployment.additionalArgs | toYaml | nindent 4 }}
-  affinity: {{- .Values.deployment.affinity | toYaml | nindent 4 }}
+  additionalEnvs: {{ .Values.deployment.additionalEnvs | toYaml | nindent 4 }}
+  additionalArgs: {{ .Values.deployment.additionalArgs | toYaml | nindent 4 }}
+  affinity: {{ .Values.deployment.affinity | toYaml | nindent 4 }}
   agentImage: {{ .Values.deployment.agentImage }}
   agentImageTag: {{ .Values.deployment.agentImageTag }}
   daemonSet:
@@ -112,7 +112,7 @@ deployment:
     image: {{ .Values.deployment.init.image }}
     interfaceMode: {{ .Values.deployment.init.interfaceMode }}
     sourceInterface: {{ .Values.deployment.init.sourceInterface }}
-  nodeSelector: {{ .Values.nodeSelector | toYaml | nindent 4 }}
+  nodeSelector: {{ .Values.deployment.nodeSelector | toYaml | nindent 4 }}
   replicas: {{ .Values.deployment.replicas }}
   resources:
     limits:
