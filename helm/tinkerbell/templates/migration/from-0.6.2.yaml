@@ -138,7 +138,7 @@ service:
     app: {{ .Values.service.labels.app }}
   lbClass: {{ .Values.service.lbClass }}
   loadBalancerIP: {{ .Values.service.loadBalancerIP }}
-  name: {{ .Values.service.name}}
+  name: {{ .Values.service.name }}
   ports:
     dhcp:
       name: {{ .Values.service.ports.dhcp.name }}
@@ -154,7 +154,7 @@ service:
       protocol: {{ .Values.service.ports.httpSmee.protocol }}
     httpTootles:
       name: {{ .Values.service.ports.httpTootles.name }}
-      port: {{ .Values.hegel.service.port }}
+      port: {{ .Values.service.ports.httpTootles.port }}
       protocol: {{ .Values.service.ports.httpTootles.protocol }}
     ssh:
       name: {{ .Values.service.ports.ssh.name }}
