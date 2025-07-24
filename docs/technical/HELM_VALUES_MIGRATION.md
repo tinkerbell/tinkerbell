@@ -22,7 +22,7 @@ Before you begin the migration process, ensure you have the following:
    helm get values tink-stack -n tink -a -o yaml > v0.6.2_values.yaml 
    ```
 
-1. Run the migration command to convert the `0.6.2` values to the `v0.19.x` values format. This will generate a `migrated_values.yaml` file that you can use with the new chart.
+1. Run the migration command to convert the `0.6.2` values to the `v0.19.x` values format. This will generate a `migrated_values.yaml` file that you can use with the installation of the `v0.19.x` chart.
 
    ```bash
    # Get the pod CIDRs to set as trusted proxies
@@ -48,6 +48,9 @@ Before you begin the migration process, ensure you have the following:
    ```
 
 1. Use the generated `migrated_values.yaml` file to install the Tinkerbell chart `v0.19.x`. This file contains the updated values that are compatible with the new chart version.
+
+> [!NOTE]  
+> For production deployments, be sure to thoroughly review the `migrated_values.yaml` file and adjust any settings as necessary before applying it.
 
    ```bash
    # Install the Tinkerbell chart using the migrated values
