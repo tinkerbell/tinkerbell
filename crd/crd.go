@@ -185,6 +185,15 @@ func (t Tinkerbell) update(ctx context.Context, obj *unstructured.Unstructured) 
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &crdef); err != nil {
 		return fmt.Errorf("failed to convert unstructured to CRD: %w", err)
 	}
+	// Get the existing CRD to update it.
+	existingCRD, err := t.Client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdef.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get existing CRD %s: %w", crdef.Name, err)
+	}
+	// Update the existing CRD with the new spec.
+	crdef.ResourceVersion = existingCRD.ResourceVersion
+	crdef.UID = existingCRD.UID
+	crdef.CreationTimestamp = existingCRD.CreationTimestamp
 	if _, err := t.Client.ApiextensionsV1().CustomResourceDefinitions().Update(ctx, &crdef, metav1.UpdateOptions{FieldManager: "Tinkerbell CLI"}); err != nil {
 		return fmt.Errorf("failed to update CRD: %w", err)
 	}
