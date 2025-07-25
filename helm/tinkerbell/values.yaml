@@ -218,7 +218,7 @@ optional:
         type: RollingUpdate
     # downloadURL only works with the > 0.8.1 Hook release because
     # previous Hook versions didn't provide a checksum file.
-    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.10.0
+    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.11.0
     enabled: true
     extension: tar.gz # iso, tar.gz, both
     image: nginx:1.27.2
