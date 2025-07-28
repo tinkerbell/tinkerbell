@@ -1,7 +1,7 @@
 # Upgrading Tinkerbell Helm Chart
 
 **From:** `ghcr.io/tinkerbell/charts/stack` version 0.6.2  
-**To:** `ghcr.io/tinkerbell/charts/tinkerbell` version v0.19.1
+**To:** `ghcr.io/tinkerbell/charts/tinkerbell` version v0.19.x
 
 ## Prerequisites
 
@@ -19,11 +19,11 @@ Before starting the upgrade process, ensure the following conditions are met:
 - Additional status fields have been added to the Workflow CRD
 - CRDs will be automatically updated when deploying the v0.19.x Helm chart
 
-> **Note:** To disable automatic CRD migrations, use the flag `--set "deployment.envs.globals.enableCRDMigrations=false"` during deployment. If disabled, you must manually update CRDs (not covered in this guide).
+>! **Note:** To disable automatic CRD migrations, use the flag `--set "deployment.envs.globals.enableCRDMigrations=false"` during deployment. If disabled, you must manually update CRDs (not covered in this guide).
 
 ### Workflow State Field Changes
 
-A significant change in v0.19.1 affects the `Workflow.Status.State` field:
+A significant change in v0.19.x affects the `Workflow.Status.State` field:
 
 - **Before:** `STATE_PENDING`, `STATE_RUNNING`, `STATE_SUCCESS`, etc.
 - **After:** `PENDING`, `RUNNING`, `SUCCESS`, etc. (removed `STATE_` prefix)
