@@ -19,7 +19,8 @@ Before starting the upgrade process, ensure the following conditions are met:
 - Additional status fields have been added to the Workflow CRD
 - CRDs will be automatically updated when deploying the v0.19.x Helm chart
 
->! **Note:** To disable automatic CRD migrations, use the flag `--set "deployment.envs.globals.enableCRDMigrations=false"` during deployment. If disabled, you must manually update CRDs (not covered in this guide).
+> ![Note]
+> To disable automatic CRD migrations, use the flag `--set "deployment.envs.globals.enableCRDMigrations=false"` during deployment. If disabled, you must manually update CRDs (not covered in this guide).
 
 ### Workflow State Field Changes
 
@@ -28,7 +29,8 @@ A significant change in v0.19.x affects the `Workflow.Status.State` field:
 - **Before:** `STATE_PENDING`, `STATE_RUNNING`, `STATE_SUCCESS`, etc.
 - **After:** `PENDING`, `RUNNING`, `SUCCESS`, etc. (removed `STATE_` prefix)
 
->! **Impact:** Existing Workflows with `STATE_PENDING` status will not be reconciled by the new Tink Controller.
+> [!IMPORTANT]
+> Existing Workflows with `STATE_PENDING` status will not be reconciled by the new Tink Controller.
 
 ## Upgrade Process
 
@@ -42,11 +44,11 @@ helm uninstall <release-name> -n <namespace>
 
 ### Step 2: Handle Existing Workflows
 
-Choose one of the following options to handle the workflow state changes:
+Choose one of the following options to handle the Workflow state changes:
 
 #### Option 1: Update Workflow States (Recommended)
 
-Run this command to update existing workflows with the old state format:
+Run this command to update existing Workflows with the old state format:
 
 ```bash
 kubectl get workflows -A -o json | jq -r '.items[] | select(.status.state == "STATE_PENDING") | .metadata.namespace + " " + .metadata.name' | while read -r NS WF; do
@@ -57,13 +59,14 @@ done
 
 #### Option 2: Clean Slate Approach
 
-If you prefer to start fresh, delete all existing workflows:
+If you prefer to start fresh, delete all existing Workflows:
 
 ```bash
 kubectl delete workflows --all-namespaces --all
 ```
 
-> **Warning:** This will permanently delete all workflow history and data.
+> [!WARNING]
+> This will permanently delete all Workflows.
 
 ### Step 3: Install the New Chart
 
