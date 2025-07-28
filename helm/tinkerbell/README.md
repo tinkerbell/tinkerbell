@@ -124,6 +124,10 @@ helm install tinkerbell . \
   --set deployment.envs.smee.dhcpMode=auto-proxy
 ```
 
+### Upgrading from Helm chart version 0.6.2
+
+When upgrading from the previous architecture and version ([0.6.2](https://github.com/tinkerbell/charts)), refer to the [upgrade documentation](../../docs/technical/ORIGINAL_HELM_CHART_UPGRADE.md) for details.
+
 ## Additional Resources
 
 - [Tinkerbell Documentation](https://tinkerbell.org)
