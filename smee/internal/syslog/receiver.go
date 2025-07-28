@@ -109,7 +109,12 @@ func (r *Receiver) run(ctx context.Context) {
 		msg.time = time.Now().UTC()
 		msg.host = from.IP
 		msg.size = n
-		r.parse <- msg
+		select {
+		case <-ctx.Done():
+			r.Logger.Info("context done, exiting syslog receiver")
+			return
+		case r.parse <- msg:
+		}
 		msg = nil
 	}
 }
