@@ -144,6 +144,8 @@ func parse(m *message) map[string]interface{} {
 			var j map[string]interface{}
 			if err := json.Unmarshal(m.msg, &j); err == nil {
 				structured["msg"] = j
+			} else {
+				structured["msg"] = string(m.msg)
 			}
 		} else {
 			structured["msg"] = string(m.msg)
