@@ -19,7 +19,7 @@ Before starting the upgrade process, ensure the following conditions are met:
 - Additional status fields have been added to the Workflow CRD
 - CRDs will be automatically updated when deploying the v0.19.x Helm chart
 
-> ![Note]
+> [!Note]
 > To disable automatic CRD migrations, use the flag `--set "deployment.envs.globals.enableCRDMigrations=false"` during deployment. If disabled, you must manually update CRDs (not covered in this guide).
 
 ### Workflow State Field Changes
