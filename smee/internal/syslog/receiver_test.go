@@ -2,6 +2,7 @@ package syslog
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -56,10 +57,8 @@ func TestStartReceiver(t *testing.T) {
 				if tc.errSubstr != "" && !containsSubstring(err.Error(), tc.errSubstr) {
 					t.Errorf("StartReceiver() error = %v, want substring %v", err, tc.errSubstr)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("StartReceiver() unexpected error = %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("StartReceiver() unexpected error = %v", err)
 			}
 		})
 	}
@@ -105,7 +104,7 @@ func TestReceiver_DoneAndErr(t *testing.T) {
 
 	// Simulate an error
 	testReceiver.err = net.ErrClosed
-	if testReceiver.Err() != net.ErrClosed {
+	if !errors.Is(testReceiver.Err(), net.ErrClosed) {
 		t.Errorf("Err() = %v, want %v", testReceiver.Err(), net.ErrClosed)
 	}
 }
@@ -362,7 +361,7 @@ func TestReceiverIntegration(t *testing.T) {
 	// More detailed verification would require access to the receiver instance
 }
 
-// Helper function to check if a string contains a substring
+// Helper function to check if a string contains a substring.
 func containsSubstring(s, substr string) bool {
 	return len(substr) == 0 || (len(s) >= len(substr) &&
 		func() bool {
