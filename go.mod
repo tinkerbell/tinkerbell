@@ -9,7 +9,7 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20250331132619-80c6fe5a0a65
 	github.com/ccoveille/go-safecast v1.6.1
 	github.com/cenkalti/backoff/v5 v5.0.2
-	github.com/containerd/containerd v1.7.27
+	github.com/containerd/containerd v1.7.28
 	github.com/containers/image/v5 v5.36.0
 	github.com/diskfs/go-diskfs v1.6.0
 	github.com/distribution/reference v0.6.0
@@ -234,7 +234,7 @@ require (
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/term v0.33.0 // indirect
-	golang.org/x/time v0.11.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.34.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20241118233622-e639e219e697 // indirect
