@@ -8,7 +8,7 @@ require (
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20250331132619-80c6fe5a0a65
 	github.com/ccoveille/go-safecast v1.6.1
-	github.com/cenkalti/backoff/v5 v5.0.2
+	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/containerd/containerd v1.7.28
 	github.com/containers/image/v5 v5.36.0
 	github.com/diskfs/go-diskfs v1.6.0
