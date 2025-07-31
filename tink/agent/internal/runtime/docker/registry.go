@@ -4,12 +4,14 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // useAuth determines if authentication should be used for pulling the given image.
 // It compares the registry hostname extracted from the image reference against the
 // configured registry hostname to ensure exact matching and prevent security vulnerabilities
-// from substring matching attacks.
+// from substring matching attacks and homograph attacks using Unicode normalization.
 func useAuth(imageRef, registryHost string) bool {
 	if registryHost == "" {
 		return false
@@ -17,6 +19,12 @@ func useAuth(imageRef, registryHost string) bool {
 
 	imageHost := extractRegistryHostname(imageRef)
 	configHost := normalizeRegistryHostname(registryHost)
+
+	// Apply Unicode normalization to prevent homograph attacks
+	// Use NFC (Canonical Decomposition followed by Canonical Composition)
+	// to ensure consistent Unicode representation
+	imageHost = norm.NFC.String(imageHost)
+	configHost = norm.NFC.String(configHost)
 
 	return imageHost == configHost
 }
