@@ -88,7 +88,7 @@ func DiscoverBlockDevices(l logr.Logger) []*data.Block {
 		if d == nil {
 			continue
 		}
-		if d.StorageController != block.STORAGE_CONTROLLER_LOOP {
+		if d.StorageController != block.StorageControllerLoop && d.StorageController != block.StorageControllerUnknown {
 			blockDevices = append(blockDevices, &data.Block{
 				Name:              toPtr(d.Name),
 				ControllerType:    toPtr(d.StorageController.String()),
