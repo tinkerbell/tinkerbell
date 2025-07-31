@@ -95,7 +95,7 @@ func normalizeRegistryHostname(registryHost string) string {
 // - Hostnames with ports: registry.example.com:5000, localhost:5000
 // - Hostnames with dots: registry.example.com, sub.domain.com
 // - Known registry patterns: localhost, 127.0.0.1
-// - Excludes Docker Hub image:tag patterns: ubuntu:20.04, myapp:v1.2.3
+// - Excludes Docker Hub image:tag patterns: ubuntu:20.04, myapp:v1.2.3.
 func isRegistryHostname(part string) bool {
 	if part == "" {
 		return false
@@ -147,7 +147,7 @@ func isRegistryHostname(part string) bool {
 	return false
 }
 
-// isIPv4WithOptionalPort checks if the string is an IPv4 address with optional port
+// isIPv4WithOptionalPort checks if the string is an IPv4 address with optional port.
 func isIPv4WithOptionalPort(part string) bool {
 	// Split by colon to separate potential IP and port
 	host := part
@@ -188,7 +188,7 @@ func isIPv4WithOptionalPort(part string) bool {
 }
 
 // isHostnameWithPort checks if a string with both dots and colons represents
-// a hostname with port rather than a Docker image with tag
+// a hostname with port rather than a Docker image with tag.
 func isHostnameWithPort(part string) bool {
 	// Find the last colon (potential port separator)
 	colonIndex := strings.LastIndex(part, ":")

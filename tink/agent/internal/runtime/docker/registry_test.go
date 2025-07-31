@@ -234,7 +234,7 @@ func TestExtractRegistryHostname(t *testing.T) {
 	}
 }
 
-// TestIsRegistryHostname tests the new hostname detection logic
+// TestIsRegistryHostname tests the new hostname detection logic.
 func TestIsRegistryHostname(t *testing.T) {
 	tests := []struct {
 		name     string
