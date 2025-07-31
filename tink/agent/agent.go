@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
@@ -287,10 +288,14 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 		if err != nil {
 			return fmt.Errorf("unable to create Docker client: %w", err)
 		}
-		// TODO(jacobweinstock): handle auth
 		dockerExecutor := &docker.Config{
 			Client: dclient,
 			Log:    log,
+			RegistryAuth: &registry.AuthConfig{
+				Username:      o.Registry.User,
+				Password:      o.Registry.Pass,
+				ServerAddress: o.Registry.Name,
+			},
 		}
 		re = dockerExecutor
 		log.Info("using Docker runtime")
