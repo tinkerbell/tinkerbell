@@ -2,14 +2,15 @@ package docker
 
 import (
 	"net/url"
+	"strconv"
 	"strings"
 )
 
-// shouldUseAuth determines if authentication should be used for pulling the given image.
+// useAuth determines if authentication should be used for pulling the given image.
 // It compares the registry hostname extracted from the image reference against the
 // configured registry hostname to ensure exact matching and prevent security vulnerabilities
 // from substring matching attacks.
-func shouldUseAuth(imageRef, registryHost string) bool {
+func useAuth(imageRef, registryHost string) bool {
 	if registryHost == "" {
 		return false
 	}
@@ -101,13 +102,27 @@ func isRegistryHostname(part string) bool {
 		return false
 	}
 
-	// Handle IPv6 addresses in brackets [::1]:5000 or [2001:db8::1]:5000
+	// Handle IPv6 addresses in brackets [::1], [2001:db8::1], [::1]:5000, or [2001:db8::1]:5000
+	if strings.HasPrefix(part, "[") && strings.HasSuffix(part, "]") {
+		return true
+	}
 	if strings.HasPrefix(part, "[") && strings.Contains(part, "]:") {
 		return true
 	}
 
 	// Check for localhost (with or without port)
-	if part == "localhost" || strings.HasPrefix(part, "localhost:") {
+	if part == "localhost" {
+		return true
+	}
+	if strings.HasPrefix(part, "localhost:") {
+		portStr := part[len("localhost:"):]
+		if portStr == "" {
+			return false
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil || port < 1 || port > 65535 {
+			return false
+		}
 		return true
 	}
 
@@ -154,15 +169,13 @@ func isIPv4WithOptionalPort(part string) bool {
 	if colonIndex := strings.LastIndex(part, ":"); colonIndex != -1 {
 		host = part[:colonIndex]
 		portStr := part[colonIndex+1:]
-		// Basic port validation (1-65535)
+		// Validate port number (1-65535)
 		if portStr == "" || len(portStr) > 5 {
 			return false
 		}
-		// Check if port contains only digits
-		for _, r := range portStr {
-			if r < '0' || r > '9' {
-				return false
-			}
+		port, err := strconv.Atoi(portStr)
+		if err != nil || port < 1 || port > 65535 {
+			return false
 		}
 	}
 
@@ -199,16 +212,14 @@ func isHostnameWithPort(part string) bool {
 	portStr := part[colonIndex+1:]
 	hostname := part[:colonIndex]
 
-	// Port should be numeric and reasonable length
+	// Port should be numeric and within the valid range (1-65535)
 	if len(portStr) == 0 || len(portStr) > 5 {
 		return false
 	}
 
-	// Check if port contains only digits
-	for _, r := range portStr {
-		if r < '0' || r > '9' {
-			return false
-		}
+	port, err := strconv.Atoi(portStr)
+	if err != nil || port < 1 || port > 65535 {
+		return false
 	}
 
 	// Hostname part should still contain dots for this to be a registry hostname
