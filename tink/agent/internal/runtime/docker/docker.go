@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	retry "github.com/avast/retry-go/v4"
@@ -29,11 +28,9 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	pullImage := func() error {
 		pullOpts := image.PullOptions{}
 
-		// The strings.Contains check is necessary to avoid adding auth to image pulls that
-		// are not from the registry that requires authentication. Because when auth is added
-		// to public registries the image pull will fail. This allows a private registry
-		// to be used in conjunction with public registries that don't require authentication.
-		if c.RegistryAuth != nil && strings.Contains(a.Image, c.RegistryAuth.ServerAddress) {
+		// Check if authentication should be used for this image
+		// Only apply auth to images from the exact registry that is configured for authentication
+		if c.RegistryAuth != nil && shouldUseAuth(a.Image, c.RegistryAuth.ServerAddress) {
 			encodedJSON, err := json.Marshal(c.RegistryAuth)
 			if err != nil {
 				return fmt.Errorf("unable to encode auth config: %w", err)
