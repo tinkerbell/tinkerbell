@@ -191,6 +191,36 @@ func TestExtractRegistryHostname(t *testing.T) {
 			imageRef: "registry.example.com/deep/nested/path/image:tag",
 			expected: "registry.example.com",
 		},
+		{
+			name:     "docker hub image with complex tag",
+			imageRef: "myapp:v1.2.3",
+			expected: "docker.io",
+		},
+		{
+			name:     "docker hub image with timestamp tag",
+			imageRef: "myapp:2023-12-25",
+			expected: "docker.io",
+		},
+		{
+			name:     "ipv6 address with port",
+			imageRef: "[::1]:5000/image:tag",
+			expected: "[::1]:5000",
+		},
+		{
+			name:     "ipv6 full address with port",
+			imageRef: "[2001:db8::1]:5000/image:tag",
+			expected: "[2001:db8::1]:5000",
+		},
+		{
+			name:     "localhost without port",
+			imageRef: "localhost/image:tag",
+			expected: "localhost",
+		},
+		{
+			name:     "ipv4 address without port",
+			imageRef: "192.168.1.100/image:tag",
+			expected: "192.168.1.100",
+		},
 	}
 
 	for _, tt := range tests {
@@ -199,6 +229,136 @@ func TestExtractRegistryHostname(t *testing.T) {
 			if result != tt.expected {
 				t.Errorf("extractRegistryHostname(%q) = %q, expected %q",
 					tt.imageRef, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestIsRegistryHostname tests the new hostname detection logic
+func TestIsRegistryHostname(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		// Should be recognized as registry hostnames
+		{
+			name:     "registry with domain",
+			input:    "registry.example.com",
+			expected: true,
+		},
+		{
+			name:     "registry with domain and port",
+			input:    "registry.example.com:5000",
+			expected: true,
+		},
+		{
+			name:     "localhost",
+			input:    "localhost",
+			expected: true,
+		},
+		{
+			name:     "localhost with port",
+			input:    "localhost:5000",
+			expected: true,
+		},
+		{
+			name:     "ipv4 address",
+			input:    "192.168.1.100",
+			expected: true,
+		},
+		{
+			name:     "ipv4 address with port",
+			input:    "192.168.1.100:5000",
+			expected: true,
+		},
+		{
+			name:     "ipv6 address with port",
+			input:    "[::1]:5000",
+			expected: true,
+		},
+		{
+			name:     "ipv6 full address with port",
+			input:    "[2001:db8::1]:5000",
+			expected: true,
+		},
+		{
+			name:     "subdomain registry",
+			input:    "sub.registry.example.com",
+			expected: true,
+		},
+
+		// Should NOT be recognized as registry hostnames (Docker Hub images)
+		{
+			name:     "simple image name",
+			input:    "ubuntu",
+			expected: false,
+		},
+		{
+			name:     "image with simple tag",
+			input:    "ubuntu:20.04",
+			expected: false,
+		},
+		{
+			name:     "image with complex tag",
+			input:    "myapp:v1.2.3",
+			expected: false,
+		},
+		{
+			name:     "image with timestamp tag",
+			input:    "myapp:2023-12-25",
+			expected: false,
+		},
+		{
+			name:     "username format",
+			input:    "username",
+			expected: false,
+		},
+		{
+			name:     "image with hash tag",
+			input:    "image:sha256-abcd1234",
+			expected: false,
+		},
+
+		// Edge cases
+		{
+			name:     "empty string",
+			input:    "",
+			expected: false,
+		},
+		{
+			name:     "just colon",
+			input:    ":",
+			expected: false,
+		},
+		{
+			name:     "just dot",
+			input:    ".",
+			expected: false,
+		},
+		{
+			name:     "malformed ipv6",
+			input:    "[::1",
+			expected: false,
+		},
+		{
+			name:     "invalid port",
+			input:    "registry.example.com:abc",
+			expected: false,
+		},
+		{
+			name:     "port too large",
+			input:    "registry.example.com:999999",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isRegistryHostname(tt.input)
+			if result != tt.expected {
+				t.Errorf("isRegistryHostname(%q) = %v, expected %v",
+					tt.input, result, tt.expected)
 			}
 		})
 	}
