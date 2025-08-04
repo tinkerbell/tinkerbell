@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	defaultQPS   = 100
-	defaultBurst = 100
+	defaultQPS   float32 = 100
+	defaultBurst int     = 100
 )
 
 type kubeBackendOpt func(k *kube.Backend)
@@ -29,20 +29,20 @@ func WithBurst(burst int) kubeBackendOpt {
 }
 
 func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string, indexes map[kube.IndexType]kube.Index, opts ...kubeBackendOpt) (*kube.Backend, error) {
-	kb, err := kube.NewBackend(kube.Backend{
+	defaultConfig := kube.Backend{
 		ConfigFilePath: kubeconfig,
 		APIURL:         apiurl,
 		Namespace:      namespace,
 		Indexes:        indexes,
 		QPS:            defaultQPS,   // Default QPS value. A negative value disables client-side ratelimiting.
 		Burst:          defaultBurst, // Default burst value.
-	})
+	}
+	for _, opt := range opts {
+		opt(&defaultConfig)
+	}
+	kb, err := kube.NewBackend(defaultConfig)
 	if err != nil {
 		return nil, err
-	}
-
-	for _, opt := range opts {
-		opt(kb)
 	}
 
 	go func() {
