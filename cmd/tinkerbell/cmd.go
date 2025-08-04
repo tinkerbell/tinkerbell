@@ -52,6 +52,10 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
 		},
+		BackendKubeOptions: flag.BackendKubeOptions{
+			QPS:   100, // Default QPS value. A negative value disables client-side ratelimiting.
+			Burst: 100, // Default burst value.
+		},
 	}
 
 	s := &flag.SmeeConfig{

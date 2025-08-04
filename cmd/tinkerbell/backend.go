@@ -9,15 +9,35 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/backend/noop"
 )
 
-func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string, indexes map[kube.IndexType]kube.Index) (*kube.Backend, error) {
+type kubeBackendOpt func(k *kube.Backend)
+
+func WithQPS(qps float32) kubeBackendOpt {
+	return func(k *kube.Backend) {
+		k.QPS = qps
+	}
+}
+
+func WithBurst(burst int) kubeBackendOpt {
+	return func(k *kube.Backend) {
+		k.Burst = burst
+	}
+}
+
+func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string, indexes map[kube.IndexType]kube.Index, opts ...kubeBackendOpt) (*kube.Backend, error) {
 	kb, err := kube.NewBackend(kube.Backend{
 		ConfigFilePath: kubeconfig,
 		APIURL:         apiurl,
 		Namespace:      namespace,
 		Indexes:        indexes,
+		QPS:            100, // Default QPS value. A negative value disables client-side ratelimiting.
+		Burst:          100, // Default burst value.
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	for _, opt := range opts {
+		opt(kb)
 	}
 
 	go func() {
