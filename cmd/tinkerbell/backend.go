@@ -9,6 +9,11 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/backend/noop"
 )
 
+const (
+	defaultQPS   = 100
+	defaultBurst = 100
+)
+
 type kubeBackendOpt func(k *kube.Backend)
 
 func WithQPS(qps float32) kubeBackendOpt {
@@ -29,8 +34,8 @@ func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string, i
 		APIURL:         apiurl,
 		Namespace:      namespace,
 		Indexes:        indexes,
-		QPS:            100, // Default QPS value. A negative value disables client-side ratelimiting.
-		Burst:          100, // Default burst value.
+		QPS:            defaultQPS,   // Default QPS value. A negative value disables client-side ratelimiting.
+		Burst:          defaultBurst, // Default burst value.
 	})
 	if err != nil {
 		return nil, err
