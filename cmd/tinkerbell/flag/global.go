@@ -94,12 +94,12 @@ var BackendKubeNamespace = Config{
 }
 
 var KubeQPS = Config{
-	Name:  "kube-qps",
+	Name:  "backend-kube-qps",
 	Usage: "[kube] maximum queries per second to the Kubernetes API server. A 0 value equates to 5 (client sdk constraint). A negative value disables client-side ratelimiting.",
 }
 
 var KubeBurst = Config{
-	Name:  "kube-burst",
+	Name:  "backend-kube-burst",
 	Usage: "[kube] maximum burst for throttle in the Kubernetes client. A 0 value equates to 10 (client sdk constraint). A negative value disables client-side burst limiting.",
 }
 

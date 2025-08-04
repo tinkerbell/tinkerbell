@@ -202,10 +202,14 @@ spec:
               value: {{ .Values.deployment.envs.globals.backend | quote }}
             - name: TINKERBELL_BACKEND_FILE_PATH
               value: {{ .Values.deployment.envs.globals.backendFilePath | quote }}
+            - name: TINKERBELL_BACKEND_KUBE_BURST
+              value: {{ .Values.deployment.envs.globals.backendKubeBurst | quote }}
             - name: TINKERBELL_BACKEND_KUBE_CONFIG
               value: {{ .Values.deployment.envs.globals.backendKubeConfig | quote }}
             - name: TINKERBELL_BACKEND_KUBE_NAMESPACE
               value: {{ .Values.deployment.envs.globals.backendKubeNamespace | quote }}
+            - name: TINKERBELL_BACKEND_KUBE_QPS
+              value: {{ .Values.deployment.envs.globals.backendKubeQPS | quote }}
             - name: TINKERBELL_OTEL_ENDPOINT
               value: {{ .Values.deployment.envs.globals.otelEndpoint | quote }}
             - name: TINKERBELL_OTEL_INSECURE
