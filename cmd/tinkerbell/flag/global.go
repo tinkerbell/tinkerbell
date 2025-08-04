@@ -25,11 +25,17 @@ type GlobalConfig struct {
 	EnableSecondStar     bool
 	EnableCRDMigrations  bool
 	EmbeddedGlobalConfig EmbeddedGlobalConfig
+	BackendKubeOptions   BackendKubeOptions
 }
 
 type EmbeddedGlobalConfig struct {
 	EnableKubeAPIServer bool
 	EnableETCD          bool
+}
+
+type BackendKubeOptions struct {
+	QPS   float32
+	Burst int
 }
 
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
@@ -38,6 +44,8 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(BackendFilePath, ffval.NewValueDefault(&gc.BackendFilePath, gc.BackendFilePath))
 	fs.Register(BackendKubeConfig, ffval.NewValueDefault(&gc.BackendKubeConfig, gc.BackendKubeConfig))
 	fs.Register(BackendKubeNamespace, ffval.NewValueDefault(&gc.BackendKubeNamespace, gc.BackendKubeNamespace))
+	fs.Register(KubeQPS, ffval.NewValueDefault(&gc.BackendKubeOptions.QPS, gc.BackendKubeOptions.QPS))
+	fs.Register(KubeBurst, ffval.NewValueDefault(&gc.BackendKubeOptions.Burst, gc.BackendKubeOptions.Burst))
 	fs.Register(OTELEndpoint, ffval.NewValueDefault(&gc.OTELEndpoint, gc.OTELEndpoint))
 	fs.Register(OTELInsecure, ffval.NewValueDefault(&gc.OTELInsecure, gc.OTELInsecure))
 	fs.Register(TrustedProxies, &ntip.PrefixList{PrefixList: &gc.TrustedProxies})
@@ -71,17 +79,28 @@ var BackendConfig = Config{
 
 var BackendFilePath = Config{
 	Name:  "backend-file-path",
-	Usage: "path to the file backend",
+	Usage: "[file] path to the file backend, this is only implemented when running only the Smee service",
 }
 
+// Kube backend flags.
 var BackendKubeConfig = Config{
 	Name:  "backend-kube-config",
-	Usage: "path to the kubeconfig file",
+	Usage: "[kube] path to the kubeconfig file",
 }
 
 var BackendKubeNamespace = Config{
 	Name:  "backend-kube-namespace",
-	Usage: "namespace to watch for resources",
+	Usage: "[kube] namespace to watch for resources",
+}
+
+var KubeQPS = Config{
+	Name:  "backend-kube-qps",
+	Usage: "[kube] maximum queries per second to the Kubernetes API server. A 0 value equates to 5 (client sdk constraint). A negative value disables client-side ratelimiting.",
+}
+
+var KubeBurst = Config{
+	Name:  "backend-kube-burst",
+	Usage: "[kube] maximum burst for throttle in the Kubernetes client. A 0 value equates to 10 (client sdk constraint). A negative value disables client-side burst limiting.",
 }
 
 // OTEL flags.

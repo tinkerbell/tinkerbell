@@ -22,8 +22,10 @@ deployment:
     globals:
       backend: "kube"
       backendFilePath: ""
+      backendKubeBurst: 100
       backendKubeConfig: ""
       backendKubeNamespace: ""
+      backendKubeQPS: 100
       enableCRDMigrations: true
       enableRufioController: true
       enableSecondstar: true

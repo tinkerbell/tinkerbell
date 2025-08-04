@@ -52,6 +52,10 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
 		},
+		BackendKubeOptions: flag.BackendKubeOptions{
+			QPS:   defaultQPS,   // Default QPS value. A negative value disables client-side ratelimiting.
+			Burst: defaultBurst, // Default burst value.
+		},
 	}
 
 	s := &flag.SmeeConfig{
@@ -223,7 +227,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	switch globals.Backend {
 	case "kube":
 		if globals.EnableCRDMigrations {
-			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil)
+			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil, WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
 			if err != nil {
 				return fmt.Errorf("failed to create kube backend with no indexes: %w", err)
 			}
@@ -240,7 +244,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			log.Info("CRD migrations completed")
 		}
 
-		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar))
+		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar), WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
 		if err != nil {
 			return fmt.Errorf("failed to create kube backend: %w", err)
 		}
