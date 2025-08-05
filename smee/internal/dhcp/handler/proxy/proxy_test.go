@@ -25,6 +25,7 @@ var errBackend = errors.New("backend error")
 // mockBackend implements BackendReader for testing.
 type mockBackend struct {
 	allowNetboot bool
+	iPXEBinary   string
 	err          error
 }
 
@@ -32,7 +33,7 @@ func (m *mockBackend) GetByMac(_ context.Context, _ net.HardwareAddr) (*data.DHC
 	if m.err != nil {
 		return nil, nil, m.err
 	}
-	return &data.DHCP{}, &data.Netboot{AllowNetboot: m.allowNetboot}, nil
+	return &data.DHCP{}, &data.Netboot{AllowNetboot: m.allowNetboot, IPXEBinary: m.iPXEBinary}, nil
 }
 
 func (m *mockBackend) GetByIP(_ context.Context, _ net.IP) (*data.DHCP, *data.Netboot, error) {
@@ -209,6 +210,45 @@ func TestHandle(t *testing.T) {
 				GatewayIPAddr:  []byte{0, 0, 0, 0},
 				ServerHostName: "127.0.0.1",
 				BootFileName:   "ipxe.efi",
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeAck),
+					dhcpv4.OptServerIdentifier(net.IP{127, 0, 0, 1}),
+					dhcpv4.OptClassIdentifier("PXEClient"),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}),
+					dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{6: []byte{8}}.ToBytes()),
+				),
+			},
+			wantErr: false,
+		},
+		"valid netboot client request custom ipxe binary": {
+			handler: Handler{
+				Log:     logr.Discard(),
+				Backend: &mockBackend{allowNetboot: true, iPXEBinary: "snp-x86_64.efi"},
+				Netboot: Netboot{Enabled: true, IPXEBinServerTFTP: binServerTFTP, IPXEBinServerHTTP: binServerHTTP, IPXEScriptURL: ipxeScript},
+				IPAddr:  ip,
+			},
+			pkt: &dhcpv4.DHCPv4{
+				OpCode:       dhcpv4.OpcodeBootRequest,
+				ClientHWAddr: []byte{1, 2, 3, 4, 5, 6},
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeRequest),
+					dhcpv4.OptClassIdentifier("PXEClient:Arch:00000:UNDI:002001"),
+					dhcpv4.OptClientArch(9), // EFI_X86_64
+					dhcpv4.OptGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{1, 2, 3, 4}),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}),
+				),
+			},
+			peer: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 68},
+			md:   &dhcp.Metadata{IfName: lo.Name, IfIndex: lo.Index},
+			want: &dhcpv4.DHCPv4{
+				OpCode:         dhcpv4.OpcodeBootReply,
+				ClientHWAddr:   []byte{1, 2, 3, 4, 5, 6},
+				ClientIPAddr:   []byte{0, 0, 0, 0},
+				YourIPAddr:     []byte{0, 0, 0, 0},
+				ServerIPAddr:   []byte{127, 0, 0, 1},
+				GatewayIPAddr:  []byte{0, 0, 0, 0},
+				ServerHostName: "127.0.0.1",
+				BootFileName:   "snp-x86_64.efi",
 				Options: dhcpv4.OptionsFromList(
 					dhcpv4.OptMessageType(dhcpv4.MessageTypeAck),
 					dhcpv4.OptServerIdentifier(net.IP{127, 0, 0, 1}),

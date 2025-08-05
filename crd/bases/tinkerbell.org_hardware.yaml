@@ -160,6 +160,15 @@ spec:
                         ipxe:
                           description: IPXE configuration.
                           properties:
+                            binary:
+                              description: |-
+                                Binary, when defined, overrides Smee's default mapping of architecture to iPXE binary.
+                                The following binary names are supported:
+                                - undionly.kpxe
+                                - ipxe.efi
+                                - snp-arm64.efi
+                                - snp-x86_64.efi
+                              type: string
                             contents:
                               type: string
                             url:

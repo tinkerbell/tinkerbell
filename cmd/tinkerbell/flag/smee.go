@@ -3,8 +3,10 @@ package flag
 import (
 	"fmt"
 	"net/netip"
+	"strconv"
 	"strings"
 
+	"github.com/insomniacslk/dhcp/iana"
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
 	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
@@ -59,6 +61,35 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(DHCPIPXEHTTPScriptPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Path, sc.Config.DHCP.IPXEHTTPScript.URL.Path))
 
 	// IPXE flags
+	fs.Register(IPXEArchMapping, &ffval.Value[map[iana.Arch]smee.IPXEBinary]{
+		ParseFunc: func(s string) (map[iana.Arch]smee.IPXEBinary, error) {
+			split := strings.Split(s, ",")
+			if len(split) == 0 {
+				return nil, nil
+			}
+			m := make(map[iana.Arch]smee.IPXEBinary, len(split))
+			for _, pair := range split {
+				kv := strings.SplitN(pair, "=", 2)
+				if len(kv) != 2 {
+					return nil, fmt.Errorf("invalid format for IPXEArchMapping: %v, expected <arch>=<binary>", kv)
+				}
+				// convert the key to an uint16
+				// convert the value to a smee.IPXEBinary
+				key, err := strconv.Atoi(strings.TrimSpace(kv[0]))
+				if err != nil {
+					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number", kv[0])
+				}
+				arch := iana.Arch(key)
+				binary := smee.IPXEBinary(strings.TrimSpace(kv[1]))
+
+				m[arch] = binary
+			}
+
+			return m, nil
+		},
+		Pointer: &sc.Config.IPXE.IPXEBinary.IPXEArchMapping,
+		Default: sc.Config.IPXE.IPXEBinary.IPXEArchMapping,
+	})
 	fs.Register(IPXEEmbeddedScriptPatch, ffval.NewValueDefault(&sc.Config.IPXE.EmbeddedScriptPatch, sc.Config.IPXE.EmbeddedScriptPatch))
 	fs.Register(IPXEHTTPBinaryEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPBinaryServer.Enabled, sc.Config.IPXE.HTTPBinaryServer.Enabled))
 	fs.Register(IPXEHTTPScriptEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Enabled, sc.Config.IPXE.HTTPScriptServer.Enabled))
@@ -313,6 +344,11 @@ var IPXEHTTPScriptRetryDelay = Config{
 var IPXEHTTPBinaryEnabled = Config{
 	Name:  "ipxe-http-binary-enabled",
 	Usage: "[ipxe] enable iPXE HTTP binary server",
+}
+
+var IPXEArchMapping = Config{
+	Name:  "ipxe-custom-arch-mapping",
+	Usage: "[ipxe] custom iPXE architecture to binary mapping, see the docs for detailed usage. example: 0=ipxe.efi,1=snp-arm64.efi,2=snp-x86_64.efi,3=undionly.kpxe",
 }
 
 // TFTP flags.

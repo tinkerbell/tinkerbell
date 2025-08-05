@@ -16,6 +16,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
+	"github.com/insomniacslk/dhcp/iana"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
@@ -70,7 +71,41 @@ const (
 	MacAddrFormatDot   MacAddrFormat = "dot"
 	MacAddrFormatDash  MacAddrFormat = "dash"
 	MacAddrFormatNone  MacAddrFormat = "none"
+
+	IPXEBinaryIPXEEFI      IPXEBinary = "ipxe.efi"
+	IPXEBinarySNPARM64     IPXEBinary = "snp-arm64.efi"
+	IPXEBinarySNPX86_64    IPXEBinary = "snp-x86_64.efi"
+	IPXEBinaryUndionlyKPXE IPXEBinary = "undionly.kpxe"
 )
+
+type IPXEBinary string
+
+func (i IPXEBinary) String() string {
+	return string(i)
+}
+
+func toInternal(src map[iana.Arch]IPXEBinary) map[iana.Arch]dhcp.IPXEBinary {
+	dst := make(map[iana.Arch]dhcp.IPXEBinary)
+	for k, v := range src {
+		dst[k] = convertInternal(v)
+	}
+	return dst
+}
+
+func convertInternal(src IPXEBinary) dhcp.IPXEBinary {
+	switch src {
+	case IPXEBinaryIPXEEFI:
+		return dhcp.IPXEBinaryIPXEEFI
+	case IPXEBinarySNPARM64:
+		return dhcp.IPXEBinarySNPARM64
+	case IPXEBinarySNPX86_64:
+		return dhcp.IPXEBinarySNPX86_64
+	case IPXEBinaryUndionlyKPXE:
+		return dhcp.IPXEBinaryUndionlyKPXE
+	default:
+		return ""
+	}
+}
 
 type DHCPMode string
 
@@ -190,6 +225,8 @@ type IPXEHTTPBinary struct {
 	// Valid values are "colon", "dot", "dash", and "none".
 	// For example, colon: http://1.2.3.4/ipxe/ipxe.efi -> http://1.2.3.4/ipxe/40:15:ff:89:cc:0e/ipxe.efi
 	InjectMacAddrFormat MacAddrFormat
+	// IPXEArchMapping will override the default architecture to binary mapping.
+	IPXEArchMapping map[iana.Arch]IPXEBinary
 }
 
 type IPXEHTTPScript struct {
@@ -259,6 +296,7 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			},
 			IPXEBinary: IPXEHTTPBinary{
 				InjectMacAddrFormat: MacAddrFormatColon,
+				IPXEArchMapping:     map[iana.Arch]IPXEBinary{},
 			},
 		},
 		ISO: ISO{
@@ -511,6 +549,7 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 				IPXEScriptURL:       ipxeScript,
 				Enabled:             c.DHCP.EnableNetbootOptions,
 				InjectMacAddrFormat: dhcp.MacAddrFormat(c.IPXE.IPXEBinary.InjectMacAddrFormat),
+				IPXEArchMapping:     toInternal(c.IPXE.IPXEBinary.IPXEArchMapping),
 			},
 			OTELEnabled: true,
 			SyslogAddr:  c.DHCP.SyslogIP,
@@ -527,6 +566,7 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 				IPXEScriptURL:       ipxeScript,
 				Enabled:             c.DHCP.EnableNetbootOptions,
 				InjectMacAddrFormat: dhcp.MacAddrFormat(c.IPXE.IPXEBinary.InjectMacAddrFormat),
+				IPXEArchMapping:     toInternal(c.IPXE.IPXEBinary.IPXEArchMapping),
 			},
 			OTELEnabled:      true,
 			AutoProxyEnabled: false,
@@ -543,6 +583,7 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 				IPXEScriptURL:       ipxeScript,
 				Enabled:             c.DHCP.EnableNetbootOptions,
 				InjectMacAddrFormat: dhcp.MacAddrFormat(c.IPXE.IPXEBinary.InjectMacAddrFormat),
+				IPXEArchMapping:     toInternal(c.IPXE.IPXEBinary.IPXEArchMapping),
 			},
 			OTELEnabled:      true,
 			AutoProxyEnabled: true,
