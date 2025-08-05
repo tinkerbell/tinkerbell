@@ -33,6 +33,7 @@ type Netboot struct {
 	AllowNetboot  bool     // If true, the client will be provided netboot options in the DHCP offer/ack.
 	IPXEScriptURL *url.URL // Overrides a default value that is passed into DHCP on startup.
 	IPXEScript    string   // Overrides a default value that is passed into DHCP on startup.
+	IPXEBinary    string   // Overrides Smee's default architecture to binary mapping.
 	Console       string
 	Facility      string
 	OSIE          OSIE
@@ -97,12 +98,14 @@ func (d *DHCP) EncodeToAttributes() []attribute.KeyValue {
 
 // EncodeToAttributes returns a slice of opentelemetry attributes that can be used to set span.SetAttributes.
 func (n *Netboot) EncodeToAttributes() []attribute.KeyValue {
-	var s string
-	if n.IPXEScriptURL != nil {
-		s = n.IPXEScriptURL.String()
-	}
-	return []attribute.KeyValue{
+	a := []attribute.KeyValue{
 		attribute.Bool("Netboot.AllowNetboot", n.AllowNetboot),
-		attribute.String("Netboot.IPXEScriptURL", s),
 	}
+	if n.IPXEScriptURL != nil {
+		a = append(a, attribute.String("Netboot.IPXEScriptURL", n.IPXEScriptURL.String()))
+	}
+	if n.IPXEBinary != "" {
+		a = append(a, attribute.String("Netboot.IPXEBinary", n.IPXEBinary))
+	}
+	return a
 }

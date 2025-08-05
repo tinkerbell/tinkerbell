@@ -164,7 +164,7 @@ func TestBootfileAndNextServer(t *testing.T) {
 				},
 				ipxe: &url.URL{Scheme: "http", Host: "127.0.0.1:8181"},
 			},
-			wantBootFile: "http://127.0.0.1:8181/01:02:03:04:05:06/snp.efi",
+			wantBootFile: "http://127.0.0.1:8181/01:02:03:04:05:06/snp-arm64.efi",
 			wantNextSrv:  net.IPv4(127, 0, 0, 1),
 		},
 		"success userclass iPXE": {
@@ -239,7 +239,7 @@ func TestBootfileAndNextServer(t *testing.T) {
 				otel.SetTextMapPropagator(prop)
 				ctx = dhcpotel.ContextWithTraceparentString(ctx, "00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01")
 			}
-			bootfile, nextServer := tt.server.bootfileAndNextServer(ctx, tt.args.pkt, tt.args.uClass, tt.args.tftp, tt.args.ipxe, tt.args.iscript)
+			bootfile, nextServer := tt.server.bootfileAndNextServer(ctx, tt.args.pkt, tt.args.uClass, tt.args.tftp, tt.args.ipxe, tt.args.iscript, dhcp.Info{}, "")
 			if diff := cmp.Diff(bootfile, tt.wantBootFile); diff != "" {
 				t.Fatal("bootfile", diff)
 			}
@@ -287,6 +287,33 @@ func TestSetNetworkBootOpts(t *testing.T) {
 				n: &data.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "/01:02:03:04:05:06/auto.ipxe"}},
 			},
 			want: &dhcpv4.DHCPv4{BootFileName: "http://localhost:8181/01:02:03:04:05:06/auto.ipxe", Options: dhcpv4.OptionsFromList(
+				dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{
+					6:  []byte{8},
+					69: oteldhcp.TraceparentFromContext(context.Background()),
+				}.ToBytes()),
+				dhcpv4.OptClassIdentifier("HTTPClient"),
+			)},
+		},
+		"netboot allowed, custom iPXE binary": {
+			server: &Handler{
+				Log: logr.Discard(),
+				Netboot: Netboot{
+					Enabled:           true,
+					IPXEBinServerHTTP: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "/ipxe"},
+				},
+			},
+			args: args{
+				in0: context.Background(),
+				m: &dhcpv4.DHCPv4{
+					ClientHWAddr: net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+					Options: dhcpv4.OptionsFromList(
+						dhcpv4.OptClassIdentifier("HTTPClient:xxxxx"),
+						dhcpv4.OptClientArch(iana.EFI_X86_64_HTTP),
+					),
+				},
+				n: &data.Netboot{AllowNetboot: true, IPXEBinary: "snp-x86_64.efi"},
+			},
+			want: &dhcpv4.DHCPv4{BootFileName: "http://localhost:8181/ipxe/01:02:03:04:05:06/snp-x86_64.efi", Options: dhcpv4.OptionsFromList(
 				dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{
 					6:  []byte{8},
 					69: oteldhcp.TraceparentFromContext(context.Background()),

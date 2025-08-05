@@ -149,6 +149,12 @@ func WithCustomArchMapping(mapping map[iana.Arch]IPXEBinary) InfoOption {
 	}
 }
 
+func WithIPXEBinary(binary string) InfoOption {
+	return func(i *Info) {
+		i.IPXEBinary = binary
+	}
+}
+
 func NewInfo(pkt *dhcpv4.DHCPv4, opts ...InfoOption) Info {
 	i := Info{Pkt: pkt}
 	for _, opt := range opts {
@@ -160,7 +166,9 @@ func NewInfo(pkt *dhcpv4.DHCPv4, opts ...InfoOption) Info {
 		i.UserClass = i.UserClassFrom()
 		i.ClientType = i.ClientTypeFrom()
 		i.IsNetbootClient = IsNetbootClient(pkt)
-		i.IPXEBinary = i.IPXEBinaryFrom()
+		if i.IPXEBinary == "" {
+			i.IPXEBinary = i.IPXEBinaryFrom()
+		}
 	}
 
 	return i
