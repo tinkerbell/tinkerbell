@@ -66,4 +66,7 @@ type Netboot struct {
 
 	// UserClass (for network booting) allows a custom DHCP option 77 to be used to break out of an iPXE loop.
 	UserClass dhcp.UserClass
+
+	// InjectMacAddrFormat is the format to use when injecting the mac address into the iPXE binary URL.
+	InjectMacAddrFormat dhcp.MacAddrFormat
 }

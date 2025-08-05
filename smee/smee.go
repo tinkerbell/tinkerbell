@@ -18,6 +18,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
+	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/server"
@@ -36,6 +37,12 @@ type BackendReader interface {
 	// and return DHCP headers and options, including netboot info.
 	GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *data.Netboot, error)
 	GetByIP(context.Context, net.IP) (*data.DHCP, *data.Netboot, error)
+}
+
+type MacAddrFormat string
+
+func (m MacAddrFormat) String() string {
+	return string(m)
 }
 
 const (
@@ -58,6 +65,11 @@ const (
 	DefaultHTTPPort = 7171
 
 	DefaultTinkServerPort = 42113
+
+	MacAddrFormatColon MacAddrFormat = "colon"
+	MacAddrFormatDot   MacAddrFormat = "dot"
+	MacAddrFormatDash  MacAddrFormat = "dash"
+	MacAddrFormatNone  MacAddrFormat = "none"
 )
 
 type DHCPMode string
@@ -126,6 +138,9 @@ type IPXE struct {
 	EmbeddedScriptPatch string
 	HTTPBinaryServer    IPXEHTTPBinaryServer
 	HTTPScriptServer    IPXEHTTPScriptServer
+
+	// IPXEBinary are the options to use when serving iPXE binaries via TFTP or HTTP.
+	IPXEBinary IPXEHTTPBinary
 }
 
 type IPXEHTTPBinaryServer struct {
@@ -164,9 +179,17 @@ type DHCP struct {
 	TFTPIP netip.Addr
 	// TFTPPort is the port to use in the DHCP packet for DHCP option 66.
 	TFTPPort uint16
-	//
+	// IPXEHTTPBinaryURL is the URL to the iPXE binary server serving via HTTP.
 	IPXEHTTPBinaryURL *url.URL
-	IPXEHTTPScript    IPXEHTTPScript
+	// IPXEHTTPScript is the URL to the iPXE script to use.
+	IPXEHTTPScript IPXEHTTPScript
+}
+
+type IPXEHTTPBinary struct {
+	// InjectMacAddrFormat is the format to use when injecting the mac address into the iPXE binary URL.
+	// Valid values are "colon", "dot", "dash", and "none".
+	// For example, colon: http://1.2.3.4/ipxe/ipxe.efi -> http://1.2.3.4/ipxe/40:15:ff:89:cc:0e/ipxe.efi
+	InjectMacAddrFormat MacAddrFormat
 }
 
 type IPXEHTTPScript struct {
@@ -233,6 +256,9 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 				OSIEURL:         &url.URL{},
 				TrustedProxies:  []string{},
 				ExtraKernelArgs: []string{},
+			},
+			IPXEBinary: IPXEHTTPBinary{
+				InjectMacAddrFormat: MacAddrFormatColon,
 			},
 		},
 		ISO: ISO{
@@ -480,10 +506,11 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 			IPAddr:  c.DHCP.IPForPacket,
 			Log:     log,
 			Netboot: reservation.Netboot{
-				IPXEBinServerTFTP: tftpIP,
-				IPXEBinServerHTTP: &httpBinaryURL,
-				IPXEScriptURL:     ipxeScript,
-				Enabled:           c.DHCP.EnableNetbootOptions,
+				IPXEBinServerTFTP:   tftpIP,
+				IPXEBinServerHTTP:   &httpBinaryURL,
+				IPXEScriptURL:       ipxeScript,
+				Enabled:             c.DHCP.EnableNetbootOptions,
+				InjectMacAddrFormat: dhcp.MacAddrFormat(c.IPXE.IPXEBinary.InjectMacAddrFormat),
 			},
 			OTELEnabled: true,
 			SyslogAddr:  c.DHCP.SyslogIP,
@@ -495,10 +522,11 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 			IPAddr:  c.DHCP.IPForPacket,
 			Log:     log,
 			Netboot: proxy.Netboot{
-				IPXEBinServerTFTP: tftpIP,
-				IPXEBinServerHTTP: &httpBinaryURL,
-				IPXEScriptURL:     ipxeScript,
-				Enabled:           c.DHCP.EnableNetbootOptions,
+				IPXEBinServerTFTP:   tftpIP,
+				IPXEBinServerHTTP:   &httpBinaryURL,
+				IPXEScriptURL:       ipxeScript,
+				Enabled:             c.DHCP.EnableNetbootOptions,
+				InjectMacAddrFormat: dhcp.MacAddrFormat(c.IPXE.IPXEBinary.InjectMacAddrFormat),
 			},
 			OTELEnabled:      true,
 			AutoProxyEnabled: false,
