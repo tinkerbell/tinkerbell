@@ -17,7 +17,8 @@ tracked_files=(
     "./script/embed.ipxe"
     "./script/ipxe.commit"
     "./ipxe.efi"
-    "./snp.efi"
+    "./snp-arm64.efi"
+    "./snp-x86_64.efi"
     "./undionly.kpxe"
     "./ipxe.iso"
     "./ipxe-efi.img"
@@ -26,7 +27,8 @@ tracked_files=(
 # binaries defines the files that will be built if any tracked_files changes are detected.
 binaries=(
     "script/sha512sum.txt"
-    "snp.efi"
+    "snp-arm64.efi"
+    "snp-x86_64.efi"
     "ipxe.efi"
     "undionly.kpxe"
     "ipxe.iso"
@@ -124,7 +126,7 @@ function create_branch() {
 # shellcheck disable=SC2086
 # commit changes to git
 function commit_changes() {
-    local files="${1:-script/sha512sum.txt snp.efi ipxe.efi undionly.kpxe ipxe.iso}"
+    local files="${1:-script/sha512sum.txt snp-arm64.efi snp-x86_64.efi ipxe.efi undionly.kpxe ipxe.iso}"
     local message="${2:-Updated iPXE}"
 
     # commit changes

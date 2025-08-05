@@ -18,10 +18,15 @@ var IpxeEFI []byte
 //go:embed undionly.kpxe
 var Undionly []byte
 
-// SNP is the UEFI iPXE binary for ARM architectures.
+// SNPARM64 is the UEFI iPXE binary for ARM architectures.
 //
-//go:embed snp.efi
-var SNP []byte
+//go:embed snp-arm64.efi
+var SNPARM64 []byte
+
+// SNPAMD64 is the UEFI iPXE binary for AMD64 architectures.
+//
+//go:embed snp-x86_64.efi
+var SNPAMD64 []byte
 
 // IpxeISO is the iPXE ISO image.
 //
@@ -37,10 +42,11 @@ var magicStringPadding = bytes.Repeat([]byte{' '}, len(magicString))
 
 // Files is the mapping to the embedded iPXE binaries.
 var Files = map[string][]byte{
-	"undionly.kpxe": Undionly,
-	"ipxe.efi":      IpxeEFI,
-	"snp.efi":       SNP,
-	"ipxe.iso":      IpxeISO,
+	"undionly.kpxe":  Undionly,
+	"ipxe.efi":       IpxeEFI,
+	"snp-arm64.efi":  SNPARM64,
+	"snp-x86_64.efi": SNPAMD64,
+	"ipxe.iso":       IpxeISO,
 }
 
 var ErrPatchTooLong = errors.New("patch string is too long")
