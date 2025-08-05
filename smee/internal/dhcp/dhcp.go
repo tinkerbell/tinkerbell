@@ -34,6 +34,15 @@ const (
 	Tinkerbell UserClass = "Tinkerbell"
 )
 
+const (
+	MacAddrFormatColon MacAddrFormat = "colon"
+	MacAddrFormatDot   MacAddrFormat = "dot"
+	MacAddrFormatDash  MacAddrFormat = "dash"
+	MacAddrFormatNone  MacAddrFormat = "none"
+)
+
+type MacAddrFormat string
+
 // UserClass is DHCP option 77 (https://www.rfc-editor.org/rfc/rfc3004.html).
 type UserClass string
 
@@ -99,6 +108,8 @@ type Info struct {
 	IsNetbootClient error
 	// IPXEBinary is the iPXE binary file to boot. Use NewInfo to automatically populate this field.
 	IPXEBinary string
+	// MacAddrFormat is the format to use when injecting the MAC address into the iPXE binary URL.
+	MacAddrFormat MacAddrFormat
 }
 
 func NewInfo(pkt *dhcpv4.DHCPv4) Info {
@@ -294,7 +305,7 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 		if ipxeHTTPBinServer != nil {
 			paths := []string{i.IPXEBinary}
 			if i.Mac != nil {
-				paths = append([]string{i.Mac.String()}, paths...)
+				paths = append([]string{macAddrFormat(i.Mac, i.MacAddrFormat)}, paths...)
 			}
 			bootfile = ipxeHTTPBinServer.JoinPath(paths...).String()
 		}
@@ -305,7 +316,7 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 		}
 		paths := []string{i.IPXEBinary}
 		if i.Mac != nil {
-			paths = append([]string{i.Mac.String()}, paths...)
+			paths = append([]string{macAddrFormat(i.Mac, i.MacAddrFormat)}, paths...)
 		}
 		bootfile = t.JoinPath(paths...).String()
 	default:
@@ -315,6 +326,21 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 	}
 
 	return bootfile
+}
+
+func macAddrFormat(mac net.HardwareAddr, f MacAddrFormat) string {
+	switch f {
+	case MacAddrFormatColon:
+		return mac.String()
+	case MacAddrFormatDot:
+		return strings.Join(strings.Split(mac.String(), ":"), ".")
+	case MacAddrFormatDash:
+		return strings.Join(strings.Split(mac.String(), ":"), "-")
+	case MacAddrFormatNone:
+		return ""
+	default:
+		return mac.String() // default is colon separated
+	}
 }
 
 // NextServer returns the calculated dhcp header (ServerIPAddr): "siaddr" value. see https://datatracker.ietf.org/doc/html/rfc2131#section-2 .

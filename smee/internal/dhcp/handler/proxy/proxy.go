@@ -89,6 +89,9 @@ type Netboot struct {
 
 	// UserClass (for network booting) allows a custom DHCP option 77 to be used to break out of an iPXE loop.
 	UserClass dhcp.UserClass
+
+	// InjectMacAddrFormat is the format to use when injecting the mac address into the iPXE binary URL.
+	InjectMacAddrFormat dhcp.MacAddrFormat
 }
 
 // Handle implements a ProxyDHCP Redirection server.
@@ -153,6 +156,7 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	reply.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, dp.Pkt.GetOneOption(dhcpv4.OptionClientMachineIdentifier)))
 
 	i := dhcp.NewInfo(dp.Pkt)
+	i.MacAddrFormat = h.Netboot.InjectMacAddrFormat
 
 	if !h.Netboot.Enabled {
 		log.V(1).Info("Ignoring packet: netboot is not enabled")

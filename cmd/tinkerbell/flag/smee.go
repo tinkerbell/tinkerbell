@@ -3,6 +3,7 @@ package flag
 import (
 	"fmt"
 	"net/netip"
+	"strings"
 
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
@@ -68,6 +69,12 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(IPXEHTTPScriptRetries, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Retries, sc.Config.IPXE.HTTPScriptServer.Retries))
 	fs.Register(IPXEHTTPScriptRetryDelay, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.RetryDelay, sc.Config.IPXE.HTTPScriptServer.RetryDelay))
 	fs.Register(IPXEHTTPScriptOSIEURL, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURL})
+	fs.Register(IPXEBinaryInjectMacAddrFormat, &ffval.Enum[smee.MacAddrFormat]{
+		ParseFunc: macAddrFormatParser,
+		Valid:     []smee.MacAddrFormat{smee.MacAddrFormatColon, smee.MacAddrFormatDot, smee.MacAddrFormatDash, smee.MacAddrFormatNone},
+		Pointer:   &sc.Config.IPXE.IPXEBinary.InjectMacAddrFormat,
+		Default:   smee.MacAddrFormatColon,
+	})
 
 	// ISO Flags
 	fs.Register(ISOEnabled, ffval.NewValueDefault(&sc.Config.ISO.Enabled, sc.Config.ISO.Enabled))
@@ -158,6 +165,21 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 		}
 		return fmt.Sprintf("%s:%s", publicIP.String(), port)
 	}()
+}
+
+func macAddrFormatParser(s string) (smee.MacAddrFormat, error) {
+	switch smee.MacAddrFormat(s) {
+	case smee.MacAddrFormatColon:
+		return smee.MacAddrFormatColon, nil
+	case smee.MacAddrFormatDot:
+		return smee.MacAddrFormatDot, nil
+	case smee.MacAddrFormatDash:
+		return smee.MacAddrFormatDash, nil
+	case smee.MacAddrFormatNone:
+		return smee.MacAddrFormatNone, nil
+	default:
+		return "", fmt.Errorf("invalid mac address format: %s, must be one of: [%s]", s, strings.Join([]string{smee.MacAddrFormatColon.String(), smee.MacAddrFormatDot.String(), smee.MacAddrFormatDash.String(), smee.MacAddrFormatNone.String()}, ", "))
+	}
 }
 
 // DHCP flags.
@@ -323,6 +345,11 @@ var TFTPBlockSize = Config{
 var IPXEEmbeddedScriptPatch = Config{
 	Name:  "ipxe-embedded-script-patch",
 	Usage: "[ipxe] iPXE script fragment to patch into served iPXE binaries served via TFTP or HTTP",
+}
+
+var IPXEBinaryInjectMacAddrFormat = Config{
+	Name:  "ipxe-binary-inject-mac-addr-format",
+	Usage: fmt.Sprintf("[ipxe] format to use when injecting the mac address into the iPXE binary URL. one of: [%s, %s, %s, %s]", smee.MacAddrFormatColon.String(), smee.MacAddrFormatDot.String(), smee.MacAddrFormatDash.String(), smee.MacAddrFormatNone.String()),
 }
 
 // Syslog flags.

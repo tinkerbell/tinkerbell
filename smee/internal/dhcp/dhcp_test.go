@@ -208,6 +208,77 @@ func TestBootfile(t *testing.T) {
 			},
 			want: "undionly.kpxe",
 		},
+		"http client with colon mac address format": {
+			info: Info{
+				ClientType: HTTPClient,
+				Mac:        net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				IPXEBinary: "ipxe.efi",
+			},
+			args: args{
+				ipxeHTTPBinServer: &url.URL{Scheme: "http", Host: "1.2.3.4:8080"},
+			},
+			want: "http://1.2.3.4:8080/01:02:03:04:05:06/ipxe.efi",
+		},
+		"http client with dot mac address format": {
+			info: Info{
+				ClientType:    HTTPClient,
+				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				IPXEBinary:    "ipxe.efi",
+				MacAddrFormat: MacAddrFormatDot,
+			},
+			args: args{
+				ipxeHTTPBinServer: &url.URL{Scheme: "http", Host: "1.2.3.4:8080"},
+			},
+			want: "http://1.2.3.4:8080/01.02.03.04.05.06/ipxe.efi",
+		},
+		"http client with no mac address": {
+			info: Info{
+				ClientType:    HTTPClient,
+				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				IPXEBinary:    "ipxe.efi",
+				MacAddrFormat: MacAddrFormatNone,
+			},
+			args: args{
+				ipxeHTTPBinServer: &url.URL{Scheme: "http", Host: "1.2.3.4:8080"},
+			},
+			want: "http://1.2.3.4:8080/ipxe.efi",
+		},
+		"http client with dash mac address format": {
+			info: Info{
+				ClientType:    HTTPClient,
+				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				IPXEBinary:    "ipxe.efi",
+				MacAddrFormat: MacAddrFormatDash,
+			},
+			args: args{
+				ipxeHTTPBinServer: &url.URL{Scheme: "http", Host: "1.2.3.4:8080"},
+			},
+			want: "http://1.2.3.4:8080/01-02-03-04-05-06/ipxe.efi",
+		},
+		"firmware ipxe with dot mac address format": {
+			info: Info{
+				UserClass:     IPXE,
+				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				IPXEBinary:    "undionly.kpxe",
+				MacAddrFormat: MacAddrFormatDot,
+			},
+			args: args{
+				ipxeTFTPBinServer: netip.MustParseAddrPort("1.2.3.4:69"),
+			},
+			want: "tftp://1.2.3.4:69/01.02.03.04.05.06/undionly.kpxe",
+		},
+		"firmware ipxe with no mac address": {
+			info: Info{
+				UserClass:     IPXE,
+				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				IPXEBinary:    "undionly.kpxe",
+				MacAddrFormat: MacAddrFormatNone,
+			},
+			args: args{
+				ipxeTFTPBinServer: netip.MustParseAddrPort("1.2.3.4:69"),
+			},
+			want: "tftp://1.2.3.4:69/undionly.kpxe",
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
