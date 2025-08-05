@@ -70,6 +70,7 @@ deployment:
       dhcpSyslogIP: ""
       dhcpTftpIP: ""
       dhcpTftpPort: 69
+      ipxeBinaryInjectMacAddrFormat: "" # one of colon, dot, dash, none. defaults to colon when empty.
       ipxeEmbeddedScriptPatch: ""
       ipxeHttpBinaryEnabled: true
       ipxeHttpScriptBindAddr: ""
