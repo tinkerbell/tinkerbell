@@ -79,8 +79,7 @@ func (h *Handler) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n *d
 		d.BootFileName = "/netboot-not-allowed"
 		d.ServerIPAddr = net.IPv4(0, 0, 0, 0)
 		if n.AllowNetboot {
-			i := dhcp.NewInfo(m)
-			i.MacAddrFormat = h.Netboot.InjectMacAddrFormat
+			i := dhcp.NewInfo(m, dhcp.WithMacAddrFormat(h.Netboot.InjectMacAddrFormat))
 			if i.IPXEBinary == "" {
 				return
 			}
@@ -112,8 +111,7 @@ func (h *Handler) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n *d
 func (h *Handler) bootfileAndNextServer(ctx context.Context, pkt *dhcpv4.DHCPv4, customUC dhcp.UserClass, tftp netip.AddrPort, ipxe, iscript *url.URL) (string, net.IP) {
 	var nextServer net.IP
 	var bootfile string
-	i := dhcp.NewInfo(pkt)
-	i.MacAddrFormat = h.Netboot.InjectMacAddrFormat
+	i := dhcp.NewInfo(pkt, dhcp.WithMacAddrFormat(h.Netboot.InjectMacAddrFormat))
 	if tp := otel.TraceparentStringFromContext(ctx); h.OTELEnabled && tp != "" {
 		i.IPXEBinary = fmt.Sprintf("%s-%v", i.IPXEBinary, tp)
 	}

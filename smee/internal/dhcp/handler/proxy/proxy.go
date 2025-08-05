@@ -155,8 +155,7 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	// Set option 97
 	reply.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, dp.Pkt.GetOneOption(dhcpv4.OptionClientMachineIdentifier)))
 
-	i := dhcp.NewInfo(dp.Pkt)
-	i.MacAddrFormat = h.Netboot.InjectMacAddrFormat
+	i := dhcp.NewInfo(dp.Pkt, dhcp.WithMacAddrFormat(h.Netboot.InjectMacAddrFormat))
 
 	if !h.Netboot.Enabled {
 		log.V(1).Info("Ignoring packet: netboot is not enabled")
