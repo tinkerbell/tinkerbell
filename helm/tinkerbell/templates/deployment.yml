@@ -132,6 +132,8 @@ spec:
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptPort | quote }}
             - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PATH
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptPath | quote }}
+            - name: TINKERBELL_IPXE_BINARY_INJECT_MAC_ADDR_FORMAT
+              value: {{ .Values.deployment.envs.smee.ipxeBinaryInjectMacAddrFormat | quote }}
             - name: TINKERBELL_IPXE_EMBEDDED_SCRIPT_PATCH
               value: {{ .Values.deployment.envs.smee.ipxeEmbeddedScriptPatch | quote }}
             - name: TINKERBELL_IPXE_HTTP_BINARY_ENABLED
