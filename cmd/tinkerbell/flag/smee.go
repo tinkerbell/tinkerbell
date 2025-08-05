@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ccoveille/go-safecast"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
@@ -79,7 +80,11 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 				if err != nil {
 					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number", kv[0])
 				}
-				arch := iana.Arch(key)
+				ukey, err := safecast.ToUint16(key)
+				if err != nil {
+					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number (uint16)", kv[0])
+				}
+				arch := iana.Arch(ukey)
 				binary := smee.IPXEBinary(strings.TrimSpace(kv[1]))
 
 				m[arch] = binary
