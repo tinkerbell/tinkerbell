@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"net/url"
@@ -43,6 +44,23 @@ const (
 
 type MacAddrFormat string
 
+func (m MacAddrFormat) String() string {
+	return string(m)
+}
+
+const (
+	IPXEBinaryIPXEEFI      IPXEBinary = "ipxe.efi"
+	IPXEBinarySNPARM64     IPXEBinary = "snp-arm64.efi"
+	IPXEBinarySNPX86_64    IPXEBinary = "snp-x86_64.efi"
+	IPXEBinaryUndionlyKPXE IPXEBinary = "undionly.kpxe"
+)
+
+type IPXEBinary string
+
+func (i IPXEBinary) String() string {
+	return string(i)
+}
+
 // UserClass is DHCP option 77 (https://www.rfc-editor.org/rfc/rfc3004.html).
 type UserClass string
 
@@ -68,24 +86,26 @@ type Metadata struct {
 }
 
 // ArchToBootFile maps supported hardware PXE architectures types to iPXE binary files.
-var ArchToBootFile = map[iana.Arch]string{
-	iana.INTEL_X86PC:       "undionly.kpxe",
-	iana.NEC_PC98:          "undionly.kpxe",
-	iana.EFI_ITANIUM:       "undionly.kpxe",
-	iana.DEC_ALPHA:         "undionly.kpxe",
-	iana.ARC_X86:           "undionly.kpxe",
-	iana.INTEL_LEAN_CLIENT: "undionly.kpxe",
-	iana.EFI_IA32:          "ipxe.efi",
-	iana.EFI_X86_64:        "ipxe.efi",
-	iana.EFI_XSCALE:        "ipxe.efi",
-	iana.EFI_BC:            "ipxe.efi",
-	iana.EFI_ARM32:         "snp.efi",
-	iana.EFI_ARM64:         "snp.efi",
-	iana.EFI_X86_HTTP:      "ipxe.efi",
-	iana.EFI_X86_64_HTTP:   "ipxe.efi",
-	iana.EFI_ARM32_HTTP:    "snp.efi",
-	iana.EFI_ARM64_HTTP:    "snp.efi",
-	iana.Arch(41):          "snp.efi", // arm rpiboot (0x29): https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture
+func ArchToBootFile() map[iana.Arch]IPXEBinary {
+	return map[iana.Arch]IPXEBinary{
+		iana.INTEL_X86PC:       IPXEBinaryUndionlyKPXE,
+		iana.NEC_PC98:          IPXEBinaryUndionlyKPXE,
+		iana.EFI_ITANIUM:       IPXEBinaryUndionlyKPXE,
+		iana.DEC_ALPHA:         IPXEBinaryUndionlyKPXE,
+		iana.ARC_X86:           IPXEBinaryUndionlyKPXE,
+		iana.INTEL_LEAN_CLIENT: IPXEBinaryUndionlyKPXE,
+		iana.EFI_IA32:          IPXEBinaryIPXEEFI,
+		iana.EFI_X86_64:        IPXEBinaryIPXEEFI,
+		iana.EFI_XSCALE:        IPXEBinaryIPXEEFI,
+		iana.EFI_BC:            IPXEBinaryIPXEEFI,
+		iana.EFI_ARM32:         IPXEBinarySNPARM64,
+		iana.EFI_ARM64:         IPXEBinarySNPARM64,
+		iana.EFI_X86_HTTP:      IPXEBinaryIPXEEFI,
+		iana.EFI_X86_64_HTTP:   IPXEBinaryIPXEEFI,
+		iana.EFI_ARM32_HTTP:    IPXEBinarySNPARM64,
+		iana.EFI_ARM64_HTTP:    IPXEBinarySNPARM64,
+		iana.Arch(41):          IPXEBinarySNPARM64, // arm rpiboot (0x29): https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture
+	}
 }
 
 // ErrUnknownArch is used when the PXE client request is from an unknown architecture.
@@ -110,10 +130,30 @@ type Info struct {
 	IPXEBinary string
 	// MacAddrFormat is the format to use when injecting the MAC address into the iPXE binary URL.
 	MacAddrFormat MacAddrFormat
+	// CustomArchMapping allows customization for mapping architectures to iPXE binaries.
+	// This is used to override the default ArchToBootFile mapping.
+	CustomArchMapping map[iana.Arch]IPXEBinary
 }
 
-func NewInfo(pkt *dhcpv4.DHCPv4) Info {
+type InfoOption func(*Info)
+
+func WithMacAddrFormat(format MacAddrFormat) InfoOption {
+	return func(i *Info) {
+		i.MacAddrFormat = format
+	}
+}
+
+func WithCustomArchMapping(mapping map[iana.Arch]IPXEBinary) InfoOption {
+	return func(i *Info) {
+		i.CustomArchMapping = mapping
+	}
+}
+
+func NewInfo(pkt *dhcpv4.DHCPv4, opts ...InfoOption) Info {
 	i := Info{Pkt: pkt}
+	for _, opt := range opts {
+		opt(&i)
+	}
 	if pkt != nil {
 		i.Arch = Arch(pkt)
 		i.Mac = pkt.ClientHWAddr
@@ -181,12 +221,15 @@ func Arch(d *dhcpv4.DHCPv4) iana.Arch {
 }
 
 func (i Info) IPXEBinaryFrom() string {
-	bin, found := ArchToBootFile[i.Arch]
+	dst := ArchToBootFile()
+	src := i.CustomArchMapping
+	maps.Copy(dst, src)
+	bin, found := dst[i.Arch]
 	if !found {
 		return ""
 	}
 
-	return bin
+	return bin.String()
 }
 
 // String function for clientType.

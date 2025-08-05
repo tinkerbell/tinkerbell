@@ -22,6 +22,7 @@ const (
 func TestNewInfo(t *testing.T) {
 	tests := map[string]struct {
 		pkt  *dhcpv4.DHCPv4
+		opts []InfoOption
 		want Info
 	}{
 		"valid http client": {
@@ -64,10 +65,98 @@ func TestNewInfo(t *testing.T) {
 				ClientType: PXEClient,
 			},
 		},
+		"valid http client with custom arch mapping": {
+			pkt: &dhcpv4.DHCPv4{
+				ClientIPAddr: []byte{0x00, 0x00, 0x00, 0x00},
+				ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
+					dhcpv4.OptClientArch(iana.EFI_X86_64_HTTP),
+					dhcpv4.OptUserClass(Tinkerbell.String()),
+					dhcpv4.OptClassIdentifier(exampleHTTPClient),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x05, 0x06, 0x07}),
+				),
+			},
+			opts: []InfoOption{
+				WithCustomArchMapping(map[iana.Arch]IPXEBinary{
+					iana.EFI_X86_64_HTTP: IPXEBinary("snp-x86_64.efi"),
+				}),
+			},
+			want: Info{
+				Arch:            iana.EFI_X86_64_HTTP,
+				Mac:             net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				UserClass:       Tinkerbell,
+				ClientType:      HTTPClient,
+				IsNetbootClient: nil,
+				IPXEBinary:      "snp-x86_64.efi",
+				CustomArchMapping: map[iana.Arch]IPXEBinary{
+					iana.EFI_X86_64_HTTP: IPXEBinary("snp-x86_64.efi"),
+				},
+			},
+		},
+		"valid http client with mac addr format": {
+			pkt: &dhcpv4.DHCPv4{
+				ClientIPAddr: []byte{0x00, 0x00, 0x00, 0x00},
+				ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
+					dhcpv4.OptClientArch(iana.EFI_X86_64_HTTP),
+					dhcpv4.OptUserClass(Tinkerbell.String()),
+					dhcpv4.OptClassIdentifier(exampleHTTPClient),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x05, 0x06, 0x07}),
+				),
+			},
+			opts: []InfoOption{
+				WithMacAddrFormat(MacAddrFormatDot),
+			},
+			want: Info{
+				Arch:            iana.EFI_X86_64_HTTP,
+				Mac:             net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				UserClass:       Tinkerbell,
+				ClientType:      HTTPClient,
+				IsNetbootClient: nil,
+				IPXEBinary:      "ipxe.efi",
+				MacAddrFormat:   MacAddrFormatDot,
+			},
+		},
+		"valid http client with custom arch mapping and mac format": {
+			pkt: &dhcpv4.DHCPv4{
+				ClientIPAddr: []byte{0x00, 0x00, 0x00, 0x00},
+				ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
+					dhcpv4.OptClientArch(iana.EFI_X86_64_HTTP),
+					dhcpv4.OptUserClass(Tinkerbell.String()),
+					dhcpv4.OptClassIdentifier(exampleHTTPClient),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x05, 0x06, 0x07}),
+				),
+			},
+			opts: []InfoOption{
+				WithCustomArchMapping(map[iana.Arch]IPXEBinary{
+					iana.EFI_X86_64_HTTP: IPXEBinary("snp-x86_64.efi"),
+				}),
+				WithMacAddrFormat(MacAddrFormatNone),
+			},
+			want: Info{
+				Arch:            iana.EFI_X86_64_HTTP,
+				Mac:             net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				UserClass:       Tinkerbell,
+				ClientType:      HTTPClient,
+				IsNetbootClient: nil,
+				IPXEBinary:      "snp-x86_64.efi",
+				CustomArchMapping: map[iana.Arch]IPXEBinary{
+					iana.EFI_X86_64_HTTP: IPXEBinary("snp-x86_64.efi"),
+				},
+				MacAddrFormat: MacAddrFormatNone,
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := NewInfo(tt.pkt)
+			got := NewInfo(tt.pkt, tt.opts...)
 			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreFields(Info{}, "Pkt")); diff != "" {
 				t.Fatal(diff)
 			}
