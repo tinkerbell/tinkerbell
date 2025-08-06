@@ -60,7 +60,7 @@ For example:
   # CLI Flag
   --ipxe-override-arch-mapping="8=snp-x86_64.efi"
   # Environment variable
-  export TINKERBELL_IPXE_OVERRIDE_ARCH_MAPPING="8=snp-x86_x64.efi"
+  export TINKERBELL_IPXE_OVERRIDE_ARCH_MAPPING="8=snp-x86_64.efi"
   ```
 
 - override multiple mappings at once
