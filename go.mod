@@ -30,7 +30,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.2.1
 	github.com/peterbourgon/ff/v4 v4.0.0-alpha.4
 	github.com/pin/tftp/v3 v3.1.0
-	github.com/prometheus/client_golang v1.22.0
+	github.com/prometheus/client_golang v1.23.0
 	github.com/spf13/pflag v1.0.7
 	github.com/stretchr/testify v1.10.0
 	github.com/tinkerbell/tinkerbell/api v0.0.0 // v0.0.0 is used as a placeholder because a replace directive is used to point to the local api directory
@@ -199,8 +199,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.62.0 // indirect
-	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/prometheus/common v0.65.0 // indirect
+	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
