@@ -175,7 +175,7 @@ type DHCP struct {
 
 type IPXEHTTPBinary struct {
 	// InjectMacAddrFormat is the format to use when injecting the mac address into the iPXE binary URL.
-	// Valid values are "colon", "dot", "dash", and "none".
+	// Valid values are "colon", "dot", "dash", "no-delimiter", and "empty".
 	// For example, colon: http://1.2.3.4/ipxe/ipxe.efi -> http://1.2.3.4/ipxe/40:15:ff:89:cc:0e/ipxe.efi
 	InjectMacAddrFormat constant.MACFormat
 	// IPXEArchMapping will override the default architecture to binary mapping.

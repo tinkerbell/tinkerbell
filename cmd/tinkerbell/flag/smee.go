@@ -391,7 +391,7 @@ var IPXEEmbeddedScriptPatch = Config{
 
 var IPXEBinaryInjectMacAddrFormat = Config{
 	Name:  "ipxe-binary-inject-mac-addr-format",
-	Usage: fmt.Sprintf("[ipxe] format to use when injecting the mac address into the iPXE binary URL. one of: [%s, %s, %s, %s]", constant.MacAddrFormatColon.String(), constant.MacAddrFormatDot.String(), constant.MacAddrFormatDash.String(), constant.MacAddrFormatNoDelimiter.String()),
+	Usage: fmt.Sprintf("[ipxe] format to use when injecting the mac address into the iPXE binary URL. one of: [%s, %s, %s, %s, %s]", constant.MacAddrFormatColon.String(), constant.MacAddrFormatDot.String(), constant.MacAddrFormatDash.String(), constant.MacAddrFormatNoDelimiter.String(), constant.MacAddrFormatEmpty.String()),
 }
 
 // Syslog flags.
