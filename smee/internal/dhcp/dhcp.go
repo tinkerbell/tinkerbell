@@ -13,6 +13,7 @@ import (
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 )
 
 const (
@@ -34,32 +35,6 @@ const (
 	// loop on the chainload step.
 	Tinkerbell UserClass = "Tinkerbell"
 )
-
-const (
-	MacAddrFormatColon MacAddrFormat = "colon"
-	MacAddrFormatDot   MacAddrFormat = "dot"
-	MacAddrFormatDash  MacAddrFormat = "dash"
-	MacAddrFormatNone  MacAddrFormat = "none"
-)
-
-type MacAddrFormat string
-
-func (m MacAddrFormat) String() string {
-	return string(m)
-}
-
-const (
-	IPXEBinaryIPXEEFI      IPXEBinary = "ipxe.efi"
-	IPXEBinarySNPARM64     IPXEBinary = "snp-arm64.efi"
-	IPXEBinarySNPX86_64    IPXEBinary = "snp-x86_64.efi"
-	IPXEBinaryUndionlyKPXE IPXEBinary = "undionly.kpxe"
-)
-
-type IPXEBinary string
-
-func (i IPXEBinary) String() string {
-	return string(i)
-}
 
 // UserClass is DHCP option 77 (https://www.rfc-editor.org/rfc/rfc3004.html).
 type UserClass string
@@ -86,25 +61,25 @@ type Metadata struct {
 }
 
 // ArchToBootFile maps supported hardware PXE architectures types to iPXE binary files.
-func ArchToBootFile() map[iana.Arch]IPXEBinary {
-	return map[iana.Arch]IPXEBinary{
-		iana.INTEL_X86PC:       IPXEBinaryUndionlyKPXE,
-		iana.NEC_PC98:          IPXEBinaryUndionlyKPXE,
-		iana.EFI_ITANIUM:       IPXEBinaryUndionlyKPXE,
-		iana.DEC_ALPHA:         IPXEBinaryUndionlyKPXE,
-		iana.ARC_X86:           IPXEBinaryUndionlyKPXE,
-		iana.INTEL_LEAN_CLIENT: IPXEBinaryUndionlyKPXE,
-		iana.EFI_IA32:          IPXEBinaryIPXEEFI,
-		iana.EFI_X86_64:        IPXEBinaryIPXEEFI,
-		iana.EFI_XSCALE:        IPXEBinaryIPXEEFI,
-		iana.EFI_BC:            IPXEBinaryIPXEEFI,
-		iana.EFI_ARM32:         IPXEBinarySNPARM64,
-		iana.EFI_ARM64:         IPXEBinarySNPARM64,
-		iana.EFI_X86_HTTP:      IPXEBinaryIPXEEFI,
-		iana.EFI_X86_64_HTTP:   IPXEBinaryIPXEEFI,
-		iana.EFI_ARM32_HTTP:    IPXEBinarySNPARM64,
-		iana.EFI_ARM64_HTTP:    IPXEBinarySNPARM64,
-		iana.Arch(41):          IPXEBinarySNPARM64, // arm rpiboot (0x29): https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture
+func ArchToBootFile() map[iana.Arch]constant.IPXEBinary {
+	return map[iana.Arch]constant.IPXEBinary{
+		iana.INTEL_X86PC:       constant.IPXEBinaryUndionlyKPXE,
+		iana.NEC_PC98:          constant.IPXEBinaryUndionlyKPXE,
+		iana.EFI_ITANIUM:       constant.IPXEBinaryUndionlyKPXE,
+		iana.DEC_ALPHA:         constant.IPXEBinaryUndionlyKPXE,
+		iana.ARC_X86:           constant.IPXEBinaryUndionlyKPXE,
+		iana.INTEL_LEAN_CLIENT: constant.IPXEBinaryUndionlyKPXE,
+		iana.EFI_IA32:          constant.IPXEBinaryIPXEEFI,
+		iana.EFI_X86_64:        constant.IPXEBinaryIPXEEFI,
+		iana.EFI_XSCALE:        constant.IPXEBinaryIPXEEFI,
+		iana.EFI_BC:            constant.IPXEBinaryIPXEEFI,
+		iana.EFI_ARM32:         constant.IPXEBinarySNPARM64,
+		iana.EFI_ARM64:         constant.IPXEBinarySNPARM64,
+		iana.EFI_X86_HTTP:      constant.IPXEBinaryIPXEEFI,
+		iana.EFI_X86_64_HTTP:   constant.IPXEBinaryIPXEEFI,
+		iana.EFI_ARM32_HTTP:    constant.IPXEBinarySNPARM64,
+		iana.EFI_ARM64_HTTP:    constant.IPXEBinarySNPARM64,
+		iana.Arch(41):          constant.IPXEBinarySNPARM64, // arm rpiboot (0x29): https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture
 	}
 }
 
@@ -129,21 +104,21 @@ type Info struct {
 	// IPXEBinary is the iPXE binary file to boot. Use NewInfo to automatically populate this field.
 	IPXEBinary string
 	// MacAddrFormat is the format to use when injecting the MAC address into the iPXE binary URL.
-	MacAddrFormat MacAddrFormat
+	MacAddrFormat constant.MACFormat
 	// CustomArchMapping allows customization for mapping architectures to iPXE binaries.
 	// This is used to override the default ArchToBootFile mapping.
-	CustomArchMapping map[iana.Arch]IPXEBinary
+	CustomArchMapping map[iana.Arch]constant.IPXEBinary
 }
 
 type InfoOption func(*Info)
 
-func WithMacAddrFormat(format MacAddrFormat) InfoOption {
+func WithMacAddrFormat(format constant.MACFormat) InfoOption {
 	return func(i *Info) {
 		i.MacAddrFormat = format
 	}
 }
 
-func WithCustomArchMapping(mapping map[iana.Arch]IPXEBinary) InfoOption {
+func WithCustomArchMapping(mapping map[iana.Arch]constant.IPXEBinary) InfoOption {
 	return func(i *Info) {
 		i.CustomArchMapping = mapping
 	}
@@ -379,18 +354,20 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 	return bootfile
 }
 
-func macAddrFormat(mac net.HardwareAddr, f MacAddrFormat) string {
+func macAddrFormat(mac net.HardwareAddr, f constant.MACFormat) string {
 	switch f {
-	case MacAddrFormatColon:
+	case constant.MacAddrFormatColon:
 		return mac.String()
-	case MacAddrFormatDot:
-		return strings.Join(strings.Split(mac.String(), ":"), ".")
-	case MacAddrFormatDash:
-		return strings.Join(strings.Split(mac.String(), ":"), "-")
-	case MacAddrFormatNone:
+	case constant.MacAddrFormatDot:
+		return dotNotation(mac)
+	case constant.MacAddrFormatDash:
+		return dashNotation(mac)
+	case constant.MacAddrFormatNoDelimiter:
+		return noDelimiter(mac)
+	case constant.MacAddrFormatEmpty:
 		return ""
 	default:
-		return mac.String() // default is colon separated
+		return mac.String() // default is colon delimited
 	}
 }
 

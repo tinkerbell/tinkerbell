@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 )
@@ -69,8 +70,8 @@ type Netboot struct {
 	UserClass dhcp.UserClass
 
 	// InjectMacAddrFormat is the format to use when injecting the mac address into the iPXE binary URL.
-	InjectMacAddrFormat dhcp.MacAddrFormat
+	InjectMacAddrFormat constant.MACFormat
 
 	// IPXEArchMapping will override the default architecture to binary mapping.
-	IPXEArchMapping map[iana.Arch]dhcp.IPXEBinary
+	IPXEArchMapping map[iana.Arch]constant.IPXEBinary
 }
