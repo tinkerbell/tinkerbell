@@ -79,6 +79,7 @@ func ArchToBootFile() map[iana.Arch]constant.IPXEBinary {
 		iana.EFI_X86_64_HTTP:   constant.IPXEBinaryIPXEEFI,
 		iana.EFI_ARM32_HTTP:    constant.IPXEBinarySNPARM64,
 		iana.EFI_ARM64_HTTP:    constant.IPXEBinarySNPARM64,
+		iana.INTEL_X86PC_HTTP:  constant.IPXEBinaryUndionlyKPXE,
 		iana.Arch(41):          constant.IPXEBinarySNPARM64, // arm rpiboot (0x29): https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture
 	}
 }

@@ -73,17 +73,17 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 			for _, pair := range split {
 				kv := strings.SplitN(pair, "=", 2)
 				if len(kv) != 2 {
-					return nil, fmt.Errorf("invalid format for IPXEArchMapping: %v, expected <arch>=<binary>", kv)
+					return nil, fmt.Errorf("invalid format for IPXEArchMapping: %v, expected <arch>=<binary>, see the iPXE Architecture Mapping documentation for more details", kv)
 				}
 				// convert the key to an uint16
 				// convert the value to a smee.IPXEBinary
 				key, err := strconv.Atoi(strings.TrimSpace(kv[0]))
 				if err != nil {
-					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number", kv[0])
+					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number, see the iPXE Architecture Mapping documentation for more details", kv[0])
 				}
 				ukey, err := safecast.ToUint16(key)
 				if err != nil {
-					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number (uint16)", kv[0])
+					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number (uint16), see the iPXE Architecture Mapping documentation for more details", kv[0])
 				}
 				arch := iana.Arch(ukey)
 				binary := constant.IPXEBinary(strings.TrimSpace(kv[1]))
@@ -353,8 +353,8 @@ var IPXEHTTPBinaryEnabled = Config{
 }
 
 var IPXEArchMapping = Config{
-	Name:  "ipxe-custom-arch-mapping",
-	Usage: "[ipxe] custom iPXE architecture to binary mapping, see the docs for detailed usage. example: 0=ipxe.efi,1=snp-arm64.efi,2=snp-x86_64.efi,3=undionly.kpxe",
+	Name:  "ipxe-override-arch-mapping",
+	Usage: "[ipxe] override the iPXE architecture to binary mapping, see the iPXE Architecture Mapping documentation for detailed usage",
 }
 
 // TFTP flags.

@@ -157,6 +157,7 @@ type IPXE struct {
 	// - ipxe.efi
 	// - snp-arm64.efi
 	// - snp-x86_64.efi
+	// See the iPXE Architecture Mapping documentation for more details.
 	Binary string `json:"binary,omitempty"`
 }
 
