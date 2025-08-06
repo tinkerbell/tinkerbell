@@ -168,6 +168,7 @@ spec:
                                 - ipxe.efi
                                 - snp-arm64.efi
                                 - snp-x86_64.efi
+                                See the iPXE Architecture Mapping documentation for more details.
                               type: string
                             contents:
                               type: string
