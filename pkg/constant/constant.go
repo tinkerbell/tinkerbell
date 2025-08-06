@@ -15,9 +15,9 @@ const (
 
 	// IPXEBinaryIPXEEFI is the Tinkerbell built and embedded iPXE binary for UEFI x86_64 architectures.
 	IPXEBinaryIPXEEFI IPXEBinary = "ipxe.efi"
-	// IPXEBinarySNPAMD64 is the Tinkerbell built and embedded iPXE binary for UEFI ARM64 architectures using iPXE's Simple Network Protocol (SNP).
+	// IPXEBinarySNPARM64 is the Tinkerbell built and embedded iPXE binary for UEFI ARM64 architectures using iPXE's Simple Network Protocol (SNP).
 	IPXEBinarySNPARM64 IPXEBinary = "snp-arm64.efi"
-	// IPXEBinarySNPX86_64 is the Tinkerbell built and embedded iPXE binary for UEFI x86_64 architectures using iPXE's Simple Network Protocol (SNP).
+	// IPXEBinarySNPAMD64 is the Tinkerbell built and embedded iPXE binary for UEFI x86_64 architectures using iPXE's Simple Network Protocol (SNP).
 	IPXEBinarySNPAMD64 IPXEBinary = "snp-x86_64.efi"
 	// IPXEBinaryUndionlyKPXE is the Tinkerbell built and embedded iPXE binary for BIOS x86 architectures.
 	IPXEBinaryUndionlyKPXE IPXEBinary = "undionly.kpxe"

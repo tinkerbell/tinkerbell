@@ -67,9 +67,9 @@ For example:
 
   ```bash
   # CLI Flag
-  --ipxe-override-arch-mapping="7=snp-x86_64.efi,8=snp-arm64.efi"
+  --ipxe-override-arch-mapping="7=snp-x86_64.efi,8=snp-x86_64.efi"
   # Environment variable
-  export TINKERBELL_IPXE_OVERRIDE_ARCH_MAPPING="7=snp-x86_64.efi,8=snp-arm64.efi"
+  export TINKERBELL_IPXE_OVERRIDE_ARCH_MAPPING="7=snp-x86_64.efi,8=snp-x86_64.efi"
   ```
 
 ## Hardware specific overrides
