@@ -80,7 +80,7 @@ func TestNewInfo(t *testing.T) {
 				),
 			},
 			opts: []InfoOption{
-				WithCustomArchMapping(map[iana.Arch]constant.IPXEBinary{
+				WithArchMappingOverride(map[iana.Arch]constant.IPXEBinary{
 					iana.EFI_X86_64_HTTP: constant.IPXEBinarySNPAMD64,
 				}),
 			},
@@ -91,7 +91,7 @@ func TestNewInfo(t *testing.T) {
 				ClientType:      HTTPClient,
 				IsNetbootClient: nil,
 				IPXEBinary:      "snp-x86_64.efi",
-				CustomArchMapping: map[iana.Arch]constant.IPXEBinary{
+				ArchMappingOverride: map[iana.Arch]constant.IPXEBinary{
 					iana.EFI_X86_64_HTTP: constant.IPXEBinarySNPAMD64,
 				},
 			},
@@ -136,7 +136,7 @@ func TestNewInfo(t *testing.T) {
 				),
 			},
 			opts: []InfoOption{
-				WithCustomArchMapping(map[iana.Arch]constant.IPXEBinary{
+				WithArchMappingOverride(map[iana.Arch]constant.IPXEBinary{
 					iana.EFI_X86_64_HTTP: constant.IPXEBinarySNPAMD64,
 				}),
 				WithMacAddrFormat(constant.MacAddrFormatNoDelimiter),
@@ -148,7 +148,7 @@ func TestNewInfo(t *testing.T) {
 				ClientType:      HTTPClient,
 				IsNetbootClient: nil,
 				IPXEBinary:      "snp-x86_64.efi",
-				CustomArchMapping: map[iana.Arch]constant.IPXEBinary{
+				ArchMappingOverride: map[iana.Arch]constant.IPXEBinary{
 					iana.EFI_X86_64_HTTP: constant.IPXEBinarySNPAMD64,
 				},
 				MacAddrFormat: constant.MacAddrFormatNoDelimiter,

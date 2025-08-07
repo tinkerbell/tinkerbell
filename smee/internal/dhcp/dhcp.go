@@ -106,9 +106,9 @@ type Info struct {
 	IPXEBinary string
 	// MacAddrFormat is the format to use when injecting the MAC address into the iPXE binary URL.
 	MacAddrFormat constant.MACFormat
-	// CustomArchMapping allows customization for mapping architectures to iPXE binaries.
+	// ArchMappingOverride allows customization for mapping architectures to iPXE binaries.
 	// This is used to override the default ArchToBootFile mapping.
-	CustomArchMapping map[iana.Arch]constant.IPXEBinary
+	ArchMappingOverride map[iana.Arch]constant.IPXEBinary
 }
 
 type InfoOption func(*Info)
@@ -119,9 +119,9 @@ func WithMacAddrFormat(format constant.MACFormat) InfoOption {
 	}
 }
 
-func WithCustomArchMapping(mapping map[iana.Arch]constant.IPXEBinary) InfoOption {
+func WithArchMappingOverride(mapping map[iana.Arch]constant.IPXEBinary) InfoOption {
 	return func(i *Info) {
-		i.CustomArchMapping = mapping
+		i.ArchMappingOverride = mapping
 	}
 }
 
@@ -206,7 +206,7 @@ func Arch(d *dhcpv4.DHCPv4) iana.Arch {
 
 func (i Info) IPXEBinaryFrom() string {
 	dst := ArchToBootFile()
-	src := i.CustomArchMapping
+	src := i.ArchMappingOverride
 	maps.Copy(dst, src)
 	bin, found := dst[i.Arch]
 	if !found {
