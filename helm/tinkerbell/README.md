@@ -126,7 +126,20 @@ helm install tinkerbell . \
 
 ### Upgrading from Helm chart version 0.6.2
 
-When upgrading from the previous architecture and version ([0.6.2](https://github.com/tinkerbell/charts)), refer to the [upgrade documentation](../../docs/technical/ORIGINAL_HELM_CHART_UPGRADE.md) for details.
+> [!IMPORTANT]
+> Before upgrading ensure there are no actively running `workflows.tinkerbell.org` or `jobs.bmc.tinkerbell.org`.
+> Once confirmed, changing the replica count to 0 for all Tinkerbell components will ensure no further reconciliation or processing occurs during the upgrade.
+
+The CRDs from v0.6.2 have been updated in v0.19.x. There is no action required for users upgrading from v0.6.2 to v0.19.x.
+
+- **No breaking changes** in the Custom Resource Definitions (CRDs)
+- Additional status fields have been added to the Workflow CRD
+- CRDs will be automatically updated when deploying the v0.19.x Helm chart
+
+> [!Note]
+> To disable automatic CRD migrations, use the flag `--set "deployment.envs.globals.enableCRDMigrations=false"` during deployment. If disabled, you must manually update CRDs (not covered in this guide).
+
+For help migrating your `values.yaml` from 0.6.2 to 0.19.x, please refer to the [migration guide](../../docs/technical/HELM_VALUES_MIGRATION.md).
 
 ## Additional Resources
 
