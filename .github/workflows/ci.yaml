@@ -2,13 +2,10 @@ name: For each commit and PR
 on:
   push:
     branches:
-      - "*"
+      - "**"
     tags:
-      - "v*"
+      - "v**"
   pull_request:
-  create:
-    branches:
-      - "update_iPXE_*"
 
 env:
   REGISTRY: ghcr.io
