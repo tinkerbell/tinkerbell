@@ -18,6 +18,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/insomniacslk/dhcp/rfc1035label"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
@@ -391,7 +392,7 @@ func TestHandle(t *testing.T) {
 						Host:   "localhost:8181",
 						Path:   "/ipxe",
 					},
-					InjectMacAddrFormat: dhcp.MacAddrFormatDot,
+					InjectMacAddrFormat: constant.MacAddrFormatDot,
 				},
 				IPAddr: netip.MustParseAddr("127.0.0.1"),
 			},
@@ -427,7 +428,7 @@ func TestHandle(t *testing.T) {
 				YourIPAddr:    []byte{192, 168, 1, 100},
 				ServerIPAddr:  []byte{0, 0, 0, 0},
 				GatewayIPAddr: []byte{0, 0, 0, 0},
-				BootFileName:  "http://localhost:8181/ipxe/01.02.03.04.05.06/ipxe.efi",
+				BootFileName:  "http://localhost:8181/ipxe/0102.0304.0506/ipxe.efi",
 				Options: dhcpv4.OptionsFromList(
 					dhcpv4.OptMessageType(dhcpv4.MessageTypeAck),
 					dhcpv4.OptServerIdentifier(net.IP{127, 0, 0, 1}),
@@ -461,7 +462,7 @@ func TestHandle(t *testing.T) {
 						Host:   "localhost:8181",
 						Path:   "/ipxe",
 					},
-					InjectMacAddrFormat: dhcp.MacAddrFormatDash,
+					InjectMacAddrFormat: constant.MacAddrFormatDash,
 				},
 				IPAddr: netip.MustParseAddr("127.0.0.1"),
 			},
@@ -531,7 +532,7 @@ func TestHandle(t *testing.T) {
 						Host:   "localhost:8181",
 						Path:   "/ipxe",
 					},
-					InjectMacAddrFormat: dhcp.MacAddrFormatNone,
+					InjectMacAddrFormat: constant.MacAddrFormatEmpty,
 				},
 				IPAddr: netip.MustParseAddr("127.0.0.1"),
 			},

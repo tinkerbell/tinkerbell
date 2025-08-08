@@ -3,10 +3,14 @@ package flag
 import (
 	"fmt"
 	"net/netip"
+	"strconv"
 	"strings"
 
+	"github.com/ccoveille/go-safecast"
+	"github.com/insomniacslk/dhcp/iana"
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 	"github.com/tinkerbell/tinkerbell/pkg/flag/url"
 	"github.com/tinkerbell/tinkerbell/smee"
@@ -59,6 +63,39 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(DHCPIPXEHTTPScriptPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Path, sc.Config.DHCP.IPXEHTTPScript.URL.Path))
 
 	// IPXE flags
+	fs.Register(IPXEArchMapping, &ffval.Value[map[iana.Arch]constant.IPXEBinary]{
+		ParseFunc: func(s string) (map[iana.Arch]constant.IPXEBinary, error) {
+			split := strings.Split(s, ",")
+			if len(split) == 0 {
+				return nil, nil
+			}
+			m := make(map[iana.Arch]constant.IPXEBinary, len(split))
+			for _, pair := range split {
+				kv := strings.SplitN(pair, "=", 2)
+				if len(kv) != 2 {
+					return nil, fmt.Errorf("invalid format for IPXEArchMapping: %v, expected <arch>=<binary>, see the iPXE Architecture Mapping documentation for more details", kv)
+				}
+				// convert the key to an uint16
+				// convert the value to a smee.IPXEBinary
+				key, err := strconv.Atoi(strings.TrimSpace(kv[0]))
+				if err != nil {
+					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number, see the iPXE Architecture Mapping documentation for more details", kv[0])
+				}
+				ukey, err := safecast.ToUint16(key)
+				if err != nil {
+					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number (uint16), see the iPXE Architecture Mapping documentation for more details", kv[0])
+				}
+				arch := iana.Arch(ukey)
+				binary := constant.IPXEBinary(strings.TrimSpace(kv[1]))
+
+				m[arch] = binary
+			}
+
+			return m, nil
+		},
+		Pointer: &sc.Config.IPXE.IPXEBinary.IPXEArchMapping,
+		Default: sc.Config.IPXE.IPXEBinary.IPXEArchMapping,
+	})
 	fs.Register(IPXEEmbeddedScriptPatch, ffval.NewValueDefault(&sc.Config.IPXE.EmbeddedScriptPatch, sc.Config.IPXE.EmbeddedScriptPatch))
 	fs.Register(IPXEHTTPBinaryEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPBinaryServer.Enabled, sc.Config.IPXE.HTTPBinaryServer.Enabled))
 	fs.Register(IPXEHTTPScriptEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Enabled, sc.Config.IPXE.HTTPScriptServer.Enabled))
@@ -69,11 +106,11 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(IPXEHTTPScriptRetries, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Retries, sc.Config.IPXE.HTTPScriptServer.Retries))
 	fs.Register(IPXEHTTPScriptRetryDelay, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.RetryDelay, sc.Config.IPXE.HTTPScriptServer.RetryDelay))
 	fs.Register(IPXEHTTPScriptOSIEURL, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURL})
-	fs.Register(IPXEBinaryInjectMacAddrFormat, &ffval.Enum[smee.MacAddrFormat]{
+	fs.Register(IPXEBinaryInjectMacAddrFormat, &ffval.Enum[constant.MACFormat]{
 		ParseFunc: macAddrFormatParser,
-		Valid:     []smee.MacAddrFormat{smee.MacAddrFormatColon, smee.MacAddrFormatDot, smee.MacAddrFormatDash, smee.MacAddrFormatNone},
+		Valid:     []constant.MACFormat{constant.MacAddrFormatColon, constant.MacAddrFormatDot, constant.MacAddrFormatDash, constant.MacAddrFormatNoDelimiter},
 		Pointer:   &sc.Config.IPXE.IPXEBinary.InjectMacAddrFormat,
-		Default:   smee.MacAddrFormatColon,
+		Default:   constant.MacAddrFormatColon,
 	})
 
 	// ISO Flags
@@ -167,18 +204,18 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 	}()
 }
 
-func macAddrFormatParser(s string) (smee.MacAddrFormat, error) {
-	switch smee.MacAddrFormat(s) {
-	case smee.MacAddrFormatColon:
-		return smee.MacAddrFormatColon, nil
-	case smee.MacAddrFormatDot:
-		return smee.MacAddrFormatDot, nil
-	case smee.MacAddrFormatDash:
-		return smee.MacAddrFormatDash, nil
-	case smee.MacAddrFormatNone:
-		return smee.MacAddrFormatNone, nil
+func macAddrFormatParser(s string) (constant.MACFormat, error) {
+	switch constant.MACFormat(s) {
+	case constant.MacAddrFormatColon:
+		return constant.MacAddrFormatColon, nil
+	case constant.MacAddrFormatDot:
+		return constant.MacAddrFormatDot, nil
+	case constant.MacAddrFormatDash:
+		return constant.MacAddrFormatDash, nil
+	case constant.MacAddrFormatNoDelimiter:
+		return constant.MacAddrFormatNoDelimiter, nil
 	default:
-		return "", fmt.Errorf("invalid mac address format: %s, must be one of: [%s]", s, strings.Join([]string{smee.MacAddrFormatColon.String(), smee.MacAddrFormatDot.String(), smee.MacAddrFormatDash.String(), smee.MacAddrFormatNone.String()}, ", "))
+		return "", fmt.Errorf("invalid mac address format: %s, must be one of: [%s]", s, strings.Join([]string{constant.MacAddrFormatColon.String(), constant.MacAddrFormatDot.String(), constant.MacAddrFormatDash.String(), constant.MacAddrFormatNoDelimiter.String()}, ", "))
 	}
 }
 
@@ -315,6 +352,11 @@ var IPXEHTTPBinaryEnabled = Config{
 	Usage: "[ipxe] enable iPXE HTTP binary server",
 }
 
+var IPXEArchMapping = Config{
+	Name:  "ipxe-override-arch-mapping",
+	Usage: "[ipxe] override the iPXE architecture to binary mapping, see the iPXE Architecture Mapping documentation for detailed usage",
+}
+
 // TFTP flags.
 var TFTPServerEnabled = Config{
 	Name:  "tftp-server-enabled",
@@ -349,7 +391,7 @@ var IPXEEmbeddedScriptPatch = Config{
 
 var IPXEBinaryInjectMacAddrFormat = Config{
 	Name:  "ipxe-binary-inject-mac-addr-format",
-	Usage: fmt.Sprintf("[ipxe] format to use when injecting the mac address into the iPXE binary URL. one of: [%s, %s, %s, %s]", smee.MacAddrFormatColon.String(), smee.MacAddrFormatDot.String(), smee.MacAddrFormatDash.String(), smee.MacAddrFormatNone.String()),
+	Usage: fmt.Sprintf("[ipxe] format to use when injecting the mac address into the iPXE binary URL. one of: [%s, %s, %s, %s, %s]", constant.MacAddrFormatColon.String(), constant.MacAddrFormatDot.String(), constant.MacAddrFormatDash.String(), constant.MacAddrFormatNoDelimiter.String(), constant.MacAddrFormatEmpty.String()),
 }
 
 // Syslog flags.

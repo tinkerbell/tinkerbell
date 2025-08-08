@@ -154,6 +154,14 @@ spec:
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetryDelay | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL
               value: {{ coalesce .Values.artifactsFileServer .Values.deployment.envs.smee.ipxeHttpScriptOsieURL | quote }}
+            - name: TINKERBELL_IPXE_OVERRIDE_ARCH_MAPPING
+              value: {{ .Values.deployment.envs.smee.ipxeOverrideArchMapping | quote }}
+            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT
+              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerAddrPort | quote }}
+            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_USE_TLS
+              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerUseTLS | quote }}
+            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_INSECURE_TLS
+              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerInsecureTLS | quote }}
             - name: TINKERBELL_ISO_ENABLED
               value: {{ .Values.deployment.envs.smee.isoEnabled | quote }}
             - name: TINKERBELL_ISO_UPSTREAM_URL
@@ -180,12 +188,6 @@ spec:
               value: {{ .Values.deployment.envs.smee.tftpTimeout | quote }}
             - name: TINKERBELL_TFTP_BLOCK_SIZE
               value: {{ .Values.deployment.envs.smee.tftpBlockSize | quote }}
-            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT
-              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerAddrPort | quote }}
-            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_USE_TLS
-              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerUseTLS | quote }}
-            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_INSECURE_TLS
-              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerInsecureTLS | quote }}
           # SECONDSTAR
             - name: TINKERBELL_SECONDSTAR_PORT
               value: {{ .Values.deployment.envs.secondstar.bindPort | quote }}

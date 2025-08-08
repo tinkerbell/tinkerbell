@@ -79,8 +79,7 @@ func (h *Handler) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n *d
 		d.BootFileName = "/netboot-not-allowed"
 		d.ServerIPAddr = net.IPv4(0, 0, 0, 0)
 		if n.AllowNetboot {
-			i := dhcp.NewInfo(m)
-			i.MacAddrFormat = h.Netboot.InjectMacAddrFormat
+			i := dhcp.NewInfo(m, dhcp.WithMacAddrFormat(h.Netboot.InjectMacAddrFormat), dhcp.WithIPXEBinary(n.IPXEBinary), dhcp.WithArchMappingOverride(h.Netboot.IPXEArchMapping))
 			if i.IPXEBinary == "" {
 				return
 			}
@@ -93,7 +92,7 @@ func (h *Handler) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n *d
 			if n.IPXEScriptURL != nil {
 				ipxeScript = n.IPXEScriptURL
 			}
-			d.BootFileName, d.ServerIPAddr = h.bootfileAndNextServer(ctx, m, h.Netboot.UserClass, h.Netboot.IPXEBinServerTFTP, h.Netboot.IPXEBinServerHTTP, ipxeScript)
+			d.BootFileName, d.ServerIPAddr = h.bootfileAndNextServer(ctx, m, h.Netboot.UserClass, h.Netboot.IPXEBinServerTFTP, h.Netboot.IPXEBinServerHTTP, ipxeScript, i, n.IPXEBinary)
 			pxe := dhcpv4.Options{ // FYI, these are suboptions of option43. ref: https://datatracker.ietf.org/doc/html/rfc2132#section-8.4
 				// PXE Boot Server Discovery Control - bypass, just boot from filename.
 				6:  []byte{8},
@@ -109,11 +108,13 @@ func (h *Handler) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n *d
 // bootfileAndNextServer returns the bootfile (string) and next server (net.IP).
 // input arguments `tftp`, `ipxe` and `iscript` use non string types so as to attempt to be more clear about the expectation around what is wanted for these values.
 // It also helps us avoid having to validate a string in multiple ways.
-func (h *Handler) bootfileAndNextServer(ctx context.Context, pkt *dhcpv4.DHCPv4, customUC dhcp.UserClass, tftp netip.AddrPort, ipxe, iscript *url.URL) (string, net.IP) {
+func (h *Handler) bootfileAndNextServer(ctx context.Context, pkt *dhcpv4.DHCPv4, customUC dhcp.UserClass, tftp netip.AddrPort, ipxe, iscript *url.URL, i dhcp.Info, ipxeBinaryOverride string) (string, net.IP) {
 	var nextServer net.IP
 	var bootfile string
-	i := dhcp.NewInfo(pkt)
-	i.MacAddrFormat = h.Netboot.InjectMacAddrFormat
+	if i.Pkt == nil {
+		i = dhcp.NewInfo(pkt, dhcp.WithMacAddrFormat(h.Netboot.InjectMacAddrFormat), dhcp.WithIPXEBinary(ipxeBinaryOverride), dhcp.WithArchMappingOverride(h.Netboot.IPXEArchMapping))
+	}
+
 	if tp := otel.TraceparentStringFromContext(ctx); h.OTELEnabled && tp != "" {
 		i.IPXEBinary = fmt.Sprintf("%s-%v", i.IPXEBinary, tp)
 	}

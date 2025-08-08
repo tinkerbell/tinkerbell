@@ -6,6 +6,8 @@ import (
 	"bytes"
 	_ "embed"
 	"errors"
+
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 )
 
 // IpxeEFI is the UEFI iPXE binary for x86 architectures.
@@ -18,15 +20,25 @@ var IpxeEFI []byte
 //go:embed undionly.kpxe
 var Undionly []byte
 
-// SNP is the UEFI iPXE binary for ARM architectures.
+// SNPARM64 is the UEFI iPXE binary for ARM architectures.
 //
-//go:embed snp.efi
-var SNP []byte
+//go:embed snp-arm64.efi
+var SNPARM64 []byte
+
+// SNPAMD64 is the UEFI iPXE binary for AMD64 architectures.
+//
+//go:embed snp-x86_64.efi
+var SNPAMD64 []byte
 
 // IpxeISO is the iPXE ISO image.
 //
 //go:embed ipxe.iso
 var IpxeISO []byte
+
+// IpxeIMG is the iPXE EFI image.
+//
+//go:embed ipxe-efi.img
+var IpxeIMG []byte
 
 // MagicString is included in each iPXE binary within the embedded script. It
 // can be overwritten to change the behavior at startup.
@@ -37,10 +49,12 @@ var magicStringPadding = bytes.Repeat([]byte{' '}, len(magicString))
 
 // Files is the mapping to the embedded iPXE binaries.
 var Files = map[string][]byte{
-	"undionly.kpxe": Undionly,
-	"ipxe.efi":      IpxeEFI,
-	"snp.efi":       SNP,
-	"ipxe.iso":      IpxeISO,
+	constant.IPXEBinaryUndionlyKPXE.String(): Undionly,
+	constant.IPXEBinaryIPXEEFI.String():      IpxeEFI,
+	constant.IPXEBinarySNPARM64.String():     SNPARM64,
+	constant.IPXEBinarySNPAMD64.String():     SNPAMD64,
+	constant.IPXEBinaryISOEFIAMD64.String():  IpxeISO,
+	constant.IPXEBinaryIMGEFIAMD64.String():  IpxeIMG,
 }
 
 var ErrPatchTooLong = errors.New("patch string is too long")

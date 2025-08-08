@@ -151,6 +151,14 @@ type Netboot struct {
 type IPXE struct {
 	URL      string `json:"url,omitempty"`
 	Contents string `json:"contents,omitempty"`
+	// Binary, when defined, overrides Smee's default mapping of architecture to iPXE binary.
+	// The following binary names are supported:
+	// - undionly.kpxe
+	// - ipxe.efi
+	// - snp-arm64.efi
+	// - snp-x86_64.efi
+	// See the iPXE Architecture Mapping documentation for more details.
+	Binary string `json:"binary,omitempty"`
 }
 
 // OSIE configuration.

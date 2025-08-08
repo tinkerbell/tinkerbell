@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 )
 
 const (
@@ -22,6 +23,7 @@ const (
 func TestNewInfo(t *testing.T) {
 	tests := map[string]struct {
 		pkt  *dhcpv4.DHCPv4
+		opts []InfoOption
 		want Info
 	}{
 		"valid http client": {
@@ -64,10 +66,98 @@ func TestNewInfo(t *testing.T) {
 				ClientType: PXEClient,
 			},
 		},
+		"valid http client with custom arch mapping": {
+			pkt: &dhcpv4.DHCPv4{
+				ClientIPAddr: []byte{0x00, 0x00, 0x00, 0x00},
+				ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
+					dhcpv4.OptClientArch(iana.EFI_X86_64_HTTP),
+					dhcpv4.OptUserClass(Tinkerbell.String()),
+					dhcpv4.OptClassIdentifier(exampleHTTPClient),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x05, 0x06, 0x07}),
+				),
+			},
+			opts: []InfoOption{
+				WithArchMappingOverride(map[iana.Arch]constant.IPXEBinary{
+					iana.EFI_X86_64_HTTP: constant.IPXEBinarySNPAMD64,
+				}),
+			},
+			want: Info{
+				Arch:            iana.EFI_X86_64_HTTP,
+				Mac:             net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				UserClass:       Tinkerbell,
+				ClientType:      HTTPClient,
+				IsNetbootClient: nil,
+				IPXEBinary:      "snp-x86_64.efi",
+				ArchMappingOverride: map[iana.Arch]constant.IPXEBinary{
+					iana.EFI_X86_64_HTTP: constant.IPXEBinarySNPAMD64,
+				},
+			},
+		},
+		"valid http client with mac addr format": {
+			pkt: &dhcpv4.DHCPv4{
+				ClientIPAddr: []byte{0x00, 0x00, 0x00, 0x00},
+				ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
+					dhcpv4.OptClientArch(iana.EFI_X86_64_HTTP),
+					dhcpv4.OptUserClass(Tinkerbell.String()),
+					dhcpv4.OptClassIdentifier(exampleHTTPClient),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x05, 0x06, 0x07}),
+				),
+			},
+			opts: []InfoOption{
+				WithMacAddrFormat(constant.MacAddrFormatDot),
+			},
+			want: Info{
+				Arch:            iana.EFI_X86_64_HTTP,
+				Mac:             net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				UserClass:       Tinkerbell,
+				ClientType:      HTTPClient,
+				IsNetbootClient: nil,
+				IPXEBinary:      "ipxe.efi",
+				MacAddrFormat:   constant.MacAddrFormatDot,
+			},
+		},
+		"valid http client with custom arch mapping and mac format": {
+			pkt: &dhcpv4.DHCPv4{
+				ClientIPAddr: []byte{0x00, 0x00, 0x00, 0x00},
+				ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
+					dhcpv4.OptClientArch(iana.EFI_X86_64_HTTP),
+					dhcpv4.OptUserClass(Tinkerbell.String()),
+					dhcpv4.OptClassIdentifier(exampleHTTPClient),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
+					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x05, 0x06, 0x07}),
+				),
+			},
+			opts: []InfoOption{
+				WithArchMappingOverride(map[iana.Arch]constant.IPXEBinary{
+					iana.EFI_X86_64_HTTP: constant.IPXEBinarySNPAMD64,
+				}),
+				WithMacAddrFormat(constant.MacAddrFormatNoDelimiter),
+			},
+			want: Info{
+				Arch:            iana.EFI_X86_64_HTTP,
+				Mac:             net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				UserClass:       Tinkerbell,
+				ClientType:      HTTPClient,
+				IsNetbootClient: nil,
+				IPXEBinary:      "snp-x86_64.efi",
+				ArchMappingOverride: map[iana.Arch]constant.IPXEBinary{
+					iana.EFI_X86_64_HTTP: constant.IPXEBinarySNPAMD64,
+				},
+				MacAddrFormat: constant.MacAddrFormatNoDelimiter,
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := NewInfo(tt.pkt)
+			got := NewInfo(tt.pkt, tt.opts...)
 			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreFields(Info{}, "Pkt")); diff != "" {
 				t.Fatal(diff)
 			}
@@ -224,19 +314,19 @@ func TestBootfile(t *testing.T) {
 				ClientType:    HTTPClient,
 				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				IPXEBinary:    "ipxe.efi",
-				MacAddrFormat: MacAddrFormatDot,
+				MacAddrFormat: constant.MacAddrFormatDot,
 			},
 			args: args{
 				ipxeHTTPBinServer: &url.URL{Scheme: "http", Host: "1.2.3.4:8080"},
 			},
-			want: "http://1.2.3.4:8080/01.02.03.04.05.06/ipxe.efi",
+			want: "http://1.2.3.4:8080/0102.0304.0506/ipxe.efi",
 		},
 		"http client with no mac address": {
 			info: Info{
 				ClientType:    HTTPClient,
 				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				IPXEBinary:    "ipxe.efi",
-				MacAddrFormat: MacAddrFormatNone,
+				MacAddrFormat: constant.MacAddrFormatEmpty,
 			},
 			args: args{
 				ipxeHTTPBinServer: &url.URL{Scheme: "http", Host: "1.2.3.4:8080"},
@@ -248,7 +338,7 @@ func TestBootfile(t *testing.T) {
 				ClientType:    HTTPClient,
 				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				IPXEBinary:    "ipxe.efi",
-				MacAddrFormat: MacAddrFormatDash,
+				MacAddrFormat: constant.MacAddrFormatDash,
 			},
 			args: args{
 				ipxeHTTPBinServer: &url.URL{Scheme: "http", Host: "1.2.3.4:8080"},
@@ -260,24 +350,36 @@ func TestBootfile(t *testing.T) {
 				UserClass:     IPXE,
 				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				IPXEBinary:    "undionly.kpxe",
-				MacAddrFormat: MacAddrFormatDot,
+				MacAddrFormat: constant.MacAddrFormatDot,
 			},
 			args: args{
 				ipxeTFTPBinServer: netip.MustParseAddrPort("1.2.3.4:69"),
 			},
-			want: "tftp://1.2.3.4:69/01.02.03.04.05.06/undionly.kpxe",
+			want: "tftp://1.2.3.4:69/0102.0304.0506/undionly.kpxe",
 		},
 		"firmware ipxe with no mac address": {
 			info: Info{
 				UserClass:     IPXE,
 				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				IPXEBinary:    "undionly.kpxe",
-				MacAddrFormat: MacAddrFormatNone,
+				MacAddrFormat: constant.MacAddrFormatEmpty,
 			},
 			args: args{
 				ipxeTFTPBinServer: netip.MustParseAddrPort("1.2.3.4:69"),
 			},
 			want: "tftp://1.2.3.4:69/undionly.kpxe",
+		},
+		"firmware ipxe with no delimited mac address": {
+			info: Info{
+				UserClass:     IPXE,
+				Mac:           net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				IPXEBinary:    "undionly.kpxe",
+				MacAddrFormat: constant.MacAddrFormatNoDelimiter,
+			},
+			args: args{
+				ipxeTFTPBinServer: netip.MustParseAddrPort("1.2.3.4:69"),
+			},
+			want: "tftp://1.2.3.4:69/010203040506/undionly.kpxe",
 		},
 	}
 	for name, tt := range tests {

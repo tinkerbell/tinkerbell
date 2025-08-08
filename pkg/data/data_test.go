@@ -81,7 +81,6 @@ func TestNetbootEncodeToAttributes(t *testing.T) {
 			netboot: &Netboot{},
 			want: []attribute.KeyValue{
 				attribute.Bool("Netboot.AllowNetboot", false),
-				attribute.String("Netboot.IPXEScriptURL", ""),
 			},
 		},
 		"successful encode of populated Netboot struct": {

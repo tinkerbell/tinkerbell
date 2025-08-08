@@ -222,6 +222,11 @@ func toNetbootData(i *v1alpha1.Netboot, facility string) (*data.Netboot, error) 
 		n.IPXEScript = i.IPXE.Contents
 	}
 
+	// ipxebinary
+	if i.IPXE != nil && i.IPXE.Binary != "" {
+		n.IPXEBinary = i.IPXE.Binary
+	}
+
 	// console
 	n.Console = ""
 

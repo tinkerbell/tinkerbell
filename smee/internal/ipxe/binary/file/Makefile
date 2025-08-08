@@ -2,7 +2,7 @@ IPXE_BUILD_SCRIPT := script/build_ipxe.sh
 IPXE_FETCH_SCRIPT := script/fetch_and_extract_ipxe.sh
 IPXE_NIX_SHELL := script/shell.nix
 IPXE_ISO_BUILD_PATCH := script/iso.patch
-BINARIES := ipxe.efi snp.efi undionly.kpxe ipxe.iso ipxe-efi.img
+BINARIES := ipxe.efi snp-arm64.efi snp-x86_64.efi undionly.kpxe ipxe.iso ipxe-efi.img
 
 help: ## show this help message
 	@grep -E '^[a-zA-Z_-]+.*:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}'
@@ -31,11 +31,14 @@ ipxe.efi: $(ipxe_readme) ## build ipxe.efi
 undionly.kpxe: $(ipxe_readme) ## build undionly.kpxe
 	+${IPXE_BUILD_SCRIPT} bin/undionly.kpxe "$(ipxe_sha_or_tag)" $@
 
-snp.efi: $(ipxe_readme) ## build snp.efi
+snp-arm64.efi: $(ipxe_readme) ## build snp-arm64.efi
 	+${IPXE_BUILD_SCRIPT} bin-arm64-efi/snp.efi "$(ipxe_sha_or_tag)" $@ "CROSS_COMPILE=aarch64-unknown-linux-gnu-"
 
 ipxe.iso: $(ipxe_readme) ## build ipxe.iso
 	+${IPXE_BUILD_SCRIPT} bin-x86_64-efi/ipxe.iso "$(ipxe_sha_or_tag)" $@
+
+snp-x86_64.efi: $(ipxe_readme) ## build snp-x86_64.efi
+	+${IPXE_BUILD_SCRIPT} bin-x86_64-efi/snp.efi "$(ipxe_sha_or_tag)" $@
 
 .DELETE_ON_ERROR: ipxe-efi.img
 ipxe-efi.img: ipxe.efi ## build ipxe-efi.img

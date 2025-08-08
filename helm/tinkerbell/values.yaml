@@ -70,7 +70,7 @@ deployment:
       dhcpSyslogIP: ""
       dhcpTftpIP: ""
       dhcpTftpPort: 69
-      ipxeBinaryInjectMacAddrFormat: "" # one of colon, dot, dash, none. defaults to colon when empty.
+      ipxeBinaryInjectMacAddrFormat: "" # one of colon, dot, dash, no-delimiter, empty. defaults to colon when empty.
       ipxeEmbeddedScriptPatch: ""
       ipxeHttpBinaryEnabled: true
       ipxeHttpScriptBindAddr: ""
@@ -81,6 +81,7 @@ deployment:
       ipxeHttpScriptOsieURL: ""
       ipxeHttpScriptRetries: 1
       ipxeHttpScriptRetryDelay: 1
+      ipxeOverrideArchMapping: "" # a comma separated list of <arch>=<binary> pairs. See the iPXE Architecture Mapping documentation for more details.
       ipxeScriptTinkServerAddrPort: ""
       ipxeScriptTinkServerInsecureTLS: false
       ipxeScriptTinkServerUseTLS: false
