@@ -98,6 +98,12 @@ function create_branch() {
         echo "Failed to create branch ${branch}" 1>&2
         exit 1
     fi
+    # push the new branch to GitHub
+    if ! git push -u origin "${branch}"; then
+        echo "Failed to push branch ${branch} to GitHub" 1>&2
+        exit 1
+    fi
+    echo "Branch ${branch} created and pushed to GitHub"
 }
 
 # create Github Pull Request
