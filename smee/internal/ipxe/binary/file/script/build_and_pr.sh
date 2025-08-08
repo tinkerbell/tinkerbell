@@ -13,7 +13,6 @@ tracked_files=(
     "./script/ipxe-customizations/general.efi.h"
     "./script/ipxe-customizations/general.undionly.h"
     "./script/ipxe-customizations/common.h"
-    "./script/ipxe-customizations/nap.h"
     "./script/embed.ipxe"
     "./script/ipxe.commit"
     "./ipxe.efi"
