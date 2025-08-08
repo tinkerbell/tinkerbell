@@ -156,4 +156,4 @@ function main() {
     exit 1
 }
 
-main "${1:-build}" "${2}" "${3:-./script/sha512sum.txt}"
+main "${1:-build}" "${2:-}" "${3:-./script/sha512sum.txt}"
