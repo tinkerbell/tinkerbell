@@ -151,6 +151,7 @@ function main() {
 
     if [ "${task}" == "build" ]; then
         # Build iPXE binaries
+        check_github_token
         changes_detected "${sha_file}"
         echo "Building iPXE binaries"
         branch="update_iPXE_$(date +"%Y_%m_%d_%H_%M_%S")"
