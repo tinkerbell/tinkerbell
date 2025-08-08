@@ -3,7 +3,7 @@ package workflow
 import (
 	"context"
 	"encoding/json"
-	serrors "errors"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,7 +12,7 @@ import (
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -123,7 +123,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	stored := &v1alpha1.Workflow{}
 	if err := r.client.Get(ctx, req.NamespacedName, stored); err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
@@ -151,7 +151,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow2)
 		}
 
-		return resp, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))
+		return resp, errors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))
 	case v1alpha1.WorkflowStatePreparing:
 		journal.Log(ctx, "preparing workflow")
 		s := &state{
@@ -161,7 +161,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 		resp, err := s.prepareWorkflow(ctx)
 
-		return resp, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, s.workflow))
+		return resp, errors.Join(err, mergePatchStatus(ctx, r.client, stored, s.workflow))
 	case v1alpha1.WorkflowStateRunning:
 		journal.Log(ctx, "process running workflow")
 
@@ -199,10 +199,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 		rc, err := s.postActions(ctx)
 
-		return rc, serrors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))
+		return rc, errors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))
 	case v1alpha1.WorkflowStatePending, v1alpha1.WorkflowStateTimeout, v1alpha1.WorkflowStateFailed, v1alpha1.WorkflowStateSuccess:
 		journal.Log(ctx, "controller will not trigger another reconcile", "state", wflow.Status.State)
+
 		return reconcile.Result{}, nil
+	case v1alpha1.WorkflowState("STATE_PENDING"):
+		journal.Log(ctx, "workflow using a deprecated pending state, reprocessing", "state", wflow.Status.State)
+
+		return reconcile.Result{}, errors.Join(r.processWorkflow(ctx, logger, wflow), mergePatchStatus(ctx, r.client, stored, wflow))
+	default:
+		journal.Log(ctx, "controller will not trigger reconcile, unknown state", "state", wflow.Status.State)
 	}
 
 	return reconcile.Result{}, nil
@@ -220,10 +227,10 @@ func mergePatchStatus(ctx context.Context, cc ctrlclient.Client, original, updat
 	return nil
 }
 
-func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger, stored *v1alpha1.Workflow) (reconcile.Result, error) {
+func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, stored *v1alpha1.Workflow) error {
 	tpl := &v1alpha1.Template{}
 	if err := r.client.Get(ctx, ctrlclient.ObjectKey{Name: stored.Spec.TemplateRef, Namespace: stored.Namespace}, tpl); err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			// Throw an error to raise awareness and take advantage of immediate requeue.
 			logger.Error(err, "error getting Template object in processNewWorkflow function")
 			journal.Log(ctx, "template not found")
@@ -236,7 +243,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 				Time:    &metav1.Time{Time: metav1.Now().UTC()},
 			})
 
-			return reconcile.Result{}, fmt.Errorf(
+			return fmt.Errorf(
 				"no template found: name=%v; namespace=%v",
 				stored.Spec.TemplateRef,
 				stored.Namespace,
@@ -250,7 +257,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 			Message: err.Error(),
 			Time:    &metav1.Time{Time: metav1.Now().UTC()},
 		})
-		return reconcile.Result{}, err
+		return err
 	}
 
 	var hardware v1alpha1.Hardware
@@ -266,10 +273,10 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 			Message: fmt.Sprintf("error getting hardware: %v", err),
 			Time:    &metav1.Time{Time: metav1.Now().UTC()},
 		})
-		return reconcile.Result{}, err
+		return err
 	}
 
-	if stored.Spec.HardwareRef != "" && errors.IsNotFound(err) {
+	if stored.Spec.HardwareRef != "" && kerrors.IsNotFound(err) {
 		logger.Error(err, "hardware not found in processNewWorkflow function")
 		journal.Log(ctx, "hardware not found")
 		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
@@ -280,7 +287,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 			Message: fmt.Sprintf("hardware not found: %v", err),
 			Time:    &metav1.Time{Time: metav1.Now().UTC()},
 		})
-		return reconcile.Result{}, fmt.Errorf(
+		return fmt.Errorf(
 			"hardware not found: name=%v; namespace=%v",
 			stored.Spec.HardwareRef,
 			stored.Namespace,
@@ -316,18 +323,18 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		}
 		denied, drules, err := evaluate(ctx, r.referenceRules.Denylist, ed)
 		if err != nil {
-			refErr = serrors.Join(refErr, err)
+			refErr = errors.Join(refErr, err)
 			logger.V(1).Info("error applying denylist rules", "error", err, "denyRules", r.referenceRules.Denylist)
 			continue
 		}
 		allowed, arules, err := evaluate(ctx, r.referenceRules.Allowlist, ed)
 		if err != nil {
-			refErr = serrors.Join(refErr, err)
+			refErr = errors.Join(refErr, err)
 			logger.V(1).Info("error applying allowlist rules", "error", err, "allowRules", r.referenceRules.Allowlist)
 			continue
 		}
 		if denied && !allowed {
-			refErr = serrors.Join(refErr, serrors.New("reference denied"))
+			refErr = errors.Join(refErr, errors.New("reference denied"))
 			logger.V(1).Info("reference denied", "referenceName", refName, "denyRules", drules, "allowRules", arules)
 			continue
 		}
@@ -336,7 +343,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		if v, err := r.dynamicClient.DynamicRead(ctx, gvr, rf.Name, rf.Namespace); err == nil || v != nil {
 			references[refName] = v
 		} else {
-			refErr = serrors.Join(refErr, err)
+			refErr = errors.Join(refErr, err)
 			logger.V(1).Info("error getting reference", "referenceName", rf.Name, "namespace", rf.Namespace, "gvr", gvr, "error", err, "refNil", v == nil)
 		}
 	}
@@ -350,11 +357,11 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 			Type:    v1alpha1.TemplateRenderedSuccess,
 			Status:  metav1.ConditionFalse,
 			Reason:  "Error",
-			Message: fmt.Sprintf("error rendering template: %v", serrors.Join(refErr, err)),
+			Message: fmt.Sprintf("error rendering template: %v", errors.Join(refErr, err)),
 			Time:    &metav1.Time{Time: metav1.Now().UTC()},
 		})
 
-		return reconcile.Result{}, err
+		return err
 	}
 
 	// populate Task and Action data
@@ -367,6 +374,14 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 		Message: "template rendered successfully",
 		Time:    &metav1.Time{Time: metav1.Now().UTC()},
 	})
+
+	return nil
+}
+
+func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger, stored *v1alpha1.Workflow) (reconcile.Result, error) {
+	if err := r.processWorkflow(ctx, logger, stored); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// set hardware allowPXE if requested.
 	if stored.Spec.BootOptions.ToggleAllowNetboot || stored.Spec.BootOptions.BootMode != "" {

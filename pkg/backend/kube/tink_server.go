@@ -12,10 +12,7 @@ import (
 
 func (b *Backend) ReadAll(ctx context.Context, agentID string) ([]v1alpha1.Workflow, error) {
 	stored := &v1alpha1.WorkflowList{}
-	err := b.cluster.GetClient().List(ctx, stored, &client.MatchingFields{
-		WorkflowByAgentID: agentID,
-	})
-	if err != nil {
+	if err := b.cluster.GetClient().List(ctx, stored, &client.MatchingFields{WorkflowByAgentID: agentID}); err != nil {
 		return nil, err
 	}
 	return stored.Items, nil
