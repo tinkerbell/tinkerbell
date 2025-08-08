@@ -35,10 +35,6 @@ binaries=(
     "ipxe-efi.img"
 )
 
-git_email="github-actions[bot]@users.noreply.github.com"
-git_name="github-actions[bot]"
-repo="${IPXE_TARGET_GH_OWNER_REPO:-"tinkerbell/tinkerbell"}"
-
 # check for the GITHUB_TOKEN environment variable
 function check_github_token() {
   if [ -z "${GITHUB_TOKEN}" ]; then
@@ -93,21 +89,6 @@ function create_checksums() {
     fi
 }
 
-# configure git client
-function configure_git() {
-    local email="${1:-github-actions[bot]@users.noreply.github.com}"
-    local name="${2:-github-actions[bot]}"
-
-    if ! git config --local user.email "${email}"; then
-        echo "Failed to configure git user.email" 1>&2
-        exit 1
-    fi
-    if ! git config --local user.name "${name}"; then
-        echo "Failed to configure git user.name" 1>&2
-        exit 1
-    fi
-}
-
 # create a new branch
 function create_branch() {
     local branch="${1:-update_iPXE_$(date +"%Y_%m_%d_%H_%M_%S")}"
@@ -115,45 +96,6 @@ function create_branch() {
     # create a new branch
     if ! git checkout -b "${branch}"; then
         echo "Failed to create branch ${branch}" 1>&2
-        exit 1
-    fi
-    if ! push_changes "${branch}"; then
-        echo "Failed to push branch ${branch}" 1>&2
-        exit 1
-    fi
-}
-
-# shellcheck disable=SC2086
-# commit changes to git
-function commit_changes() {
-    local files="${1:-script/sha512sum.txt snp-arm64.efi snp-x86_64.efi ipxe.efi undionly.kpxe ipxe.iso}"
-    local message="${2:-Updated iPXE}"
-
-    # commit changes
-    echo "Committing changes"
-    if ! git add ${files}; then
-        echo "Failed to add changes" 1>&2
-        exit 1
-    fi
-    if ! git commit -sm "${message}"; then
-        echo "Failed to commit changes" 1>&2
-        exit 1
-    fi
-}
-
-# push changes to origin
-function push_changes() {
-    local branch="${1}"
-    local repository="${2:-"${IPXE_TARGET_GH_OWNER_REPO:-"tinkerbell/tinkerbell"}"}"
-    local git_actor="${3:-github-actions[bot]}"
-    local token="${4:-${GITHUB_TOKEN}}"
-
-    # push changes
-    echo "Pushing changes"
-    # increase the postBuffer size to allow for large commits. ipxe.iso is 2mb in size.
-    git config --global http.postBuffer 157286400
-    if ! git push https://"${git_actor}":"${token}"@github.com/"${repository}".git HEAD:"${branch}"; then
-        echo "Failed to push changes" 1>&2
         exit 1
     fi
 }
@@ -173,34 +115,35 @@ function create_pull_request() {
     fi
 }
 
-# clean_up undoes any changes made by the script
-function clean_up() {
-    if ! git config --local --unset user.email; then
-        echo "Failed to unset git user.email" 1>&2
-        exit 1
-    fi
-    if ! git config --local --unset user.name; then
-        echo "Failed to unset git user.name" 1>&2
-        exit 1
-    fi
-}
-
 function main() {
-    local sha_file="$1"
+    local task="$1"
+    local branch="$2"
+    local sha_file="$3"
 
-    check_github_token
-    changes_detected "${sha_file}"
-    branch="update_iPXE_$(date +"%Y_%m_%d_%H_%M_%S")"
-    create_branch "${branch}"
-    clean_iPXE
-    build_iPXE
-    create_checksums "${sha_file}"
-    configure_git "${git_email}" "${git_name}"
-    # shellcheck disable=SC2068,SC2145
-    commit_changes "$(printf "%s " "${binaries[@]}"|xargs)" "Updated iPXE binaries"
-    push_changes "${branch}" "${repo}" "${git_name}" "${GITHUB_TOKEN}"
-    create_pull_request "${branch}" "main" "Update iPXE binaries" "Automated iPXE binaries update."
-    clean_up
+    if [ "${task}" == "build" ]; then
+        # Build iPXE binaries
+        changes_detected "${sha_file}"
+        echo "Building iPXE binaries"
+        branch="update_iPXE_$(date +"%Y_%m_%d_%H_%M_%S")"
+        create_branch "${branch}"
+        clean_iPXE
+        build_iPXE
+        create_checksums "${sha_file}"
+        echo "new_binaries_built=true" >> $GITHUB_OUTPUT
+        echo "new_branch_name=${branch}" >> $GITHUB_OUTPUT
+        return 0
+    fi
+
+    if [ "${task}" == "pr" ]; then
+        echo "Creating pull request"
+        # Create pull request
+        check_github_token
+        create_pull_request "${branch}" "main" "Update iPXE binaries" "Automated iPXE binaries update."
+        return 0
+    fi
+
+    echo "Unknown task: ${task}" 1>&2
+    exit 1
 }
 
-main "${1:-./script/sha512sum.txt}"
+main "${1:-build}" "${2}" "${3:-./script/sha512sum.txt}"

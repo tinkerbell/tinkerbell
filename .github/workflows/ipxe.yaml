@@ -17,7 +17,25 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-unstable
       - name: Build iPXE
+        id: build_ipxe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IPXE_TARGET_GH_OWNER_REPO: ${{ github.repository }}
-        run: (cd smee/internal/ipxe/binary/file/; MAKEFLAGS=-j$(nproc) ./script/build_and_pr.sh)
+        run: (cd smee/internal/ipxe/binary/file/; MAKEFLAGS=-j$(nproc) ./script/build_and_pr.sh build)
+      - name: Git commit and push changes
+        if: ${{ steps.build_ipxe.outputs.new_binaries_built == 'true' }}
+        uses: planetscale/ghcommit-action@v0.2.17
+        with:
+          commit_message: "Automated iPXE binaries built"
+          repo: ${{ github.repository }}
+          branch: ${{ steps.build_ipxe.outputs.new_branch_name }}
+          empty: false
+          file_pattern: 'smee/internal/ipxe/binary/file/script/sha512sum.txt smee/internal/ipxe/binary/file/snp-arm64.efi smee/internal/ipxe/binary/file/snp-x86_64.efi smee/internal/ipxe/binary/file/ipxe.efi smee/internal/ipxe/binary/file/undionly.kpxe smee/internal/ipxe/binary/file/ipxe.iso smee/internal/ipxe/binary/file/ipxe-efi.img'
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Create PR
+        if: ${{ steps.build_ipxe.outputs.new_binaries_built == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IPXE_TARGET_GH_OWNER_REPO: ${{ github.repository }}
+        run: (cd smee/internal/ipxe/binary/file/; MAKEFLAGS=-j$(nproc) ./script/build_and_pr.sh pr ${{ steps.build_ipxe.outputs.new_branch_name }})
