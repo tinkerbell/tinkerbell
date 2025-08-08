@@ -89,6 +89,29 @@ function create_checksums() {
     fi
 }
 
+# push a new branch to GitHub
+function push_new_branch_to_github() {
+    local branch="${1}"
+    local repository="${2:-tinkerbell/tinkerbell}"
+    local git_actor="${3:-github-actions[bot]}"
+    local token="${4:-${GITHUB_TOKEN}}"
+
+    # only push if there are no changes from main
+    if ! git diff --quiet main; then
+        echo "Changes detected from main, not pushing"
+        exit 1
+    fi
+
+    # push changes
+    echo "Pushing changes"
+    # increase the postBuffer size to allow for large commits. ipxe.iso is 2mb in size.
+    git config --global http.postBuffer 157286400
+    if ! git push https://"${git_actor}":"${token}"@github.com/"${repository}".git HEAD:"${branch}"; then
+        echo "Failed to push branch to GitHub" 1>&2
+        exit 1
+    fi
+}
+
 # create a new branch
 function create_branch() {
     local branch="${1:-update_iPXE_$(date +"%Y_%m_%d_%H_%M_%S")}"
@@ -99,7 +122,7 @@ function create_branch() {
         exit 1
     fi
     # push the new branch to GitHub
-    if ! git push -u origin "${branch}"; then
+    if ! push_new_branch_to_github "${branch}"; then
         echo "Failed to push branch ${branch} to GitHub" 1>&2
         exit 1
     fi
