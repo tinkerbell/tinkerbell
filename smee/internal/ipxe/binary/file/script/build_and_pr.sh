@@ -135,8 +135,12 @@ function main() {
         clean_iPXE
         build_iPXE
         create_checksums "${sha_file}"
-        echo "new_binaries_built=true" >> $GITHUB_OUTPUT
-        echo "new_branch_name=${branch}" >> $GITHUB_OUTPUT
+        if [ -n "${GITHUB_OUTPUT:-}" ]; then
+            echo "new_binaries_built=true" >> "$GITHUB_OUTPUT"
+            echo "new_branch_name=${branch}" >> "$GITHUB_OUTPUT"
+        else
+            echo "not running in GitHub Actions"
+        fi
         return 0
     fi
 
