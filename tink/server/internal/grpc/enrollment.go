@@ -9,6 +9,7 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell/workflow"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
@@ -25,11 +26,11 @@ const (
 )
 
 type match struct {
-	wrs        tinkerbell.WorkflowRuleSet
+	wrs        workflow.RuleSet
 	numMatches int
 }
 
-// enroll creates a Workflow for an agentID by matching the attr against WorkflowRuleSets.
+// enroll creates a Workflow for an agentID by matching the attr against rulesets.workflow.tinkerbell.org.
 // auto enrollment does not support Templates with multiple Agents defined.
 func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAttributes, hardware *tinkerbell.Hardware) (*proto.ActionResponse, error) {
 	log := h.Logger.WithValues("agentID", agentID)
@@ -39,7 +40,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 		return nil, status.Errorf(codes.FailedPrecondition, "auto enrollment is disabled for this hardware")
 	}
 
-	// Get all WorkflowRuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
+	// Get all RuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
 	// using github.com/timbray/quamina
 	// If there is a match, create a Workflow for the AgentID.
 	wrs, err := h.AutoCapabilities.Enrollment.ReadCreator.ReadWorkflowRuleSets(ctx)
@@ -136,7 +137,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 	return nil, status.Errorf(codes.NotFound, "no Workflow Rule Sets found or matched for Agent %s", agentID)
 }
 
-func findMatch(wr tinkerbell.WorkflowRuleSet, attr *data.AgentAttributes, curMatches int) (*match, error) {
+func findMatch(wr workflow.RuleSet, attr *data.AgentAttributes, curMatches int) (*match, error) {
 	q, _ := quamina.New() // errors are ignored because they can only happen when passing in options.
 	for idx, r := range wr.Spec.Rules {
 		if err := q.AddPattern(fmt.Sprintf("pattern-%v", idx), r); err != nil {

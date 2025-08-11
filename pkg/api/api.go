@@ -5,8 +5,9 @@
 package api
 
 import (
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell/bmc"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell/workflow"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
@@ -28,7 +29,7 @@ func init() {
 	SchemeBuilderTinkerbell.Register(&tinkerbell.Hardware{}, &tinkerbell.HardwareList{})
 	SchemeBuilderTinkerbell.Register(&tinkerbell.Template{}, &tinkerbell.TemplateList{})
 	SchemeBuilderTinkerbell.Register(&tinkerbell.Workflow{}, &tinkerbell.WorkflowList{})
-	SchemeBuilderTinkerbell.Register(&tinkerbell.WorkflowRuleSet{}, &tinkerbell.WorkflowRuleSetList{})
+	SchemeBuilderTinkerbell.Register(&workflow.RuleSet{}, &workflow.RuleSetList{})
 
 	SchemeBuilderBMC.Register(&bmc.Job{}, &bmc.JobList{})
 	SchemeBuilderBMC.Register(&bmc.Machine{}, &bmc.MachineList{})

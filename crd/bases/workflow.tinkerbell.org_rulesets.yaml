@@ -4,24 +4,27 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
-  name: workflowrulesets.tinkerbell.org
+  labels:
+    clusterctl.cluster.x-k8s.io: ""
+    clusterctl.cluster.x-k8s.io/move: ""
+  name: rulesets.workflow.tinkerbell.org
 spec:
-  group: tinkerbell.org
+  group: workflow.tinkerbell.org
   names:
     categories:
     - tinkerbell
-    kind: WorkflowRuleSet
-    listKind: WorkflowRuleSetList
-    plural: workflowrulesets
+    kind: RuleSet
+    listKind: RuleSetList
+    plural: rulesets
     shortNames:
     - wrs
-    singular: workflowruleset
+    singular: ruleset
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Workflow is the Schema for the Workflows API.
+        description: RuleSet is the Schema for the RuleSets API.
         properties:
           apiVersion:
             description: |-
@@ -41,8 +44,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: WorkflowRuleSetSpec defines the Rules, options, and Workflow
-              to be created on rules match.
+            description: RuleSetSpec defines the Rules, options, and Workflow to be
+              created on rules match.
             properties:
               rules:
                 description: |-

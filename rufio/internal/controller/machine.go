@@ -24,7 +24,7 @@ import (
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	"github.com/bmc-toolbox/bmclib/v2/providers/rpc"
 	"github.com/go-logr/logr"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell/bmc"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"

@@ -1,43 +1,45 @@
-package tinkerbell
+package workflow
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=workflowrulesets,scope=Namespaced,categories=tinkerbell,shortName=wrs,singular=workflowruleset
+// +kubebuilder:resource:path=rulesets,scope=Namespaced,categories=tinkerbell,shortName=wrs,singular=ruleset
 // +kubebuilder:storageversion
+// +kubebuilder:metadata:labels=clusterctl.cluster.x-k8s.io=
+// +kubebuilder:metadata:labels=clusterctl.cluster.x-k8s.io/move=
 
-// Workflow is the Schema for the Workflows API.
-type WorkflowRuleSet struct {
+// RuleSet is the Schema for the RuleSets API.
+type RuleSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   WorkflowRuleSetSpec   `json:"spec,omitempty"`
-	Status WorkflowRuleSetStatus `json:"status,omitempty"`
+	Spec   RuleSetSpec   `json:"spec,omitempty"`
+	Status RuleSetStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// WorkflowRuleSetList contains a list of WorkflowRuleSet.
-type WorkflowRuleSetList struct {
+// RuleSetList contains a list of RuleSet.
+type RuleSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []WorkflowRuleSet `json:"items"`
+	Items           []RuleSet `json:"items"`
 }
 
-// WorkflowRuleSetSpec defines the Rules, options, and Workflow to be created on rules match.
-type WorkflowRuleSetSpec struct {
+// RuleSetSpec defines the Rules, options, and Workflow to be created on rules match.
+type RuleSetSpec struct {
 	// Rules is a list of Quamina patterns used to match against the attributes of an Agent.
 	// See https://github.com/timbray/quamina/blob/main/PATTERNS.md for more information on the required format.
 	// All rules are combined using the OR operator.
 	// If any rule matches, the corresponding Workflow will be created.
 	Rules []string `json:"rules,omitempty"`
 	// Workflow holds the data used to configure the created Workflow.
-	Workflow WorkflowRuleSetWorkflow `json:"workflow,omitempty"`
+	Workflow RuleSetWorkflow `json:"workflow,omitempty"`
 }
 
-// WorkflowRuleSetWorkflow defines the Workflow to be created when a rule matches.
-type WorkflowRuleSetWorkflow struct {
+// RuleSetWorkflow defines the RuleSetWorkflow to be created when a rule matches.
+type RuleSetWorkflow struct {
 	// Disabled indicates whether the Workflow will be enabled or not when created.
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
@@ -63,4 +65,4 @@ type TemplateConfig struct {
 	Ref string `json:"ref,omitempty"`
 }
 
-type WorkflowRuleSetStatus struct{}
+type RuleSetStatus struct{}

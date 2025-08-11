@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell/workflow"
 )
 
 type AutoEnrollmentReadCreator interface {
@@ -17,7 +18,7 @@ type AutoDiscoveryReadCreator interface {
 }
 
 type WorkflowRuleSetReader interface {
-	ReadWorkflowRuleSets(ctx context.Context) ([]tinkerbell.WorkflowRuleSet, error)
+	ReadWorkflowRuleSets(ctx context.Context) ([]workflow.RuleSet, error)
 }
 
 type WorkflowCreator interface {

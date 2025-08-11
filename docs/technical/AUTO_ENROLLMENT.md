@@ -1,10 +1,10 @@
 # Auto Enrollment in Tinkerbell
 
-This document explains how Tinkerbell's auto enrollment feature works, how to enable it, how to configure a WorkflowRuleSet, and how to discover Agent attributes.
+This document explains how Tinkerbell's auto enrollment feature works, how to enable it, how to configure a `ruleset.workflow.tinkerbell.org`, and how to discover Agent attributes.
 
 ## Overview
 
-Auto enrollment automatically creates a Workflow for Tink Agents without having the need for a pre-existing Hardware object. This is accomplished by matching Agent attributes against a set of rules defined in a WorkflowRuleSet. This allows for dynamic creation of Workflows based on Agent characteristics, such as its serial number, MAC address, and other hardware details.
+Auto enrollment automatically creates a Workflow for Tink Agents without having the need for a pre-existing Hardware object. This is accomplished by matching Agent attributes against a set of rules defined in a `ruleset.workflow.tinkerbell.org`. This allows for dynamic creation of Workflows based on Agent characteristics, such as its serial number, MAC address, and other hardware details.
 
 ## How Auto Enrollment works
 
@@ -13,8 +13,8 @@ When an Agent connects to the Tink Server:
 1. The Agent sends its attributes (serial numbers, MAC addresses, etc.) to the Tink server.
 1. Check if there is a Hardware object with the `spec.agentID` that matches the Agent ID.
 1. If no workflow exists for the Agent, and auto enrollment is enabled and no Hardware object exists or `Hardware.spec.auto.enrollmentEnabled=true`, Tink server:
-   1. Iterates through all WorkflowRuleSets and checks for a rule that matches the Agent's attributes.
-   1. Creates a Workflow for the Agent based on the matched WorkflowRuleSet.
+   1. Iterates through all RuleSets and checks for a rule that matches the Agent's attributes.
+   1. Creates a Workflow for the Agent based on the matched RuleSet.
 1. Tink Server serves the first Workflow Action to the Agent.
 1. The Agent executes the Workflow Actions.
 
@@ -47,13 +47,13 @@ or set the Helm value from the CLI:
 --set "deployment.envs.tinkServer.autoEnrollmentEnabled=true"
 ```
 
-## How to configure a WorkflowRuleSet
+## How to configure a `ruleset.workflow.tinkerbell.org`
 
-WorkflowRuleSets are Kubernetes Custom Resource Definitions (CRDs). Here is an example WorkflowRuleSet.
+RuleSets are Kubernetes Custom Resource Definitions (CRDs). Here is an example RuleSet.
 
 ```yaml
-apiVersion: tinkerbell.org/v1alpha1
-kind: WorkflowRuleSet
+apiVersion: workflow.tinkerbell.org/v1alpha1
+kind: RuleSet
 metadata:
   name: ruleset1
   namespace: tink-system
@@ -71,7 +71,7 @@ spec:
       ref: sleep
 ```
 
-### WorkflowRuleSet fields
+### RuleSet fields
 
 - **rules [array]**: Rules is a list of Quamina patterns used to match against the attributes of an Agent. See [https://github.com/timbray/quamina/blob/main/PATTERNS.md](https://github.com/timbray/quamina/blob/main/PATTERNS.md) for more information on the required format. All rules are combined using the `OR` operator. If any rule matches, the corresponding Workflow will be created.
 - **workflow [object]**: Workflow holds the data used to configure the created Workflow.
@@ -85,13 +85,13 @@ spec:
 
 ## How to discover Agent attributes
 
-When starting out, it is recommended to create a WorkflowRuleSet that matches all Agents and disables running of a Workflow. This will create a disabled Workflow for each Agent that connects to Tink server. The Workflow will contain the Agent's attributes as an Annotation (`tinkerbell.org/agent-attributes`), which can be inspected to determine the Agent's characteristics for use in creating more specific rules. Attributes can be inspected using the following command:
+When starting out, it is recommended to create a RuleSet that matches all Agents and disables running of a Workflow. This will create a disabled Workflow for each Agent that connects to Tink server. The Workflow will contain the Agent's attributes as an Annotation (`tinkerbell.org/agent-attributes`), which can be inspected to determine the Agent's characteristics for use in creating more specific rules. Attributes can be inspected using the following command:
 
 ```bash
 kubectl get wf -n <namespace> enrollment-<agent id> -o jsonpath='{.metadata.annotations.tinkerbell\.org/agent-attributes}' | jq
 ```
 
-Once familiar with the attributes, you can create more specific WorkflowRuleSets to match your environment.
+Once familiar with the attributes, you can create more specific RuleSets to match your environment.
 
 > [!NOTE]  
 > A disabled Workflow can be enabled using the following command:  
@@ -198,17 +198,17 @@ The following is an example of the attributes data structure and data types of a
 
 ## Workflow Creation
 
-When a matching WorkflowRuleSet is found, a Workflow is created with the following:
+When a matching RuleSet is found, a Workflow is created with the following:
 
 1. The name is prefixed by `enrollment-`.
-1. The owner reference is set to the matching WorkflowRuleSet.
+1. The owner reference is set to the matching RuleSet.
 1. If enabled adds Agent attributes as an annotation.
 
-Given this example WorkflowRuleSet:
+Given this example RuleSet:
 
 ```yaml
-apiVersion: tinkerbell.org/v1alpha1
-kind: WorkflowRuleSet
+apiVersion: workflow.tinkerbell.org/v1alpha1
+kind: RuleSet
 metadata:
   name: ruleset1
   namespace: tink-system
@@ -235,8 +235,8 @@ metadata:
   name: enrollment-hello123456
   namespace: tink-system
   ownerReferences:
-  - apiVersion: tinkerbell.org/v1alpha1
-    kind: WorkflowRuleSet
+  - apiVersion: workflow.tinkerbell.org/v1alpha1
+    kind: RuleSet
     name: ruleset1
     uid: a8a6e8a7-6a8c-4fee-bcba-2318e4b7ae5b
   resourceVersion: "374571"
@@ -253,7 +253,7 @@ spec:
 
 Common issues:
 
-1. **No matching WorkflowRuleSet found**
+1. **No matching RuleSet found**
    - Verify the agent attributes match at least one rule
    - Check rules syntax for errors
    - Enable debug logging on the server
@@ -270,11 +270,11 @@ Common issues:
 Useful commands:
 
 ```bash
-# List WorkflowRuleSets
-kubectl get workflowrulesets
+# List RuleSets
+kubectl get rulesets.workflow
 
-# Describe a WorkflowRuleSet
-kubectl describe workflowruleset <name>
+# Describe a RuleSet
+kubectl describe ruleset.workflow <name>
 
 # Check server logs
 kubectl logs -l app=tinkerbell
