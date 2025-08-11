@@ -5,27 +5,28 @@ import (
 	"fmt"
 	"strings"
 
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell/workflow"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (b *Backend) ReadAll(ctx context.Context, agentID string) ([]v1alpha1.Workflow, error) {
-	stored := &v1alpha1.WorkflowList{}
+func (b *Backend) ReadAll(ctx context.Context, agentID string) ([]tinkerbell.Workflow, error) {
+	stored := &tinkerbell.WorkflowList{}
 	if err := b.cluster.GetClient().List(ctx, stored, &client.MatchingFields{WorkflowByAgentID: agentID}); err != nil {
 		return nil, err
 	}
 	return stored.Items, nil
 }
 
-func (b *Backend) Read(ctx context.Context, workflowID, namespace string) (*v1alpha1.Workflow, error) {
+func (b *Backend) Read(ctx context.Context, workflowID, namespace string) (*tinkerbell.Workflow, error) {
 	workflowNamespace, workflowName, found := strings.Cut(workflowID, "/")
 	if !found {
 		workflowName = workflowID
 		workflowNamespace = namespace
 	}
 
-	wflw := &v1alpha1.Workflow{}
+	wflw := &tinkerbell.Workflow{}
 	err := b.cluster.GetClient().Get(ctx, types.NamespacedName{Name: workflowName, Namespace: workflowNamespace}, wflw)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow. id: %s, name: %s, namespace: %s, err: %w", workflowID, workflowName, workflowNamespace, err)
@@ -33,7 +34,7 @@ func (b *Backend) Read(ctx context.Context, workflowID, namespace string) (*v1al
 	return wflw, nil
 }
 
-func (b *Backend) Update(ctx context.Context, wf *v1alpha1.Workflow) error {
+func (b *Backend) Update(ctx context.Context, wf *tinkerbell.Workflow) error {
 	if err := b.cluster.GetClient().Status().Update(ctx, wf); err != nil {
 		return fmt.Errorf("failed to update workflow %s: %w", wf.Name, err)
 	}
@@ -41,8 +42,8 @@ func (b *Backend) Update(ctx context.Context, wf *v1alpha1.Workflow) error {
 	return nil
 }
 
-func (b *Backend) ReadWorkflowRuleSets(ctx context.Context) ([]v1alpha1.WorkflowRuleSet, error) {
-	stored := &v1alpha1.WorkflowRuleSetList{}
+func (b *Backend) ReadWorkflowRuleSets(ctx context.Context) ([]workflow.RuleSet, error) {
+	stored := &workflow.RuleSetList{}
 	// TODO: add pagination.
 	opts := &client.ListOptions{}
 	err := b.cluster.GetClient().List(ctx, stored, opts)
@@ -53,7 +54,7 @@ func (b *Backend) ReadWorkflowRuleSets(ctx context.Context) ([]v1alpha1.Workflow
 	return stored.Items, nil
 }
 
-func (b *Backend) CreateWorkflow(ctx context.Context, wf *v1alpha1.Workflow) error {
+func (b *Backend) CreateWorkflow(ctx context.Context, wf *tinkerbell.Workflow) error {
 	if err := b.cluster.GetClient().Create(ctx, wf); err != nil {
 		return fmt.Errorf("failed to create workflow %s: %w", wf.Name, err)
 	}
@@ -61,8 +62,8 @@ func (b *Backend) CreateWorkflow(ctx context.Context, wf *v1alpha1.Workflow) err
 	return nil
 }
 
-func (b *Backend) ReadHardware(ctx context.Context, id, namespace string) (*v1alpha1.Hardware, error) {
-	hw := &v1alpha1.HardwareList{}
+func (b *Backend) ReadHardware(ctx context.Context, id, namespace string) (*tinkerbell.Hardware, error) {
+	hw := &tinkerbell.HardwareList{}
 	if err := b.cluster.GetClient().List(ctx, hw, &client.MatchingFields{
 		HardwareByAgentID: id,
 	}); err != nil {
@@ -82,7 +83,7 @@ func (b *Backend) ReadHardware(ctx context.Context, id, namespace string) (*v1al
 	return &hw.Items[0], nil
 }
 
-func (b *Backend) CreateHardware(ctx context.Context, hw *v1alpha1.Hardware) error {
+func (b *Backend) CreateHardware(ctx context.Context, hw *tinkerbell.Hardware) error {
 	if err := b.cluster.GetClient().Create(ctx, hw); err != nil {
 		return fmt.Errorf("failed to create hardware %s/%s: %w", hw.Namespace, hw.Name, err)
 	}

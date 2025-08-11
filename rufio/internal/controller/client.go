@@ -11,7 +11,7 @@ import (
 	"github.com/bmc-toolbox/bmclib/v2/providers/rpc"
 	"github.com/ccoveille/go-safecast"
 	"github.com/go-logr/logr"
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell/bmc"
 )
 
 // ClientFunc defines a func that returns a bmclib.Client.

@@ -1,8 +1,8 @@
 package kube
 
 import (
-	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell/bmc"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

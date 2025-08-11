@@ -27,7 +27,7 @@ var TemplateCRD []byte
 //go:embed bases/tinkerbell.org_workflows.yaml
 var WorkflowCRD []byte
 
-//go:embed bases/tinkerbell.org_workflowrulesets.yaml
+//go:embed bases/workflow.tinkerbell.org_rulesets.yaml
 var WorkflowRuleSetCRD []byte
 
 //go:embed bases/bmc.tinkerbell.org_jobs.yaml
@@ -54,7 +54,7 @@ const (
 	// WorkflowCRDName is the name of the Workflow CRD.
 	WorkflowCRDName = "workflows.tinkerbell.org"
 	// WorkflowRuleSetCRDName is the name of the WorkflowRuleSet CRD.
-	WorkflowRuleSetCRDName = "workflowrulesets.tinkerbell.org"
+	WorkflowRuleSetCRDName = "rulesets.workflow.tinkerbell.org"
 	// JobCRDName is the name of the Job CRD.
 	JobCRDName = "jobs.bmc.tinkerbell.org"
 	// MachineCRDName is the name of the Machine CRD.
