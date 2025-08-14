@@ -42,8 +42,8 @@ HELM_REPO_NAME ?= ghcr.io/tinkerbell/charts
 GOIMPORT_VER           := latest
 CONTROLLER_GEN_VERSION := v0.18.0
 BUF_VERSION            := v1.56.0
-PROTOC_GEN_GO_GRPC_VER := v1.5.1
-PROTOC_GEN_GO_VER      := v1.36.7
+PROTOC_GEN_GO_GRPC_VER := v1.5.1  # must be in sync with the version in buf.gen.yaml
+PROTOC_GEN_GO_VER      := v1.36.7 # must be in sync with the version in buf.gen.yaml
 UPX_VER 			   := 4.2.4
 GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
 
