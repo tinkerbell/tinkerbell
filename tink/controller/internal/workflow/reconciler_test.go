@@ -1344,6 +1344,73 @@ func TestUpdateAgentIDIfNeeded(t *testing.T) {
 			wantAgentID: "agent2",
 			description: "should update AgentID when next task has single pending action",
 		},
+		"invalid current task index - out of bounds": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent1",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task2", // Different ID from CurrentState.TaskID
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent1",
+			description: "should return false when current task index is invalid (not found)",
+		},
+		"edge case - exactly last task boundary": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task2"},
+					AgentID:      "agent2",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+						{
+							ID:      "task2",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{ID: "action2", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent2",
+			description: "should return false when current task is exactly the last task",
+		},
+		"defensive check - prevent out of bounds access": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent1",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent1",
+			description: "should handle case where currentTaskIndex+1 would be out of bounds",
+		},
 	}
 
 	for name, tt := range tests {

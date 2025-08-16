@@ -488,12 +488,20 @@ func updateAgentIDIfNeeded(wf *v1alpha1.Workflow) bool {
 		return false
 	}
 
-	// Step 1: Check if we're not in the last task
-	if currentTaskIndex >= len(wf.Status.Tasks)-1 {
+	// Step 1: Check for invalid index or if we're in the last task
+	if currentTaskIndex > len(wf.Status.Tasks)-1 {
+		// Invalid state: currentTaskIndex out of bounds
+		return false
+	}
+	if currentTaskIndex == len(wf.Status.Tasks)-1 {
 		return false // We're in the last task, no update needed
 	}
 
 	currentTask := wf.Status.Tasks[currentTaskIndex]
+	// Defensive check to prevent out-of-bounds access
+	if currentTaskIndex+1 >= len(wf.Status.Tasks) {
+		return false
+	}
 	nextTask := wf.Status.Tasks[currentTaskIndex+1]
 
 	// Step 2: Check if the current task is complete
