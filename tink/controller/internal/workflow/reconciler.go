@@ -488,7 +488,7 @@ func updateAgentIDIfNeeded(wf *v1alpha1.Workflow) bool {
 		return false
 	}
 
-	// Step 1: Check for invalid index or if we're in the last task
+	// Step 1: Check for invalid index (>) or if we're in the last task (==)
 	if currentTaskIndex >= len(wf.Status.Tasks)-1 {
 		return false
 	}
