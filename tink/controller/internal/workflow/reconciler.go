@@ -496,12 +496,6 @@ func updateAgentIDIfNeeded(wf *v1alpha1.Workflow) bool {
 	}
 
 	currentTask := wf.Status.Tasks[currentTaskIndex]
-	// Defensive check to prevent out-of-bounds access
-	if currentTaskIndex+1 >= len(wf.Status.Tasks) {
-		return false
-	}
-	nextTask := wf.Status.Tasks[currentTaskIndex+1]
-
 	// Step 2: Check if the current task is complete
 	// A task is complete when all its actions are in SUCCESS state
 	for _, action := range currentTask.Actions {
@@ -510,6 +504,7 @@ func updateAgentIDIfNeeded(wf *v1alpha1.Workflow) bool {
 		}
 	}
 
+	nextTask := wf.Status.Tasks[currentTaskIndex+1]
 	// Step 3: Check if the next task's first action is pending
 	if len(nextTask.Actions) == 0 {
 		return false // Next task has no actions
