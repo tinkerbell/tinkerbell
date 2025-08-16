@@ -172,6 +172,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			return reconcile.Result{}, mergePatchStatus(ctx, r.client, stored, wflow)
 		}
 
+		// Update AgentID if transitioning between tasks
+		if updateAgentIDIfNeeded(wflow) {
+			journal.Log(ctx, "updated workflow AgentID for task transition", "newAgentID", wflow.Status.AgentID)
+		}
+
 		first := firstAction(wflow)
 		if wflow.Status.GlobalExecutionStop == nil && first != nil && wflow.Status.CurrentState != nil && first.ID == wflow.Status.CurrentState.ActionID {
 			if first.ExecutionStart == nil {
@@ -459,4 +464,60 @@ func firstAction(w *v1alpha1.Workflow) *v1alpha1.Action {
 		}
 	}
 	return nil
+}
+
+// updateAgentIDIfNeeded updates the Workflow's status.AgentID when transitioning between tasks.
+// It checks if the current task is complete and if we need to move to the next task with a different agent.
+func updateAgentIDIfNeeded(wf *v1alpha1.Workflow) bool {
+	// Early return if we don't have the necessary state information
+	if wf.Status.CurrentState == nil || len(wf.Status.Tasks) == 0 {
+		return false
+	}
+
+	// Find the current task index
+	currentTaskIndex := -1
+	for i, task := range wf.Status.Tasks {
+		if task.ID == wf.Status.CurrentState.TaskID {
+			currentTaskIndex = i
+			break
+		}
+	}
+
+	// If we can't find the current task, nothing to do
+	if currentTaskIndex == -1 {
+		return false
+	}
+
+	// Step 1: Check for invalid index (>) or if we're in the last task (==)
+	if currentTaskIndex >= len(wf.Status.Tasks)-1 {
+		return false
+	}
+
+	currentTask := wf.Status.Tasks[currentTaskIndex]
+	// Step 2: Check if the current task is complete
+	// A task is complete when all its actions are in SUCCESS state
+	for _, action := range currentTask.Actions {
+		if action.State != v1alpha1.WorkflowStateSuccess {
+			return false // Current task is not complete
+		}
+	}
+
+	nextTask := wf.Status.Tasks[currentTaskIndex+1]
+	// Step 3: Check if the next task's first action is pending
+	if len(nextTask.Actions) == 0 {
+		return false // Next task has no actions
+	}
+
+	if nextTask.Actions[0].State != v1alpha1.WorkflowStatePending {
+		return false // Next task's first action is not pending
+	}
+
+	// Step 4: Check if the current AgentID is not equal to the next task's agent ID
+	if wf.Status.AgentID == nextTask.AgentID {
+		return false // AgentID is already correct
+	}
+
+	// All conditions met, update the status.AgentID to the next task's agentID
+	wf.Status.AgentID = nextTask.AgentID
+	return true // Indicates that an update was made
 }
