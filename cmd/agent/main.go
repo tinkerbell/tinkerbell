@@ -14,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
@@ -50,6 +51,12 @@ func main() {
 			},
 			TransportSelected: agent.GRPCTransportType,
 			RuntimeSelected:   agent.DockerRuntimeType,
+			BackoffOptions: agent.BackoffOptions{
+				InitialInterval:     backoff.DefaultInitialInterval,
+				RandomizationFactor: backoff.DefaultRandomizationFactor,
+				Multiplier:          backoff.DefaultMultiplier,
+				MaxInterval:         backoff.DefaultMaxInterval,
+			},
 		},
 	}
 

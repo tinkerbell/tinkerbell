@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/flag/netip"
@@ -101,6 +102,10 @@ func RegisterRootFlags(c *config, fs *flag.FlagSet) {
 	fs.Var(&c.Options.RuntimeSelected, "runtime", fmt.Sprintf("Container runtime used to run Actions, must be one of [%s, %s]", agent.DockerRuntimeType, agent.ContainerdRuntimeType))
 	fs.Var(&c.Options.TransportSelected, "transport", fmt.Sprintf("Transport used to receive Workflows/Actions and to send results, must be one of [%s, %s, %s]", agent.GRPCTransportType, agent.NATSTransportType, agent.FileTransportType))
 	fs.BoolVar(&c.Options.AttributeDetectionEnabled, "attribute-detection", true, "Enable attribute detection")
+	fs.DurationVar(&c.Options.BackoffOptions.InitialInterval, "backoff-initial-interval", backoff.DefaultInitialInterval, "Initial interval for backoff retries")
+	fs.Float64Var(&c.Options.BackoffOptions.RandomizationFactor, "backoff-randomization-factor", backoff.DefaultRandomizationFactor, "Randomization factor for backoff retries")
+	fs.Float64Var(&c.Options.BackoffOptions.Multiplier, "backoff-multiplier", backoff.DefaultMultiplier, "Multiplier for backoff retries")
+	fs.DurationVar(&c.Options.BackoffOptions.MaxInterval, "backoff-max-interval", time.Second*5, "Max interval for backoff retries")
 }
 
 func RegisterRepositoryFlags(c *config, fs *flag.FlagSet) {

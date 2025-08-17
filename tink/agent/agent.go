@@ -45,12 +45,16 @@ type Config struct {
 	TransportReader TransportReader
 	RuntimeExecutor RuntimeExecutor
 	TransportWriter TransportWriter
-	backoff         *backoff.ExponentialBackOff
+	Backoff         *backoff.ExponentialBackOff
 }
 
 var defaultBackoff = func() *backoff.ExponentialBackOff {
-	bo := backoff.NewExponentialBackOff()
-	bo.MaxInterval = 5 * time.Second
+	bo := &backoff.ExponentialBackOff{
+		InitialInterval:     backoff.DefaultInitialInterval,
+		RandomizationFactor: backoff.DefaultRandomizationFactor,
+		Multiplier:          backoff.DefaultMultiplier,
+		MaxInterval:         5 * time.Second,
+	}
 
 	return bo
 }()
@@ -62,17 +66,18 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 	// 4. send the action to the runtime for execution
 	// 5. send the result event to the output transport
 	// 6. go to step 1
-	if c.backoff == nil {
-		c.backoff = defaultBackoff
+	if c.Backoff == nil {
+		c.Backoff = defaultBackoff
 	}
 	doBackoff := make(chan bool, 1)
+	defer close(doBackoff)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-doBackoff:
-			duration := c.backoff.NextBackOff()
+			duration := c.Backoff.NextBackOff()
 			log.Info("backing off", "duration", fmt.Sprintf("%v", duration))
 			select {
 			case <-ctx.Done():
@@ -180,6 +185,7 @@ type Options struct {
 	TransportSelected         TransportType
 	RuntimeSelected           RuntimeType
 	AttributeDetectionEnabled bool
+	BackoffOptions            BackoffOptions
 }
 
 type Transport struct {
@@ -227,6 +233,13 @@ type DockerRuntime struct {
 type ContainerdRuntime struct {
 	Namespace  string
 	SocketPath string
+}
+
+type BackoffOptions struct {
+	InitialInterval     time.Duration
+	RandomizationFactor float64
+	Multiplier          float64
+	MaxInterval         time.Duration
 }
 
 func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id string) error {
@@ -327,10 +340,18 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 		log.Info("using Docker runtime")
 	}
 
+	bo := &backoff.ExponentialBackOff{
+		InitialInterval:     o.BackoffOptions.InitialInterval,
+		RandomizationFactor: o.BackoffOptions.RandomizationFactor,
+		Multiplier:          o.BackoffOptions.Multiplier,
+		MaxInterval:         o.BackoffOptions.MaxInterval,
+	}
+
 	a := &Config{
 		TransportReader: tr,
 		RuntimeExecutor: re,
 		TransportWriter: tw,
+		Backoff:         bo,
 	}
 
 	eg.Go(func() error {
