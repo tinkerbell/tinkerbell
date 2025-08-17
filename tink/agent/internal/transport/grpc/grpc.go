@@ -41,10 +41,7 @@ func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 		if status.Code(err) == codes.NotFound {
 			return spec.Action{}, &NoWorkflowError{}
 		}
-		// if this is a "connection refused" error, then log it.
-		if status.Code(err) == codes.Unavailable {
-			c.Log.Info("connection refused", "error", err)
-		}
+
 		e := fmt.Errorf("error getting action: %w", err)
 		if isPFVNoActionsAvailable(err) {
 			e = newNoActionsError("no actions available", err)

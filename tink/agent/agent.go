@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 	"github.com/go-logr/logr"
@@ -44,7 +45,15 @@ type Config struct {
 	TransportReader TransportReader
 	RuntimeExecutor RuntimeExecutor
 	TransportWriter TransportWriter
+	backoff         *backoff.ExponentialBackOff
 }
+
+var defaultBackoff = func() *backoff.ExponentialBackOff {
+	bo := backoff.NewExponentialBackOff()
+	bo.MaxInterval = 5 * time.Second
+
+	return bo
+}()
 
 func (c *Config) Run(ctx context.Context, log logr.Logger) {
 	// All steps are synchronous and blocking
@@ -53,11 +62,23 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 	// 4. send the action to the runtime for execution
 	// 5. send the result event to the output transport
 	// 6. go to step 1
+	if c.backoff == nil {
+		c.backoff = defaultBackoff
+	}
+	doBackoff := make(chan bool, 1)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-doBackoff:
+			duration := c.backoff.NextBackOff()
+			log.Info("backing off", "duration", fmt.Sprintf("%v", duration))
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(duration):
+			}
 		default:
 		}
 
@@ -67,9 +88,12 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 				return
 			}
 			if isNoAction(err) {
+				doBackoff <- true
 				continue
 			}
 			log.Info("error reading/retrieving action", "error", err)
+			doBackoff <- true
+
 			continue
 		}
 
@@ -79,6 +103,7 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 				return
 			}
 			log.Info("error writing event", "error", err)
+			doBackoff <- true
 			continue
 		}
 		log.Info("reported action status", "action", action, "state", spec.StateRunning)
@@ -120,6 +145,7 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 
 		if err := c.TransportWriter.Write(ctx, responseEvent); err != nil {
 			log.Info("error writing event", "error", err)
+			doBackoff <- true
 			continue
 		}
 		log.Info("reported action status", "action", action, "state", state)
