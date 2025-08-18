@@ -63,6 +63,7 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 			MaxInterval:         5 * time.Second,
 		}
 	}
+	// sending true to the channel logs the backoff
 	doBackoff := make(chan bool, 1)
 	defer close(doBackoff)
 
@@ -70,9 +71,11 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-doBackoff:
+		case shouldLog := <-doBackoff:
 			duration := c.Backoff.NextBackOff()
-			log.Info("backing off", "duration", fmt.Sprintf("%v", duration))
+			if shouldLog {
+				log.Info("backing off", "duration", duration.String())
+			}
 			select {
 			case <-ctx.Done():
 				return
@@ -87,7 +90,7 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 				return
 			}
 			if isNoAction(err) {
-				doBackoff <- true
+				doBackoff <- false
 				continue
 			}
 			log.Info("error reading/retrieving action", "error", err)
