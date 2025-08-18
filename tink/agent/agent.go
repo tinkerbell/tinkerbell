@@ -237,14 +237,13 @@ type BackoffOptions struct {
 	MaxInterval time.Duration
 }
 
-func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id string) error {
+func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id string) error {
 	// instantiate the implementation for the transport reader
 	// instantiate the implementation for the transport writer
 	// instantiate the implementation for the runtime executor
 	// instantiate the agent
 	// run the agent
-	eg, ectx := errgroup.WithContext(ctx)
-	ctx = ectx
+	eg, ctx := errgroup.WithContext(inctx)
 	var tr TransportReader
 	var tw TransportWriter
 	switch o.TransportSelected {
