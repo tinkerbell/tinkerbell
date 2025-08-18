@@ -101,6 +101,8 @@ func RegisterRootFlags(c *config, fs *flag.FlagSet) {
 	fs.Var(&c.Options.RuntimeSelected, "runtime", fmt.Sprintf("Container runtime used to run Actions, must be one of [%s, %s]", agent.DockerRuntimeType, agent.ContainerdRuntimeType))
 	fs.Var(&c.Options.TransportSelected, "transport", fmt.Sprintf("Transport used to receive Workflows/Actions and to send results, must be one of [%s, %s, %s]", agent.GRPCTransportType, agent.NATSTransportType, agent.FileTransportType))
 	fs.BoolVar(&c.Options.AttributeDetectionEnabled, "attribute-detection", true, "Enable attribute detection")
+	// This is an implementation detail of github.com/cenkalti/backoff/v5, MaxInterval caps the RetryInterval and not the randomized interval.
+	// 5 seconds will give random exponential backoff times of < 7.5 seconds. See the github.com/cenkalti/backoff/v5 doc for more detail.
 	fs.DurationVar(&c.Options.BackoffOptions.MaxInterval, "backoff-max-interval", time.Second*5, "Max interval for exponential backoff retries")
 }
 
