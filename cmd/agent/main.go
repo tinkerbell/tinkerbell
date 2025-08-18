@@ -52,10 +52,7 @@ func main() {
 			TransportSelected: agent.GRPCTransportType,
 			RuntimeSelected:   agent.DockerRuntimeType,
 			BackoffOptions: agent.BackoffOptions{
-				InitialInterval:     backoff.DefaultInitialInterval,
-				RandomizationFactor: backoff.DefaultRandomizationFactor,
-				Multiplier:          backoff.DefaultMultiplier,
-				MaxInterval:         backoff.DefaultMaxInterval,
+				MaxInterval: backoff.DefaultMaxInterval,
 			},
 		},
 	}

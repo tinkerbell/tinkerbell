@@ -48,17 +48,6 @@ type Config struct {
 	Backoff         *backoff.ExponentialBackOff
 }
 
-var defaultBackoff = func() *backoff.ExponentialBackOff {
-	bo := &backoff.ExponentialBackOff{
-		InitialInterval:     backoff.DefaultInitialInterval,
-		RandomizationFactor: backoff.DefaultRandomizationFactor,
-		Multiplier:          backoff.DefaultMultiplier,
-		MaxInterval:         5 * time.Second,
-	}
-
-	return bo
-}()
-
 func (c *Config) Run(ctx context.Context, log logr.Logger) {
 	// All steps are synchronous and blocking
 	// 1. get an action from the input transport
@@ -67,7 +56,12 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 	// 5. send the result event to the output transport
 	// 6. go to step 1
 	if c.Backoff == nil {
-		c.Backoff = defaultBackoff
+		c.Backoff = &backoff.ExponentialBackOff{
+			InitialInterval:     backoff.DefaultInitialInterval,
+			RandomizationFactor: backoff.DefaultRandomizationFactor,
+			Multiplier:          backoff.DefaultMultiplier,
+			MaxInterval:         5 * time.Second,
+		}
 	}
 	doBackoff := make(chan bool, 1)
 	defer close(doBackoff)
@@ -154,6 +148,8 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 			continue
 		}
 		log.Info("reported action status", "action", action, "state", state)
+
+		c.Backoff.Reset() // Reset the backoff after a successful run
 	}
 }
 
@@ -235,11 +231,10 @@ type ContainerdRuntime struct {
 	SocketPath string
 }
 
+// BackoffOptions holds the configuration for the backoff strategy.
 type BackoffOptions struct {
-	InitialInterval     time.Duration
-	RandomizationFactor float64
-	Multiplier          float64
-	MaxInterval         time.Duration
+	// MaxInterval is the maximum interval between retries.
+	MaxInterval time.Duration
 }
 
 func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id string) error {
@@ -340,12 +335,8 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 		log.Info("using Docker runtime")
 	}
 
-	bo := &backoff.ExponentialBackOff{
-		InitialInterval:     o.BackoffOptions.InitialInterval,
-		RandomizationFactor: o.BackoffOptions.RandomizationFactor,
-		Multiplier:          o.BackoffOptions.Multiplier,
-		MaxInterval:         o.BackoffOptions.MaxInterval,
-	}
+	bo := backoff.NewExponentialBackOff()
+	bo.MaxInterval = o.BackoffOptions.MaxInterval
 
 	a := &Config{
 		TransportReader: tr,
