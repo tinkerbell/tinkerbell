@@ -332,7 +332,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			return fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", addrPort.Addr(), addrPort.Port())
 		}
 		tftpHandler := binary.TFTP{
-			Log:                  log.WithValues("service", "github.com/tinkerbell/smee").WithName("github.com/tinkerbell/ipxedust"),
+			Log:                  log,
 			EnableTFTPSinglePort: true,
 			Addr:                 addrPort,
 			Timeout:              c.TFTP.Timeout,
@@ -354,7 +354,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		// 2. start the http server for ipxe binaries
 		// serve ipxe binaries from the "/ipxe/" URI.
 		handlers["/ipxe/"] = binary.Handler{
-			Log:   log.WithValues("service", "github.com/tinkerbell/smee").WithName("github.com/tinkerbell/ipxedust"),
+			Log:   log,
 			Patch: []byte(c.IPXE.EmbeddedScriptPatch),
 		}.Handle
 	}
