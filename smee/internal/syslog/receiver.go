@@ -160,14 +160,14 @@ func (r *Receiver) runParser() {
 	for m := range r.parse {
 		if m.parse() {
 			structured := parse(m)
-			sl := r.Logger.WithValues("msg", structured)
+			sl := r.Logger.WithValues("logEntry", structured)
 			if m.Severity() == DEBUG {
-				sl.V(1).Info("msg")
+				sl.V(1).Info("syslog message received")
 			} else {
-				sl.Info("msg")
+				sl.Info("syslog message received")
 			}
 		} else {
-			r.Logger.V(1).Info("msg", "msg", m)
+			r.Logger.V(1).Info("syslog message received", "logEntry", m)
 		}
 		m.reset()
 		syslogMessagePool.Put(m)
