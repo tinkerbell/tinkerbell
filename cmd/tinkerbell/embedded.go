@@ -29,17 +29,24 @@ func init() {
 	}
 	// register flags
 	kaffs := ff.NewFlagSet("embedded kube-apiserver")
+	kafs := &flag.Set{FlagSet: kaffs}
+	kac := &flag.EmbeddedKubeAPIServerConfig{}
+	flag.RegisterKubeAPIServer(kafs, kac)
 	efs := ff.NewFlagSet("embedded etcd").SetParent(kaffs)
 	flag.RegisterEtcd(&flag.Set{FlagSet: efs}, ec)
-	apiserverFS, runFunc := apiserver.ConfigAndFlags()
-	apiserverFS.VisitAll(kubeAPIServerFlags(kaffs))
 	embeddedFlagSet = efs
+	apiserverFS, runFunc := apiserver.ConfigAndFlags(&kac.DisableLogging)
+	apiserverFS.VisitAll(kubeAPIServerFlags(kaffs))
 
 	// register the run command
 	embeddedApiserverExecute = runFunc
 	embeddedKubeControllerManagerExecute = apiserver.Kubecontrollermanager
 	embeddedEtcdExecute = func(ctx context.Context, logLevel int) error {
-		log := zapLogger(logLevel)
+		ll := ternary((logLevel != 0), logLevel, ec.LogLevel)
+		if ec.DisableLogging {
+			ll = -1
+		}
+		log := zapLogger(ll)
 		ec.Config.ZapLoggerBuilder = embed.NewZapLoggerBuilder(log)
 		e, err := embed.StartEtcd(ec.Config)
 		if err != nil {
@@ -103,6 +110,9 @@ func kubeAPIServerFlags(kaffs *ff.FlagSet) func(*pflag.Flag) {
 func zapLogger(level int) *zap.Logger {
 	config := zap.NewProductionConfig()
 	config.OutputPaths = []string{"stdout"}
+	if level < 0 {
+		config.OutputPaths = []string{"/dev/null"}
+	}
 	l, err := safecast.ToInt8(level)
 	if err != nil {
 		l = 0

@@ -169,7 +169,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	log := defaultLogger(globals.LogLevel)
-	log.Info("starting tinkerbell",
+	cliLog := log.WithName("cli")
+	cliLog.Info("starting tinkerbell",
 		"version", build.GitRevision(),
 		"smeeEnabled", globals.EnableSmee,
 		"tootlesEnabled", globals.EnableTootles,
@@ -186,7 +187,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Etcd server
 	g.Go(func() error {
 		if !globals.EmbeddedGlobalConfig.EnableETCD {
-			log.Info("embedded etcd is disabled")
+			cliLog.Info("embedded etcd is disabled")
 			return nil
 		}
 		if embeddedEtcdExecute != nil {
@@ -205,7 +206,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// API Server
 	g.Go(func() error {
 		if !globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
-			log.Info("embedded kube-apiserver is disabled")
+			cliLog.Info("embedded kube-apiserver is disabled")
 			return nil
 		}
 		if embeddedApiserverExecute != nil {
@@ -232,7 +233,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				return fmt.Errorf("failed to create kube backend with no indexes: %w", err)
 			}
 			// Wait for the API server to be healthy and ready.
-			if err := backendNoIndexes.WaitForAPIServer(ctx, log, 20*time.Second, 5*time.Second, nil); err != nil {
+			if err := backendNoIndexes.WaitForAPIServer(ctx, cliLog, 20*time.Second, 5*time.Second, nil); err != nil {
 				return fmt.Errorf("failed to wait for API server health: %w", err)
 			}
 
@@ -241,7 +242,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				gerr := g.Wait()
 				return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
 			}
-			log.Info("CRD migrations completed")
+			cliLog.Info("CRD migrations completed")
 		}
 
 		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar), WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
@@ -277,7 +278,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Kube Controller Manager
 	g.Go(func() error {
 		if !globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
-			log.Info("embedded kube-controller-manager is disabled")
+			cliLog.Info("embedded kube-controller-manager is disabled")
 			return nil
 		}
 		if err := embeddedKubeControllerManagerExecute(ctx, globals.BackendKubeConfig); err != nil {
@@ -289,7 +290,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Smee
 	g.Go(func() error {
 		if !globals.EnableSmee {
-			log.Info("smee service is disabled")
+			cliLog.Info("smee service is disabled")
 			return nil
 		}
 		ll := ternary((s.LogLevel != 0), s.LogLevel, globals.LogLevel)
@@ -302,7 +303,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Tootles
 	g.Go(func() error {
 		if !globals.EnableTootles {
-			log.Info("tootles service is disabled")
+			cliLog.Info("tootles service is disabled")
 			return nil
 		}
 		ll := ternary((h.LogLevel != 0), h.LogLevel, globals.LogLevel)
@@ -315,7 +316,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Tink Server
 	g.Go(func() error {
 		if !globals.EnableTinkServer {
-			log.Info("tink server service is disabled")
+			cliLog.Info("tink server service is disabled")
 			return nil
 		}
 		ll := ternary((ts.LogLevel != 0), ts.LogLevel, globals.LogLevel)
@@ -328,7 +329,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Tink Controller
 	g.Go(func() error {
 		if !globals.EnableTinkController {
-			log.Info("tink controller service is disabled")
+			cliLog.Info("tink controller service is disabled")
 			return nil
 		}
 		ll := ternary((tc.LogLevel != 0), tc.LogLevel, globals.LogLevel)
@@ -341,7 +342,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Rufio Controller
 	g.Go(func() error {
 		if !globals.EnableRufio {
-			log.Info("rufio service is disabled")
+			cliLog.Info("rufio service is disabled")
 			return nil
 		}
 		ll := ternary((rc.LogLevel != 0), rc.LogLevel, globals.LogLevel)
@@ -354,7 +355,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// SecondStar
 	g.Go(func() error {
 		if !globals.EnableSecondStar {
-			log.Info("secondstar service is disabled")
+			cliLog.Info("secondstar service is disabled")
 			return nil
 		}
 		ll := ternary((ssc.LogLevel != 0), ssc.LogLevel, globals.LogLevel)
