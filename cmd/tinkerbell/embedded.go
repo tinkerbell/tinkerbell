@@ -43,10 +43,10 @@ func init() {
 	embeddedKubeControllerManagerExecute = apiserver.Kubecontrollermanager
 	embeddedEtcdExecute = func(ctx context.Context, logLevel int) error {
 		ll := ternary((logLevel != 0), logLevel, ec.LogLevel)
-		if ec.DisableLogging {
-			ll = -1
-		}
 		log := zapLogger(ll)
+		if ec.DisableLogging {
+			log = zap.NewNop()
+		}
 		ec.Config.ZapLoggerBuilder = embed.NewZapLoggerBuilder(log)
 		e, err := embed.StartEtcd(ec.Config)
 		if err != nil {
@@ -110,9 +110,6 @@ func kubeAPIServerFlags(kaffs *ff.FlagSet) func(*pflag.Flag) {
 func zapLogger(level int) *zap.Logger {
 	config := zap.NewProductionConfig()
 	config.OutputPaths = []string{"stdout"}
-	if level < 0 {
-		config.OutputPaths = []string{"/dev/null"}
-	}
 	l, err := safecast.ToInt8(level)
 	if err != nil {
 		l = 0
