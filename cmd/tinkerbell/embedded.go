@@ -118,10 +118,11 @@ func zapLogger(level int) *zap.Logger {
 	config.EncoderConfig.EncodeLevel = func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(fmt.Sprintf("%d", l))
 	}
+	config.EncoderConfig.NameKey = "logger"
 	logger, err := config.Build()
 	if err != nil {
 		panic(err)
 	}
 
-	return logger.With(zap.String("service", "etcd"))
+	return logger.Named("etcd")
 }
