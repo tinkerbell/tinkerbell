@@ -49,20 +49,15 @@ func init() {
 		select {
 		case <-e.Server.ReadyNotify():
 			log.Info("etcd server is ready")
-			// readyChan <- struct{}{}
 		case <-time.After(ec.WaitHealthyTimeout):
-			// apiserverShutdown.Wait()
 			e.Server.Stop() // trigger a shutdown
 			return fmt.Errorf("server took too long to become healthy")
 		case <-ctx.Done():
-			// apiserverShutdown.Wait()
 			e.Server.Stop() // trigger a shutdown
 			log.Info("context cancelled waiting for etcd to become healthy")
 			return nil
 		}
 		<-ctx.Done()
-		// need to wait for the kube apiserver to shutdown before stopping etcd.
-		//apiserverShutdown.Wait()
 		e.Server.Stop()
 		return nil
 	}
