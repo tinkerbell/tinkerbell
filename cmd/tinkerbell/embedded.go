@@ -29,17 +29,24 @@ func init() {
 	}
 	// register flags
 	kaffs := ff.NewFlagSet("embedded kube-apiserver")
+	kafs := &flag.Set{FlagSet: kaffs}
+	kac := &flag.EmbeddedKubeAPIServerConfig{}
+	flag.RegisterKubeAPIServer(kafs, kac)
 	efs := ff.NewFlagSet("embedded etcd").SetParent(kaffs)
 	flag.RegisterEtcd(&flag.Set{FlagSet: efs}, ec)
-	apiserverFS, runFunc := apiserver.ConfigAndFlags()
-	apiserverFS.VisitAll(kubeAPIServerFlags(kaffs))
 	embeddedFlagSet = efs
+	apiserverFS, runFunc := apiserver.ConfigAndFlags(&kac.DisableLogging)
+	apiserverFS.VisitAll(kubeAPIServerFlags(kaffs))
 
 	// register the run command
 	embeddedApiserverExecute = runFunc
 	embeddedKubeControllerManagerExecute = apiserver.Kubecontrollermanager
 	embeddedEtcdExecute = func(ctx context.Context, logLevel int) error {
-		log := zapLogger(logLevel)
+		ll := ternary((logLevel != 0), logLevel, ec.LogLevel)
+		log := zapLogger(ll)
+		if ec.DisableLogging {
+			log = zap.NewNop()
+		}
 		ec.Config.ZapLoggerBuilder = embed.NewZapLoggerBuilder(log)
 		e, err := embed.StartEtcd(ec.Config)
 		if err != nil {
@@ -49,20 +56,15 @@ func init() {
 		select {
 		case <-e.Server.ReadyNotify():
 			log.Info("etcd server is ready")
-			// readyChan <- struct{}{}
 		case <-time.After(ec.WaitHealthyTimeout):
-			// apiserverShutdown.Wait()
 			e.Server.Stop() // trigger a shutdown
 			return fmt.Errorf("server took too long to become healthy")
 		case <-ctx.Done():
-			// apiserverShutdown.Wait()
 			e.Server.Stop() // trigger a shutdown
 			log.Info("context cancelled waiting for etcd to become healthy")
 			return nil
 		}
 		<-ctx.Done()
-		// need to wait for the kube apiserver to shutdown before stopping etcd.
-		//apiserverShutdown.Wait()
 		e.Server.Stop()
 		return nil
 	}
@@ -118,10 +120,11 @@ func zapLogger(level int) *zap.Logger {
 	config.EncoderConfig.EncodeLevel = func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(fmt.Sprintf("%d", l))
 	}
+	config.EncoderConfig.NameKey = "logger"
 	logger, err := config.Build()
 	if err != nil {
 		panic(err)
 	}
 
-	return logger.With(zap.String("service", "etcd"))
+	return logger.Named("etcd")
 }
