@@ -210,7 +210,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		}
 		if embeddedApiserverExecute != nil {
 			if err := retry.Do(func() error {
-				if err := embeddedApiserverExecute(ctx, log.WithValues("service", "kube-apiserver")); err != nil {
+				if err := embeddedApiserverExecute(ctx, log.WithName("kube-apiserver")); err != nil {
 					return fmt.Errorf("API server error: %w", err)
 				}
 				return nil
@@ -293,7 +293,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((s.LogLevel != 0), s.LogLevel, globals.LogLevel)
-		if err := s.Config.Start(ctx, defaultLogger(ll).WithValues("service", "smee")); err != nil {
+		if err := s.Config.Start(ctx, defaultLogger(ll).WithName("smee")); err != nil {
 			return fmt.Errorf("failed to start smee service: %w", err)
 		}
 		return nil
@@ -306,7 +306,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((h.LogLevel != 0), h.LogLevel, globals.LogLevel)
-		if err := h.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tootles")); err != nil {
+		if err := h.Config.Start(ctx, defaultLogger(ll).WithName("tootles")); err != nil {
 			return fmt.Errorf("failed to start tootles service: %w", err)
 		}
 		return nil
@@ -319,7 +319,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((ts.LogLevel != 0), ts.LogLevel, globals.LogLevel)
-		if err := ts.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tink-server")); err != nil {
+		if err := ts.Config.Start(ctx, defaultLogger(ll).WithName("tink-server")); err != nil {
 			return fmt.Errorf("failed to start tink server service: %w", err)
 		}
 		return nil
@@ -332,7 +332,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((tc.LogLevel != 0), tc.LogLevel, globals.LogLevel)
-		if err := tc.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tink-controller")); err != nil {
+		if err := tc.Config.Start(ctx, defaultLogger(ll).WithName("tink-controller")); err != nil {
 			return fmt.Errorf("failed to start tink controller service: %w", err)
 		}
 		return nil
@@ -345,7 +345,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((rc.LogLevel != 0), rc.LogLevel, globals.LogLevel)
-		if err := rc.Config.Start(ctx, defaultLogger(ll).WithValues("service", "rufio")); err != nil {
+		if err := rc.Config.Start(ctx, defaultLogger(ll).WithName("rufio")); err != nil {
 			return fmt.Errorf("failed to start rufio service: %w", err)
 		}
 		return nil
@@ -358,7 +358,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((ssc.LogLevel != 0), ssc.LogLevel, globals.LogLevel)
-		if err := ssc.Config.Start(ctx, defaultLogger(ll).WithValues("service", "secondstar")); err != nil {
+		if err := ssc.Config.Start(ctx, defaultLogger(ll).WithName("secondstar")); err != nil {
 			return fmt.Errorf("failed to start secondstar service: %w", err)
 		}
 		return nil
