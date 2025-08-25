@@ -65,6 +65,9 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	// IPXE flags
 	fs.Register(IPXEArchMapping, &ffval.Value[map[iana.Arch]constant.IPXEBinary]{
 		ParseFunc: func(s string) (map[iana.Arch]constant.IPXEBinary, error) {
+			if s == "" {
+				return map[iana.Arch]constant.IPXEBinary{}, nil
+			}
 			split := strings.Split(s, ",")
 			if len(split) == 0 {
 				return nil, nil
@@ -214,6 +217,8 @@ func macAddrFormatParser(s string) (constant.MACFormat, error) {
 		return constant.MacAddrFormatDash, nil
 	case constant.MacAddrFormatNoDelimiter:
 		return constant.MacAddrFormatNoDelimiter, nil
+	case "":
+		return constant.MacAddrFormatColon, nil
 	default:
 		return "", fmt.Errorf("invalid mac address format: %s, must be one of: [%s]", s, strings.Join([]string{constant.MacAddrFormatColon.String(), constant.MacAddrFormatDot.String(), constant.MacAddrFormatDash.String(), constant.MacAddrFormatNoDelimiter.String()}, ", "))
 	}
