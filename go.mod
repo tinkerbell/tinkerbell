@@ -11,7 +11,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/containerd/containerd v1.7.28
 	github.com/containers/image/v5 v5.36.1
-	github.com/diskfs/go-diskfs v1.6.0
+	github.com/diskfs/go-diskfs v1.7.0
 	github.com/distribution/reference v0.6.0
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/fsnotify/fsnotify v1.9.0
@@ -24,7 +24,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20210315223345-82c243799c99
 	github.com/insomniacslk/dhcp v0.0.0-20250417080101-5f8cf70e8c5f
 	github.com/jacobweinstock/registrar v0.4.7
-	github.com/jaypipes/ghw v0.17.0
+	github.com/jaypipes/ghw v0.19.0
 	github.com/nats-io/nats.go v1.45.0
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/opencontainers/runtime-spec v1.2.1
@@ -32,7 +32,7 @@ require (
 	github.com/pin/tftp/v3 v3.1.0
 	github.com/prometheus/client_golang v1.23.0
 	github.com/spf13/pflag v1.0.7
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	github.com/tinkerbell/tinkerbell/api v0.0.0 // v0.0.0 is used as a placeholder because a replace directive is used to point to the local api directory
 	github.com/vishvananda/netlink v1.3.1
 	go.etcd.io/etcd/server/v3 v3.6.4
@@ -48,9 +48,9 @@ require (
 	golang.org/x/sync v0.16.0
 	golang.org/x/sys v0.35.0
 	golang.org/x/text v0.28.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250811230008-5f3141c8851a
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c
 	google.golang.org/grpc v1.75.0
-	google.golang.org/protobuf v1.36.7
+	google.golang.org/protobuf v1.36.8
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.33.4
 	k8s.io/apiextensions-apiserver v0.33.4
@@ -76,9 +76,9 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.13.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
-	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VictorLowther/simplexml v0.0.0-20180716164440-0bff93621230 // indirect
 	github.com/VictorLowther/soap v0.0.0-20150314151524-8e36fca84b22 // indirect
+	github.com/anchore/go-lzo v0.1.0 // indirect
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -151,7 +151,7 @@ require (
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jacobweinstock/iamt v0.0.0-20230502042727-d7cdbe67d9ef // indirect
-	github.com/jaypipes/pcidb v1.0.1 // indirect
+	github.com/jaypipes/pcidb v1.1.0 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/josharian/native v1.1.0 // indirect
@@ -169,7 +169,6 @@ require (
 	github.com/mdlayher/socket v0.4.1 // indirect
 	github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/locker v1.0.1 // indirect
@@ -218,6 +217,7 @@ require (
 	github.com/vishvananda/netns v0.0.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xiang90/probing v0.0.0-20221125231312-a49e3df8f510 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.etcd.io/bbolt v1.4.2 // indirect
 	go.etcd.io/etcd/api/v3 v3.6.4 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.6.4 // indirect
@@ -244,7 +244,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	howett.net/plist v1.0.0 // indirect
+	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9 // indirect
 	k8s.io/apiserver v0.33.4 // indirect
 	k8s.io/cloud-provider v0.33.4 // indirect
 	k8s.io/cluster-bootstrap v0.0.0 // indirect
