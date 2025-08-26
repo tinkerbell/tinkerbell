@@ -69,9 +69,6 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 				return nil, nil
 			}
 			split := strings.Split(s, ",")
-			if len(split) == 0 || (len(split) == 1 && split[0] == "") {
-				return nil, nil
-			}
 			m := make(map[iana.Arch]constant.IPXEBinary, len(split))
 			for _, pair := range split {
 				kv := strings.SplitN(pair, "=", 2)
