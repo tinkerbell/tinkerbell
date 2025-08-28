@@ -227,7 +227,9 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 		location := resp.Header.Get("Location")
 		if location != "" {
-			resp.Body.Close() // Important: close the redirect response body
+			if err := resp.Body.Close(); err != nil {
+				log.Error(err, "issue closing redirect response body")
+			}
 
 			// Parse and resolve the redirect URL
 			redirectURL, err := url.Parse(location)
