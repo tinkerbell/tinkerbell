@@ -260,22 +260,19 @@ func TestMultipleRedirects(t *testing.T) {
 	defer isoServer.Close()
 
 	// Create a chain of redirect servers
-	var server3 *httptest.Server
-	server3 = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server3 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Final redirect to the actual ISO file
 		http.Redirect(w, r, isoServer.URL+"/output.iso", http.StatusFound)
 	}))
 	defer server3.Close()
 
-	var server2 *httptest.Server
-	server2 = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Redirect to server3
 		http.Redirect(w, r, server3.URL+"/redirect3", http.StatusMovedPermanently)
 	}))
 	defer server2.Close()
 
-	var server1 *httptest.Server
-	server1 = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Redirect to server2
 		http.Redirect(w, r, server2.URL+"/redirect2", http.StatusTemporaryRedirect)
 	}))
