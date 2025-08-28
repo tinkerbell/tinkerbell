@@ -63,7 +63,6 @@ func (h *Handler) HandlerFunc() (http.HandlerFunc, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	h.parsedURL = target
 
 	proxy := &internal.ReverseProxy{
@@ -128,6 +127,10 @@ func (h *Handler) Copy(ctx context.Context, dst io.Writer, src io.Reader, buf []
 // RoundTrip is a method on the Handler struct that implements the http.RoundTripper interface.
 // This method is called by the internal.NewSingleHostReverseProxy to handle the incoming request.
 // The method is responsible for validating the incoming request and getting the source ISO.
+// If an h.Handler.SourceISO is a location that redirects to another location, this method handles
+// calling the SourceISO location in order to get the final location before returning to the client.
+// This is different from the default behavior of a reverse proxy, which is to pass the redirection
+// directly back to the client.
 func (h *Handler) RoundTrip(req *http.Request) (*http.Response, error) {
 	return h.roundTripWithRedirectCount(req, 0)
 }
@@ -143,9 +146,7 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 	log := h.Logger.WithValues("method", req.Method, "inboundURI", req.RequestURI, "remoteAddr", req.RemoteAddr, "redirectCount", redirectCount)
 	log.V(1).Info("starting the ISO patching HTTP handler")
 
-	// Check if this is a redirected request by comparing the host
-	// Original requests will have the proxy's host, redirected requests will have the target host
-	isRedirectRequest := req.URL.Host != "" && req.URL.Host != h.parsedURL.Host
+	isRedirectRequest := redirectCount > 0
 
 	// Only perform validation on the original incoming request, not on redirected requests
 	if !isRedirectRequest {
