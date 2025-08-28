@@ -140,7 +140,7 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 	// Prevent infinite redirect loops
 	const maxRedirects = 10
 	if redirectCount > maxRedirects {
-		return nil, fmt.Errorf("too many redirects")
+		return nil, fmt.Errorf("maximum redirect limit of %d exceeded", maxRedirects)
 	}
 
 	log := h.Logger.WithValues("method", req.Method, "inboundURI", req.RequestURI, "remoteAddr", req.RemoteAddr, "redirectCount", redirectCount)
