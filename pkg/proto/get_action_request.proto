@@ -56,6 +56,7 @@ message Block {
     string vendor = 6;
     string model = 7;
     string wwn = 8;
+    string serial_number = 9;
 }
 
 message Network {

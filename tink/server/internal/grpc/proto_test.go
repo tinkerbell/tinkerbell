@@ -51,6 +51,7 @@ func TestConvert(t *testing.T) {
 						Vendor:            toPtr("unknown"),
 						Model:             toPtr("KINGSTON ABCDEF-01"),
 						Wwn:               toPtr("18b6db91-d83b-4172-97d4-27c38550cce6"),
+						SerialNumber:      toPtr("1234567890"),
 					},
 				},
 				Network: []*proto.Network{
@@ -126,7 +127,8 @@ func TestConvert(t *testing.T) {
 						PhysicalBlockSize: toPtr("512B"),
 						Vendor:            toPtr("unknown"),
 						Model:             toPtr("KINGSTON ABCDEF-01"),
-						Wwn:               toPtr("18b6db91-d83b-4172-97d4-27c38550cce6"),
+						WWN:               toPtr("18b6db91-d83b-4172-97d4-27c38550cce6"),
+						SerialNumber:      toPtr("1234567890"),
 					},
 				},
 				NetworkInterfaces: []*data.Network{
