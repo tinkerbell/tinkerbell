@@ -138,6 +138,9 @@ func (h *Handler) RoundTrip(req *http.Request) (*http.Response, error) {
 // roundTripWithRedirectCount handles the request with redirect loop protection
 func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount int) (*http.Response, error) {
 	// Prevent infinite redirect loops
+	// The number 10 is arbitrary. 10 was picked as a reasonable limit for most use cases.
+	// There doesn't seem to be a standard for this and many client (curl, browsers, etc) seem to have different limits.
+	// If a use-case to change this or make it configurable arises, we can revisit.
 	const maxRedirects = 10
 	if redirectCount > maxRedirects {
 		return nil, fmt.Errorf("maximum redirect limit of %d exceeded", maxRedirects)
