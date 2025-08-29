@@ -44,6 +44,10 @@ spec:
             - NET_ADMIN
             - NET_RAW
       hostNetwork: true
+      {{- with .Values.optional.kubevip.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       serviceAccountName: {{ .Values.optional.kubevip.name }}
       {{- if .Values.optional.kubevip.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
       tolerations:
