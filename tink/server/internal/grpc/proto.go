@@ -40,6 +40,7 @@ func convert(pAttr *proto.AgentAttributes) *data.AgentAttributes {
 			PhysicalBlockSize: block.PhysicalBlockSize,
 			Vendor:            block.Vendor,
 			Model:             block.Model,
+			Wwn:               block.Wwn,
 		})
 	}
 	// NetworkInterfaces
