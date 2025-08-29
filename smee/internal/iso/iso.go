@@ -127,40 +127,34 @@ func (h *Handler) Copy(ctx context.Context, dst io.Writer, src io.Reader, buf []
 // RoundTrip is a method on the Handler struct that implements the http.RoundTripper interface.
 // This method is called by the internal.NewSingleHostReverseProxy to handle the incoming request.
 // The method is responsible for validating the incoming request and getting the source ISO.
+// If an h.Handler.SourceISO is a location that redirects to another location, this method handles
+// calling the SourceISO location in order to get the final location before returning to the client.
+// This is different from the default behavior of a reverse proxy, which is to pass the redirection
+// directly back to the client.
 func (h *Handler) RoundTrip(req *http.Request) (*http.Response, error) {
-	log := h.Logger.WithValues("method", req.Method, "inboundURI", req.RequestURI, "remoteAddr", req.RemoteAddr)
+	return h.roundTripWithRedirectCount(req, 0)
+}
+
+// roundTripWithRedirectCount handles the request with redirect loop protection
+func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount int) (*http.Response, error) {
+	// Prevent infinite redirect loops
+	// The number 10 is arbitrary. 10 was picked as a reasonable limit for most use cases.
+	// There doesn't seem to be a standard for this and many client (curl, browsers, etc) seem to have different limits.
+	// If a use-case to change this or make it configurable arises, we can revisit.
+	const maxRedirects = 10
+	if redirectCount > maxRedirects {
+		return nil, fmt.Errorf("maximum redirect limit of %d exceeded", maxRedirects)
+	}
+
+	log := h.Logger.WithValues("method", req.Method, "inboundURI", req.RequestURI, "remoteAddr", req.RemoteAddr, "redirectCount", redirectCount)
 	log.V(1).Info("starting the ISO patching HTTP handler")
 
-	if filepath.Ext(req.URL.Path) != ".iso" {
-		log.Info("extension not supported, only supported extension is '.iso'")
-		return &http.Response{
-			Status:     fmt.Sprintf("%d %s", http.StatusNotFound, http.StatusText(http.StatusNotFound)),
-			StatusCode: http.StatusNotFound,
-			Body:       http.NoBody,
-			Request:    req,
-		}, nil
-	}
+	isRedirectRequest := redirectCount > 0
 
-	// The incoming request url is expected to have the mac address present.
-	// Fetch the mac and validate if there's a hardware object
-	// associated with the mac.
-	//
-	// We serve the iso only if this validation passes.
-	ha, err := getMAC(req.URL.Path)
-	if err != nil {
-		log.Info("unable to parse mac address in the URL path", "error", err)
-		return &http.Response{
-			Status:     fmt.Sprintf("%d %s", http.StatusBadRequest, http.StatusText(http.StatusBadRequest)),
-			StatusCode: http.StatusBadRequest,
-			Body:       http.NoBody,
-			Request:    req,
-		}, nil
-	}
-
-	fac, dhcpData, err := h.getFacility(req.Context(), ha, h.Backend)
-	if err != nil {
-		log.Info("unable to get the hardware object", "error", err, "mac", ha)
-		if apierrors.IsNotFound(err) {
+	// Only perform validation on the original incoming request, not on redirected requests
+	if !isRedirectRequest {
+		if filepath.Ext(req.URL.Path) != ".iso" {
+			log.Info("extension not supported, only supported extension is '.iso'", "path", req.URL.Path)
 			return &http.Response{
 				Status:     fmt.Sprintf("%d %s", http.StatusNotFound, http.StatusText(http.StatusNotFound)),
 				StatusCode: http.StatusNotFound,
@@ -168,31 +162,60 @@ func (h *Handler) RoundTrip(req *http.Request) (*http.Response, error) {
 				Request:    req,
 			}, nil
 		}
-		return &http.Response{
-			Status:     fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)),
-			StatusCode: http.StatusInternalServerError,
-			Body:       http.NoBody,
-			Request:    req,
-		}, nil
-	}
-	// The hardware object doesn't contain a dedicated field for consoles right now and
-	// historically the facility is used as a way to define consoles on a per Hardware basis.
-	var consoles string
-	switch {
-	case fac != "" && strings.Contains(fac, "console="):
-		consoles = fmt.Sprintf("facility=%s", fac)
-	case fac != "":
-		consoles = fmt.Sprintf("facility=%s %s", fac, defaultConsoles)
-	default:
-		consoles = defaultConsoles
-	}
-	// The patch is added to the request context so that it can be used in the Copy method.
-	req = req.WithContext(internal.WithPatch(req.Context(), []byte(h.constructPatch(consoles, ha.String(), dhcpData))))
 
-	// The internal.NewSingleHostReverseProxy takes the incoming request url and adds the path to the target (h.SourceISO).
-	// This function is more than a pass through proxy. The MAC address in the url path is required to do hardware lookups using the backend reader
-	// and is not used when making http calls to the target (h.SourceISO). All valid requests are passed through to the target.
-	req.URL.Path = h.parsedURL.Path
+		// The incoming request url is expected to have the mac address present.
+		// Fetch the mac and validate if there's a hardware object
+		// associated with the mac.
+		//
+		// We serve the iso only if this validation passes.
+		ha, err := getMAC(req.URL.Path)
+		if err != nil {
+			log.Info("unable to parse mac address in the URL path", "error", err)
+			return &http.Response{
+				Status:     fmt.Sprintf("%d %s", http.StatusBadRequest, http.StatusText(http.StatusBadRequest)),
+				StatusCode: http.StatusBadRequest,
+				Body:       http.NoBody,
+				Request:    req,
+			}, nil
+		}
+
+		fac, dhcpData, err := h.getFacility(req.Context(), ha, h.Backend)
+		if err != nil {
+			log.Info("unable to get the hardware object", "error", err, "mac", ha.String())
+			if apierrors.IsNotFound(err) {
+				return &http.Response{
+					Status:     fmt.Sprintf("%d %s", http.StatusNotFound, http.StatusText(http.StatusNotFound)),
+					StatusCode: http.StatusNotFound,
+					Body:       http.NoBody,
+					Request:    req,
+				}, nil
+			}
+			return &http.Response{
+				Status:     fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)),
+				StatusCode: http.StatusInternalServerError,
+				Body:       http.NoBody,
+				Request:    req,
+			}, nil
+		}
+		// The hardware object doesn't contain a dedicated field for consoles right now and
+		// historically the facility is used as a way to define consoles on a per Hardware basis.
+		var consoles string
+		switch {
+		case fac != "" && strings.Contains(fac, "console="):
+			consoles = fmt.Sprintf("facility=%s", fac)
+		case fac != "":
+			consoles = fmt.Sprintf("facility=%s %s", fac, defaultConsoles)
+		default:
+			consoles = defaultConsoles
+		}
+		// The patch is added to the request context so that it can be used in the Copy method.
+		req = req.WithContext(internal.WithPatch(req.Context(), []byte(h.constructPatch(consoles, ha.String(), dhcpData))))
+
+		// The internal.NewSingleHostReverseProxy takes the incoming request url and adds the path to the target (h.SourceISO).
+		// This function is more than a pass through proxy. The MAC address in the url path is required to do hardware lookups using the backend reader
+		// and is not used when making http calls to the target (h.SourceISO). All valid requests are passed through to the target.
+		req.URL.Path = h.parsedURL.Path
+	}
 	log = log.WithValues("outboundURL", req.URL.String())
 
 	// RoundTripper needs a Transport to execute a HTTP transaction
@@ -202,6 +225,36 @@ func (h *Handler) RoundTrip(req *http.Request) (*http.Response, error) {
 		log.Error(err, "issue getting the source ISO", "sourceIso", h.SourceISO)
 		return nil, err
 	}
+
+	// Handle redirect manually
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		location := resp.Header.Get("Location")
+		if location != "" {
+			if err := resp.Body.Close(); err != nil {
+				log.Error(err, "issue closing redirect response body")
+			}
+
+			// Parse and resolve the redirect URL
+			redirectURL, err := url.Parse(location)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse redirect location: %w", err)
+			}
+
+			if !redirectURL.IsAbs() {
+				redirectURL = req.URL.ResolveReference(redirectURL)
+			}
+
+			// Create new request for redirect
+			// This cloned request will have the patch added above
+			// so it will be able to patch the request correctly
+			redirectReq := req.Clone(req.Context())
+			redirectReq.URL = redirectURL
+
+			// Recursively follow the redirect
+			return h.roundTripWithRedirectCount(redirectReq, redirectCount+1)
+		}
+	}
+
 	// by setting this header we are telling the logging middleware to not log its default log message.
 	// we do this because there are a lot of partial content requests and it allow this handler to take care of logging.
 	resp.Header.Set("X-Global-Logging", "false")
