@@ -55,6 +55,8 @@ message Block {
     string physical_block_size = 5;
     string vendor = 6;
     string model = 7;
+    string wwn = 8;
+    string serial_number = 9;
 }
 
 message Network {

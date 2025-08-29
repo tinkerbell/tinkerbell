@@ -97,6 +97,8 @@ func DiscoverBlockDevices(l logr.Logger) []*data.Block {
 				PhysicalBlockSize: toPtr(humanReadable(d.PhysicalBlockSizeBytes)),
 				Vendor:            toPtr(d.Vendor),
 				Model:             toPtr(d.Model),
+				WWN:               toPtr(d.WWN),
+				SerialNumber:      toPtr(d.SerialNumber),
 			})
 		}
 	}

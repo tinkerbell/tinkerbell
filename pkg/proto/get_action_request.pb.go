@@ -398,6 +398,8 @@ type Block struct {
 	PhysicalBlockSize *string                `protobuf:"bytes,5,opt,name=physical_block_size,json=physicalBlockSize" json:"physical_block_size,omitempty"`
 	Vendor            *string                `protobuf:"bytes,6,opt,name=vendor" json:"vendor,omitempty"`
 	Model             *string                `protobuf:"bytes,7,opt,name=model" json:"model,omitempty"`
+	Wwn               *string                `protobuf:"bytes,8,opt,name=wwn" json:"wwn,omitempty"`
+	SerialNumber      *string                `protobuf:"bytes,9,opt,name=serial_number,json=serialNumber" json:"serial_number,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -477,6 +479,20 @@ func (x *Block) GetVendor() string {
 func (x *Block) GetModel() string {
 	if x != nil && x.Model != nil {
 		return *x.Model
+	}
+	return ""
+}
+
+func (x *Block) GetWwn() string {
+	if x != nil && x.Wwn != nil {
+		return *x.Wwn
+	}
+	return ""
+}
+
+func (x *Block) GetSerialNumber() string {
+	if x != nil && x.SerialNumber != nil {
+		return *x.SerialNumber
 	}
 	return ""
 }
@@ -964,7 +980,7 @@ const file_get_action_request_proto_rawDesc = "" +
 	"\fcapabilities\x18\x06 \x03(\tR\fcapabilities\"6\n" +
 	"\x06Memory\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\tR\x05total\x12\x16\n" +
-	"\x06usable\x18\x02 \x01(\tR\x06usable\"\xd5\x01\n" +
+	"\x06usable\x18\x02 \x01(\tR\x06usable\"\x8c\x02\n" +
 	"\x05Block\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12'\n" +
 	"\x0fcontroller_type\x18\x02 \x01(\tR\x0econtrollerType\x12\x1d\n" +
@@ -973,7 +989,9 @@ const file_get_action_request_proto_rawDesc = "" +
 	"\x04size\x18\x04 \x01(\tR\x04size\x12.\n" +
 	"\x13physical_block_size\x18\x05 \x01(\tR\x11physicalBlockSize\x12\x16\n" +
 	"\x06vendor\x18\x06 \x01(\tR\x06vendor\x12\x14\n" +
-	"\x05model\x18\a \x01(\tR\x05model\"x\n" +
+	"\x05model\x18\a \x01(\tR\x05model\x12\x10\n" +
+	"\x03wwn\x18\b \x01(\tR\x03wwn\x12#\n" +
+	"\rserial_number\x18\t \x01(\tR\fserialNumber\"x\n" +
 	"\aNetwork\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03mac\x18\x02 \x01(\tR\x03mac\x12\x14\n" +
