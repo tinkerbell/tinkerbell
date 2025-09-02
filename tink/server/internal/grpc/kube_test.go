@@ -80,7 +80,7 @@ func TestMakeValid(t *testing.T) {
 		"valid name with prefix and truncated name": {
 			inputName:    "very-long-name-that-exceeds-the-sixty-three-character-limit-and-needs-to-be-truncated",
 			inputPrefix:  "enrollment-",
-			expectedName: "enrollment-very-long-name-that-exceeds-the-sixty-three-character",
+			expectedName: "enrollment-very-long-name-that-exceeds-the-sixty-three-characte",
 		},
 		"valid name with prefix and empty name": {
 			inputName:     "",
