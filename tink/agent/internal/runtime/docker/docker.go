@@ -126,6 +126,35 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 		return fmt.Errorf("error starting container: %w", err)
 	}
 
+	// Attach to the container's stdout and stderr streams and log them
+	attachResp, err := c.Client.ContainerAttach(ctx, create.ID, container.AttachOptions{
+		Stream: true,
+		Stdout: true,
+		Stderr: true,
+		Logs:   true,
+	})
+	if err != nil {
+		return fmt.Errorf("error attaching to container: %w", err)
+	}
+	defer attachResp.Close()
+
+	// Stream logs in a goroutine so we don't block waiting for the container to exit
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := attachResp.Reader.Read(buf)
+			if n > 0 {
+				c.Log.Info(string(buf[:n]), "container_name", containerName)
+			}
+			if err != nil {
+				if err != io.EOF {
+					c.Log.Error(err, "error reading container output", "container_name", containerName)
+				}
+				break
+			}
+		}
+	}()
+
 	select {
 	case result := <-waitBody:
 		if result.StatusCode == 0 {
