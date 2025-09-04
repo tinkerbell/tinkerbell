@@ -24,7 +24,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20210315223345-82c243799c99
 	github.com/insomniacslk/dhcp v0.0.0-20250417080101-5f8cf70e8c5f
 	github.com/jacobweinstock/registrar v0.4.7
-	github.com/jaypipes/ghw v0.19.0
+	github.com/jaypipes/ghw v0.19.1
 	github.com/nats-io/nats.go v1.45.0
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/opencontainers/runtime-spec v1.2.1
@@ -151,7 +151,7 @@ require (
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jacobweinstock/iamt v0.0.0-20230502042727-d7cdbe67d9ef // indirect
-	github.com/jaypipes/pcidb v1.1.0 // indirect
+	github.com/jaypipes/pcidb v1.1.1 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/josharian/native v1.1.0 // indirect
