@@ -13,6 +13,7 @@ import (
 	grpcinternal "github.com/tinkerbell/tinkerbell/tink/server/internal/grpc"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -110,6 +111,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.UnaryInterceptor(grpcprometheus.UnaryServerInterceptor),
 		grpc.StreamInterceptor(grpcprometheus.StreamServerInterceptor),
+		grpc.Creds(loadTLSCredentials()),
 	}
 
 	// register servers
@@ -144,4 +146,12 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	}
 
 	return nil
+}
+
+func loadTLSCredentials() credentials.TransportCredentials {
+	creds, err := credentials.NewServerTLSFromFile("script/certs/ssc/selfsigned.crt", "script/certs/ssc/selfsigned.key")
+	if err != nil {
+		panic(err)
+	}
+	return creds
 }
