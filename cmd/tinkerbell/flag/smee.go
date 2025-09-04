@@ -112,6 +112,10 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 		Pointer:   &sc.Config.IPXE.IPXEBinary.InjectMacAddrFormat,
 		Default:   constant.MacAddrFormatColon,
 	})
+	// iPXE Tink Server Flags
+	fs.Register(TinkServerAddrPort, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPort, sc.Config.TinkServer.AddrPort))
+	fs.Register(TinkServerUseTLS, ffval.NewValueDefault(&sc.Config.TinkServer.UseTLS, sc.Config.TinkServer.UseTLS))
+	fs.Register(TinkServerInsecureTLS, ffval.NewValueDefault(&sc.Config.TinkServer.InsecureTLS, sc.Config.TinkServer.InsecureTLS))
 
 	// ISO Flags
 	fs.Register(ISOEnabled, ffval.NewValueDefault(&sc.Config.ISO.Enabled, sc.Config.ISO.Enabled))
@@ -131,10 +135,6 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
 
-	// Tink Server Flags
-	fs.Register(TinkServerAddrPort, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPort, sc.Config.TinkServer.AddrPort))
-	fs.Register(TinkServerUseTLS, ffval.NewValueDefault(&sc.Config.TinkServer.UseTLS, sc.Config.TinkServer.UseTLS))
-	fs.Register(TinkServerInsecureTLS, ffval.NewValueDefault(&sc.Config.TinkServer.InsecureTLS, sc.Config.TinkServer.InsecureTLS))
 }
 
 // Convert CLI specific fields to smee.Config fields.
@@ -446,17 +446,17 @@ var ISOStaticIPAMEnabled = Config{
 // Tink Server flags.
 var TinkServerAddrPort = Config{
 	Name:  "ipxe-script-tink-server-addr-port",
-	Usage: "[tink] Tink server address and port",
+	Usage: "[ipxe] Tink server address and port",
 }
 
 var TinkServerUseTLS = Config{
 	Name:  "ipxe-script-tink-server-use-tls",
-	Usage: "[tink] Use TLS to connect to the Tink server",
+	Usage: "[ipxe] Use TLS to connect to the Tink server",
 }
 
 var TinkServerInsecureTLS = Config{
 	Name:  "ipxe-script-tink-server-insecure-tls",
-	Usage: "[tink] Skip TLS verification when connecting to the Tink server",
+	Usage: "[ipxe] Skip TLS verification when connecting to the Tink server",
 }
 
 var SmeeLogLevel = Config{
