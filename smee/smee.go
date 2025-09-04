@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"net/url"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -23,8 +24,8 @@ import (
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/server"
+	"github.com/tinkerbell/tinkerbell/smee/internal/http"
 	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/binary"
-	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/http"
 	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/script"
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
@@ -58,6 +59,10 @@ const (
 	DefaultHTTPPort = 7171
 
 	DefaultTinkServerPort = 42113
+
+	IPXEBinaryURI = "/ipxe/binary/"
+	IPXEScriptURI = "/ipxe/script/"
+	ISOURI        = "/iso/"
 )
 
 type DHCPMode string
@@ -221,12 +226,12 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			BindInterface:        "",
 			IPXEHTTPBinaryURL: &url.URL{
 				Scheme: "http",
-				Path:   "/ipxe",
+				Path:   IPXEBinaryURI,
 			},
 			IPXEHTTPScript: IPXEHTTPScript{
 				URL: &url.URL{
 					Scheme: "http",
-					Path:   "auto.ipxe",
+					Path:   filepath.Join(IPXEScriptURI, "auto.ipxe"),
 				},
 				InjectMacAddress: true,
 			},
@@ -353,10 +358,11 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		// 1. data validation
 		// 2. start the http server for ipxe binaries
 		// serve ipxe binaries from the "/ipxe/" URI.
-		handlers["/ipxe/"] = binary.Handler{
-			Log:   log,
-			Patch: []byte(c.IPXE.EmbeddedScriptPatch),
-		}.Handle
+		handlers = append(handlers, http.HandlerConfig{
+			Pattern:   IPXEBinaryURI,
+			Handler:   binary.Handler{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)}.Handle,
+			Protocols: http.ProtocolHTTP,
+		})
 	}
 
 	// http ipxe script
@@ -376,7 +382,11 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		}
 
 		// serve ipxe script from the "/" URI.
-		handlers["/"] = jh.HandlerFunc()
+		handlers = append(handlers, http.HandlerConfig{
+			Pattern:   IPXEScriptURI,
+			Handler:   jh.HandlerFunc(),
+			Protocols: http.ProtocolHTTP,
+		})
 	}
 
 	if c.ISO.Enabled {
@@ -402,7 +412,11 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if err != nil {
 			return fmt.Errorf("failed to create iso handler: %w", err)
 		}
-		handlers["/iso/"] = isoHandler
+		handlers = append(handlers, http.HandlerConfig{
+			Pattern:   ISOURI,
+			Handler:   isoHandler,
+			Protocols: http.ProtocolBoth,
+		})
 	}
 
 	if len(handlers) > 0 {
@@ -415,6 +429,9 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			StartTime:      time.Now(),
 			Logger:         log,
 			TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
+			EnableTLS:      true,
+			CertFile:       "script/certs/ssc/selfsigned.crt",
+			KeyFile:        "script/certs/ssc/selfsigned.key",
 		}
 		bindAddr := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, c.IPXE.HTTPScriptServer.BindPort)
 		if !bindAddr.IsValid() {
