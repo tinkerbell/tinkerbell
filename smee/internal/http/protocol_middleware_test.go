@@ -11,7 +11,7 @@ import (
 
 func TestProtocolCheckMiddleware(t *testing.T) {
 	// Create test handler that returns 200 OK with a specific message
-	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("test handler executed"))
 	})

@@ -73,6 +73,7 @@ func (s *Config) ServeHTTP(ctx context.Context, addr string, handlers HandlerMap
 		// Add TLS config to multiplexer options
 		multiplexerConfig = append(multiplexerConfig, WithTLSConfig(&tls.Config{
 			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
 		}))
 	}
 
@@ -86,15 +87,16 @@ func (s *Config) ServeHTTP(ctx context.Context, addr string, handlers HandlerMap
 	hasHTTP, hasHTTPS := s.analyzeProtocols(handlers)
 
 	// Start the appropriate server based on protocols needed
-	if hasHTTP && hasHTTPS && s.EnableTLS {
+	switch {
+	case hasHTTP && hasHTTPS && s.EnableTLS:
 		// Serve both protocols on the same port
 		s.Logger.Info("Starting dual protocol server", "addr", addr, "protocols", ProtocolBoth.String())
 		err = multiplexer.ListenAndServeBoth(ctx, addr)
-	} else if hasHTTPS && s.EnableTLS {
+	case hasHTTP && !hasHTTPS:
 		// Serve only HTTPS
 		s.Logger.Info("Starting HTTPS server", "addr", addr, "protocol", ProtocolHTTPS.String())
 		err = multiplexer.ListenAndServeTLS(ctx, addr)
-	} else {
+	case !hasHTTP && hasHTTPS:
 		// Serve only HTTP (default)
 		s.Logger.Info("Starting HTTP server", "addr", addr, "protocol", ProtocolHTTP.String())
 		err = multiplexer.ListenAndServe(ctx, addr)
@@ -255,7 +257,7 @@ func (s *Config) analyzeProtocols(handlers HandlerMapping) (hasHTTP, hasHTTPS bo
 }
 
 func (h *HealthCheck) serveHealthchecker(log logr.Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		res := struct {
 			GitRev        string `json:"git_rev"`
