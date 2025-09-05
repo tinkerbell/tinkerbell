@@ -18,6 +18,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tinkerbell/tinkerbell/pkg/build"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -61,9 +62,11 @@ const (
 
 	DefaultTinkServerPort = 42113
 
-	IPXEBinaryURI = "/ipxe/binary/"
-	IPXEScriptURI = "/ipxe/script/"
-	ISOURI        = "/iso/"
+	IPXEBinaryURI  = "/ipxe/binary/"
+	IPXEScriptURI  = "/ipxe/script/"
+	ISOURI         = "/iso/"
+	HealthCheckURI = "/healthcheck"
+	MetricsURI     = "/metrics"
 )
 
 type DHCPMode string
@@ -359,11 +362,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		// 1. data validation
 		// 2. start the http server for ipxe binaries
 		// serve ipxe binaries from the "/ipxe/" URI.
-		handlers = append(handlers, http.HandlerConfig{
-			Pattern:   IPXEBinaryURI,
-			Handler:   binary.Handler{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)}.Handle,
-			Protocols: http.ProtocolHTTP,
-		})
+		handlers[IPXEBinaryURI] = binary.Handler{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)}.Handle
 	}
 
 	// http ipxe script
@@ -383,11 +382,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		}
 
 		// serve ipxe script from the "/" URI.
-		handlers = append(handlers, http.HandlerConfig{
-			Pattern:   IPXEScriptURI,
-			Handler:   jh.HandlerFunc(),
-			Protocols: http.ProtocolHTTP,
-		})
+		handlers[IPXEScriptURI] = jh.HandlerFunc()
 	}
 
 	if c.ISO.Enabled {
@@ -413,28 +408,24 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if err != nil {
 			return fmt.Errorf("failed to create iso handler: %w", err)
 		}
-		handlers = append(handlers, http.HandlerConfig{
-			Pattern:   ISOURI,
-			Handler:   isoHandler,
-			Protocols: http.ProtocolBoth,
-		})
+		handlers[ISOURI] = isoHandler
 	}
 
 	if len(handlers) > 0 {
 		// 1. data validation
 		// 2. start the http server for ipxe binaries and scripts
 		// start the http server for ipxe binaries and scripts
+		// Add healthcheck and metrics handlers
+		hc := http.HealthCheck{
+			GitRev:    build.GitRevision(),
+			StartTime: time.Now(),
+		}
+		handlers[HealthCheckURI] = hc.HandlerFunc(log)
+		handlers[MetricsURI] = promhttp.Handler().ServeHTTP
 
-		httpServer := &http.Config{
-			HealthCheck: http.HealthCheck{
-				StartTime: time.Now(),
-				GitRev:    build.GitRevision(),
-			},
+		httpServer := &http.ConfigHTTP{
 			Logger:         log,
 			TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
-			EnableTLS:      true,
-			CertFile:       "script/certs/ssc/selfsigned.crt",
-			KeyFile:        "script/certs/ssc/selfsigned.key",
 		}
 		bindAddr := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, c.IPXE.HTTPScriptServer.BindPort)
 		if !bindAddr.IsValid() {
@@ -443,6 +434,17 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		log.Info("starting http server", "addr", bindAddr.String(), "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
 		g.Go(func() error {
 			return httpServer.ServeHTTP(ctx, bindAddr.String(), handlers)
+		})
+		ap := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, 7173).String()
+		log.Info("starting https server", "addr", ap, "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
+		g.Go(func() error {
+			hs := &http.ConfigHTTPS{
+				CertFile:       "script/certs/ssc/selfsigned.crt",
+				KeyFile:        "script/certs/ssc/selfsigned.key",
+				Logger:         log,
+				TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
+			}
+			return hs.ServeHTTPS(ctx, ap, handlers)
 		})
 	}
 
