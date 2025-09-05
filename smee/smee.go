@@ -18,6 +18,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/tinkerbell/tinkerbell/pkg/build"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
@@ -425,8 +426,10 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		// start the http server for ipxe binaries and scripts
 
 		httpServer := &http.Config{
-			GitRev:         "",
-			StartTime:      time.Now(),
+			HealthCheck: http.HealthCheck{
+				StartTime: time.Now(),
+				GitRev:    build.GitRevision(),
+			},
 			Logger:         log,
 			TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
 			EnableTLS:      true,

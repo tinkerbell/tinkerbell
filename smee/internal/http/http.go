@@ -20,8 +20,7 @@ import (
 
 // Config is the configuration for the http server.
 type Config struct {
-	GitRev         string
-	StartTime      time.Time
+	HealthCheck    HealthCheck
 	Logger         logr.Logger
 	TrustedProxies []string
 	// TLS configuration
@@ -39,6 +38,12 @@ type HandlerConfig struct {
 
 // HandlerMapping is a slice of handler configurations.
 type HandlerMapping []HandlerConfig
+
+// HealthCheck contains health check configuration
+type HealthCheck struct {
+	StartTime time.Time
+	GitRev    string
+}
 
 // ServeHTTP sets up all the HTTP routes using the new multiplexer and starts the server.
 // App functionality is instrumented in Prometheus and OpenTelemetry.
@@ -83,15 +88,15 @@ func (s *Config) ServeHTTP(ctx context.Context, addr string, handlers HandlerMap
 	// Start the appropriate server based on protocols needed
 	if hasHTTP && hasHTTPS && s.EnableTLS {
 		// Serve both protocols on the same port
-		s.Logger.Info("Starting dual protocol server", "addr", addr, "protocols", "HTTP+HTTPS")
+		s.Logger.Info("Starting dual protocol server", "addr", addr, "protocols", ProtocolBoth.String())
 		err = multiplexer.ListenAndServeBoth(ctx, addr)
 	} else if hasHTTPS && s.EnableTLS {
 		// Serve only HTTPS
-		s.Logger.Info("Starting HTTPS server", "addr", addr, "protocol", "HTTPS")
+		s.Logger.Info("Starting HTTPS server", "addr", addr, "protocol", ProtocolHTTPS.String())
 		err = multiplexer.ListenAndServeTLS(ctx, addr)
 	} else {
 		// Serve only HTTP (default)
-		s.Logger.Info("Starting HTTP server", "addr", addr, "protocol", "HTTP")
+		s.Logger.Info("Starting HTTP server", "addr", addr, "protocol", ProtocolHTTP.String())
 		err = multiplexer.ListenAndServe(ctx, addr)
 	}
 
@@ -131,7 +136,7 @@ func (s *Config) addCommonHandlers(mux *http.ServeMux) {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	// Health check endpoint
-	mux.HandleFunc("/healthcheck", s.serveHealthchecker(s.GitRev, s.StartTime))
+	mux.HandleFunc("/healthcheck", s.HealthCheck.serveHealthchecker(s.Logger))
 }
 
 // addUserHandlers adds user-provided handlers to the mux
@@ -148,7 +153,7 @@ func (s *Config) addUserHandlers(mux *http.ServeMux, handlers HandlerMapping) {
 
 		s.Logger.V(1).Info("Registered handler",
 			"pattern", hc.Pattern,
-			"protocols", protocolString(hc.Protocols))
+			"protocols", hc.Protocols.String())
 	}
 }
 
@@ -240,58 +245,31 @@ func (s *Config) analyzeProtocols(handlers HandlerMapping) (hasHTTP, hasHTTPS bo
 		hasHTTPS = true
 	}
 
-	// Always have HTTP available unless explicitly HTTPS-only
-	if !hasHTTPS || hasHTTP {
+	// Always enable HTTP unless all handlers are HTTPS-only and TLS is enabled.
+	// This ensures HTTP is available for endpoints unless the configuration is strictly HTTPS.
+	if !hasHTTPS {
 		hasHTTP = true
 	}
 
 	return hasHTTP, hasHTTPS
 }
 
-// String returns a string representation of the protocol for logging
-func (p Protocol) String() string {
-	switch p {
-	case ProtocolHTTP:
-		return "HTTP"
-	case ProtocolHTTPS:
-		return "HTTPS"
-	case ProtocolBoth:
-		return "Both"
-	default:
-		return "Unknown"
-	}
-}
-
-// protocolString is kept for backward compatibility
-func protocolString(p Protocol) string {
-	return p.String()
-}
-
-func (s *Config) serveHealthchecker(rev string, start time.Time) http.HandlerFunc {
+func (h *HealthCheck) serveHealthchecker(log logr.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		// Get scheme for the health check response
-		scheme := "http"
-		if r.TLS != nil {
-			scheme = "https"
-		}
-
 		res := struct {
-			GitRev     string  `json:"git_rev"`
-			Uptime     float64 `json:"uptime"`
-			Goroutines int     `json:"goroutines"`
-			Scheme     string  `json:"scheme"`
+			GitRev        string `json:"git_rev"`
+			UptimeSeconds string `json:"uptime_seconds"`
+			Goroutines    int    `json:"goroutines"`
 		}{
-			GitRev:     rev,
-			Uptime:     time.Since(start).Seconds(),
-			Goroutines: runtime.NumGoroutine(),
-			Scheme:     scheme,
+			GitRev:        h.GitRev,
+			UptimeSeconds: fmt.Sprintf("%.2f", time.Since(h.StartTime).Seconds()),
+			Goroutines:    runtime.NumGoroutine(),
 		}
 
 		if err := json.NewEncoder(w).Encode(&res); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			s.Logger.Error(err, "marshaling healthcheck json")
+			log.Error(err, "marshaling healthcheck json")
 		}
 	}
 }
