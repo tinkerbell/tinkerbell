@@ -95,8 +95,8 @@ func TestBufferedConnComprehensive(t *testing.T) {
 			testFunc: func(t *testing.T, bc *bufferedConn) {
 				t.Helper()
 				_, err := bc.peekFirstByte()
-				if !errors.Is(err, io.EOF) {
-					t.Errorf("Expected EOF error, got %v", err)
+				if !errors.Is(err, io.ErrUnexpectedEOF) {
+					t.Errorf("Expected UnexpectedEOF error, got %v", err)
 				}
 			},
 			expectError: true,
