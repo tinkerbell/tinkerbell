@@ -288,7 +288,7 @@ func (h *Handler) constructPatch(console, mac string, d *data.DHCP) string {
 		return ""
 	}()
 	hwAddr := fmt.Sprintf("hw_addr=%s", mac)
-	all := []string{strings.Join(h.ExtraKernelParams, " "), console, vlanID, hwAddr, syslogHost, grpcAuthority, tinkerbellTLS, workerID}
+	all := []string{console, vlanID, hwAddr, syslogHost, grpcAuthority, tinkerbellTLS, workerID, strings.Join(h.ExtraKernelParams, " ")}
 	if h.StaticIPAMEnabled {
 		all = append(all, parseIPAM(d))
 	}

@@ -115,7 +115,7 @@ func TestPatching(t *testing.T) {
 	wantGrubCfg := `set timeout=0
 set gfxpayload=text
 menuentry 'LinuxKit ISO Image' {
-        linuxefi /kernel  facility=test console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1  hw_addr=de:ed:be:ef:fe:ed syslog_host=127.0.0.1:514 grpc_authority=127.0.0.1:42113 tinkerbell_tls=false worker_id=de:ed:be:ef:fe:ed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        text
+        linuxefi /kernel facility=test console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1  hw_addr=de:ed:be:ef:fe:ed syslog_host=127.0.0.1:514 grpc_authority=127.0.0.1:42113 tinkerbell_tls=false worker_id=de:ed:be:ef:fe:ed k1=1 k2=2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               text
         initrdefi /initrd.img
 }`
 	// This expects that testdata/output.iso exists. Run the TestCreateISO test to create it.
@@ -135,7 +135,7 @@ menuentry 'LinuxKit ISO Image' {
 		Logger:             logr.Discard(),
 		Backend:            &mockBackend{},
 		SourceISO:          u,
-		ExtraKernelParams:  []string{},
+		ExtraKernelParams:  []string{"k1=1", "k2=2"},
 		Syslog:             "127.0.0.1:514",
 		TinkServerTLS:      false,
 		TinkServerGRPCAddr: "127.0.0.1:42113",
@@ -200,7 +200,7 @@ func TestRedirectHandling(t *testing.T) {
 		Logger:             logr.Discard(),
 		Backend:            &mockBackend{},
 		SourceISO:          redirectURL,
-		ExtraKernelParams:  []string{},
+		ExtraKernelParams:  []string{"k1=1", "k2=v2"},
 		Syslog:             "127.0.0.1:514",
 		TinkServerTLS:      false,
 		TinkServerGRPCAddr: "127.0.0.1:42113",
@@ -289,7 +289,7 @@ func TestMultipleRedirects(t *testing.T) {
 		Logger:             logr.Discard(),
 		Backend:            &mockBackend{},
 		SourceISO:          redirectURL,
-		ExtraKernelParams:  []string{},
+		ExtraKernelParams:  []string{"k1=1", "k2=2"},
 		Syslog:             "127.0.0.1:514",
 		TinkServerTLS:      false,
 		TinkServerGRPCAddr: "127.0.0.1:42113",
