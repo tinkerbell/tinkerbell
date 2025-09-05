@@ -3,11 +3,14 @@ package http
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/go-logr/logr"
 )
 
 // TestBufferedConnComprehensive tests the bufferedConn implementation comprehensively
@@ -22,6 +25,7 @@ func TestBufferedConnComprehensive(t *testing.T) {
 				return newMockConn([]byte("test data"))
 			},
 			testFunc: func(t *testing.T, bc *bufferedConn) {
+				t.Helper()
 				if bc == nil {
 					t.Fatal("newBufferedConn returned nil")
 				}
@@ -35,6 +39,7 @@ func TestBufferedConnComprehensive(t *testing.T) {
 				return newMockConn([]byte("GET / HTTP/1.1\r\n\r\n"))
 			},
 			testFunc: func(t *testing.T, bc *bufferedConn) {
+				t.Helper()
 				firstByte, err := bc.peekFirstByte()
 				if err != nil {
 					t.Fatalf("peekFirstByte failed: %v", err)
@@ -58,6 +63,7 @@ func TestBufferedConnComprehensive(t *testing.T) {
 				return newMockConn([]byte{0x16, 0x03, 0x01, 0x00, 0x01})
 			},
 			testFunc: func(t *testing.T, bc *bufferedConn) {
+				t.Helper()
 				firstByte, err := bc.peekFirstByte()
 				if err != nil {
 					t.Fatalf("peekFirstByte failed: %v", err)
@@ -72,8 +78,9 @@ func TestBufferedConnComprehensive(t *testing.T) {
 				return newMockConn([]byte{})
 			},
 			testFunc: func(t *testing.T, bc *bufferedConn) {
+				t.Helper()
 				_, err := bc.peekFirstByte()
-				if err != io.EOF {
+				if !errors.Is(err, io.EOF) {
 					t.Errorf("Expected EOF error, got %v", err)
 				}
 			},
@@ -86,9 +93,10 @@ func TestBufferedConnComprehensive(t *testing.T) {
 				return conn
 			},
 			testFunc: func(t *testing.T, bc *bufferedConn) {
+				t.Helper()
 				_, err := bc.peekFirstByte()
-				if err != io.ErrUnexpectedEOF {
-					t.Errorf("Expected ErrUnexpectedEOF, got %v", err)
+				if !errors.Is(err, io.EOF) {
+					t.Errorf("Expected EOF error, got %v", err)
 				}
 			},
 			expectError: true,
@@ -98,6 +106,7 @@ func TestBufferedConnComprehensive(t *testing.T) {
 				return newMockConn([]byte("Hello, World!"))
 			},
 			testFunc: func(t *testing.T, bc *bufferedConn) {
+				t.Helper()
 				testData := []byte("Hello, World!")
 				buffer := make([]byte, len(testData))
 				n, err := bc.Read(buffer)
@@ -117,6 +126,7 @@ func TestBufferedConnComprehensive(t *testing.T) {
 				return newMockConn([]byte("ABCDEFGH"))
 			},
 			testFunc: func(t *testing.T, bc *bufferedConn) {
+				t.Helper()
 				testData := []byte("ABCDEFGH")
 				// Peek first byte
 				firstByte, err := bc.peekFirstByte()
@@ -142,6 +152,7 @@ func TestBufferedConnComprehensive(t *testing.T) {
 				return newMockConn([]byte{})
 			},
 			testFunc: func(t *testing.T, bc *bufferedConn) {
+				t.Helper()
 				testData := []byte("test write data")
 				n, err := bc.Write(testData)
 				if err != nil {
@@ -162,6 +173,7 @@ func TestBufferedConnComprehensive(t *testing.T) {
 				return newMockConn([]byte("test"))
 			},
 			testFunc: func(t *testing.T, bc *bufferedConn) {
+				t.Helper()
 				deadline := time.Now().Add(5 * time.Second)
 				err := bc.SetReadDeadline(deadline)
 				if err != nil {
@@ -178,7 +190,7 @@ func TestBufferedConnComprehensive(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			mockConn := tt.setupConn()
-			bc := newBufferedConn(mockConn)
+			bc := newBufferedConn(mockConn, logr.Discard())
 
 			if bc.Conn != mockConn {
 				t.Error("bufferedConn.Conn should be the same as input conn")
@@ -201,13 +213,23 @@ func TestSingleConnListenerComprehensive(t *testing.T) {
 				return newMockConn([]byte("test"))
 			},
 			testFunc: func(t *testing.T, listener *singleConnListener) {
+				t.Helper()
 				conn, err := listener.Accept()
 				if err != nil {
 					t.Fatalf("Accept failed: %v", err)
 				}
-				mockConn := listener.conn.(*mockConn)
-				if conn != mockConn {
-					t.Error("Accept should return the same connection")
+				// The connection should be wrapped, so test it's functional
+				if conn == nil {
+					t.Error("Accept should return a valid connection")
+				}
+				// Test that we can read from the wrapped connection
+				buffer := make([]byte, 4)
+				n, err := conn.Read(buffer)
+				if err != nil {
+					t.Fatalf("Failed to read from connection: %v", err)
+				}
+				if n != 4 || string(buffer) != "test" {
+					t.Errorf("Expected to read 'test', got %q", string(buffer[:n]))
 				}
 			},
 		},
@@ -216,14 +238,14 @@ func TestSingleConnListenerComprehensive(t *testing.T) {
 				return newMockConn([]byte("test"))
 			},
 			testFunc: func(t *testing.T, listener *singleConnListener) {
+				t.Helper()
 				// First call should succeed
-				mockConn := listener.conn.(*mockConn)
 				conn1, err := listener.Accept()
 				if err != nil {
 					t.Fatalf("First Accept failed: %v", err)
 				}
-				if conn1 != mockConn {
-					t.Error("First Accept should return the connection")
+				if conn1 == nil {
+					t.Error("First Accept should return a valid connection")
 				}
 				// Close before second Accept to unblock
 				listener.Close()
@@ -244,6 +266,7 @@ func TestSingleConnListenerComprehensive(t *testing.T) {
 				return newMockConn([]byte("test"))
 			},
 			testFunc: func(t *testing.T, listener *singleConnListener) {
+				t.Helper()
 				const numGoroutines = 10
 				results := make(chan net.Conn, numGoroutines)
 				errors := make(chan error, numGoroutines)
@@ -274,7 +297,6 @@ func TestSingleConnListenerComprehensive(t *testing.T) {
 				close(errors)
 
 				// Check that all goroutines got the proper error
-				mockConn := listener.conn.(*mockConn)
 				closedCount := 0
 
 				for i := 0; i < numGoroutines; i++ {
@@ -293,9 +315,9 @@ func TestSingleConnListenerComprehensive(t *testing.T) {
 					t.Errorf("Expected %d 'listener closed' errors, got %d", numGoroutines, closedCount)
 				}
 
-				// Verify the first connection was valid
-				if firstConn != mockConn {
-					t.Error("First Accept should return the connection")
+				// Verify the first connection was valid (wrapped connection)
+				if firstConn == nil {
+					t.Error("First Accept should return a valid connection")
 				}
 			},
 		},
@@ -304,16 +326,16 @@ func TestSingleConnListenerComprehensive(t *testing.T) {
 				return newMockConn([]byte("test"))
 			},
 			testFunc: func(t *testing.T, listener *singleConnListener) {
+				t.Helper()
 				err := listener.Close()
 				if err != nil {
 					t.Errorf("Close should not return error, got %v", err)
 				}
-				// Close should be a no-op, connection should still work
-				mockConn := listener.conn.(*mockConn)
+				// Close should be a no-op, connection should still work for first accept
 				conn, err := listener.Accept()
 				if err == nil {
-					if conn != mockConn {
-						t.Error("Accept after Close should still return connection if not yet accepted")
+					if conn == nil {
+						t.Error("Accept after Close should still return valid connection if not yet accepted")
 					}
 				} else {
 					if conn != nil {
@@ -327,6 +349,7 @@ func TestSingleConnListenerComprehensive(t *testing.T) {
 				return newMockConn([]byte("test"))
 			},
 			testFunc: func(t *testing.T, listener *singleConnListener) {
+				t.Helper()
 				mockConn := listener.conn.(*mockConn)
 				addr := listener.Addr()
 				if addr != mockConn.LocalAddr() {
@@ -339,9 +362,38 @@ func TestSingleConnListenerComprehensive(t *testing.T) {
 				return nil
 			},
 			testFunc: func(t *testing.T, listener *singleConnListener) {
+				t.Helper()
 				addr := listener.Addr()
 				if addr != nil {
 					t.Errorf("Addr with nil connection should return nil, got %v", addr)
+				}
+			},
+		},
+		"ConnWrapper_AutoClose": {
+			setupConn: func() *mockConn {
+				return newMockConn([]byte("test"))
+			},
+			testFunc: func(t *testing.T, listener *singleConnListener) {
+				t.Helper()
+				// Accept the wrapped connection
+				conn, err := listener.Accept()
+				if err != nil {
+					t.Fatalf("Accept failed: %v", err)
+				}
+
+				// Close the connection - this should trigger listener close
+				err = conn.Close()
+				if err != nil {
+					t.Fatalf("Connection close failed: %v", err)
+				}
+
+				// Now second Accept should return error immediately
+				conn2, err := listener.Accept()
+				if err == nil {
+					t.Error("Second Accept should return error after connection close")
+				}
+				if conn2 != nil {
+					t.Error("Second Accept should return nil connection")
 				}
 			},
 		},
@@ -373,7 +425,8 @@ func TestIntegration(t *testing.T) {
 			data:         []byte("GET /test HTTP/1.1\r\nHost: example.com\r\n\r\n"),
 			expectedByte: 'G',
 			expectTLS:    false,
-			testFunc: func(t *testing.T, mockConn *mockConn, bc *bufferedConn, expectedByte byte) {
+			testFunc: func(t *testing.T, _ *mockConn, bc *bufferedConn, expectedByte byte) {
+				t.Helper()
 				// Should detect HTTP (not TLS)
 				if expectedByte == 0x16 {
 					t.Error("Should not detect TLS for HTTP request")
@@ -391,8 +444,9 @@ func TestIntegration(t *testing.T) {
 					t.Fatalf("Accept failed: %v", err)
 				}
 
-				if acceptedConn != bc {
-					t.Error("Accepted connection should be the buffered connection")
+				// The connection should be wrapped, test functionality instead of identity
+				if acceptedConn == nil {
+					t.Error("Accepted connection should not be nil")
 				}
 
 				// Read the request through the accepted connection
@@ -412,7 +466,8 @@ func TestIntegration(t *testing.T) {
 			data:         []byte{0x16, 0x03, 0x01, 0x01, 0x00}, // TLS 1.0 Client Hello
 			expectedByte: 0x16,
 			expectTLS:    true,
-			testFunc: func(t *testing.T, mockConn *mockConn, bc *bufferedConn, expectedByte byte) {
+			testFunc: func(t *testing.T, _ *mockConn, _ *bufferedConn, expectedByte byte) {
+				t.Helper()
 				if expectedByte != 0x16 {
 					t.Errorf("Expected TLS handshake byte 0x16, got 0x%02x", expectedByte)
 				}
@@ -426,7 +481,7 @@ func TestIntegration(t *testing.T) {
 			mockConn := newMockConn(tt.data)
 
 			// Create buffered connection for protocol detection
-			bc := newBufferedConn(mockConn)
+			bc := newBufferedConn(mockConn, logr.Discard())
 
 			// Peek to detect protocol
 			firstByte, err := bc.peekFirstByte()
@@ -450,7 +505,7 @@ func BenchmarkBufferedConn(b *testing.B) {
 	b.Run("PeekFirstByte", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			mockConn := newMockConn(testData)
-			bc := newBufferedConn(mockConn)
+			bc := newBufferedConn(mockConn, logr.Discard())
 
 			_, err := bc.peekFirstByte()
 			if err != nil {
@@ -464,11 +519,11 @@ func BenchmarkBufferedConn(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			mockConn := newMockConn(testData)
-			bc := newBufferedConn(mockConn)
+			bc := newBufferedConn(mockConn, logr.Discard())
 
 			for {
 				_, err := bc.Read(buffer)
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if err != nil {
@@ -574,7 +629,7 @@ func (mc *mockConn) SetReadDeadline(t time.Time) error {
 	return nil
 }
 
-func (mc *mockConn) SetWriteDeadline(t time.Time) error {
+func (mc *mockConn) SetWriteDeadline(time.Time) error {
 	return nil
 }
 

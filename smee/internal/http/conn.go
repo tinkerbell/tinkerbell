@@ -7,31 +7,39 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/go-logr/logr"
 )
 
 // bufferedConn wraps a connection to allow peeking at bytes without consuming them
 // Based on cmux buffer implementation
 type bufferedConn struct {
 	net.Conn
-	r *bufio.Reader
+	r   *bufio.Reader
+	log logr.Logger
 }
 
-func newBufferedConn(conn net.Conn) *bufferedConn {
+func newBufferedConn(conn net.Conn, log logr.Logger) *bufferedConn {
 	return &bufferedConn{
 		Conn: conn,
 		r:    bufio.NewReader(conn),
+		log:  log,
 	}
 }
 
 func (bc *bufferedConn) peekFirstByte() (byte, error) {
 	// Set a read deadline for protocol detection
-	bc.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if err := bc.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		bc.log.V(1).Info("Failed to set read deadline", "error", err)
+	}
 	bytes, err := bc.r.Peek(1)
 	if err != nil {
 		return 0, err
 	}
 	// Reset the read deadline
-	bc.Conn.SetReadDeadline(time.Time{})
+	if err := bc.SetReadDeadline(time.Time{}); err != nil {
+		bc.log.V(1).Info("Failed to reset read deadline", "error", err)
+	}
 
 	return bytes[0], nil
 }

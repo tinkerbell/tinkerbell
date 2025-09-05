@@ -134,7 +134,6 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TFTPServerBindPort, ffval.NewValueDefault(&sc.Config.TFTP.BindPort, sc.Config.TFTP.BindPort))
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
-
 }
 
 // Convert CLI specific fields to smee.Config fields.
