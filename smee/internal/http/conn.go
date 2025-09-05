@@ -54,6 +54,24 @@ func newSingleConnListener(conn net.Conn) *singleConnListener {
 	}
 }
 
+/*
+When the HTTP/HTTPS handler calls server.Serve(listener):
+
+The server calls listener.Accept() to get the connection
+The first call returns the actual connection
+The server processes this connection in a goroutine
+The server loops and calls Accept() again
+On subsequent calls to Accept():
+
+The code reaches select {} with no cases
+This goroutine blocks indefinitely
+This is intentional and doesn't cause problems
+The goroutine running this Accept() call will only terminate if:
+
+The entire program terminates
+The parent goroutine (server) is canceled via context
+The OS thread is terminated
+*/
 func (s *singleConnListener) Accept() (net.Conn, error) {
 	if s.accepted {
 		<-s.done // Block until closed
