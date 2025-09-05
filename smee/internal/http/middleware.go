@@ -9,39 +9,31 @@ import (
 	"github.com/go-logr/logr"
 )
 
-type loggingMiddleware struct {
-	handler http.Handler
-	log     logr.Logger
-}
+func LogRequest(next http.Handler, logger logr.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var (
+			start  = time.Now()
+			method = r.Method
+			uri    = r.RequestURI
+			client = clientIP(r.RemoteAddr)
+			scheme = func() string {
+				if r.TLS != nil {
+					return "https"
+				}
+				return "http"
+			}()
+		)
 
-// ServeHTTP implements http.Handler and add logging before and after the request.
-func (h *loggingMiddleware) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	var (
-		start  = time.Now()
-		method = req.Method
-		uri    = req.RequestURI
-		client = clientIP(req.RemoteAddr)
-		scheme = func() string {
-			if req.TLS != nil {
-				return "https"
-			}
-			return "http"
-		}()
-	)
+		res := &responseWriter{ResponseWriter: w}
+		next.ServeHTTP(res, r) // process the request
 
-	log := uri != "/metrics"
-
-	res := &responseWriter{ResponseWriter: w}
-	h.handler.ServeHTTP(res, req) // process the request
-
-	// The "X-Global-Logging" header allows all registered HTTP handlers to disable this global logging
-	// by setting the header to any non empty string. This is useful for handlers that handle partial content of
-	// larger file. The ISO handler, for example.
-	r := res.Header().Get("X-Global-Logging")
-
-	if log && r == "" {
-		h.log.Info("response", "scheme", scheme, "method", method, "uri", uri, "client", client, "duration", time.Since(start), "status", res.statusCode)
-	}
+		// The "X-Global-Logging" header allows all registered HTTP handlers to disable this global logging
+		// by setting the header to any non empty string. This is useful for handlers that handle partial content of
+		// larger file. The ISO handler, for example.
+		if res.Header().Get("X-Global-Logging") == "" {
+			logger.Info("response", "scheme", scheme, "method", method, "uri", uri, "client", client, "duration", time.Since(start), "status", res.statusCode)
+		}
+	})
 }
 
 type responseWriter struct {
