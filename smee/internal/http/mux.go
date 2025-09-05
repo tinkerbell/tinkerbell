@@ -68,7 +68,7 @@ func NewMultiplexer(opts ...MultiplexerOption) (*Multiplexer, error) {
 
 // ListenAndServe starts the multiplexer on the specified address
 func (m *Multiplexer) ListenAndServe(ctx context.Context, addr string) error {
-	return m.listenAndServe(ctx, addr, ProtocolHTTP)
+	return m.backendListenAndServe(ctx, addr, ProtocolHTTP)
 }
 
 // ListenAndServeTLS starts the multiplexer with TLS-only on the specified address
@@ -76,7 +76,7 @@ func (m *Multiplexer) ListenAndServeTLS(ctx context.Context, addr string) error 
 	if m.tlsConfig == nil {
 		return fmt.Errorf("no TLS configuration provided")
 	}
-	return m.listenAndServe(ctx, addr, ProtocolHTTPS)
+	return m.backendListenAndServe(ctx, addr, ProtocolHTTPS)
 }
 
 // ListenAndServeBoth starts the multiplexer with both HTTP and HTTPS on the specified address
@@ -84,11 +84,11 @@ func (m *Multiplexer) ListenAndServeBoth(ctx context.Context, addr string) error
 	if m.tlsConfig == nil {
 		return fmt.Errorf("no TLS configuration provided for dual protocol serving")
 	}
-	return m.listenAndServe(ctx, addr, ProtocolBoth)
+	return m.backendListenAndServe(ctx, addr, ProtocolBoth)
 }
 
-// listenAndServe handles the actual serving logic based on protocol
-func (m *Multiplexer) listenAndServe(ctx context.Context, addr string, protocol Protocol) error {
+// backendListenAndServe handles the actual serving logic based on protocol
+func (m *Multiplexer) backendListenAndServe(ctx context.Context, addr string, protocol Protocol) error {
 	switch protocol {
 	case ProtocolHTTP:
 		return m.serveHTTPOnly(ctx, addr)
@@ -110,7 +110,9 @@ func (m *Multiplexer) serveHTTPOnly(ctx context.Context, addr string) error {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		server.Shutdown(shutdownCtx)
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			m.log.Error(err, "HTTP server shutdown error")
+		}
 	}()
 
 	m.log.V(1).Info("Starting HTTP server", "addr", addr)
@@ -130,7 +132,9 @@ func (m *Multiplexer) serveHTTPSOnly(ctx context.Context, addr string) error {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		server.Shutdown(shutdownCtx)
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			m.log.Error(err, "HTTPS server shutdown error")
+		}
 	}()
 
 	m.log.V(1).Info("Starting HTTPS server", "addr", addr)
@@ -142,7 +146,8 @@ func (m *Multiplexer) serveHTTPSOnly(ctx context.Context, addr string) error {
 
 // serveDualProtocol serves both HTTP and HTTPS on the same port using protocol detection
 func (m *Multiplexer) serveDualProtocol(ctx context.Context, addr string) error {
-	listener, err := net.Listen("tcp", addr)
+	nl := net.ListenConfig{}
+	listener, err := nl.Listen(ctx, "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
@@ -165,7 +170,7 @@ func (m *Multiplexer) serveDualProtocol(ctx context.Context, addr string) error 
 				return nil
 			default:
 				// Check if it's a network error due to listener being closed
-				if netErr, ok := err.(net.Error); ok && !netErr.Temporary() {
+				if netErr, ok := err.(net.Error); ok && !netErr.Timeout() {
 					return nil
 				}
 				m.log.Error(err, "Failed to accept connection")
@@ -191,10 +196,12 @@ func (m *Multiplexer) handleConnection(ctx context.Context, conn net.Conn) {
 	}()
 
 	// Set a deadline for protocol detection
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		m.log.V(1).Info("Failed to set read deadline", "error", err)
+	}
 
 	// Create a buffered connection to peek at the first byte
-	bufferedConn := newBufferedConn(conn)
+	bufferedConn := newBufferedConn(conn, m.log)
 
 	// Peek at the first byte to detect protocol
 	firstByte, err := bufferedConn.peekFirstByte()
@@ -205,7 +212,9 @@ func (m *Multiplexer) handleConnection(ctx context.Context, conn net.Conn) {
 	}
 
 	// Reset the read deadline
-	conn.SetReadDeadline(time.Time{})
+	if err := conn.SetReadDeadline(time.Time{}); err != nil {
+		m.log.V(1).Info("Failed to reset read deadline", "error", err)
+	}
 
 	// TLS handshake typically starts with 0x16 (22 in decimal)
 	if firstByte == 0x16 && m.tlsConfig != nil {
@@ -226,7 +235,9 @@ func (m *Multiplexer) handleHTTPConnection(ctx context.Context, conn net.Conn) {
 	m.log.V(1).Info("Handling HTTP connection", "remote", conn.RemoteAddr())
 
 	// Serve the request - this will block until the connection is done
-	server.Serve(listener)
+	if err := server.Serve(listener); err != nil {
+		m.log.Error(err, "HTTP server error", "remote", conn.RemoteAddr())
+	}
 }
 
 // handleHTTPSConnection handles an HTTPS connection
@@ -237,12 +248,16 @@ func (m *Multiplexer) handleHTTPSConnection(ctx context.Context, conn net.Conn) 
 	tlsConn := tls.Server(conn, m.tlsConfig)
 
 	// Perform TLS handshake with timeout
-	tlsConn.SetDeadline(time.Now().Add(10 * time.Second))
-	if err := tlsConn.Handshake(); err != nil {
+	if err := tlsConn.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		m.log.V(1).Info("Failed to set deadline for TLS handshake", "error", err, "remote", conn.RemoteAddr())
+	}
+	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		m.log.V(1).Info("TLS handshake failed", "error", err, "remote", conn.RemoteAddr())
 		return
 	}
-	tlsConn.SetDeadline(time.Time{})
+	if err := tlsConn.SetDeadline(time.Time{}); err != nil {
+		m.log.V(1).Info("Failed to reset deadline after TLS handshake", "error", err, "remote", conn.RemoteAddr())
+	}
 
 	server := m.cloneHTTPServer()
 	server.TLSConfig = m.tlsConfig
@@ -251,7 +266,9 @@ func (m *Multiplexer) handleHTTPSConnection(ctx context.Context, conn net.Conn) 
 
 	m.log.V(1).Info("Handling HTTPS connection", "remote", conn.RemoteAddr())
 
-	server.Serve(listener)
+	if err := server.Serve(listener); err != nil {
+		m.log.Error(err, "HTTPS server error", "remote", conn.RemoteAddr())
+	}
 }
 
 // cloneHTTPServer creates a copy of the HTTP server for use in goroutines
