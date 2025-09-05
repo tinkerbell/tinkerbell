@@ -2,8 +2,10 @@ package http
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -41,16 +43,20 @@ func (bc *bufferedConn) Read(b []byte) (int, error) {
 // singleConnListener implements net.Listener for a single connection
 // Minimal implementation matching standard patterns
 type singleConnListener struct {
-	conn     net.Conn
-	done     chan struct{}
-	accepted bool
+	conn      net.Conn
+	done      chan struct{}
+	accepted  bool
+	ctx       context.Context // Added context for cancellation
+	closeOnce sync.Once       // Ensure Close() is only called once
 }
 
 // newSingleConnListener creates a new single connection listener
-func newSingleConnListener(conn net.Conn) *singleConnListener {
+// Now takes a context parameter for cancellation
+func newSingleConnListener(ctx context.Context, conn net.Conn) *singleConnListener {
 	return &singleConnListener{
 		conn: conn,
 		done: make(chan struct{}),
+		ctx:  ctx, // Store the context
 	}
 }
 
@@ -72,18 +78,53 @@ The entire program terminates
 The parent goroutine (server) is canceled via context
 The OS thread is terminated
 */
+// Accept now properly handles single connection lifecycle
 func (s *singleConnListener) Accept() (net.Conn, error) {
 	if s.accepted {
-		<-s.done // Block until closed
-		return nil, errors.New("listener closed")
+		// After the first connection, wait for either:
+		// 1. The listener to be explicitly closed via Close()
+		// 2. The context to be cancelled (when connection handler finishes)
+		select {
+		case <-s.done:
+			return nil, errors.New("listener closed")
+		case <-s.ctx.Done():
+			return nil, errors.New("context cancelled")
+		}
 	}
 	s.accepted = true
-	return s.conn, nil
+
+	// Wrap the connection to automatically close the listener when the connection closes
+	return &connWrapper{
+		Conn:     s.conn,
+		listener: s,
+	}, nil
+}
+
+// connWrapper wraps a connection to notify the listener when it closes
+type connWrapper struct {
+	net.Conn
+	listener *singleConnListener
+	closed   bool
+}
+
+func (c *connWrapper) Close() error {
+	if !c.closed {
+		c.closed = true
+		// Close the original connection
+		err := c.Conn.Close()
+		// Signal the listener to stop accepting more connections
+		c.listener.Close()
+		return err
+	}
+	return nil
 }
 
 func (s *singleConnListener) Close() error {
 	// No-op since we don't own the connection lifecycle.
-	close(s.done)
+	// Use sync.Once to ensure the channel is only closed once
+	s.closeOnce.Do(func() {
+		close(s.done)
+	})
 	return nil
 }
 

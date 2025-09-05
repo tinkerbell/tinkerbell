@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -178,6 +179,10 @@ func (m *Multiplexer) serveDualProtocol(ctx context.Context, addr string) error 
 
 // handleConnection handles a single connection with protocol detection
 func (m *Multiplexer) handleConnection(ctx context.Context, conn net.Conn) {
+	// Create a connection-specific context that gets cancelled when this function returns
+	connCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	defer func() {
 		if r := recover(); r != nil {
 			m.log.Error(fmt.Errorf("panic: %v", r), "Recovered from panic in connection handler")
@@ -204,9 +209,9 @@ func (m *Multiplexer) handleConnection(ctx context.Context, conn net.Conn) {
 
 	// TLS handshake typically starts with 0x16 (22 in decimal)
 	if firstByte == 0x16 && m.tlsConfig != nil {
-		m.handleHTTPSConnection(ctx, bufferedConn)
+		m.handleHTTPSConnection(connCtx, bufferedConn)
 	} else {
-		m.handleHTTPConnection(ctx, bufferedConn)
+		m.handleHTTPConnection(connCtx, bufferedConn)
 	}
 }
 
@@ -215,10 +220,12 @@ func (m *Multiplexer) handleHTTPConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
 	server := m.cloneHTTPServer()
-	listener := newSingleConnListener(conn)
+	listener := newSingleConnListener(ctx, conn)
 	defer listener.Close()
 
 	m.log.V(1).Info("Handling HTTP connection", "remote", conn.RemoteAddr())
+
+	// Serve the request - this will block until the connection is done
 	server.Serve(listener)
 }
 
@@ -239,10 +246,11 @@ func (m *Multiplexer) handleHTTPSConnection(ctx context.Context, conn net.Conn) 
 
 	server := m.cloneHTTPServer()
 	server.TLSConfig = m.tlsConfig
-	listener := newSingleConnListener(tlsConn)
+	listener := newSingleConnListener(ctx, tlsConn)
 	defer listener.Close()
 
 	m.log.V(1).Info("Handling HTTPS connection", "remote", conn.RemoteAddr())
+
 	server.Serve(listener)
 }
 
@@ -259,4 +267,20 @@ func (m *Multiplexer) cloneHTTPServer() *http.Server {
 		ConnState:         m.httpServer.ConnState,
 		ConnContext:       m.httpServer.ConnContext,
 	}
+}
+
+// String returns a string representation of the protocol for logging
+func (p Protocol) String() string {
+	var s []string
+	switch p {
+	case ProtocolHTTP:
+		s = append(s, "HTTP")
+	case ProtocolHTTPS:
+		s = append(s, "HTTPS")
+	case ProtocolBoth:
+		s = append(s, "HTTP", "HTTPS")
+	default:
+		s = append(s, "Unknown")
+	}
+	return strings.Join(s, ",")
 }

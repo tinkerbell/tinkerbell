@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net"
 	"sync"
@@ -350,9 +351,9 @@ func TestSingleConnListenerComprehensive(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var listener *singleConnListener
 			if tt.setupConn() != nil {
-				listener = newSingleConnListener(tt.setupConn())
+				listener = newSingleConnListener(context.TODO(), tt.setupConn())
 			} else {
-				listener = newSingleConnListener(nil)
+				listener = newSingleConnListener(context.TODO(), nil)
 			}
 
 			tt.testFunc(t, listener)
@@ -382,7 +383,7 @@ func TestIntegration(t *testing.T) {
 				}
 
 				// Create single connection listener
-				listener := newSingleConnListener(bc)
+				listener := newSingleConnListener(context.TODO(), bc)
 
 				// Accept the connection
 				acceptedConn, err := listener.Accept()
@@ -483,7 +484,7 @@ func BenchmarkSingleConnListener(b *testing.B) {
 	b.Run("Accept", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			mockConn := newMockConn([]byte("test"))
-			listener := newSingleConnListener(mockConn)
+			listener := newSingleConnListener(context.TODO(), mockConn)
 
 			_, err := listener.Accept()
 			if err != nil {
