@@ -140,13 +140,55 @@ func (s *Config) addUserHandlers(mux *http.ServeMux, handlers HandlerMapping) {
 		// Wrap the handler with OpenTelemetry
 		_, otelHandler := otelFuncWrapper(hc.Pattern, hc.Handler)
 
+		// Wrap with protocol-checking middleware
+		protocolHandler := s.protocolCheckMiddleware(otelHandler, hc.Protocols)
+
 		// Register the handler
-		mux.Handle(hc.Pattern, otelHandler)
+		mux.Handle(hc.Pattern, protocolHandler)
 
 		s.Logger.V(1).Info("Registered handler",
 			"pattern", hc.Pattern,
 			"protocols", protocolString(hc.Protocols))
 	}
+}
+
+// protocolCheckMiddleware creates middleware that ensures requests are only handled
+// if the protocol (HTTP/HTTPS) matches the handler's protocol specification
+func (s *Config) protocolCheckMiddleware(next http.Handler, allowedProtocol Protocol) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		isTLS := r.TLS != nil
+		requestProto := ProtocolHTTP
+		if isTLS {
+			requestProto = ProtocolHTTPS
+		}
+
+		// Check if this request's protocol is allowed for this handler
+		allowed := false
+		switch allowedProtocol {
+		case ProtocolBoth:
+			allowed = true
+		case ProtocolHTTP:
+			allowed = !isTLS
+		case ProtocolHTTPS:
+			allowed = isTLS
+		}
+
+		if !allowed {
+			// Log the protocol mismatch
+			s.Logger.V(1).Info("Protocol mismatch",
+				"path", r.URL.Path,
+				"requestProtocol", requestProto,
+				"allowedProtocol", allowedProtocol)
+
+			// Return 404 not found for security reasons (instead of 403 forbidden)
+			// This avoids revealing the existence of routes that are available on other protocols
+			http.NotFound(w, r)
+			return
+		}
+
+		// Protocol is allowed, proceed with the request
+		next.ServeHTTP(w, r)
+	})
 }
 
 // wrapWithMiddleware wraps the main handler with middleware chain
@@ -206,8 +248,8 @@ func (s *Config) analyzeProtocols(handlers HandlerMapping) (hasHTTP, hasHTTPS bo
 	return hasHTTP, hasHTTPS
 }
 
-// protocolString returns a string representation of the protocol for logging
-func protocolString(p Protocol) string {
+// String returns a string representation of the protocol for logging
+func (p Protocol) String() string {
 	switch p {
 	case ProtocolHTTP:
 		return "HTTP"
@@ -218,6 +260,11 @@ func protocolString(p Protocol) string {
 	default:
 		return "Unknown"
 	}
+}
+
+// protocolString is kept for backward compatibility
+func protocolString(p Protocol) string {
+	return p.String()
 }
 
 func (s *Config) serveHealthchecker(rev string, start time.Time) http.HandlerFunc {
