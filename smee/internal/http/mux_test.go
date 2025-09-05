@@ -143,10 +143,8 @@ func TestMultiplexerListenAndServeErrors(t *testing.T) {
 				if tt.errorMsg != "" && !strings.Contains(testErr.Error(), tt.errorMsg) {
 					t.Errorf("Expected error containing %q, got: %v", tt.errorMsg, testErr)
 				}
-			} else {
-				if testErr != nil {
-					t.Errorf("Unexpected error: %v", testErr)
-				}
+			} else if testErr != nil {
+				t.Errorf("Unexpected error: %v", testErr)
 			}
 		})
 	}
@@ -346,7 +344,7 @@ func TestMultiplexerProtocolDetection(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			mockConn := newMockConn(tt.data)
-			buffered := newBufferedConn(mockConn)
+			buffered := newBufferedConn(mockConn, logr.Discard())
 
 			firstByte, err := buffered.peekFirstByte()
 			if err != nil {
