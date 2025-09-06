@@ -2,7 +2,6 @@
 package http
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -19,7 +18,7 @@ const (
 // HandlerMapping is a map of routes to http.HandlerFuncs.
 type HandlerMapping map[string]http.HandlerFunc
 
-func newServeMux(ctx context.Context, log logr.Logger, otelOperation string, trustedProxies []string, handlers HandlerMapping) (http.Handler, error) {
+func createHandler(log logr.Logger, otelOperation string, trustedProxies []string, handlers HandlerMapping) (http.Handler, error) {
 	mux := http.NewServeMux()
 	for pattern, handler := range handlers {
 		// we don't log healthcheck or metrics requests because they are generally called very frequently.

@@ -29,7 +29,7 @@ type ConfigHTTPS struct {
 // ServeHTTP sets up all the HTTP routes using a stdlib mux and starts the http
 // server, which will block. App functionality is instrumented in Prometheus and OpenTelemetry.
 func (c *ConfigHTTP) ServeHTTP(ctx context.Context, addr string, handlers HandlerMapping) error {
-	hdler, err := newServeMux(ctx, c.Logger, "smee-https", c.TrustedProxies, handlers)
+	hdler, err := createHandler(c.Logger, "smee-https", c.TrustedProxies, handlers)
 	if err != nil {
 		return fmt.Errorf("failed to create new serve mux: %w", err)
 	}
@@ -64,7 +64,7 @@ func (c *ConfigHTTP) ServeHTTP(ctx context.Context, addr string, handlers Handle
 // ServeHTTPS sets up all the HTTP routes using a stdlib mux and starts the https
 // server, which will block. App functionality is instrumented in Prometheus and OpenTelemetry.
 func (c *ConfigHTTPS) ServeHTTPS(ctx context.Context, addrPort string, handlers HandlerMapping) error {
-	hdler, err := newServeMux(ctx, c.Logger, "smee-https", c.TrustedProxies, handlers)
+	hdler, err := createHandler(c.Logger, "smee-https", c.TrustedProxies, handlers)
 	if err != nil {
 		return fmt.Errorf("failed to create new serve mux: %w", err)
 	}
