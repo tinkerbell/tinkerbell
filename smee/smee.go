@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"net/url"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -17,14 +18,16 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/tinkerbell/tinkerbell/pkg/build"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/server"
+	"github.com/tinkerbell/tinkerbell/smee/internal/http"
 	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/binary"
-	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/http"
 	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/script"
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
@@ -58,6 +61,12 @@ const (
 	DefaultHTTPPort = 7171
 
 	DefaultTinkServerPort = 42113
+
+	IPXEBinaryURI  = "/ipxe/binary/"
+	IPXEScriptURI  = "/ipxe/script/"
+	ISOURI         = "/iso/"
+	HealthCheckURI = "/healthcheck"
+	MetricsURI     = "/metrics"
 )
 
 type DHCPMode string
@@ -221,12 +230,12 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			BindInterface:        "",
 			IPXEHTTPBinaryURL: &url.URL{
 				Scheme: "http",
-				Path:   "/ipxe",
+				Path:   IPXEBinaryURI,
 			},
 			IPXEHTTPScript: IPXEHTTPScript{
 				URL: &url.URL{
 					Scheme: "http",
-					Path:   "auto.ipxe",
+					Path:   filepath.Join(IPXEScriptURI, "auto.ipxe"),
 				},
 				InjectMacAddress: true,
 			},
@@ -353,10 +362,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		// 1. data validation
 		// 2. start the http server for ipxe binaries
 		// serve ipxe binaries from the "/ipxe/" URI.
-		handlers["/ipxe/"] = binary.Handler{
-			Log:   log,
-			Patch: []byte(c.IPXE.EmbeddedScriptPatch),
-		}.Handle
+		handlers[IPXEBinaryURI] = binary.Handler{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)}.Handle
 	}
 
 	// http ipxe script
@@ -376,7 +382,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		}
 
 		// serve ipxe script from the "/" URI.
-		handlers["/"] = jh.HandlerFunc()
+		handlers[IPXEScriptURI] = jh.HandlerFunc()
 	}
 
 	if c.ISO.Enabled {
@@ -402,17 +408,22 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if err != nil {
 			return fmt.Errorf("failed to create iso handler: %w", err)
 		}
-		handlers["/iso/"] = isoHandler
+		handlers[ISOURI] = isoHandler
 	}
 
 	if len(handlers) > 0 {
 		// 1. data validation
 		// 2. start the http server for ipxe binaries and scripts
 		// start the http server for ipxe binaries and scripts
+		// Add healthcheck and metrics handlers
+		hc := http.HealthCheck{
+			GitRev:    build.GitRevision(),
+			StartTime: time.Now(),
+		}
+		handlers[HealthCheckURI] = hc.HandlerFunc(log)
+		handlers[MetricsURI] = promhttp.Handler().ServeHTTP
 
-		httpServer := &http.Config{
-			GitRev:         "",
-			StartTime:      time.Now(),
+		httpServer := &http.ConfigHTTP{
 			Logger:         log,
 			TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
 		}
@@ -423,6 +434,17 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		log.Info("starting http server", "addr", bindAddr.String(), "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
 		g.Go(func() error {
 			return httpServer.ServeHTTP(ctx, bindAddr.String(), handlers)
+		})
+		ap := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, 7173).String()
+		log.Info("starting https server", "addr", ap, "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
+		g.Go(func() error {
+			hs := &http.ConfigHTTPS{
+				CertFile:       "script/certs/ssc/selfsigned.crt",
+				KeyFile:        "script/certs/ssc/selfsigned.key",
+				Logger:         log,
+				TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
+			}
+			return hs.ServeHTTPS(ctx, ap, handlers)
 		})
 	}
 

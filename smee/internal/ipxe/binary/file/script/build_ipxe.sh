@@ -20,7 +20,7 @@ function build_ipxe() {
     local version_override="VERSION_MAJOR=1 VERSION_MINOR=21 VERSION_PATCH=1"
 
     if [ -z "${env_opts}" ]; then
-        make -C "${ipxe_dir}"/src ${version_override} EXTRAVERSION="+ (${tinkerbell_ipxe_commit})" EMBED="${embed_path}" "${ipxe_bin}"
+        make -C "${ipxe_dir}"/src ${version_override} EXTRAVERSION="+ (${tinkerbell_ipxe_commit}-tinkerbell)" EMBED="${embed_path}" "${ipxe_bin}"
     else
         make -C "${ipxe_dir}"/src "${env_opts}" ${version_override} EXTRAVERSION="+ (${tinkerbell_ipxe_commit})" EMBED="${embed_path}" "${ipxe_bin}"
     fi
