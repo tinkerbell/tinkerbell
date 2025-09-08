@@ -64,8 +64,6 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(DHCPIPXEHTTPScriptPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Path, sc.Config.DHCP.IPXEHTTPScript.URL.Path))
 
 	// HTTPS flags
-	fs.Register(HTTPSCertFile, ffval.NewValueDefault(&sc.Config.HTTP.CertFile, sc.Config.HTTP.CertFile))
-	fs.Register(HTTPSKeyFile, ffval.NewValueDefault(&sc.Config.HTTP.KeyFile, sc.Config.HTTP.KeyFile))
 	fs.Register(HTTPSBindPort, ffval.NewValueDefault(&sc.Config.HTTP.BindHTTPSPort, sc.Config.HTTP.BindHTTPSPort))
 
 	// IPXE flags
@@ -141,6 +139,10 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TFTPServerBindPort, ffval.NewValueDefault(&sc.Config.TFTP.BindPort, sc.Config.TFTP.BindPort))
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
+
+	// TLS flags
+	fs.Register(TLSCertFile, ffval.NewValueDefault(&sc.Config.HTTP.CertFile, sc.Config.HTTP.CertFile))
+	fs.Register(TLSKeyFile, ffval.NewValueDefault(&sc.Config.HTTP.KeyFile, sc.Config.HTTP.KeyFile))
 }
 
 // Convert CLI specific fields to smee.Config fields.
@@ -475,14 +477,14 @@ var DHCPEnableNetbootOptions = Config{
 	Usage: "[dhcp] enable sending netboot DHCP options",
 }
 
-var HTTPSCertFile = Config{
-	Name:  "https-cert-file",
-	Usage: "[https] path to the TLS certificate file",
+var TLSCertFile = Config{
+	Name:  "tls-cert-file",
+	Usage: "[tls] path to the TLS certificate file",
 }
 
-var HTTPSKeyFile = Config{
-	Name:  "https-key-file",
-	Usage: "[https] path to the TLS key file",
+var TLSKeyFile = Config{
+	Name:  "tls-key-file",
+	Usage: "[tls] path to the TLS key file",
 }
 
 var HTTPSBindPort = Config{
