@@ -94,6 +94,7 @@ func (c *ConfigHTTPS) ServeHTTPS(ctx context.Context, addrPort string, handlers 
 		ErrorLog:          slog.NewLogLogger(logr.ToSlogHandler(c.Logger.WithValues("server", "https")), slog.Level(c.Logger.GetV())),
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
 		},
 	}
 
