@@ -42,6 +42,7 @@ type URLBuilder struct {
 
 func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(SmeeLogLevel, ffval.NewValueDefault(&sc.LogLevel, sc.LogLevel))
+	// The order in which flags are registered here is the order they will appear in the help text.
 	// DHCP flags
 	fs.Register(DHCPEnabled, ffval.NewValueDefault(&sc.Config.DHCP.Enabled, sc.Config.DHCP.Enabled))
 	fs.Register(DHCPEnableNetbootOptions, ffval.NewValueDefault(&sc.Config.DHCP.EnableNetbootOptions, sc.Config.DHCP.EnableNetbootOptions))
@@ -61,6 +62,11 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(DHCPIPXEHTTPScriptHost, ffval.NewValueDefault(&sc.DHCPIPXEScript.Host, sc.DHCPIPXEScript.Host))
 	fs.Register(DHCPIPXEHTTPScriptPort, ffval.NewValueDefault(&sc.DHCPIPXEScript.Port, sc.DHCPIPXEScript.Port))
 	fs.Register(DHCPIPXEHTTPScriptPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Path, sc.Config.DHCP.IPXEHTTPScript.URL.Path))
+
+	// HTTPS flags
+	fs.Register(HTTPSCertFile, ffval.NewValueDefault(&sc.Config.HTTP.CertFile, sc.Config.HTTP.CertFile))
+	fs.Register(HTTPSKeyFile, ffval.NewValueDefault(&sc.Config.HTTP.KeyFile, sc.Config.HTTP.KeyFile))
+	fs.Register(HTTPSBindPort, ffval.NewValueDefault(&sc.Config.HTTP.BindHTTPSPort, sc.Config.HTTP.BindHTTPSPort))
 
 	// IPXE flags
 	fs.Register(IPXEArchMapping, &ffval.Value[map[iana.Arch]constant.IPXEBinary]{
@@ -112,6 +118,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 		Pointer:   &sc.Config.IPXE.IPXEBinary.InjectMacAddrFormat,
 		Default:   constant.MacAddrFormatColon,
 	})
+
 	// iPXE Tink Server Flags
 	fs.Register(TinkServerAddrPort, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPort, sc.Config.TinkServer.AddrPort))
 	fs.Register(TinkServerUseTLS, ffval.NewValueDefault(&sc.Config.TinkServer.UseTLS, sc.Config.TinkServer.UseTLS))
@@ -466,4 +473,19 @@ var SmeeLogLevel = Config{
 var DHCPEnableNetbootOptions = Config{
 	Name:  "dhcp-enable-netboot-options",
 	Usage: "[dhcp] enable sending netboot DHCP options",
+}
+
+var HTTPSCertFile = Config{
+	Name:  "https-cert-file",
+	Usage: "[https] path to the TLS certificate file",
+}
+
+var HTTPSKeyFile = Config{
+	Name:  "https-key-file",
+	Usage: "[https] path to the TLS key file",
+}
+
+var HTTPSBindPort = Config{
+	Name:  "https-bind-port",
+	Usage: "[https] local port to listen on for HTTPS requests",
 }

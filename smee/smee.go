@@ -58,7 +58,8 @@ const (
 
 	DefaultSyslogPort = 514
 
-	DefaultHTTPPort = 7171
+	DefaultHTTPPort  = 7171
+	DefaultHTTPSPort = 7173
 
 	DefaultTinkServerPort = 42113
 
@@ -107,6 +108,17 @@ type Config struct {
 	TFTP TFTP
 	// TinkServer is the configuration for the Tinkerbell server.
 	TinkServer TinkServer
+	// HTTP is the configuration for the HTTP service.
+	HTTP HTTP
+}
+
+type HTTP struct {
+	// CertFile is the path to the TLS certificate file.
+	CertFile string
+	// KeyFile is the path to the TLS key file.
+	KeyFile string
+	// BindHTTPSPort is the local port to listen on for the HTTPS server.
+	BindHTTPSPort uint16
 }
 
 type Syslog struct {
@@ -284,6 +296,9 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			Enabled:   true,
 		},
 		TinkServer: TinkServer{},
+		HTTP: HTTP{
+			BindHTTPSPort: DefaultHTTPSPort,
+		},
 	}
 
 	if err := mergo.Merge(defaults, &c, mergo.WithTransformers(&c)); err != nil {
@@ -435,17 +450,20 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		g.Go(func() error {
 			return httpServer.ServeHTTP(ctx, bindAddr.String(), handlers)
 		})
-		ap := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, 7173).String()
-		log.Info("starting https server", "addr", ap, "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
-		g.Go(func() error {
-			hs := &http.ConfigHTTPS{
-				CertFile:       "script/certs/ssc/selfsigned.crt",
-				KeyFile:        "script/certs/ssc/selfsigned.key",
-				Logger:         log,
-				TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
-			}
-			return hs.ServeHTTPS(ctx, ap, handlers)
-		})
+		// Enable HTTPS/TLS if certificate and key files are provided
+		if c.HTTP.CertFile != "" && c.HTTP.KeyFile != "" {
+			ap := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, c.HTTP.BindHTTPSPort).String()
+			log.Info("starting https server", "addr", ap, "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
+			g.Go(func() error {
+				hs := &http.ConfigHTTPS{
+					CertFile:       c.HTTP.CertFile,
+					KeyFile:        c.HTTP.KeyFile,
+					Logger:         log,
+					TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
+				}
+				return hs.ServeHTTPS(ctx, ap, handlers)
+			})
+		}
 	}
 
 	// dhcp serving

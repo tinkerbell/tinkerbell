@@ -1,4 +1,4 @@
-// package bhttp is the http server for smee.
+// package http handles serving HTTP(s) requests, HTTP middleware, and defines common handlers.
 package http
 
 import (
