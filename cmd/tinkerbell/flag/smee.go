@@ -139,10 +139,6 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TFTPServerBindPort, ffval.NewValueDefault(&sc.Config.TFTP.BindPort, sc.Config.TFTP.BindPort))
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
-
-	// TLS flags
-	fs.Register(TLSCertFile, ffval.NewValueDefault(&sc.Config.HTTP.CertFile, sc.Config.HTTP.CertFile))
-	fs.Register(TLSKeyFile, ffval.NewValueDefault(&sc.Config.HTTP.KeyFile, sc.Config.HTTP.KeyFile))
 }
 
 // Convert CLI specific fields to smee.Config fields.
@@ -475,16 +471,6 @@ var SmeeLogLevel = Config{
 var DHCPEnableNetbootOptions = Config{
 	Name:  "dhcp-enable-netboot-options",
 	Usage: "[dhcp] enable sending netboot DHCP options",
-}
-
-var TLSCertFile = Config{
-	Name:  "tls-cert-file",
-	Usage: "[tls] path to the TLS certificate file",
-}
-
-var TLSKeyFile = Config{
-	Name:  "tls-key-file",
-	Usage: "[tls] path to the TLS key file",
 }
 
 var HTTPSBindPort = Config{

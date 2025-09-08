@@ -27,6 +27,7 @@ type GlobalConfig struct {
 	EnableCRDMigrations  bool
 	EmbeddedGlobalConfig EmbeddedGlobalConfig
 	BackendKubeOptions   BackendKubeOptions
+	TLS                  TLSConfig
 }
 
 type EmbeddedGlobalConfig struct {
@@ -39,19 +40,20 @@ type BackendKubeOptions struct {
 	Burst int
 }
 
+type TLSConfig struct {
+	CertFile string
+	KeyFile  string
+}
+
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
-	fs.Register(LogLevelConfig, ffval.NewValueDefault(&gc.LogLevel, gc.LogLevel))
 	fs.Register(BackendConfig, ffval.NewEnum(&gc.Backend, "kube", "file", "none"))
 	fs.Register(BackendFilePath, ffval.NewValueDefault(&gc.BackendFilePath, gc.BackendFilePath))
+	fs.Register(KubeBurst, ffval.NewValueDefault(&gc.BackendKubeOptions.Burst, gc.BackendKubeOptions.Burst))
 	fs.Register(BackendKubeConfig, ffval.NewValueDefault(&gc.BackendKubeConfig, gc.BackendKubeConfig))
 	fs.Register(BackendKubeNamespace, ffval.NewValueDefault(&gc.BackendKubeNamespace, gc.BackendKubeNamespace))
 	fs.Register(KubeQPS, ffval.NewValueDefault(&gc.BackendKubeOptions.QPS, gc.BackendKubeOptions.QPS))
 	fs.Register(KubeBurst, ffval.NewValueDefault(&gc.BackendKubeOptions.Burst, gc.BackendKubeOptions.Burst))
 	fs.Register(BindAddr, &ntip.Addr{Addr: &gc.BindAddr})
-	fs.Register(OTELEndpoint, ffval.NewValueDefault(&gc.OTELEndpoint, gc.OTELEndpoint))
-	fs.Register(OTELInsecure, ffval.NewValueDefault(&gc.OTELInsecure, gc.OTELInsecure))
-	fs.Register(TrustedProxies, &ntip.PrefixList{PrefixList: &gc.TrustedProxies})
-	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
 	fs.Register(EnableSmee, ffval.NewValueDefault(&gc.EnableSmee, gc.EnableSmee))
 	fs.Register(EnableTootles, ffval.NewValueDefault(&gc.EnableTootles, gc.EnableTootles))
 	fs.Register(EnableTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
@@ -59,6 +61,14 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(EnableRufioController, ffval.NewValueDefault(&gc.EnableRufio, gc.EnableRufio))
 	fs.Register(EnableSecondStar, ffval.NewValueDefault(&gc.EnableSecondStar, gc.EnableSecondStar))
 	fs.Register(EnableCRDMigrations, ffval.NewValueDefault(&gc.EnableCRDMigrations, gc.EnableCRDMigrations))
+	fs.Register(LogLevelConfig, ffval.NewValueDefault(&gc.LogLevel, gc.LogLevel))
+	fs.Register(OTELEndpoint, ffval.NewValueDefault(&gc.OTELEndpoint, gc.OTELEndpoint))
+	fs.Register(OTELInsecure, ffval.NewValueDefault(&gc.OTELInsecure, gc.OTELInsecure))
+	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
+	// TLS flags
+	fs.Register(TLSCertFile, ffval.NewValueDefault(&gc.TLS.CertFile, gc.TLS.CertFile))
+	fs.Register(TLSKeyFile, ffval.NewValueDefault(&gc.TLS.KeyFile, gc.TLS.KeyFile))
+	fs.Register(TrustedProxies, &ntip.PrefixList{PrefixList: &gc.TrustedProxies})
 }
 
 func RegisterEmbeddedGlobals(fs *Set, gc *GlobalConfig) {
@@ -175,4 +185,15 @@ var EnableCRDMigrations = Config{
 var BindAddr = Config{
 	Name:  "bind-address",
 	Usage: "IP address to which to bind all services",
+}
+
+// TLS flags
+var TLSCertFile = Config{
+	Name:  "tls-cert-file",
+	Usage: "[tls] path to the TLS certificate file",
+}
+
+var TLSKeyFile = Config{
+	Name:  "tls-key-file",
+	Usage: "[tls] path to the TLS key file",
 }
