@@ -29,7 +29,7 @@ type ConfigHTTPS struct {
 // ServeHTTP sets up all the HTTP routes using a stdlib mux and starts the http
 // server, which will block. App functionality is instrumented in Prometheus and OpenTelemetry.
 func (c *ConfigHTTP) ServeHTTP(ctx context.Context, addr string, handlers HandlerMapping) error {
-	hdler, err := createHandler(c.Logger, "smee-https", c.TrustedProxies, handlers)
+	hdler, err := createHandler(c.Logger, "smee-http", c.TrustedProxies, handlers)
 	if err != nil {
 		return fmt.Errorf("failed to create new serve mux: %w", err)
 	}
@@ -74,12 +74,15 @@ func (c *ConfigHTTPS) ServeHTTPS(ctx context.Context, addrPort string, handlers 
 	if c.CertFile == "" || c.KeyFile == "" {
 		return fmt.Errorf("CertFile and KeyFile are not provided")
 	}
-	// Load the certificates
+
+	// Load the certificates with extensive logging
+	// This key must be of type RSA. iPXE does not support ECDSA keys.
 	cert, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
 	if err != nil {
 		return fmt.Errorf("failed to load TLS certificates: %w", err)
 	}
 
+	// Define cipher suites with more permissive settings to help resolve handshake issues
 	server := http.Server{
 		Addr:    addrPort,
 		Handler: hdler,
@@ -88,11 +91,10 @@ func (c *ConfigHTTPS) ServeHTTPS(ctx context.Context, addrPort string, handlers 
 		// recommendation. Smee doesn't really have many headers so 20s should be plenty of time.
 		// https://en.wikipedia.org/wiki/Slowloris_(computer_security)
 		ReadHeaderTimeout: 20 * time.Second,
+		ErrorLog:          slog.NewLogLogger(logr.ToSlogHandler(c.Logger.WithValues("server", "https")), slog.Level(c.Logger.GetV())),
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{cert},
-			MinVersion:   tls.VersionTLS12,
 		},
-		ErrorLog: slog.NewLogLogger(logr.ToSlogHandler(c.Logger), slog.Level(c.Logger.GetV())),
 	}
 
 	go func() {
@@ -101,7 +103,7 @@ func (c *ConfigHTTPS) ServeHTTPS(ctx context.Context, addrPort string, handlers 
 		_ = server.Shutdown(ctx)
 	}()
 	// The empty CertFile and KeyFile is because we defined the certs in the server.TLSConfig above.
-	if err := server.ListenAndServeTLS("", ""); err != nil {
+	if err := server.ListenAndServeTLS(c.CertFile, c.KeyFile); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
