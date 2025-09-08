@@ -432,7 +432,7 @@ func TestNextServer(t *testing.T) {
 			info: Info{},
 			args: args{
 				ipxeHTTPBinServer: &url.URL{Scheme: "http", Host: "tinkerbell:8989"},
-				publicIP: netip.MustParseAddr("1.2.3.4"),
+				publicIP:          netip.MustParseAddr("1.2.3.4"),
 			},
 			want: net.ParseIP("1.2.3.4"),
 		},
