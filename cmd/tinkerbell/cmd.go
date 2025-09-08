@@ -150,12 +150,16 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	s.Convert(&globals.TrustedProxies, globals.PublicIP)
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
 	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
+	s.Config.HTTP.CertFile = globals.TLS.CertFile
+	s.Config.HTTP.KeyFile = globals.TLS.KeyFile
 
 	// Tootles
 	h.Convert(&globals.TrustedProxies)
 
 	// Tink Server
 	ts.Convert()
+	ts.Config.TLS.CertFile = globals.TLS.CertFile
+	ts.Config.TLS.KeyFile = globals.TLS.KeyFile
 
 	// Tink Controller
 	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace)
