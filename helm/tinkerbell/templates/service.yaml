@@ -1,3 +1,4 @@
+{{- if not .Values.deployment.hostNetwork }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -61,3 +62,4 @@ spec:
     {{- with .Values.service.selector }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+{{- end }}
