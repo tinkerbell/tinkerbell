@@ -30,6 +30,18 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+const (
+	defaultRufioMetricsPort          = 8082
+	defaultRufioProbePort            = 8083
+	defaultSecondStarPort            = 2222
+	defaultSmeeHTTPPort              = 7171
+	defaultSmeeHTTPSPort             = 7272
+	defaultTinkControllerMetricsPort = 8080
+	defaultTinkControllerProbePort   = 8081
+	defaultTinkServerPort            = 42113
+	defaultTootlesPort               = 50061
+)
+
 var (
 	embeddedFlagSet                      *ff.FlagSet
 	embeddedApiserverExecute             func(context.Context, logr.Logger) error
@@ -61,26 +73,26 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
 		DHCPIPXEBinary: flag.URLBuilder{
-			Port: smee.DefaultHTTPPort,
+			Port: defaultSmeeHTTPPort,
 		},
 		DHCPIPXEScript: flag.URLBuilder{
-			Port: smee.DefaultHTTPPort,
+			Port: defaultSmeeHTTPPort,
 		},
 	}
 
 	h := &flag.TootlesConfig{
-		Config:   tootles.NewConfig(tootles.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 50061)),
+		Config:   tootles.NewConfig(tootles.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTootlesPort)),
 		BindAddr: detectPublicIPv4(),
-		BindPort: 50061,
+		BindPort: defaultTootlesPort,
 	}
 	ts := &flag.TinkServerConfig{
 		Config:   server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
 		BindAddr: detectPublicIPv4(),
-		BindPort: 42113,
+		BindPort: defaultTinkServerPort,
 	}
 	controllerOpts := []controller.Option{
-		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8080))),
-		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8081))),
+		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTinkControllerMetricsPort))),
+		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTinkControllerProbePort))),
 		controller.WithEnableLeaderElection(false),
 	}
 	tc := &flag.TinkControllerConfig{
@@ -88,8 +100,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	rufioOpts := []rufio.Option{
-		rufio.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8082))),
-		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8083))),
+		rufio.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultRufioMetricsPort))),
+		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultRufioProbePort))),
 		rufio.WithBmcConnectTimeout(2 * time.Minute),
 		rufio.WithPowerCheckInterval(30 * time.Minute),
 		rufio.WithEnableLeaderElection(false),
@@ -100,7 +112,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	ssc := &flag.SecondStarConfig{
 		Config: &secondstar.Config{
-			SSHPort:      2222,
+			SSHPort:      defaultSecondStarPort,
 			IPMITOOLPath: "/usr/sbin/ipmitool",
 			IdleTimeout:  15 * time.Minute,
 		},
@@ -150,8 +162,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr)
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
 	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
-	s.Config.HTTP.CertFile = globals.TLS.CertFile
-	s.Config.HTTP.KeyFile = globals.TLS.KeyFile
+	s.Config.TLS.CertFile = globals.TLS.CertFile
+	s.Config.TLS.KeyFile = globals.TLS.KeyFile
 
 	// Tootles
 	h.Convert(&globals.TrustedProxies, globals.BindAddr)
