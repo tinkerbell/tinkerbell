@@ -19,7 +19,7 @@ func TestLogRequest(t *testing.T) {
 		disableLogging bool
 	}{
 		"simple request": {
-			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}),
 			method:     "GET",
@@ -28,7 +28,7 @@ func TestLogRequest(t *testing.T) {
 			tls:        false,
 		},
 		"https request": {
-			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}),
 			method:     "POST",
@@ -37,7 +37,7 @@ func TestLogRequest(t *testing.T) {
 			tls:        true,
 		},
 		"disabled logging": {
-			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("X-Global-Logging", "disabled")
 				w.WriteHeader(http.StatusOK)
 			}),
