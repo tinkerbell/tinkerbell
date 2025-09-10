@@ -13,6 +13,7 @@ import (
 	grpcinternal "github.com/tinkerbell/tinkerbell/tink/server/internal/grpc"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -22,6 +23,7 @@ type Config struct {
 	BindAddrPort netip.AddrPort
 	Logger       logr.Logger
 	Auto         AutoCapabilities
+	TLS          TLS
 }
 
 type AutoCapabilities struct {
@@ -39,6 +41,11 @@ type Discovery struct {
 	Namespace         string
 	EnrollmentEnabled bool
 	Backend           grpcinternal.AutoDiscoveryReadCreator
+}
+
+type TLS struct {
+	CertFile string
+	KeyFile  string
 }
 
 // Option is a functional option type.
@@ -79,6 +86,20 @@ func WithLogger(l logr.Logger) Option {
 	}
 }
 
+// WithTLSCertFile sets the TLS certificate file for the server.
+func WithTLSCertFile(certFile string) Option {
+	return func(c *Config) {
+		c.TLS.CertFile = certFile
+	}
+}
+
+// WithTLSKeyFile sets the TLS key file for the server.
+func WithTLSKeyFile(keyFile string) Option {
+	return func(c *Config) {
+		c.TLS.KeyFile = keyFile
+	}
+}
+
 func NewConfig(opts ...Option) *Config {
 	c := &Config{}
 	for _, opt := range opts {
@@ -110,6 +131,13 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.UnaryInterceptor(grpcprometheus.UnaryServerInterceptor),
 		grpc.StreamInterceptor(grpcprometheus.StreamServerInterceptor),
+	}
+	if c.TLS.CertFile != "" && c.TLS.KeyFile != "" {
+		creds, err := loadTLSCredentials(c.TLS.CertFile, c.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS credentials: %w", err)
+		}
+		params = append(params, grpc.Creds(creds))
 	}
 
 	// register servers
@@ -144,4 +172,12 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	}
 
 	return nil
+}
+
+func loadTLSCredentials(certFile, keyFile string) (credentials.TransportCredentials, error) {
+	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+	return creds, nil
 }

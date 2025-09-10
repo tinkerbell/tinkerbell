@@ -396,6 +396,7 @@ func TestNextServer(t *testing.T) {
 	type args struct {
 		ipxeTFTPBinServer netip.AddrPort
 		ipxeHTTPBinServer *url.URL
+		publicIP          netip.Addr
 	}
 	tests := map[string]struct {
 		info Info
@@ -427,10 +428,25 @@ func TestNextServer(t *testing.T) {
 			},
 			want: net.ParseIP("1.2.3.4"),
 		},
+		"fall back to public ip": {
+			info: Info{},
+			args: args{
+				ipxeHTTPBinServer: &url.URL{Scheme: "http", Host: "tinkerbell:8989"},
+				publicIP:          netip.MustParseAddr("1.2.3.4"),
+			},
+			want: net.ParseIP("1.2.3.4"),
+		},
+		"no next server found": {
+			info: Info{},
+			args: args{
+				publicIP: netip.Addr{},
+			},
+			want: nil,
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := tt.info.NextServer(tt.args.ipxeHTTPBinServer, tt.args.ipxeTFTPBinServer)
+			got := tt.info.NextServer(tt.args.ipxeHTTPBinServer, tt.args.ipxeTFTPBinServer, tt.args.publicIP)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Fatal(diff)
 			}
