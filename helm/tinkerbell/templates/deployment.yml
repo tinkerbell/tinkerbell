@@ -238,6 +238,12 @@ spec:
               value: {{ .Values.deployment.envs.globals.enableSecondstar | quote }}
             - name: TINKERBELL_ENABLE_CRD_MIGRATIONS
               value: {{ .Values.deployment.envs.globals.enableCRDMigrations | quote }}
+            - name: TINKERBELL_TLS_CERT_FILE
+              value: {{ .Values.deployment.envs.globals.tlsCertFile | quote }}
+            - name: TINKERBELL_TLS_KEY_FILE
+              value: {{ .Values.deployment.envs.globals.tlsKeyFile | quote }}
+            - name: TINKERBELL_HTTPS_BIND_PORT
+              value: {{ .Values.deployment.envs.smee.httpsBindPort | quote }}
             {{- with .Values.deployment.additionalEnvs }}
           # Additional environment variables
             {{- toYaml . | nindent 12 }}
@@ -282,6 +288,13 @@ spec:
           {{- if .Values.deployment.envs.globals.enableSecondstar }}
             - containerPort: {{ .Values.deployment.envs.secondstar.bindPort }}
             {{- with .Values.service.ports.ssh }}
+              name: {{ .name }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if and .Values.deployment.envs.globals.tlsCertFile .Values.deployment.envs.globals.tlsKeyFile }}
+            - containerPort: {{ .Values.deployment.envs.smee.httpsBindPort }}
+            {{- with .Values.service.ports.https }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
