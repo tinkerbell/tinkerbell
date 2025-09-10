@@ -133,7 +133,11 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		grpc.StreamInterceptor(grpcprometheus.StreamServerInterceptor),
 	}
 	if c.TLS.CertFile != "" && c.TLS.KeyFile != "" {
-		params = append(params, grpc.Creds(loadTLSCredentials(c.TLS.CertFile, c.TLS.KeyFile)))
+		creds, err := loadTLSCredentials(c.TLS.CertFile, c.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS credentials: %w", err)
+		}
+		params = append(params, grpc.Creds(creds))
 	}
 
 	// register servers
@@ -170,10 +174,10 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	return nil
 }
 
-func loadTLSCredentials(certFile, keyFile string) credentials.TransportCredentials {
+func loadTLSCredentials(certFile, keyFile string) (credentials.TransportCredentials, error) {
 	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return creds
+	return creds, nil
 }
