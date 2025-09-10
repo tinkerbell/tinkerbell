@@ -24,7 +24,7 @@ jobs:
           fetch-tags: true
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
           cache: false
@@ -119,7 +119,7 @@ jobs:
           fetch-tags: true
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
           cache: false
@@ -225,7 +225,7 @@ jobs:
 
       # Go is needed to get the VERSION in the Makefile which is used in the Helm packaging
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
           cache: false
