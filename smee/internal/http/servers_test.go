@@ -32,16 +32,16 @@ func TestServeHTTP(t *testing.T) {
 		"basic endpoints": {
 			addr: "127.0.0.1:0", // Use port 0 to get a free port
 			handlers: HandlerMapping{
-				"/test": func(w http.ResponseWriter, r *http.Request) {
+				"/test": func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusOK)
 					_, _ = w.Write([]byte("test response"))
 				},
-				"/json": func(w http.ResponseWriter, r *http.Request) {
+				"/json": func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusOK)
 					_, _ = w.Write([]byte(`{"status":"ok"}`))
 				},
-				"/error": func(w http.ResponseWriter, r *http.Request) {
+				"/error": func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 					_, _ = w.Write([]byte("internal error"))
 				},
