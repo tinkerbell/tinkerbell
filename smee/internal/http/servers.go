@@ -103,7 +103,6 @@ func (c *ConfigHTTPS) ServeHTTPS(ctx context.Context, addrPort string, handlers 
 		c.Logger.Info("shutting down https server")
 		_ = server.Shutdown(ctx)
 	}()
-	// The empty CertFile and KeyFile is because we defined the certs in the server.TLSConfig above.
 	if err := server.ListenAndServeTLS(c.CertFile, c.KeyFile); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil

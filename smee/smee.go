@@ -55,12 +55,10 @@ const (
 	DefaultTFFTPPort      = 69
 	DefaultTFFTPBlockSize = 512
 	DefaultTFFTPTimeout   = 10 * time.Second
-
-	DefaultSyslogPort = 514
-
-	DefaultHTTPPort  = 7171
-	DefaultHTTPSPort = 7173
-
+	DefaultDHCPPort       = 67
+	DefaultSyslogPort     = 514
+	DefaultHTTPPort       = 7171
+	DefaultHTTPSPort      = 7272
 	DefaultTinkServerPort = 42113
 
 	IPXEBinaryURI  = "/ipxe/binary/"
@@ -110,13 +108,11 @@ type Config struct {
 	TinkServer TinkServer
 	// HTTP is the configuration for the HTTP service.
 	HTTP HTTP
+	// TLS is the configuration for TLS.
+	TLS TLS
 }
 
 type HTTP struct {
-	// CertFile is the path to the TLS certificate file.
-	CertFile string
-	// KeyFile is the path to the TLS key file.
-	KeyFile string
 	// BindHTTPSPort is the local port to listen on for the HTTPS server.
 	BindHTTPSPort uint16
 }
@@ -229,6 +225,13 @@ type TinkServer struct {
 	AddrPort    string
 }
 
+type TLS struct {
+	// CertFile is the path to the TLS certificate file.
+	CertFile string
+	// KeyFile is the path to the TLS key file.
+	KeyFile string
+}
+
 // NewConfig is a constructor for the Config struct. It will set default values for the Config struct.
 // Boolean fields are not set-able via c. To set boolean, modify the returned Config struct.
 func NewConfig(c Config, publicIP netip.Addr) *Config {
@@ -238,7 +241,7 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			EnableNetbootOptions: true,
 			Mode:                 DHCPModeReservation,
 			BindAddr:             netip.MustParseAddr("0.0.0.0"),
-			BindPort:             67,
+			BindPort:             DefaultDHCPPort,
 			BindInterface:        "",
 			IPXEHTTPBinaryURL: &url.URL{
 				Scheme: "http",
@@ -451,13 +454,13 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			return httpServer.ServeHTTP(ctx, bindAddr.String(), handlers)
 		})
 		// Enable HTTPS/TLS if certificate and key files are provided
-		if c.HTTP.CertFile != "" && c.HTTP.KeyFile != "" {
+		if c.TLS.CertFile != "" && c.TLS.KeyFile != "" {
 			ap := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, c.HTTP.BindHTTPSPort).String()
 			log.Info("starting https server", "addr", ap, "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
 			g.Go(func() error {
 				hs := &http.ConfigHTTPS{
-					CertFile:       c.HTTP.CertFile,
-					KeyFile:        c.HTTP.KeyFile,
+					CertFile:       c.TLS.CertFile,
+					KeyFile:        c.TLS.KeyFile,
 					Logger:         log,
 					TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
 				}
