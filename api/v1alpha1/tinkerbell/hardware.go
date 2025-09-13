@@ -183,6 +183,9 @@ type DHCP struct {
 	// validation pattern for VLANDID is a string number between 0-4096
 	// +kubebuilder:validation:Pattern="^(([0-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))(,[1-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))*)$"
 	VLANID string `json:"vlan_id,omitempty"`
+	// ClasslessStaticRoutes defines static routes to be sent via DHCP option 121 (RFC 3442).
+	//+optional
+	ClasslessStaticRoutes []ClasslessStaticRoute `json:"classless_static_routes,omitempty"`
 }
 
 // IP configuration.
@@ -191,6 +194,17 @@ type IP struct {
 	Netmask string `json:"netmask,omitempty"`
 	Gateway string `json:"gateway,omitempty"`
 	Family  int64  `json:"family,omitempty"`
+}
+
+// ClasslessStaticRoute represents a classless static route for DHCP option 121 (RFC 3442).
+type ClasslessStaticRoute struct {
+	// DestinationDescriptor is the network address and prefix length.
+	// The format is "network/prefixlength", e.g., "192.168.1.0/24" or "10.0.0.0/8".
+	// +kubebuilder:validation:Pattern=`^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/(3[0-2]|[12]?[0-9])$`
+	DestinationDescriptor string `json:"destination_descriptor"`
+	// Router is the IP address of the router for this route.
+	// +kubebuilder:validation:Pattern=`^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$`
+	Router string `json:"router"`
 }
 
 type HardwareMetadata struct {

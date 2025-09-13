@@ -7,8 +7,18 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/insomniacslk/dhcp/dhcpv4"
 	"go.opentelemetry.io/otel/attribute"
 )
+
+// mustParseCIDR is a helper function for tests to parse CIDR strings
+func mustParseCIDR(cidr string) *net.IPNet {
+	_, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		panic(err)
+	}
+	return ipnet
+}
 
 func TestDHCPEncodeToAttributes(t *testing.T) {
 	tests := map[string]struct {
@@ -29,6 +39,7 @@ func TestDHCPEncodeToAttributes(t *testing.T) {
 				attribute.String("DHCP.NTPServers", ""),
 				attribute.Int64("DHCP.LeaseTime", 0),
 				attribute.String("DHCP.DomainSearch", ""),
+				attribute.String("DHCP.ClasslessStaticRoutes", ""),
 			},
 		},
 		"successful encode of populated DHCP struct": {
@@ -44,6 +55,12 @@ func TestDHCPEncodeToAttributes(t *testing.T) {
 				NTPServers:       []net.IP{{132, 163, 96, 2}},
 				LeaseTime:        86400,
 				DomainSearch:     []string{"example.com", "example.org"},
+				ClasslessStaticRoutes: dhcpv4.Routes{
+					&dhcpv4.Route{
+						Dest:   mustParseCIDR("10.0.0.0/8"),
+						Router: netip.MustParseAddr("192.168.2.10").AsSlice(),
+					},
+				},
 			},
 			want: []attribute.KeyValue{
 				attribute.String("DHCP.MACAddress", "00:01:02:03:04:05"),
@@ -57,6 +74,7 @@ func TestDHCPEncodeToAttributes(t *testing.T) {
 				attribute.String("DHCP.NTPServers", "132.163.96.2"),
 				attribute.Int64("DHCP.LeaseTime", 86400),
 				attribute.String("DHCP.DomainSearch", "example.com,example.org"),
+				attribute.String("DHCP.ClasslessStaticRoutes", "10.0.0.0/8->192.168.2.10"),
 			},
 		},
 	}

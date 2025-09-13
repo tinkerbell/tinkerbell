@@ -50,6 +50,9 @@ func (h *Handler) setDHCPOpts(_ context.Context, _ *dhcpv4.DHCPv4, d *data.DHCP)
 	if h.SyslogAddr.Compare(netip.Addr{}) != 0 {
 		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptGeneric(dhcpv4.OptionLogServer, h.SyslogAddr.AsSlice())))
 	}
+	if len(d.ClasslessStaticRoutes) > 0 {
+		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptClasslessStaticRoute(d.ClasslessStaticRoutes...)))
+	}
 
 	return mods
 }

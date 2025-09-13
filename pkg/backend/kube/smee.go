@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/ccoveille/go-safecast"
+	"github.com/insomniacslk/dhcp/dhcpv4"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"go.opentelemetry.io/otel"
@@ -190,6 +191,22 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 
 	// vlanid
 	d.VLANID = h.VLANID
+
+	// classless static routes, optional
+	for _, route := range h.ClasslessStaticRoutes {
+		_, destNetwork, err := net.ParseCIDR(route.DestinationDescriptor)
+		if err != nil {
+			return nil, err
+		}
+		routerIP := net.ParseIP(route.Router)
+		if routerIP == nil {
+			return nil, fmt.Errorf("failed to parse router IP %q", route.Router)
+		}
+		d.ClasslessStaticRoutes = append(d.ClasslessStaticRoutes, &dhcpv4.Route{
+			Dest:   destNetwork,
+			Router: routerIP,
+		})
+	}
 
 	return d, nil
 }
