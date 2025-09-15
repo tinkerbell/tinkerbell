@@ -29,12 +29,22 @@ import (
 
 var errBadBackend = fmt.Errorf("bad backend")
 
+// mustParseCIDR is a helper function for tests to parse CIDR strings
+func mustParseCIDR(cidr string) *net.IPNet {
+	_, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		panic(err)
+	}
+	return ipnet
+}
+
 type mockBackend struct {
-	err              error
-	allowNetboot     bool
-	ipxeScript       *url.URL
-	arch             iana.Arch
-	hardwareNotFound bool
+	err                   error
+	allowNetboot          bool
+	ipxeScript            *url.URL
+	arch                  iana.Arch
+	hardwareNotFound      bool
+	classlessStaticRoutes dhcpv4.Routes
 }
 
 type hwNotFoundError struct{}
@@ -67,6 +77,7 @@ func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *
 		DomainSearch: []string{
 			"mydomain.com",
 		},
+		ClasslessStaticRoutes: m.classlessStaticRoutes,
 	}
 	if m.arch != 0 {
 		d.Arch = m.arch.String()
@@ -156,6 +167,56 @@ func TestHandle(t *testing.T) {
 				),
 			},
 			wantErr: errBadBackend,
+		},
+		"success discover message type with classless static routes": {
+			server: Handler{
+				Backend: &mockBackend{
+					allowNetboot: false,
+					classlessStaticRoutes: dhcpv4.Routes{
+						{
+							Dest:   mustParseCIDR("10.0.0.0/8"),
+							Router: netip.MustParseAddr("192.168.1.10").AsSlice(),
+						},
+						{
+							Dest:   mustParseCIDR("172.16.0.0/12"),
+							Router: netip.MustParseAddr("192.168.1.20").AsSlice(),
+						},
+					},
+				},
+				IPAddr:  netip.MustParseAddr("127.0.0.1"),
+				Netboot: Netboot{Enabled: false},
+			},
+			req: &dhcpv4.DHCPv4{
+				OpCode:       dhcpv4.OpcodeBootRequest,
+				ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
+				),
+			},
+			want: &dhcpv4.DHCPv4{
+				OpCode:        dhcpv4.OpcodeBootReply,
+				ClientHWAddr:  []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				ClientIPAddr:  []byte{0, 0, 0, 0},
+				YourIPAddr:    []byte{192, 168, 1, 100},
+				ServerIPAddr:  []byte{127, 0, 0, 1},
+				GatewayIPAddr: []byte{0, 0, 0, 0},
+				BootFileName:  "",
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeOffer),
+					dhcpv4.OptServerIdentifier(net.IP{127, 0, 0, 1}),
+					dhcpv4.OptIPAddressLeaseTime(time.Minute),
+					dhcpv4.OptSubnetMask(net.IPMask(net.IP{255, 255, 255, 0}.To4())),
+					dhcpv4.OptRouter([]net.IP{{192, 168, 1, 1}}...),
+					dhcpv4.OptDNS([]net.IP{{1, 1, 1, 1}}...),
+					dhcpv4.OptDomainName("mydomain.com"),
+					dhcpv4.OptHostName("test-host"),
+					dhcpv4.OptBroadcastAddress(net.IP{192, 168, 1, 255}),
+					dhcpv4.OptNTPServers([]net.IP{{132, 163, 96, 2}}...),
+					dhcpv4.OptDomainSearch(&rfc1035label.Labels{Labels: []string{"mydomain.com"}}),
+					// RFC 3442 classless static routes option 121
+					dhcpv4.OptGeneric(dhcpv4.OptionClasslessStaticRoute, []byte{8, 10, 192, 168, 1, 10, 12, 172, 16, 192, 168, 1, 20}),
+				),
+			},
 		},
 		"success request message type with netboot options": {
 			server: Handler{

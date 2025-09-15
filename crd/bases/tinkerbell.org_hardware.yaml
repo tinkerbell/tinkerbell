@@ -107,6 +107,29 @@ spec:
                       properties:
                         arch:
                           type: string
+                        classless_static_routes:
+                          description: ClasslessStaticRoutes defines static routes
+                            to be sent via DHCP option 121 (RFC 3442).
+                          items:
+                            description: ClasslessStaticRoute represents a classless
+                              static route for DHCP option 121 (RFC 3442).
+                            properties:
+                              destination_descriptor:
+                                description: |-
+                                  DestinationDescriptor is the network address and prefix length.
+                                  The format is "network/prefixlength", e.g., "192.168.1.0/24" or "10.0.0.0/8".
+                                pattern: ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/(3[0-2]|[12]?[0-9])$
+                                type: string
+                              router:
+                                description: Router is the IP address of the router
+                                  for this route.
+                                pattern: ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$
+                                type: string
+                            required:
+                            - destination_descriptor
+                            - router
+                            type: object
+                          type: array
                         hostname:
                           type: string
                         iface_name:

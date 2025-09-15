@@ -23,7 +23,6 @@ import (
 )
 
 const (
-	examplePXEClient  = "PXEClient:Arch:00007:UNDI:003001"
 	exampleHTTPClient = "HTTPClient:Arch:00016:UNDI:003001"
 )
 
@@ -92,6 +91,53 @@ func TestSetDHCPOpts(t *testing.T) {
 					dhcpv4.OptDomainSearch(&rfc1035label.Labels{
 						Labels: []string{"mynet.local"},
 					}),
+				),
+			},
+		},
+		"success with classless static routes": {
+			server: Handler{Log: logr.Discard(), SyslogAddr: netip.MustParseAddr("192.168.7.7")},
+			args: args{
+				in0: context.Background(),
+				m:   &dhcpv4.DHCPv4{Options: dhcpv4.OptionsFromList(dhcpv4.OptParameterRequestList(dhcpv4.OptionSubnetMask))},
+				d: &data.DHCP{
+					MACAddress:     net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+					IPAddress:      netip.MustParseAddr("192.168.4.4"),
+					SubnetMask:     []byte{255, 255, 255, 0},
+					DefaultGateway: netip.MustParseAddr("192.168.4.1"),
+					NameServers: []net.IP{
+						{8, 8, 8, 8},
+					},
+					LeaseTime: 84600,
+					ClasslessStaticRoutes: dhcpv4.Routes{
+						&dhcpv4.Route{
+							Dest:   mustParseCIDR("10.0.0.0/8"),
+							Router: netip.MustParseAddr("192.168.4.10").AsSlice(),
+						},
+						&dhcpv4.Route{
+							Dest:   mustParseCIDR("172.16.0.0/12"),
+							Router: netip.MustParseAddr("192.168.4.20").AsSlice(),
+						},
+					},
+				},
+			},
+			want: &dhcpv4.DHCPv4{
+				OpCode:        dhcpv4.OpcodeBootRequest,
+				HWType:        iana.HWTypeEthernet,
+				ClientHWAddr:  net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+				ClientIPAddr:  []byte{0, 0, 0, 0},
+				YourIPAddr:    []byte{192, 168, 4, 4},
+				ServerIPAddr:  []byte{0, 0, 0, 0},
+				GatewayIPAddr: []byte{0, 0, 0, 0},
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptGeneric(dhcpv4.OptionLogServer, []byte{192, 168, 7, 7}),
+					dhcpv4.OptSubnetMask(net.IPMask{255, 255, 255, 0}),
+					dhcpv4.OptIPAddressLeaseTime(time.Duration(84600)*time.Second),
+					dhcpv4.OptRouter(net.IP{192, 168, 4, 1}),
+					dhcpv4.OptDNS([]net.IP{
+						{8, 8, 8, 8},
+					}...),
+					// RFC 3442 classless static routes: 8,10,192,168,4,10,12,172,16,192,168,4,20
+					dhcpv4.OptGeneric(dhcpv4.OptionClasslessStaticRoute, []byte{8, 10, 192, 168, 4, 10, 12, 172, 16, 192, 168, 4, 20}),
 				),
 			},
 		},

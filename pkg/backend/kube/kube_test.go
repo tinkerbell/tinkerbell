@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/insomniacslk/dhcp/dhcpv4"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -24,6 +25,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 )
+
+// mustParseCIDR is a helper function for tests to parse CIDR strings
+func mustParseCIDR(cidr string) *net.IPNet {
+	_, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		panic(err)
+	}
+	return ipnet
+}
 
 func TestNewBackend(t *testing.T) {
 	tests := map[string]struct {
@@ -149,6 +159,48 @@ func TestToDHCPData(t *testing.T) {
 				LeaseTime:      3600,
 				IPAddress:      netip.MustParseAddr("192.168.1.4"),
 				MACAddress:     net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x04},
+			},
+		},
+		"with classless static routes": {
+			in: &v1alpha1.DHCP{
+				MAC:         "00:00:00:00:00:05",
+				Hostname:    "test-with-routes",
+				LeaseTime:   7200,
+				NameServers: []string{"8.8.8.8"},
+				IP: &v1alpha1.IP{
+					Address: "192.168.2.5",
+					Netmask: "255.255.255.0",
+					Gateway: "192.168.2.1",
+				},
+				ClasslessStaticRoutes: []v1alpha1.ClasslessStaticRoute{
+					{
+						DestinationDescriptor: "10.0.0.0/8",
+						Router:                "192.168.2.10",
+					},
+					{
+						DestinationDescriptor: "172.16.0.0/12",
+						Router:                "192.168.2.20",
+					},
+				},
+			},
+			want: &data.DHCP{
+				SubnetMask:     net.IPv4Mask(255, 255, 255, 0),
+				DefaultGateway: netip.MustParseAddr("192.168.2.1"),
+				NameServers:    []net.IP{net.IPv4(8, 8, 8, 8)},
+				Hostname:       "test-with-routes",
+				LeaseTime:      7200,
+				IPAddress:      netip.MustParseAddr("192.168.2.5"),
+				MACAddress:     net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x05},
+				ClasslessStaticRoutes: dhcpv4.Routes{
+					&dhcpv4.Route{
+						Dest:   mustParseCIDR("10.0.0.0/8"),
+						Router: netip.MustParseAddr("192.168.2.10").AsSlice(),
+					},
+					&dhcpv4.Route{
+						Dest:   mustParseCIDR("172.16.0.0/12"),
+						Router: netip.MustParseAddr("192.168.2.20").AsSlice(),
+					},
+				},
 			},
 		},
 	}
