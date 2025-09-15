@@ -28,6 +28,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"github.com/tinkerbell/tinkerbell/tootles"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/credentials"
 	"k8s.io/client-go/rest"
 )
 
@@ -163,12 +164,13 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr)
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
 	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
+	// Configure TLS if cert and key files are provided
 	if globals.TLS.CertFile != "" && globals.TLS.KeyFile != "" {
 		// Load the certificates with extensive logging
 		// This key must be of type RSA. iPXE does not support ECDSA keys.
 		cert, err := tls.LoadX509KeyPair(globals.TLS.CertFile, globals.TLS.KeyFile)
 		if err != nil {
-			return fmt.Errorf("failed to load TLS certificates: %w", err)
+			return fmt.Errorf("failed to load TLS certificates for Smee HTTP: %w", err)
 		}
 		s.Config.TLS.Certs = []tls.Certificate{cert}
 	}
@@ -178,8 +180,14 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	// Tink Server
 	ts.Convert(globals.BindAddr)
-	ts.Config.TLS.CertFile = globals.TLS.CertFile
-	ts.Config.TLS.KeyFile = globals.TLS.KeyFile
+	// Configure TLS if cert and key files are provided
+	if globals.TLS.CertFile != "" && globals.TLS.KeyFile != "" {
+		creds, err := credentials.NewServerTLSFromFile(globals.TLS.CertFile, globals.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS credentials for Tink Server gRPC: %w", err)
+		}
+		ts.Config.TLS.Cert = creds
+	}
 
 	// Tink Controller
 	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace)

@@ -44,8 +44,7 @@ type Discovery struct {
 }
 
 type TLS struct {
-	CertFile string
-	KeyFile  string
+	Cert credentials.TransportCredentials
 }
 
 // Option is a functional option type.
@@ -86,17 +85,10 @@ func WithLogger(l logr.Logger) Option {
 	}
 }
 
-// WithTLSCertFile sets the TLS certificate file for the server.
-func WithTLSCertFile(certFile string) Option {
+// WithTLSCert sets the TLS key file for the server.
+func WithTLSCert(cert credentials.TransportCredentials) Option {
 	return func(c *Config) {
-		c.TLS.CertFile = certFile
-	}
-}
-
-// WithTLSKeyFile sets the TLS key file for the server.
-func WithTLSKeyFile(keyFile string) Option {
-	return func(c *Config) {
-		c.TLS.KeyFile = keyFile
+		c.TLS.Cert = cert
 	}
 }
 
@@ -132,12 +124,8 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		grpc.UnaryInterceptor(grpcprometheus.UnaryServerInterceptor),
 		grpc.StreamInterceptor(grpcprometheus.StreamServerInterceptor),
 	}
-	if c.TLS.CertFile != "" && c.TLS.KeyFile != "" {
-		creds, err := loadTLSCredentials(c.TLS.CertFile, c.TLS.KeyFile)
-		if err != nil {
-			return fmt.Errorf("failed to load TLS credentials: %w", err)
-		}
-		params = append(params, grpc.Creds(creds))
+	if c.TLS.Cert != nil {
+		params = append(params, grpc.Creds(c.TLS.Cert))
 	}
 
 	// register servers
@@ -172,12 +160,4 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	}
 
 	return nil
-}
-
-func loadTLSCredentials(certFile, keyFile string) (credentials.TransportCredentials, error) {
-	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
-	if err != nil {
-		return nil, err
-	}
-	return creds, nil
 }
