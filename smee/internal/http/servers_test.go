@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"io"
 	"net"
@@ -324,16 +325,14 @@ func TestServeHTTP(t *testing.T) {
 func TestServeHTTPS(t *testing.T) {
 	tests := map[string]struct {
 		addr           string
-		certFile       string
-		keyFile        string
+		tlsCerts       []tls.Certificate
 		handlers       HandlerMapping
 		trustedProxies []string
 		wantErr        bool
 	}{
 		"missing certificates": {
 			addr:     "127.0.0.1:0",
-			certFile: "",
-			keyFile:  "",
+			tlsCerts: []tls.Certificate{},
 			handlers: HandlerMapping{
 				"/test": func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusOK)
@@ -345,8 +344,7 @@ func TestServeHTTPS(t *testing.T) {
 		},
 		"missing cert file": {
 			addr:     "127.0.0.1:0",
-			certFile: "",
-			keyFile:  "some-key.pem",
+			tlsCerts: []tls.Certificate{},
 			handlers: HandlerMapping{
 				"/test": func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusOK)
@@ -357,8 +355,7 @@ func TestServeHTTPS(t *testing.T) {
 		},
 		"missing key file": {
 			addr:     "127.0.0.1:0",
-			certFile: "some-cert.pem",
-			keyFile:  "",
+			tlsCerts: []tls.Certificate{},
 			handlers: HandlerMapping{
 				"/test": func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusOK)
@@ -369,8 +366,7 @@ func TestServeHTTPS(t *testing.T) {
 		},
 		"invalid certificate path": {
 			addr:     "127.0.0.1:0",
-			certFile: "/path/to/nonexistent/cert.pem",
-			keyFile:  "/path/to/nonexistent/key.pem",
+			tlsCerts: []tls.Certificate{},
 			handlers: HandlerMapping{
 				"/test": func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusOK)
@@ -387,8 +383,7 @@ func TestServeHTTPS(t *testing.T) {
 			defer cancel()
 
 			config := &ConfigHTTPS{
-				CertFile:       tt.certFile,
-				KeyFile:        tt.keyFile,
+				TLSCerts:       tt.tlsCerts,
 				Logger:         logr.Discard(),
 				TrustedProxies: tt.trustedProxies,
 			}

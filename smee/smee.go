@@ -2,6 +2,7 @@ package smee
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -226,10 +227,7 @@ type TinkServer struct {
 }
 
 type TLS struct {
-	// CertFile is the path to the TLS certificate file.
-	CertFile string
-	// KeyFile is the path to the TLS key file.
-	KeyFile string
+	Certs []tls.Certificate
 }
 
 // NewConfig is a constructor for the Config struct. It will set default values for the Config struct.
@@ -454,15 +452,14 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			return httpServer.ServeHTTP(ctx, bindAddr.String(), handlers)
 		})
 		// Enable HTTPS/TLS if certificate and key files are provided
-		if c.TLS.CertFile != "" && c.TLS.KeyFile != "" {
+		if len(c.TLS.Certs) > 0 {
 			ap := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, c.HTTP.BindHTTPSPort).String()
 			log.Info("starting https server", "addr", ap, "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
 			g.Go(func() error {
 				hs := &http.ConfigHTTPS{
-					CertFile:       c.TLS.CertFile,
-					KeyFile:        c.TLS.KeyFile,
 					Logger:         log,
 					TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
+					TLSCerts:       c.TLS.Certs,
 				}
 				return hs.ServeHTTPS(ctx, ap, handlers)
 			})
