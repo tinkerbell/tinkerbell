@@ -46,6 +46,8 @@ PROTOC_GEN_GO_GRPC_VER := v1.5.1  # must be in sync with the version in buf.gen.
 PROTOC_GEN_GO_VER      := v1.36.7 # must be in sync with the version in buf.gen.yaml
 UPX_VER 			   := 4.2.4
 GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
+GOLANGCI_LINT_VERSION  := v2.4.0
+
 
 # Tool fully qualified paths (FQP)
 TOOLS_DIR := $(PWD)/out/tools
@@ -300,7 +302,6 @@ LINTERS :=
 FIXERS :=
 
 GOLANGCI_LINT_CONFIG := $(LINT_ROOT)/.golangci.yml
-GOLANGCI_LINT_VERSION ?= v2.3.0
 GOLANGCI_LINT_BIN := $(LINT_ROOT)/out/linters/golangci-lint-$(GOLANGCI_LINT_VERSION)-$(LINT_ARCH)
 $(GOLANGCI_LINT_BIN):
 	mkdir -p $(LINT_ROOT)/out/linters
