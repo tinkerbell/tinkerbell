@@ -20,10 +20,9 @@ type ConfigHTTP struct {
 
 // ConfigHTTPS is the configuration for the HTTPS server.
 type ConfigHTTPS struct {
-	CertFile       string
-	KeyFile        string
 	Logger         logr.Logger
 	TrustedProxies []string
+	TLSCerts       []tls.Certificate
 }
 
 // ServeHTTP sets up all the HTTP routes using a stdlib mux and starts the http
@@ -69,19 +68,6 @@ func (c *ConfigHTTPS) ServeHTTPS(ctx context.Context, addrPort string, handlers 
 		return fmt.Errorf("failed to create new serve mux: %w", err)
 	}
 
-	// If CertFile and KeyFile are not provided, can't be read, or don't exist
-	// return error
-	if c.CertFile == "" || c.KeyFile == "" {
-		return fmt.Errorf("CertFile and KeyFile are not provided")
-	}
-
-	// Load the certificates with extensive logging
-	// This key must be of type RSA. iPXE does not support ECDSA keys.
-	cert, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
-	if err != nil {
-		return fmt.Errorf("failed to load TLS certificates: %w", err)
-	}
-
 	// Define cipher suites with more permissive settings to help resolve handshake issues
 	server := http.Server{
 		Addr:    addrPort,
@@ -93,7 +79,7 @@ func (c *ConfigHTTPS) ServeHTTPS(ctx context.Context, addrPort string, handlers 
 		ReadHeaderTimeout: 20 * time.Second,
 		ErrorLog:          slog.NewLogLogger(logr.ToSlogHandler(c.Logger.WithValues("server", "https")), slog.Level(c.Logger.GetV())),
 		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{cert},
+			Certificates: c.TLSCerts,
 			MinVersion:   tls.VersionTLS12,
 		},
 	}
@@ -103,7 +89,7 @@ func (c *ConfigHTTPS) ServeHTTPS(ctx context.Context, addrPort string, handlers 
 		c.Logger.Info("shutting down https server")
 		_ = server.Shutdown(ctx)
 	}()
-	if err := server.ListenAndServeTLS(c.CertFile, c.KeyFile); err != nil {
+	if err := server.ListenAndServeTLS("", ""); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}

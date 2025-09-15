@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -162,8 +163,15 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr)
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
 	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
-	s.Config.TLS.CertFile = globals.TLS.CertFile
-	s.Config.TLS.KeyFile = globals.TLS.KeyFile
+	if globals.TLS.CertFile != "" && globals.TLS.KeyFile != "" {
+		// Load the certificates with extensive logging
+		// This key must be of type RSA. iPXE does not support ECDSA keys.
+		cert, err := tls.LoadX509KeyPair(globals.TLS.CertFile, globals.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificates: %w", err)
+		}
+		s.Config.TLS.Certs = []tls.Certificate{cert}
+	}
 
 	// Tootles
 	h.Convert(&globals.TrustedProxies, globals.BindAddr)
