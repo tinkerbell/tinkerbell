@@ -138,7 +138,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 }
 
 // Convert CLI specific fields to smee.Config fields.
-func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr) {
+func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr, bindAddr netip.Addr) {
 	s.Config.IPXE.HTTPScriptServer.TrustedProxies = ntip.ToPrefixList(trustedProxies).Slice()
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = func() string {
 		var addr string                                 // Defaults
@@ -202,6 +202,16 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 		}
 		return fmt.Sprintf("%s:%s", publicIP.String(), port)
 	}()
+
+	// Set bind addresses if bindAddr is specified.
+	if bindAddr.IsValid() {
+		// iPXE HTTP Script Server
+		s.Config.IPXE.HTTPScriptServer.BindAddr = bindAddr
+		// syslog server
+		s.Config.Syslog.BindAddr = bindAddr
+		// TFTP server
+		s.Config.TFTP.BindAddr = bindAddr
+	}
 }
 
 func macAddrFormatParser(s string) (constant.MACFormat, error) {

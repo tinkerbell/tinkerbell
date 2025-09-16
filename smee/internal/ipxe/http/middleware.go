@@ -34,7 +34,7 @@ func (h *loggingMiddleware) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 	r := res.Header().Get("X-Global-Logging")
 
 	if log && r == "" {
-		h.log.Info("response", "method", method, "uri", uri, "client", client, "duration", time.Since(start), "status", res.statusCode)
+		h.log.Info("response", "method", method, "uri", uri, "client", client, "duration", time.Since(start).String(), "status", res.statusCode)
 	}
 }
 
