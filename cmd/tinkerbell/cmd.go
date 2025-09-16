@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -160,6 +161,22 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return e
 	}
 
+	log := defaultLogger(globals.LogLevel)
+	cliLog := log.WithName("cli")
+	cliLog.Info("starting tinkerbell",
+		"version", build.GitRevision(),
+		"smeeEnabled", globals.EnableSmee,
+		"tootlesEnabled", globals.EnableTootles,
+		"tinkServerEnabled", globals.EnableTinkServer,
+		"tinkControllerEnabled", globals.EnableTinkController,
+		"rufioEnabled", globals.EnableRufio,
+		"secondStarEnabled", globals.EnableSecondStar,
+		"publicIP", globals.PublicIP,
+		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
+		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
+		"globalBindAddress", globals.BindAddr,
+	)
+
 	// Smee
 	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr)
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
@@ -171,6 +188,10 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		cert, err := tls.LoadX509KeyPair(globals.TLS.CertFile, globals.TLS.KeyFile)
 		if err != nil {
 			return fmt.Errorf("failed to load TLS certificates for Smee HTTP: %w", err)
+		}
+		// iPXE only supports using RSA keys for TLS. https://github.com/ipxe/ipxe/issues/1179
+		if _, ok := cert.PrivateKey.(*rsa.PrivateKey); !ok {
+			log.Info("WARNING: iPXE only supports RSA certificates. HTTPS for Smee's iPXE binaries and scripts might not work", "certType", fmt.Sprintf("%T", cert.PrivateKey))
 		}
 		s.Config.TLS.Certs = []tls.Certificate{cert}
 	}
@@ -210,22 +231,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	if globals.BindAddr.IsValid() {
 		ssc.Config.BindAddr = globals.BindAddr
 	}
-
-	log := defaultLogger(globals.LogLevel)
-	cliLog := log.WithName("cli")
-	cliLog.Info("starting tinkerbell",
-		"version", build.GitRevision(),
-		"smeeEnabled", globals.EnableSmee,
-		"tootlesEnabled", globals.EnableTootles,
-		"tinkServerEnabled", globals.EnableTinkServer,
-		"tinkControllerEnabled", globals.EnableTinkController,
-		"rufioEnabled", globals.EnableRufio,
-		"secondStarEnabled", globals.EnableSecondStar,
-		"publicIP", globals.PublicIP,
-		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
-		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
-		"globalBindAddress", globals.BindAddr,
-	)
 
 	g, ctx := errgroup.WithContext(ctx)
 	// Etcd server
