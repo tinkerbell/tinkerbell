@@ -35,7 +35,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	}
 	log.Info("starting ssh server", "addrPort", addrPort)
 	server := &gssh.Server{
-		Addr:             fmt.Sprintf(":%d", c.SSHPort),
+		Addr:             addrPort,
 		Handler:          internal.Handler(log, internal.NewKeyValueStore(), c.IPMITOOLPath),
 		PublicKeyHandler: internal.PubkeyAuth(c.Backend, log),
 		Banner:           "Second star to the right and straight on 'til morning\n[Use ~. to disconnect]\n",
