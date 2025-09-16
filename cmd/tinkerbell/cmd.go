@@ -147,25 +147,36 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	// Smee
-	s.Convert(&globals.TrustedProxies, globals.PublicIP)
+	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr)
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
 	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
 
 	// Tootles
-	h.Convert(&globals.TrustedProxies)
+	h.Convert(&globals.TrustedProxies, globals.BindAddr)
 
 	// Tink Server
-	ts.Convert()
+	ts.Convert(globals.BindAddr)
 
 	// Tink Controller
 	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace)
+	if globals.BindAddr.IsValid() {
+		tc.Config.MetricsAddr = netip.AddrPortFrom(globals.BindAddr, tc.Config.MetricsAddr.Port())
+		tc.Config.ProbeAddr = netip.AddrPortFrom(globals.BindAddr, tc.Config.ProbeAddr.Port())
+	}
 
 	// Rufio Controller
 	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace)
+	if globals.BindAddr.IsValid() {
+		rc.Config.MetricsAddr = netip.AddrPortFrom(globals.BindAddr, rc.Config.MetricsAddr.Port())
+		rc.Config.ProbeAddr = netip.AddrPortFrom(globals.BindAddr, rc.Config.ProbeAddr.Port())
+	}
 
 	// Second star
 	if err := ssc.Convert(); err != nil {
 		return fmt.Errorf("failed to convert secondstar config: %w", err)
+	}
+	if globals.BindAddr.IsValid() {
+		ssc.Config.BindAddr = globals.BindAddr
 	}
 
 	log := defaultLogger(globals.LogLevel)
@@ -181,6 +192,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		"publicIP", globals.PublicIP,
 		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
 		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
+		"globalBindAddress", globals.BindAddr,
 	)
 
 	g, ctx := errgroup.WithContext(ctx)
