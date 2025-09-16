@@ -214,6 +214,8 @@ spec:
               value: {{ .Values.deployment.envs.globals.backendKubeNamespace | quote }}
             - name: TINKERBELL_BACKEND_KUBE_QPS
               value: {{ .Values.deployment.envs.globals.backendKubeQPS | quote }}
+            - name: TINKERBELL_BIND_ADDR
+              value: {{ .Values.deployment.envs.globals.bindAddr | quote }}
             - name: TINKERBELL_OTEL_ENDPOINT
               value: {{ .Values.deployment.envs.globals.otelEndpoint | quote }}
             - name: TINKERBELL_OTEL_INSECURE
