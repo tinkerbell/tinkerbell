@@ -121,7 +121,7 @@ func (h *Handler) bootfileAndNextServer(ctx context.Context, pkt *dhcpv4.DHCPv4,
 	if tp := otel.TraceparentStringFromContext(ctx); h.OTELEnabled && tp != "" {
 		i.IPXEBinary = fmt.Sprintf("%s-%v", i.IPXEBinary, tp)
 	}
-	nextServer = i.NextServer(ipxe, tftp)
+	nextServer = i.NextServer(ipxe, tftp, h.IPAddr)
 	bootfile = i.Bootfile(customUC, iscript, ipxe, tftp)
 
 	return bootfile, nextServer

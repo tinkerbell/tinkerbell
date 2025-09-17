@@ -373,19 +373,30 @@ func macAddrFormat(mac net.HardwareAddr, f constant.MACFormat) string {
 }
 
 // NextServer returns the calculated dhcp header (ServerIPAddr): "siaddr" value. see https://datatracker.ietf.org/doc/html/rfc2131#section-2 .
-func (i Info) NextServer(ipxeHTTPBinServer *url.URL, ipxeTFTPBinServer netip.AddrPort) net.IP {
+func (i Info) NextServer(ipxeHTTPBinServer *url.URL, ipxeTFTPBinServer netip.AddrPort, publicIP netip.Addr) net.IP {
 	var nextServer net.IP
 
 	// If a machine is in an ipxe boot loop, it is likely to be that we aren't matching on IPXE or Tinkerbell userclass (option 77).
 	switch { // order matters here.
 	case i.ClientType == HTTPClient: // Check the client type from option 60.
 		if ipxeHTTPBinServer != nil {
-			nextServer = net.ParseIP(ipxeHTTPBinServer.Hostname())
+			// remove port if it exists as net.IP doesn't support ports.
+			hn := strings.SplitN(ipxeHTTPBinServer.Hostname(), ":", 2)
+			if ip := net.ParseIP(hn[0]); ip != nil {
+				nextServer = ip
+			}
 		}
 	case i.UserClass == IPXE: // if the "iPXE" user class is found it means we aren't in our custom version of ipxe, but because of the option 43 we're setting we need to give a full tftp url from which to boot.
-		nextServer = net.IP(ipxeTFTPBinServer.Addr().AsSlice())
+		nextServer = ipxeTFTPBinServer.Addr().AsSlice()
 	default:
-		nextServer = net.IP(ipxeTFTPBinServer.Addr().AsSlice())
+		nextServer = ipxeTFTPBinServer.Addr().AsSlice()
+	}
+
+	// If the nextServer is nil or unspecified, it might that the ipxeHTTPBinServer has a port or is a DNS name.
+	// ipxeHTTPBinServer is perfectly acceptable to have a port or be a DNS name but we can't use that in DHCP in headers
+	// fields siaddr or sname and can't be used in DHCP options like option 54 (dhcp server identifier).
+	if (nextServer == nil || nextServer.IsUnspecified()) && publicIP.IsValid() && !publicIP.IsUnspecified() {
+		nextServer = publicIP.AsSlice()
 	}
 
 	return nextServer

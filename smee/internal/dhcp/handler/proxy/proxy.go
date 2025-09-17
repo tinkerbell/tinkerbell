@@ -191,11 +191,11 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 
 	// Set option 54, without this the pxe client will try to broadcast a request message to port 4011 for the ipxe binary. only found to be needed for PXEClient but not prohibitive for HTTPClient.
 	// probably will want this to be the public IP of the proxyDHCP server
-	ns := i.NextServer(h.Netboot.IPXEBinServerHTTP, h.Netboot.IPXEBinServerTFTP)
+	ns := i.NextServer(h.Netboot.IPXEBinServerHTTP, h.Netboot.IPXEBinServerTFTP, h.IPAddr)
 	reply.UpdateOption(dhcpv4.OptServerIdentifier(ns))
 	// add the siaddr (IP address of next server) dhcp packet header to a given packet pkt.
 	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
-	// without this the pxe client will try to broadcast a request message to port 4011 for the ipxe script. The value doesnt seem to matter.
+	// without this the pxe client will try to broadcast a request message to port 4011 for the ipxe script.
 	reply.ServerIPAddr = ns
 
 	// set sname header
@@ -216,6 +216,7 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	}
 
 	// set bootfile header
+	// TODO(jacobweinstock): plum through the custom user class.
 	reply.BootFileName = i.Bootfile("", h.Netboot.IPXEScriptURL(dp.Pkt), h.Netboot.IPXEBinServerHTTP, h.Netboot.IPXEBinServerTFTP)
 	if n != nil && !n.AllowNetboot {
 		// if the netboot is not allowed, set the boot file name to "/<mac address>/netboot-not-allowed"

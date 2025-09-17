@@ -131,7 +131,7 @@ func TestHandle(t *testing.T) {
 				ClientHWAddr:  []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				ClientIPAddr:  []byte{0, 0, 0, 0},
 				YourIPAddr:    []byte{192, 168, 1, 100},
-				ServerIPAddr:  []byte{0, 0, 0, 0},
+				ServerIPAddr:  []byte{127, 0, 0, 1},
 				GatewayIPAddr: []byte{0, 0, 0, 0},
 				BootFileName:  "http://localhost:8181/auto.ipxe",
 				Options: dhcpv4.OptionsFromList(
@@ -258,7 +258,7 @@ func TestHandle(t *testing.T) {
 				ClientHWAddr:  []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				ClientIPAddr:  []byte{0, 0, 0, 0},
 				YourIPAddr:    []byte{192, 168, 1, 100},
-				ServerIPAddr:  []byte{0, 0, 0, 0},
+				ServerIPAddr:  []byte{127, 0, 0, 1},
 				GatewayIPAddr: []byte{0, 0, 0, 0},
 				BootFileName:  "http://localhost:8181/auto.ipxe",
 				Options: dhcpv4.OptionsFromList(
@@ -417,7 +417,7 @@ func TestHandle(t *testing.T) {
 				ClientHWAddr:  []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				ClientIPAddr:  []byte{0, 0, 0, 0},
 				YourIPAddr:    []byte{192, 168, 1, 100},
-				ServerIPAddr:  []byte{0, 0, 0, 0},
+				ServerIPAddr:  []byte{127, 0, 0, 1},
 				GatewayIPAddr: []byte{0, 0, 0, 0},
 				BootFileName:  "http://localhost:8181/ipxe/01:02:03:04:05:06/ipxe.efi",
 				Options: dhcpv4.OptionsFromList(
@@ -487,7 +487,7 @@ func TestHandle(t *testing.T) {
 				ClientHWAddr:  []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				ClientIPAddr:  []byte{0, 0, 0, 0},
 				YourIPAddr:    []byte{192, 168, 1, 100},
-				ServerIPAddr:  []byte{0, 0, 0, 0},
+				ServerIPAddr:  []byte{127, 0, 0, 1},
 				GatewayIPAddr: []byte{0, 0, 0, 0},
 				BootFileName:  "http://localhost:8181/ipxe/0102.0304.0506/ipxe.efi",
 				Options: dhcpv4.OptionsFromList(
@@ -557,7 +557,7 @@ func TestHandle(t *testing.T) {
 				ClientHWAddr:  []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				ClientIPAddr:  []byte{0, 0, 0, 0},
 				YourIPAddr:    []byte{192, 168, 1, 100},
-				ServerIPAddr:  []byte{0, 0, 0, 0},
+				ServerIPAddr:  []byte{127, 0, 0, 1},
 				GatewayIPAddr: []byte{0, 0, 0, 0},
 				BootFileName:  "http://localhost:8181/ipxe/01-02-03-04-05-06/ipxe.efi",
 				Options: dhcpv4.OptionsFromList(
@@ -627,7 +627,7 @@ func TestHandle(t *testing.T) {
 				ClientHWAddr:  []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				ClientIPAddr:  []byte{0, 0, 0, 0},
 				YourIPAddr:    []byte{192, 168, 1, 100},
-				ServerIPAddr:  []byte{0, 0, 0, 0},
+				ServerIPAddr:  []byte{127, 0, 0, 1},
 				GatewayIPAddr: []byte{0, 0, 0, 0},
 				BootFileName:  "http://localhost:8181/ipxe/ipxe.efi",
 				Options: dhcpv4.OptionsFromList(
@@ -809,6 +809,7 @@ func TestUpdateMsg(t *testing.T) {
 				ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				YourIPAddr:   []byte{192, 168, 1, 100},
 				ClientIPAddr: []byte{0, 0, 0, 0},
+				ServerIPAddr: []byte{127, 0, 0, 1},
 				BootFileName: "http://localhost:8181/auto.ipxe",
 				Options: dhcpv4.OptionsFromList(
 					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
