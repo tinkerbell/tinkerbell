@@ -381,8 +381,7 @@ func (i Info) NextServer(ipxeHTTPBinServer *url.URL, ipxeTFTPBinServer netip.Add
 	case i.ClientType == HTTPClient: // Check the client type from option 60.
 		if ipxeHTTPBinServer != nil {
 			// remove port if it exists as net.IP doesn't support ports.
-			hn := strings.SplitN(ipxeHTTPBinServer.Hostname(), ":", 2)
-			if ip := net.ParseIP(hn[0]); ip != nil {
+			if ip := net.ParseIP(ipxeHTTPBinServer.Hostname()); ip != nil {
 				nextServer = ip
 			}
 		}
