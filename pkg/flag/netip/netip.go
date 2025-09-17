@@ -1,3 +1,4 @@
+// Package netip provides a wrapper around net/netip so that methods to satisfy flag.Value can be implemented.
 package netip
 
 import (
@@ -55,6 +56,14 @@ func (a *Addr) Reset() error {
 
 func (a *Addr) Type() string {
 	return "addr"
+}
+
+func (a *Addr) String() string {
+	if a == nil || a.Addr == nil || !a.IsValid() {
+		return ""
+	}
+
+	return a.Addr.String()
 }
 
 type Prefix struct{ *netip.Prefix }
