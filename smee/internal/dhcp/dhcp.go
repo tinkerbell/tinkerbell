@@ -391,7 +391,7 @@ func (i Info) NextServer(ipxeHTTPBinServer *url.URL, ipxeTFTPBinServer netip.Add
 		nextServer = ipxeTFTPBinServer.Addr().AsSlice()
 	}
 
-	// If the nextServer is nil or unspecified, it might that the ipxeHTTPBinServer has a port or is a DNS name.
+	// If the nextServer is nil or unspecified, it might be that the ipxeHTTPBinServer has a port or is a DNS name.
 	// ipxeHTTPBinServer is perfectly acceptable to have a port or be a DNS name but we can't use that in DHCP in headers
 	// fields siaddr or sname and can't be used in DHCP options like option 54 (dhcp server identifier).
 	if (nextServer == nil || nextServer.IsUnspecified()) && publicIP.IsValid() && !publicIP.IsUnspecified() {
