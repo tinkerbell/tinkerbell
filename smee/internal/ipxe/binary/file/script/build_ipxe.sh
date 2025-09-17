@@ -17,12 +17,13 @@ function build_ipxe() {
     # This is needed because we download source archives from GitHub and they don't include any git metadata
     # so the iPXE build defaults to a version of 1.0.0. See: https://github.com/ipxe/ipxe/blob/8460dc4e8ffc98db62377d1c5502d6aac40f5a64/src/Makefile#L213-L241
     tinkerbell_ipxe_commit=$(cat "$(dirname "${BASH_SOURCE[0]}")/ipxe.commit" | cut -c1-7)
+    local extra_version="+ (${tinkerbell_ipxe_commit})"
     local version_override="VERSION_MAJOR=1 VERSION_MINOR=21 VERSION_PATCH=1"
 
     if [ -z "${env_opts}" ]; then
-        make -C "${ipxe_dir}"/src ${version_override} EXTRAVERSION="+ (${tinkerbell_ipxe_commit})" EMBED="${embed_path}" "${ipxe_bin}"
+        make -C "${ipxe_dir}"/src ${version_override} EXTRAVERSION="${extra_version}" EMBED="${embed_path}" "${ipxe_bin}"
     else
-        make -C "${ipxe_dir}"/src "${env_opts}" ${version_override} EXTRAVERSION="+ (${tinkerbell_ipxe_commit})" EMBED="${embed_path}" "${ipxe_bin}"
+        make -C "${ipxe_dir}"/src "${env_opts}" ${version_override} EXTRAVERSION="${extra_version}" EMBED="${embed_path}" "${ipxe_bin}"
     fi
 }
 
