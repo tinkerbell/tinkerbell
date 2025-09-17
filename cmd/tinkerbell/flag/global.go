@@ -52,8 +52,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(BackendKubeConfig, ffval.NewValueDefault(&gc.BackendKubeConfig, gc.BackendKubeConfig))
 	fs.Register(BackendKubeNamespace, ffval.NewValueDefault(&gc.BackendKubeNamespace, gc.BackendKubeNamespace))
 	fs.Register(KubeQPS, ffval.NewValueDefault(&gc.BackendKubeOptions.QPS, gc.BackendKubeOptions.QPS))
-	fs.Register(KubeBurst, ffval.NewValueDefault(&gc.BackendKubeOptions.Burst, gc.BackendKubeOptions.Burst))
-	fs.Register(BindAddr, &ntip.Addr{Addr: &gc.BindAddr})
+	fs.Register(BindAddr, &ntip.Addr{})
 	fs.Register(EnableSmee, ffval.NewValueDefault(&gc.EnableSmee, gc.EnableSmee))
 	fs.Register(EnableTootles, ffval.NewValueDefault(&gc.EnableTootles, gc.EnableTootles))
 	fs.Register(EnableTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
@@ -65,7 +64,6 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(OTELEndpoint, ffval.NewValueDefault(&gc.OTELEndpoint, gc.OTELEndpoint))
 	fs.Register(OTELInsecure, ffval.NewValueDefault(&gc.OTELInsecure, gc.OTELInsecure))
 	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
-	// TLS flags
 	fs.Register(TLSCertFile, ffval.NewValueDefault(&gc.TLS.CertFile, gc.TLS.CertFile))
 	fs.Register(TLSKeyFile, ffval.NewValueDefault(&gc.TLS.KeyFile, gc.TLS.KeyFile))
 	fs.Register(TrustedProxies, &ntip.PrefixList{PrefixList: &gc.TrustedProxies})
@@ -179,7 +177,7 @@ var EnableETCD = Config{
 
 var EnableCRDMigrations = Config{
 	Name:  "enable-crd-migrations",
-	Usage: "create CRDs in the cluster",
+	Usage: "create or update CRDs in the cluster",
 }
 
 var BindAddr = Config{
