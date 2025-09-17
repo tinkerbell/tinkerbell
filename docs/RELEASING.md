@@ -31,7 +31,7 @@ There are 2 types of releases: (1) Git tagged releases and (2) mainline releases
 
 #### Git tagged releases
 
-Git tagged releases are releases that have a corresponding Git tag (vX.Y.X). Run `git tag` to see the list of Git tags or view them on the [GitHub tags page](https://github.com/tinkerbell/tinkerbell/tags). Git tagged releases are made at the discretion of the maintainers. Generally, if there is a major bug fix in main then a new Git tagged release will be made.
+Git tagged releases are releases that have a corresponding Git tag (vX.Y.Z). Run `git tag` to see the list of Git tags or view them on the [GitHub tags page](https://github.com/tinkerbell/tinkerbell/tags). Git tagged releases are made at the discretion of the maintainers. Generally, if there is a major bug fix in main then a new Git tagged release will be made.
 If there are no major bug fixes, releases are generally made when a maintainer deems enough fixes and/or features have accumulated.
 
 In a Git tagged release, at a minimum, the following artifacts are created along with a Git tag:
