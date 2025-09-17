@@ -451,7 +451,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		g.Go(func() error {
 			return httpServer.ServeHTTP(ctx, bindAddr.String(), handlers)
 		})
-		// Enable HTTPS/TLS if certificate and key files are provided
+		// Enable HTTPS/TLS if certificates are provided
 		if len(c.TLS.Certs) > 0 {
 			ap := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, c.HTTP.BindHTTPSPort).String()
 			log.Info("starting https server", "addr", ap, "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
