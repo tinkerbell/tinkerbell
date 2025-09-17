@@ -78,6 +78,10 @@ func (a *Addr) Set(s string) error {
 	if s == "" {
 		return nil
 	}
+	if a == nil || a.Addr == nil {
+		*a = Addr{Addr: new(netip.Addr)}
+		return nil
+	}
 	ip, err := netip.ParseAddr(s)
 	if !ip.IsValid() || err != nil {
 		return fmt.Errorf("failed to parse Address: %q", s)
