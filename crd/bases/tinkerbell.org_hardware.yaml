@@ -130,6 +130,8 @@ spec:
                             - router
                             type: object
                           type: array
+                        domain_name:
+                          type: string
                         hostname:
                           type: string
                         iface_name:

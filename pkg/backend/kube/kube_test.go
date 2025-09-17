@@ -261,9 +261,10 @@ func TestGetByIP(t *testing.T) {
 			NameServers: []net.IP{
 				{0x1, 0x1, 0x1, 0x1},
 			},
-			Hostname:  "sm01",
-			LeaseTime: 86400,
-			Arch:      "x86_64",
+			Hostname:   "sm01",
+			DomainName: "example.com",
+			LeaseTime:  86400,
+			Arch:       "x86_64",
 		}, wantNetboot: &data.Netboot{
 			AllowNetboot: true,
 			IPXEScriptURL: &url.URL{
@@ -359,9 +360,10 @@ func TestGetByMac(t *testing.T) {
 			NameServers: []net.IP{
 				{0x1, 0x1, 0x1, 0x1},
 			},
-			Hostname:  "sm01",
-			LeaseTime: 86400,
-			Arch:      "x86_64",
+			Hostname:   "sm01",
+			DomainName: "example.com",
+			LeaseTime:  86400,
+			Arch:       "x86_64",
 		}, wantNetboot: &data.Netboot{
 			AllowNetboot: true,
 			IPXEScriptURL: &url.URL{
@@ -483,8 +485,9 @@ var hwObject1 = v1alpha1.Hardware{
 					},
 				},
 				DHCP: &v1alpha1.DHCP{
-					Arch:     "x86_64",
-					Hostname: "sm01",
+					Arch:       "x86_64",
+					Hostname:   "sm01",
+					DomainName: "example.com",
 					IP: &v1alpha1.IP{
 						Address: "172.16.10.100",
 						Gateway: "172.16.10.1",
