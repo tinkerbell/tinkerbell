@@ -179,6 +179,9 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 	// hostname, optional
 	d.Hostname = h.Hostname
 
+	// domain name, optional
+	d.DomainName = h.DomainName
+
 	// lease time required
 	// Default to one week
 	d.LeaseTime = 604800

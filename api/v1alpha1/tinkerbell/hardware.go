@@ -173,6 +173,7 @@ type DHCP struct {
 	// +kubebuilder:validation:Pattern="([0-9a-f]{2}[:]){5}([0-9a-f]{2})"
 	MAC         string   `json:"mac,omitempty"`
 	Hostname    string   `json:"hostname,omitempty"`
+	DomainName  string   `json:"domain_name,omitempty"`
 	LeaseTime   int64    `json:"lease_time,omitempty"`
 	NameServers []string `json:"name_servers,omitempty"`
 	TimeServers []string `json:"time_servers,omitempty"`
