@@ -120,7 +120,7 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, p dhcp.Pack
 
 		return
 	default:
-		log.Info("received unknown message type", "type", p.Pkt.MessageType().String())
+		log.Info("received unknown message type", "type", p.Pkt.MessageType().String(), "message", p.Pkt.Message())
 		span.SetStatus(codes.Error, "received unknown message type")
 
 		return
