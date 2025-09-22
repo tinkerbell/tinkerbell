@@ -198,9 +198,13 @@ func (h *Handler) updateMsg(ctx context.Context, pkt *dhcpv4.DHCPv4, d *data.DHC
 		dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, h.IPAddr.AsSlice()),
 		dhcpv4.WithServerIP(h.IPAddr.AsSlice()),
 	}
+
 	mods = append(mods, h.setDHCPOpts(ctx, pkt, d)...)
 
-	if h.Netboot.Enabled && dhcp.IsNetbootClient(pkt) == nil {
+	// Only apply default netboot logic if BOTH TFTPServerName and BootFileName are empty.
+	// If either is explicitly configured by the user, we respect those values and skip defaults.
+	if h.Netboot.Enabled && dhcp.IsNetbootClient(pkt) == nil &&
+		d.TFTPServerName == "" && d.BootFileName == "" {
 		mods = append(mods, h.setNetworkBootOpts(ctx, pkt, n))
 	}
 	// We ignore the error here because:

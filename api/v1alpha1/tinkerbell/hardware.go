@@ -169,6 +169,7 @@ type OSIE struct {
 }
 
 // DHCP configuration.
+// +kubebuilder:validation:XValidation:rule=(has(self.tftp_server_name) && self.tftp_server_name != "") == (has(self.boot_file_name) && self.boot_file_name != ""),message="TFTPServerName and BootFileName must both be specified or both be empty"
 type DHCP struct {
 	// +kubebuilder:validation:Pattern="([0-9a-f]{2}[:]){5}([0-9a-f]{2})"
 	MAC         string   `json:"mac,omitempty"`
@@ -187,6 +188,18 @@ type DHCP struct {
 	// ClasslessStaticRoutes defines static routes to be sent via DHCP option 121 (RFC 3442).
 	//+optional
 	ClasslessStaticRoutes []ClasslessStaticRoute `json:"classless_static_routes,omitempty"`
+	// TFTPServerName is the TFTP server name or IP address (DHCP option 66).
+	// Used for explicit TFTP server configuration, required by some network boot clients
+	// like NVIDIA NVOS switches.
+	// If specified, BootFileName must also be specified.
+	//+optional
+	TFTPServerName string `json:"tftp_server_name,omitempty"`
+	// BootFileName is the boot file name (DHCP option 67).
+	// Used for explicit boot file configuration, required by some network boot clients
+	// like NVIDIA NVOS switches.
+	// If specified, TFTPServerName must also be specified.
+	//+optional
+	BootFileName string `json:"boot_file_name,omitempty"`
 }
 
 // IP configuration.

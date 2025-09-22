@@ -53,6 +53,17 @@ func (h *Handler) setDHCPOpts(_ context.Context, _ *dhcpv4.DHCPv4, d *data.DHCP)
 	if len(d.ClasslessStaticRoutes) > 0 {
 		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptClasslessStaticRoute(d.ClasslessStaticRoutes...)))
 	}
+	if d.TFTPServerName != "" {
+		mods = append(mods, dhcpv4.WithGeneric(dhcpv4.OptionTFTPServerName, []byte(d.TFTPServerName)))
+	}
+	if d.BootFileName != "" {
+		mods = append(mods, dhcpv4.WithGeneric(dhcpv4.OptionBootfileName, []byte(d.BootFileName)))
+		// Also set the DHCP header field for BootFileName
+		bootFileName := d.BootFileName
+		mods = append(mods, func(pkt *dhcpv4.DHCPv4) {
+			pkt.BootFileName = bootFileName
+		})
+	}
 
 	return mods
 }
