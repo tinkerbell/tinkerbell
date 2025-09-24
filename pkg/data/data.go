@@ -24,6 +24,8 @@ type DHCP struct {
 	NTPServers            []net.IP         // DHCP option 42.
 	VLANID                string           // DHCP option 43.116.
 	LeaseTime             uint32           // DHCP option 51.
+	TFTPServerName        string           // DHCP option 66.
+	BootFileName          string           // DHCP option 67.
 	Arch                  string           // DHCP option 93.
 	DomainSearch          []string         // DHCP option 119.
 	ClasslessStaticRoutes dhcpv4.Routes    // DHCP option 121 - RFC 3442.

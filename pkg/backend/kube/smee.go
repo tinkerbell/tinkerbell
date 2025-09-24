@@ -189,6 +189,12 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 		d.LeaseTime = v
 	}
 
+	// TFTP server name, optional
+	d.TFTPServerName = h.TFTPServerName
+
+	// Boot file name, optional
+	d.BootFileName = h.BootFileName
+
 	// arch
 	d.Arch = h.Arch
 

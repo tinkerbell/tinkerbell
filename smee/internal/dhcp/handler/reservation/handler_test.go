@@ -45,6 +45,8 @@ type mockBackend struct {
 	arch                  iana.Arch
 	hardwareNotFound      bool
 	classlessStaticRoutes dhcpv4.Routes
+	tftpServerName        string
+	bootFileName          string
 }
 
 type hwNotFoundError struct{}
@@ -78,6 +80,8 @@ func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *
 			"mydomain.com",
 		},
 		ClasslessStaticRoutes: m.classlessStaticRoutes,
+		TFTPServerName:        m.tftpServerName,
+		BootFileName:          m.bootFileName,
 	}
 	if m.arch != 0 {
 		d.Arch = m.arch.String()
@@ -955,6 +959,136 @@ func TestEncodeToAttributes(t *testing.T) {
 				t.Log(got.Encoded(enc))
 				t.Log(want.Encoded(enc))
 				t.Fatal(diff)
+			}
+		})
+	}
+}
+
+// TestDHCPOnlyModeReflection tests the key behavior: when TFTPServerName or BootFileName are set,
+// tinkerbell's netboot defaults should be completely bypassed (DHCP-only mode)
+func TestDHCPOnlyModeReflection(t *testing.T) {
+	tests := map[string]struct {
+		tftpServerName string
+		bootFileName   string
+		allowNetboot   bool
+		wantDHCPOnly   bool // should DHCP-only mode be triggered (bypass tinkerbell defaults)?
+		wantOption43   bool // should option 43 (vendor-specific info) be present?
+		desc           string
+	}{
+		"both empty - tinkerbell defaults enabled": {
+			tftpServerName: "",
+			bootFileName:   "",
+			allowNetboot:   true,
+			wantDHCPOnly:   false,
+			wantOption43:   true,
+			desc:           "When both TFTPServerName and BootFileName are empty, tinkerbell netboot defaults should work",
+		},
+		"TFTPServerName set - dhcp only mode": {
+			tftpServerName: "192.168.1.200",
+			bootFileName:   "",
+			allowNetboot:   true,
+			wantDHCPOnly:   true,
+			wantOption43:   false,
+			desc:           "When TFTPServerName is set but BootFileName is empty, should use DHCP-only mode (bypass tinkerbell defaults)",
+		},
+		"BootFileName set - dhcp only mode": {
+			tftpServerName: "",
+			bootFileName:   "custom-boot.efi",
+			allowNetboot:   true,
+			wantDHCPOnly:   true,
+			wantOption43:   false,
+			desc:           "When BootFileName is set but TFTPServerName is empty, should use DHCP-only mode (bypass tinkerbell defaults)",
+		},
+		"both set - dhcp only mode": {
+			tftpServerName: "192.168.1.200",
+			bootFileName:   "custom-boot.efi",
+			allowNetboot:   true,
+			wantDHCPOnly:   true,
+			wantOption43:   false,
+			desc:           "When both TFTPServerName and BootFileName are set, should use DHCP-only mode (bypass tinkerbell defaults)",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Create a handler with netboot enabled
+			handler := &Handler{
+				Log:    logr.Discard(),
+				IPAddr: netip.MustParseAddr("192.168.1.1"),
+				Netboot: Netboot{
+					Enabled:           true,
+					IPXEBinServerTFTP: netip.MustParseAddrPort("192.168.1.1:69"),
+					IPXEBinServerHTTP: &url.URL{Scheme: "http", Host: "192.168.1.1:8080"},
+					IPXEScriptURL: func(*dhcpv4.DHCPv4) *url.URL {
+						return &url.URL{Scheme: "http", Host: "192.168.1.1:8080", Path: "/auto.ipxe"}
+					},
+				},
+				Backend: &mockBackend{
+					allowNetboot:   tt.allowNetboot,
+					tftpServerName: tt.tftpServerName,
+					bootFileName:   tt.bootFileName,
+				},
+			}
+
+			// Create a DHCP discover packet that would normally trigger netboot
+			pkt := &dhcpv4.DHCPv4{
+				OpCode:       dhcpv4.OpcodeBootRequest,
+				ClientHWAddr: net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
+					dhcpv4.OptClassIdentifier("PXEClient:Arch:00000:UNDI:002001"),                                    // Option 60 - required for netboot client
+					dhcpv4.OptClientArch(iana.INTEL_X86PC),                                                           // Option 93 - required for netboot client
+					dhcpv4.OptGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{0x01, 0x02, 0x03, 0x04}), // Option 94 - required for netboot client
+					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}), // Option 97 - required for netboot client
+				),
+			}
+
+			// Get DHCP and Netboot data from backend
+			ctx := context.Background()
+			dhcpData, netbootData, err := handler.Backend.GetByMac(ctx, pkt.ClientHWAddr)
+			if err != nil {
+				t.Fatalf("Failed to get backend data: %v", err)
+			}
+
+			// Call updateMsg to see what gets generated
+			reply := handler.updateMsg(ctx, pkt, dhcpData, netbootData, dhcpv4.MessageTypeOffer)
+
+			// The key test: check if setNetworkBootOpts was called by looking for option 43
+			// which is only set by tinkerbell's netboot defaults logic
+			hasOption43 := reply.Options.Has(dhcpv4.OptionVendorSpecificInformation)
+
+			if tt.wantOption43 && !hasOption43 {
+				t.Errorf("%s: Expected tinkerbell netboot defaults (option 43) to be present, but it wasn't", tt.desc)
+			}
+
+			if !tt.wantOption43 && hasOption43 {
+				t.Errorf("%s: Expected DHCP-only mode (option 43 should be absent), but tinkerbell defaults were applied", tt.desc)
+			}
+
+			// When explicit values are set, verify they are used
+			if tt.bootFileName != "" {
+				if reply.BootFileName != tt.bootFileName {
+					t.Errorf("Expected BootFileName to be %q, got %q", tt.bootFileName, reply.BootFileName)
+				}
+				// Check that option 67 is also set
+				bootFileOption := reply.Options.Get(dhcpv4.OptionBootfileName)
+				if string(bootFileOption) != tt.bootFileName {
+					t.Errorf("Expected BootfileName option to be %q, got %q", tt.bootFileName, string(bootFileOption))
+				}
+			}
+
+			if tt.tftpServerName != "" {
+				// Check that option 66 is set
+				tftpOption := reply.Options.Get(dhcpv4.OptionTFTPServerName)
+				if string(tftpOption) != tt.tftpServerName {
+					t.Errorf("Expected TFTPServerName option to be %q, got %q", tt.tftpServerName, string(tftpOption))
+				}
+			}
+
+			// Verify ServerIPAddr is always the handler's IP (simplified approach)
+			expectedServerIP := handler.IPAddr.AsSlice()
+			if !reply.ServerIPAddr.Equal(expectedServerIP) {
+				t.Errorf("Expected ServerIPAddr to be %s (handler IP), got %s", net.IP(expectedServerIP), reply.ServerIPAddr)
 			}
 		})
 	}

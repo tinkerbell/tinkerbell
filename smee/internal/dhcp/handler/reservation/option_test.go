@@ -141,6 +141,40 @@ func TestSetDHCPOpts(t *testing.T) {
 				),
 			},
 		},
+		"success with TFTPServerName and BootFileName": {
+			server: Handler{Log: logr.Discard(), SyslogAddr: netip.MustParseAddr("192.168.7.7")},
+			args: args{
+				in0: context.Background(),
+				m:   &dhcpv4.DHCPv4{Options: dhcpv4.OptionsFromList(dhcpv4.OptParameterRequestList(dhcpv4.OptionSubnetMask))},
+				d: &data.DHCP{
+					MACAddress:     net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+					IPAddress:      netip.MustParseAddr("192.168.4.4"),
+					SubnetMask:     []byte{255, 255, 255, 0},
+					DefaultGateway: netip.MustParseAddr("192.168.4.1"),
+					LeaseTime:      84600,
+					TFTPServerName: "192.168.1.200",
+					BootFileName:   "http://example.com/boot.ipxe",
+				},
+			},
+			want: &dhcpv4.DHCPv4{
+				OpCode:        dhcpv4.OpcodeBootRequest,
+				HWType:        iana.HWTypeEthernet,
+				ClientHWAddr:  net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+				ClientIPAddr:  []byte{0, 0, 0, 0},
+				YourIPAddr:    []byte{192, 168, 4, 4},
+				ServerIPAddr:  []byte{0, 0, 0, 0},
+				GatewayIPAddr: []byte{0, 0, 0, 0},
+				BootFileName:  "http://example.com/boot.ipxe",
+				Options: dhcpv4.OptionsFromList(
+					dhcpv4.OptGeneric(dhcpv4.OptionLogServer, []byte{192, 168, 7, 7}),
+					dhcpv4.OptSubnetMask(net.IPMask{255, 255, 255, 0}),
+					dhcpv4.OptIPAddressLeaseTime(time.Duration(84600)*time.Second),
+					dhcpv4.OptRouter(net.IP{192, 168, 4, 1}),
+					dhcpv4.OptGeneric(dhcpv4.OptionTFTPServerName, []byte("192.168.1.200")),
+					dhcpv4.OptGeneric(dhcpv4.OptionBootfileName, []byte("http://example.com/boot.ipxe")),
+				),
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
