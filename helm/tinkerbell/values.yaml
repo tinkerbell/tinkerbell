@@ -230,7 +230,7 @@ optional:
         type: RollingUpdate
     # downloadURL only works with the > 0.8.1 Hook release because
     # previous Hook versions didn't provide a checksum file.
-    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.11.0
+    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.11.1
     enabled: true
     extension: tar.gz # iso, tar.gz, both
     image: nginx:1.27.2
@@ -277,7 +277,7 @@ optional:
     #     value: my-value
     additionalEnv: []
     enabled: true
-    image: ghcr.io/kube-vip/kube-vip:v0.9.1
+    image: ghcr.io/kube-vip/kube-vip:v1.0.0
     imagePullPolicy: IfNotPresent
     # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
     # interface: enp0s8
