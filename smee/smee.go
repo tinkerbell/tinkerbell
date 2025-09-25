@@ -9,7 +9,6 @@ import (
 	"net/netip"
 	"net/url"
 	"path"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -248,7 +247,7 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			IPXEHTTPScript: IPXEHTTPScript{
 				URL: &url.URL{
 					Scheme: "http",
-					Path:   filepath.Join(IPXEScriptURI, "auto.ipxe"),
+					Path:   path.Join(IPXEScriptURI, "auto.ipxe"),
 				},
 				InjectMacAddress: true,
 			},
