@@ -1,6 +1,10 @@
 {{- if .Values.optional.kubevip.enabled }}
 ---
 # https://kube-vip.io/manifests/rbac.yaml
+# https://raw.githubusercontent.com/kube-vip/website/bca049f121ffa9eab3af93a453af5f0d74eaaa1d/content/manifests/rbac.yaml
+# This manifest lives in this repo: https://github.com/kube-vip/website
+# There are no tags to correlate with Kube-VIP releases, so we are using the latest commit SHA from when we
+# copied it.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
