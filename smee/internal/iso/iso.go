@@ -216,12 +216,11 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 		// and is not used when making http calls to the target (h.SourceISO). All valid requests are passed through to the target.
 		req.URL.Path = h.parsedURL.Path
 	}
-	log = log.WithValues("outboundURL", req.URL.String(), "scheme", func() string {
-		if req.TLS != nil {
-			return "https"
-		}
-		return "http"
-	}())
+	scheme := "http"
+	if req.TLS != nil {
+		scheme = "https"
+	}
+	log = log.WithValues("outboundURL", req.URL.String(), "scheme", scheme)
 
 	// RoundTripper needs a Transport to execute a HTTP transaction
 	// For our use case the default transport will suffice.

@@ -59,7 +59,7 @@ spec:
     name: {{ .Values.service.ports.ssh.name }}
   {{- end }}
   {{- if and .Values.deployment.envs.globals.tlsCertFile .Values.deployment.envs.globals.tlsKeyFile }}
-  - port: {{ .Values.service.ports.https.port}}
+  - port: {{ .Values.service.ports.https.port }}
     targetPort: {{ .Values.service.ports.https.name }}
     protocol: {{ .Values.service.ports.https.protocol }}
     name: {{ .Values.service.ports.https.name }}
