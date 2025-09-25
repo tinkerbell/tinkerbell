@@ -41,7 +41,7 @@ type URLBuilder struct {
 }
 
 func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
-	fs.Register(SmeeLogLevel, ffval.NewValueDefault(&sc.LogLevel, sc.LogLevel))
+	// The order in which flags are registered here is the order they will appear in the help text.
 	// DHCP flags
 	fs.Register(DHCPEnabled, ffval.NewValueDefault(&sc.Config.DHCP.Enabled, sc.Config.DHCP.Enabled))
 	fs.Register(DHCPEnableNetbootOptions, ffval.NewValueDefault(&sc.Config.DHCP.EnableNetbootOptions, sc.Config.DHCP.EnableNetbootOptions))
@@ -61,6 +61,9 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(DHCPIPXEHTTPScriptHost, ffval.NewValueDefault(&sc.DHCPIPXEScript.Host, sc.DHCPIPXEScript.Host))
 	fs.Register(DHCPIPXEHTTPScriptPort, ffval.NewValueDefault(&sc.DHCPIPXEScript.Port, sc.DHCPIPXEScript.Port))
 	fs.Register(DHCPIPXEHTTPScriptPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Path, sc.Config.DHCP.IPXEHTTPScript.URL.Path))
+
+	// HTTPS flags
+	fs.Register(HTTPSBindPort, ffval.NewValueDefault(&sc.Config.HTTP.BindHTTPSPort, sc.Config.HTTP.BindHTTPSPort))
 
 	// IPXE flags
 	fs.Register(IPXEArchMapping, &ffval.Value[map[iana.Arch]constant.IPXEBinary]{
@@ -113,11 +116,19 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 		Default:   constant.MacAddrFormatColon,
 	})
 
+	// iPXE Tink Server Flags
+	fs.Register(TinkServerAddrPort, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPort, sc.Config.TinkServer.AddrPort))
+	fs.Register(TinkServerUseTLS, ffval.NewValueDefault(&sc.Config.TinkServer.UseTLS, sc.Config.TinkServer.UseTLS))
+	fs.Register(TinkServerInsecureTLS, ffval.NewValueDefault(&sc.Config.TinkServer.InsecureTLS, sc.Config.TinkServer.InsecureTLS))
+
 	// ISO Flags
 	fs.Register(ISOEnabled, ffval.NewValueDefault(&sc.Config.ISO.Enabled, sc.Config.ISO.Enabled))
 	fs.Register(ISOUpstreamURL, &url.URL{URL: sc.Config.ISO.UpstreamURL})
 	fs.Register(ISOPatchMagicString, ffval.NewValueDefault(&sc.Config.ISO.PatchMagicString, sc.Config.ISO.PatchMagicString))
 	fs.Register(ISOStaticIPAMEnabled, ffval.NewValueDefault(&sc.Config.ISO.StaticIPAMEnabled, sc.Config.ISO.StaticIPAMEnabled))
+
+	// Log level
+	fs.Register(SmeeLogLevel, ffval.NewValueDefault(&sc.LogLevel, sc.LogLevel))
 
 	// Syslog Flags
 	fs.Register(SyslogEnabled, ffval.NewValueDefault(&sc.Config.Syslog.Enabled, sc.Config.Syslog.Enabled))
@@ -130,11 +141,6 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TFTPServerBindPort, ffval.NewValueDefault(&sc.Config.TFTP.BindPort, sc.Config.TFTP.BindPort))
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
-
-	// Tink Server Flags
-	fs.Register(TinkServerAddrPort, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPort, sc.Config.TinkServer.AddrPort))
-	fs.Register(TinkServerUseTLS, ffval.NewValueDefault(&sc.Config.TinkServer.UseTLS, sc.Config.TinkServer.UseTLS))
-	fs.Register(TinkServerInsecureTLS, ffval.NewValueDefault(&sc.Config.TinkServer.InsecureTLS, sc.Config.TinkServer.InsecureTLS))
 }
 
 // Convert CLI specific fields to smee.Config fields.
@@ -446,17 +452,17 @@ var ISOStaticIPAMEnabled = Config{
 // Tink Server flags.
 var TinkServerAddrPort = Config{
 	Name:  "ipxe-script-tink-server-addr-port",
-	Usage: "[tink] Tink server address and port",
+	Usage: "[ipxe] Tink server address and port",
 }
 
 var TinkServerUseTLS = Config{
 	Name:  "ipxe-script-tink-server-use-tls",
-	Usage: "[tink] Use TLS to connect to the Tink server",
+	Usage: "[ipxe] Use TLS to connect to the Tink server",
 }
 
 var TinkServerInsecureTLS = Config{
 	Name:  "ipxe-script-tink-server-insecure-tls",
-	Usage: "[tink] Skip TLS verification when connecting to the Tink server",
+	Usage: "[ipxe] Skip TLS verification when connecting to the Tink server",
 }
 
 var SmeeLogLevel = Config{
@@ -467,4 +473,9 @@ var SmeeLogLevel = Config{
 var DHCPEnableNetbootOptions = Config{
 	Name:  "dhcp-enable-netboot-options",
 	Usage: "[dhcp] enable sending netboot DHCP options",
+}
+
+var HTTPSBindPort = Config{
+	Name:  "https-bind-port",
+	Usage: "[https] local port to listen on for HTTPS requests",
 }

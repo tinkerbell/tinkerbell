@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -27,7 +29,20 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"github.com/tinkerbell/tinkerbell/tootles"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/credentials"
 	"k8s.io/client-go/rest"
+)
+
+const (
+	defaultRufioMetricsPort          = 8082
+	defaultRufioProbePort            = 8083
+	defaultSecondStarPort            = 2222
+	defaultSmeeHTTPPort              = 7171
+	defaultSmeeHTTPSPort             = 7272
+	defaultTinkControllerMetricsPort = 8080
+	defaultTinkControllerProbePort   = 8081
+	defaultTinkServerPort            = 42113
+	defaultTootlesPort               = 50061
 )
 
 var (
@@ -61,26 +76,26 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
 		DHCPIPXEBinary: flag.URLBuilder{
-			Port: smee.DefaultHTTPPort,
+			Port: defaultSmeeHTTPPort,
 		},
 		DHCPIPXEScript: flag.URLBuilder{
-			Port: smee.DefaultHTTPPort,
+			Port: defaultSmeeHTTPPort,
 		},
 	}
 
 	h := &flag.TootlesConfig{
-		Config:   tootles.NewConfig(tootles.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 50061)),
+		Config:   tootles.NewConfig(tootles.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTootlesPort)),
 		BindAddr: detectPublicIPv4(),
-		BindPort: 50061,
+		BindPort: defaultTootlesPort,
 	}
 	ts := &flag.TinkServerConfig{
 		Config:   server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
 		BindAddr: detectPublicIPv4(),
-		BindPort: 42113,
+		BindPort: defaultTinkServerPort,
 	}
 	controllerOpts := []controller.Option{
-		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8080))),
-		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8081))),
+		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTinkControllerMetricsPort))),
+		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTinkControllerProbePort))),
 		controller.WithEnableLeaderElection(false),
 	}
 	tc := &flag.TinkControllerConfig{
@@ -88,8 +103,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	rufioOpts := []rufio.Option{
-		rufio.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8082))),
-		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8083))),
+		rufio.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultRufioMetricsPort))),
+		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultRufioProbePort))),
 		rufio.WithBmcConnectTimeout(2 * time.Minute),
 		rufio.WithPowerCheckInterval(30 * time.Minute),
 		rufio.WithEnableLeaderElection(false),
@@ -100,7 +115,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	ssc := &flag.SecondStarConfig{
 		Config: &secondstar.Config{
-			SSHPort:      2222,
+			SSHPort:      defaultSecondStarPort,
 			IPMITOOLPath: "/usr/sbin/ipmitool",
 			IdleTimeout:  15 * time.Minute,
 		},
@@ -146,16 +161,54 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return e
 	}
 
+	log := defaultLogger(globals.LogLevel)
+	cliLog := log.WithName("cli")
+	cliLog.Info("starting tinkerbell",
+		"version", build.GitRevision(),
+		"smeeEnabled", globals.EnableSmee,
+		"tootlesEnabled", globals.EnableTootles,
+		"tinkServerEnabled", globals.EnableTinkServer,
+		"tinkControllerEnabled", globals.EnableTinkController,
+		"rufioEnabled", globals.EnableRufio,
+		"secondStarEnabled", globals.EnableSecondStar,
+		"publicIP", globals.PublicIP,
+		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
+		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
+		"globalBindAddress", globals.BindAddr,
+	)
+
 	// Smee
 	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr)
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
 	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
+	// Configure TLS if cert and key files are provided
+	if globals.TLS.CertFile != "" && globals.TLS.KeyFile != "" {
+		// Load the certificates with extensive logging
+		// This key must be of type RSA. iPXE does not support ECDSA keys.
+		cert, err := tls.LoadX509KeyPair(globals.TLS.CertFile, globals.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificates for Smee HTTP: %w", err)
+		}
+		// iPXE only supports using RSA keys for TLS. https://github.com/ipxe/ipxe/issues/1179
+		if _, ok := cert.PrivateKey.(*rsa.PrivateKey); !ok {
+			log.Info("WARNING: iPXE only supports RSA certificates. HTTPS for Smee's iPXE binaries and scripts might not work", "certType", fmt.Sprintf("%T", cert.PrivateKey))
+		}
+		s.Config.TLS.Certs = []tls.Certificate{cert}
+	}
 
 	// Tootles
 	h.Convert(&globals.TrustedProxies, globals.BindAddr)
 
 	// Tink Server
 	ts.Convert(globals.BindAddr)
+	// Configure TLS if cert and key files are provided
+	if globals.TLS.CertFile != "" && globals.TLS.KeyFile != "" {
+		creds, err := credentials.NewServerTLSFromFile(globals.TLS.CertFile, globals.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS credentials for Tink Server gRPC: %w", err)
+		}
+		ts.Config.TLS.Cert = creds
+	}
 
 	// Tink Controller
 	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace)
@@ -178,22 +231,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	if globals.BindAddr.IsValid() {
 		ssc.Config.BindAddr = globals.BindAddr
 	}
-
-	log := defaultLogger(globals.LogLevel)
-	cliLog := log.WithName("cli")
-	cliLog.Info("starting tinkerbell",
-		"version", build.GitRevision(),
-		"smeeEnabled", globals.EnableSmee,
-		"tootlesEnabled", globals.EnableTootles,
-		"tinkServerEnabled", globals.EnableTinkServer,
-		"tinkControllerEnabled", globals.EnableTinkController,
-		"rufioEnabled", globals.EnableRufio,
-		"secondStarEnabled", globals.EnableSecondStar,
-		"publicIP", globals.PublicIP,
-		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
-		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
-		"globalBindAddress", globals.BindAddr,
-	)
 
 	g, ctx := errgroup.WithContext(ctx)
 	// Etcd server

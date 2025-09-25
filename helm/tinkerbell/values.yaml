@@ -38,6 +38,8 @@ deployment:
       otelEndpoint: ""
       otelInsecure: false
       publicIpv4: ""
+      tlsCertFile: ""
+      tlsKeyFile: ""
       trustedProxies: ""
     rufio:
       bmcConnectTimeout: "2m0s"
@@ -59,11 +61,11 @@ deployment:
       dhcpEnabled: true
       dhcpIPForPacket: ""
       dhcpIpxeHttpBinaryHost: ""
-      dhcpIpxeHttpBinaryPath: "/ipxe"
+      dhcpIpxeHttpBinaryPath: "/ipxe/binary"
       dhcpIpxeHttpBinaryPort: 7171
       dhcpIpxeHttpBinaryScheme: "http"
       dhcpIpxeHttpScriptHost: ""
-      dhcpIpxeHttpScriptPath: "auto.ipxe"
+      dhcpIpxeHttpScriptPath: "/ipxe/script/auto.ipxe"
       dhcpIpxeHttpScriptPort: 7171
       dhcpIpxeHttpScriptPrependMac: true
       dhcpIpxeHttpScriptScheme: "http"
@@ -71,6 +73,7 @@ deployment:
       dhcpSyslogIP: ""
       dhcpTftpIP: ""
       dhcpTftpPort: 69
+      httpsBindPort: 7272
       ipxeBinaryInjectMacAddrFormat: "" # one of colon, dot, dash, no-delimiter, empty. defaults to colon when empty.
       ipxeEmbeddedScriptPatch: ""
       ipxeHttpBinaryEnabled: true
@@ -202,6 +205,10 @@ service:
       name: tftp
       port: 69
       protocol: UDP
+    https:
+      name: https
+      port: 7272
+      protocol: TCP
   selector:
     app: tinkerbell
   type: LoadBalancer

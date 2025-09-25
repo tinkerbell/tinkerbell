@@ -2,6 +2,7 @@ package smee
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -17,14 +18,16 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/tinkerbell/tinkerbell/pkg/build"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/server"
+	"github.com/tinkerbell/tinkerbell/smee/internal/http"
 	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/binary"
-	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/http"
 	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/script"
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
@@ -52,12 +55,17 @@ const (
 	DefaultTFFTPPort      = 69
 	DefaultTFFTPBlockSize = 512
 	DefaultTFFTPTimeout   = 10 * time.Second
-
-	DefaultSyslogPort = 514
-
-	DefaultHTTPPort = 7171
-
+	DefaultDHCPPort       = 67
+	DefaultSyslogPort     = 514
+	DefaultHTTPPort       = 7171
+	DefaultHTTPSPort      = 7272
 	DefaultTinkServerPort = 42113
+
+	IPXEBinaryURI  = "/ipxe/binary/"
+	IPXEScriptURI  = "/ipxe/script/"
+	ISOURI         = "/iso/"
+	HealthCheckURI = "/healthcheck"
+	MetricsURI     = "/metrics"
 )
 
 type DHCPMode string
@@ -98,6 +106,15 @@ type Config struct {
 	TFTP TFTP
 	// TinkServer is the configuration for the Tinkerbell server.
 	TinkServer TinkServer
+	// HTTP is the configuration for the HTTP service.
+	HTTP HTTP
+	// TLS is the configuration for TLS.
+	TLS TLS
+}
+
+type HTTP struct {
+	// BindHTTPSPort is the local port to listen on for the HTTPS server.
+	BindHTTPSPort uint16
 }
 
 type Syslog struct {
@@ -208,6 +225,10 @@ type TinkServer struct {
 	AddrPort    string
 }
 
+type TLS struct {
+	Certs []tls.Certificate
+}
+
 // NewConfig is a constructor for the Config struct. It will set default values for the Config struct.
 // Boolean fields are not set-able via c. To set boolean, modify the returned Config struct.
 func NewConfig(c Config, publicIP netip.Addr) *Config {
@@ -217,16 +238,16 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			EnableNetbootOptions: true,
 			Mode:                 DHCPModeReservation,
 			BindAddr:             netip.MustParseAddr("0.0.0.0"),
-			BindPort:             67,
+			BindPort:             DefaultDHCPPort,
 			BindInterface:        "",
 			IPXEHTTPBinaryURL: &url.URL{
 				Scheme: "http",
-				Path:   "/ipxe",
+				Path:   IPXEBinaryURI,
 			},
 			IPXEHTTPScript: IPXEHTTPScript{
 				URL: &url.URL{
 					Scheme: "http",
-					Path:   "auto.ipxe",
+					Path:   path.Join(IPXEScriptURI, "auto.ipxe"),
 				},
 				InjectMacAddress: true,
 			},
@@ -275,6 +296,9 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			Enabled:   true,
 		},
 		TinkServer: TinkServer{},
+		HTTP: HTTP{
+			BindHTTPSPort: DefaultHTTPSPort,
+		},
 	}
 
 	if err := mergo.Merge(defaults, &c, mergo.WithTransformers(&c)); err != nil {
@@ -353,10 +377,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		// 1. data validation
 		// 2. start the http server for ipxe binaries
 		// serve ipxe binaries from the "/ipxe/" URI.
-		handlers["/ipxe/"] = binary.Handler{
-			Log:   log,
-			Patch: []byte(c.IPXE.EmbeddedScriptPatch),
-		}.Handle
+		handlers[IPXEBinaryURI] = binary.Handler{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)}.Handle
 	}
 
 	// http ipxe script
@@ -376,7 +397,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		}
 
 		// serve ipxe script from the "/" URI.
-		handlers["/"] = jh.HandlerFunc()
+		handlers[IPXEScriptURI] = jh.HandlerFunc()
 	}
 
 	if c.ISO.Enabled {
@@ -402,17 +423,22 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if err != nil {
 			return fmt.Errorf("failed to create iso handler: %w", err)
 		}
-		handlers["/iso/"] = isoHandler
+		handlers[ISOURI] = isoHandler
 	}
 
 	if len(handlers) > 0 {
 		// 1. data validation
 		// 2. start the http server for ipxe binaries and scripts
 		// start the http server for ipxe binaries and scripts
+		// Add healthcheck and metrics handlers
+		hc := http.HealthCheck{
+			GitRev:    build.GitRevision(),
+			StartTime: time.Now(),
+		}
+		handlers[HealthCheckURI] = hc.HandlerFunc(log)
+		handlers[MetricsURI] = promhttp.Handler().ServeHTTP
 
-		httpServer := &http.Config{
-			GitRev:         "",
-			StartTime:      time.Now(),
+		httpServer := &http.ConfigHTTP{
 			Logger:         log,
 			TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
 		}
@@ -424,6 +450,19 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		g.Go(func() error {
 			return httpServer.ServeHTTP(ctx, bindAddr.String(), handlers)
 		})
+		// Enable HTTPS/TLS if certificates are provided
+		if len(c.TLS.Certs) > 0 {
+			ap := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, c.HTTP.BindHTTPSPort).String()
+			log.Info("starting https server", "addr", ap, "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
+			g.Go(func() error {
+				hs := &http.ConfigHTTPS{
+					Logger:         log,
+					TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
+					TLSCerts:       c.TLS.Certs,
+				}
+				return hs.ServeHTTPS(ctx, ap, handlers)
+			})
+		}
 	}
 
 	// dhcp serving

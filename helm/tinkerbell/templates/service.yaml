@@ -58,6 +58,12 @@ spec:
     protocol: {{ .Values.service.ports.ssh.protocol }}
     name: {{ .Values.service.ports.ssh.name }}
   {{- end }}
+  {{- if and .Values.deployment.envs.globals.tlsCertFile .Values.deployment.envs.globals.tlsKeyFile }}
+  - port: {{ .Values.service.ports.https.port }}
+    targetPort: {{ .Values.service.ports.https.name }}
+    protocol: {{ .Values.service.ports.https.protocol }}
+    name: {{ .Values.service.ports.https.name }}
+  {{- end }}
   selector:
     {{- with .Values.service.selector }}
     {{- toYaml . | nindent 4 }}

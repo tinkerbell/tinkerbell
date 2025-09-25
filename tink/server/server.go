@@ -13,6 +13,7 @@ import (
 	grpcinternal "github.com/tinkerbell/tinkerbell/tink/server/internal/grpc"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -22,6 +23,7 @@ type Config struct {
 	BindAddrPort netip.AddrPort
 	Logger       logr.Logger
 	Auto         AutoCapabilities
+	TLS          TLS
 }
 
 type AutoCapabilities struct {
@@ -39,6 +41,10 @@ type Discovery struct {
 	Namespace         string
 	EnrollmentEnabled bool
 	Backend           grpcinternal.AutoDiscoveryReadCreator
+}
+
+type TLS struct {
+	Cert credentials.TransportCredentials
 }
 
 // Option is a functional option type.
@@ -79,6 +85,13 @@ func WithLogger(l logr.Logger) Option {
 	}
 }
 
+// WithTLSCert sets the TLS key file for the server.
+func WithTLSCert(cert credentials.TransportCredentials) Option {
+	return func(c *Config) {
+		c.TLS.Cert = cert
+	}
+}
+
 func NewConfig(opts ...Option) *Config {
 	c := &Config{}
 	for _, opt := range opts {
@@ -110,6 +123,9 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.UnaryInterceptor(grpcprometheus.UnaryServerInterceptor),
 		grpc.StreamInterceptor(grpcprometheus.StreamServerInterceptor),
+	}
+	if c.TLS.Cert != nil {
+		params = append(params, grpc.Creds(c.TLS.Cert))
 	}
 
 	// register servers
