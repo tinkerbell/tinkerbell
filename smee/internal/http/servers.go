@@ -92,6 +92,7 @@ func (c *ConfigHTTPS) ServeHTTPS(ctx context.Context, addrPort string, handlers 
 		c.Logger.Info("shutting down https server")
 		_ = server.Shutdown(ctx)
 	}()
+	// Empty strings here make the server use the certificates in TLSConfig.
 	if err := server.ListenAndServeTLS("", ""); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil

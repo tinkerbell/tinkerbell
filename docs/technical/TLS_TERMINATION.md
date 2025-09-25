@@ -13,8 +13,8 @@ The following services support TLS termination:
 1. **Smee HTTP/HTTPS Server**
    - Serves iPXE binaries, scripts, and ISO files over both HTTP and HTTPS
    - Default ports: HTTP (7171), HTTPS (7272)
-   
-2. **Tink gRPC Server**
+
+1. **Tink gRPC Server**
    - Secure gRPC API communications
    - Default port: 42113
 
@@ -126,6 +126,26 @@ The TLS configuration uses TLS 1.2 as the minimum version to ensure security whi
 
 The gRPC server uses the provided TLS certificate for securing communications between Tink Agents and the Tink Server. This enables encrypted communication for all gRPC API calls.
 
+## DNS Configuration for TLS
+
+When using TLS, ensure proper DNS configuration so that clients can connect to Tinkerbell services using the correct domain names. This is critical because TLS certificates are associated with specific domain names.
+
+> [!NOTE]
+> DNS names can be used and configured in Tinkerbell even if you are not terminating TLS in Tinkerbell.
+
+### Configuration Flags
+
+The following CLI flags and environment variables control the DNS name used in serving iPXE scripts and binaries and Tink Agent and Tink Server gRPC communication:
+
+| Flag | Environment Variable | Description | Default | Example |
+| ---- | -------------------- | ----------- | ------- | ------- |
+| `--dhcp-ipxe-http-script-host` | `TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_HOST` | DNS name in DHCP for iPXE scripts | "" | "tinkerbell.example.com" |
+| `--dhcp-ipxe-http-binary-host` | `TINKERBELL_DHCP_IPXE_HTTP_BINARY_HOST` | DNS name in DHCP for iPXE binaries | "" | "tinkerbell.example.com" |
+| `--ipxe-http-script-extra-kernel-args` | `TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS` | Extra kernel arguments for iPXE scripts | "" | "tink_worker_image=ghcr.io/tinkerbell/tink-agent:latest grpc_authority=tinkerbell.example.com:42113" |
+
+> [!NOTE]
+> The `grpc_authority` parameter tells the Tink Agent which hostname and port to use when connecting to the Tink Server. This must match the hostname in your TLS certificate.
+
 ## Using TLS with iPXE
 
 When using iPXE with TLS, consider:
@@ -134,3 +154,4 @@ When using iPXE with TLS, consider:
 2. Set `ipxeScriptTinkServerUseTLS: true` if your Tink server uses TLS
 3. For development environments with self-signed certificates, you may need to set `ipxeScriptTinkServerInsecureTLS: true`
 4. When configuring DHCP to use HTTPS for iPXE scripts, set `dhcpIpxeHttpScriptScheme: "https"` in Helm values or `--dhcp-ipxe-http-script-scheme=https` via CLI
+5. Ensure your DNS configuration properly resolves the hostnames specified in `dhcp-ipxe-http-script-host` and `dhcp-ipxe-http-binary-host`
