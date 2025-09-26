@@ -63,6 +63,7 @@ spec:
         configMap:
           defaultMode: 0700
           name: download-hook
+      hostNetwork: {{ .Values.optional.hookos.hostNetwork }}
       {{- with .Values.optional.hookos.nodeSelector }}
       nodeSelector:
       {{ toYaml . | nindent 8 }}
