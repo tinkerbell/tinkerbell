@@ -233,6 +233,7 @@ optional:
     downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.11.1
     enabled: true
     extension: tar.gz # iso, tar.gz, both
+    hostNetwork: false
     image: nginx:1.27.2
     kernelVersion: both # 5.10, 6.6, both
     name: hookos
