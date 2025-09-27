@@ -13,25 +13,19 @@ var templateFuncs = map[string]interface{}{
 	"netmaskToPrefixLength": netmaskToPrefixLength,
 }
 
-// formatPartition formats a device path with partition for the device type. If it receives an
-// unidentifiable device path it returns the dev.
-//
-// Examples
-//
-//	formatPartition("/dev/nvme0n1", 1) -> /dev/nvme0n1p1
-//	formatPartition("/dev/sda", 1) -> /dev/sda1
-//	formatPartition("/dev/vda", 2) -> /dev/vda2
+// formatPartition formats a device path with partition for the device type.
+// It will never return just the dev.
+// if dev has prefix "/dev/disk/", then partitions are always suffixed "-partX" no matter the device type.
+// otherwise, if dev ends in a digit, then partitions are suffixed with "pX" (e.g. /dev/nvme0n1 -> /dev/nvme0n1p1).
+// otherwise, partitions are suffixed with "X" (e.g. /dev/sda -> /dev/sda1).
 func formatPartition(dev string, partition int) string {
-	switch {
-	case strings.HasPrefix(dev, "/dev/nvme"):
-		return fmt.Sprintf("%vp%v", dev, partition)
-	case strings.HasPrefix(dev, "/dev/sd"),
-		strings.HasPrefix(dev, "/dev/vd"),
-		strings.HasPrefix(dev, "/dev/xvd"),
-		strings.HasPrefix(dev, "/dev/hd"):
-		return fmt.Sprintf("%v%v", dev, partition)
+	if strings.HasPrefix(dev, "/dev/disk/") {
+		return fmt.Sprintf("%v-part%v", dev, partition)
 	}
-	return dev
+	if len(dev) > 0 && dev[len(dev)-1] >= '0' && dev[len(dev)-1] <= '9' {
+		return fmt.Sprintf("%vp%v", dev, partition)
+	}
+	return fmt.Sprintf("%v%v", dev, partition)
 }
 
 // netmaskToPrefixLength converts a netmask (e.g. 255.255.255.0) to prefix length (e.g. 24).
