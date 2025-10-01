@@ -2,6 +2,7 @@ merge_queue:
   max_parallel_checks: 1
 queue_rules:
   - name: default
+    batch_size: 1
     queue_conditions:
       - base=main
       - or:
@@ -16,10 +17,17 @@ queue_rules:
       - label=ready-to-merge
     merge_conditions:
       # Conditions to get out of the queue (= merged)
+      - base=main
+      - or:
+          - "#approved-reviews-by>=1"
+          - author=jacobweinstock
+      - "#changes-requested-reviews-by=0"
       - check-success=DCO
       - check-success=validation
       - check-success=build-binaries (tink-agent, cross-compile-agent, tink-agent-binaries)
       - check-success=build-binaries (tinkerbell, cross-compile, tinkerbell-binaries)
+      - label!=do-not-merge
+      - label=ready-to-merge
     merge_method: merge
     commit_message_template: |
       {{ title }} (#{{ number }})
