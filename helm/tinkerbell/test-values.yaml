@@ -2,6 +2,8 @@ publicIP: "$(HOST_IP)"
 trustedProxies: ["$(HOST_IP)/32"]
 artifactsFileServer: "http://$(HOST_IP):7173"
 deployment:
+  imageTag: latest
+  agentImageTag: latest
   hostNetwork: true
   resources:
     requests: { cpu: "1m", memory: "1Mi" }
