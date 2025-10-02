@@ -47,6 +47,11 @@ spec:
             - {{ . }}
           {{- end }}
           env:
+          # FOR USE WITH hostNetwork: true (AUTO-CONFIGURATION)
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
           # RUFIO
             - name: TINKERBELL_RUFIO_CONTROLLER_ENABLE_LEADER_ELECTION
               value: {{ .Values.deployment.envs.rufio.enableLeaderElection | quote }}
