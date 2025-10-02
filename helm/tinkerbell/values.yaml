@@ -127,7 +127,7 @@ deployment:
   # imageTag is here as a placeholder and to show its possible to be set.
   # It is not set because in the deployment.yaml a coalesce is used with this value
   # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
-  imageTag:
+  imageTag: "latest"
   init:
     enabled: true
     # if `interfaceMode: ipvlan`, then ghcr.io/jacobweinstock/relay-init:v0.1.0 (has nmap and nmap-scripts) is required. Otherwise, alpine can be used. 
