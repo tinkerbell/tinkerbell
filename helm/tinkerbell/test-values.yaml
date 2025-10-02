@@ -1,0 +1,21 @@
+publicIP: "$(HOST_IP)"
+trustedProxies: ["$(HOST_IP)/32"]
+artifactsFileServer: "http://$(HOST_IP):7173"
+deployment:
+  hostNetwork: true
+  resources:
+    requests: { cpu: "1m", memory: "1Mi" }
+  envs:
+    tinkServer:
+      autoDiscoveryAutoEnrollmentEnabled: true
+      autoDiscoveryEnabled: true
+      autoEnrollmentEnabled: true
+    smee:
+      dhcpMode: auto-proxy
+      ipxeHttpScriptBindPort: 8541 
+      dhcpIpxeHttpScriptPort: 8541 
+optional:
+  hookos:
+    hostNetwork: true
+  kubevip:
+    enabled: false
