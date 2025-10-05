@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // MockClient is a mock implementation of the NoCloud Client interface for testing.
@@ -239,7 +239,7 @@ func TestFrontend_networkConfigHandler(t *testing.T) {
 				configItems := config["config"].([]interface{})
 				assert.Len(t, configItems, 1) // fallback DHCP config
 
-				item := configItems[0].(map[interface{}]interface{})
+				item := configItems[0].(map[string]interface{})
 				assert.Equal(t, "physical", item["type"])
 				assert.Equal(t, "eno1", item["name"])
 			},

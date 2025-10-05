@@ -10,7 +10,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/http/httperror"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/http/request"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
