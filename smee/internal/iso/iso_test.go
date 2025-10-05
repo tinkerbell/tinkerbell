@@ -36,9 +36,7 @@ func TestReqPathInvalid(t *testing.T) {
 	for name, tt := range tests {
 		u, _ := url.Parse(tt.isoURL)
 		t.Run(name, func(t *testing.T) {
-			h := &Handler{
-				parsedURL: u,
-			}
+			h := &Handler{}
 			req := http.Request{
 				Method: http.MethodGet,
 				URL:    u,
@@ -126,10 +124,6 @@ menuentry 'LinuxKit ISO Image' {
 
 	// patch the ISO file
 	u := hs.URL + "/output.iso"
-	parsedURL, err := url.Parse(u)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	h := &Handler{
 		Logger:             logr.Discard(),
@@ -139,7 +133,6 @@ menuentry 'LinuxKit ISO Image' {
 		Syslog:             "127.0.0.1:514",
 		TinkServerTLS:      false,
 		TinkServerGRPCAddr: "127.0.0.1:42113",
-		parsedURL:          parsedURL,
 		MagicString:        magicString,
 	}
 	h.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.MagicString))
@@ -191,10 +184,6 @@ func TestRedirectHandling(t *testing.T) {
 
 	// Set up the handler to use the redirect server as the source
 	redirectURL := redirectServer.URL + "/redirect-to-iso"
-	parsedURL, err := url.Parse(redirectURL)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	h := &Handler{
 		Logger:             logr.Discard(),
@@ -204,7 +193,6 @@ func TestRedirectHandling(t *testing.T) {
 		Syslog:             "127.0.0.1:514",
 		TinkServerTLS:      false,
 		TinkServerGRPCAddr: "127.0.0.1:42113",
-		parsedURL:          parsedURL,
 		MagicString:        magicString,
 	}
 	h.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.MagicString))
@@ -280,10 +268,6 @@ func TestMultipleRedirects(t *testing.T) {
 
 	// Set up the handler to use the first redirect server
 	redirectURL := server1.URL + "/redirect1"
-	parsedURL, err := url.Parse(redirectURL)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	h := &Handler{
 		Logger:             logr.Discard(),
@@ -293,7 +277,6 @@ func TestMultipleRedirects(t *testing.T) {
 		Syslog:             "127.0.0.1:514",
 		TinkServerTLS:      false,
 		TinkServerGRPCAddr: "127.0.0.1:42113",
-		parsedURL:          parsedURL,
 		MagicString:        magicString,
 	}
 	h.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.MagicString))
@@ -329,18 +312,154 @@ func TestMultipleRedirects(t *testing.T) {
 
 type mockBackend struct{}
 
-func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *data.Netboot, error) {
+func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error) {
 	d := &data.DHCP{}
 	n := &data.Netboot{
 		Facility: "test",
 	}
-	return d, n, nil
+	return data.Hardware{
+		DHCP:    d,
+		Netboot: n,
+	}, nil
 }
 
-func (m *mockBackend) GetByIP(context.Context, net.IP) (*data.DHCP, *data.Netboot, error) {
+func (m *mockBackend) GetByIP(context.Context, net.IP) (data.Hardware, error) {
 	d := &data.DHCP{}
 	n := &data.Netboot{
 		Facility: "test",
 	}
-	return d, n, nil
+	return data.Hardware{
+		DHCP:    d,
+		Netboot: n,
+	}, nil
+}
+
+func TestGetTargetURL(t *testing.T) {
+	tests := []struct {
+		name          string
+		defaultISO    string
+		queryParam    string
+		expectedURL   string
+		expectedError bool
+	}{
+		{
+			name:          "Query parameter with valid HTTP URL",
+			defaultISO:    "http://default.com/default.iso",
+			queryParam:    "http://example.com/hook.iso",
+			expectedURL:   "http://example.com/hook.iso",
+			expectedError: false,
+		},
+		{
+			name:          "Query parameter with valid HTTPS URL",
+			defaultISO:    "http://default.com/default.iso",
+			queryParam:    "https://secure.example.com/hook.iso",
+			expectedURL:   "https://secure.example.com/hook.iso",
+			expectedError: false,
+		},
+		{
+			name:          "No query parameter, use default",
+			defaultISO:    "http://default.com/default.iso",
+			queryParam:    "",
+			expectedURL:   "http://default.com/default.iso",
+			expectedError: false,
+		},
+		{
+			name:          "Invalid scheme in query parameter",
+			defaultISO:    "http://default.com/default.iso",
+			queryParam:    "ftp://example.com/hook.iso",
+			expectedURL:   "",
+			expectedError: true,
+		},
+		{
+			name:          "Invalid URL format in query parameter",
+			defaultISO:    "http://default.com/default.iso",
+			queryParam:    "not-a-valid-url",
+			expectedURL:   "",
+			expectedError: true,
+		},
+		{
+			name:          "No default and no query parameter",
+			defaultISO:    "",
+			queryParam:    "",
+			expectedURL:   "",
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &Handler{}
+
+			// Set up default SourceISO if provided
+			if tt.defaultISO != "" {
+				h.SourceISO = tt.defaultISO
+				_, err := url.Parse(tt.defaultISO)
+				if err != nil {
+					t.Fatalf("Failed to parse default ISO URL: %v", err)
+				}
+			}
+
+			// Create request with query parameter
+			req, err := http.NewRequest("GET", "http://localhost/mac-address/file.iso", nil)
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
+			}
+
+			if tt.queryParam != "" {
+				q := req.URL.Query()
+				q.Set("sourceISO", tt.queryParam)
+				req.URL.RawQuery = q.Encode()
+			}
+
+			// Test getTargetURL method
+			targetURL, err := getTargetURL(req, h.SourceISO, "")
+
+			if tt.expectedError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if targetURL.String() != tt.expectedURL {
+				t.Errorf("Expected URL %s, got %s", tt.expectedURL, targetURL.String())
+			}
+		})
+	}
+}
+
+func TestGetTargetURLConcurrency(t *testing.T) {
+	h := &Handler{
+		SourceISO: "http://default.com/default.iso",
+	}
+
+	// Test concurrent access to ensure thread safety
+	done := make(chan bool, 10) // Buffered channel to prevent blocking
+	for i := 0; i < 10; i++ {
+		go func(id int) {
+			req, _ := http.NewRequest("GET", "http://localhost/mac-address/file.iso", nil)
+			if id%2 == 0 {
+				// Half the requests use query parameter
+				q := req.URL.Query()
+				q.Set("sourceISO", "http://concurrent-test.com/test.iso")
+				req.URL.RawQuery = q.Encode()
+			}
+
+			_, err := getTargetURL(req, h.SourceISO, "")
+			if err != nil {
+				t.Errorf("Concurrent request %d failed: %v", id, err)
+			}
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	for i := 0; i < 10; i++ {
+		<-done
+	}
 }

@@ -103,7 +103,7 @@ func NewWatcher(l logr.Logger, f string) (*Watcher, error) {
 
 // GetByMac is the implementation of the Backend interface.
 // It reads a given file from the in memory data (w.data).
-func (w *Watcher) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHCP, *data.Netboot, error) {
+func (w *Watcher) GetByMac(ctx context.Context, mac net.HardwareAddr) (data.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	_, span := tracer.Start(ctx, "backend.file.GetByMac")
 	defer span.End()
@@ -118,7 +118,7 @@ func (w *Watcher) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHC
 		w.Log.Error(err, "failed to unmarshal file data")
 		span.SetStatus(codes.Error, err.Error())
 
-		return nil, nil, err
+		return data.Hardware{}, err
 	}
 	for k, v := range r {
 		if strings.EqualFold(k, mac.String()) {
@@ -128,25 +128,25 @@ func (w *Watcher) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHC
 			if err != nil {
 				span.SetStatus(codes.Error, err.Error())
 
-				return nil, nil, err
+				return data.Hardware{}, err
 			}
 			span.SetAttributes(d.EncodeToAttributes()...)
 			span.SetAttributes(n.EncodeToAttributes()...)
 			span.SetStatus(codes.Ok, "")
 
-			return d, n, nil
+			return data.Hardware{DHCP: d, Netboot: n}, nil
 		}
 	}
 
 	err := fmt.Errorf("%w: %s", errRecordNotFound, mac.String())
 	span.SetStatus(codes.Error, err.Error())
 
-	return nil, nil, err
+	return data.Hardware{}, err
 }
 
 // GetByIP is the implementation of the Backend interface.
 // It reads a given file from the in memory data (w.data).
-func (w *Watcher) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Netboot, error) {
+func (w *Watcher) GetByIP(ctx context.Context, ip net.IP) (data.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	_, span := tracer.Start(ctx, "backend.file.GetByIP")
 	defer span.End()
@@ -161,7 +161,7 @@ func (w *Watcher) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 		w.Log.Error(err, "failed to unmarshal file data")
 		span.SetStatus(codes.Error, err.Error())
 
-		return nil, nil, err
+		return data.Hardware{}, err
 	}
 	for k, v := range r {
 		if v.IPAddress == ip.String() {
@@ -173,27 +173,27 @@ func (w *Watcher) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 				w.Log.Error(err, "failed to parse mac address")
 				span.SetStatus(codes.Error, err.Error())
 
-				return nil, nil, err
+				return data.Hardware{}, err
 			}
 			v.MACAddress = mac
 			d, n, err := w.translate(v)
 			if err != nil {
 				span.SetStatus(codes.Error, err.Error())
 
-				return nil, nil, err
+				return data.Hardware{}, err
 			}
 			span.SetAttributes(d.EncodeToAttributes()...)
 			span.SetAttributes(n.EncodeToAttributes()...)
 			span.SetStatus(codes.Ok, "")
 
-			return d, n, nil
+			return data.Hardware{DHCP: d, Netboot: n}, nil
 		}
 	}
 
 	err := fmt.Errorf("%w: %s", errRecordNotFound, ip.String())
 	span.SetStatus(codes.Error, err.Error())
 
-	return nil, nil, err
+	return data.Hardware{}, err
 }
 
 // Start starts watching a file for changes and updates the in memory data (w.data) on changes.
