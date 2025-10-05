@@ -176,18 +176,18 @@ func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*data.
 	ctx, span := tracer.Start(ctx, "Hardware data get")
 	defer span.End()
 
-	d, n, err := h.Backend.GetByMac(ctx, mac)
+	hw, err := h.Backend.GetByMac(ctx, mac)
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 
 		return nil, nil, err
 	}
 
-	span.SetAttributes(d.EncodeToAttributes()...)
-	span.SetAttributes(n.EncodeToAttributes()...)
+	span.SetAttributes(hw.DHCP.EncodeToAttributes()...)
+	span.SetAttributes(hw.Netboot.EncodeToAttributes()...)
 	span.SetStatus(codes.Ok, "done reading from backend")
 
-	return d, n, nil
+	return hw.DHCP, hw.Netboot, nil
 }
 
 // updateMsg handles updating DHCP packets with the data from the backend.

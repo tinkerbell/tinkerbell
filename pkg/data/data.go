@@ -10,6 +10,13 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// Hardware is the combination of structs that hold all the data about a piece of hardware.
+type Hardware struct {
+	DHCP    *DHCP
+	Netboot *Netboot
+	ISOBoot *Isoboot
+}
+
 // DHCP holds the DHCP headers and options to be set in a DHCP handler response.
 // This is the API between a DHCP handler and a backend.
 type DHCP struct {
@@ -41,6 +48,14 @@ type Netboot struct {
 	Console       string
 	Facility      string
 	OSIE          OSIE
+}
+
+// Isoboot holds info used in booting a client using an ISO image.
+type Isoboot struct {
+	// SourceISO is the source url where HookOS, an Operating System Installation Environment (OSIE), ISO lives.
+	// It must be a valid url.URL{} object and must have a url.URL{}.Scheme of HTTP or HTTPS.
+	//+optional
+	SourceISO *url.URL
 }
 
 // OSIE or OS Installation Environment is the data about where the OSIE parts are located.

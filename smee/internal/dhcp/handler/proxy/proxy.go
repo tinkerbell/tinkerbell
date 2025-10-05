@@ -43,8 +43,8 @@ const tracerName = "github.com/tinkerbell/tinkerbell/smee/dhcp/handler/proxy"
 type BackendReader interface {
 	// Read data (from a backend) based on a mac address
 	// and return DHCP headers and options, including netboot info.
-	GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *data.Netboot, error)
-	GetByIP(context.Context, net.IP) (*data.DHCP, *data.Netboot, error)
+	GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error)
+	GetByIP(context.Context, net.IP) (data.Hardware, error)
 }
 
 // Handler holds the configuration details for the running the DHCP server.
@@ -204,21 +204,21 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	// setSNAME(reply, dp.Pkt.GetOneOption(dhcpv4.OptionClassIdentifier), h.Netboot.IPXEBinServerTFTP.Addr().AsSlice(), net.ParseIP(h.Netboot.IPXEBinServerHTTP.Hostname()))
 
 	// check the backend, if PXE is NOT allowed, set the boot file name to "/<mac address>/not-allowed"
-	_, n, err := h.Backend.GetByMac(ctx, dp.Pkt.ClientHWAddr)
+	hw, err := h.Backend.GetByMac(ctx, dp.Pkt.ClientHWAddr)
 	if err != nil && !h.AutoProxyEnabled {
 		log.Info("Ignoring packet", "error", err.Error())
 		span.SetStatus(codes.Error, err.Error())
 		return
 	}
 	// If we have a Hardware object, check if there is a custom iPXE binary defined.
-	if n != nil && n.IPXEBinary != "" {
-		i.IPXEBinary = n.IPXEBinary
+	if hw.Netboot != nil && hw.Netboot.IPXEBinary != "" {
+		i.IPXEBinary = hw.Netboot.IPXEBinary
 	}
 
 	// set bootfile header
 	// TODO(jacobweinstock): plum through the custom user class.
 	reply.BootFileName = i.Bootfile("", h.Netboot.IPXEScriptURL(dp.Pkt), h.Netboot.IPXEBinServerHTTP, h.Netboot.IPXEBinServerTFTP)
-	if n != nil && !n.AllowNetboot {
+	if hw.Netboot != nil && !hw.Netboot.AllowNetboot {
 		// if the netboot is not allowed, set the boot file name to "/<mac address>/netboot-not-allowed"
 		// this follows the same pattern and keeps the same user experience as the reservation handler.
 		reply.BootFileName = fmt.Sprintf("/%s/netboot-not-allowed", dp.Pkt.ClientHWAddr.String())

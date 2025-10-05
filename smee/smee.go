@@ -39,8 +39,8 @@ import (
 type BackendReader interface {
 	// Read data (from a backend) based on a mac address
 	// and return DHCP headers and options, including netboot info.
-	GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *data.Netboot, error)
-	GetByIP(context.Context, net.IP) (*data.DHCP, *data.Netboot, error)
+	GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error)
+	GetByIP(context.Context, net.IP) (data.Hardware, error)
 }
 
 const (
