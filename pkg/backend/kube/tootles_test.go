@@ -62,9 +62,9 @@ func TestGenerateBondParameters(t *testing.T) {
 			name: "mode 2 - balance-xor",
 			mode: 2,
 			expected: map[string]interface{}{
-				"bond-mode":              "balance-xor",
-				"bond-miimon":            100,
-				"bond-xmit_hash_policy":  "layer2",
+				"bond-mode":             "balance-xor",
+				"bond-miimon":           100,
+				"bond-xmit_hash_policy": "layer2",
 			},
 		},
 		{
@@ -99,8 +99,8 @@ func TestGenerateBondParameters(t *testing.T) {
 			name: "mode 6 - balance-alb",
 			mode: 6,
 			expected: map[string]interface{}{
-				"bond-mode":            "balance-alb",
-				"bond-miimon":          100,
+				"bond-mode":             "balance-alb",
+				"bond-miimon":           100,
 				"bond-rlb_update_delay": 0,
 			},
 		},
@@ -233,8 +233,8 @@ func TestGenerateSubnetsFromIPs(t *testing.T) {
 			},
 		},
 		{
-			name:     "No IPs - fallback to DHCP",
-			ips:      []*tinkerbell.MetadataInstanceIP{},
+			name: "No IPs - fallback to DHCP",
+			ips:  []*tinkerbell.MetadataInstanceIP{},
 			expected: []interface{}{
 				map[string]interface{}{"type": "dhcp"},
 				map[string]interface{}{"type": "dhcp6"},
