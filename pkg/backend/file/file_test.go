@@ -344,7 +344,7 @@ func TestGetByMac(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _, err = w.GetByMac(context.Background(), tt.mac)
+			_, err = w.GetByMac(context.Background(), tt.mac)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatal(err)
 			}
@@ -378,7 +378,7 @@ func TestGetByIP(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _, err = w.GetByIP(context.Background(), tt.ip)
+			_, err = w.GetByIP(context.Background(), tt.ip)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatal(err)
 			}

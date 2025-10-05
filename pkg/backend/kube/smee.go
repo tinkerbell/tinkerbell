@@ -18,7 +18,7 @@ import (
 )
 
 // GetByMac implements the handler.BackendReader interface and returns DHCP and netboot data based on a mac address.
-func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHCP, *data.Netboot, error) {
+func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (data.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "backend.kube.GetByMac")
 	defer span.End()
@@ -27,21 +27,21 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHC
 	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{MACAddrIndex: mac.String()}); err != nil {
 		span.SetStatus(codes.Error, err.Error())
 
-		return nil, nil, fmt.Errorf("failed listing hardware for (%v): %w", mac, err)
+		return data.Hardware{}, fmt.Errorf("failed listing hardware for (%v): %w", mac, err)
 	}
 
 	if len(hardwareList.Items) == 0 {
 		err := hardwareNotFoundError{name: mac.String(), namespace: ternary(b.Namespace == "", "all namespaces", b.Namespace)}
 		span.SetStatus(codes.Error, err.Error())
 
-		return nil, nil, err
+		return data.Hardware{}, err
 	}
 
 	if len(hardwareList.Items) > 1 {
 		err := fmt.Errorf("got %d hardware objects for mac %s, expected only 1", len(hardwareList.Items), mac)
 		span.SetStatus(codes.Error, err.Error())
 
-		return nil, nil, err
+		return data.Hardware{}, err
 	}
 
 	i := v1alpha1.Interface{}
@@ -56,14 +56,26 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (*data.DHC
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 
-		return nil, nil, err
+		return data.Hardware{}, err
+	}
+
+	result := data.Hardware{DHCP: d, Netboot: n}
+
+	if i.Isoboot != nil && i.Isoboot.SourceISO != "" {
+		si, err := url.Parse(i.Isoboot.SourceISO)
+		if err != nil {
+			span.SetStatus(codes.Error, err.Error())
+
+			return data.Hardware{}, fmt.Errorf("failed to parse source ISO as a URL %q: %w", i.Isoboot.SourceISO, err)
+		}
+		result.ISOBoot = &data.Isoboot{SourceISO: si}
 	}
 
 	span.SetAttributes(d.EncodeToAttributes()...)
 	span.SetAttributes(n.EncodeToAttributes()...)
 	span.SetStatus(codes.Ok, "")
 
-	return d, n, nil
+	return result, nil
 }
 
 func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {
@@ -74,7 +86,7 @@ func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {
 }
 
 // GetByIP implements the handler.BackendReader interface and returns DHCP and netboot data based on an IP address.
-func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Netboot, error) {
+func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (data.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "backend.kube.GetByIP")
 	defer span.End()
@@ -83,21 +95,21 @@ func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{IPAddrIndex: ip.String()}); err != nil {
 		span.SetStatus(codes.Error, err.Error())
 
-		return nil, nil, fmt.Errorf("failed listing hardware for (%v): %w", ip, err)
+		return data.Hardware{}, fmt.Errorf("failed listing hardware for (%v): %w", ip, err)
 	}
 
 	if len(hardwareList.Items) == 0 {
 		err := hardwareNotFoundError{name: ip.String(), namespace: ternary(b.Namespace == "", "all namespaces", b.Namespace)}
 		span.SetStatus(codes.Error, err.Error())
 
-		return nil, nil, err
+		return data.Hardware{}, err
 	}
 
 	if len(hardwareList.Items) > 1 {
 		err := fmt.Errorf("got %d hardware objects for ip: %s, expected only 1", len(hardwareList.Items), ip)
 		span.SetStatus(codes.Error, err.Error())
 
-		return nil, nil, err
+		return data.Hardware{}, err
 	}
 
 	i := v1alpha1.Interface{}
@@ -112,14 +124,14 @@ func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (*data.DHCP, *data.Net
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 
-		return nil, nil, err
+		return data.Hardware{}, err
 	}
 
 	span.SetAttributes(d.EncodeToAttributes()...)
 	span.SetAttributes(n.EncodeToAttributes()...)
 	span.SetStatus(codes.Ok, "")
 
-	return d, n, nil
+	return data.Hardware{DHCP: d, Netboot: n}, nil
 }
 
 // toDHCPData converts a v1alpha1.DHCP to a data.DHCP data structure.
