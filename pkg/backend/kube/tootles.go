@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -165,7 +166,8 @@ func generateNetworkConfig(hw v1alpha1.Hardware) interface{} {
 	case len(hw.Spec.Interfaces) == 0:
 		// No interfaces defined - generate fallback configuration
 		if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil && len(hw.Spec.Metadata.Instance.Ips) > 0 {
-			configSlice = append(configSlice, generatePhysicalInterfaceWithIPs(hw.Spec.Metadata.Instance.Ips))
+			ipv4DNS, ipv6DNS := getNameServers(hw)
+			configSlice = append(configSlice, generatePhysicalInterfaceWithIPs(hw.Spec.Metadata.Instance.Ips, ipv4DNS, ipv6DNS))
 		} else {
 			// Fallback to basic DHCP configuration
 			configSlice = append(configSlice, map[string]interface{}{
@@ -183,20 +185,34 @@ func generateNetworkConfig(hw v1alpha1.Hardware) interface{} {
 		configSlice = generatePhysicalInterfaceConfiguration(hw)
 	}
 
-	// Add DNS configuration
-	dnsConfig := map[string]interface{}{
-		"type": "nameserver",
-		"address": []string{
-			"8.8.8.8",
-			"8.8.4.4",
-			"2001:4860:4860::8888",
-			"2001:4860:4860::8844",
-		},
-	}
-	configSlice = append(configSlice, dnsConfig)
-
 	config["config"] = configSlice
 	return config
+}
+
+// getNameServers extracts nameservers from Hardware interfaces.
+// Returns IPv4 and IPv6 nameservers separately, with fallback to Google DNS for IPv4 only.
+func getNameServers(hw v1alpha1.Hardware) (ipv4DNS []string, ipv6DNS []string) {
+	// Try to get nameservers from the first interface with DHCP config
+	for _, iface := range hw.Spec.Interfaces {
+		if iface.DHCP != nil && len(iface.DHCP.NameServers) > 0 {
+			// Separate IPv4 and IPv6 nameservers
+			for _, ns := range iface.DHCP.NameServers {
+				if strings.Contains(ns, ":") {
+					ipv6DNS = append(ipv6DNS, ns)
+				} else {
+					ipv4DNS = append(ipv4DNS, ns)
+				}
+			}
+			break
+		}
+	}
+
+	// Fallback to Google DNS only for IPv4 if no nameservers found
+	if len(ipv4DNS) == 0 {
+		ipv4DNS = []string{"8.8.8.8", "8.8.4.4"}
+	}
+
+	return ipv4DNS, ipv6DNS
 }
 
 // generateBondingConfiguration creates bonding configuration from Hardware resource.
@@ -234,7 +250,8 @@ func generateBondingConfiguration(hw v1alpha1.Hardware) []interface{} {
 
 	// Add IP configuration to bond
 	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil && len(hw.Spec.Metadata.Instance.Ips) > 0 {
-		bondConfig["subnets"] = generateSubnetsFromIPs(hw.Spec.Metadata.Instance.Ips)
+		ipv4DNS, ipv6DNS := getNameServers(hw)
+		bondConfig["subnets"] = generateSubnetsFromIPs(hw.Spec.Metadata.Instance.Ips, ipv4DNS, ipv6DNS)
 	} else {
 		// Default to DHCP if no static IPs
 		bondConfig["subnets"] = []interface{}{
@@ -286,7 +303,8 @@ func generatePhysicalInterfaceConfiguration(hw v1alpha1.Hardware) []interface{} 
 
 	// If we have metadata IPs, try to create static configuration for the first interface
 	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil && len(hw.Spec.Metadata.Instance.Ips) > 0 {
-		staticConfig := generateStaticNetworkConfig(hw.Spec.Metadata.Instance.Ips)
+		ipv4DNS, ipv6DNS := getNameServers(hw)
+		staticConfig := generateStaticNetworkConfig(hw.Spec.Metadata.Instance.Ips, ipv4DNS, ipv6DNS)
 		if staticConfig != nil {
 			// Replace the first interface with static configuration
 			if len(configSlice) > 0 {
@@ -338,7 +356,7 @@ func generateBondParameters(bondingMode int64) map[string]interface{} {
 }
 
 // generateSubnetsFromIPs creates subnet configuration from IP metadata.
-func generateSubnetsFromIPs(ips []*v1alpha1.MetadataInstanceIP) []interface{} {
+func generateSubnetsFromIPs(ips []*v1alpha1.MetadataInstanceIP, ipv4DNS []string, ipv6DNS []string) []interface{} {
 	subnets := []interface{}{}
 
 	for _, ip := range ips {
@@ -351,7 +369,9 @@ func generateSubnetsFromIPs(ips []*v1alpha1.MetadataInstanceIP) []interface{} {
 			if ip.Gateway != "" {
 				subnet["gateway"] = ip.Gateway
 			}
-			subnet["dns_nameservers"] = []string{"8.8.8.8", "8.8.4.4"}
+			if len(ipv4DNS) > 0 {
+				subnet["dns_nameservers"] = ipv4DNS
+			}
 			subnets = append(subnets, subnet)
 		case 6:
 			subnet := map[string]interface{}{
@@ -361,7 +381,9 @@ func generateSubnetsFromIPs(ips []*v1alpha1.MetadataInstanceIP) []interface{} {
 			if ip.Gateway != "" {
 				subnet["gateway"] = ip.Gateway
 			}
-			subnet["dns_nameservers"] = []string{"2001:4860:4860::8888"}
+			if len(ipv6DNS) > 0 {
+				subnet["dns_nameservers"] = ipv6DNS
+			}
 			subnets = append(subnets, subnet)
 		}
 	}
@@ -376,7 +398,7 @@ func generateSubnetsFromIPs(ips []*v1alpha1.MetadataInstanceIP) []interface{} {
 }
 
 // generatePhysicalInterfaceWithIPs creates a basic physical interface with IP configuration.
-func generatePhysicalInterfaceWithIPs(ips []*v1alpha1.MetadataInstanceIP) map[string]interface{} {
+func generatePhysicalInterfaceWithIPs(ips []*v1alpha1.MetadataInstanceIP, ipv4DNS []string, ipv6DNS []string) map[string]interface{} {
 	physicalConfig := map[string]interface{}{
 		"type": "physical",
 		"name": "eno1",
@@ -396,7 +418,9 @@ func generatePhysicalInterfaceWithIPs(ips []*v1alpha1.MetadataInstanceIP) map[st
 			if ip.Gateway != "" {
 				subnet["gateway"] = ip.Gateway
 			}
-			subnet["dns_nameservers"] = []string{"8.8.8.8", "8.8.4.4"}
+			if len(ipv4DNS) > 0 {
+				subnet["dns_nameservers"] = ipv4DNS
+			}
 			subnets = append(subnets, subnet)
 		case 6:
 			subnet := map[string]interface{}{
@@ -406,7 +430,9 @@ func generatePhysicalInterfaceWithIPs(ips []*v1alpha1.MetadataInstanceIP) map[st
 			if ip.Gateway != "" {
 				subnet["gateway"] = ip.Gateway
 			}
-			subnet["dns_nameservers"] = []string{"2001:4860:4860::8888"}
+			if len(ipv6DNS) > 0 {
+				subnet["dns_nameservers"] = ipv6DNS
+			}
 			subnets = append(subnets, subnet)
 		}
 	}
@@ -423,7 +449,7 @@ func generatePhysicalInterfaceWithIPs(ips []*v1alpha1.MetadataInstanceIP) map[st
 }
 
 // generateStaticNetworkConfig creates static network configuration from metadata IPs.
-func generateStaticNetworkConfig(ips []*v1alpha1.MetadataInstanceIP) map[string]interface{} {
+func generateStaticNetworkConfig(ips []*v1alpha1.MetadataInstanceIP, ipv4DNS []string, ipv6DNS []string) map[string]interface{} {
 	if len(ips) == 0 {
 		return nil
 	}
@@ -446,7 +472,9 @@ func generateStaticNetworkConfig(ips []*v1alpha1.MetadataInstanceIP) map[string]
 			if ip.Gateway != "" {
 				subnet["gateway"] = ip.Gateway
 			}
-			subnet["dns_nameservers"] = []string{"8.8.8.8", "8.8.4.4"}
+			if len(ipv4DNS) > 0 {
+				subnet["dns_nameservers"] = ipv4DNS
+			}
 			subnets = append(subnets, subnet)
 		case 6:
 			subnet := map[string]interface{}{
@@ -456,7 +484,9 @@ func generateStaticNetworkConfig(ips []*v1alpha1.MetadataInstanceIP) map[string]
 			if ip.Gateway != "" {
 				subnet["gateway"] = ip.Gateway
 			}
-			subnet["dns_nameservers"] = []string{"2001:4860:4860::8888"}
+			if len(ipv6DNS) > 0 {
+				subnet["dns_nameservers"] = ipv6DNS
+			}
 			subnets = append(subnets, subnet)
 		}
 	}
