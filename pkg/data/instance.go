@@ -42,6 +42,14 @@ type LicenseActivation struct {
 	State string
 }
 
+// NoCloudInstance is a struct that contains the hardware data exposed from the NoCloud API endpoints.
+// It supports network bonding and IPv6 configuration for bare metal servers.
+type NoCloudInstance struct {
+	Userdata      string
+	Metadata      Metadata
+	NetworkConfig interface{} // YAML network configuration data
+}
+
 // Instance is a representation of the instance metadata. Its based on the rooitio hub action
 // and should have just enough information for it to work.
 type HackInstance struct {
