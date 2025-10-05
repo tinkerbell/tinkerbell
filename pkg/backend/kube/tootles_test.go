@@ -398,6 +398,7 @@ func TestGenerateNetworkConfig(t *testing.T) {
 				},
 			},
 			validate: func(t *testing.T, result interface{}) {
+				t.Helper()
 				config := result.(map[string]interface{})
 				assert.Equal(t, 1, config["version"])
 				configSlice := config["config"].([]interface{})
@@ -422,6 +423,7 @@ func TestGenerateNetworkConfig(t *testing.T) {
 				},
 			},
 			validate: func(t *testing.T, result interface{}) {
+				t.Helper()
 				config := result.(map[string]interface{})
 				assert.Equal(t, 1, config["version"])
 				configSlice := config["config"].([]interface{})
@@ -434,6 +436,7 @@ func TestGenerateNetworkConfig(t *testing.T) {
 				Spec: tinkerbell.HardwareSpec{},
 			},
 			validate: func(t *testing.T, result interface{}) {
+				t.Helper()
 				config := result.(map[string]interface{})
 				assert.Equal(t, 1, config["version"])
 				configSlice := config["config"].([]interface{})
