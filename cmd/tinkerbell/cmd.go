@@ -247,6 +247,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		s.Config.Backend = b
 		h.Config.BackendEc2 = b
 		h.Config.BackendHack = b
+		h.Config.BackendNoCloud = b
 		ts.Config.Backend = b
 		ts.Config.Auto.Enrollment.Backend = b
 		ts.Config.Auto.Discovery.Backend = b
@@ -265,6 +266,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		s.Config.Backend = b
 		h.Config.BackendEc2 = b
 		h.Config.BackendHack = b
+		h.Config.BackendNoCloud = b
 	case "pass":
 	default:
 		return fmt.Errorf("unknown backend %q", globals.Backend)
