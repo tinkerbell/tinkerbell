@@ -71,23 +71,24 @@ type KernelParams struct {
 // HandlerFunc returns a reverse proxy HTTP handler function that performs ISO patching.
 func (h *Handler) HandlerFunc() (http.HandlerFunc, error) {
 	// Parse and validate the default SourceISO.
-	target := &url.URL{}
+	defaultSourceISO := &url.URL{}
 	if h.Patch.SourceISO != "" {
-		target, err := url.Parse(h.Patch.SourceISO)
+		t, err := url.Parse(h.Patch.SourceISO)
 		if err != nil {
 			return nil, err
 		}
-		if _, err := validateURL(target); err != nil {
-			return nil, fmt.Errorf("unsupported scheme in SourceISO: %s (only http and https are supported)", target.Scheme)
+		if _, err := validateURL(t); err != nil {
+			return nil, fmt.Errorf("unsupported scheme in SourceISO: %s (only http and https are supported)", t.Scheme)
 		}
+		defaultSourceISO = t
 	}
 
 	proxy := &internal.ReverseProxy{
 		Rewrite: func(pr *internal.ProxyRequest) {
-			tu, err := targetURL(pr.In.URL.Query().Get(queryParamSourceISO), "", target.String())
+			tu, err := targetURL(pr.In.URL.Query().Get(queryParamSourceISO), "", defaultSourceISO.String())
 			if err != nil {
-				pr.SetURL(target)
-				h.Logger.Error(err, "error parsing target URL, using default SourceISO", "defaultSourceISO", target.String(), queryParamSourceISO, pr.In.URL.Query().Get(queryParamSourceISO))
+				pr.SetURL(defaultSourceISO)
+				h.Logger.Error(err, "error parsing target URL from query parameter, using default SourceISO", "defaultSourceISO", defaultSourceISO.String(), queryParamSourceISO, pr.In.URL.Query().Get(queryParamSourceISO))
 				return
 			}
 			pr.SetURL(tu)
