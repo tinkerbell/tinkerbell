@@ -107,61 +107,23 @@ func TestNetmaskToPrefixLength(t *testing.T) {
 
 func TestFormatPartition(t *testing.T) {
 	tests := []struct {
-		name      string
 		dev       string
 		partition int
-		want      string
+		expect    string
 	}{
-		{
-			name:      "nvme device partition 1",
-			dev:       "/dev/nvme0n1",
-			partition: 1,
-			want:      "/dev/nvme0n1p1",
-		},
-		{
-			name:      "nvme device partition 2",
-			dev:       "/dev/nvme0n1",
-			partition: 2,
-			want:      "/dev/nvme0n1p2",
-		},
-		{
-			name:      "sda device partition 1",
-			dev:       "/dev/sda",
-			partition: 1,
-			want:      "/dev/sda1",
-		},
-		{
-			name:      "vda device partition 1",
-			dev:       "/dev/vda",
-			partition: 1,
-			want:      "/dev/vda1",
-		},
-		{
-			name:      "xvda device partition 1",
-			dev:       "/dev/xvda",
-			partition: 1,
-			want:      "/dev/xvda1",
-		},
-		{
-			name:      "hda device partition 1",
-			dev:       "/dev/hda",
-			partition: 1,
-			want:      "/dev/hda1",
-		},
-		{
-			name:      "unknown device returns unchanged",
-			dev:       "/dev/unknown",
-			partition: 1,
-			want:      "/dev/unknown",
-		},
+		{"/dev/disk/by-id/foobar", 1, "/dev/disk/by-id/foobar-part1"},
+		{"/dev/disk/other", 2, "/dev/disk/other-part2"},
+		{"/dev/nvme0n1", 1, "/dev/nvme0n1p1"},
+		{"/dev/nvme0n1", 5, "/dev/nvme0n1p5"},
+		{"/dev/sda", 1, "/dev/sda1"},
+		{"/dev/sda", 2, "/dev/sda2"},
+		{"/dev/loop0", 3, "/dev/loop0p3"},
+		{"/dev/loop", 4, "/dev/loop4"},
 	}
-
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatPartition(tt.dev, tt.partition)
-			if got != tt.want {
-				t.Errorf("formatPartition() = %v, want %v", got, tt.want)
-			}
-		})
+		got := formatPartition(tt.dev, tt.partition)
+		if got != tt.expect {
+			t.Errorf("formatPartition(%q, %d) = %q, want %q", tt.dev, tt.partition, got, tt.expect)
+		}
 	}
 }
