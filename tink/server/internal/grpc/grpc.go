@@ -92,6 +92,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		return nil, status.Errorf(codes.InvalidArgument, "invalid Agent ID")
 	}
 
+	// hwRef is used in auto discovery and enrollment to avoid multiple lookups of the Hardware object.
 	var hwRef *tinkerbell.Hardware
 	// handle auto discovery
 	if opts.AutoCapabilities.Discovery.Enabled {
@@ -101,7 +102,9 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		hw, err := h.Discover(ctx, req.GetAgentId(), convert(req.GetAgentAttributes()))
 		if err != nil {
 			journal.Log(ctx, "error auto discovering Hardware", "error", err)
-			return nil, status.Errorf(codes.Internal, "error auto discovering Hardware: %v", err)
+			log.Error(err, "error auto discovering Hardware")
+			hw = hwRef
+			// We don't return the error here as we don't want to disrupt any Workflows from running.
 		}
 		hwRef = hw
 	}
