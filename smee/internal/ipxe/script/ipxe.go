@@ -24,8 +24,8 @@ import (
 type BackendReader interface {
 	// Read data (from a backend) based on a mac address
 	// and return DHCP headers and options, including netboot info.
-	GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *data.Netboot, error)
-	GetByIP(context.Context, net.IP) (*data.DHCP, *data.Netboot, error)
+	GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error)
+	GetByIP(context.Context, net.IP) (data.Hardware, error)
 }
 
 type Handler struct {
@@ -71,10 +71,19 @@ func getByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (info
 	if br == nil {
 		return info{}, errors.New("backend is nil")
 	}
-	d, n, err := br.GetByMac(ctx, mac)
+	hw, err := br.GetByMac(ctx, mac)
 	if err != nil {
 		return info{}, err
 	}
+
+	if hw.DHCP == nil {
+		return info{}, errors.New("no dhcp data")
+	}
+	if hw.Netboot == nil {
+		return info{}, errors.New("no netboot data")
+	}
+	d := hw.DHCP
+	n := hw.Netboot
 
 	return info{
 		AllowNetboot:  n.AllowNetboot,
@@ -94,10 +103,18 @@ func getByIP(ctx context.Context, ip net.IP, br BackendReader) (info, error) {
 	if br == nil {
 		return info{}, errors.New("backend is nil")
 	}
-	d, n, err := br.GetByIP(ctx, ip)
+	hw, err := br.GetByIP(ctx, ip)
 	if err != nil {
 		return info{}, err
 	}
+	if hw.DHCP == nil {
+		return info{}, errors.New("no dhcp data")
+	}
+	if hw.Netboot == nil {
+		return info{}, errors.New("no netboot data")
+	}
+	d := hw.DHCP
+	n := hw.Netboot
 
 	return info{
 		AllowNetboot:  n.AllowNetboot,

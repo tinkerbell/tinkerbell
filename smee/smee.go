@@ -39,8 +39,8 @@ import (
 type BackendReader interface {
 	// Read data (from a backend) based on a mac address
 	// and return DHCP headers and options, including netboot info.
-	GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *data.Netboot, error)
-	GetByIP(context.Context, net.IP) (*data.DHCP, *data.Netboot, error)
+	GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error)
+	GetByIP(context.Context, net.IP) (data.Hardware, error)
 }
 
 const (
@@ -404,20 +404,24 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		// 1. data validation
 		// 2. start the http server for iso images
 		ih := iso.Handler{
-			Logger:             log,
-			Backend:            c.Backend,
-			SourceISO:          c.ISO.UpstreamURL.String(),
-			ExtraKernelParams:  c.IPXE.HTTPScriptServer.ExtraKernelArgs,
-			Syslog:             c.DHCP.SyslogIP.String(),
-			TinkServerTLS:      c.TinkServer.UseTLS,
-			TinkServerGRPCAddr: c.TinkServer.AddrPort,
-			StaticIPAMEnabled:  c.ISO.StaticIPAMEnabled,
-			MagicString: func() string {
-				if c.ISO.PatchMagicString == "" {
-					return isoMagicString
-				}
-				return c.ISO.PatchMagicString
-			}(),
+			Logger:  log,
+			Backend: c.Backend,
+			Patch: iso.Patch{
+				KernelParams: iso.KernelParams{
+					ExtraParams:        c.IPXE.HTTPScriptServer.ExtraKernelArgs,
+					Syslog:             c.DHCP.SyslogIP.String(),
+					TinkServerTLS:      c.TinkServer.UseTLS,
+					TinkServerGRPCAddr: c.TinkServer.AddrPort,
+				},
+				MagicString: func() string {
+					if c.ISO.PatchMagicString == "" {
+						return isoMagicString
+					}
+					return c.ISO.PatchMagicString
+				}(),
+				SourceISO:         c.ISO.UpstreamURL.String(),
+				StaticIPAMEnabled: c.ISO.StaticIPAMEnabled,
+			},
 		}
 		isoHandler, err := ih.HandlerFunc()
 		if err != nil {
