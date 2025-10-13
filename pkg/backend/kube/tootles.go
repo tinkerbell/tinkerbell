@@ -292,7 +292,6 @@ func generateBondingConfigurationV2(hw v1alpha1.Hardware) (map[string]interface{
 	return ethernets, bonds
 }
 
-
 // generateBondParametersV2 creates bonding parameters (v2 format) based on bonding mode.
 // V2 format uses hyphenated names without the "bond-" prefix.
 func generateBondParametersV2(bondingMode int64) map[string]interface{} {
@@ -366,7 +365,6 @@ func generateAddressConfigV2(ips []*v1alpha1.MetadataInstanceIP, ipv4DNS []strin
 
 	return addresses, gateway4, gateway6, nameservers
 }
-
 
 func (b *Backend) hwByIP(ctx context.Context, ip string) (*v1alpha1.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
