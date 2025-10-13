@@ -486,7 +486,6 @@ func TestToNoCloudInstance(t *testing.T) {
 	}
 }
 
-
 func TestGetNameServers(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -562,8 +561,6 @@ func TestGetNameServers(t *testing.T) {
 		})
 	}
 }
-
-
 
 func strPtr(s string) *string {
 	return &s
