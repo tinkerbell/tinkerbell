@@ -154,6 +154,58 @@ func TestFrontend_userDataHandler(t *testing.T) {
 	}
 }
 
+func TestFrontend_vendorDataHandler(t *testing.T) {
+	tests := []struct {
+		name           string
+		instance       data.NoCloudInstance
+		clientErr      error
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name: "successful vendor-data response (empty)",
+			instance: data.NoCloudInstance{
+				Metadata: data.Metadata{
+					InstanceID:    "server-001",
+					LocalHostname: "web01.example.com",
+				},
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   "",
+		},
+		{
+			name:           "instance not found",
+			clientErr:      ErrInstanceNotFound,
+			expectedStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &MockClient{
+				instance: tt.instance,
+				err:      tt.clientErr,
+			}
+
+			frontend := New(mockClient)
+			router := gin.New()
+			frontend.Configure(router)
+
+			req := httptest.NewRequest(http.MethodGet, "/vendor-data", nil)
+			req.RemoteAddr = "192.168.1.10:12345"
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if tt.expectedStatus == http.StatusOK {
+				assert.Equal(t, tt.expectedBody, w.Body.String())
+				assert.Equal(t, "text/plain", w.Header().Get("Content-Type"))
+			}
+		})
+	}
+}
+
 func TestFrontend_networkConfigHandler(t *testing.T) {
 	bondConfig := map[string]interface{}{
 		"version": 1,

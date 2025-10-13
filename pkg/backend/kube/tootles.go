@@ -123,11 +123,11 @@ func (b *Backend) GetNoCloudInstance(ctx context.Context, ip string) (data.NoClo
 		return data.NoCloudInstance{}, err
 	}
 
-	return toNoCloudInstance(*hw), nil
+	return b.toNoCloudInstance(*hw), nil
 }
 
 // toNoCloudInstance converts a Tinkerbell Hardware resource to a NoCloudInstance.
-func toNoCloudInstance(hw v1alpha1.Hardware) data.NoCloudInstance {
+func (b *Backend) toNoCloudInstance(hw v1alpha1.Hardware) data.NoCloudInstance {
 	var i data.NoCloudInstance
 
 	// Set metadata from Hardware resource
@@ -142,55 +142,13 @@ func toNoCloudInstance(hw v1alpha1.Hardware) data.NoCloudInstance {
 	}
 
 	// Generate network configuration from Hardware resource
-	i.NetworkConfig = generateNetworkConfig(hw)
+	i.NetworkConfig = generateNetworkConfigV2(hw)
 
 	return i
 }
 
-// generateNetworkConfig creates a NoCloud-compatible network configuration from Hardware resource.
-func generateNetworkConfig(hw v1alpha1.Hardware) interface{} {
-	config := map[string]interface{}{
-		"version": 1,
-		"config":  []interface{}{},
-	}
-
-	configSlice := []interface{}{}
-
-	// Check if bonding is enabled
-	bondingEnabled := hw.Spec.Metadata != nil && hw.Spec.Metadata.BondingMode > 0
-
-	switch {
-	case bondingEnabled && len(hw.Spec.Interfaces) >= 2:
-		// Generate bonding configuration
-		configSlice = generateBondingConfiguration(hw)
-	case len(hw.Spec.Interfaces) == 0:
-		// No interfaces defined - generate fallback configuration
-		if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil && len(hw.Spec.Metadata.Instance.Ips) > 0 {
-			ipv4DNS, ipv6DNS := getNameServers(hw)
-			configSlice = append(configSlice, generatePhysicalInterfaceWithIPs(hw.Spec.Metadata.Instance.Ips, ipv4DNS, ipv6DNS))
-		} else {
-			// Fallback to basic DHCP configuration
-			configSlice = append(configSlice, map[string]interface{}{
-				"type": "physical",
-				"name": "eno1",
-				"subnets": []interface{}{
-					map[string]interface{}{
-						"type": "dhcp",
-					},
-				},
-			})
-		}
-	default:
-		// Generate standard physical interface configuration
-		configSlice = generatePhysicalInterfaceConfiguration(hw)
-	}
-
-	config["config"] = configSlice
-	return config
-}
-
 // getNameServers extracts nameservers from Hardware interfaces.
-// Returns IPv4 and IPv6 nameservers separately, with fallback to Google DNS for IPv4 only.
+// Returns IPv4 and IPv6 nameservers separately.
 func getNameServers(hw v1alpha1.Hardware) (ipv4DNS []string, ipv6DNS []string) {
 	// Try to get nameservers from the first interface with DHCP config
 	for _, iface := range hw.Spec.Interfaces {
@@ -207,323 +165,208 @@ func getNameServers(hw v1alpha1.Hardware) (ipv4DNS []string, ipv6DNS []string) {
 		}
 	}
 
-	// Fallback to Google DNS only for IPv4 if no nameservers found
-	if len(ipv4DNS) == 0 {
-		ipv4DNS = []string{"8.8.8.8", "8.8.4.4"}
-	}
-
 	return ipv4DNS, ipv6DNS
 }
 
-// generateBondingConfiguration creates bonding configuration from Hardware resource.
-func generateBondingConfiguration(hw v1alpha1.Hardware) []interface{} {
-	configSlice := []interface{}{}
+func cidrFromNetmask(netmask string) string {
+	if netmask == "" {
+		return ""
+	}
+
+	parts := strings.Split(netmask, ".")
+	if len(parts) != 4 {
+		return ""
+	}
+
+	setBits := 0
+	for _, part := range parts {
+		octet := 0
+		for _, ch := range part {
+			if ch < '0' || ch > '9' {
+				return ""
+			}
+			octet = octet*10 + int(ch-'0')
+		}
+
+		if octet < 0 || octet > 255 {
+			return ""
+		}
+
+		for octet > 0 {
+			setBits++
+			octet = octet & (octet - 1)
+		}
+	}
+
+	if setBits < 0 || setBits > 32 {
+		return ""
+	}
+
+	return fmt.Sprintf("%d", setBits)
+}
+
+// generateNetworkConfigV2 creates a NoCloud-compatible network configuration (version 2) from Hardware resource.
+// Version 2 is the modern Netplan-compatible format.
+// Only generates configuration for network bonding. For non-bonded interfaces, cloud-init handles default DHCP.
+func generateNetworkConfigV2(hw v1alpha1.Hardware) interface{} {
+	config := map[string]interface{}{
+		"network": map[string]interface{}{
+			"version": 2,
+		},
+	}
+
+	network := config["network"].(map[string]interface{})
+
+	// Check if bonding is enabled
+	bondingEnabled := hw.Spec.Metadata != nil && hw.Spec.Metadata.BondingMode > 0
+
+	if bondingEnabled && len(hw.Spec.Interfaces) >= 2 {
+		// Generate bonding configuration
+		ethernets, bonds := generateBondingConfigurationV2(hw)
+		network["ethernets"] = ethernets
+		network["bonds"] = bonds
+	}
+
+	return config
+}
+
+// generateBondingConfigurationV2 creates bonding configuration (v2 format) from Hardware resource.
+// Returns separate ethernets and bonds maps.
+// Requires MAC addresses for all interfaces to enable proper matching.
+func generateBondingConfigurationV2(hw v1alpha1.Hardware) (map[string]interface{}, map[string]interface{}) {
+	ethernets := map[string]interface{}{}
+	bonds := map[string]interface{}{}
 	bondInterfaces := []string{}
 
-	// Create physical interfaces for bonding (without subnets)
-	for i, iface := range hw.Spec.Interfaces {
-		interfaceName := fmt.Sprintf("eno%d", i+1)
+	// Create physical interfaces for bonding (without IP addresses)
+	phyIndex := 0
+	for _, iface := range hw.Spec.Interfaces {
+		if iface.DHCP == nil || iface.DHCP.MAC == "" {
+			continue
+		}
+
+		// Use bond0phyX naming for interface references
+		interfaceName := fmt.Sprintf("bond0phy%d", phyIndex)
+		phyIndex++
 		bondInterfaces = append(bondInterfaces, interfaceName)
 
-		physicalConfig := map[string]interface{}{
-			"type": "physical",
-			"name": interfaceName,
-			"mtu":  1500,
+		ethernetConfig := map[string]interface{}{
+			"dhcp4": false,
+			"match": map[string]interface{}{
+				"macaddress": iface.DHCP.MAC,
+			},
 		}
 
-		// Add MAC address if available in DHCP config
-		if iface.DHCP != nil && iface.DHCP.MAC != "" {
-			physicalConfig["mac_address"] = iface.DHCP.MAC
-		}
-
-		configSlice = append(configSlice, physicalConfig)
+		ethernets[interfaceName] = ethernetConfig
 	}
 
 	// Create bond configuration
 	bondConfig := map[string]interface{}{
-		"type":            "bond",
-		"name":            "bond0",
-		"bond_interfaces": bondInterfaces,
-		"mtu":             1500,
-		"params":          generateBondParameters(hw.Spec.Metadata.BondingMode),
+		"interfaces": bondInterfaces,
+		"parameters": generateBondParametersV2(hw.Spec.Metadata.BondingMode),
 	}
 
 	// Add IP configuration to bond
 	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil && len(hw.Spec.Metadata.Instance.Ips) > 0 {
 		ipv4DNS, ipv6DNS := getNameServers(hw)
-		bondConfig["subnets"] = generateSubnetsFromIPs(hw.Spec.Metadata.Instance.Ips, ipv4DNS, ipv6DNS)
-	} else {
-		// Default to DHCP if no static IPs
-		bondConfig["subnets"] = []interface{}{
-			map[string]interface{}{"type": "dhcp"},
-			map[string]interface{}{"type": "dhcp6"},
+		addresses, gateway4, gateway6, nameservers := generateAddressConfigV2(hw.Spec.Metadata.Instance.Ips, ipv4DNS, ipv6DNS)
+
+		bondConfig["addresses"] = addresses
+		if gateway4 != "" {
+			bondConfig["gateway4"] = gateway4
 		}
-	}
-
-	configSlice = append(configSlice, bondConfig)
-	return configSlice
-}
-
-// generatePhysicalInterfaceConfiguration creates standard physical interface configuration.
-func generatePhysicalInterfaceConfiguration(hw v1alpha1.Hardware) []interface{} {
-	configSlice := []interface{}{}
-
-	for i, iface := range hw.Spec.Interfaces {
-		interfaceName := fmt.Sprintf("eno%d", i+1)
-
-		physicalConfig := map[string]interface{}{
-			"type": "physical",
-			"name": interfaceName,
-			"mtu":  1500,
+		if gateway6 != "" {
+			bondConfig["gateway6"] = gateway6
 		}
-
-		// Add MAC address if available
-		if iface.DHCP != nil && iface.DHCP.MAC != "" {
-			physicalConfig["mac_address"] = iface.DHCP.MAC
-		}
-
-		// Add subnets configuration based on interface settings
-		subnets := []interface{}{}
-
-		if !iface.DisableDHCP {
-			subnets = append(subnets, map[string]interface{}{
-				"type": "dhcp",
-			})
-			subnets = append(subnets, map[string]interface{}{
-				"type": "dhcp6",
-			})
-		}
-
-		if len(subnets) > 0 {
-			physicalConfig["subnets"] = subnets
-		}
-
-		configSlice = append(configSlice, physicalConfig)
-	}
-
-	// If we have metadata IPs, try to create static configuration for the first interface
-	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil && len(hw.Spec.Metadata.Instance.Ips) > 0 {
-		ipv4DNS, ipv6DNS := getNameServers(hw)
-		staticConfig := generateStaticNetworkConfig(hw.Spec.Metadata.Instance.Ips, ipv4DNS, ipv6DNS)
-		if staticConfig != nil {
-			// Replace the first interface with static configuration
-			if len(configSlice) > 0 {
-				configSlice[0] = staticConfig
+		if len(nameservers) > 0 {
+			bondConfig["nameservers"] = map[string]interface{}{
+				"addresses": nameservers,
 			}
 		}
+	} else {
+		// Default to DHCP if no static IPs (IPv4 only)
+		bondConfig["dhcp4"] = true
 	}
 
-	return configSlice
+	bonds["bond0"] = bondConfig
+	return ethernets, bonds
 }
 
-// generateBondParameters creates bonding parameters based on bonding mode.
-func generateBondParameters(bondingMode int64) map[string]interface{} {
+
+// generateBondParametersV2 creates bonding parameters (v2 format) based on bonding mode.
+// V2 format uses hyphenated names without the "bond-" prefix.
+func generateBondParametersV2(bondingMode int64) map[string]interface{} {
 	params := map[string]interface{}{
-		"bond-miimon": 100,
+		"mii-monitor-interval": 100,
 	}
 
 	switch bondingMode {
 	case 0:
-		params["bond-mode"] = "balance-rr"
-		params["bond-use_carrier"] = 1
+		params["mode"] = "balance-rr"
 	case 1:
-		params["bond-mode"] = "active-backup"
-		params["bond-primary_reselect"] = "always"
-		params["bond-fail_over_mac"] = "none"
+		params["mode"] = "active-backup"
+		params["primary-reselect-policy"] = "always"
+		params["fail-over-mac-policy"] = "none"
 	case 2:
-		params["bond-mode"] = "balance-xor"
-		params["bond-xmit_hash_policy"] = "layer2"
+		params["mode"] = "balance-xor"
+		params["transmit-hash-policy"] = "layer2"
 	case 3:
-		params["bond-mode"] = "broadcast"
+		params["mode"] = "broadcast"
 	case 4:
-		params["bond-mode"] = "802.3ad"
-		params["bond-lacp_rate"] = "fast"
-		params["bond-xmit_hash_policy"] = "layer3+4"
-		params["bond-ad_select"] = "stable"
+		params["mode"] = "802.3ad"
+		params["lacp-rate"] = "fast"
+		params["transmit-hash-policy"] = "layer3+4"
+		params["ad-select"] = "stable"
 	case 5:
-		params["bond-mode"] = "balance-tlb"
-		params["bond-tlb_dynamic_lb"] = 1
+		params["mode"] = "balance-tlb"
 	case 6:
-		params["bond-mode"] = "balance-alb"
-		params["bond-rlb_update_delay"] = 0
+		params["mode"] = "balance-alb"
 	default:
 		// Default to active-backup for unknown modes
-		params["bond-mode"] = "active-backup"
-		params["bond-primary_reselect"] = "always"
+		params["mode"] = "active-backup"
+		params["primary-reselect-policy"] = "always"
 	}
 
 	return params
 }
 
-// generateSubnetsFromIPs creates subnet configuration from IP metadata.
-func generateSubnetsFromIPs(ips []*v1alpha1.MetadataInstanceIP, ipv4DNS []string, ipv6DNS []string) []interface{} {
-	subnets := []interface{}{}
+// generateAddressConfigV2 creates address configuration (v2 format) from IP metadata.
+// Returns addresses array, gateway4, gateway6, and combined nameservers list.
+func generateAddressConfigV2(ips []*v1alpha1.MetadataInstanceIP, ipv4DNS []string, ipv6DNS []string) ([]string, string, string, []string) {
+	addresses := []string{}
+	gateway4 := ""
+	gateway6 := ""
+	nameservers := []string{}
+
+	// Combine nameservers (IPv4 first, then IPv6)
+	nameservers = append(nameservers, ipv4DNS...)
+	nameservers = append(nameservers, ipv6DNS...)
 
 	for _, ip := range ips {
 		switch ip.Family {
 		case 4:
-			subnet := map[string]interface{}{
-				"type":    "static",
-				"address": fmt.Sprintf("%s/%s", ip.Address, cidrFromNetmask(ip.Netmask)),
+			addresses = append(addresses, fmt.Sprintf("%s/%s", ip.Address, cidrFromNetmask(ip.Netmask)))
+			// Set gateway4 from the first IPv4 with a gateway
+			if gateway4 == "" && ip.Gateway != "" {
+				gateway4 = ip.Gateway
 			}
-			if ip.Gateway != "" {
-				subnet["gateway"] = ip.Gateway
-			}
-			if len(ipv4DNS) > 0 {
-				subnet["dns_nameservers"] = ipv4DNS
-			}
-			subnets = append(subnets, subnet)
 		case 6:
-			subnet := map[string]interface{}{
-				"type":    "static6",
-				"address": ip.Address,
+			addresses = append(addresses, ip.Address)
+			// Set gateway6 from the first IPv6 with a gateway
+			if gateway6 == "" && ip.Gateway != "" {
+				gateway6 = ip.Gateway
 			}
-			if ip.Gateway != "" {
-				subnet["gateway"] = ip.Gateway
-			}
-			if len(ipv6DNS) > 0 {
-				subnet["dns_nameservers"] = ipv6DNS
-			}
-			subnets = append(subnets, subnet)
 		}
 	}
 
-	// If no static IPs, fall back to DHCP
-	if len(subnets) == 0 {
-		subnets = append(subnets, map[string]interface{}{"type": "dhcp"})
-		subnets = append(subnets, map[string]interface{}{"type": "dhcp6"})
+	// If no addresses found, return empty (will use DHCP)
+	if len(addresses) == 0 {
+		return addresses, "", "", []string{}
 	}
 
-	return subnets
+	return addresses, gateway4, gateway6, nameservers
 }
 
-// generatePhysicalInterfaceWithIPs creates a basic physical interface with IP configuration.
-func generatePhysicalInterfaceWithIPs(ips []*v1alpha1.MetadataInstanceIP, ipv4DNS []string, ipv6DNS []string) map[string]interface{} {
-	physicalConfig := map[string]interface{}{
-		"type": "physical",
-		"name": "eno1",
-		"mtu":  1500,
-	}
-
-	subnets := []interface{}{}
-
-	// Add static IP configurations
-	for _, ip := range ips {
-		switch ip.Family {
-		case 4:
-			subnet := map[string]interface{}{
-				"type":    "static",
-				"address": fmt.Sprintf("%s/%s", ip.Address, cidrFromNetmask(ip.Netmask)),
-			}
-			if ip.Gateway != "" {
-				subnet["gateway"] = ip.Gateway
-			}
-			if len(ipv4DNS) > 0 {
-				subnet["dns_nameservers"] = ipv4DNS
-			}
-			subnets = append(subnets, subnet)
-		case 6:
-			subnet := map[string]interface{}{
-				"type":    "static6",
-				"address": ip.Address, // IPv6 addresses should already include prefix
-			}
-			if ip.Gateway != "" {
-				subnet["gateway"] = ip.Gateway
-			}
-			if len(ipv6DNS) > 0 {
-				subnet["dns_nameservers"] = ipv6DNS
-			}
-			subnets = append(subnets, subnet)
-		}
-	}
-
-	// If no static IPs, fall back to DHCP
-	if len(subnets) == 0 {
-		subnets = append(subnets, map[string]interface{}{
-			"type": "dhcp",
-		})
-	}
-
-	physicalConfig["subnets"] = subnets
-	return physicalConfig
-}
-
-// generateStaticNetworkConfig creates static network configuration from metadata IPs.
-func generateStaticNetworkConfig(ips []*v1alpha1.MetadataInstanceIP, ipv4DNS []string, ipv6DNS []string) map[string]interface{} {
-	if len(ips) == 0 {
-		return nil
-	}
-
-	config := map[string]interface{}{
-		"type": "physical",
-		"name": "eno1",
-		"mtu":  1500,
-	}
-
-	subnets := []interface{}{}
-
-	for _, ip := range ips {
-		switch ip.Family {
-		case 4:
-			subnet := map[string]interface{}{
-				"type":    "static",
-				"address": fmt.Sprintf("%s/%s", ip.Address, cidrFromNetmask(ip.Netmask)),
-			}
-			if ip.Gateway != "" {
-				subnet["gateway"] = ip.Gateway
-			}
-			if len(ipv4DNS) > 0 {
-				subnet["dns_nameservers"] = ipv4DNS
-			}
-			subnets = append(subnets, subnet)
-		case 6:
-			subnet := map[string]interface{}{
-				"type":    "static6",
-				"address": ip.Address,
-			}
-			if ip.Gateway != "" {
-				subnet["gateway"] = ip.Gateway
-			}
-			if len(ipv6DNS) > 0 {
-				subnet["dns_nameservers"] = ipv6DNS
-			}
-			subnets = append(subnets, subnet)
-		}
-	}
-
-	if len(subnets) > 0 {
-		config["subnets"] = subnets
-		return config
-	}
-
-	return nil
-}
-
-// cidrFromNetmask converts a netmask to CIDR notation.
-// This is a simple implementation that handles common netmasks.
-func cidrFromNetmask(netmask string) string {
-	switch netmask {
-	case "255.255.255.0":
-		return "24"
-	case "255.255.0.0":
-		return "16"
-	case "255.0.0.0":
-		return "8"
-	case "255.255.255.192":
-		return "26"
-	case "255.255.255.224":
-		return "27"
-	case "255.255.255.240":
-		return "28"
-	case "255.255.255.248":
-		return "29"
-	case "255.255.255.252":
-		return "30"
-	default:
-		// Default to /24 if we can't determine the CIDR
-		return "24"
-	}
-}
 
 func (b *Backend) hwByIP(ctx context.Context, ip string) (*v1alpha1.Hardware, error) {
 	tracer := otel.Tracer(tracerName)

@@ -42,6 +42,7 @@ func (f Frontend) Configure(router gin.IRouter) {
 	// Configure NoCloud endpoints directly under the root path
 	router.GET("/meta-data", f.metaDataHandler)
 	router.GET("/user-data", f.userDataHandler)
+	router.GET("/vendor-data", f.vendorDataHandler)
 	router.GET("/network-config", f.networkConfigHandler)
 }
 
@@ -85,6 +86,24 @@ func (f Frontend) userDataHandler(ctx *gin.Context) {
 
 	ctx.Header("Content-Type", "text/plain")
 	ctx.String(http.StatusOK, instance.Userdata)
+}
+
+// vendorDataHandler handles the /vendor-data endpoint.
+func (f Frontend) vendorDataHandler(ctx *gin.Context) {
+	_, err := f.getInstance(ctx, ctx.Request)
+	if err != nil {
+		var httpErr *httperror.E
+		if errors.As(err, &httpErr) {
+			_ = ctx.AbortWithError(httpErr.StatusCode, err)
+		} else {
+			_ = ctx.AbortWithError(http.StatusInternalServerError, err)
+		}
+		return
+	}
+
+	// Vendor data is not currently supported, return empty content with 200 OK
+	ctx.Header("Content-Type", "text/plain")
+	ctx.String(http.StatusOK, "")
 }
 
 // networkConfigHandler handles the /network-config endpoint.
