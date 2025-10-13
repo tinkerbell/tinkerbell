@@ -194,7 +194,7 @@ func cidrFromNetmask(netmask string) string {
 
 		for octet > 0 {
 			setBits++
-			octet = octet & (octet - 1)
+			octet &= (octet - 1)
 		}
 	}
 
@@ -215,7 +215,11 @@ func generateNetworkConfigV2(hw v1alpha1.Hardware) interface{} {
 		},
 	}
 
-	network := config["network"].(map[string]interface{})
+	network, ok := config["network"].(map[string]interface{})
+	if !ok {
+		// This should never happen since we just created it, but satisfy the linter
+		return config
+	}
 
 	// Check if bonding is enabled
 	bondingEnabled := hw.Spec.Metadata != nil && hw.Spec.Metadata.BondingMode > 0
