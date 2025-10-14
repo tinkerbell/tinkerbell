@@ -208,17 +208,9 @@ func cidrFromNetmask(netmask string) string {
 // generateNetworkConfigV2 creates a NoCloud-compatible network configuration (version 2) from Hardware resource.
 // Version 2 is the modern Netplan-compatible format.
 // Only generates configuration for network bonding. For non-bonded interfaces, cloud-init handles default DHCP.
-func generateNetworkConfigV2(hw v1alpha1.Hardware) interface{} {
-	config := map[string]interface{}{
-		"network": map[string]interface{}{
-			"version": 2,
-		},
-	}
-
-	network, ok := config["network"].(map[string]interface{})
-	if !ok {
-		// This should never happen since we just created it, but satisfy the linter
-		return config
+func generateNetworkConfigV2(hw v1alpha1.Hardware) data.NetworkConfigV2 {
+	networkSpec := data.NetworkSpec{
+		Version: 2,
 	}
 
 	// Check if bonding is enabled
@@ -227,19 +219,21 @@ func generateNetworkConfigV2(hw v1alpha1.Hardware) interface{} {
 	if bondingEnabled && len(hw.Spec.Interfaces) >= 2 {
 		// Generate bonding configuration
 		ethernets, bonds := generateBondingConfigurationV2(hw)
-		network["ethernets"] = ethernets
-		network["bonds"] = bonds
+		networkSpec.Ethernets = ethernets
+		networkSpec.Bonds = bonds
 	}
 
-	return config
+	return data.NetworkConfigV2{
+		Network: networkSpec,
+	}
 }
 
 // generateBondingConfigurationV2 creates bonding configuration (v2 format) from Hardware resource.
 // Returns separate ethernets and bonds maps.
 // Requires MAC addresses for all interfaces to enable proper matching.
-func generateBondingConfigurationV2(hw v1alpha1.Hardware) (map[string]interface{}, map[string]interface{}) {
-	ethernets := map[string]interface{}{}
-	bonds := map[string]interface{}{}
+func generateBondingConfigurationV2(hw v1alpha1.Hardware) (map[string]data.EthernetConfig, map[string]data.BondConfig) {
+	ethernets := map[string]data.EthernetConfig{}
+	bonds := map[string]data.BondConfig{}
 	bondInterfaces := []string{}
 
 	// Create physical interfaces for bonding (without IP addresses)
@@ -254,21 +248,21 @@ func generateBondingConfigurationV2(hw v1alpha1.Hardware) (map[string]interface{
 		phyIndex++
 		bondInterfaces = append(bondInterfaces, interfaceName)
 
-		ethernetConfig := map[string]interface{}{
-			"dhcp4": false,
-			"match": map[string]interface{}{
-				"macaddress": iface.DHCP.MAC,
+		ethernetConfig := data.EthernetConfig{
+			Dhcp4: false,
+			Match: &data.MatchConfig{
+				MACAddress: iface.DHCP.MAC,
 			},
-			"set-name": interfaceName,
+			SetName: interfaceName,
 		}
 
 		ethernets[interfaceName] = ethernetConfig
 	}
 
 	// Create bond configuration
-	bondConfig := map[string]interface{}{
-		"interfaces": bondInterfaces,
-		"parameters": generateBondParametersV2(hw.Spec.Metadata.BondingMode),
+	bondConfig := data.BondConfig{
+		Interfaces: bondInterfaces,
+		Parameters: generateBondParametersV2(hw.Spec.Metadata.BondingMode),
 	}
 
 	// Add IP configuration to bond
@@ -276,21 +270,17 @@ func generateBondingConfigurationV2(hw v1alpha1.Hardware) (map[string]interface{
 		ipv4DNS, ipv6DNS := getNameServers(hw)
 		addresses, gateway4, gateway6, nameservers := generateAddressConfigV2(hw.Spec.Metadata.Instance.Ips, ipv4DNS, ipv6DNS)
 
-		bondConfig["addresses"] = addresses
-		if gateway4 != "" {
-			bondConfig["gateway4"] = gateway4
-		}
-		if gateway6 != "" {
-			bondConfig["gateway6"] = gateway6
-		}
+		bondConfig.Addresses = addresses
+		bondConfig.Gateway4 = gateway4
+		bondConfig.Gateway6 = gateway6
 		if len(nameservers) > 0 {
-			bondConfig["nameservers"] = map[string]interface{}{
-				"addresses": nameservers,
+			bondConfig.Nameservers = &data.NameserversConfig{
+				Addresses: nameservers,
 			}
 		}
 	} else {
 		// Default to DHCP if no static IPs (IPv4 only)
-		bondConfig["dhcp4"] = true
+		bondConfig.Dhcp4 = true
 	}
 
 	bonds["bond0"] = bondConfig
@@ -299,36 +289,36 @@ func generateBondingConfigurationV2(hw v1alpha1.Hardware) (map[string]interface{
 
 // generateBondParametersV2 creates bonding parameters (v2 format) based on bonding mode.
 // V2 format uses hyphenated names without the "bond-" prefix.
-func generateBondParametersV2(bondingMode int64) map[string]interface{} {
-	params := map[string]interface{}{
-		"mii-monitor-interval": 100,
+func generateBondParametersV2(bondingMode int64) data.BondParameters {
+	params := data.BondParameters{
+		MIIMonitorInterval: 100,
 	}
 
 	switch bondingMode {
 	case 0:
-		params["mode"] = "balance-rr"
+		params.Mode = "balance-rr"
 	case 1:
-		params["mode"] = "active-backup"
-		params["primary-reselect-policy"] = "always"
-		params["fail-over-mac-policy"] = "none"
+		params.Mode = "active-backup"
+		params.PrimaryReselectPolicy = "always"
+		params.FailOverMACPolicy = "none"
 	case 2:
-		params["mode"] = "balance-xor"
-		params["transmit-hash-policy"] = "layer2"
+		params.Mode = "balance-xor"
+		params.TransmitHashPolicy = "layer2"
 	case 3:
-		params["mode"] = "broadcast"
+		params.Mode = "broadcast"
 	case 4:
-		params["mode"] = "802.3ad"
-		params["lacp-rate"] = "fast"
-		params["transmit-hash-policy"] = "layer3+4"
-		params["ad-select"] = "stable"
+		params.Mode = "802.3ad"
+		params.LACPRate = "fast"
+		params.TransmitHashPolicy = "layer3+4"
+		params.ADSelect = "stable"
 	case 5:
-		params["mode"] = "balance-tlb"
+		params.Mode = "balance-tlb"
 	case 6:
-		params["mode"] = "balance-alb"
+		params.Mode = "balance-alb"
 	default:
 		// Default to active-backup for unknown modes
-		params["mode"] = "active-backup"
-		params["primary-reselect-policy"] = "always"
+		params.Mode = "active-backup"
+		params.PrimaryReselectPolicy = "always"
 	}
 
 	return params

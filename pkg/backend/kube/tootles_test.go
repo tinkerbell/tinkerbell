@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 )
 
 func TestCidrFromNetmask(t *testing.T) {
@@ -45,77 +46,85 @@ func TestGenerateBondParametersV2(t *testing.T) {
 	tests := []struct {
 		name     string
 		mode     int64
-		expected map[string]interface{}
+		validate func(t *testing.T, result data.BondParameters)
 	}{
 		{
 			name: "mode 0 - balance-rr",
 			mode: 0,
-			expected: map[string]interface{}{
-				"mode":                 "balance-rr",
-				"mii-monitor-interval": 100,
+			validate: func(t *testing.T, result data.BondParameters) {
+				t.Helper()
+				assert.Equal(t, "balance-rr", result.Mode)
+				assert.Equal(t, 100, result.MIIMonitorInterval)
 			},
 		},
 		{
 			name: "mode 1 - active-backup",
 			mode: 1,
-			expected: map[string]interface{}{
-				"mode":                    "active-backup",
-				"mii-monitor-interval":    100,
-				"primary-reselect-policy": "always",
-				"fail-over-mac-policy":    "none",
+			validate: func(t *testing.T, result data.BondParameters) {
+				t.Helper()
+				assert.Equal(t, "active-backup", result.Mode)
+				assert.Equal(t, 100, result.MIIMonitorInterval)
+				assert.Equal(t, "always", result.PrimaryReselectPolicy)
+				assert.Equal(t, "none", result.FailOverMACPolicy)
 			},
 		},
 		{
 			name: "mode 2 - balance-xor",
 			mode: 2,
-			expected: map[string]interface{}{
-				"mode":                 "balance-xor",
-				"mii-monitor-interval": 100,
-				"transmit-hash-policy": "layer2",
+			validate: func(t *testing.T, result data.BondParameters) {
+				t.Helper()
+				assert.Equal(t, "balance-xor", result.Mode)
+				assert.Equal(t, 100, result.MIIMonitorInterval)
+				assert.Equal(t, "layer2", result.TransmitHashPolicy)
 			},
 		},
 		{
 			name: "mode 3 - broadcast",
 			mode: 3,
-			expected: map[string]interface{}{
-				"mode":                 "broadcast",
-				"mii-monitor-interval": 100,
+			validate: func(t *testing.T, result data.BondParameters) {
+				t.Helper()
+				assert.Equal(t, "broadcast", result.Mode)
+				assert.Equal(t, 100, result.MIIMonitorInterval)
 			},
 		},
 		{
 			name: "mode 4 - 802.3ad",
 			mode: 4,
-			expected: map[string]interface{}{
-				"mode":                 "802.3ad",
-				"mii-monitor-interval": 100,
-				"lacp-rate":            "fast",
-				"transmit-hash-policy": "layer3+4",
-				"ad-select":            "stable",
+			validate: func(t *testing.T, result data.BondParameters) {
+				t.Helper()
+				assert.Equal(t, "802.3ad", result.Mode)
+				assert.Equal(t, 100, result.MIIMonitorInterval)
+				assert.Equal(t, "fast", result.LACPRate)
+				assert.Equal(t, "layer3+4", result.TransmitHashPolicy)
+				assert.Equal(t, "stable", result.ADSelect)
 			},
 		},
 		{
 			name: "mode 5 - balance-tlb",
 			mode: 5,
-			expected: map[string]interface{}{
-				"mode":                 "balance-tlb",
-				"mii-monitor-interval": 100,
+			validate: func(t *testing.T, result data.BondParameters) {
+				t.Helper()
+				assert.Equal(t, "balance-tlb", result.Mode)
+				assert.Equal(t, 100, result.MIIMonitorInterval)
 			},
 		},
 		{
 			name: "mode 6 - balance-alb",
 			mode: 6,
-			expected: map[string]interface{}{
-				"mode":                 "balance-alb",
-				"mii-monitor-interval": 100,
+			validate: func(t *testing.T, result data.BondParameters) {
+				t.Helper()
+				assert.Equal(t, "balance-alb", result.Mode)
+				assert.Equal(t, 100, result.MIIMonitorInterval)
 			},
 		},
 		{
 			name: "unknown mode defaults to active-backup",
 			mode: 99,
-			expected: map[string]interface{}{
-				"mode":                    "active-backup",
-				"mii-monitor-interval":    100,
-				"primary-reselect-policy": "always",
+			validate: func(t *testing.T, result data.BondParameters) {
+				t.Helper()
+				assert.Equal(t, "active-backup", result.Mode)
+				assert.Equal(t, 100, result.MIIMonitorInterval)
+				assert.Equal(t, "always", result.PrimaryReselectPolicy)
 			},
 		},
 	}
@@ -123,7 +132,7 @@ func TestGenerateBondParametersV2(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := generateBondParametersV2(tt.mode)
-			assert.Equal(t, tt.expected, result)
+			tt.validate(t, result)
 		})
 	}
 }
@@ -235,8 +244,8 @@ func TestGenerateBondingConfigurationV2(t *testing.T) {
 	tests := []struct {
 		name              string
 		hw                tinkerbell.Hardware
-		validateEthernets func(t *testing.T, ethernets map[string]interface{})
-		validateBonds     func(t *testing.T, bonds map[string]interface{})
+		validateEthernets func(t *testing.T, ethernets map[string]data.EthernetConfig)
+		validateBonds     func(t *testing.T, bonds map[string]data.BondConfig)
 	}{
 		{
 			name: "802.3ad bond with 2 interfaces and static IPs",
@@ -266,47 +275,45 @@ func TestGenerateBondingConfigurationV2(t *testing.T) {
 					},
 				},
 			},
-			validateEthernets: func(t *testing.T, ethernets map[string]interface{}) {
+			validateEthernets: func(t *testing.T, ethernets map[string]data.EthernetConfig) {
 				t.Helper()
 				assert.Len(t, ethernets, 2)
 
-				iface1 := ethernets["bond0phy0"].(map[string]interface{})
-				assert.Equal(t, false, iface1["dhcp4"])
-				match := iface1["match"].(map[string]interface{})
-				assert.Equal(t, "aa:bb:cc:dd:ee:01", match["macaddress"])
-				assert.Equal(t, "bond0phy0", iface1["set-name"])
+				iface1 := ethernets["bond0phy0"]
+				assert.Equal(t, false, iface1.Dhcp4)
+				assert.NotNil(t, iface1.Match)
+				assert.Equal(t, "aa:bb:cc:dd:ee:01", iface1.Match.MACAddress)
+				assert.Equal(t, "bond0phy0", iface1.SetName)
 
-				iface2 := ethernets["bond0phy1"].(map[string]interface{})
-				assert.Equal(t, false, iface2["dhcp4"])
-				match2 := iface2["match"].(map[string]interface{})
-				assert.Equal(t, "aa:bb:cc:dd:ee:02", match2["macaddress"])
-				assert.Equal(t, "bond0phy1", iface2["set-name"])
+				iface2 := ethernets["bond0phy1"]
+				assert.Equal(t, false, iface2.Dhcp4)
+				assert.NotNil(t, iface2.Match)
+				assert.Equal(t, "aa:bb:cc:dd:ee:02", iface2.Match.MACAddress)
+				assert.Equal(t, "bond0phy1", iface2.SetName)
 			},
-			validateBonds: func(t *testing.T, bonds map[string]interface{}) {
+			validateBonds: func(t *testing.T, bonds map[string]data.BondConfig) {
 				t.Helper()
-				bond0 := bonds["bond0"].(map[string]interface{})
+				bond0 := bonds["bond0"]
 
 				// Check interfaces
-				interfaces := bond0["interfaces"].([]string)
-				assert.Equal(t, []string{"bond0phy0", "bond0phy1"}, interfaces)
+				assert.Equal(t, []string{"bond0phy0", "bond0phy1"}, bond0.Interfaces)
 
 				// Check parameters
-				params := bond0["parameters"].(map[string]interface{})
-				assert.Equal(t, "802.3ad", params["mode"])
-				assert.Equal(t, 100, params["mii-monitor-interval"])
-				assert.Equal(t, "fast", params["lacp-rate"])
-				assert.Equal(t, "layer3+4", params["transmit-hash-policy"])
-				assert.Equal(t, "stable", params["ad-select"])
+				assert.Equal(t, "802.3ad", bond0.Parameters.Mode)
+				assert.Equal(t, 100, bond0.Parameters.MIIMonitorInterval)
+				assert.Equal(t, "fast", bond0.Parameters.LACPRate)
+				assert.Equal(t, "layer3+4", bond0.Parameters.TransmitHashPolicy)
+				assert.Equal(t, "stable", bond0.Parameters.ADSelect)
 
 				// Check addresses
-				addresses := bond0["addresses"].([]string)
-				assert.Equal(t, []string{"192.168.1.10/24", "2001:db8::10/64"}, addresses)
+				assert.Equal(t, []string{"192.168.1.10/24", "2001:db8::10/64"}, bond0.Addresses)
 
 				// Check gateways
-				assert.Equal(t, "192.168.1.1", bond0["gateway4"])
-				assert.Equal(t, "2001:db8::1", bond0["gateway6"])
+				assert.Equal(t, "192.168.1.1", bond0.Gateway4)
+				assert.Equal(t, "2001:db8::1", bond0.Gateway6)
 
-				// No nameservers configured in this test - nameservers field should not be set
+				// No nameservers configured in this test - nameservers field should be nil
+				assert.Nil(t, bond0.Nameservers)
 			},
 		},
 		{
@@ -322,20 +329,19 @@ func TestGenerateBondingConfigurationV2(t *testing.T) {
 					},
 				},
 			},
-			validateEthernets: func(t *testing.T, ethernets map[string]interface{}) {
+			validateEthernets: func(t *testing.T, ethernets map[string]data.EthernetConfig) {
 				t.Helper()
 				assert.Len(t, ethernets, 2)
 			},
-			validateBonds: func(t *testing.T, bonds map[string]interface{}) {
+			validateBonds: func(t *testing.T, bonds map[string]data.BondConfig) {
 				t.Helper()
-				bond0 := bonds["bond0"].(map[string]interface{})
+				bond0 := bonds["bond0"]
 
 				// Should have DHCP when no static IPs
-				assert.Equal(t, true, bond0["dhcp4"])
+				assert.Equal(t, true, bond0.Dhcp4)
 
 				// Check parameters for active-backup
-				params := bond0["parameters"].(map[string]interface{})
-				assert.Equal(t, "active-backup", params["mode"])
+				assert.Equal(t, "active-backup", bond0.Parameters.Mode)
 			},
 		},
 	}
@@ -353,7 +359,7 @@ func TestGenerateNetworkConfigV2(t *testing.T) {
 	tests := []struct {
 		name     string
 		hw       tinkerbell.Hardware
-		validate func(t *testing.T, result interface{})
+		validate func(t *testing.T, result data.NetworkConfigV2)
 	}{
 		{
 			name: "bonding enabled with 2+ interfaces",
@@ -373,22 +379,18 @@ func TestGenerateNetworkConfigV2(t *testing.T) {
 					},
 				},
 			},
-			validate: func(t *testing.T, result interface{}) {
+			validate: func(t *testing.T, result data.NetworkConfigV2) {
 				t.Helper()
-				config := result.(map[string]interface{})
-				network := config["network"].(map[string]interface{})
 
 				// Check version
-				assert.Equal(t, 2, network["version"])
+				assert.Equal(t, 2, result.Network.Version)
 
 				// Check ethernets exist
-				ethernets := network["ethernets"].(map[string]interface{})
-				assert.Len(t, ethernets, 2)
+				assert.Len(t, result.Network.Ethernets, 2)
 
 				// Check bonds exist
-				bonds := network["bonds"].(map[string]interface{})
-				assert.Len(t, bonds, 1)
-				assert.Contains(t, bonds, "bond0")
+				assert.Len(t, result.Network.Bonds, 1)
+				assert.Contains(t, result.Network.Bonds, "bond0")
 			},
 		},
 		{
@@ -396,17 +398,14 @@ func TestGenerateNetworkConfigV2(t *testing.T) {
 			hw: tinkerbell.Hardware{
 				Spec: tinkerbell.HardwareSpec{},
 			},
-			validate: func(t *testing.T, result interface{}) {
+			validate: func(t *testing.T, result data.NetworkConfigV2) {
 				t.Helper()
-				config := result.(map[string]interface{})
-				network := config["network"].(map[string]interface{})
 
-				assert.Equal(t, 2, network["version"])
+				assert.Equal(t, 2, result.Network.Version)
 
 				// No interfaces defined means no ethernets config
 				// Let cloud-init handle its default DHCP behavior
-				_, hasEthernets := network["ethernets"]
-				assert.False(t, hasEthernets)
+				assert.Nil(t, result.Network.Ethernets)
 			},
 		},
 	}
