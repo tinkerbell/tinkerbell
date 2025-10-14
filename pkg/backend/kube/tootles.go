@@ -259,6 +259,7 @@ func generateBondingConfigurationV2(hw v1alpha1.Hardware) (map[string]interface{
 			"match": map[string]interface{}{
 				"macaddress": iface.DHCP.MAC,
 			},
+			"set-name": interfaceName,
 		}
 
 		ethernets[interfaceName] = ethernetConfig

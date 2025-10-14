@@ -274,13 +274,13 @@ func TestGenerateBondingConfigurationV2(t *testing.T) {
 				assert.Equal(t, false, iface1["dhcp4"])
 				match := iface1["match"].(map[string]interface{})
 				assert.Equal(t, "aa:bb:cc:dd:ee:01", match["macaddress"])
-				_, hasSetName := iface1["set-name"]
-				assert.False(t, hasSetName, "set-name should not be present")
+				assert.Equal(t, "bond0phy0", iface1["set-name"])
 
 				iface2 := ethernets["bond0phy1"].(map[string]interface{})
 				assert.Equal(t, false, iface2["dhcp4"])
 				match2 := iface2["match"].(map[string]interface{})
 				assert.Equal(t, "aa:bb:cc:dd:ee:02", match2["macaddress"])
+				assert.Equal(t, "bond0phy1", iface2["set-name"])
 			},
 			validateBonds: func(t *testing.T, bonds map[string]interface{}) {
 				t.Helper()

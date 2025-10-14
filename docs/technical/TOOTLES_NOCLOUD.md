@@ -53,10 +53,12 @@ network:
     bond0phy0:
       match:
         macaddress: b8:cb:29:98:cb:3a
+      set-name: bond0phy0
       dhcp4: false
     bond0phy1:
       match:
         macaddress: b8:cb:29:98:cb:3b
+      set-name: bond0phy1
       dhcp4: false
   bonds:
     bond0:
@@ -76,7 +78,7 @@ network:
         addresses: [1.1.1.1, 1.0.0.1, 2606:4700:4700::1111]
 ```
 
-**Note:** Physical interfaces are referenced as `bond0phyX` (where X is the interface index) and matched by MAC address. No interface renaming (`set-name`) is performed - the kernel will assign actual device names based on the MAC address matching.
+**Note:** Physical interfaces are matched by MAC address and renamed to `bond0phyX` (where X is the interface index) using `set-name`. This ensures consistent interface naming across reboots.
 
 
 ### Cloud-init Integration
