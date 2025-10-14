@@ -75,7 +75,7 @@ func TestFrontend_metaDataHandler(t *testing.T) {
 			router := gin.New()
 			frontend.Configure(router)
 
-			req := httptest.NewRequest(http.MethodGet, "/meta-data", nil)
+			req := httptest.NewRequest(http.MethodGet, "/nocloud/meta-data", nil)
 			req.RemoteAddr = "192.168.1.10:12345"
 			w := httptest.NewRecorder()
 
@@ -139,7 +139,7 @@ func TestFrontend_userDataHandler(t *testing.T) {
 			router := gin.New()
 			frontend.Configure(router)
 
-			req := httptest.NewRequest(http.MethodGet, "/user-data", nil)
+			req := httptest.NewRequest(http.MethodGet, "/nocloud/user-data", nil)
 			req.RemoteAddr = "192.168.1.10:12345"
 			w := httptest.NewRecorder()
 
@@ -191,7 +191,7 @@ func TestFrontend_vendorDataHandler(t *testing.T) {
 			router := gin.New()
 			frontend.Configure(router)
 
-			req := httptest.NewRequest(http.MethodGet, "/vendor-data", nil)
+			req := httptest.NewRequest(http.MethodGet, "/nocloud/vendor-data", nil)
 			req.RemoteAddr = "192.168.1.10:12345"
 			w := httptest.NewRecorder()
 
@@ -314,7 +314,7 @@ func TestFrontend_networkConfigHandler(t *testing.T) {
 			router := gin.New()
 			frontend.Configure(router)
 
-			req := httptest.NewRequest(http.MethodGet, "/network-config", nil)
+			req := httptest.NewRequest(http.MethodGet, "/nocloud/network-config", nil)
 			req.RemoteAddr = "192.168.1.10:12345"
 			w := httptest.NewRecorder()
 

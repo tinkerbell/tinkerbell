@@ -87,7 +87,7 @@ The NoCloud service is automatically available at the Tinkerbell service endpoin
 
 **PXE kernel parameters:**
 ```
-ds=nocloud;seedfrom=http://<tinkerbell-ip>:7172/
+ds=nocloud;seedfrom=http://<tinkerbell-ip>:7172/nocloud/
 ```
 
 

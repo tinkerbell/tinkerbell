@@ -39,11 +39,11 @@ func New(client Client) Frontend {
 
 // Configure configures router with the supported NoCloud metadata API endpoints.
 func (f Frontend) Configure(router gin.IRouter) {
-	// Configure NoCloud endpoints directly under the root path
-	router.GET("/meta-data", f.metaDataHandler)
-	router.GET("/user-data", f.userDataHandler)
-	router.GET("/vendor-data", f.vendorDataHandler)
-	router.GET("/network-config", f.networkConfigHandler)
+	// Configure NoCloud endpoints under /nocloud prefix
+	router.GET("/nocloud/meta-data", f.metaDataHandler)
+	router.GET("/nocloud/user-data", f.userDataHandler)
+	router.GET("/nocloud/vendor-data", f.vendorDataHandler)
+	router.GET("/nocloud/network-config", f.networkConfigHandler)
 }
 
 // metaDataHandler handles the /meta-data endpoint.
