@@ -118,11 +118,17 @@ type Reference struct {
 	Resource string `json:"resource,omitempty"`
 }
 
-// Interface represents a network interface configuration for Hardware.
+// Interface represents configuration related to a network interface.
 type Interface struct {
+	// Netboot configuration.
 	//+optional
 	Netboot *Netboot `json:"netboot,omitempty"`
 
+	// Isoboot configuration.
+	// +optional
+	Isoboot *Isoboot `json:"isoboot,omitempty"`
+
+	// DHCP configuration.
 	//+optional
 	DHCP *DHCP `json:"dhcp,omitempty"`
 
@@ -145,6 +151,15 @@ type Netboot struct {
 
 	//+optional
 	OSIE *OSIE `json:"osie,omitempty"`
+}
+
+// Isoboot configuration for booting a client using an ISO image.
+type Isoboot struct {
+	// SourceISO is the source url where HookOS, an Operating System Installation Environment (OSIE), ISO lives.
+	// It must be a valid url.URL{} object and must have a url.URL{}.Scheme of HTTP or HTTPS.
+	//+optional
+	// +kubebuilder:validation:Format=uri
+	SourceISO string `json:"sourceISO,omitempty"`
 }
 
 // IPXE configuration.

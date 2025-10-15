@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	diskfs "github.com/diskfs/go-diskfs"
@@ -36,9 +37,7 @@ func TestReqPathInvalid(t *testing.T) {
 	for name, tt := range tests {
 		u, _ := url.Parse(tt.isoURL)
 		t.Run(name, func(t *testing.T) {
-			h := &Handler{
-				parsedURL: u,
-			}
+			h := &Handler{}
 			req := http.Request{
 				Method: http.MethodGet,
 				URL:    u,
@@ -112,12 +111,13 @@ func TestPatching(t *testing.T) {
 	// mount the ISO file and check if the magic string was patched
 
 	// If anything changes here the space padding will be different. Be sure to update it accordingly.
-	wantGrubCfg := `set timeout=0
+	kernelArgs := `facility=test console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1 vlan_id=400 hw_addr=de:ed:be:ef:fe:ed syslog_host=127.0.0.1:514 grpc_authority=127.0.0.1:42113 tinkerbell_tls=false worker_id=de:ed:be:ef:fe:ed k1=1 k2=2 ipam=:400:::::::`
+	wantGrubCfg := fmt.Sprintf(`set timeout=0
 set gfxpayload=text
 menuentry 'LinuxKit ISO Image' {
-        linuxefi /kernel facility=test console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1  hw_addr=de:ed:be:ef:fe:ed syslog_host=127.0.0.1:514 grpc_authority=127.0.0.1:42113 tinkerbell_tls=false worker_id=de:ed:be:ef:fe:ed k1=1 k2=2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               text
+        linuxefi /kernel %s
         initrdefi /initrd.img
-}`
+}`, (kernelArgs + strings.Repeat(" ", len(magicString)-len(kernelArgs)) + " text"))
 	// This expects that testdata/output.iso exists. Run the TestCreateISO test to create it.
 
 	// serve it with a http server
@@ -126,23 +126,23 @@ menuentry 'LinuxKit ISO Image' {
 
 	// patch the ISO file
 	u := hs.URL + "/output.iso"
-	parsedURL, err := url.Parse(u)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	h := &Handler{
-		Logger:             logr.Discard(),
-		Backend:            &mockBackend{},
-		SourceISO:          u,
-		ExtraKernelParams:  []string{"k1=1", "k2=2"},
-		Syslog:             "127.0.0.1:514",
-		TinkServerTLS:      false,
-		TinkServerGRPCAddr: "127.0.0.1:42113",
-		parsedURL:          parsedURL,
-		MagicString:        magicString,
+		Logger:  logr.Discard(),
+		Backend: &mockBackend{},
+		Patch: Patch{
+			KernelParams: KernelParams{
+				ExtraParams:        []string{"k1=1", "k2=2"},
+				Syslog:             "127.0.0.1:514",
+				TinkServerTLS:      false,
+				TinkServerGRPCAddr: "127.0.0.1:42113",
+			},
+			MagicString:       magicString,
+			SourceISO:         u,
+			StaticIPAMEnabled: true,
+		},
 	}
-	h.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.MagicString))
+	h.Patch.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.Patch.MagicString))
 	// for debugging enable a logger
 	// h.Logger = logr.FromSlogHandler(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{AddSource: true}))
 
@@ -191,23 +191,22 @@ func TestRedirectHandling(t *testing.T) {
 
 	// Set up the handler to use the redirect server as the source
 	redirectURL := redirectServer.URL + "/redirect-to-iso"
-	parsedURL, err := url.Parse(redirectURL)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	h := &Handler{
-		Logger:             logr.Discard(),
-		Backend:            &mockBackend{},
-		SourceISO:          redirectURL,
-		ExtraKernelParams:  []string{"k1=1", "k2=v2"},
-		Syslog:             "127.0.0.1:514",
-		TinkServerTLS:      false,
-		TinkServerGRPCAddr: "127.0.0.1:42113",
-		parsedURL:          parsedURL,
-		MagicString:        magicString,
+		Logger:  logr.Discard(),
+		Backend: &mockBackend{},
+		Patch: Patch{
+			KernelParams: KernelParams{
+				ExtraParams:        []string{"k1=1", "k2=v2"},
+				Syslog:             "127.0.0.1:514",
+				TinkServerTLS:      false,
+				TinkServerGRPCAddr: "127.0.0.1:42113",
+			},
+			MagicString: magicString,
+			SourceISO:   redirectURL,
+		},
 	}
-	h.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.MagicString))
+	h.Patch.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.Patch.MagicString))
 
 	// Create a test request that should trigger the redirect handling
 	// The request should mimic what the reverse proxy would send to RoundTrip
@@ -280,23 +279,22 @@ func TestMultipleRedirects(t *testing.T) {
 
 	// Set up the handler to use the first redirect server
 	redirectURL := server1.URL + "/redirect1"
-	parsedURL, err := url.Parse(redirectURL)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	h := &Handler{
-		Logger:             logr.Discard(),
-		Backend:            &mockBackend{},
-		SourceISO:          redirectURL,
-		ExtraKernelParams:  []string{"k1=1", "k2=2"},
-		Syslog:             "127.0.0.1:514",
-		TinkServerTLS:      false,
-		TinkServerGRPCAddr: "127.0.0.1:42113",
-		parsedURL:          parsedURL,
-		MagicString:        magicString,
+		Logger:  logr.Discard(),
+		Backend: &mockBackend{},
+		Patch: Patch{
+			KernelParams: KernelParams{
+				ExtraParams:        []string{"k1=1", "k2=2"},
+				Syslog:             "127.0.0.1:514",
+				TinkServerTLS:      false,
+				TinkServerGRPCAddr: "127.0.0.1:42113",
+			},
+			MagicString: magicString,
+			SourceISO:   redirectURL,
+		},
 	}
-	h.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.MagicString))
+	h.Patch.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.Patch.MagicString))
 
 	// Create a test request
 	// The request should mimic what the reverse proxy would send to RoundTrip
@@ -329,18 +327,101 @@ func TestMultipleRedirects(t *testing.T) {
 
 type mockBackend struct{}
 
-func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *data.Netboot, error) {
-	d := &data.DHCP{}
+func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error) {
+	d := &data.DHCP{
+		VLANID: "400",
+	}
 	n := &data.Netboot{
 		Facility: "test",
 	}
-	return d, n, nil
+	return data.Hardware{
+		DHCP:    d,
+		Netboot: n,
+	}, nil
 }
 
-func (m *mockBackend) GetByIP(context.Context, net.IP) (*data.DHCP, *data.Netboot, error) {
+func (m *mockBackend) GetByIP(context.Context, net.IP) (data.Hardware, error) {
 	d := &data.DHCP{}
 	n := &data.Netboot{
 		Facility: "test",
 	}
-	return d, n, nil
+	return data.Hardware{
+		DHCP:    d,
+		Netboot: n,
+	}, nil
+}
+
+func TestGetTargetURL(t *testing.T) {
+	tests := map[string]struct {
+		defaultISO    string
+		queryParam    string
+		hardwareISO   string
+		expectedURL   string
+		expectedError bool
+	}{
+		"Query parameter with valid HTTP URL": {
+			defaultISO:    "http://default.com/default.iso",
+			queryParam:    "http://example.com/hook.iso",
+			expectedURL:   "http://example.com/hook.iso",
+			expectedError: false,
+		},
+		"Query parameter with valid HTTPS URL": {
+			defaultISO:    "http://default.com/default.iso",
+			queryParam:    "https://secure.example.com/hook.iso",
+			expectedURL:   "https://secure.example.com/hook.iso",
+			expectedError: false,
+		},
+		"No query parameter, use default": {
+			defaultISO:    "http://default.com/default.iso",
+			queryParam:    "",
+			expectedURL:   "http://default.com/default.iso",
+			expectedError: false,
+		},
+		"Invalid scheme in query parameter": {
+			defaultISO:    "http://default.com/default.iso",
+			queryParam:    "ftp://example.com/hook.iso",
+			expectedURL:   "",
+			expectedError: true,
+		},
+		"Invalid URL format in query parameter": {
+			defaultISO:    "http://default.com/default.iso",
+			queryParam:    "not-a-valid-url",
+			expectedURL:   "",
+			expectedError: true,
+		},
+		"No default and no query parameter": {
+			defaultISO:    "",
+			queryParam:    "",
+			expectedURL:   "",
+			expectedError: true,
+		},
+		"use Hardware object ISO": {
+			defaultISO:    "http://default.com/default.iso",
+			hardwareISO:   "http://hardware.com/hardware.iso",
+			queryParam:    "",
+			expectedURL:   "http://hardware.com/hardware.iso",
+			expectedError: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			targetURL, err := targetURL(tt.queryParam, tt.hardwareISO, tt.defaultISO)
+			if tt.expectedError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if targetURL.String() != tt.expectedURL {
+				t.Errorf("Expected URL %s, got %s", tt.expectedURL, targetURL.String())
+			}
+		})
+	}
 }
