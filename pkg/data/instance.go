@@ -139,7 +139,7 @@ type BondParameters struct {
 	PrimaryReselectPolicy string `json:"primary-reselect-policy,omitempty" yaml:"primary-reselect-policy,omitempty"`
 	FailOverMACPolicy     string `json:"fail-over-mac-policy,omitempty" yaml:"fail-over-mac-policy,omitempty"`
 	Primary               string `json:"primary,omitempty" yaml:"primary,omitempty"`
-	GratuitousARP         int    `json:"gratuitious-arp,omitempty" yaml:"gratuitious-arp,omitempty"`
+	GratuitousARP         int    `json:"gratuitous-arp,omitempty" yaml:"gratuitous-arp,omitempty"`
 	PacketsPerSlave       int    `json:"packets-per-slave,omitempty" yaml:"packets-per-slave,omitempty"`
 }
 
