@@ -207,35 +207,37 @@ func TestFrontend_vendorDataHandler(t *testing.T) {
 }
 
 func TestFrontend_networkConfigHandler(t *testing.T) {
-	bondConfig := map[string]interface{}{
-		"version": 1,
-		"config": []interface{}{
-			map[string]interface{}{
-				"type":        "physical",
-				"name":        "eno1",
-				"mac_address": "1c:34:da:12:34:56",
-				"mtu":         1500,
-			},
-			map[string]interface{}{
-				"type":        "physical",
-				"name":        "eno2",
-				"mac_address": "1c:34:da:12:34:57",
-				"mtu":         1500,
-			},
-			map[string]interface{}{
-				"type":            "bond",
-				"name":            "bond0",
-				"bond_interfaces": []string{"eno1", "eno2"},
-				"params": map[string]interface{}{
-					"bond-mode":   "802.3ad",
-					"bond-miimon": 100,
-				},
-				"subnets": []interface{}{
-					map[string]interface{}{
-						"type":    "static",
-						"address": "192.168.1.10/24",
-						"gateway": "192.168.1.1",
+	bondConfig := &data.NetworkConfig{
+		Network: data.NetworkSpecV2{
+			Version: 2,
+			Ethernets: map[string]data.EthernetConfig{
+				"bond0phy0": {
+					Match: &data.MatchConfig{
+						MACAddress: "1c:34:da:12:34:56",
 					},
+					SetName: "bond0phy0",
+					Dhcp4:   false,
+				},
+				"bond0phy1": {
+					Match: &data.MatchConfig{
+						MACAddress: "1c:34:da:12:34:57",
+					},
+					SetName: "bond0phy1",
+					Dhcp4:   false,
+				},
+			},
+			Bonds: map[string]data.BondConfig{
+				"bond0": {
+					Interfaces: []string{"bond0phy0", "bond0phy1"},
+					Parameters: data.BondParameters{
+						Mode:               "802.3ad",
+						MIIMonitorInterval: 100,
+						LACPRate:           "fast",
+						TransmitHashPolicy: "layer3+4",
+						ADSelect:           "stable",
+					},
+					Addresses: []string{"192.168.1.10/24"},
+					Gateway4:  "192.168.1.1",
 				},
 			},
 		},
@@ -260,19 +262,17 @@ func TestFrontend_networkConfigHandler(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				var config map[string]interface{}
+				var config data.NetworkConfig
 				err := yaml.Unmarshal([]byte(body), &config)
 				require.NoError(t, err)
 
-				assert.Equal(t, 1, config["version"])
-				assert.Contains(t, config, "config")
-
-				configItems := config["config"].([]interface{})
-				assert.Len(t, configItems, 3) // 2 physical + 1 bond
+				assert.Equal(t, 2, config.Network.Version)
+				assert.Contains(t, config.Network.Bonds, "bond0")
+				assert.Len(t, config.Network.Ethernets, 2)
 			},
 		},
 		{
-			name: "fallback config when no network config",
+			name: "empty config when no network config",
 			instance: data.NoCloudInstance{
 				NetworkConfig: nil,
 				Metadata: data.Metadata{
@@ -283,17 +283,7 @@ func TestFrontend_networkConfigHandler(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				var config map[string]interface{}
-				err := yaml.Unmarshal([]byte(body), &config)
-				require.NoError(t, err)
-
-				assert.Equal(t, 1, config["version"])
-				configItems := config["config"].([]interface{})
-				assert.Len(t, configItems, 1) // fallback DHCP config
-
-				item := configItems[0].(map[string]interface{})
-				assert.Equal(t, "physical", item["type"])
-				assert.Equal(t, "eno1", item["name"])
+				assert.Equal(t, "", body)
 			},
 		},
 		{

@@ -25,43 +25,40 @@ func NewExampleClient() *ExampleClient {
 					InstanceID:    "server-001",
 					LocalHostname: "web01.example.com",
 				},
-				NetworkConfig: map[string]interface{}{
-					"version": 1,
-					"config": []interface{}{
-						map[string]interface{}{
-							"type":        "physical",
-							"name":        "eno1",
-							"mac_address": "1c:34:da:12:34:56",
-							"mtu":         1500,
-						},
-						map[string]interface{}{
-							"type":        "physical",
-							"name":        "eno2",
-							"mac_address": "1c:34:da:12:34:57",
-							"mtu":         1500,
-						},
-						map[string]interface{}{
-							"type":            "bond",
-							"name":            "bond0",
-							"bond_interfaces": []string{"eno1", "eno2"},
-							"params": map[string]interface{}{
-								"bond-mode":             "802.3ad",
-								"bond-miimon":           100,
-								"bond-lacp_rate":        "fast",
-								"bond-xmit_hash_policy": "layer3+4",
-							},
-							"subnets": []interface{}{
-								map[string]interface{}{
-									"type":            "static",
-									"address":         "192.168.1.10/24",
-									"gateway":         "192.168.1.1",
-									"dns_nameservers": []string{"8.8.8.8", "8.8.4.4"},
+				NetworkConfig: &data.NetworkConfig{
+					Network: data.NetworkSpecV2{
+						Version: 2,
+						Ethernets: map[string]data.EthernetConfig{
+							"bond0phy0": {
+								Match: &data.MatchConfig{
+									MACAddress: "1c:34:da:12:34:56",
 								},
-								map[string]interface{}{
-									"type":            "static6",
-									"address":         "2001:db8::10/64",
-									"gateway":         "2001:db8::1",
-									"dns_nameservers": []string{"2001:4860:4860::8888"},
+								SetName: "bond0phy0",
+								Dhcp4:   false,
+							},
+							"bond0phy1": {
+								Match: &data.MatchConfig{
+									MACAddress: "1c:34:da:12:34:57",
+								},
+								SetName: "bond0phy1",
+								Dhcp4:   false,
+							},
+						},
+						Bonds: map[string]data.BondConfig{
+							"bond0": {
+								Interfaces: []string{"bond0phy0", "bond0phy1"},
+								Parameters: data.BondParameters{
+									Mode:               "802.3ad",
+									MIIMonitorInterval: 100,
+									LACPRate:           "fast",
+									TransmitHashPolicy: "layer3+4",
+									ADSelect:           "stable",
+								},
+								Addresses: []string{"192.168.1.10/24", "2001:db8::10/64"},
+								Gateway4:  "192.168.1.1",
+								Gateway6:  "2001:db8::1",
+								Nameservers: &data.NameserversConfig{
+									Addresses: []string{"8.8.8.8", "8.8.4.4", "2001:4860:4860::8888"},
 								},
 							},
 						},

@@ -47,19 +47,17 @@ type LicenseActivation struct {
 type NoCloudInstance struct {
 	Userdata      string
 	Metadata      Metadata
-	NetworkConfig interface{} // Network Config data (typically NetworkConfigV2)
-	// Note: Uses interface{} for flexibility in YAML marshaling. The actual structure
-	// follows the NetworkConfigV2 format defined below.
+	NetworkConfig *NetworkConfig // Network Config data (NetworkConfig format)
 }
 
-// NetworkConfigV2 represents a Network Config Version 2 configuration.
+// NetworkConfig represents a Network Config Version 2 configuration.
 // Based on https://cloudinit.readthedocs.io/en/latest/reference/network-config-format-v2.html
-type NetworkConfigV2 struct {
-	Network NetworkSpec `json:"network" yaml:"network"`
+type NetworkConfig struct {
+	Network NetworkSpecV2 `json:"network" yaml:"network"`
 }
 
-// NetworkSpec contains the network configuration specification.
-type NetworkSpec struct {
+// NetworkSpecV2 contains the network configuration specification.
+type NetworkSpecV2 struct {
 	Version   int                       `json:"version" yaml:"version"`
 	Ethernets map[string]EthernetConfig `json:"ethernets,omitempty" yaml:"ethernets,omitempty"`
 	Bonds     map[string]BondConfig     `json:"bonds,omitempty" yaml:"bonds,omitempty"`

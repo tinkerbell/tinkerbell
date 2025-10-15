@@ -120,30 +120,9 @@ func (f Frontend) networkConfigHandler(ctx *gin.Context) {
 	}
 
 	if instance.NetworkConfig == nil {
-		// Return fallback DHCP configuration
-		fallbackConfig := map[string]interface{}{
-			"version": 1,
-			"config": []interface{}{
-				map[string]interface{}{
-					"type": "physical",
-					"name": "eno1",
-					"subnets": []interface{}{
-						map[string]interface{}{
-							"type": "dhcp",
-						},
-					},
-				},
-			},
-		}
-
-		yamlData, err := yaml.Marshal(fallbackConfig)
-		if err != nil {
-			_ = ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to marshal fallback config: %w", err))
-			return
-		}
-
+		// Return empty configuration
 		ctx.Header("Content-Type", "text/plain")
-		ctx.String(http.StatusOK, string(yamlData))
+		ctx.String(http.StatusOK, "")
 		return
 	}
 

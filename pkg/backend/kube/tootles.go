@@ -208,8 +208,9 @@ func cidrFromNetmask(netmask string) string {
 // generateNetworkConfigV2 creates a NoCloud-compatible network configuration (version 2) from Hardware resource.
 // Version 2 is the modern Netplan-compatible format.
 // Only generates configuration for network bonding. For non-bonded interfaces, cloud-init handles default DHCP.
-func generateNetworkConfigV2(hw v1alpha1.Hardware) data.NetworkConfigV2 {
-	networkSpec := data.NetworkSpec{
+// Returns nil if no network configuration is needed (non-bonded interfaces use default DHCP).
+func generateNetworkConfigV2(hw v1alpha1.Hardware) *data.NetworkConfig {
+	networkSpec := data.NetworkSpecV2{
 		Version: 2,
 	}
 
@@ -221,9 +222,12 @@ func generateNetworkConfigV2(hw v1alpha1.Hardware) data.NetworkConfigV2 {
 		ethernets, bonds := generateBondingConfigurationV2(hw)
 		networkSpec.Ethernets = ethernets
 		networkSpec.Bonds = bonds
+	} else {
+		// No bonding configuration needed, return nil to use default DHCP
+		return nil
 	}
 
-	return data.NetworkConfigV2{
+	return &data.NetworkConfig{
 		Network: networkSpec,
 	}
 }

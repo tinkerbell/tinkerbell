@@ -359,7 +359,7 @@ func TestGenerateNetworkConfigV2(t *testing.T) {
 	tests := []struct {
 		name     string
 		hw       tinkerbell.Hardware
-		validate func(t *testing.T, result data.NetworkConfigV2)
+		validate func(t *testing.T, result *data.NetworkConfig)
 	}{
 		{
 			name: "bonding enabled with 2+ interfaces",
@@ -379,8 +379,11 @@ func TestGenerateNetworkConfigV2(t *testing.T) {
 					},
 				},
 			},
-			validate: func(t *testing.T, result data.NetworkConfigV2) {
+			validate: func(t *testing.T, result *data.NetworkConfig) {
 				t.Helper()
+
+				// Check that result is not nil
+				assert.NotNil(t, result)
 
 				// Check version
 				assert.Equal(t, 2, result.Network.Version)
@@ -394,18 +397,15 @@ func TestGenerateNetworkConfigV2(t *testing.T) {
 			},
 		},
 		{
-			name: "no interfaces - no network config",
+			name: "no interfaces - returns nil",
 			hw: tinkerbell.Hardware{
 				Spec: tinkerbell.HardwareSpec{},
 			},
-			validate: func(t *testing.T, result data.NetworkConfigV2) {
+			validate: func(t *testing.T, result *data.NetworkConfig) {
 				t.Helper()
 
-				assert.Equal(t, 2, result.Network.Version)
-
-				// No interfaces defined means no ethernets config
-				// Let cloud-init handle its default DHCP behavior
-				assert.Nil(t, result.Network.Ethernets)
+				// Should return nil when no bonding is configured
+				assert.Nil(t, result)
 			},
 		},
 	}
@@ -425,10 +425,11 @@ func TestToNoCloudInstance(t *testing.T) {
 		validate func(t *testing.T, instance interface{})
 	}{
 		{
-			name: "complete hardware resource",
+			name: "hardware resource with bonding",
 			hw: tinkerbell.Hardware{
 				Spec: tinkerbell.HardwareSpec{
 					Metadata: &tinkerbell.HardwareMetadata{
+						BondingMode: 4,
 						Instance: &tinkerbell.MetadataInstance{
 							ID:       "server-001",
 							Hostname: "server001.example.com",
@@ -440,6 +441,7 @@ func TestToNoCloudInstance(t *testing.T) {
 					UserData: strPtr("#cloud-config\npackage_update: true\n"),
 					Interfaces: []tinkerbell.Interface{
 						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:01"}},
+						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:02"}},
 					},
 				},
 			},
@@ -453,6 +455,29 @@ func TestToNoCloudInstance(t *testing.T) {
 			},
 		},
 		{
+			name: "hardware resource without bonding",
+			hw: tinkerbell.Hardware{
+				Spec: tinkerbell.HardwareSpec{
+					Metadata: &tinkerbell.HardwareMetadata{
+						Instance: &tinkerbell.MetadataInstance{
+							ID:       "server-002",
+							Hostname: "server002.example.com",
+						},
+					},
+					Interfaces: []tinkerbell.Interface{
+						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:01"}},
+					},
+				},
+			},
+			validate: func(t *testing.T, instance interface{}) {
+				t.Helper()
+				i := instance.(map[string]interface{})
+				assert.Equal(t, "server-002", i["InstanceID"])
+				assert.Equal(t, "server002.example.com", i["LocalHostname"])
+				assert.Nil(t, i["NetworkConfig"])
+			},
+		},
+		{
 			name: "minimal hardware resource",
 			hw: tinkerbell.Hardware{
 				Spec: tinkerbell.HardwareSpec{},
@@ -463,7 +488,7 @@ func TestToNoCloudInstance(t *testing.T) {
 				assert.Equal(t, "", i["InstanceID"])
 				assert.Equal(t, "", i["LocalHostname"])
 				assert.Equal(t, "", i["Userdata"])
-				assert.NotNil(t, i["NetworkConfig"])
+				assert.Nil(t, i["NetworkConfig"])
 			},
 		},
 	}
