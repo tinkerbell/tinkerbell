@@ -5,7 +5,7 @@ go 1.24.1
 require (
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/avast/retry-go/v4 v4.6.1
+	github.com/avast/retry-go/v4 v4.7.0
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20251010091507-63cb571e5597
 	github.com/ccoveille/go-safecast v1.7.0
 	github.com/cenkalti/backoff/v5 v5.0.3
