@@ -142,7 +142,7 @@ func (f Frontend) networkConfigHandler(ctx *gin.Context) {
 			return
 		}
 
-		ctx.Header("Content-Type", "text/yaml")
+		ctx.Header("Content-Type", "text/plain")
 		ctx.String(http.StatusOK, string(yamlData))
 		return
 	}
@@ -153,7 +153,7 @@ func (f Frontend) networkConfigHandler(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Header("Content-Type", "text/yaml")
+	ctx.Header("Content-Type", "text/plain")
 	ctx.String(http.StatusOK, string(yamlData))
 }
 

@@ -322,7 +322,7 @@ func TestFrontend_networkConfigHandler(t *testing.T) {
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			if tt.validateBody != nil {
-				assert.Equal(t, "text/yaml", w.Header().Get("Content-Type"))
+				assert.Equal(t, "text/plain", w.Header().Get("Content-Type"))
 				tt.validateBody(t, w.Body.String())
 			}
 		})

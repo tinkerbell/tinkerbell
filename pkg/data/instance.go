@@ -131,26 +131,26 @@ type MatchConfig struct {
 
 // BondParameters contains bonding-specific parameters.
 type BondParameters struct {
-	Mode                   string `json:"mode,omitempty" yaml:"mode,omitempty"`
-	MIIMonitorInterval     int    `json:"mii-monitor-interval,omitempty" yaml:"mii-monitor-interval,omitempty"`
-	LACPRate               string `json:"lacp-rate,omitempty" yaml:"lacp-rate,omitempty"`
-	TransmitHashPolicy     string `json:"transmit-hash-policy,omitempty" yaml:"transmit-hash-policy,omitempty"`
-	ADSelect               string `json:"ad-select,omitempty" yaml:"ad-select,omitempty"`
-	PrimaryReselectPolicy  string `json:"primary-reselect-policy,omitempty" yaml:"primary-reselect-policy,omitempty"`
-	FailOverMACPolicy      string `json:"fail-over-mac-policy,omitempty" yaml:"fail-over-mac-policy,omitempty"`
-	Primary                string `json:"primary,omitempty" yaml:"primary,omitempty"`
-	GratuitousARP          int    `json:"gratuitious-arp,omitempty" yaml:"gratuitious-arp,omitempty"`
-	PacketsPerSlave        int    `json:"packets-per-slave,omitempty" yaml:"packets-per-slave,omitempty"`
+	Mode                  string `json:"mode,omitempty" yaml:"mode,omitempty"`
+	MIIMonitorInterval    int    `json:"mii-monitor-interval,omitempty" yaml:"mii-monitor-interval,omitempty"`
+	LACPRate              string `json:"lacp-rate,omitempty" yaml:"lacp-rate,omitempty"`
+	TransmitHashPolicy    string `json:"transmit-hash-policy,omitempty" yaml:"transmit-hash-policy,omitempty"`
+	ADSelect              string `json:"ad-select,omitempty" yaml:"ad-select,omitempty"`
+	PrimaryReselectPolicy string `json:"primary-reselect-policy,omitempty" yaml:"primary-reselect-policy,omitempty"`
+	FailOverMACPolicy     string `json:"fail-over-mac-policy,omitempty" yaml:"fail-over-mac-policy,omitempty"`
+	Primary               string `json:"primary,omitempty" yaml:"primary,omitempty"`
+	GratuitousARP         int    `json:"gratuitious-arp,omitempty" yaml:"gratuitious-arp,omitempty"`
+	PacketsPerSlave       int    `json:"packets-per-slave,omitempty" yaml:"packets-per-slave,omitempty"`
 }
 
 // BridgeParameters contains bridge-specific parameters.
 type BridgeParameters struct {
-	AgeingTime     int    `json:"ageing-time,omitempty" yaml:"ageing-time,omitempty"`
-	ForwardDelay   int    `json:"forward-delay,omitempty" yaml:"forward-delay,omitempty"`
-	HelloTime      int    `json:"hello-time,omitempty" yaml:"hello-time,omitempty"`
-	MaxAge         int    `json:"max-age,omitempty" yaml:"max-age,omitempty"`
-	Priority       int    `json:"priority,omitempty" yaml:"priority,omitempty"`
-	STP            bool   `json:"stp,omitempty" yaml:"stp,omitempty"`
+	AgeingTime   int  `json:"ageing-time,omitempty" yaml:"ageing-time,omitempty"`
+	ForwardDelay int  `json:"forward-delay,omitempty" yaml:"forward-delay,omitempty"`
+	HelloTime    int  `json:"hello-time,omitempty" yaml:"hello-time,omitempty"`
+	MaxAge       int  `json:"max-age,omitempty" yaml:"max-age,omitempty"`
+	Priority     int  `json:"priority,omitempty" yaml:"priority,omitempty"`
+	STP          bool `json:"stp,omitempty" yaml:"stp,omitempty"`
 }
 
 // NameserversConfig specifies DNS nameservers and search domains.
