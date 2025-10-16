@@ -8,6 +8,25 @@ Tinkerbell generates Network Config Version 2 (Netplan-compatible) format for al
 
 ## Network Bonding with Static IPs
 
+### Bonding Modes
+
+Tinkerbell supports all standard Linux bonding modes (0-6). Choose the mode based on your network topology and requirements:
+
+| Mode | Name | Description | Use Case | Switch Requirements |
+|------|------|-------------|----------|---------------------|
+| 0 | balance-rr | Round-robin load balancing across all interfaces | Testing, non-production | None |
+| 1 | active-backup | One interface active, others standby for failover | High availability, simple failover | None |
+| 2 | balance-xor | XOR hash-based load balancing (layer 2) | Load distribution without switch config | None |
+| 3 | broadcast | Transmit on all interfaces simultaneously | Fault tolerance, high redundancy | None |
+| 4 | 802.3ad | IEEE 802.3ad dynamic link aggregation (LACP) | High performance, dynamic failover | LACP support required |
+| 5 | balance-tlb | Adaptive transmit load balancing | Outbound load distribution | None |
+| 6 | balance-alb | Adaptive load balancing (transmit + receive) | Bidirectional load distribution | None |
+
+**Recommendations:**
+- **Mode 4 (802.3ad/LACP)**: Recommended for production environments with LACP-capable switches
+- **Mode 1 (active-backup)**: Recommended for simple failover without special switch configuration
+- **Mode 6 (balance-alb)**: Best performance without LACP support, but requires driver support
+
 ### Hardware Configuration
 
 Configure bonding and static IPs in your Hardware resource:
@@ -19,7 +38,7 @@ metadata:
   name: server-001
 spec:
   metadata:
-    bonding_mode: 4  # 802.3ad LACP
+    bonding_mode: 4  # See bonding modes table above
     instance:
       hostname: "server001.example.com"
       id: "b8:cb:29:98:cb:3a"
@@ -44,7 +63,9 @@ spec:
 
 ### Generated Network Configuration
 
-The service generates Network Config Version 2 (Netplan-compatible format):
+The service generates Network Config Version 2 (Netplan-compatible format). Below are examples for different bonding modes:
+
+#### Mode 4 (802.3ad LACP) - Production Recommended
 
 ```yaml
 network:
@@ -78,7 +99,34 @@ network:
         addresses: [1.1.1.1, 1.0.0.1, 2606:4700:4700::1111]
 ```
 
-**Note:** Physical interfaces are matched by MAC address and renamed to `bond0phyX` (where X is the interface index) using `set-name`. This ensures consistent interface naming across reboots.
+#### Mode 1 (active-backup) - Simple Failover
+
+```yaml
+  bonds:
+    bond0:
+      interfaces: [bond0phy0, bond0phy1]
+      parameters:
+        mode: active-backup
+        mii-monitor-interval: 100
+        primary-reselect-policy: always
+        fail-over-mac-policy: none
+      # ... addresses and gateways same as above
+```
+
+#### Mode 2 (balance-xor) - Layer 2 Load Balancing
+
+```yaml
+  bonds:
+    bond0:
+      interfaces: [bond0phy0, bond0phy1]
+      parameters:
+        mode: balance-xor
+        mii-monitor-interval: 100
+        transmit-hash-policy: layer2
+      # ... addresses and gateways same as above
+```
+
+**Note:** Physical interfaces are matched by MAC address and renamed to `bond0phyX` (where X is the interface index) using `set-name`. This ensures consistent interface naming across reboots. All modes include `mii-monitor-interval: 100` for link monitoring.
 
 
 ### Cloud-init Integration
@@ -106,3 +154,10 @@ ds=nocloud;seedfrom=http://<tinkerbell-ip>:7172/nocloud/
 - For 802.3ad mode: Switch must support LACP
 - At least 2 network interfaces defined in Hardware spec
 - Ubuntu 17.10+, modern Debian/RHEL with Netplan or systemd-networkd
+
+### Limitations
+
+- Only a single bond interface (`bond0`) is supported per Hardware resource
+- All interfaces defined in the Hardware spec that have a DHCP configuration with a MAC address will be added to bond0
+- Interfaces without a DHCP section or MAC address are skipped and not included in the bond
+- Multiple separate bonds are not currently supported
