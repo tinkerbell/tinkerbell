@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -33,10 +32,10 @@ func TestFrontend_metaDataHandler(t *testing.T) {
 		instance       data.NoCloudInstance
 		clientErr      error
 		expectedStatus int
-		expectedBody   string
+		validateBody   func(t *testing.T, body string)
 	}{
 		{
-			name: "successful metadata response",
+			name: "minimal metadata response",
 			instance: data.NoCloudInstance{
 				Metadata: data.Metadata{
 					InstanceID:    "server-001",
@@ -44,18 +43,81 @@ func TestFrontend_metaDataHandler(t *testing.T) {
 				},
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   "instance-id: server-001\nlocal-hostname: web01.example.com",
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				var metadata map[string]interface{}
+				err := yaml.Unmarshal([]byte(body), &metadata)
+				require.NoError(t, err)
+
+				assert.Equal(t, "server-001", metadata["instance-id"])
+				assert.Equal(t, "web01.example.com", metadata["local-hostname"])
+				// Only required fields should be present
+				assert.Len(t, metadata, 2)
+			},
 		},
 		{
-			name: "minimal metadata response",
+			name: "complete metadata response with all fields",
 			instance: data.NoCloudInstance{
 				Metadata: data.Metadata{
 					InstanceID:    "server-002",
 					LocalHostname: "db01.example.com",
+					Hostname:      "db01",
+					IQN:           "iqn.2024-10.com.example:db01",
+					Plan:          "c3.small.x86",
+					Facility:      "ewr1",
+					Tags:          []string{"database", "production"},
+					PublicKeys:    []string{"ssh-rsa AAAAB3NzaC1yc2EA..."},
+					PublicIPv4:    "147.75.1.100",
+					PublicIPv6:    "2604:1380:1:1::100",
+					LocalIPv4:     "10.0.0.10",
 				},
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   "instance-id: server-002\nlocal-hostname: db01.example.com",
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				var metadata map[string]interface{}
+				err := yaml.Unmarshal([]byte(body), &metadata)
+				require.NoError(t, err)
+
+				assert.Equal(t, "server-002", metadata["instance-id"])
+				assert.Equal(t, "db01.example.com", metadata["local-hostname"])
+				assert.Equal(t, "db01", metadata["hostname"])
+				assert.Equal(t, "iqn.2024-10.com.example:db01", metadata["iqn"])
+				assert.Equal(t, "c3.small.x86", metadata["plan"])
+				assert.Equal(t, "ewr1", metadata["facility"])
+				assert.Equal(t, []interface{}{"database", "production"}, metadata["tags"])
+				assert.Equal(t, []interface{}{"ssh-rsa AAAAB3NzaC1yc2EA..."}, metadata["public-keys"])
+				assert.Equal(t, "147.75.1.100", metadata["public-ipv4"])
+				assert.Equal(t, "2604:1380:1:1::100", metadata["public-ipv6"])
+				assert.Equal(t, "10.0.0.10", metadata["local-ipv4"])
+			},
+		},
+		{
+			name: "partial metadata with some optional fields",
+			instance: data.NoCloudInstance{
+				Metadata: data.Metadata{
+					InstanceID:    "server-003",
+					LocalHostname: "app01.example.com",
+					PublicIPv4:    "147.75.1.200",
+					LocalIPv4:     "10.0.0.20",
+				},
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				var metadata map[string]interface{}
+				err := yaml.Unmarshal([]byte(body), &metadata)
+				require.NoError(t, err)
+
+				assert.Equal(t, "server-003", metadata["instance-id"])
+				assert.Equal(t, "app01.example.com", metadata["local-hostname"])
+				assert.Equal(t, "147.75.1.200", metadata["public-ipv4"])
+				assert.Equal(t, "10.0.0.20", metadata["local-ipv4"])
+				// Optional fields that are empty should not be present
+				assert.NotContains(t, metadata, "hostname")
+				assert.NotContains(t, metadata, "iqn")
+				assert.NotContains(t, metadata, "plan")
+			},
 		},
 		{
 			name:           "instance not found",
@@ -82,9 +144,9 @@ func TestFrontend_metaDataHandler(t *testing.T) {
 			router.ServeHTTP(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
-			if tt.expectedBody != "" {
-				assert.Equal(t, tt.expectedBody, strings.TrimSpace(w.Body.String()))
+			if tt.validateBody != nil {
 				assert.Equal(t, "text/plain", w.Header().Get("Content-Type"))
+				tt.validateBody(t, w.Body.String())
 			}
 		})
 	}

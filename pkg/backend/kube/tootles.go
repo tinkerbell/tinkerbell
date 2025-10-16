@@ -133,7 +133,41 @@ func (b *Backend) toNoCloudInstance(hw v1alpha1.Hardware) data.NoCloudInstance {
 	// Set metadata from Hardware resource
 	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil {
 		i.Metadata.InstanceID = hw.Spec.Metadata.Instance.ID
+		i.Metadata.Hostname = hw.Spec.Metadata.Instance.Hostname
 		i.Metadata.LocalHostname = hw.Spec.Metadata.Instance.Hostname
+		i.Metadata.Tags = hw.Spec.Metadata.Instance.Tags
+		i.Metadata.PublicKeys = hw.Spec.Metadata.Instance.SSHKeys
+
+		if hw.Spec.Metadata.Instance.OperatingSystem != nil {
+			i.Metadata.OperatingSystem.Slug = hw.Spec.Metadata.Instance.OperatingSystem.Slug
+			i.Metadata.OperatingSystem.Distro = hw.Spec.Metadata.Instance.OperatingSystem.Distro
+			i.Metadata.OperatingSystem.Version = hw.Spec.Metadata.Instance.OperatingSystem.Version
+			i.Metadata.OperatingSystem.ImageTag = hw.Spec.Metadata.Instance.OperatingSystem.ImageTag
+		}
+
+		// Iterate over all IPs and set the first one for IPv4 and IPv6 as the values in the
+		// instance metadata.
+		for _, ip := range hw.Spec.Metadata.Instance.Ips {
+			// Public IPv4
+			if ip.Family == 4 && ip.Public && i.Metadata.PublicIPv4 == "" {
+				i.Metadata.PublicIPv4 = ip.Address
+			}
+
+			// Private IPv4
+			if ip.Family == 4 && !ip.Public && i.Metadata.LocalIPv4 == "" {
+				i.Metadata.LocalIPv4 = ip.Address
+			}
+
+			// Public IPv6
+			if ip.Family == 6 && i.Metadata.PublicIPv6 == "" {
+				i.Metadata.PublicIPv6 = ip.Address
+			}
+		}
+	}
+
+	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Facility != nil {
+		i.Metadata.Plan = hw.Spec.Metadata.Facility.PlanSlug
+		i.Metadata.Facility = hw.Spec.Metadata.Facility.FacilityCode
 	}
 
 	// Set user data from Hardware resource

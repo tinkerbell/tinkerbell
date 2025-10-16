@@ -422,17 +422,72 @@ func TestToNoCloudInstance(t *testing.T) {
 	tests := []struct {
 		name     string
 		hw       tinkerbell.Hardware
-		validate func(t *testing.T, instance interface{})
+		validate func(t *testing.T, result data.NoCloudInstance)
 	}{
 		{
-			name: "hardware resource with bonding",
+			name: "complete hardware resource with all metadata fields",
+			hw: tinkerbell.Hardware{
+				Spec: tinkerbell.HardwareSpec{
+					Metadata: &tinkerbell.HardwareMetadata{
+						BondingMode: 4,
+						Facility: &tinkerbell.MetadataFacility{
+							FacilityCode: "ewr1",
+							PlanSlug:     "c3.small.x86",
+						},
+						Instance: &tinkerbell.MetadataInstance{
+							ID:       "server-001",
+							Hostname: "server001.example.com",
+							Tags:     []string{"production", "web"},
+							SSHKeys:  []string{"ssh-rsa AAAAB3NzaC1yc2EA..."},
+							Ips: []*tinkerbell.MetadataInstanceIP{
+								{Address: "192.168.1.10", Netmask: "255.255.255.0", Gateway: "192.168.1.1", Family: 4, Public: false},
+								{Address: "147.75.1.100", Netmask: "255.255.255.240", Gateway: "147.75.1.97", Family: 4, Public: true},
+								{Address: "2001:db8::10/64", Gateway: "2001:db8::1", Family: 6},
+							},
+							OperatingSystem: &tinkerbell.MetadataInstanceOperatingSystem{
+								Slug:     "ubuntu_20_04",
+								Distro:   "ubuntu",
+								Version:  "20.04",
+								ImageTag: "latest",
+							},
+						},
+					},
+					UserData: strPtr("#cloud-config\npackage_update: true\n"),
+					Interfaces: []tinkerbell.Interface{
+						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:01"}},
+						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:02"}},
+					},
+				},
+			},
+			validate: func(t *testing.T, result data.NoCloudInstance) {
+				t.Helper()
+				assert.Equal(t, "server-001", result.Metadata.InstanceID)
+				assert.Equal(t, "server001.example.com", result.Metadata.Hostname)
+				assert.Equal(t, "server001.example.com", result.Metadata.LocalHostname)
+				assert.Equal(t, []string{"production", "web"}, result.Metadata.Tags)
+				assert.Equal(t, []string{"ssh-rsa AAAAB3NzaC1yc2EA..."}, result.Metadata.PublicKeys)
+				assert.Equal(t, "192.168.1.10", result.Metadata.LocalIPv4)
+				assert.Equal(t, "147.75.1.100", result.Metadata.PublicIPv4)
+				assert.Equal(t, "2001:db8::10/64", result.Metadata.PublicIPv6)
+				assert.Equal(t, "ewr1", result.Metadata.Facility)
+				assert.Equal(t, "c3.small.x86", result.Metadata.Plan)
+				assert.Equal(t, "ubuntu_20_04", result.Metadata.OperatingSystem.Slug)
+				assert.Equal(t, "ubuntu", result.Metadata.OperatingSystem.Distro)
+				assert.Equal(t, "20.04", result.Metadata.OperatingSystem.Version)
+				assert.Equal(t, "latest", result.Metadata.OperatingSystem.ImageTag)
+				assert.Equal(t, "#cloud-config\npackage_update: true\n", result.Userdata)
+				assert.NotNil(t, result.NetworkConfig)
+			},
+		},
+		{
+			name: "hardware resource with bonding and minimal metadata",
 			hw: tinkerbell.Hardware{
 				Spec: tinkerbell.HardwareSpec{
 					Metadata: &tinkerbell.HardwareMetadata{
 						BondingMode: 4,
 						Instance: &tinkerbell.MetadataInstance{
-							ID:       "server-001",
-							Hostname: "server001.example.com",
+							ID:       "server-002",
+							Hostname: "server002.example.com",
 							Ips: []*tinkerbell.MetadataInstanceIP{
 								{Address: "192.168.1.10", Netmask: "255.255.255.0", Gateway: "192.168.1.1", Family: 4},
 							},
@@ -445,13 +500,17 @@ func TestToNoCloudInstance(t *testing.T) {
 					},
 				},
 			},
-			validate: func(t *testing.T, instance interface{}) {
+			validate: func(t *testing.T, result data.NoCloudInstance) {
 				t.Helper()
-				i := instance.(map[string]interface{})
-				assert.Equal(t, "server-001", i["InstanceID"])
-				assert.Equal(t, "server001.example.com", i["LocalHostname"])
-				assert.Equal(t, "#cloud-config\npackage_update: true\n", i["Userdata"])
-				assert.NotNil(t, i["NetworkConfig"])
+				assert.Equal(t, "server-002", result.Metadata.InstanceID)
+				assert.Equal(t, "server002.example.com", result.Metadata.LocalHostname)
+				assert.Equal(t, "#cloud-config\npackage_update: true\n", result.Userdata)
+				assert.NotNil(t, result.NetworkConfig)
+				// Optional fields should be empty
+				assert.Nil(t, result.Metadata.Tags)
+				assert.Nil(t, result.Metadata.PublicKeys)
+				assert.Equal(t, "", result.Metadata.Facility)
+				assert.Equal(t, "", result.Metadata.Plan)
 			},
 		},
 		{
@@ -459,9 +518,15 @@ func TestToNoCloudInstance(t *testing.T) {
 			hw: tinkerbell.Hardware{
 				Spec: tinkerbell.HardwareSpec{
 					Metadata: &tinkerbell.HardwareMetadata{
+						Facility: &tinkerbell.MetadataFacility{
+							FacilityCode: "sjc1",
+						},
 						Instance: &tinkerbell.MetadataInstance{
-							ID:       "server-002",
-							Hostname: "server002.example.com",
+							ID:       "server-003",
+							Hostname: "server003.example.com",
+							Ips: []*tinkerbell.MetadataInstanceIP{
+								{Address: "10.0.0.10", Netmask: "255.255.255.0", Family: 4, Public: false},
+							},
 						},
 					},
 					Interfaces: []tinkerbell.Interface{
@@ -469,12 +534,13 @@ func TestToNoCloudInstance(t *testing.T) {
 					},
 				},
 			},
-			validate: func(t *testing.T, instance interface{}) {
+			validate: func(t *testing.T, result data.NoCloudInstance) {
 				t.Helper()
-				i := instance.(map[string]interface{})
-				assert.Equal(t, "server-002", i["InstanceID"])
-				assert.Equal(t, "server002.example.com", i["LocalHostname"])
-				assert.Nil(t, i["NetworkConfig"])
+				assert.Equal(t, "server-003", result.Metadata.InstanceID)
+				assert.Equal(t, "server003.example.com", result.Metadata.LocalHostname)
+				assert.Equal(t, "10.0.0.10", result.Metadata.LocalIPv4)
+				assert.Equal(t, "sjc1", result.Metadata.Facility)
+				assert.Nil(t, result.NetworkConfig)
 			},
 		},
 		{
@@ -482,13 +548,12 @@ func TestToNoCloudInstance(t *testing.T) {
 			hw: tinkerbell.Hardware{
 				Spec: tinkerbell.HardwareSpec{},
 			},
-			validate: func(t *testing.T, instance interface{}) {
+			validate: func(t *testing.T, result data.NoCloudInstance) {
 				t.Helper()
-				i := instance.(map[string]interface{})
-				assert.Equal(t, "", i["InstanceID"])
-				assert.Equal(t, "", i["LocalHostname"])
-				assert.Equal(t, "", i["Userdata"])
-				assert.Nil(t, i["NetworkConfig"])
+				assert.Equal(t, "", result.Metadata.InstanceID)
+				assert.Equal(t, "", result.Metadata.LocalHostname)
+				assert.Equal(t, "", result.Userdata)
+				assert.Nil(t, result.NetworkConfig)
 			},
 		},
 	}
@@ -497,15 +562,7 @@ func TestToNoCloudInstance(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &Backend{}
 			result := b.toNoCloudInstance(tt.hw)
-
-			// Convert to map for validation
-			resultMap := map[string]interface{}{
-				"InstanceID":    result.Metadata.InstanceID,
-				"LocalHostname": result.Metadata.LocalHostname,
-				"Userdata":      result.Userdata,
-				"NetworkConfig": result.NetworkConfig,
-			}
-			tt.validate(t, resultMap)
+			tt.validate(t, result)
 		})
 	}
 }

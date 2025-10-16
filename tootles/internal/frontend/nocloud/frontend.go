@@ -59,11 +59,49 @@ func (f Frontend) metaDataHandler(ctx *gin.Context) {
 		return
 	}
 
-	// Format metadata as YAML-like text output
-	output := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s", instance.Metadata.InstanceID, instance.Metadata.LocalHostname)
+	// Build metadata map with all relevant fields
+	metadata := map[string]interface{}{
+		"instance-id":    instance.Metadata.InstanceID,
+		"local-hostname": instance.Metadata.LocalHostname,
+	}
+
+	// Include optional fields if they are set
+	if instance.Metadata.Hostname != "" {
+		metadata["hostname"] = instance.Metadata.Hostname
+	}
+	if instance.Metadata.IQN != "" {
+		metadata["iqn"] = instance.Metadata.IQN
+	}
+	if instance.Metadata.Plan != "" {
+		metadata["plan"] = instance.Metadata.Plan
+	}
+	if instance.Metadata.Facility != "" {
+		metadata["facility"] = instance.Metadata.Facility
+	}
+	if len(instance.Metadata.Tags) > 0 {
+		metadata["tags"] = instance.Metadata.Tags
+	}
+	if len(instance.Metadata.PublicKeys) > 0 {
+		metadata["public-keys"] = instance.Metadata.PublicKeys
+	}
+	if instance.Metadata.PublicIPv4 != "" {
+		metadata["public-ipv4"] = instance.Metadata.PublicIPv4
+	}
+	if instance.Metadata.PublicIPv6 != "" {
+		metadata["public-ipv6"] = instance.Metadata.PublicIPv6
+	}
+	if instance.Metadata.LocalIPv4 != "" {
+		metadata["local-ipv4"] = instance.Metadata.LocalIPv4
+	}
+
+	yamlData, err := yaml.Marshal(metadata)
+	if err != nil {
+		_ = ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to marshal metadata: %w", err))
+		return
+	}
 
 	ctx.Header("Content-Type", "text/plain")
-	ctx.String(http.StatusOK, output)
+	ctx.String(http.StatusOK, string(yamlData))
 }
 
 // userDataHandler handles the /user-data endpoint.
