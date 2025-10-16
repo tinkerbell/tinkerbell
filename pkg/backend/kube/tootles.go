@@ -248,8 +248,8 @@ func generateNetworkConfigV2(hw v1alpha1.Hardware) *data.NetworkConfig {
 		Version: 2,
 	}
 
-	// Check if bonding is enabled
-	bondingEnabled := hw.Spec.Metadata != nil && hw.Spec.Metadata.BondingMode > 0
+	// Check if bonding is enabled (BondingMode >= 0 is valid, mode 0 is balance-rr)
+	bondingEnabled := hw.Spec.Metadata != nil && hw.Spec.Metadata.BondingMode >= 0
 
 	if bondingEnabled && len(hw.Spec.Interfaces) >= 2 {
 		// Generate bonding configuration
