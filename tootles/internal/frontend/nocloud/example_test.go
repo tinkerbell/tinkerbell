@@ -88,9 +88,10 @@ func Example() {
 	frontend.Configure(router)
 
 	// The router now has the following endpoints configured:
-	// GET /meta-data        - Returns instance metadata in text/plain format
-	// GET /user-data        - Returns cloud-config user data in text/plain format
-	// GET /network-config   - Returns network configuration in text/yaml format
+	// GET /nocloud/meta-data        - Returns instance metadata in text/plain format
+	// GET /nocloud/user-data        - Returns cloud-config user data in text/plain format
+	// GET /nocloud/vendor-data      - Returns vendor data in text/plain format (currently empty)
+	// GET /nocloud/network-config   - Returns network configuration in text/yaml format
 
 	// Start the server (in a real application)
 	_ = &http.Server{
@@ -100,9 +101,10 @@ func Example() {
 
 	log.Println("NoCloud metadata API server starting on :8080")
 	log.Println("Endpoints available:")
-	log.Println("  GET /meta-data")
-	log.Println("  GET /user-data")
-	log.Println("  GET /network-config")
+	log.Println("  GET /nocloud/meta-data")
+	log.Println("  GET /nocloud/user-data")
+	log.Println("  GET /nocloud/vendor-data")
+	log.Println("  GET /nocloud/network-config")
 
 	// In a real application you would call:
 	// server.ListenAndServe()
