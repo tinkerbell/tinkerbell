@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
@@ -202,43 +203,6 @@ func getNameServers(hw v1alpha1.Hardware) (ipv4DNS []string, ipv6DNS []string) {
 	return ipv4DNS, ipv6DNS
 }
 
-func cidrFromNetmask(netmask string) string {
-	if netmask == "" {
-		return ""
-	}
-
-	parts := strings.Split(netmask, ".")
-	if len(parts) != 4 {
-		return ""
-	}
-
-	setBits := 0
-	for _, part := range parts {
-		octet := 0
-		for _, ch := range part {
-			if ch < '0' || ch > '9' {
-				return ""
-			}
-			octet = octet*10 + int(ch-'0')
-		}
-
-		if octet < 0 || octet > 255 {
-			return ""
-		}
-
-		for octet > 0 {
-			setBits++
-			octet &= (octet - 1)
-		}
-	}
-
-	if setBits < 0 || setBits > 32 {
-		return ""
-	}
-
-	return fmt.Sprintf("%d", setBits)
-}
-
 // generateNetworkConfigV2 creates a NoCloud-compatible network configuration (version 2) from Hardware resource.
 // Version 2 is the modern Netplan-compatible format.
 // Only generates configuration for network bonding. For non-bonded interfaces, cloud-init handles default DHCP.
@@ -377,7 +341,15 @@ func generateAddressConfigV2(ips []*v1alpha1.MetadataInstanceIP, ipv4DNS []strin
 	for _, ip := range ips {
 		switch ip.Family {
 		case 4:
-			addresses = append(addresses, fmt.Sprintf("%s/%s", ip.Address, cidrFromNetmask(ip.Netmask)))
+			// Convert netmask to CIDR prefix length
+			cidr := ""
+			if parsedIP := net.ParseIP(ip.Netmask); parsedIP != nil {
+				if ipv4 := parsedIP.To4(); ipv4 != nil {
+					ones, _ := net.IPMask(ipv4).Size()
+					cidr = fmt.Sprintf("%d", ones)
+				}
+			}
+			addresses = append(addresses, fmt.Sprintf("%s/%s", ip.Address, cidr))
 			// Set gateway4 from the first IPv4 with a gateway
 			if gateway4 == "" && ip.Gateway != "" {
 				gateway4 = ip.Gateway

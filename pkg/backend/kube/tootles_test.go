@@ -8,40 +8,6 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 )
 
-func TestCidrFromNetmask(t *testing.T) {
-	tests := []struct {
-		name     string
-		netmask  string
-		expected string
-	}{
-		{"Class C", "255.255.255.0", "24"},
-		{"Class B", "255.255.0.0", "16"},
-		{"Class A", "255.0.0.0", "8"},
-		{"/26", "255.255.255.192", "26"},
-		{"/27", "255.255.255.224", "27"},
-		{"/28", "255.255.255.240", "28"},
-		{"/29", "255.255.255.248", "29"},
-		{"/30", "255.255.255.252", "30"},
-		{"/31", "255.255.255.254", "31"},
-		{"/32", "255.255.255.255", "32"},
-		{"/17", "255.255.128.0", "17"},
-		{"/25", "255.255.255.128", "25"},
-		{"Empty returns empty", "", ""},
-		{"Invalid format returns empty", "255.255", ""},
-		{"Invalid characters return empty", "255.255.abc.0", ""},
-		{"Out of range returns empty", "255.255.256.0", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := cidrFromNetmask(tt.netmask)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// V2 Tests
-
 func TestGenerateBondParametersV2(t *testing.T) {
 	tests := []struct {
 		name     string
