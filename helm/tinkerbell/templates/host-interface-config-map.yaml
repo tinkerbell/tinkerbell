@@ -3,6 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: host-interface-script
+  namespace: {{ .Release.Namespace | quote }}
 data:
   host_interface.sh: |
     #!/usr/bin/env sh
