@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"strings"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -108,6 +110,265 @@ func toEC2Instance(hw v1alpha1.Hardware) data.Ec2Instance {
 	// https://github.com/tinkerbell/tinkerbell/hegel/issues/165
 
 	return i
+}
+
+// GetNoCloudInstance returns a NoCloudInstance by calling the hwByIP method and converting the result.
+// This is a method that the Tootles service uses.
+func (b *Backend) GetNoCloudInstance(ctx context.Context, ip string) (data.NoCloudInstance, error) {
+	hw, err := b.hwByIP(ctx, ip)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			return data.NoCloudInstance{}, ErrInstanceNotFound
+		}
+
+		return data.NoCloudInstance{}, err
+	}
+
+	return b.toNoCloudInstance(*hw), nil
+}
+
+// toNoCloudInstance converts a Tinkerbell Hardware resource to a NoCloudInstance.
+func (b *Backend) toNoCloudInstance(hw v1alpha1.Hardware) data.NoCloudInstance {
+	var i data.NoCloudInstance
+
+	// Set metadata from Hardware resource
+	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil {
+		i.Metadata.InstanceID = hw.Spec.Metadata.Instance.ID
+		i.Metadata.Hostname = hw.Spec.Metadata.Instance.Hostname
+		i.Metadata.LocalHostname = hw.Spec.Metadata.Instance.Hostname
+		i.Metadata.Tags = hw.Spec.Metadata.Instance.Tags
+		i.Metadata.PublicKeys = hw.Spec.Metadata.Instance.SSHKeys
+
+		if hw.Spec.Metadata.Instance.OperatingSystem != nil {
+			i.Metadata.OperatingSystem.Slug = hw.Spec.Metadata.Instance.OperatingSystem.Slug
+			i.Metadata.OperatingSystem.Distro = hw.Spec.Metadata.Instance.OperatingSystem.Distro
+			i.Metadata.OperatingSystem.Version = hw.Spec.Metadata.Instance.OperatingSystem.Version
+			i.Metadata.OperatingSystem.ImageTag = hw.Spec.Metadata.Instance.OperatingSystem.ImageTag
+		}
+
+		// Iterate over all IPs and set the first one for IPv4 and IPv6 as the values in the
+		// instance metadata.
+		for _, ip := range hw.Spec.Metadata.Instance.Ips {
+			// Public IPv4
+			if ip.Family == 4 && ip.Public && i.Metadata.PublicIPv4 == "" {
+				i.Metadata.PublicIPv4 = ip.Address
+			}
+
+			// Private IPv4
+			if ip.Family == 4 && !ip.Public && i.Metadata.LocalIPv4 == "" {
+				i.Metadata.LocalIPv4 = ip.Address
+			}
+
+			// Public IPv6
+			if ip.Family == 6 && i.Metadata.PublicIPv6 == "" {
+				i.Metadata.PublicIPv6 = ip.Address
+			}
+		}
+	}
+
+	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Facility != nil {
+		i.Metadata.Plan = hw.Spec.Metadata.Facility.PlanSlug
+		i.Metadata.Facility = hw.Spec.Metadata.Facility.FacilityCode
+	}
+
+	// Set user data from Hardware resource
+	if hw.Spec.UserData != nil {
+		i.Userdata = *hw.Spec.UserData
+	}
+
+	// Generate network configuration from Hardware resource
+	i.NetworkConfig = generateNetworkConfigV2(hw)
+
+	return i
+}
+
+// getNameServers extracts nameservers from Hardware interfaces.
+// Returns IPv4 and IPv6 nameservers separately.
+func getNameServers(hw v1alpha1.Hardware) (ipv4DNS []string, ipv6DNS []string) {
+	// Try to get nameservers from the first interface with DHCP config
+	for _, iface := range hw.Spec.Interfaces {
+		if iface.DHCP != nil && len(iface.DHCP.NameServers) > 0 {
+			// Separate IPv4 and IPv6 nameservers
+			for _, ns := range iface.DHCP.NameServers {
+				if strings.Contains(ns, ":") {
+					ipv6DNS = append(ipv6DNS, ns)
+				} else {
+					ipv4DNS = append(ipv4DNS, ns)
+				}
+			}
+			break
+		}
+	}
+
+	return ipv4DNS, ipv6DNS
+}
+
+// generateNetworkConfigV2 creates a NoCloud-compatible network configuration (version 2) from Hardware resource.
+// Version 2 is the modern Netplan-compatible format.
+// Only generates configuration for network bonding. For non-bonded interfaces, cloud-init handles default DHCP.
+// Returns nil if no network configuration is needed (non-bonded interfaces use default DHCP).
+func generateNetworkConfigV2(hw v1alpha1.Hardware) *data.NetworkConfig {
+	networkSpec := data.NetworkSpecV2{
+		Version: 2,
+	}
+
+	// Check if bonding is enabled (BondingMode >= 0 is valid, mode 0 is balance-rr)
+	bondingEnabled := hw.Spec.Metadata != nil && hw.Spec.Metadata.BondingMode >= 0
+
+	if bondingEnabled && len(hw.Spec.Interfaces) >= 2 {
+		// Generate bonding configuration
+		ethernets, bonds := generateBondingConfigurationV2(hw)
+		networkSpec.Ethernets = ethernets
+		networkSpec.Bonds = bonds
+	} else {
+		// No bonding configuration needed, return nil to use default DHCP
+		return nil
+	}
+
+	return &data.NetworkConfig{
+		Network: networkSpec,
+	}
+}
+
+// generateBondingConfigurationV2 creates bonding configuration (v2 format) from Hardware resource.
+// Returns separate ethernets and bonds maps.
+// Requires MAC addresses for all interfaces to enable proper matching.
+func generateBondingConfigurationV2(hw v1alpha1.Hardware) (map[string]data.EthernetConfig, map[string]data.BondConfig) {
+	ethernets := map[string]data.EthernetConfig{}
+	bonds := map[string]data.BondConfig{}
+	bondInterfaces := []string{}
+
+	// Create physical interfaces for bonding (without IP addresses)
+	phyIndex := 0
+	for _, iface := range hw.Spec.Interfaces {
+		if iface.DHCP == nil || iface.DHCP.MAC == "" {
+			continue
+		}
+
+		// Use bond0phyX naming for interface references
+		interfaceName := fmt.Sprintf("bond0phy%d", phyIndex)
+		phyIndex++
+		bondInterfaces = append(bondInterfaces, interfaceName)
+
+		ethernetConfig := data.EthernetConfig{
+			Dhcp4: false,
+			Match: &data.MatchConfig{
+				MACAddress: iface.DHCP.MAC,
+			},
+			SetName: interfaceName,
+		}
+
+		ethernets[interfaceName] = ethernetConfig
+	}
+
+	// Create bond configuration
+	bondConfig := data.BondConfig{
+		Interfaces: bondInterfaces,
+		Parameters: generateBondParametersV2(hw.Spec.Metadata.BondingMode),
+	}
+
+	// Add IP configuration to bond
+	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil && len(hw.Spec.Metadata.Instance.Ips) > 0 {
+		ipv4DNS, ipv6DNS := getNameServers(hw)
+		addresses, gateway4, gateway6, nameservers := generateAddressConfigV2(hw.Spec.Metadata.Instance.Ips, ipv4DNS, ipv6DNS)
+
+		bondConfig.Addresses = addresses
+		bondConfig.Gateway4 = gateway4
+		bondConfig.Gateway6 = gateway6
+		if len(nameservers) > 0 {
+			bondConfig.Nameservers = &data.NameserversConfig{
+				Addresses: nameservers,
+			}
+		}
+	} else {
+		// Default to DHCP if no static IPs (IPv4 only)
+		bondConfig.Dhcp4 = true
+	}
+
+	bonds["bond0"] = bondConfig
+	return ethernets, bonds
+}
+
+// generateBondParametersV2 creates bonding parameters (v2 format) based on bonding mode.
+// V2 format uses hyphenated names without the "bond-" prefix.
+func generateBondParametersV2(bondingMode int64) data.BondParameters {
+	params := data.BondParameters{
+		MIIMonitorInterval: 100,
+	}
+
+	switch bondingMode {
+	case 0:
+		params.Mode = "balance-rr"
+	case 1:
+		params.Mode = "active-backup"
+		params.PrimaryReselectPolicy = "always"
+		params.FailOverMACPolicy = "none"
+	case 2:
+		params.Mode = "balance-xor"
+		params.TransmitHashPolicy = "layer2"
+	case 3:
+		params.Mode = "broadcast"
+	case 4:
+		params.Mode = "802.3ad"
+		params.LACPRate = "fast"
+		params.TransmitHashPolicy = "layer3+4"
+		params.ADSelect = "stable"
+	case 5:
+		params.Mode = "balance-tlb"
+	case 6:
+		params.Mode = "balance-alb"
+	default:
+		// Default to active-backup for unknown modes
+		params.Mode = "active-backup"
+		params.PrimaryReselectPolicy = "always"
+	}
+
+	return params
+}
+
+// generateAddressConfigV2 creates address configuration (v2 format) from IP metadata.
+// Returns addresses array, gateway4, gateway6, and combined nameservers list.
+func generateAddressConfigV2(ips []*v1alpha1.MetadataInstanceIP, ipv4DNS []string, ipv6DNS []string) ([]string, string, string, []string) {
+	addresses := []string{}
+	gateway4 := ""
+	gateway6 := ""
+	nameservers := []string{}
+
+	// Combine nameservers (IPv4 first, then IPv6)
+	nameservers = append(nameservers, ipv4DNS...)
+	nameservers = append(nameservers, ipv6DNS...)
+
+	for _, ip := range ips {
+		switch ip.Family {
+		case 4:
+			// Convert netmask to CIDR prefix length
+			cidr := ""
+			if parsedIP := net.ParseIP(ip.Netmask); parsedIP != nil {
+				if ipv4 := parsedIP.To4(); ipv4 != nil {
+					ones, _ := net.IPMask(ipv4).Size()
+					cidr = fmt.Sprintf("%d", ones)
+				}
+			}
+			addresses = append(addresses, fmt.Sprintf("%s/%s", ip.Address, cidr))
+			// Set gateway4 from the first IPv4 with a gateway
+			if gateway4 == "" && ip.Gateway != "" {
+				gateway4 = ip.Gateway
+			}
+		case 6:
+			addresses = append(addresses, ip.Address)
+			// Set gateway6 from the first IPv6 with a gateway
+			if gateway6 == "" && ip.Gateway != "" {
+				gateway6 = ip.Gateway
+			}
+		}
+	}
+
+	// If no addresses found, return empty (will use DHCP)
+	if len(addresses) == 0 {
+		return addresses, "", "", []string{}
+	}
+
+	return addresses, gateway4, gateway6, nameservers
 }
 
 func (b *Backend) hwByIP(ctx context.Context, ip string) (*v1alpha1.Hardware, error) {
