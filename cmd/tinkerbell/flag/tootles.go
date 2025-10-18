@@ -49,11 +49,14 @@ var TootlesLogLevel = Config{
 }
 
 // Convert converts TootlesConfig data types to tootles.Config data types.
-func (h *TootlesConfig) Convert(trustedProxies *[]netip.Prefix) {
+func (h *TootlesConfig) Convert(trustedProxies *[]netip.Prefix, bindAddr netip.Addr) {
 	// Convert h.BindAddr and h.BindPort to h.Config.BindAddrPort
 	addr, port := splitHostPort(h.Config.BindAddrPort)
 	if h.BindAddr.IsValid() {
 		addr = h.BindAddr.String()
+	}
+	if bindAddr.IsValid() {
+		addr = bindAddr.String()
 	}
 	if h.BindPort != 0 {
 		port = fmt.Sprintf("%d", h.BindPort)

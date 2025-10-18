@@ -46,7 +46,7 @@ It ensures that the client is connecting to the correct server and not an impost
 
 ### Example persistent host key configuration
 
-The following is an example of how to create and configure Tinkerbell to use a persisten ssh host key.
+The following is an example of how to create and configure Tinkerbell to use a persistent ssh host key.
 
 1. Create a Kubernetes secret in the `tinkerbell` namespace with the name `secondstar-hostkey` and the key `hostkey`. The value should be the private key in OpenSSH format.
 

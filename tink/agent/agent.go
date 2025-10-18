@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
@@ -43,6 +45,7 @@ type Config struct {
 	TransportReader TransportReader
 	RuntimeExecutor RuntimeExecutor
 	TransportWriter TransportWriter
+	Backoff         *backoff.ExponentialBackOff
 }
 
 func (c *Config) Run(ctx context.Context, log logr.Logger) {
@@ -52,11 +55,32 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 	// 4. send the action to the runtime for execution
 	// 5. send the result event to the output transport
 	// 6. go to step 1
+	if c.Backoff == nil {
+		c.Backoff = &backoff.ExponentialBackOff{
+			InitialInterval:     backoff.DefaultInitialInterval,
+			RandomizationFactor: backoff.DefaultRandomizationFactor,
+			Multiplier:          backoff.DefaultMultiplier,
+			MaxInterval:         5 * time.Second,
+		}
+	}
+	// sending true to the channel logs the backoff
+	doBackoff := make(chan bool, 1)
+	defer close(doBackoff)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case shouldLog := <-doBackoff:
+			duration := c.Backoff.NextBackOff()
+			if shouldLog {
+				log.Info("backing off", "duration", duration.String())
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(duration):
+			}
 		default:
 		}
 
@@ -66,9 +90,12 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 				return
 			}
 			if isNoAction(err) {
+				doBackoff <- false
 				continue
 			}
 			log.Info("error reading/retrieving action", "error", err)
+			doBackoff <- true
+
 			continue
 		}
 
@@ -78,6 +105,7 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 				return
 			}
 			log.Info("error writing event", "error", err)
+			doBackoff <- true
 			continue
 		}
 		log.Info("reported action status", "action", action, "state", spec.StateRunning)
@@ -119,9 +147,12 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 
 		if err := c.TransportWriter.Write(ctx, responseEvent); err != nil {
 			log.Info("error writing event", "error", err)
+			doBackoff <- true
 			continue
 		}
 		log.Info("reported action status", "action", action, "state", state)
+
+		c.Backoff.Reset() // Reset the backoff after a successful run
 	}
 }
 
@@ -153,6 +184,7 @@ type Options struct {
 	TransportSelected         TransportType
 	RuntimeSelected           RuntimeType
 	AttributeDetectionEnabled bool
+	BackoffOptions            BackoffOptions
 }
 
 type Transport struct {
@@ -202,14 +234,19 @@ type ContainerdRuntime struct {
 	SocketPath string
 }
 
-func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id string) error {
+// BackoffOptions holds the configuration for the backoff strategy.
+type BackoffOptions struct {
+	// MaxInterval is the maximum interval between retries.
+	MaxInterval time.Duration
+}
+
+func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id string) error {
 	// instantiate the implementation for the transport reader
 	// instantiate the implementation for the transport writer
 	// instantiate the implementation for the runtime executor
 	// instantiate the agent
 	// run the agent
-	eg, ectx := errgroup.WithContext(ctx)
-	ctx = ectx
+	eg, ctx := errgroup.WithContext(inctx)
 	var tr TransportReader
 	var tw TransportWriter
 	switch o.TransportSelected {
@@ -287,19 +324,27 @@ func (o *Options) ConfigureAndRun(ctx context.Context, log logr.Logger, id strin
 		if err != nil {
 			return fmt.Errorf("unable to create Docker client: %w", err)
 		}
-		// TODO(jacobweinstock): handle auth
 		dockerExecutor := &docker.Config{
 			Client: dclient,
 			Log:    log,
+			RegistryAuth: &registry.AuthConfig{
+				Username:      o.Registry.User,
+				Password:      o.Registry.Pass,
+				ServerAddress: o.Registry.Name,
+			},
 		}
 		re = dockerExecutor
 		log.Info("using Docker runtime")
 	}
 
+	bo := backoff.NewExponentialBackOff()
+	bo.MaxInterval = o.BackoffOptions.MaxInterval
+
 	a := &Config{
 		TransportReader: tr,
 		RuntimeExecutor: re,
 		TransportWriter: tw,
+		Backoff:         bo,
 	}
 
 	eg.Go(func() error {

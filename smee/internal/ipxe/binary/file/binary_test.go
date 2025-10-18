@@ -7,8 +7,9 @@ import (
 
 func TestBinariesContainMagicString(t *testing.T) {
 	for file, data := range Files {
-		if file == "undionly.kpxe" {
-			continue // undionly.kpxe does not support binary patching
+		switch file {
+		case "undionly.kpxe", "snp-arm64.efi", "snp-x86_64.efi":
+			continue // these files do not support binary patching.
 		}
 
 		count := bytes.Count(data, magicString)

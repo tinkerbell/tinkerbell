@@ -50,7 +50,7 @@ The following code snippets are generic examples of the config needed to enable 
 ```text
 dhcp-match=tinkerbell, option:user-class, Tinkerbell
 dhcp-boot=tag:!tinkerbell,ipxe.efi,none,192.168.2.112
-dhcp-boot=tag:tinkerbell,http://192.168.2.112:7171/auto.ipxe
+dhcp-boot=tag:tinkerbell,http://192.168.2.112:7171/ipxe/script/auto.ipxe
 ```
 
 [Kea DHCP](https://www.isc.org/kea/)
@@ -64,7 +64,7 @@ dhcp-boot=tag:tinkerbell,http://192.168.2.112:7171/auto.ipxe
       {
         "name": "tinkerbell",
         "test": "substring(option[77].hex,0,10) == 'Tinkerbell'",
-        "boot-file-name": "http://192.168.2.112:7171/auto.ipxe"
+        "boot-file-name": "http://192.168.2.112:7171/ipxe/script/auto.ipxe"
       },
       {
         "name": "default",
@@ -87,7 +87,7 @@ dhcp-boot=tag:tinkerbell,http://192.168.2.112:7171/auto.ipxe
 
 ```text
  if exists user-class and option user-class = "Tinkerbell" {
-     filename "http://192.168.2.112:7171/auto.ipxe";
+     filename "http://192.168.2.112:7171/ipxe/script/auto.ipxe";
  } else {
      filename "ipxe.efi";
  }

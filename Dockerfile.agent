@@ -1,7 +1,12 @@
+FROM alpine:3.22 AS ca-certs
+
+RUN apk --no-cache add ca-certificates
+
 FROM scratch
 
 ARG TARGETOS
 ARG TARGETARCH
 
 COPY out/tink-agent-${TARGETOS}-${TARGETARCH} /tink-agent
+COPY --from=ca-certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT [ "/tink-agent" ]

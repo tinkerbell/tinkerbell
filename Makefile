@@ -40,12 +40,14 @@ HELM_REPO_NAME ?= ghcr.io/tinkerbell/charts
 ########### Tools variables ###########
 # Tool versions
 GOIMPORT_VER           := latest
-CONTROLLER_GEN_VERSION := v0.17.1
-BUF_VERSION            := v1.50.0
-PROTOC_GEN_GO_GRPC_VER := v1.5.1
-PROTOC_GEN_GO_VER      := v1.36.5
+CONTROLLER_GEN_VERSION := v0.18.0
+BUF_VERSION            := v1.56.0
+PROTOC_GEN_GO_GRPC_VER := v1.5.1  # must be in sync with the version in buf.gen.yaml
+PROTOC_GEN_GO_VER      := v1.36.7 # must be in sync with the version in buf.gen.yaml
 UPX_VER 			   := 4.2.4
 GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
+GOLANGCI_LINT_VERSION  := v2.4.0
+
 
 # Tool fully qualified paths (FQP)
 TOOLS_DIR := $(PWD)/out/tools
@@ -300,7 +302,6 @@ LINTERS :=
 FIXERS :=
 
 GOLANGCI_LINT_CONFIG := $(LINT_ROOT)/.golangci.yml
-GOLANGCI_LINT_VERSION ?= v2.3.0
 GOLANGCI_LINT_BIN := $(LINT_ROOT)/out/linters/golangci-lint-$(GOLANGCI_LINT_VERSION)-$(LINT_ARCH)
 $(GOLANGCI_LINT_BIN):
 	mkdir -p $(LINT_ROOT)/out/linters
@@ -310,11 +311,11 @@ $(GOLANGCI_LINT_BIN):
 
 LINTERS += golangci-lint-lint
 golangci-lint-lint: $(GOLANGCI_LINT_BIN)
-	find . -name go.mod -execdir sh -c '"$(GOLANGCI_LINT_BIN)" run --timeout 10m -c "$(GOLANGCI_LINT_CONFIG)"' '{}' '+'
+	find . -name go.mod -not -path "./out/*" -execdir sh -c '"$(GOLANGCI_LINT_BIN)" run --timeout 10m -c "$(GOLANGCI_LINT_CONFIG)"' '{}' '+'
 
 FIXERS += golangci-lint-fix
 golangci-lint-fix: $(GOLANGCI_LINT_BIN)
-	find . -name go.mod -execdir "$(GOLANGCI_LINT_BIN)" run -c "$(GOLANGCI_LINT_CONFIG)" --fix \;
+	find . -name go.mod -not -path "./out/*" -execdir "$(GOLANGCI_LINT_BIN)" run -c "$(GOLANGCI_LINT_CONFIG)" --fix \;
 
 .PHONY: _lint $(LINTERS)
 _lint: $(LINTERS)

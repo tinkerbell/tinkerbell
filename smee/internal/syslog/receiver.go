@@ -109,7 +109,12 @@ func (r *Receiver) run(ctx context.Context) {
 		msg.time = time.Now().UTC()
 		msg.host = from.IP
 		msg.size = n
-		r.parse <- msg
+		select {
+		case <-ctx.Done():
+			r.Logger.Info("context done, exiting syslog receiver")
+			return
+		case r.parse <- msg:
+		}
 		msg = nil
 	}
 }
@@ -139,6 +144,8 @@ func parse(m *message) map[string]interface{} {
 			var j map[string]interface{}
 			if err := json.Unmarshal(m.msg, &j); err == nil {
 				structured["msg"] = j
+			} else {
+				structured["msg"] = string(m.msg)
 			}
 		} else {
 			structured["msg"] = string(m.msg)
@@ -153,14 +160,14 @@ func (r *Receiver) runParser() {
 	for m := range r.parse {
 		if m.parse() {
 			structured := parse(m)
-			sl := r.Logger.WithValues("msg", structured)
+			sl := r.Logger.WithValues("logEntry", structured)
 			if m.Severity() == DEBUG {
-				sl.V(1).Info("msg")
+				sl.V(1).Info("syslog message received")
 			} else {
-				sl.Info("msg")
+				sl.Info("syslog message received")
 			}
 		} else {
-			r.Logger.V(1).Info("msg", "msg", m)
+			r.Logger.V(1).Info("syslog message received", "logEntry", m)
 		}
 		m.reset()
 		syslogMessagePool.Put(m)

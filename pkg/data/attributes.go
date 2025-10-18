@@ -42,6 +42,8 @@ type Block struct {
 	PhysicalBlockSize *string `json:"physicalBlockSize,omitempty" yaml:"physicalBlockSize,omitempty"`
 	Vendor            *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
 	Model             *string `json:"model,omitempty" yaml:"model,omitempty"`
+	WWN               *string `json:"wwn,omitempty" yaml:"wwn,omitempty"`
+	SerialNumber      *string `json:"serialNumber,omitempty" yaml:"serialNumber,omitempty"`
 }
 
 type Network struct {

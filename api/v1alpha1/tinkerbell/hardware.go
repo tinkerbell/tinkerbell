@@ -151,6 +151,14 @@ type Netboot struct {
 type IPXE struct {
 	URL      string `json:"url,omitempty"`
 	Contents string `json:"contents,omitempty"`
+	// Binary, when defined, overrides Smee's default mapping of architecture to iPXE binary.
+	// The following binary names are supported:
+	// - undionly.kpxe
+	// - ipxe.efi
+	// - snp-arm64.efi
+	// - snp-x86_64.efi
+	// See the iPXE Architecture Mapping documentation for more details.
+	Binary string `json:"binary,omitempty"`
 }
 
 // OSIE configuration.
@@ -161,10 +169,12 @@ type OSIE struct {
 }
 
 // DHCP configuration.
+// +kubebuilder:validation:XValidation:rule=(has(self.tftp_server_name) && self.tftp_server_name != "") == (has(self.boot_file_name) && self.boot_file_name != ""),message="TFTPServerName and BootFileName must both be specified or both be empty"
 type DHCP struct {
 	// +kubebuilder:validation:Pattern="([0-9a-f]{2}[:]){5}([0-9a-f]{2})"
 	MAC         string   `json:"mac,omitempty"`
 	Hostname    string   `json:"hostname,omitempty"`
+	DomainName  string   `json:"domain_name,omitempty"`
 	LeaseTime   int64    `json:"lease_time,omitempty"`
 	NameServers []string `json:"name_servers,omitempty"`
 	TimeServers []string `json:"time_servers,omitempty"`
@@ -175,6 +185,21 @@ type DHCP struct {
 	// validation pattern for VLANDID is a string number between 0-4096
 	// +kubebuilder:validation:Pattern="^(([0-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))(,[1-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))*)$"
 	VLANID string `json:"vlan_id,omitempty"`
+	// ClasslessStaticRoutes defines static routes to be sent via DHCP option 121 (RFC 3442).
+	//+optional
+	ClasslessStaticRoutes []ClasslessStaticRoute `json:"classless_static_routes,omitempty"`
+	// TFTPServerName is the TFTP server name or IP address (DHCP option 66).
+	// Used for explicit TFTP server configuration, required by some network boot clients
+	// like NVIDIA NVOS switches.
+	// If specified, BootFileName must also be specified.
+	//+optional
+	TFTPServerName string `json:"tftp_server_name,omitempty"`
+	// BootFileName is the boot file name (DHCP option 67).
+	// Used for explicit boot file configuration, required by some network boot clients
+	// like NVIDIA NVOS switches.
+	// If specified, TFTPServerName must also be specified.
+	//+optional
+	BootFileName string `json:"boot_file_name,omitempty"`
 }
 
 // IP configuration.
@@ -183,6 +208,17 @@ type IP struct {
 	Netmask string `json:"netmask,omitempty"`
 	Gateway string `json:"gateway,omitempty"`
 	Family  int64  `json:"family,omitempty"`
+}
+
+// ClasslessStaticRoute represents a classless static route for DHCP option 121 (RFC 3442).
+type ClasslessStaticRoute struct {
+	// DestinationDescriptor is the network address and prefix length.
+	// The format is "network/prefixlength", e.g., "192.168.1.0/24" or "10.0.0.0/8".
+	// +kubebuilder:validation:Pattern=`^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/(3[0-2]|[12]?[0-9])$`
+	DestinationDescriptor string `json:"destination_descriptor"`
+	// Router is the IP address of the router for this route.
+	// +kubebuilder:validation:Pattern=`^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$`
+	Router string `json:"router"`
 }
 
 type HardwareMetadata struct {

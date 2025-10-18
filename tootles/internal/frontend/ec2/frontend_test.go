@@ -14,7 +14,7 @@ import (
 
 func init() {
 	// Comment this out if you want to see Gin handler registration debug. Unforuntaely
-	// Gin doesn't offer a way to do this per Engine instance instanatiation so we're forced to
+	// Gin doesn't offer a way to do this per Engine instance instantiation so we're forced to
 	// use the package level function.
 	gin.SetMode(gin.ReleaseMode)
 }

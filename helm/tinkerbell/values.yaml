@@ -22,8 +22,11 @@ deployment:
     globals:
       backend: "kube"
       backendFilePath: ""
+      backendKubeBurst: 100
       backendKubeConfig: ""
       backendKubeNamespace: ""
+      backendKubeQPS: 100
+      bindAddr: ""
       enableCRDMigrations: true
       enableRufioController: true
       enableSecondstar: true
@@ -35,6 +38,8 @@ deployment:
       otelEndpoint: ""
       otelInsecure: false
       publicIpv4: ""
+      tlsCertFile: ""
+      tlsKeyFile: ""
       trustedProxies: ""
     rufio:
       bmcConnectTimeout: "2m0s"
@@ -56,11 +61,11 @@ deployment:
       dhcpEnabled: true
       dhcpIPForPacket: ""
       dhcpIpxeHttpBinaryHost: ""
-      dhcpIpxeHttpBinaryPath: "/ipxe"
+      dhcpIpxeHttpBinaryPath: "/ipxe/binary"
       dhcpIpxeHttpBinaryPort: 7171
       dhcpIpxeHttpBinaryScheme: "http"
       dhcpIpxeHttpScriptHost: ""
-      dhcpIpxeHttpScriptPath: "auto.ipxe"
+      dhcpIpxeHttpScriptPath: "/ipxe/script/auto.ipxe"
       dhcpIpxeHttpScriptPort: 7171
       dhcpIpxeHttpScriptPrependMac: true
       dhcpIpxeHttpScriptScheme: "http"
@@ -68,6 +73,8 @@ deployment:
       dhcpSyslogIP: ""
       dhcpTftpIP: ""
       dhcpTftpPort: 69
+      httpsBindPort: 7272
+      ipxeBinaryInjectMacAddrFormat: "" # one of colon, dot, dash, no-delimiter, empty. defaults to colon when empty.
       ipxeEmbeddedScriptPatch: ""
       ipxeHttpBinaryEnabled: true
       ipxeHttpScriptBindAddr: ""
@@ -78,6 +85,7 @@ deployment:
       ipxeHttpScriptOsieURL: ""
       ipxeHttpScriptRetries: 1
       ipxeHttpScriptRetryDelay: 1
+      ipxeOverrideArchMapping: "" # a comma separated list of <arch>=<binary> pairs. See the iPXE Architecture Mapping documentation for more details.
       ipxeScriptTinkServerAddrPort: ""
       ipxeScriptTinkServerInsecureTLS: false
       ipxeScriptTinkServerUseTLS: false
@@ -197,6 +205,10 @@ service:
       name: tftp
       port: 69
       protocol: UDP
+    https:
+      name: https
+      port: 7272
+      protocol: TCP
   selector:
     app: tinkerbell
   type: LoadBalancer
@@ -218,9 +230,10 @@ optional:
         type: RollingUpdate
     # downloadURL only works with the > 0.8.1 Hook release because
     # previous Hook versions didn't provide a checksum file.
-    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.11.0
+    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.11.1
     enabled: true
     extension: tar.gz # iso, tar.gz, both
+    hostNetwork: false
     image: nginx:1.27.2
     kernelVersion: both # 5.10, 6.6, both
     name: hookos
@@ -265,13 +278,14 @@ optional:
     #     value: my-value
     additionalEnv: []
     enabled: true
-    image: ghcr.io/kube-vip/kube-vip:v0.9.1
+    image: ghcr.io/kube-vip/kube-vip:v1.0.0
     imagePullPolicy: IfNotPresent
     # Customize the interface KubeVIP advertises on. When unset, KubeVIP will autodetect the interface.
     # interface: enp0s8
     name: kube-vip
     roleBindingName: kube-vip-rolebinding
     roleName: kube-vip-role
+    nodeSelector: {}
     # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
     singleNodeClusterConfig:
       controlPlaneTolerationsEnabled: false

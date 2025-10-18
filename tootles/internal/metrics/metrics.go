@@ -37,7 +37,7 @@ func InstrumentRequestCount(registrar prometheus.Registerer) gin.HandlerFunc {
 	}
 }
 
-// InstrumentReuqestDuration adds a HistogramVec to registrar and returns a handler that records
+// InstrumentRequestDuration adds a HistogramVec to registrar and returns a handler that records
 // request durations with every request.
 func InstrumentRequestDuration(registrar prometheus.Registerer) gin.HandlerFunc {
 	m := prometheus.NewHistogramVec(

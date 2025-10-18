@@ -61,7 +61,7 @@ func NewXFF(options Options) (*Xff, error) {
 	return xff, nil
 }
 
-// Handler updates RemoteAdd from X-Fowarded-For Headers.
+// Handler updates RemoteAdd from X-Forwarded-For Headers.
 func (xff *Xff) Handler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.RemoteAddr = getRemoteAddrIfAllowed(r, xff.allowed)

@@ -50,7 +50,7 @@ const (
 // +kubebuilder:printcolumn:JSONPath=".status.currentState.actionName",name=Action,type=string
 // +kubebuilder:printcolumn:JSONPath=".status.currentState.agentID",name=Agent,type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.hardwareRef",name=Hardware,type=string
-// +kubebuilder:printcolumn:JSONPath=".status.templateRending",name=Template-Rendering,type=string,priority=1
+// +kubebuilder:printcolumn:JSONPath=".status.templateRendering",name=Template-Rendering,type=string,priority=1
 
 // Workflow is the Schema for the Workflows API.
 type Workflow struct {
@@ -169,7 +169,7 @@ type WorkflowStatus struct {
 
 	// TemplateRendering indicates whether the template was rendered successfully.
 	// Possible values are "successful" or "failed" or "unknown".
-	TemplateRendering TemplateRendering `json:"templateRending,omitempty"`
+	TemplateRendering TemplateRendering `json:"templateRendering,omitempty"`
 
 	// GlobalTimeout represents the max execution time.
 	GlobalTimeout int64 `json:"globalTimeout,omitempty"`

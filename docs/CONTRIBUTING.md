@@ -65,7 +65,7 @@ Please read and understand the code of conduct found [here](https://github.com/t
 
 The following are expected to be installed on your development machine.
 
-- Go 1.24 or later
+- Go 1.25 or later
 - Docker
 - Make
 - Git

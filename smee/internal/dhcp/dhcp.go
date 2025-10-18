@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 )
 
 const (
@@ -59,24 +61,27 @@ type Metadata struct {
 }
 
 // ArchToBootFile maps supported hardware PXE architectures types to iPXE binary files.
-var ArchToBootFile = map[iana.Arch]string{
-	iana.INTEL_X86PC:       "undionly.kpxe",
-	iana.NEC_PC98:          "undionly.kpxe",
-	iana.EFI_ITANIUM:       "undionly.kpxe",
-	iana.DEC_ALPHA:         "undionly.kpxe",
-	iana.ARC_X86:           "undionly.kpxe",
-	iana.INTEL_LEAN_CLIENT: "undionly.kpxe",
-	iana.EFI_IA32:          "ipxe.efi",
-	iana.EFI_X86_64:        "ipxe.efi",
-	iana.EFI_XSCALE:        "ipxe.efi",
-	iana.EFI_BC:            "ipxe.efi",
-	iana.EFI_ARM32:         "snp.efi",
-	iana.EFI_ARM64:         "snp.efi",
-	iana.EFI_X86_HTTP:      "ipxe.efi",
-	iana.EFI_X86_64_HTTP:   "ipxe.efi",
-	iana.EFI_ARM32_HTTP:    "snp.efi",
-	iana.EFI_ARM64_HTTP:    "snp.efi",
-	iana.Arch(41):          "snp.efi", // arm rpiboot (0x29): https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture
+func ArchToBootFile() map[iana.Arch]constant.IPXEBinary {
+	return map[iana.Arch]constant.IPXEBinary{
+		iana.INTEL_X86PC:       constant.IPXEBinaryUndionlyKPXE,
+		iana.NEC_PC98:          constant.IPXEBinaryUndionlyKPXE,
+		iana.EFI_ITANIUM:       constant.IPXEBinaryUndionlyKPXE,
+		iana.DEC_ALPHA:         constant.IPXEBinaryUndionlyKPXE,
+		iana.ARC_X86:           constant.IPXEBinaryUndionlyKPXE,
+		iana.INTEL_LEAN_CLIENT: constant.IPXEBinaryUndionlyKPXE,
+		iana.EFI_IA32:          constant.IPXEBinaryIPXEEFI,
+		iana.EFI_X86_64:        constant.IPXEBinaryIPXEEFI,
+		iana.EFI_XSCALE:        constant.IPXEBinaryIPXEEFI,
+		iana.EFI_BC:            constant.IPXEBinaryIPXEEFI,
+		iana.EFI_ARM32:         constant.IPXEBinarySNPARM64,
+		iana.EFI_ARM64:         constant.IPXEBinarySNPARM64,
+		iana.EFI_X86_HTTP:      constant.IPXEBinaryIPXEEFI,
+		iana.EFI_X86_64_HTTP:   constant.IPXEBinaryIPXEEFI,
+		iana.EFI_ARM32_HTTP:    constant.IPXEBinarySNPARM64,
+		iana.EFI_ARM64_HTTP:    constant.IPXEBinarySNPARM64,
+		iana.INTEL_X86PC_HTTP:  constant.IPXEBinaryUndionlyKPXE,
+		iana.Arch(41):          constant.IPXEBinarySNPARM64, // arm rpiboot (0x29): https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture
+	}
 }
 
 // ErrUnknownArch is used when the PXE client request is from an unknown architecture.
@@ -99,17 +104,47 @@ type Info struct {
 	IsNetbootClient error
 	// IPXEBinary is the iPXE binary file to boot. Use NewInfo to automatically populate this field.
 	IPXEBinary string
+	// MacAddrFormat is the format to use when injecting the MAC address into the iPXE binary URL.
+	MacAddrFormat constant.MACFormat
+	// ArchMappingOverride allows customization for mapping architectures to iPXE binaries.
+	// This is used to override the default ArchToBootFile mapping.
+	ArchMappingOverride map[iana.Arch]constant.IPXEBinary
 }
 
-func NewInfo(pkt *dhcpv4.DHCPv4) Info {
+type InfoOption func(*Info)
+
+func WithMacAddrFormat(format constant.MACFormat) InfoOption {
+	return func(i *Info) {
+		i.MacAddrFormat = format
+	}
+}
+
+func WithArchMappingOverride(mapping map[iana.Arch]constant.IPXEBinary) InfoOption {
+	return func(i *Info) {
+		i.ArchMappingOverride = mapping
+	}
+}
+
+func WithIPXEBinary(binary string) InfoOption {
+	return func(i *Info) {
+		i.IPXEBinary = binary
+	}
+}
+
+func NewInfo(pkt *dhcpv4.DHCPv4, opts ...InfoOption) Info {
 	i := Info{Pkt: pkt}
+	for _, opt := range opts {
+		opt(&i)
+	}
 	if pkt != nil {
 		i.Arch = Arch(pkt)
 		i.Mac = pkt.ClientHWAddr
 		i.UserClass = i.UserClassFrom()
 		i.ClientType = i.ClientTypeFrom()
 		i.IsNetbootClient = IsNetbootClient(pkt)
-		i.IPXEBinary = i.IPXEBinaryFrom()
+		if i.IPXEBinary == "" {
+			i.IPXEBinary = i.IPXEBinaryFrom()
+		}
 	}
 
 	return i
@@ -170,12 +205,15 @@ func Arch(d *dhcpv4.DHCPv4) iana.Arch {
 }
 
 func (i Info) IPXEBinaryFrom() string {
-	bin, found := ArchToBootFile[i.Arch]
+	dst := ArchToBootFile()
+	src := i.ArchMappingOverride
+	maps.Copy(dst, src)
+	bin, found := dst[i.Arch]
 	if !found {
 		return ""
 	}
 
-	return bin
+	return bin.String()
 }
 
 // String function for clientType.
@@ -294,7 +332,7 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 		if ipxeHTTPBinServer != nil {
 			paths := []string{i.IPXEBinary}
 			if i.Mac != nil {
-				paths = append([]string{i.Mac.String()}, paths...)
+				paths = append([]string{macAddrFormat(i.Mac, i.MacAddrFormat)}, paths...)
 			}
 			bootfile = ipxeHTTPBinServer.JoinPath(paths...).String()
 		}
@@ -305,7 +343,7 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 		}
 		paths := []string{i.IPXEBinary}
 		if i.Mac != nil {
-			paths = append([]string{i.Mac.String()}, paths...)
+			paths = append([]string{macAddrFormat(i.Mac, i.MacAddrFormat)}, paths...)
 		}
 		bootfile = t.JoinPath(paths...).String()
 	default:
@@ -317,20 +355,47 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 	return bootfile
 }
 
+func macAddrFormat(mac net.HardwareAddr, f constant.MACFormat) string {
+	switch f {
+	case constant.MacAddrFormatColon:
+		return mac.String()
+	case constant.MacAddrFormatDot:
+		return dotNotation(mac)
+	case constant.MacAddrFormatDash:
+		return dashNotation(mac)
+	case constant.MacAddrFormatNoDelimiter:
+		return noDelimiter(mac)
+	case constant.MacAddrFormatEmpty:
+		return ""
+	default:
+		return mac.String() // default is colon delimited
+	}
+}
+
 // NextServer returns the calculated dhcp header (ServerIPAddr): "siaddr" value. see https://datatracker.ietf.org/doc/html/rfc2131#section-2 .
-func (i Info) NextServer(ipxeHTTPBinServer *url.URL, ipxeTFTPBinServer netip.AddrPort) net.IP {
+func (i Info) NextServer(ipxeHTTPBinServer *url.URL, ipxeTFTPBinServer netip.AddrPort, publicIP netip.Addr) net.IP {
 	var nextServer net.IP
 
 	// If a machine is in an ipxe boot loop, it is likely to be that we aren't matching on IPXE or Tinkerbell userclass (option 77).
 	switch { // order matters here.
 	case i.ClientType == HTTPClient: // Check the client type from option 60.
 		if ipxeHTTPBinServer != nil {
-			nextServer = net.ParseIP(ipxeHTTPBinServer.Hostname())
+			// remove port if it exists as net.IP doesn't support ports.
+			if ip := net.ParseIP(ipxeHTTPBinServer.Hostname()); ip != nil {
+				nextServer = ip
+			}
 		}
 	case i.UserClass == IPXE: // if the "iPXE" user class is found it means we aren't in our custom version of ipxe, but because of the option 43 we're setting we need to give a full tftp url from which to boot.
-		nextServer = net.IP(ipxeTFTPBinServer.Addr().AsSlice())
+		nextServer = ipxeTFTPBinServer.Addr().AsSlice()
 	default:
-		nextServer = net.IP(ipxeTFTPBinServer.Addr().AsSlice())
+		nextServer = ipxeTFTPBinServer.Addr().AsSlice()
+	}
+
+	// If the nextServer is nil or unspecified, it might be that the ipxeHTTPBinServer has a port or is a DNS name.
+	// ipxeHTTPBinServer is perfectly acceptable to have a port or be a DNS name but we can't use that in DHCP in headers
+	// fields siaddr or sname and can't be used in DHCP options like option 54 (dhcp server identifier).
+	if (nextServer == nil || nextServer.IsUnspecified()) && publicIP.IsValid() && !publicIP.IsUnspecified() {
+		nextServer = publicIP.AsSlice()
 	}
 
 	return nextServer

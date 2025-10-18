@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.1
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: workflows.tinkerbell.org
 spec:
   group: tinkerbell.org
@@ -38,7 +38,7 @@ spec:
     - jsonPath: .spec.hardwareRef
       name: Hardware
       type: string
-    - jsonPath: .status.templateRending
+    - jsonPath: .status.templateRendering
       name: Template-Rendering
       priority: 1
       type: string
@@ -448,7 +448,7 @@ spec:
                   - name
                   type: object
                 type: array
-              templateRending:
+              templateRendering:
                 description: |-
                   TemplateRendering indicates whether the template was rendered successfully.
                   Possible values are "successful" or "failed" or "unknown".

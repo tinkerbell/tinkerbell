@@ -44,6 +44,12 @@ type Backend struct {
 	// Indexes to register
 	Indexes       map[IndexType]Index
 	DynamicClient dynamic.Interface
+	// QPS is the maximum queries per second to the Kubernetes API server.
+	// If set to 0, defaults to 5. Negative values disable rate limiting.
+	QPS float32
+	// Burst is the maximum burst for throttle in the Kubernetes client.
+	// If set to 0, defaults to 10. Negative values disable burst limiting.
+	Burst int
 }
 
 type Index struct {
@@ -142,9 +148,8 @@ func loadConfig(cfg Backend) (Backend, error) {
 	if err != nil {
 		return Backend{}, fmt.Errorf("failed to load client config: %w", err)
 	}
-	// TODO: make this cli configurable.
-	config.QPS = -2000
-	config.Burst = 2000
+	config.QPS = cfg.QPS
+	config.Burst = cfg.Burst
 	cfg.ClientConfig = config
 
 	return cfg, nil

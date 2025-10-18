@@ -27,7 +27,7 @@ import (
 	ctrloptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
 )
 
-func ConfigAndFlags() (*pflag.FlagSet, func(context.Context, logr.Logger) error) {
+func ConfigAndFlags(disableLogging *bool) (*pflag.FlagSet, func(context.Context, logr.Logger) error) {
 	s := apioptions.NewServerRunOptions()
 	featureGate := s.GenericServerRunOptions.ComponentGlobalsRegistry.FeatureGateFor(basecompatibility.DefaultKubeComponent)
 
@@ -54,6 +54,9 @@ func ConfigAndFlags() (*pflag.FlagSet, func(context.Context, logr.Logger) error)
 			f.AddMetrics()
 		}
 
+		if disableLogging != nil && *disableLogging {
+			log = logr.Discard()
+		}
 		klog.SetLogger(log)
 		return apiapp.Run(ctx, completedOptions)
 	}
@@ -61,7 +64,7 @@ func ConfigAndFlags() (*pflag.FlagSet, func(context.Context, logr.Logger) error)
 	fs := pflag.NewFlagSet("kube-apiserver", pflag.ContinueOnError)
 	namedFlagSets := s.Flags()
 	verflag.AddFlags(namedFlagSets.FlagSet("global"))
-	globalflag.AddGlobalFlags(namedFlagSets.FlagSet("global") /*cmd.Name()*/, "kube-apiserver", logs.SkipLoggingConfigurationFlags())
+	globalflag.AddGlobalFlags(namedFlagSets.FlagSet("global"), "kube-apiserver", logs.SkipLoggingConfigurationFlags())
 	apioptions.AddCustomGlobalFlags(namedFlagSets.FlagSet("generic"))
 	for _, f := range namedFlagSets.FlagSets {
 		fs.AddFlagSet(f)

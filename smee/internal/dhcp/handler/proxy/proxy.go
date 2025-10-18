@@ -23,6 +23,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
+	"github.com/insomniacslk/dhcp/iana"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	oteldhcp "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
@@ -89,6 +91,12 @@ type Netboot struct {
 
 	// UserClass (for network booting) allows a custom DHCP option 77 to be used to break out of an iPXE loop.
 	UserClass dhcp.UserClass
+
+	// InjectMacAddrFormat is the format to use when injecting the mac address into the iPXE binary URL.
+	InjectMacAddrFormat constant.MACFormat
+
+	// IPXEArchMapping will override the default architecture to binary mapping.
+	IPXEArchMapping map[iana.Arch]constant.IPXEBinary
 }
 
 // Handle implements a ProxyDHCP Redirection server.
@@ -152,7 +160,7 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	// Set option 97
 	reply.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, dp.Pkt.GetOneOption(dhcpv4.OptionClientMachineIdentifier)))
 
-	i := dhcp.NewInfo(dp.Pkt)
+	i := dhcp.NewInfo(dp.Pkt, dhcp.WithMacAddrFormat(h.Netboot.InjectMacAddrFormat), dhcp.WithArchMappingOverride(h.Netboot.IPXEArchMapping))
 
 	if !h.Netboot.Enabled {
 		log.V(1).Info("Ignoring packet: netboot is not enabled")
@@ -183,20 +191,17 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 
 	// Set option 54, without this the pxe client will try to broadcast a request message to port 4011 for the ipxe binary. only found to be needed for PXEClient but not prohibitive for HTTPClient.
 	// probably will want this to be the public IP of the proxyDHCP server
-	ns := i.NextServer(h.Netboot.IPXEBinServerHTTP, h.Netboot.IPXEBinServerTFTP)
+	ns := i.NextServer(h.Netboot.IPXEBinServerHTTP, h.Netboot.IPXEBinServerTFTP, h.IPAddr)
 	reply.UpdateOption(dhcpv4.OptServerIdentifier(ns))
 	// add the siaddr (IP address of next server) dhcp packet header to a given packet pkt.
 	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
-	// without this the pxe client will try to broadcast a request message to port 4011 for the ipxe script. The value doesnt seem to matter.
+	// without this the pxe client will try to broadcast a request message to port 4011 for the ipxe script.
 	reply.ServerIPAddr = ns
 
 	// set sname header
 	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
 	reply.ServerHostName = ns.String()
 	// setSNAME(reply, dp.Pkt.GetOneOption(dhcpv4.OptionClassIdentifier), h.Netboot.IPXEBinServerTFTP.Addr().AsSlice(), net.ParseIP(h.Netboot.IPXEBinServerHTTP.Hostname()))
-
-	// set bootfile header
-	reply.BootFileName = i.Bootfile("", h.Netboot.IPXEScriptURL(dp.Pkt), h.Netboot.IPXEBinServerHTTP, h.Netboot.IPXEBinServerTFTP)
 
 	// check the backend, if PXE is NOT allowed, set the boot file name to "/<mac address>/not-allowed"
 	_, n, err := h.Backend.GetByMac(ctx, dp.Pkt.ClientHWAddr)
@@ -205,6 +210,14 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 		span.SetStatus(codes.Error, err.Error())
 		return
 	}
+	// If we have a Hardware object, check if there is a custom iPXE binary defined.
+	if n != nil && n.IPXEBinary != "" {
+		i.IPXEBinary = n.IPXEBinary
+	}
+
+	// set bootfile header
+	// TODO(jacobweinstock): plum through the custom user class.
+	reply.BootFileName = i.Bootfile("", h.Netboot.IPXEScriptURL(dp.Pkt), h.Netboot.IPXEBinServerHTTP, h.Netboot.IPXEBinServerTFTP)
 	if n != nil && !n.AllowNetboot {
 		// if the netboot is not allowed, set the boot file name to "/<mac address>/netboot-not-allowed"
 		// this follows the same pattern and keeps the same user experience as the reservation handler.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"time"
 
@@ -19,6 +20,7 @@ type Reader interface {
 }
 
 type Config struct {
+	BindAddr     netip.Addr
 	SSHPort      int
 	HostKey      ssh.Signer
 	IPMITOOLPath string
@@ -27,9 +29,13 @@ type Config struct {
 }
 
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
-	log.Info("starting ssh server", "port", c.SSHPort)
+	addrPort := fmt.Sprintf(":%d", c.SSHPort)
+	if c.BindAddr.IsValid() && !c.BindAddr.IsUnspecified() {
+		addrPort = fmt.Sprintf("%s:%d", c.BindAddr.String(), c.SSHPort)
+	}
+	log.Info("starting ssh server", "addrPort", addrPort)
 	server := &gssh.Server{
-		Addr:             fmt.Sprintf(":%d", c.SSHPort),
+		Addr:             addrPort,
 		Handler:          internal.Handler(log, internal.NewKeyValueStore(), c.IPMITOOLPath),
 		PublicKeyHandler: internal.PubkeyAuth(c.Backend, log),
 		Banner:           "Second star to the right and straight on 'til morning\n[Use ~. to disconnect]\n",

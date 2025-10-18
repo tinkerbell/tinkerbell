@@ -47,7 +47,7 @@ func Parse(trustedProxies string) ([]string, error) {
 	return result, nil
 }
 
-// Middleware creates an X-Forward-For middlware in the form of an http.Handler. The middleware
+// Middleware creates an X-Forward-For middleware in the form of an http.Handler. The middleware
 // will replace the http.Request.RemoteAddr with the X-Forward-For header address if the
 // http.Request.RemoteAddr is in allowedSubnets. It then calls handler with the newly configured
 // http.Request.

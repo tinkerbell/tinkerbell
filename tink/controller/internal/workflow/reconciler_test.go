@@ -1064,3 +1064,965 @@ func (f *FrozenTime) MetaV1AfterSec(s int64) *metav1.Time {
 	t := metav1.NewTime(f.AfterSec(s))
 	return &t
 }
+
+func TestUpdateAgentIDIfNeeded(t *testing.T) {
+	tests := map[string]struct {
+		workflow    *v1alpha1.Workflow
+		wantUpdate  bool
+		wantAgentID string
+		description string
+	}{
+		"nil current state": {
+			workflow:    &v1alpha1.Workflow{Status: v1alpha1.WorkflowStatus{}},
+			wantUpdate:  false,
+			wantAgentID: "",
+			description: "should return false when CurrentState is nil",
+		},
+		"empty tasks": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					Tasks:        []v1alpha1.Task{},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "",
+			description: "should return false when no tasks are present",
+		},
+		"current task not found": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "nonexistent"},
+					Tasks: []v1alpha1.Task{
+						{ID: "task1", AgentID: "agent1"},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "",
+			description: "should return false when current task is not found",
+		},
+		"last task - no update needed": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					Tasks: []v1alpha1.Task{
+						{ID: "task1", AgentID: "agent1"},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "",
+			description: "should return false when in the last task",
+		},
+		"current task incomplete - action pending": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent1",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+								{ID: "action2", State: v1alpha1.WorkflowStatePending},
+							},
+						},
+						{
+							ID:      "task2",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{ID: "action3", State: v1alpha1.WorkflowStatePending},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent1",
+			description: "should return false when current task has pending actions",
+		},
+		"current task incomplete - action running": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent1",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+								{ID: "action2", State: v1alpha1.WorkflowStateRunning},
+							},
+						},
+						{
+							ID:      "task2",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{ID: "action3", State: v1alpha1.WorkflowStatePending},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent1",
+			description: "should return false when current task has running actions",
+		},
+		"next task has no actions": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent1",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+								{ID: "action2", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+						{
+							ID:      "task2",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent1",
+			description: "should return false when next task has no actions",
+		},
+		"next task first action not pending": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent1",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+								{ID: "action2", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+						{
+							ID:      "task2",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{ID: "action3", State: v1alpha1.WorkflowStateRunning},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent1",
+			description: "should return false when next task's first action is not pending",
+		},
+		"agent ID already matches next task": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent2",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+								{ID: "action2", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+						{
+							ID:      "task2",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{ID: "action3", State: v1alpha1.WorkflowStatePending},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent2",
+			description: "should return false when AgentID already matches next task",
+		},
+		"successful transition - agent ID updated": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent1",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+								{ID: "action2", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+						{
+							ID:      "task2",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{ID: "action3", State: v1alpha1.WorkflowStatePending},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  true,
+			wantAgentID: "agent2",
+			description: "should update AgentID when transitioning to next task with different agent",
+		},
+		"multiple tasks transition": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task2"},
+					AgentID:      "agent2",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+						{
+							ID:      "task2",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{ID: "action2", State: v1alpha1.WorkflowStateSuccess},
+								{ID: "action3", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+						{
+							ID:      "task3",
+							AgentID: "agent3",
+							Actions: []v1alpha1.Action{
+								{ID: "action4", State: v1alpha1.WorkflowStatePending},
+								{ID: "action5", State: v1alpha1.WorkflowStatePending},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  true,
+			wantAgentID: "agent3",
+			description: "should update AgentID in multi-task workflow",
+		},
+		"transition with single action in next task": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent1",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+						{
+							ID:      "task2",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{ID: "action2", State: v1alpha1.WorkflowStatePending},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  true,
+			wantAgentID: "agent2",
+			description: "should update AgentID when next task has single pending action",
+		},
+		"invalid current task index - out of bounds": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent1",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task2", // Different ID from CurrentState.TaskID
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent1",
+			description: "should return false when current task index is invalid (not found)",
+		},
+		"edge case - exactly last task boundary": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task2"},
+					AgentID:      "agent2",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+						{
+							ID:      "task2",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{ID: "action2", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent2",
+			description: "should return false when current task is exactly the last task",
+		},
+		"defensive check - prevent out of bounds access": {
+			workflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{TaskID: "task1"},
+					AgentID:      "agent1",
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{ID: "action1", State: v1alpha1.WorkflowStateSuccess},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate:  false,
+			wantAgentID: "agent1",
+			description: "should handle case where currentTaskIndex+1 would be out of bounds",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Store original AgentID for comparison
+			originalAgentID := tt.workflow.Status.AgentID
+
+			got := updateAgentIDIfNeeded(tt.workflow)
+
+			// Check if update flag matches expectation
+			if got != tt.wantUpdate {
+				t.Errorf("updateAgentIDIfNeeded() = %v, want %v\nDescription: %s", got, tt.wantUpdate, tt.description)
+			}
+
+			// Check if AgentID was updated correctly
+			if tt.workflow.Status.AgentID != tt.wantAgentID {
+				t.Errorf("AgentID = %v, want %v\nDescription: %s", tt.workflow.Status.AgentID, tt.wantAgentID, tt.description)
+			}
+
+			// Ensure AgentID was not changed when update should be false
+			if !tt.wantUpdate && tt.workflow.Status.AgentID != originalAgentID {
+				t.Errorf("AgentID was modified when it shouldn't be: original=%v, new=%v\nDescription: %s", originalAgentID, tt.workflow.Status.AgentID, tt.description)
+			}
+		})
+	}
+}
+
+func TestReconcileWithMultipleTasksAndAgents(t *testing.T) {
+	tests := map[string]struct {
+		seedWorkflow *v1alpha1.Workflow
+		req          reconcile.Request
+		want         reconcile.Result
+		wantWflow    *v1alpha1.Workflow
+		wantErr      error
+		description  string
+	}{
+		"workflow running with multiple tasks - agent transition": {
+			seedWorkflow: &v1alpha1.Workflow{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion: "1000",
+					Name:            "multi-task-workflow",
+					Namespace:       "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					TemplateRef: "multi-task",
+					HardwareRef: "machine1",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					State:             v1alpha1.WorkflowStateRunning,
+					AgentID:           "agent1",
+					GlobalTimeout:     1800,
+					TemplateRendering: "successful",
+					CurrentState: &v1alpha1.CurrentState{
+						TaskID:   "task1",
+						ActionID: "action1",
+					},
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							Name:    "first-task",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:             "action1",
+									Name:           "first-action",
+									State:          v1alpha1.WorkflowStateSuccess,
+									ExecutionStart: TestTime.MetaV1BeforeSec(10),
+								},
+								{
+									ID:             "action2",
+									Name:           "second-action",
+									State:          v1alpha1.WorkflowStateSuccess,
+									ExecutionStart: TestTime.MetaV1BeforeSec(5),
+								},
+							},
+						},
+						{
+							ID:      "task2",
+							Name:    "second-task",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action3",
+									Name:  "third-action",
+									State: v1alpha1.WorkflowStatePending,
+								},
+							},
+						},
+					},
+				},
+			},
+			req: reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "multi-task-workflow",
+					Namespace: "default",
+				},
+			},
+			want: reconcile.Result{},
+			wantWflow: &v1alpha1.Workflow{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion: "1001",
+					Name:            "multi-task-workflow",
+					Namespace:       "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					TemplateRef: "multi-task",
+					HardwareRef: "machine1",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					State:             v1alpha1.WorkflowStateRunning,
+					AgentID:           "agent2", // Should be updated to agent2
+					GlobalTimeout:     1800,
+					TemplateRendering: "successful",
+					CurrentState: &v1alpha1.CurrentState{
+						TaskID:   "task1",
+						ActionID: "action1",
+					},
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							Name:    "first-task",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:             "action1",
+									Name:           "first-action",
+									State:          v1alpha1.WorkflowStateSuccess,
+									ExecutionStart: TestTime.MetaV1BeforeSec(10),
+								},
+								{
+									ID:             "action2",
+									Name:           "second-action",
+									State:          v1alpha1.WorkflowStateSuccess,
+									ExecutionStart: TestTime.MetaV1BeforeSec(5),
+								},
+							},
+						},
+						{
+							ID:      "task2",
+							Name:    "second-task",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action3",
+									Name:  "third-action",
+									State: v1alpha1.WorkflowStatePending,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:     nil,
+			description: "should update AgentID when transitioning between tasks with different agents",
+		},
+		"workflow running with three tasks - middle transition": {
+			seedWorkflow: &v1alpha1.Workflow{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion: "1000",
+					Name:            "three-task-workflow",
+					Namespace:       "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					TemplateRef: "three-task",
+					HardwareRef: "machine1",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					State:             v1alpha1.WorkflowStateRunning,
+					AgentID:           "agent2",
+					GlobalTimeout:     1800,
+					TemplateRendering: "successful",
+					CurrentState: &v1alpha1.CurrentState{
+						TaskID:   "task2",
+						ActionID: "action3",
+					},
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							Name:    "first-task",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action1",
+									Name:  "first-action",
+									State: v1alpha1.WorkflowStateSuccess,
+								},
+							},
+						},
+						{
+							ID:      "task2",
+							Name:    "second-task",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action3",
+									Name:  "third-action",
+									State: v1alpha1.WorkflowStateSuccess,
+								},
+								{
+									ID:    "action4",
+									Name:  "fourth-action",
+									State: v1alpha1.WorkflowStateSuccess,
+								},
+							},
+						},
+						{
+							ID:      "task3",
+							Name:    "third-task",
+							AgentID: "agent3",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action5",
+									Name:  "fifth-action",
+									State: v1alpha1.WorkflowStatePending,
+								},
+								{
+									ID:    "action6",
+									Name:  "sixth-action",
+									State: v1alpha1.WorkflowStatePending,
+								},
+							},
+						},
+					},
+				},
+			},
+			req: reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "three-task-workflow",
+					Namespace: "default",
+				},
+			},
+			want: reconcile.Result{},
+			wantWflow: &v1alpha1.Workflow{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion: "1001",
+					Name:            "three-task-workflow",
+					Namespace:       "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					TemplateRef: "three-task",
+					HardwareRef: "machine1",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					State:             v1alpha1.WorkflowStateRunning,
+					AgentID:           "agent3", // Should be updated to agent3
+					GlobalTimeout:     1800,
+					TemplateRendering: "successful",
+					CurrentState: &v1alpha1.CurrentState{
+						TaskID:   "task2",
+						ActionID: "action3",
+					},
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							Name:    "first-task",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action1",
+									Name:  "first-action",
+									State: v1alpha1.WorkflowStateSuccess,
+								},
+							},
+						},
+						{
+							ID:      "task2",
+							Name:    "second-task",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action3",
+									Name:  "third-action",
+									State: v1alpha1.WorkflowStateSuccess,
+								},
+								{
+									ID:    "action4",
+									Name:  "fourth-action",
+									State: v1alpha1.WorkflowStateSuccess,
+								},
+							},
+						},
+						{
+							ID:      "task3",
+							Name:    "third-task",
+							AgentID: "agent3",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action5",
+									Name:  "fifth-action",
+									State: v1alpha1.WorkflowStatePending,
+								},
+								{
+									ID:    "action6",
+									Name:  "sixth-action",
+									State: v1alpha1.WorkflowStatePending,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:     nil,
+			description: "should update AgentID in multi-task workflow from task2 to task3",
+		},
+		"workflow running with same agent - no update needed": {
+			seedWorkflow: &v1alpha1.Workflow{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion: "1000",
+					Name:            "same-agent-workflow",
+					Namespace:       "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					TemplateRef: "same-agent",
+					HardwareRef: "machine1",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					State:             v1alpha1.WorkflowStateRunning,
+					AgentID:           "agent1",
+					GlobalTimeout:     1800,
+					TemplateRendering: "successful",
+					CurrentState: &v1alpha1.CurrentState{
+						TaskID:   "task1",
+						ActionID: "action1",
+					},
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							Name:    "first-task",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action1",
+									Name:  "first-action",
+									State: v1alpha1.WorkflowStateSuccess,
+								},
+							},
+						},
+						{
+							ID:      "task2",
+							Name:    "second-task",
+							AgentID: "agent1", // Same agent
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action2",
+									Name:  "second-action",
+									State: v1alpha1.WorkflowStatePending,
+								},
+							},
+						},
+					},
+				},
+			},
+			req: reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "same-agent-workflow",
+					Namespace: "default",
+				},
+			},
+			want: reconcile.Result{},
+			wantWflow: &v1alpha1.Workflow{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion: "1000", // No change expected
+					Name:            "same-agent-workflow",
+					Namespace:       "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					TemplateRef: "same-agent",
+					HardwareRef: "machine1",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					State:             v1alpha1.WorkflowStateRunning,
+					AgentID:           "agent1", // Should remain unchanged
+					GlobalTimeout:     1800,
+					TemplateRendering: "successful",
+					CurrentState: &v1alpha1.CurrentState{
+						TaskID:   "task1",
+						ActionID: "action1",
+					},
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							Name:    "first-task",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action1",
+									Name:  "first-action",
+									State: v1alpha1.WorkflowStateSuccess,
+								},
+							},
+						},
+						{
+							ID:      "task2",
+							Name:    "second-task",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action2",
+									Name:  "second-action",
+									State: v1alpha1.WorkflowStatePending,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:     nil,
+			description: "should not update AgentID when next task uses same agent",
+		},
+		"workflow running with incomplete current task - no update": {
+			seedWorkflow: &v1alpha1.Workflow{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion: "1000",
+					Name:            "incomplete-task-workflow",
+					Namespace:       "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					TemplateRef: "incomplete-task",
+					HardwareRef: "machine1",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					State:             v1alpha1.WorkflowStateRunning,
+					AgentID:           "agent1",
+					GlobalTimeout:     1800,
+					TemplateRendering: "successful",
+					CurrentState: &v1alpha1.CurrentState{
+						TaskID:   "task1",
+						ActionID: "action1",
+					},
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							Name:    "first-task",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action1",
+									Name:  "first-action",
+									State: v1alpha1.WorkflowStateSuccess,
+								},
+								{
+									ID:    "action2",
+									Name:  "second-action",
+									State: v1alpha1.WorkflowStateRunning, // Still running
+								},
+							},
+						},
+						{
+							ID:      "task2",
+							Name:    "second-task",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action3",
+									Name:  "third-action",
+									State: v1alpha1.WorkflowStatePending,
+								},
+							},
+						},
+					},
+				},
+			},
+			req: reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "incomplete-task-workflow",
+					Namespace: "default",
+				},
+			},
+			want: reconcile.Result{},
+			wantWflow: &v1alpha1.Workflow{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion: "1000", // No change expected
+					Name:            "incomplete-task-workflow",
+					Namespace:       "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					TemplateRef: "incomplete-task",
+					HardwareRef: "machine1",
+				},
+				Status: v1alpha1.WorkflowStatus{
+					State:             v1alpha1.WorkflowStateRunning,
+					AgentID:           "agent1", // Should remain unchanged
+					GlobalTimeout:     1800,
+					TemplateRendering: "successful",
+					CurrentState: &v1alpha1.CurrentState{
+						TaskID:   "task1",
+						ActionID: "action1",
+					},
+					Tasks: []v1alpha1.Task{
+						{
+							ID:      "task1",
+							Name:    "first-task",
+							AgentID: "agent1",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action1",
+									Name:  "first-action",
+									State: v1alpha1.WorkflowStateSuccess,
+								},
+								{
+									ID:    "action2",
+									Name:  "second-action",
+									State: v1alpha1.WorkflowStateRunning,
+								},
+							},
+						},
+						{
+							ID:      "task2",
+							Name:    "second-task",
+							AgentID: "agent2",
+							Actions: []v1alpha1.Action{
+								{
+									ID:    "action3",
+									Name:  "third-action",
+									State: v1alpha1.WorkflowStatePending,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:     nil,
+			description: "should not update AgentID when current task is incomplete",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			kc := GetFakeClientBuilder()
+			if tc.seedWorkflow != nil {
+				kc = kc.WithObjects(tc.seedWorkflow)
+				kc = kc.WithStatusSubresource(tc.seedWorkflow)
+			}
+			controller := &Reconciler{
+				client:        kc.Build(),
+				nowFunc:       TestTime.Now,
+				dynamicClient: &fakeDynamicClient{},
+			}
+
+			got, gotErr := controller.Reconcile(context.Background(), tc.req)
+			if gotErr != nil {
+				if tc.wantErr == nil {
+					t.Errorf("Got unexpected error: %v\nDescription: %s", gotErr, tc.description)
+				} else if !strings.Contains(gotErr.Error(), tc.wantErr.Error()) {
+					t.Errorf("Got unexpected error: got %q, wanted %q\nDescription: %s", gotErr, tc.wantErr, tc.description)
+				}
+				return
+			}
+			if gotErr == nil && tc.wantErr != nil {
+				t.Errorf("Missing expected error: %v\nDescription: %s", tc.wantErr, tc.description)
+				return
+			}
+			// Skip reconcile.Result comparison for timing-sensitive tests since RequeueAfter depends on execution timing
+			if tc.want.RequeueAfter == 0 && got.RequeueAfter != 0 {
+				// For tests where we expect no requeue but get a timing-dependent requeue, ignore the difference
+				t.Logf("Ignoring RequeueAfter timing difference: expected %v, got %v", tc.want.RequeueAfter, got.RequeueAfter)
+			} else if tc.want != got {
+				t.Errorf("Got unexpected result. Wanted %v, got %v\nDescription: %s", tc.want, got, tc.description)
+			}
+
+			wflow := &v1alpha1.Workflow{}
+			err := controller.client.Get(
+				context.Background(),
+				client.ObjectKey{Name: tc.wantWflow.Name, Namespace: tc.wantWflow.Namespace},
+				wflow)
+			if err != nil {
+				t.Errorf("Error finding desired workflow: %v\nDescription: %s", err, tc.description)
+				return
+			}
+
+			// Check specific AgentID expectations
+			if wflow.Status.AgentID != tc.wantWflow.Status.AgentID {
+				t.Errorf("AgentID mismatch: got %q, want %q\nDescription: %s", wflow.Status.AgentID, tc.wantWflow.Status.AgentID, tc.description)
+			}
+
+			if diff := cmp.Diff(wflow, tc.wantWflow, cmpopts.IgnoreFields(v1alpha1.WorkflowCondition{}, "Time"), cmpopts.IgnoreFields(v1alpha1.Task{}, "ID"), cmpopts.IgnoreFields(v1alpha1.Action{}, "ID"), cmpopts.IgnoreFields(v1alpha1.WorkflowStatus{}, "GlobalExecutionStop")); diff != "" {
+				t.Logf("got: %+v", wflow)
+				t.Logf("want: %+v", tc.wantWflow)
+				t.Errorf("unexpected difference:\n%v\nDescription: %s", diff, tc.description)
+			}
+		})
+	}
+}

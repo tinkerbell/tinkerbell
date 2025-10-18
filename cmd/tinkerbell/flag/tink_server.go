@@ -32,8 +32,12 @@ func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {
 }
 
 // Convert TinkServerConfig data types to tink server server.Config data types.
-func (t *TinkServerConfig) Convert() {
-	t.Config.BindAddrPort = netip.AddrPortFrom(t.BindAddr, t.BindPort)
+func (t *TinkServerConfig) Convert(bindAddr netip.Addr) {
+	addr := t.BindAddr
+	if bindAddr.IsValid() {
+		addr = bindAddr
+	}
+	t.Config.BindAddrPort = netip.AddrPortFrom(addr, t.BindPort)
 }
 
 var TinkServerBindAddr = Config{

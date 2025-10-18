@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -27,7 +29,20 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"github.com/tinkerbell/tinkerbell/tootles"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/credentials"
 	"k8s.io/client-go/rest"
+)
+
+const (
+	defaultRufioMetricsPort          = 8082
+	defaultRufioProbePort            = 8083
+	defaultSecondStarPort            = 2222
+	defaultSmeeHTTPPort              = 7171
+	defaultSmeeHTTPSPort             = 7272
+	defaultTinkControllerMetricsPort = 8080
+	defaultTinkControllerProbePort   = 8081
+	defaultTinkServerPort            = 42113
+	defaultTootlesPort               = 50061
 )
 
 var (
@@ -52,31 +67,35 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
 		},
+		BackendKubeOptions: flag.BackendKubeOptions{
+			QPS:   defaultQPS,   // Default QPS value. A negative value disables client-side ratelimiting.
+			Burst: defaultBurst, // Default burst value.
+		},
 	}
 
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
 		DHCPIPXEBinary: flag.URLBuilder{
-			Port: smee.DefaultHTTPPort,
+			Port: defaultSmeeHTTPPort,
 		},
 		DHCPIPXEScript: flag.URLBuilder{
-			Port: smee.DefaultHTTPPort,
+			Port: defaultSmeeHTTPPort,
 		},
 	}
 
 	h := &flag.TootlesConfig{
-		Config:   tootles.NewConfig(tootles.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 50061)),
+		Config:   tootles.NewConfig(tootles.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTootlesPort)),
 		BindAddr: detectPublicIPv4(),
-		BindPort: 50061,
+		BindPort: defaultTootlesPort,
 	}
 	ts := &flag.TinkServerConfig{
 		Config:   server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
 		BindAddr: detectPublicIPv4(),
-		BindPort: 42113,
+		BindPort: defaultTinkServerPort,
 	}
 	controllerOpts := []controller.Option{
-		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8080))),
-		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8081))),
+		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTinkControllerMetricsPort))),
+		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTinkControllerProbePort))),
 		controller.WithEnableLeaderElection(false),
 	}
 	tc := &flag.TinkControllerConfig{
@@ -84,8 +103,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	rufioOpts := []rufio.Option{
-		rufio.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8082))),
-		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 8083))),
+		rufio.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultRufioMetricsPort))),
+		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultRufioProbePort))),
 		rufio.WithBmcConnectTimeout(2 * time.Minute),
 		rufio.WithPowerCheckInterval(30 * time.Minute),
 		rufio.WithEnableLeaderElection(false),
@@ -96,7 +115,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	ssc := &flag.SecondStarConfig{
 		Config: &secondstar.Config{
-			SSHPort:      2222,
+			SSHPort:      defaultSecondStarPort,
 			IPMITOOLPath: "/usr/sbin/ipmitool",
 			IdleTimeout:  15 * time.Minute,
 		},
@@ -142,30 +161,9 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return e
 	}
 
-	// Smee
-	s.Convert(&globals.TrustedProxies, globals.PublicIP)
-	s.Config.OTEL.Endpoint = globals.OTELEndpoint
-	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
-
-	// Tootles
-	h.Convert(&globals.TrustedProxies)
-
-	// Tink Server
-	ts.Convert()
-
-	// Tink Controller
-	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace)
-
-	// Rufio Controller
-	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace)
-
-	// Second star
-	if err := ssc.Convert(); err != nil {
-		return fmt.Errorf("failed to convert secondstar config: %w", err)
-	}
-
 	log := defaultLogger(globals.LogLevel)
-	log.Info("starting tinkerbell",
+	cliLog := log.WithName("cli")
+	cliLog.Info("starting tinkerbell",
 		"version", build.GitRevision(),
 		"smeeEnabled", globals.EnableSmee,
 		"tootlesEnabled", globals.EnableTootles,
@@ -176,13 +174,69 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		"publicIP", globals.PublicIP,
 		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
 		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
+		"globalBindAddress", globals.BindAddr,
 	)
+
+	// Smee
+	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr)
+	s.Config.OTEL.Endpoint = globals.OTELEndpoint
+	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
+	// Configure TLS if cert and key files are provided
+	if globals.TLS.CertFile != "" && globals.TLS.KeyFile != "" {
+		// Load the certificates with extensive logging
+		// This key must be of type RSA. iPXE does not support ECDSA keys.
+		cert, err := tls.LoadX509KeyPair(globals.TLS.CertFile, globals.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificates for Smee HTTP: %w", err)
+		}
+		// iPXE only supports using RSA keys for TLS. https://github.com/ipxe/ipxe/issues/1179
+		if _, ok := cert.PrivateKey.(*rsa.PrivateKey); !ok {
+			log.Info("WARNING: iPXE only supports RSA certificates. HTTPS for Smee's iPXE binaries and scripts might not work", "certType", fmt.Sprintf("%T", cert.PrivateKey))
+		}
+		s.Config.TLS.Certs = []tls.Certificate{cert}
+	}
+
+	// Tootles
+	h.Convert(&globals.TrustedProxies, globals.BindAddr)
+
+	// Tink Server
+	ts.Convert(globals.BindAddr)
+	// Configure TLS if cert and key files are provided
+	if globals.TLS.CertFile != "" && globals.TLS.KeyFile != "" {
+		creds, err := credentials.NewServerTLSFromFile(globals.TLS.CertFile, globals.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS credentials for Tink Server gRPC: %w", err)
+		}
+		ts.Config.TLS.Cert = creds
+	}
+
+	// Tink Controller
+	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace)
+	if globals.BindAddr.IsValid() {
+		tc.Config.MetricsAddr = netip.AddrPortFrom(globals.BindAddr, tc.Config.MetricsAddr.Port())
+		tc.Config.ProbeAddr = netip.AddrPortFrom(globals.BindAddr, tc.Config.ProbeAddr.Port())
+	}
+
+	// Rufio Controller
+	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace)
+	if globals.BindAddr.IsValid() {
+		rc.Config.MetricsAddr = netip.AddrPortFrom(globals.BindAddr, rc.Config.MetricsAddr.Port())
+		rc.Config.ProbeAddr = netip.AddrPortFrom(globals.BindAddr, rc.Config.ProbeAddr.Port())
+	}
+
+	// Second star
+	if err := ssc.Convert(); err != nil {
+		return fmt.Errorf("failed to convert secondstar config: %w", err)
+	}
+	if globals.BindAddr.IsValid() {
+		ssc.Config.BindAddr = globals.BindAddr
+	}
 
 	g, ctx := errgroup.WithContext(ctx)
 	// Etcd server
 	g.Go(func() error {
 		if !globals.EmbeddedGlobalConfig.EnableETCD {
-			log.Info("embedded etcd is disabled")
+			cliLog.Info("embedded etcd is disabled")
 			return nil
 		}
 		if embeddedEtcdExecute != nil {
@@ -201,12 +255,12 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// API Server
 	g.Go(func() error {
 		if !globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
-			log.Info("embedded kube-apiserver is disabled")
+			cliLog.Info("embedded kube-apiserver is disabled")
 			return nil
 		}
 		if embeddedApiserverExecute != nil {
 			if err := retry.Do(func() error {
-				if err := embeddedApiserverExecute(ctx, log.WithValues("service", "kube-apiserver")); err != nil {
+				if err := embeddedApiserverExecute(ctx, log.WithName("kube-apiserver")); err != nil {
 					return fmt.Errorf("API server error: %w", err)
 				}
 				return nil
@@ -223,12 +277,12 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	switch globals.Backend {
 	case "kube":
 		if globals.EnableCRDMigrations {
-			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil)
+			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil, WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
 			if err != nil {
 				return fmt.Errorf("failed to create kube backend with no indexes: %w", err)
 			}
 			// Wait for the API server to be healthy and ready.
-			if err := backendNoIndexes.WaitForAPIServer(ctx, log, 20*time.Second, 5*time.Second, nil); err != nil {
+			if err := backendNoIndexes.WaitForAPIServer(ctx, cliLog, 20*time.Second, 5*time.Second, nil); err != nil {
 				return fmt.Errorf("failed to wait for API server health: %w", err)
 			}
 
@@ -237,10 +291,10 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				gerr := g.Wait()
 				return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
 			}
-			log.Info("CRD migrations completed")
+			cliLog.Info("CRD migrations completed")
 		}
 
-		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar))
+		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar), WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
 		if err != nil {
 			return fmt.Errorf("failed to create kube backend: %w", err)
 		}
@@ -275,7 +329,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Kube Controller Manager
 	g.Go(func() error {
 		if !globals.EmbeddedGlobalConfig.EnableKubeAPIServer {
-			log.Info("embedded kube-controller-manager is disabled")
+			cliLog.Info("embedded kube-controller-manager is disabled")
 			return nil
 		}
 		if err := embeddedKubeControllerManagerExecute(ctx, globals.BackendKubeConfig); err != nil {
@@ -287,11 +341,11 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Smee
 	g.Go(func() error {
 		if !globals.EnableSmee {
-			log.Info("smee service is disabled")
+			cliLog.Info("smee service is disabled")
 			return nil
 		}
 		ll := ternary((s.LogLevel != 0), s.LogLevel, globals.LogLevel)
-		if err := s.Config.Start(ctx, defaultLogger(ll).WithValues("service", "smee")); err != nil {
+		if err := s.Config.Start(ctx, defaultLogger(ll).WithName("smee")); err != nil {
 			return fmt.Errorf("failed to start smee service: %w", err)
 		}
 		return nil
@@ -300,11 +354,11 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Tootles
 	g.Go(func() error {
 		if !globals.EnableTootles {
-			log.Info("tootles service is disabled")
+			cliLog.Info("tootles service is disabled")
 			return nil
 		}
 		ll := ternary((h.LogLevel != 0), h.LogLevel, globals.LogLevel)
-		if err := h.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tootles")); err != nil {
+		if err := h.Config.Start(ctx, defaultLogger(ll).WithName("tootles")); err != nil {
 			return fmt.Errorf("failed to start tootles service: %w", err)
 		}
 		return nil
@@ -313,11 +367,11 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Tink Server
 	g.Go(func() error {
 		if !globals.EnableTinkServer {
-			log.Info("tink server service is disabled")
+			cliLog.Info("tink server service is disabled")
 			return nil
 		}
 		ll := ternary((ts.LogLevel != 0), ts.LogLevel, globals.LogLevel)
-		if err := ts.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tink-server")); err != nil {
+		if err := ts.Config.Start(ctx, defaultLogger(ll).WithName("tink-server")); err != nil {
 			return fmt.Errorf("failed to start tink server service: %w", err)
 		}
 		return nil
@@ -326,11 +380,11 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Tink Controller
 	g.Go(func() error {
 		if !globals.EnableTinkController {
-			log.Info("tink controller service is disabled")
+			cliLog.Info("tink controller service is disabled")
 			return nil
 		}
 		ll := ternary((tc.LogLevel != 0), tc.LogLevel, globals.LogLevel)
-		if err := tc.Config.Start(ctx, defaultLogger(ll).WithValues("service", "tink-controller")); err != nil {
+		if err := tc.Config.Start(ctx, defaultLogger(ll).WithName("tink-controller")); err != nil {
 			return fmt.Errorf("failed to start tink controller service: %w", err)
 		}
 		return nil
@@ -339,11 +393,11 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// Rufio Controller
 	g.Go(func() error {
 		if !globals.EnableRufio {
-			log.Info("rufio service is disabled")
+			cliLog.Info("rufio service is disabled")
 			return nil
 		}
 		ll := ternary((rc.LogLevel != 0), rc.LogLevel, globals.LogLevel)
-		if err := rc.Config.Start(ctx, defaultLogger(ll).WithValues("service", "rufio")); err != nil {
+		if err := rc.Config.Start(ctx, defaultLogger(ll).WithName("rufio")); err != nil {
 			return fmt.Errorf("failed to start rufio service: %w", err)
 		}
 		return nil
@@ -352,11 +406,11 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	// SecondStar
 	g.Go(func() error {
 		if !globals.EnableSecondStar {
-			log.Info("secondstar service is disabled")
+			cliLog.Info("secondstar service is disabled")
 			return nil
 		}
 		ll := ternary((ssc.LogLevel != 0), ssc.LogLevel, globals.LogLevel)
-		if err := ssc.Config.Start(ctx, defaultLogger(ll).WithValues("service", "secondstar")); err != nil {
+		if err := ssc.Config.Start(ctx, defaultLogger(ll).WithName("secondstar")); err != nil {
 			return fmt.Errorf("failed to start secondstar service: %w", err)
 		}
 		return nil

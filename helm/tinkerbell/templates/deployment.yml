@@ -47,6 +47,13 @@ spec:
             - {{ . }}
           {{- end }}
           env:
+          # FOR USE WITH hostNetwork: true (AUTO-CONFIGURATION)
+            {{- if .Values.deployment.hostNetwork }}
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            {{- end }}
           # RUFIO
             - name: TINKERBELL_RUFIO_CONTROLLER_ENABLE_LEADER_ELECTION
               value: {{ .Values.deployment.envs.rufio.enableLeaderElection | quote }}
@@ -132,6 +139,8 @@ spec:
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptPort | quote }}
             - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PATH
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptPath | quote }}
+            - name: TINKERBELL_IPXE_BINARY_INJECT_MAC_ADDR_FORMAT
+              value: {{ .Values.deployment.envs.smee.ipxeBinaryInjectMacAddrFormat | quote }}
             - name: TINKERBELL_IPXE_EMBEDDED_SCRIPT_PATCH
               value: {{ .Values.deployment.envs.smee.ipxeEmbeddedScriptPatch | quote }}
             - name: TINKERBELL_IPXE_HTTP_BINARY_ENABLED
@@ -152,6 +161,14 @@ spec:
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetryDelay | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL
               value: {{ coalesce .Values.artifactsFileServer .Values.deployment.envs.smee.ipxeHttpScriptOsieURL | quote }}
+            - name: TINKERBELL_IPXE_OVERRIDE_ARCH_MAPPING
+              value: {{ .Values.deployment.envs.smee.ipxeOverrideArchMapping | quote }}
+            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT
+              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerAddrPort | quote }}
+            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_USE_TLS
+              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerUseTLS | quote }}
+            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_INSECURE_TLS
+              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerInsecureTLS | quote }}
             - name: TINKERBELL_ISO_ENABLED
               value: {{ .Values.deployment.envs.smee.isoEnabled | quote }}
             - name: TINKERBELL_ISO_UPSTREAM_URL
@@ -178,12 +195,6 @@ spec:
               value: {{ .Values.deployment.envs.smee.tftpTimeout | quote }}
             - name: TINKERBELL_TFTP_BLOCK_SIZE
               value: {{ .Values.deployment.envs.smee.tftpBlockSize | quote }}
-            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT
-              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerAddrPort | quote }}
-            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_USE_TLS
-              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerUseTLS | quote }}
-            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_INSECURE_TLS
-              value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerInsecureTLS | quote }}
           # SECONDSTAR
             - name: TINKERBELL_SECONDSTAR_PORT
               value: {{ .Values.deployment.envs.secondstar.bindPort | quote }}
@@ -202,10 +213,16 @@ spec:
               value: {{ .Values.deployment.envs.globals.backend | quote }}
             - name: TINKERBELL_BACKEND_FILE_PATH
               value: {{ .Values.deployment.envs.globals.backendFilePath | quote }}
+            - name: TINKERBELL_BACKEND_KUBE_BURST
+              value: {{ .Values.deployment.envs.globals.backendKubeBurst | quote }}
             - name: TINKERBELL_BACKEND_KUBE_CONFIG
               value: {{ .Values.deployment.envs.globals.backendKubeConfig | quote }}
             - name: TINKERBELL_BACKEND_KUBE_NAMESPACE
               value: {{ .Values.deployment.envs.globals.backendKubeNamespace | quote }}
+            - name: TINKERBELL_BACKEND_KUBE_QPS
+              value: {{ .Values.deployment.envs.globals.backendKubeQPS | quote }}
+            - name: TINKERBELL_BIND_ADDR
+              value: {{ .Values.deployment.envs.globals.bindAddr | quote }}
             - name: TINKERBELL_OTEL_ENDPOINT
               value: {{ .Values.deployment.envs.globals.otelEndpoint | quote }}
             - name: TINKERBELL_OTEL_INSECURE
@@ -228,6 +245,12 @@ spec:
               value: {{ .Values.deployment.envs.globals.enableSecondstar | quote }}
             - name: TINKERBELL_ENABLE_CRD_MIGRATIONS
               value: {{ .Values.deployment.envs.globals.enableCRDMigrations | quote }}
+            - name: TINKERBELL_TLS_CERT_FILE
+              value: {{ .Values.deployment.envs.globals.tlsCertFile | quote }}
+            - name: TINKERBELL_TLS_KEY_FILE
+              value: {{ .Values.deployment.envs.globals.tlsKeyFile | quote }}
+            - name: TINKERBELL_HTTPS_BIND_PORT
+              value: {{ .Values.deployment.envs.smee.httpsBindPort | quote }}
             {{- with .Values.deployment.additionalEnvs }}
           # Additional environment variables
             {{- toYaml . | nindent 12 }}
@@ -272,6 +295,13 @@ spec:
           {{- if .Values.deployment.envs.globals.enableSecondstar }}
             - containerPort: {{ .Values.deployment.envs.secondstar.bindPort }}
             {{- with .Values.service.ports.ssh }}
+              name: {{ .name }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if and .Values.deployment.envs.globals.tlsCertFile .Values.deployment.envs.globals.tlsKeyFile }}
+            - containerPort: {{ .Values.deployment.envs.smee.httpsBindPort }}
+            {{- with .Values.service.ports.https }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}

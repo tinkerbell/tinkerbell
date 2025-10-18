@@ -3,9 +3,14 @@ package flag
 import (
 	"fmt"
 	"net/netip"
+	"strconv"
+	"strings"
 
+	"github.com/ccoveille/go-safecast"
+	"github.com/insomniacslk/dhcp/iana"
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 	"github.com/tinkerbell/tinkerbell/pkg/flag/url"
 	"github.com/tinkerbell/tinkerbell/smee"
@@ -36,7 +41,7 @@ type URLBuilder struct {
 }
 
 func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
-	fs.Register(SmeeLogLevel, ffval.NewValueDefault(&sc.LogLevel, sc.LogLevel))
+	// The order in which flags are registered here is the order they will appear in the help text.
 	// DHCP flags
 	fs.Register(DHCPEnabled, ffval.NewValueDefault(&sc.Config.DHCP.Enabled, sc.Config.DHCP.Enabled))
 	fs.Register(DHCPEnableNetbootOptions, ffval.NewValueDefault(&sc.Config.DHCP.EnableNetbootOptions, sc.Config.DHCP.EnableNetbootOptions))
@@ -57,7 +62,43 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(DHCPIPXEHTTPScriptPort, ffval.NewValueDefault(&sc.DHCPIPXEScript.Port, sc.DHCPIPXEScript.Port))
 	fs.Register(DHCPIPXEHTTPScriptPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Path, sc.Config.DHCP.IPXEHTTPScript.URL.Path))
 
+	// HTTPS flags
+	fs.Register(HTTPSBindPort, ffval.NewValueDefault(&sc.Config.HTTP.BindHTTPSPort, sc.Config.HTTP.BindHTTPSPort))
+
 	// IPXE flags
+	fs.Register(IPXEArchMapping, &ffval.Value[map[iana.Arch]constant.IPXEBinary]{
+		ParseFunc: func(s string) (map[iana.Arch]constant.IPXEBinary, error) {
+			if s == "" {
+				return nil, nil
+			}
+			split := strings.Split(s, ",")
+			m := make(map[iana.Arch]constant.IPXEBinary, len(split))
+			for _, pair := range split {
+				kv := strings.SplitN(pair, "=", 2)
+				if len(kv) != 2 {
+					return nil, fmt.Errorf("invalid format for IPXEArchMapping: %v, expected <arch>=<binary>, see the iPXE Architecture Mapping documentation for more details", kv)
+				}
+				// convert the key to an uint16
+				// convert the value to a smee.IPXEBinary
+				key, err := strconv.Atoi(strings.TrimSpace(kv[0]))
+				if err != nil {
+					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number, see the iPXE Architecture Mapping documentation for more details", kv[0])
+				}
+				ukey, err := safecast.ToUint16(key)
+				if err != nil {
+					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number (uint16), see the iPXE Architecture Mapping documentation for more details", kv[0])
+				}
+				arch := iana.Arch(ukey)
+				binary := constant.IPXEBinary(strings.TrimSpace(kv[1]))
+
+				m[arch] = binary
+			}
+
+			return m, nil
+		},
+		Pointer: &sc.Config.IPXE.IPXEBinary.IPXEArchMapping,
+		Default: sc.Config.IPXE.IPXEBinary.IPXEArchMapping,
+	})
 	fs.Register(IPXEEmbeddedScriptPatch, ffval.NewValueDefault(&sc.Config.IPXE.EmbeddedScriptPatch, sc.Config.IPXE.EmbeddedScriptPatch))
 	fs.Register(IPXEHTTPBinaryEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPBinaryServer.Enabled, sc.Config.IPXE.HTTPBinaryServer.Enabled))
 	fs.Register(IPXEHTTPScriptEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Enabled, sc.Config.IPXE.HTTPScriptServer.Enabled))
@@ -68,12 +109,26 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(IPXEHTTPScriptRetries, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Retries, sc.Config.IPXE.HTTPScriptServer.Retries))
 	fs.Register(IPXEHTTPScriptRetryDelay, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.RetryDelay, sc.Config.IPXE.HTTPScriptServer.RetryDelay))
 	fs.Register(IPXEHTTPScriptOSIEURL, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURL})
+	fs.Register(IPXEBinaryInjectMacAddrFormat, &ffval.Enum[constant.MACFormat]{
+		ParseFunc: macAddrFormatParser,
+		Valid:     []constant.MACFormat{constant.MacAddrFormatColon, constant.MacAddrFormatDot, constant.MacAddrFormatDash, constant.MacAddrFormatNoDelimiter},
+		Pointer:   &sc.Config.IPXE.IPXEBinary.InjectMacAddrFormat,
+		Default:   constant.MacAddrFormatColon,
+	})
+
+	// iPXE Tink Server Flags
+	fs.Register(TinkServerAddrPort, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPort, sc.Config.TinkServer.AddrPort))
+	fs.Register(TinkServerUseTLS, ffval.NewValueDefault(&sc.Config.TinkServer.UseTLS, sc.Config.TinkServer.UseTLS))
+	fs.Register(TinkServerInsecureTLS, ffval.NewValueDefault(&sc.Config.TinkServer.InsecureTLS, sc.Config.TinkServer.InsecureTLS))
 
 	// ISO Flags
 	fs.Register(ISOEnabled, ffval.NewValueDefault(&sc.Config.ISO.Enabled, sc.Config.ISO.Enabled))
 	fs.Register(ISOUpstreamURL, &url.URL{URL: sc.Config.ISO.UpstreamURL})
 	fs.Register(ISOPatchMagicString, ffval.NewValueDefault(&sc.Config.ISO.PatchMagicString, sc.Config.ISO.PatchMagicString))
 	fs.Register(ISOStaticIPAMEnabled, ffval.NewValueDefault(&sc.Config.ISO.StaticIPAMEnabled, sc.Config.ISO.StaticIPAMEnabled))
+
+	// Log level
+	fs.Register(SmeeLogLevel, ffval.NewValueDefault(&sc.LogLevel, sc.LogLevel))
 
 	// Syslog Flags
 	fs.Register(SyslogEnabled, ffval.NewValueDefault(&sc.Config.Syslog.Enabled, sc.Config.Syslog.Enabled))
@@ -86,15 +141,10 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TFTPServerBindPort, ffval.NewValueDefault(&sc.Config.TFTP.BindPort, sc.Config.TFTP.BindPort))
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
-
-	// Tink Server Flags
-	fs.Register(TinkServerAddrPort, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPort, sc.Config.TinkServer.AddrPort))
-	fs.Register(TinkServerUseTLS, ffval.NewValueDefault(&sc.Config.TinkServer.UseTLS, sc.Config.TinkServer.UseTLS))
-	fs.Register(TinkServerInsecureTLS, ffval.NewValueDefault(&sc.Config.TinkServer.InsecureTLS, sc.Config.TinkServer.InsecureTLS))
 }
 
 // Convert CLI specific fields to smee.Config fields.
-func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr) {
+func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr, bindAddr netip.Addr) {
 	s.Config.IPXE.HTTPScriptServer.TrustedProxies = ntip.ToPrefixList(trustedProxies).Slice()
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = func() string {
 		var addr string                                 // Defaults
@@ -158,6 +208,33 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 		}
 		return fmt.Sprintf("%s:%s", publicIP.String(), port)
 	}()
+
+	// Set bind addresses if bindAddr is specified.
+	if bindAddr.IsValid() {
+		// iPXE HTTP Script Server
+		s.Config.IPXE.HTTPScriptServer.BindAddr = bindAddr
+		// syslog server
+		s.Config.Syslog.BindAddr = bindAddr
+		// TFTP server
+		s.Config.TFTP.BindAddr = bindAddr
+	}
+}
+
+func macAddrFormatParser(s string) (constant.MACFormat, error) {
+	switch constant.MACFormat(s) {
+	case constant.MacAddrFormatColon:
+		return constant.MacAddrFormatColon, nil
+	case constant.MacAddrFormatDot:
+		return constant.MacAddrFormatDot, nil
+	case constant.MacAddrFormatDash:
+		return constant.MacAddrFormatDash, nil
+	case constant.MacAddrFormatNoDelimiter:
+		return constant.MacAddrFormatNoDelimiter, nil
+	case "":
+		return constant.MacAddrFormatColon, nil // constant.MacAddrFormatColon is the default
+	default:
+		return "", fmt.Errorf("invalid mac address format: %s, must be one of: [%s]", s, strings.Join([]string{constant.MacAddrFormatColon.String(), constant.MacAddrFormatDot.String(), constant.MacAddrFormatDash.String(), constant.MacAddrFormatNoDelimiter.String()}, ", "))
+	}
 }
 
 // DHCP flags.
@@ -293,6 +370,11 @@ var IPXEHTTPBinaryEnabled = Config{
 	Usage: "[ipxe] enable iPXE HTTP binary server",
 }
 
+var IPXEArchMapping = Config{
+	Name:  "ipxe-override-arch-mapping",
+	Usage: "[ipxe] override the iPXE architecture to binary mapping, see the iPXE Architecture Mapping documentation for detailed usage",
+}
+
 // TFTP flags.
 var TFTPServerEnabled = Config{
 	Name:  "tftp-server-enabled",
@@ -323,6 +405,11 @@ var TFTPBlockSize = Config{
 var IPXEEmbeddedScriptPatch = Config{
 	Name:  "ipxe-embedded-script-patch",
 	Usage: "[ipxe] iPXE script fragment to patch into served iPXE binaries served via TFTP or HTTP",
+}
+
+var IPXEBinaryInjectMacAddrFormat = Config{
+	Name:  "ipxe-binary-inject-mac-addr-format",
+	Usage: fmt.Sprintf("[ipxe] format to use when injecting the mac address into the iPXE binary URL. one of: [%s, %s, %s, %s, %s]", constant.MacAddrFormatColon.String(), constant.MacAddrFormatDot.String(), constant.MacAddrFormatDash.String(), constant.MacAddrFormatNoDelimiter.String(), constant.MacAddrFormatEmpty.String()),
 }
 
 // Syslog flags.
@@ -365,17 +452,17 @@ var ISOStaticIPAMEnabled = Config{
 // Tink Server flags.
 var TinkServerAddrPort = Config{
 	Name:  "ipxe-script-tink-server-addr-port",
-	Usage: "[tink] Tink server address and port",
+	Usage: "[ipxe] Tink server address and port",
 }
 
 var TinkServerUseTLS = Config{
 	Name:  "ipxe-script-tink-server-use-tls",
-	Usage: "[tink] Use TLS to connect to the Tink server",
+	Usage: "[ipxe] Use TLS to connect to the Tink server",
 }
 
 var TinkServerInsecureTLS = Config{
 	Name:  "ipxe-script-tink-server-insecure-tls",
-	Usage: "[tink] Skip TLS verification when connecting to the Tink server",
+	Usage: "[ipxe] Skip TLS verification when connecting to the Tink server",
 }
 
 var SmeeLogLevel = Config{
@@ -386,4 +473,9 @@ var SmeeLogLevel = Config{
 var DHCPEnableNetbootOptions = Config{
 	Name:  "dhcp-enable-netboot-options",
 	Usage: "[dhcp] enable sending netboot DHCP options",
+}
+
+var HTTPSBindPort = Config{
+	Name:  "https-bind-port",
+	Usage: "[https] local port to listen on for HTTPS requests",
 }

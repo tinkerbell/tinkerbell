@@ -6,26 +6,30 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/insomniacslk/dhcp/dhcpv4"
 	"go.opentelemetry.io/otel/attribute"
 )
 
 // DHCP holds the DHCP headers and options to be set in a DHCP handler response.
 // This is the API between a DHCP handler and a backend.
 type DHCP struct {
-	MACAddress       net.HardwareAddr // chaddr DHCP header.
-	IPAddress        netip.Addr       // yiaddr DHCP header.
-	SubnetMask       net.IPMask       // DHCP option 1.
-	DefaultGateway   netip.Addr       // DHCP option 3.
-	NameServers      []net.IP         // DHCP option 6.
-	Hostname         string           // DHCP option 12.
-	DomainName       string           // DHCP option 15.
-	BroadcastAddress netip.Addr       // DHCP option 28.
-	NTPServers       []net.IP         // DHCP option 42.
-	VLANID           string           // DHCP option 43.116.
-	LeaseTime        uint32           // DHCP option 51.
-	Arch             string           // DHCP option 93.
-	DomainSearch     []string         // DHCP option 119.
-	Disabled         bool             // If true, no DHCP response should be sent.
+	MACAddress            net.HardwareAddr // chaddr DHCP header.
+	IPAddress             netip.Addr       // yiaddr DHCP header.
+	SubnetMask            net.IPMask       // DHCP option 1.
+	DefaultGateway        netip.Addr       // DHCP option 3.
+	NameServers           []net.IP         // DHCP option 6.
+	Hostname              string           // DHCP option 12.
+	DomainName            string           // DHCP option 15.
+	BroadcastAddress      netip.Addr       // DHCP option 28.
+	NTPServers            []net.IP         // DHCP option 42.
+	VLANID                string           // DHCP option 43.116.
+	LeaseTime             uint32           // DHCP option 51.
+	TFTPServerName        string           // DHCP option 66.
+	BootFileName          string           // DHCP option 67.
+	Arch                  string           // DHCP option 93.
+	DomainSearch          []string         // DHCP option 119.
+	ClasslessStaticRoutes dhcpv4.Routes    // DHCP option 121 - RFC 3442.
+	Disabled              bool             // If true, no DHCP response should be sent.
 }
 
 // Netboot holds info used in netbooting a client.
@@ -33,6 +37,7 @@ type Netboot struct {
 	AllowNetboot  bool     // If true, the client will be provided netboot options in the DHCP offer/ack.
 	IPXEScriptURL *url.URL // Overrides a default value that is passed into DHCP on startup.
 	IPXEScript    string   // Overrides a default value that is passed into DHCP on startup.
+	IPXEBinary    string   // Overrides Smee's default architecture to binary mapping.
 	Console       string
 	Facility      string
 	OSIE          OSIE
@@ -80,6 +85,11 @@ func (d *DHCP) EncodeToAttributes() []attribute.KeyValue {
 		ba = d.BroadcastAddress.String()
 	}
 
+	var routes []string
+	for _, route := range d.ClasslessStaticRoutes {
+		routes = append(routes, route.Dest.String()+"->"+route.Router.String())
+	}
+
 	return []attribute.KeyValue{
 		attribute.String("DHCP.MACAddress", d.MACAddress.String()),
 		attribute.String("DHCP.IPAddress", ip),
@@ -92,17 +102,20 @@ func (d *DHCP) EncodeToAttributes() []attribute.KeyValue {
 		attribute.String("DHCP.NTPServers", strings.Join(ntp, ",")),
 		attribute.Int64("DHCP.LeaseTime", int64(d.LeaseTime)),
 		attribute.String("DHCP.DomainSearch", strings.Join(d.DomainSearch, ",")),
+		attribute.String("DHCP.ClasslessStaticRoutes", strings.Join(routes, ",")),
 	}
 }
 
 // EncodeToAttributes returns a slice of opentelemetry attributes that can be used to set span.SetAttributes.
 func (n *Netboot) EncodeToAttributes() []attribute.KeyValue {
-	var s string
-	if n.IPXEScriptURL != nil {
-		s = n.IPXEScriptURL.String()
-	}
-	return []attribute.KeyValue{
+	a := []attribute.KeyValue{
 		attribute.Bool("Netboot.AllowNetboot", n.AllowNetboot),
-		attribute.String("Netboot.IPXEScriptURL", s),
 	}
+	if n.IPXEScriptURL != nil {
+		a = append(a, attribute.String("Netboot.IPXEScriptURL", n.IPXEScriptURL.String()))
+	}
+	if n.IPXEBinary != "" {
+		a = append(a, attribute.String("Netboot.IPXEBinary", n.IPXEBinary))
+	}
+	return a
 }

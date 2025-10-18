@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/ccoveille/go-safecast"
+	"github.com/insomniacslk/dhcp/dhcpv4"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"go.opentelemetry.io/otel"
@@ -178,6 +179,9 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 	// hostname, optional
 	d.Hostname = h.Hostname
 
+	// domain name, optional
+	d.DomainName = h.DomainName
+
 	// lease time required
 	// Default to one week
 	d.LeaseTime = 604800
@@ -185,11 +189,33 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 		d.LeaseTime = v
 	}
 
+	// TFTP server name, optional
+	d.TFTPServerName = h.TFTPServerName
+
+	// Boot file name, optional
+	d.BootFileName = h.BootFileName
+
 	// arch
 	d.Arch = h.Arch
 
 	// vlanid
 	d.VLANID = h.VLANID
+
+	// classless static routes, optional
+	for _, route := range h.ClasslessStaticRoutes {
+		_, destNetwork, err := net.ParseCIDR(route.DestinationDescriptor)
+		if err != nil {
+			return nil, err
+		}
+		routerIP := net.ParseIP(route.Router)
+		if routerIP == nil {
+			return nil, fmt.Errorf("failed to parse router IP %q", route.Router)
+		}
+		d.ClasslessStaticRoutes = append(d.ClasslessStaticRoutes, &dhcpv4.Route{
+			Dest:   destNetwork,
+			Router: routerIP,
+		})
+	}
 
 	return d, nil
 }
@@ -220,6 +246,11 @@ func toNetbootData(i *v1alpha1.Netboot, facility string) (*data.Netboot, error) 
 	// ipxescript
 	if i.IPXE != nil {
 		n.IPXEScript = i.IPXE.Contents
+	}
+
+	// ipxebinary
+	if i.IPXE != nil && i.IPXE.Binary != "" {
+		n.IPXEBinary = i.IPXE.Binary
 	}
 
 	// console

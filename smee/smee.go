@@ -2,6 +2,7 @@ package smee
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -16,13 +17,17 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
+	"github.com/insomniacslk/dhcp/iana"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/tinkerbell/tinkerbell/pkg/build"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/server"
+	"github.com/tinkerbell/tinkerbell/smee/internal/http"
 	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/binary"
-	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/http"
 	"github.com/tinkerbell/tinkerbell/smee/internal/ipxe/script"
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
@@ -50,14 +55,17 @@ const (
 	DefaultTFFTPPort      = 69
 	DefaultTFFTPBlockSize = 512
 	DefaultTFFTPTimeout   = 10 * time.Second
-
-	DefaultDHCPMode = DHCPModeReservation
-
-	DefaultSyslogPort = 514
-
-	DefaultHTTPPort = 7171
-
+	DefaultDHCPPort       = 67
+	DefaultSyslogPort     = 514
+	DefaultHTTPPort       = 7171
+	DefaultHTTPSPort      = 7272
 	DefaultTinkServerPort = 42113
+
+	IPXEBinaryURI  = "/ipxe/binary/"
+	IPXEScriptURI  = "/ipxe/script/"
+	ISOURI         = "/iso/"
+	HealthCheckURI = "/healthcheck"
+	MetricsURI     = "/metrics"
 )
 
 type DHCPMode string
@@ -98,6 +106,15 @@ type Config struct {
 	TFTP TFTP
 	// TinkServer is the configuration for the Tinkerbell server.
 	TinkServer TinkServer
+	// HTTP is the configuration for the HTTP service.
+	HTTP HTTP
+	// TLS is the configuration for TLS.
+	TLS TLS
+}
+
+type HTTP struct {
+	// BindHTTPSPort is the local port to listen on for the HTTPS server.
+	BindHTTPSPort uint16
 }
 
 type Syslog struct {
@@ -126,6 +143,9 @@ type IPXE struct {
 	EmbeddedScriptPatch string
 	HTTPBinaryServer    IPXEHTTPBinaryServer
 	HTTPScriptServer    IPXEHTTPScriptServer
+
+	// IPXEBinary are the options to use when serving iPXE binaries via TFTP or HTTP.
+	IPXEBinary IPXEHTTPBinary
 }
 
 type IPXEHTTPBinaryServer struct {
@@ -164,9 +184,19 @@ type DHCP struct {
 	TFTPIP netip.Addr
 	// TFTPPort is the port to use in the DHCP packet for DHCP option 66.
 	TFTPPort uint16
-	//
+	// IPXEHTTPBinaryURL is the URL to the iPXE binary server serving via HTTP.
 	IPXEHTTPBinaryURL *url.URL
-	IPXEHTTPScript    IPXEHTTPScript
+	// IPXEHTTPScript is the URL to the iPXE script to use.
+	IPXEHTTPScript IPXEHTTPScript
+}
+
+type IPXEHTTPBinary struct {
+	// InjectMacAddrFormat is the format to use when injecting the mac address into the iPXE binary URL.
+	// Valid values are "colon", "dot", "dash", "no-delimiter", and "empty".
+	// For example, colon: http://1.2.3.4/ipxe/ipxe.efi -> http://1.2.3.4/ipxe/40:15:ff:89:cc:0e/ipxe.efi
+	InjectMacAddrFormat constant.MACFormat
+	// IPXEArchMapping will override the default architecture to binary mapping.
+	IPXEArchMapping map[iana.Arch]constant.IPXEBinary
 }
 
 type IPXEHTTPScript struct {
@@ -195,6 +225,10 @@ type TinkServer struct {
 	AddrPort    string
 }
 
+type TLS struct {
+	Certs []tls.Certificate
+}
+
 // NewConfig is a constructor for the Config struct. It will set default values for the Config struct.
 // Boolean fields are not set-able via c. To set boolean, modify the returned Config struct.
 func NewConfig(c Config, publicIP netip.Addr) *Config {
@@ -202,18 +236,18 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 		DHCP: DHCP{
 			Enabled:              true,
 			EnableNetbootOptions: true,
-			Mode:                 DefaultDHCPMode,
+			Mode:                 DHCPModeReservation,
 			BindAddr:             netip.MustParseAddr("0.0.0.0"),
-			BindPort:             67,
+			BindPort:             DefaultDHCPPort,
 			BindInterface:        "",
 			IPXEHTTPBinaryURL: &url.URL{
 				Scheme: "http",
-				Path:   "/ipxe",
+				Path:   IPXEBinaryURI,
 			},
 			IPXEHTTPScript: IPXEHTTPScript{
 				URL: &url.URL{
 					Scheme: "http",
-					Path:   "auto.ipxe",
+					Path:   path.Join(IPXEScriptURI, "auto.ipxe"),
 				},
 				InjectMacAddress: true,
 			},
@@ -233,6 +267,10 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 				OSIEURL:         &url.URL{},
 				TrustedProxies:  []string{},
 				ExtraKernelArgs: []string{},
+			},
+			IPXEBinary: IPXEHTTPBinary{
+				InjectMacAddrFormat: constant.MacAddrFormatColon,
+				IPXEArchMapping:     map[iana.Arch]constant.IPXEBinary{},
 			},
 		},
 		ISO: ISO{
@@ -258,6 +296,9 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			Enabled:   true,
 		},
 		TinkServer: TinkServer{},
+		HTTP: HTTP{
+			BindHTTPSPort: DefaultHTTPSPort,
+		},
 	}
 
 	if err := mergo.Merge(defaults, &c, mergo.WithTransformers(&c)); err != nil {
@@ -315,7 +356,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			return fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", addrPort.Addr(), addrPort.Port())
 		}
 		tftpHandler := binary.TFTP{
-			Log:                  log.WithValues("service", "github.com/tinkerbell/smee").WithName("github.com/tinkerbell/ipxedust"),
+			Log:                  log,
 			EnableTFTPSinglePort: true,
 			Addr:                 addrPort,
 			Timeout:              c.TFTP.Timeout,
@@ -336,10 +377,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		// 1. data validation
 		// 2. start the http server for ipxe binaries
 		// serve ipxe binaries from the "/ipxe/" URI.
-		handlers["/ipxe/"] = binary.Handler{
-			Log:   log.WithValues("service", "github.com/tinkerbell/smee").WithName("github.com/tinkerbell/ipxedust"),
-			Patch: []byte(c.IPXE.EmbeddedScriptPatch),
-		}.Handle
+		handlers[IPXEBinaryURI] = binary.Handler{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)}.Handle
 	}
 
 	// http ipxe script
@@ -359,7 +397,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		}
 
 		// serve ipxe script from the "/" URI.
-		handlers["/"] = jh.HandlerFunc()
+		handlers[IPXEScriptURI] = jh.HandlerFunc()
 	}
 
 	if c.ISO.Enabled {
@@ -385,17 +423,22 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if err != nil {
 			return fmt.Errorf("failed to create iso handler: %w", err)
 		}
-		handlers["/iso/"] = isoHandler
+		handlers[ISOURI] = isoHandler
 	}
 
 	if len(handlers) > 0 {
 		// 1. data validation
 		// 2. start the http server for ipxe binaries and scripts
 		// start the http server for ipxe binaries and scripts
+		// Add healthcheck and metrics handlers
+		hc := http.HealthCheck{
+			GitRev:    build.GitRevision(),
+			StartTime: time.Now(),
+		}
+		handlers[HealthCheckURI] = hc.HandlerFunc(log)
+		handlers[MetricsURI] = promhttp.Handler().ServeHTTP
 
-		httpServer := &http.Config{
-			GitRev:         "",
-			StartTime:      time.Now(),
+		httpServer := &http.ConfigHTTP{
 			Logger:         log,
 			TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
 		}
@@ -407,6 +450,19 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		g.Go(func() error {
 			return httpServer.ServeHTTP(ctx, bindAddr.String(), handlers)
 		})
+		// Enable HTTPS/TLS if certificates are provided
+		if len(c.TLS.Certs) > 0 {
+			ap := netip.AddrPortFrom(c.IPXE.HTTPScriptServer.BindAddr, c.HTTP.BindHTTPSPort).String()
+			log.Info("starting https server", "addr", ap, "trustedProxies", c.IPXE.HTTPScriptServer.TrustedProxies)
+			g.Go(func() error {
+				hs := &http.ConfigHTTPS{
+					Logger:         log,
+					TrustedProxies: c.IPXE.HTTPScriptServer.TrustedProxies,
+					TLSCerts:       c.TLS.Certs,
+				}
+				return hs.ServeHTTPS(ctx, ap, handlers)
+			})
+		}
 	}
 
 	// dhcp serving
@@ -480,10 +536,12 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 			IPAddr:  c.DHCP.IPForPacket,
 			Log:     log,
 			Netboot: reservation.Netboot{
-				IPXEBinServerTFTP: tftpIP,
-				IPXEBinServerHTTP: &httpBinaryURL,
-				IPXEScriptURL:     ipxeScript,
-				Enabled:           c.DHCP.EnableNetbootOptions,
+				IPXEBinServerTFTP:   tftpIP,
+				IPXEBinServerHTTP:   &httpBinaryURL,
+				IPXEScriptURL:       ipxeScript,
+				Enabled:             c.DHCP.EnableNetbootOptions,
+				InjectMacAddrFormat: c.IPXE.IPXEBinary.InjectMacAddrFormat,
+				IPXEArchMapping:     c.IPXE.IPXEBinary.IPXEArchMapping,
 			},
 			OTELEnabled: true,
 			SyslogAddr:  c.DHCP.SyslogIP,
@@ -495,10 +553,12 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 			IPAddr:  c.DHCP.IPForPacket,
 			Log:     log,
 			Netboot: proxy.Netboot{
-				IPXEBinServerTFTP: tftpIP,
-				IPXEBinServerHTTP: &httpBinaryURL,
-				IPXEScriptURL:     ipxeScript,
-				Enabled:           c.DHCP.EnableNetbootOptions,
+				IPXEBinServerTFTP:   tftpIP,
+				IPXEBinServerHTTP:   &httpBinaryURL,
+				IPXEScriptURL:       ipxeScript,
+				Enabled:             c.DHCP.EnableNetbootOptions,
+				InjectMacAddrFormat: c.IPXE.IPXEBinary.InjectMacAddrFormat,
+				IPXEArchMapping:     c.IPXE.IPXEBinary.IPXEArchMapping,
 			},
 			OTELEnabled:      true,
 			AutoProxyEnabled: false,
@@ -510,10 +570,12 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 			IPAddr:  c.DHCP.IPForPacket,
 			Log:     log,
 			Netboot: proxy.Netboot{
-				IPXEBinServerTFTP: tftpIP,
-				IPXEBinServerHTTP: &httpBinaryURL,
-				IPXEScriptURL:     ipxeScript,
-				Enabled:           c.DHCP.EnableNetbootOptions,
+				IPXEBinServerTFTP:   tftpIP,
+				IPXEBinServerHTTP:   &httpBinaryURL,
+				IPXEScriptURL:       ipxeScript,
+				Enabled:             c.DHCP.EnableNetbootOptions,
+				InjectMacAddrFormat: c.IPXE.IPXEBinary.InjectMacAddrFormat,
+				IPXEArchMapping:     c.IPXE.IPXEBinary.IPXEArchMapping,
 			},
 			OTELEnabled:      true,
 			AutoProxyEnabled: true,

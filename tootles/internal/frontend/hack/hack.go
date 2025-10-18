@@ -9,11 +9,13 @@ package hack
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/http/request"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // Client is a backend for retrieving hack instance data.
@@ -31,7 +33,11 @@ func Configure(router gin.IRouter, client Client) {
 
 		instance, err := client.GetHackInstance(ctx, ip)
 		if err != nil {
-			_ = ctx.AbortWithError(http.StatusInternalServerError, err)
+			if apierrors.IsNotFound(err) {
+				_ = ctx.AbortWithError(http.StatusNotFound, fmt.Errorf("no hardware found for source ip: %s", ip))
+			} else {
+				_ = ctx.AbortWithError(http.StatusInternalServerError, err)
+			}
 			return
 		}
 
