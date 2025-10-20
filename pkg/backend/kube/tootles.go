@@ -495,7 +495,6 @@ func generateNetworkConfigV2(hw v1alpha1.Hardware) *data.NetworkConfig {
 	}
 }
 
-
 // generateBondParametersV2 creates bonding parameters (v2 format) based on bonding mode.
 // V2 format uses hyphenated names without the "bond-" prefix.
 func generateBondParametersV2(bondingMode int64) data.BondParameters {
