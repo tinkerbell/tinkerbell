@@ -29,7 +29,9 @@ Tinkerbell supports all standard Linux bonding modes (0-6). Choose the mode base
 
 ### Hardware Configuration
 
-Configure bonding and static IPs in your Hardware resource:
+Configure bonding and static IPs in your Hardware resource using interface naming conventions and instance tags.
+
+#### Single Bond Example
 
 ```yaml
 apiVersion: tinkerbell.org/v1alpha1
@@ -38,28 +40,118 @@ metadata:
   name: server-001
 spec:
   metadata:
-    bonding_mode: 4  # See bonding modes table above
     instance:
       hostname: "server001.example.com"
       id: "b8:cb:29:98:cb:3a"
-      ips:
-        - address: "192.168.1.10"
+      tags:
+        - "bond0:mode4"  # Bond mode specified in tags (format: bond<N>:mode<M>)
+  interfaces:
+    # Bond 0 - First member (phy0) contains IP and DNS configuration
+    - dhcp:
+        mac: "b8:cb:29:98:cb:3a"
+        iface_name: "bond0phy0"  # Pattern: bond<N>phy<M>
+        ip:
+          address: "192.168.1.10"
           netmask: "255.255.255.0"
           gateway: "192.168.1.1"
           family: 4
-        - address: "2001:db8::10/64"
-          gateway: "2001:db8::1"
-          family: 6
-  interfaces:
-    - dhcp:
-        mac: b8:cb:29:98:cb:3a
         name_servers:
           - "1.1.1.1"
           - "1.0.0.1"
-          - "2606:4700:4700::1111"
+    # Bond 0 - Second member (phy1)
     - dhcp:
-        mac: b8:cb:29:98:cb:3b
+        mac: "b8:cb:29:98:cb:3b"
+        iface_name: "bond0phy1"
 ```
+
+#### Multiple Bonds Example
+
+```yaml
+apiVersion: tinkerbell.org/v1alpha1
+kind: Hardware
+metadata:
+  name: server-002
+spec:
+  metadata:
+    instance:
+      hostname: "server002.example.com"
+      tags:
+        - "bond0:mode4"  # Bond 0 uses 802.3ad
+        - "bond1:mode1"  # Bond 1 uses active-backup
+  interfaces:
+    # Bond 0 - Data network (802.3ad/LACP)
+    - dhcp:
+        mac: "aa:bb:cc:dd:ee:01"
+        iface_name: "bond0phy0"
+        ip:
+          address: "192.168.1.10"
+          netmask: "255.255.255.0"
+          gateway: "192.168.1.1"
+          family: 4
+        name_servers: ["8.8.8.8"]
+    - dhcp:
+        mac: "aa:bb:cc:dd:ee:02"
+        iface_name: "bond0phy1"
+
+    # Bond 1 - Storage network (active-backup)
+    - dhcp:
+        mac: "aa:bb:cc:dd:ee:03"
+        iface_name: "bond1phy0"
+        ip:
+          address: "10.0.0.10"
+          netmask: "255.255.255.0"
+          gateway: "10.0.0.1"
+          family: 4
+    - dhcp:
+        mac: "aa:bb:cc:dd:ee:04"
+        iface_name: "bond1phy1"
+```
+
+#### Mixed Bonded and Unbonded Interfaces
+
+```yaml
+apiVersion: tinkerbell.org/v1alpha1
+kind: Hardware
+metadata:
+  name: server-003
+spec:
+  metadata:
+    instance:
+      tags:
+        - "bond0:mode4"
+  interfaces:
+    # Bonded data interfaces
+    - dhcp:
+        mac: "aa:bb:cc:dd:ee:01"
+        iface_name: "bond0phy0"
+        ip:
+          address: "192.168.1.10"
+          netmask: "255.255.255.0"
+          gateway: "192.168.1.1"
+          family: 4
+    - dhcp:
+        mac: "aa:bb:cc:dd:ee:02"
+        iface_name: "bond0phy1"
+
+    # Unbonded management interface (does not match bond pattern)
+    - dhcp:
+        mac: "aa:bb:cc:dd:ee:03"
+        iface_name: "mgmt0"
+        ip:
+          address: "172.16.0.10"
+          netmask: "255.255.255.0"
+          gateway: "172.16.0.1"
+          family: 4
+        name_servers: ["172.16.0.1"]
+```
+
+**Configuration Rules:**
+- **Bond membership**: Interface names matching `bond<N>phy<M>` pattern (e.g., `bond0phy0`, `bond1phy1`)
+- **Bond modes**: Specified in `metadata.instance.tags` with format `bond<N>:mode<M>` (e.g., `bond0:mode4`)
+  - If a bond doesn't have a mode in tags, falls back to `spec.metadata.bonding_mode`
+  - If neither is set, defaults to mode 1 (active-backup)
+- **Bond configuration**: IP and nameservers from the first member (`phy0`) of each bond
+- **Unbonded interfaces**: Any `iface_name` not matching the bond pattern (e.g., `mgmt0`, `eth0`)
 
 ### Generated Network Configuration
 
@@ -157,7 +249,7 @@ ds=nocloud;seedfrom=http://<tinkerbell-ip>:7172/nocloud/
 
 ### Limitations
 
-- Only a single bond interface (`bond0`) is supported per Hardware resource
-- All interfaces defined in the Hardware spec that have a DHCP configuration with a MAC address will be added to bond0
-- Interfaces without a DHCP section or MAC address are skipped and not included in the bond
-- Multiple separate bonds are not currently supported
+- Bond modes can be specified per-bond in `metadata.instance.tags` using the format `bond<N>:mode<M>`, or globally via `spec.metadata.bonding_mode`
+- IP configuration and nameservers for a bond must be on the first member (`phy0`) interface
+- Interface names must follow the `bond<N>phy<M>` pattern for bond members
+- Interfaces without `iface_name` set will not be included in network configuration

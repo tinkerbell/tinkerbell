@@ -206,117 +206,186 @@ func TestGenerateAddressConfigV2(t *testing.T) {
 	}
 }
 
-func TestGenerateBondingConfigurationV2(t *testing.T) {
+func TestMultipleBonds(t *testing.T) {
 	tests := []struct {
-		name              string
-		hw                tinkerbell.Hardware
-		validateEthernets func(t *testing.T, ethernets map[string]data.EthernetConfig)
-		validateBonds     func(t *testing.T, bonds map[string]data.BondConfig)
+		name     string
+		hw       tinkerbell.Hardware
+		validate func(t *testing.T, result *data.NetworkConfig)
 	}{
 		{
-			name: "802.3ad bond with 2 interfaces and static IPs",
+			name: "two bonds with different modes",
 			hw: tinkerbell.Hardware{
 				Spec: tinkerbell.HardwareSpec{
 					Metadata: &tinkerbell.HardwareMetadata{
-						BondingMode: 4,
 						Instance: &tinkerbell.MetadataInstance{
-							Ips: []*tinkerbell.MetadataInstanceIP{
-								{
-									Address: "192.168.1.10",
-									Netmask: "255.255.255.0",
-									Gateway: "192.168.1.1",
-									Family:  4,
-								},
-								{
-									Address: "2001:db8::10/64",
-									Gateway: "2001:db8::1",
-									Family:  6,
-								},
-							},
+							Tags: []string{"bond0:mode4", "bond1:mode1"},
 						},
 					},
 					Interfaces: []tinkerbell.Interface{
-						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:01"}},
-						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:02"}},
+						// Bond 0 - 802.3ad
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:01",
+							IfaceName: "bond0phy0",
+							IP: &tinkerbell.IP{
+								Address: "192.168.1.10",
+								Netmask: "255.255.255.0",
+								Gateway: "192.168.1.1",
+								Family:  4,
+							},
+							NameServers: []string{"8.8.8.8"},
+						}},
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:02",
+							IfaceName: "bond0phy1",
+						}},
+						// Bond 1 - active-backup
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:03",
+							IfaceName: "bond1phy0",
+							IP: &tinkerbell.IP{
+								Address: "10.0.0.10",
+								Netmask: "255.255.255.0",
+								Gateway: "10.0.0.1",
+								Family:  4,
+							},
+						}},
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:04",
+							IfaceName: "bond1phy1",
+						}},
 					},
 				},
 			},
-			validateEthernets: func(t *testing.T, ethernets map[string]data.EthernetConfig) {
+			validate: func(t *testing.T, result *data.NetworkConfig) {
 				t.Helper()
-				assert.Len(t, ethernets, 2)
+				assert.NotNil(t, result)
+				assert.Equal(t, 2, result.Network.Version)
 
-				iface1 := ethernets["bond0phy0"]
-				assert.Equal(t, false, iface1.Dhcp4)
-				assert.NotNil(t, iface1.Match)
-				assert.Equal(t, "aa:bb:cc:dd:ee:01", iface1.Match.MACAddress)
-				assert.Equal(t, "bond0phy0", iface1.SetName)
+				// Check ethernets (4 physical interfaces)
+				assert.Len(t, result.Network.Ethernets, 4)
+				assert.Contains(t, result.Network.Ethernets, "bond0phy0")
+				assert.Contains(t, result.Network.Ethernets, "bond0phy1")
+				assert.Contains(t, result.Network.Ethernets, "bond1phy0")
+				assert.Contains(t, result.Network.Ethernets, "bond1phy1")
 
-				iface2 := ethernets["bond0phy1"]
-				assert.Equal(t, false, iface2.Dhcp4)
-				assert.NotNil(t, iface2.Match)
-				assert.Equal(t, "aa:bb:cc:dd:ee:02", iface2.Match.MACAddress)
-				assert.Equal(t, "bond0phy1", iface2.SetName)
-			},
-			validateBonds: func(t *testing.T, bonds map[string]data.BondConfig) {
-				t.Helper()
-				bond0 := bonds["bond0"]
+				// Check bonds
+				assert.Len(t, result.Network.Bonds, 2)
 
-				// Check interfaces
-				assert.Equal(t, []string{"bond0phy0", "bond0phy1"}, bond0.Interfaces)
-
-				// Check parameters
+				// Verify bond0 (802.3ad)
+				bond0 := result.Network.Bonds["bond0"]
 				assert.Equal(t, "802.3ad", bond0.Parameters.Mode)
-				assert.Equal(t, 100, bond0.Parameters.MIIMonitorInterval)
-				assert.Equal(t, "fast", bond0.Parameters.LACPRate)
-				assert.Equal(t, "layer3+4", bond0.Parameters.TransmitHashPolicy)
-				assert.Equal(t, "stable", bond0.Parameters.ADSelect)
-
-				// Check addresses
-				assert.Equal(t, []string{"192.168.1.10/24", "2001:db8::10/64"}, bond0.Addresses)
-
-				// Check gateways
+				assert.Equal(t, []string{"192.168.1.10/24"}, bond0.Addresses)
 				assert.Equal(t, "192.168.1.1", bond0.Gateway4)
-				assert.Equal(t, "2001:db8::1", bond0.Gateway6)
+				assert.NotNil(t, bond0.Nameservers)
+				assert.Equal(t, []string{"8.8.8.8"}, bond0.Nameservers.Addresses)
 
-				// No nameservers configured in this test - nameservers field should be nil
-				assert.Nil(t, bond0.Nameservers)
+				// Verify bond1 (active-backup)
+				bond1 := result.Network.Bonds["bond1"]
+				assert.Equal(t, "active-backup", bond1.Parameters.Mode)
+				assert.Equal(t, []string{"10.0.0.10/24"}, bond1.Addresses)
+				assert.Equal(t, "10.0.0.1", bond1.Gateway4)
 			},
 		},
 		{
-			name: "active-backup bond with DHCP",
+			name: "bond with unbonded interface",
 			hw: tinkerbell.Hardware{
 				Spec: tinkerbell.HardwareSpec{
 					Metadata: &tinkerbell.HardwareMetadata{
-						BondingMode: 1,
+						Instance: &tinkerbell.MetadataInstance{
+							Tags: []string{"bond0:mode4"},
+						},
 					},
 					Interfaces: []tinkerbell.Interface{
-						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:01"}},
-						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:02"}},
+						// Bond 0
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:01",
+							IfaceName: "bond0phy0",
+							IP: &tinkerbell.IP{
+								Address: "192.168.1.10",
+								Netmask: "255.255.255.0",
+								Gateway: "192.168.1.1",
+								Family:  4,
+							},
+						}},
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:02",
+							IfaceName: "bond0phy1",
+						}},
+						// Unbonded interface
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:03",
+							IfaceName: "mgmt0",
+							IP: &tinkerbell.IP{
+								Address: "172.16.0.10",
+								Netmask: "255.255.255.0",
+								Gateway: "172.16.0.1",
+								Family:  4,
+							},
+							NameServers: []string{"172.16.0.1"},
+						}},
 					},
 				},
 			},
-			validateEthernets: func(t *testing.T, ethernets map[string]data.EthernetConfig) {
+			validate: func(t *testing.T, result *data.NetworkConfig) {
 				t.Helper()
-				assert.Len(t, ethernets, 2)
+				assert.NotNil(t, result)
+
+				// Check ethernets (2 for bond + 1 unbonded)
+				assert.Len(t, result.Network.Ethernets, 3)
+				assert.Contains(t, result.Network.Ethernets, "bond0phy0")
+				assert.Contains(t, result.Network.Ethernets, "bond0phy1")
+				assert.Contains(t, result.Network.Ethernets, "mgmt0")
+
+				// Verify unbonded interface
+				mgmt := result.Network.Ethernets["mgmt0"]
+				assert.Equal(t, []string{"172.16.0.10/24"}, mgmt.Addresses)
+				assert.Equal(t, "172.16.0.1", mgmt.Gateway4)
+				assert.NotNil(t, mgmt.Nameservers)
+				assert.Equal(t, []string{"172.16.0.1"}, mgmt.Nameservers.Addresses)
+
+				// Check bond
+				assert.Len(t, result.Network.Bonds, 1)
+				bond0 := result.Network.Bonds["bond0"]
+				assert.Equal(t, "802.3ad", bond0.Parameters.Mode)
 			},
-			validateBonds: func(t *testing.T, bonds map[string]data.BondConfig) {
+		},
+		{
+			name: "bond with DHCP (no static IP)",
+			hw: tinkerbell.Hardware{
+				Spec: tinkerbell.HardwareSpec{
+					Metadata: &tinkerbell.HardwareMetadata{
+						Instance: &tinkerbell.MetadataInstance{
+							Tags: []string{"bond0:mode1"},
+						},
+					},
+					Interfaces: []tinkerbell.Interface{
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:01",
+							IfaceName: "bond0phy0",
+						}},
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:02",
+							IfaceName: "bond0phy1",
+						}},
+					},
+				},
+			},
+			validate: func(t *testing.T, result *data.NetworkConfig) {
 				t.Helper()
-				bond0 := bonds["bond0"]
+				assert.NotNil(t, result)
 
-				// Should have DHCP when no static IPs
-				assert.Equal(t, true, bond0.Dhcp4)
-
-				// Check parameters for active-backup
-				assert.Equal(t, "active-backup", bond0.Parameters.Mode)
+				// Bond should use DHCP
+				bond0 := result.Network.Bonds["bond0"]
+				assert.True(t, bond0.Dhcp4)
+				assert.Empty(t, bond0.Addresses)
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ethernets, bonds := generateBondingConfigurationV2(tt.hw)
-			tt.validateEthernets(t, ethernets)
-			tt.validateBonds(t, bonds)
+			result := generateNetworkConfigV2(tt.hw)
+			tt.validate(t, result)
 		})
 	}
 }
@@ -328,20 +397,29 @@ func TestGenerateNetworkConfigV2(t *testing.T) {
 		validate func(t *testing.T, result *data.NetworkConfig)
 	}{
 		{
-			name: "bonding enabled with 2+ interfaces",
+			name: "bond with interfaces using new convention",
 			hw: tinkerbell.Hardware{
 				Spec: tinkerbell.HardwareSpec{
 					Metadata: &tinkerbell.HardwareMetadata{
-						BondingMode: 4,
 						Instance: &tinkerbell.MetadataInstance{
-							Ips: []*tinkerbell.MetadataInstanceIP{
-								{Address: "192.168.1.10", Netmask: "255.255.255.0", Gateway: "192.168.1.1", Family: 4},
-							},
+							Tags: []string{"bond0:mode4"},
 						},
 					},
 					Interfaces: []tinkerbell.Interface{
-						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:01"}},
-						{DHCP: &tinkerbell.DHCP{MAC: "aa:bb:cc:dd:ee:02"}},
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:01",
+							IfaceName: "bond0phy0",
+							IP: &tinkerbell.IP{
+								Address: "192.168.1.10",
+								Netmask: "255.255.255.0",
+								Gateway: "192.168.1.1",
+								Family:  4,
+							},
+						}},
+						{DHCP: &tinkerbell.DHCP{
+							MAC:       "aa:bb:cc:dd:ee:02",
+							IfaceName: "bond0phy1",
+						}},
 					},
 				},
 			},
@@ -442,7 +520,8 @@ func TestToNoCloudInstance(t *testing.T) {
 				assert.Equal(t, "20.04", result.Metadata.OperatingSystem.Version)
 				assert.Equal(t, "latest", result.Metadata.OperatingSystem.ImageTag)
 				assert.Equal(t, "#cloud-config\npackage_update: true\n", result.Userdata)
-				assert.NotNil(t, result.NetworkConfig)
+				// NetworkConfig will be nil since interfaces don't have IfaceName set
+				assert.Nil(t, result.NetworkConfig)
 			},
 		},
 		{
@@ -471,7 +550,8 @@ func TestToNoCloudInstance(t *testing.T) {
 				assert.Equal(t, "server-002", result.Metadata.InstanceID)
 				assert.Equal(t, "server002.example.com", result.Metadata.LocalHostname)
 				assert.Equal(t, "#cloud-config\npackage_update: true\n", result.Userdata)
-				assert.NotNil(t, result.NetworkConfig)
+				// NetworkConfig will be nil since interfaces don't have IfaceName set
+				assert.Nil(t, result.NetworkConfig)
 				// Optional fields should be empty
 				assert.Nil(t, result.Metadata.Tags)
 				assert.Nil(t, result.Metadata.PublicKeys)
