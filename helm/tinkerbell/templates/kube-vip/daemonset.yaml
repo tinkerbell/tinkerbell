@@ -48,9 +48,13 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ .Values.optional.kubevip.name }}
-      {{- if .Values.optional.kubevip.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      {{- with .Values.optional.kubevip.tolerations }}
       tolerations:
-      {{- include "singleNodeClusterConfig" (dict "nodeAffinityWeight" .Values.optional.kubevip.singleNodeClusterConfig.nodeAffinityWeight) | indent 6 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.optional.kubevip.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.optional.kubevip.name }}
 {{- end }}

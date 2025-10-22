@@ -66,14 +66,14 @@ spec:
       hostNetwork: {{ .Values.optional.hookos.hostNetwork }}
       {{- with .Values.optional.hookos.nodeSelector }}
       nodeSelector:
-      {{ toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.optional.hookos.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
+      {{- with .Values.optional.hookos.tolerations }}
       tolerations:
-      {{- include "singleNodeClusterConfig" . | indent 6 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.optional.hookos.affinity }}
       affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          {{- include "preferWorkerNodes" (dict "nodeAffinityWeight" .Values.optional.hookos.singleNodeClusterConfig.nodeAffinityWeight) | indent 10 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
 {{- end }}

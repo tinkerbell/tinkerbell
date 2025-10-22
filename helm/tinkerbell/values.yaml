@@ -238,6 +238,7 @@ optional:
     kernelVersion: both # 5.10, 6.6, both
     name: hookos
     nodeSelector: {}
+    tolerations: []
     persistence:
       # If existingClaim is set, the local persistence volume (localPersistentVolume) objects will NOT be created.
       # Use this to point to an existing production grade storage class.
@@ -261,10 +262,7 @@ optional:
       lbClass: "kube-vip.io/kube-vip-class"
       loadBalancerIP: ""
       type: LoadBalancer
-    # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
-    singleNodeClusterConfig:
-      controlPlaneTolerationsEnabled: false
-      nodeAffinityWeight: 1
+    affinity: {}
   
   # kubevip objects are used to provide a LoadBalancer IP for the Tinkerbell services.
   # Optional, enabled by default.
@@ -286,7 +284,5 @@ optional:
     roleBindingName: kube-vip-rolebinding
     roleName: kube-vip-role
     nodeSelector: {}
-    # singleNodeClusterConfig to add tolerations for deployments on control plane nodes. This is defaulted to false.
-    singleNodeClusterConfig:
-      controlPlaneTolerationsEnabled: false
-      nodeAffinityWeight: 1
+    tolerations: []
+    affinity: {}
