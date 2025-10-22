@@ -68,7 +68,7 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (data.Hard
 
 			return data.Hardware{}, fmt.Errorf("failed to parse source ISO as a URL %q: %w", i.Isoboot.SourceISO, err)
 		}
-		result.ISOBoot = &data.Isoboot{SourceISO: si}
+		result.Isoboot = &data.Isoboot{SourceISO: si}
 	}
 
 	span.SetAttributes(d.EncodeToAttributes()...)
