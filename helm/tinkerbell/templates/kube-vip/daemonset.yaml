@@ -50,7 +50,7 @@ spec:
       {{- end }}
       {{- with .Values.optional.kubevip.tolerations }}
       tolerations:
-      {{- toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.optional.kubevip.affinity }}
       affinity:
