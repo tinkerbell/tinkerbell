@@ -18,7 +18,7 @@ var templateFuncs = map[string]interface{}{
 //
 // Examples
 //
-//	formatPartition("/dev/nvme0n1", 0) -> /dev/nvme0n1p1
+//	formatPartition("/dev/nvme0n1", 1) -> /dev/nvme0n1p1
 //	formatPartition("/dev/sda", 1) -> /dev/sda1
 //	formatPartition("/dev/vda", 2) -> /dev/vda2
 func formatPartition(dev string, partition int) string {
