@@ -103,10 +103,14 @@ func (h *Handler) HandlerFunc() (http.HandlerFunc, error) {
 	return proxy.ServeHTTP, nil
 }
 
-// targetURL parses and validates a target URL.
-// The order of precedence is:
+// targetURL returns a valid URL from the first non-empty source and an error, if any.
+//
+// The order of precedence for sources is:
+//
 // 1. From query parameter "isoFromQuery"
+//
 // 2. From hardware object "isoFromHWObject"
+//
 // 3. From config "isoFromConfig"
 func targetURL(isoFromQuery, isoFromHWObject, isoFromConfig string) (*url.URL, error) {
 	if isoFromQuery != "" {
@@ -282,8 +286,8 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 
 		// Get the target URL (either from query parameter or default SourceISO)
 		fromHWObject := ""
-		if hw.ISOBoot != nil && hw.ISOBoot.SourceISO != nil {
-			fromHWObject = hw.ISOBoot.SourceISO.String()
+		if hw.Isoboot != nil && hw.Isoboot.SourceISO != nil {
+			fromHWObject = hw.Isoboot.SourceISO.String()
 		}
 		tu, err := targetURL(req.URL.Query().Get(queryParamSourceISO), fromHWObject, h.Patch.SourceISO)
 		if err != nil {
@@ -407,7 +411,7 @@ func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br Back
 		return "", data.Hardware{}, err
 	}
 
-	return hw.Netboot.Facility, data.Hardware{DHCP: hw.DHCP, ISOBoot: hw.ISOBoot}, nil
+	return hw.Netboot.Facility, data.Hardware{DHCP: hw.DHCP, Isoboot: hw.Isoboot}, nil
 }
 
 func randomPercentage(precision int64) float64 {

@@ -14,7 +14,7 @@ import (
 type Hardware struct {
 	DHCP    *DHCP
 	Netboot *Netboot
-	ISOBoot *Isoboot
+	Isoboot *Isoboot
 }
 
 // DHCP holds the DHCP headers and options to be set in a DHCP handler response.
