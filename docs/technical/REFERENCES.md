@@ -12,7 +12,7 @@ This opens up Tinkerbell to integrate with any Kubernetes object and data availa
 
 ## How to define References
 
-Here's an example of a reference for a fictional CRD, `lvm.example.org` inside of a Hardware object. All fields are required, except for `group`, which is optional for some resources like `pods`, for example. The `resource` and `group` values should generally always be lowercase. The `resource` field must be the plural version of the object. There is a helper script, [here](../../script/reference_format.sh), for getting this info from a cluster. The string name under `spec.references` can be mostly anything and will be used to reference the object in the Template.
+Here's an example of a reference for a fictional CRD, `lvm.example.org` inside of a Hardware object. All fields are required, except for `group`, which is optional for some resources like `pods`, for example. The `resource` and `group` values should generally always be lowercase. The `resource` field must be the plural version of the object. There is a helper script, [here](/script/reference_format.sh), for getting this info from a cluster. The string name under `spec.references` can be mostly anything and will be used to reference the object in the Template.
 
 ```yaml
 spec:
