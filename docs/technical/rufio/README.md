@@ -100,7 +100,7 @@ Options per provider can be defined in the `spec.connection.providerOptions` fie
 
 `Machine` CR example:
 
-> Note: The provider options below are not comprehensive. See the [spec](../api/v1alpha1/) for all available options.
+> Note: The provider options below are not comprehensive. See the [spec](/api/v1alpha1/) for all available options.
 
 ```yaml
 apiVersion: bmc.tinkerbell.org/v1alpha1

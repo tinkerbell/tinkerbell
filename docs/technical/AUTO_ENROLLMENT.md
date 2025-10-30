@@ -99,7 +99,7 @@ Once familiar with the attributes, you can create more specific WorkflowRuleSets
 
 ### Example of Agent attributes
 
-The following is an example of the attributes data structure and data types of an Agent. See also the [Go struct definition](../../pkg/data/attributes.go).
+The following is an example of the attributes data structure and data types of an Agent. See also the [Go struct definition](/pkg/data/attributes.go).
 
 ```json
 {

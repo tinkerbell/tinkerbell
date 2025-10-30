@@ -18,7 +18,7 @@ Tinkerbell builds, embeds, and serves (via TFTP and HTTP(s)) its own iPXE binari
 
 ## Built-in Mappings
 
-Smee provides a set of built-in mappings for common architectures. These mappings are defined in the [`ArchToBootFile`](../../../smee/internal/dhcp/dhcp.go) function. They map an IANA Processor Architecture Type (references: [Go library](https://github.com/insomniacslk/dhcp/tree/master/iana) and [iana](https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture)) to a specific iPXE binary.
+Smee provides a set of built-in mappings for common architectures. These mappings are defined in the [`ArchToBootFile`](/smee/internal/dhcp/dhcp.go) function. They map an IANA Processor Architecture Type (references: [Go library](https://github.com/insomniacslk/dhcp/tree/master/iana) and [iana](https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture)) to a specific iPXE binary.
 
 > [!Note]
 > These are global and are used across all machines that network boot.
