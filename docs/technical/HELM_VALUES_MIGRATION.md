@@ -47,7 +47,7 @@ Before you begin the migration process, ensure you have the following:
      --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" > migrated_values.yaml
    ```
 
-1. Follow the [Helm chart installation guide](../../helm/tinkerbell/README.md) using the generated `migrated_values.yaml` file to install the Tinkerbell chart `v0.19.x`. This file contains the updated values that are compatible with the new chart version.
+1. Follow the [Helm chart installation guide](/helm/tinkerbell/README.md) using the generated `migrated_values.yaml` file to install the Tinkerbell chart `v0.19.x`. This file contains the updated values that are compatible with the new chart version.
 
    > [!IMPORTANT]  
    > For production deployments, be sure to thoroughly review the `migrated_values.yaml` file and adjust any settings as necessary before applying it.

@@ -36,7 +36,7 @@ spec:
     - powerAction: "on"
 ```
 
-[Reference](../../tink/controller/internal/workflow/pre.go#L49-L72)
+[Reference](/tink/controller/internal/workflow/pre.go#L49-L72)
 
 ## isoboot
 
@@ -79,7 +79,7 @@ spec:
     - powerAction: "on"
 ```
 
-[Reference](../../tink/controller/internal/workflow/pre.go#L106-L141)
+[Reference](/tink/controller/internal/workflow/pre.go#L106-L141)
 
 During the `POST` Workflow state, the following `job.bmc.tinkerbell.org` is created to eject the HookOS ISO:
 
@@ -98,7 +98,7 @@ spec:
         kind: "CD"
 ```
 
-[Reference](../../tink/controller/internal/workflow/post.go#L35-L42)
+[Reference](/tink/controller/internal/workflow/post.go#L35-L42)
 
 ## customboot
 
@@ -131,5 +131,5 @@ spec:
       - powerAction: "reset"
 ```
 
-[PREPARING Reference](../../tink/controller/internal/workflow/pre.go#L158)  
-[POST Reference](../../tink/controller/internal/workflow/post.go#L61)
+[PREPARING Reference](/tink/controller/internal/workflow/pre.go#L158)  
+[POST Reference](/tink/controller/internal/workflow/post.go#L61)
