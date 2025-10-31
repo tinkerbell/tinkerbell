@@ -354,7 +354,7 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 	// we do this because there are a lot of partial content requests and it allow this handler to take care of logging.
 	resp.Header.Set("X-Global-Logging", "false")
 
-	tu := fmt.Sprintf("%s://%s%s", req.URL.Scheme, req.URL.Host, req.URL.Path)
+	tu := req.URL.String()
 	if resp.StatusCode == http.StatusPartialContent {
 		// 0.002% of the time we log a 206 request message.
 		// In testing, it was observed that about 3000 HTTP 206 requests are made per ISO mount.
