@@ -98,19 +98,21 @@ type BootOptions struct {
 	// +optional
 	ToggleAllowNetboot bool `json:"toggleAllowNetboot,omitempty"`
 
-	// ISOURL is the URL of the ISO that will be one-time booted. When this field is set, the controller will create a job.bmc.tinkerbell.org object
+	// ISOURL is the URL of the ISO that will be one-time booted. When this field is set,
+	// the controller will create a job.bmc.tinkerbell.org object
 	// for getting the associated hardware into a CDROM booting state.
 	// A HardwareRef that contains a spec.BmcRef must be provided.
+	// BootMode must be set to "isoboot".
 	// +optional
 	// +kubebuilder:validation:Format=url
 	ISOURL string `json:"isoURL,omitempty"`
 
-	// BootMode is the type of booting that will be done.
+	// BootMode is the type of booting that will be done. One of "netboot", "isoboot", or "customboot".
 	// +optional
 	// +kubebuilder:validation:Enum=netboot;isoboot;iso;customboot
 	BootMode BootMode `json:"bootMode,omitempty"`
 
-	// CustombootConfig is the configuration for the customboot boot mode.
+	// CustombootConfig is the configuration for the "customboot" boot mode.
 	// This allows users to define custom BMC Actions.
 	CustombootConfig CustombootConfig `json:"custombootConfig,omitempty,omitzero"`
 }
@@ -118,10 +120,10 @@ type BootOptions struct {
 // CustombootConfig defines the configuration for the customboot boot mode.
 type CustombootConfig struct {
 	// PreparingActions are the BMC Actions that will be run before any Workflow Actions.
-	// In most cases these Action should get a Machine into a state where a Tink Agent is running.
+	// In most cases these Actions should get a Machine into a state where a Tink Agent is running.
 	PreparingActions []bmc.Action `json:"preparingActions,omitempty"`
 	// PostActions are the BMC Actions that will be run after all Workflow Actions have completed.
-	// In most cases these Action should get a Machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
+	// In most cases these Actions should get a Machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
 	// These Actions will be run only if the main Workflow Actions complete successfully.
 	PostActions []bmc.Action `json:"postActions,omitempty"`
 }
