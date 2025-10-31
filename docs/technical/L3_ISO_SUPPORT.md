@@ -26,7 +26,8 @@ The format of the URL is as follows: `http(s)://<TINKERBELL_IP_OR_HOSTNAME>:<POR
 Step 2:  
 The BMC mounts the ISO file and makes it available to the target machine as a virtual CDROM/DVD device. This mounting typically happens using fuse over HTTP(S), also known as HTTPFS.
 
-> [!NOTE] HTTPFS uses range requests to fetch only the parts of the ISO file that are needed at any given time, rather than downloading the entire ISO file at once.
+> [!NOTE]
+> HTTPFS uses range requests to fetch only the parts of the ISO file that are needed at any given time, rather than downloading the entire ISO file at once.
 > This means that the BMC will do many HTTP 206 Partial Content requests to the Tinkerbell server as the target machine boots from the ISO.
 
 Step 3:  
