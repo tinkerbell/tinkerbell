@@ -14,7 +14,7 @@ import (
 type Hardware struct {
 	// DHCP holds the DHCP headers and options to be set in a DHCP handler response.
 	// This is the API between a DHCP handler and a backend.
-	DHCP    *DHCP
+	DHCP *DHCP
 	// Netboot holds info used in netbooting a client.
 	Netboot *Netboot
 	// Isoboot holds info used in booting a client using an ISO image.
