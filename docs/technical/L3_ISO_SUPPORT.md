@@ -15,7 +15,8 @@ Layer 3 provisioning in Tinkerbell is a method of provisioning a machine by runn
 
 ## How Does Layer 3 Provisioning (ISO Boot) in Tinkerbell Work?
 
-Step 1:  
+### Step 1
+
 Tinkerbell tells the BMC the HTTP or HTTPS location of the ISO file to be mounted as virtual media.
 The format of the URL is as follows: `http(s)://<TINKERBELL_IP_OR_HOSTNAME>:<PORT>/iso/<MAC_ADDRESS>/hook.iso`
 
@@ -23,18 +24,20 @@ The format of the URL is as follows: `http(s)://<TINKERBELL_IP_OR_HOSTNAME>:<POR
 - The `PORT` is defined with either `--ipxe-http-script-bind-port` for HTTP or `--https-bind-port` for HTTPS.
 - The `MAC_ADDRESS` is the MAC address of one of the target machine's network interfaces. This is needed so that Tinkerbell can add kernel command line parameters specific to that machine.
 
-Step 2:  
+### Step 2
+
 The BMC mounts the ISO file and makes it available to the target machine as a virtual CDROM/DVD device. This mounting typically happens using fuse over HTTP(S), also known as HTTPFS.
 
 > [!NOTE]
 > HTTPFS uses range requests to fetch only the parts of the ISO file that are needed at any given time, rather than downloading the entire ISO file at once.
 > This means that the BMC will do many HTTP 206 Partial Content requests to the Tinkerbell server as the target machine boots from the ISO.
 
-Step 3:  
+### Step 3
+
 When the BMC requests the ISO file from Tinkerbell, Tinkerbell acts as a reverse proxy serving and patching a source ISO.
 The source ISO is defined by one of the following locations, in order of precedence:
 
-1. URL query parameter on the ISO request URL. For example:
+1. URL query parameter on the ISO request. For example:
 
    ```bash
    http(s)://<TINKERBELL_IP_OR_HOSTNAME>:<PORT>/iso/<MAC_ADDRESS>/hook.iso?sourceISO=<url>
@@ -43,8 +46,8 @@ The source ISO is defined by one of the following locations, in order of precede
 > [!NOTE]
 > Not all BMC vendors support query parameters. Validate that your BMC vendor supports query parameters before using this method.
 
-1. The `spec.interfaces[].isoboot.sourceISO` field in the Hardware object corresponding to the MAC Address in the URL.
-1. The source ISO defined by the CLI flag `--iso-upstream-url`.
+2. The `spec.interfaces[].isoboot.sourceISO` field in the Hardware object corresponding to the MAC Address in the URL.
+3. The source ISO defined by the CLI flag `--iso-upstream-url`.
 
 ## How to Use Layer 3 Provisioning (ISO Boot) in Tinkerbell
 
