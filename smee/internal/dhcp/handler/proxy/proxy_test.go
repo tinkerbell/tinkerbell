@@ -39,10 +39,6 @@ func (m *mockBackend) GetByMac(_ context.Context, _ net.HardwareAddr) (data.Hard
 	}, nil
 }
 
-func (m *mockBackend) GetByIP(_ context.Context, _ net.IP) (data.Hardware, error) {
-	return data.Hardware{}, errors.New("not implemented")
-}
-
 func TestHandle(t *testing.T) {
 	lo, _ := net.InterfaceByName("lo")
 	ip := netip.MustParseAddr("127.0.0.1")
