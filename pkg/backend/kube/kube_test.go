@@ -322,17 +322,17 @@ func TestGetByIP(t *testing.T) {
 			}
 
 			go b.Start(context.Background())
-			gotDHCP, gotNetboot, err := b.GetByIP(context.Background(), net.IPv4(172, 16, 10, 100))
+			got, err := b.GetByIP(context.Background(), net.IPv4(172, 16, 10, 100))
 			if tc.shouldErr && err == nil {
 				t.Log(err)
 				t.Fatal("expected error")
 			}
 
-			if diff := cmp.Diff(gotDHCP, tc.wantDHCP, cmpopts.IgnoreUnexported(netip.Addr{})); diff != "" {
+			if diff := cmp.Diff(got.DHCP, tc.wantDHCP, cmpopts.IgnoreUnexported(netip.Addr{})); diff != "" {
 				t.Fatal(diff)
 			}
 
-			if diff := cmp.Diff(gotNetboot, tc.wantNetboot); diff != "" {
+			if diff := cmp.Diff(got.Netboot, tc.wantNetboot); diff != "" {
 				t.Fatal(diff)
 			}
 		})
@@ -421,17 +421,17 @@ func TestGetByMac(t *testing.T) {
 			}
 
 			go b.Start(context.Background())
-			gotDHCP, gotNetboot, err := b.GetByMac(context.Background(), net.HardwareAddr{0x3c, 0xec, 0xef, 0x4c, 0x4f, 0x54})
+			got, err := b.GetByMac(context.Background(), net.HardwareAddr{0x3c, 0xec, 0xef, 0x4c, 0x4f, 0x54})
 			if tc.shouldErr && err == nil {
 				t.Log(err)
 				t.Fatal("expected error")
 			}
 
-			if diff := cmp.Diff(gotDHCP, tc.wantDHCP, cmpopts.IgnoreUnexported(netip.Addr{})); diff != "" {
+			if diff := cmp.Diff(got.DHCP, tc.wantDHCP, cmpopts.IgnoreUnexported(netip.Addr{})); diff != "" {
 				t.Fatal(diff)
 			}
 
-			if diff := cmp.Diff(gotNetboot, tc.wantNetboot); diff != "" {
+			if diff := cmp.Diff(got.Netboot, tc.wantNetboot); diff != "" {
 				t.Fatal(diff)
 			}
 		})

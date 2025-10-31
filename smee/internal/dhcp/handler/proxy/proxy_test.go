@@ -29,15 +29,14 @@ type mockBackend struct {
 	err          error
 }
 
-func (m *mockBackend) GetByMac(_ context.Context, _ net.HardwareAddr) (*data.DHCP, *data.Netboot, error) {
+func (m *mockBackend) GetByMac(_ context.Context, _ net.HardwareAddr) (data.Hardware, error) {
 	if m.err != nil {
-		return nil, nil, m.err
+		return data.Hardware{}, m.err
 	}
-	return &data.DHCP{}, &data.Netboot{AllowNetboot: m.allowNetboot, IPXEBinary: m.iPXEBinary}, nil
-}
-
-func (m *mockBackend) GetByIP(_ context.Context, _ net.IP) (*data.DHCP, *data.Netboot, error) {
-	return nil, nil, errors.New("not implemented")
+	return data.Hardware{
+		DHCP:    &data.DHCP{},
+		Netboot: &data.Netboot{AllowNetboot: m.allowNetboot, IPXEBinary: m.iPXEBinary},
+	}, nil
 }
 
 func TestHandle(t *testing.T) {

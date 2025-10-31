@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,61 +24,133 @@ import (
 )
 
 const (
-	defaultConsoles = "console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1"
+	defaultConsoles     = "console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1"
+	queryParamSourceISO = "sourceISO"
+	schemeHTTP          = "http"
+	schemeHTTPS         = "https"
 )
 
 // BackendReader is an interface that defines the method to read data from a backend.
 type BackendReader interface {
 	// Read data (from a backend) based on a mac address
 	// and return DHCP headers and options, including netboot info.
-	GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *data.Netboot, error)
+	GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error)
 }
 
 // Handler is a struct that contains the necessary fields to patch an ISO file with
 // relevant information for the Tink worker.
 type Handler struct {
-	Backend           BackendReader
-	ExtraKernelParams []string
-	Logger            logr.Logger
+	Backend BackendReader
+	Logger  logr.Logger
+	Patch   Patch
+}
+
+// Patch holds the data and configuration used for ISO patching.
+type Patch struct {
+	KernelParams KernelParams
 	// MagicString is the string pattern that will be matched
 	// in the source iso before patching. The field can be set
 	// during build time by setting this field.
 	// Ref: https://github.com/tinkerbell/hook/blob/main/linuxkit-templates/hook.template.yaml
-	MagicString string
+	MagicString     string
+	magicStrPadding []byte
 	// SourceISO is the source url where the unmodified iso lives.
 	// It must be a valid url.URL{} object and must have a url.URL{}.Scheme of HTTP or HTTPS.
-	SourceISO          string
+	SourceISO         string
+	StaticIPAMEnabled bool
+}
+
+// KernelParams holds the values used as kernel parameters when patching an ISO.
+type KernelParams struct {
+	ExtraParams        []string
 	Syslog             string
 	TinkServerTLS      bool
 	TinkServerGRPCAddr string
-	StaticIPAMEnabled  bool
-	// parsedURL derives a url.URL from the SourceISO field.
-	// It needed for validation of SourceISO and easier modification.
-	parsedURL       *url.URL
-	magicStrPadding []byte
 }
 
 // HandlerFunc returns a reverse proxy HTTP handler function that performs ISO patching.
 func (h *Handler) HandlerFunc() (http.HandlerFunc, error) {
-	target, err := url.Parse(h.SourceISO)
-	if err != nil {
-		return nil, err
+	// Parse and validate the default SourceISO.
+	defaultSourceISO := &url.URL{}
+	if h.Patch.SourceISO != "" {
+		t, err := url.Parse(h.Patch.SourceISO)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := validateURL(t); err != nil {
+			return nil, fmt.Errorf("unsupported scheme in SourceISO: %s (only http and https are supported)", t.Scheme)
+		}
+		defaultSourceISO = t
 	}
-	h.parsedURL = target
 
 	proxy := &internal.ReverseProxy{
-		Rewrite: func(r *internal.ProxyRequest) {
-			r.SetURL(target)
+		Rewrite: func(pr *internal.ProxyRequest) {
+			tu, err := targetURL(pr.In.URL.Query().Get(queryParamSourceISO), "", defaultSourceISO.String())
+			if err != nil {
+				pr.SetURL(defaultSourceISO)
+				h.Logger.Error(err, "error parsing target URL from query parameter, using default SourceISO", "defaultSourceISO", defaultSourceISO.String(), queryParamSourceISO, pr.In.URL.Query().Get(queryParamSourceISO))
+				return
+			}
+			pr.SetURL(tu)
 		},
+		Transport:     h,
+		FlushInterval: -1,
+		CopyBuffer:    h,
 	}
 
-	proxy.Transport = h
-	proxy.FlushInterval = -1
-	proxy.CopyBuffer = h
-
-	h.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.MagicString))
+	h.Patch.magicStrPadding = bytes.Repeat([]byte{' '}, len(h.Patch.MagicString))
 
 	return proxy.ServeHTTP, nil
+}
+
+// targetURL returns a valid URL from the first non-empty source and an error, if any.
+//
+// The order of precedence for sources is:
+//
+// 1. From query parameter "isoFromQuery"
+//
+// 2. From hardware object "isoFromHWObject"
+//
+// 3. From config "isoFromConfig"
+func targetURL(isoFromQuery, isoFromHWObject, isoFromConfig string) (*url.URL, error) {
+	if isoFromQuery != "" {
+		tu, err := url.Parse(isoFromQuery)
+		if err != nil {
+			return nil, fmt.Errorf("invalid sourceISO URL in query parameter: %w", err)
+		}
+
+		return validateURL(tu)
+	}
+
+	if isoFromHWObject != "" {
+		tu, err := url.Parse(isoFromHWObject)
+		if err != nil {
+			return nil, fmt.Errorf("invalid sourceISO URL in hardware: %w", err)
+		}
+
+		return validateURL(tu)
+	}
+
+	if isoFromConfig != "" {
+		tu, err := url.Parse(isoFromConfig)
+		if err != nil {
+			return nil, fmt.Errorf("invalid sourceISO URL in default: %w", err)
+		}
+
+		return validateURL(tu)
+	}
+
+	return nil, fmt.Errorf("no ISO provided, one from query parameter, hardware object, or config must be set")
+}
+
+func validateURL(u *url.URL) (*url.URL, error) {
+	if u == nil {
+		return nil, errors.New("URL is nil")
+	}
+	if !slices.Contains([]string{schemeHTTP, schemeHTTPS}, u.Scheme) {
+		return nil, fmt.Errorf("unsupported scheme in URL: %s (only http and https are allowed)", u.Scheme)
+	}
+	return u, nil
 }
 
 // Copy implements the internal.CopyBuffer interface.
@@ -96,11 +169,11 @@ func (h *Handler) Copy(ctx context.Context, dst io.Writer, src io.Reader, buf []
 		if nr > 0 {
 			// This is the patching check and handling.
 			b := buf[:nr]
-			i := bytes.Index(b, []byte(h.MagicString))
+			i := bytes.Index(b, []byte(h.Patch.MagicString))
 			if i != -1 {
 				dup := make([]byte, len(b))
 				copy(dup, b)
-				copy(dup[i:], h.magicStrPadding)
+				copy(dup[i:], h.Patch.magicStrPadding)
 				copy(dup[i:], internal.GetPatch(ctx))
 				b = dup
 			}
@@ -127,7 +200,7 @@ func (h *Handler) Copy(ctx context.Context, dst io.Writer, src io.Reader, buf []
 // RoundTrip is a method on the Handler struct that implements the http.RoundTripper interface.
 // This method is called by the internal.NewSingleHostReverseProxy to handle the incoming request.
 // The method is responsible for validating the incoming request and getting the source ISO.
-// If an h.Handler.SourceISO is a location that redirects to another location, this method handles
+// If an h.Handler.Patch.SourceISO is a location that redirects to another location, this method handles
 // calling the SourceISO location in order to get the final location before returning to the client.
 // This is different from the default behavior of a reverse proxy, which is to pass the redirection
 // directly back to the client.
@@ -179,7 +252,7 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 			}, nil
 		}
 
-		fac, dhcpData, err := h.getFacility(req.Context(), ha, h.Backend)
+		fac, hw, err := h.getFacility(req.Context(), ha, h.Backend)
 		if err != nil {
 			log.Info("unable to get the hardware object", "error", err, "mac", ha.String())
 			if apierrors.IsNotFound(err) {
@@ -209,16 +282,34 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 			consoles = defaultConsoles
 		}
 		// The patch is added to the request context so that it can be used in the Copy method.
-		req = req.WithContext(internal.WithPatch(req.Context(), []byte(h.constructPatch(consoles, ha.String(), dhcpData))))
+		req = req.WithContext(internal.WithPatch(req.Context(), []byte(h.constructPatch(consoles, ha.String(), hw.DHCP))))
 
-		// The internal.NewSingleHostReverseProxy takes the incoming request url and adds the path to the target (h.SourceISO).
+		// Get the target URL (either from query parameter or default SourceISO)
+		fromHWObject := ""
+		if hw.Isoboot != nil && hw.Isoboot.SourceISO != nil {
+			fromHWObject = hw.Isoboot.SourceISO.String()
+		}
+		tu, err := targetURL(req.URL.Query().Get(queryParamSourceISO), fromHWObject, h.Patch.SourceISO)
+		if err != nil {
+			log.Info("unable to determine target URL", "error", err)
+			return &http.Response{
+				Status:     fmt.Sprintf("%d %s", http.StatusBadRequest, http.StatusText(http.StatusBadRequest)),
+				StatusCode: http.StatusBadRequest,
+				Body:       http.NoBody,
+				Request:    req,
+			}, nil
+		}
+
+		// The internal.NewSingleHostReverseProxy takes the incoming request url and adds the path to the target.
 		// This function is more than a pass through proxy. The MAC address in the url path is required to do hardware lookups using the backend reader
-		// and is not used when making http calls to the target (h.SourceISO). All valid requests are passed through to the target.
-		req.URL.Path = h.parsedURL.Path
+		// and is not used when making http calls to the target. All valid requests are passed through to the target.
+		req.URL.Path = tu.Path
+		req.URL.Host = tu.Host
+		req.URL.Scheme = tu.Scheme
 	}
-	scheme := "http"
+	scheme := schemeHTTP
 	if req.TLS != nil {
-		scheme = "https"
+		scheme = schemeHTTPS
 	}
 	log = log.WithValues("outboundURL", req.URL.String(), "scheme", scheme)
 
@@ -226,7 +317,7 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 	// For our use case the default transport will suffice.
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	if err != nil {
-		log.Error(err, "issue getting the source ISO", "sourceIso", h.SourceISO)
+		log.Error(err, "issue proxying to the source ISO", "url", req.URL.String())
 		return nil, err
 	}
 
@@ -263,16 +354,17 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 	// we do this because there are a lot of partial content requests and it allow this handler to take care of logging.
 	resp.Header.Set("X-Global-Logging", "false")
 
+	tu := req.URL.String()
 	if resp.StatusCode == http.StatusPartialContent {
 		// 0.002% of the time we log a 206 request message.
 		// In testing, it was observed that about 3000 HTTP 206 requests are made per ISO mount.
 		// 0.002% gives us about 5 - 10, log messages per ISO mount.
 		// We're optimizing for showing "enough" log messages so that progress can be observed.
 		if p := randomPercentage(100000); p < 0.002 {
-			log.Info("206 status code response", "sourceIso", h.SourceISO, "status", resp.Status)
+			log.Info("206 status code response", "targetURL", tu, "status", resp.Status)
 		}
 	} else {
-		log.Info("response received", "sourceIso", h.SourceISO, "status", resp.Status)
+		log.Info("response received", "targetURL", tu, "status", resp.Status)
 	}
 
 	log.V(1).Info("roundtrip complete")
@@ -281,19 +373,18 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 }
 
 func (h *Handler) constructPatch(console, mac string, d *data.DHCP) string {
-	syslogHost := fmt.Sprintf("syslog_host=%s", h.Syslog)
-	grpcAuthority := fmt.Sprintf("grpc_authority=%s", h.TinkServerGRPCAddr)
-	tinkerbellTLS := fmt.Sprintf("tinkerbell_tls=%v", h.TinkServerTLS)
+	syslogHost := fmt.Sprintf("syslog_host=%s", h.Patch.KernelParams.Syslog)
+	grpcAuthority := fmt.Sprintf("grpc_authority=%s", h.Patch.KernelParams.TinkServerGRPCAddr)
+	tinkerbellTLS := fmt.Sprintf("tinkerbell_tls=%v", h.Patch.KernelParams.TinkServerTLS)
 	workerID := fmt.Sprintf("worker_id=%s", mac)
-	vlanID := func() string {
-		if d != nil && d.VLANID != "" {
-			return fmt.Sprintf("vlan_id=%s", d.VLANID)
-		}
-		return ""
-	}()
 	hwAddr := fmt.Sprintf("hw_addr=%s", mac)
-	all := []string{console, vlanID, hwAddr, syslogHost, grpcAuthority, tinkerbellTLS, workerID, strings.Join(h.ExtraKernelParams, " ")}
-	if h.StaticIPAMEnabled {
+	all := []string{console}
+	if d != nil && d.VLANID != "" {
+		all = append(all, fmt.Sprintf("vlan_id=%s", d.VLANID))
+	}
+	all = append(all, hwAddr, syslogHost, grpcAuthority, tinkerbellTLS, workerID)
+	all = append(all, h.Patch.KernelParams.ExtraParams...)
+	if h.Patch.StaticIPAMEnabled && parseIPAM(d) != "" {
 		all = append(all, parseIPAM(d))
 	}
 
@@ -310,17 +401,17 @@ func getMAC(urlPath string) (net.HardwareAddr, error) {
 	return hw, nil
 }
 
-func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br BackendReader) (string, *data.DHCP, error) {
+func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br BackendReader) (string, data.Hardware, error) {
 	if br == nil {
-		return "", nil, errors.New("backend is nil")
+		return "", data.Hardware{}, errors.New("backend is nil")
 	}
 
-	d, n, err := br.GetByMac(ctx, mac)
+	hw, err := br.GetByMac(ctx, mac)
 	if err != nil {
-		return "", nil, err
+		return "", data.Hardware{}, err
 	}
 
-	return n.Facility, d, nil
+	return hw.Netboot.Facility, data.Hardware{DHCP: hw.DHCP, Isoboot: hw.Isoboot}, nil
 }
 
 func randomPercentage(precision int64) float64 {

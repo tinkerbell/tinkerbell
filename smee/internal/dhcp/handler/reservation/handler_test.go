@@ -54,12 +54,12 @@ type hwNotFoundError struct{}
 func (hwNotFoundError) NotFound() bool { return true }
 func (hwNotFoundError) Error() string  { return "not found" }
 
-func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *data.Netboot, error) {
+func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error) {
 	if m.err != nil {
-		return nil, nil, m.err
+		return data.Hardware{}, m.err
 	}
 	if m.hardwareNotFound {
-		return nil, nil, hwNotFoundError{}
+		return data.Hardware{}, hwNotFoundError{}
 	}
 	d := &data.DHCP{
 		MACAddress:     []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
@@ -91,14 +91,7 @@ func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (*data.DHCP, *
 		IPXEScriptURL: m.ipxeScript,
 	}
 
-	return d, n, m.err
-}
-
-func (m *mockBackend) GetByIP(context.Context, net.IP) (*data.DHCP, *data.Netboot, error) {
-	if m.hardwareNotFound {
-		return nil, nil, hwNotFoundError{}
-	}
-	return nil, nil, errors.New("not implemented")
+	return data.Hardware{DHCP: d, Netboot: n}, m.err
 }
 
 func TestHandle(t *testing.T) {
@@ -1045,13 +1038,13 @@ func TestDHCPOnlyModeReflection(t *testing.T) {
 
 			// Get DHCP and Netboot data from backend
 			ctx := context.Background()
-			dhcpData, netbootData, err := handler.Backend.GetByMac(ctx, pkt.ClientHWAddr)
+			hw, err := handler.Backend.GetByMac(ctx, pkt.ClientHWAddr)
 			if err != nil {
 				t.Fatalf("Failed to get backend data: %v", err)
 			}
 
 			// Call updateMsg to see what gets generated
-			reply := handler.updateMsg(ctx, pkt, dhcpData, netbootData, dhcpv4.MessageTypeOffer)
+			reply := handler.updateMsg(ctx, pkt, hw.DHCP, hw.Netboot, dhcpv4.MessageTypeOffer)
 
 			// The key test: check if setNetworkBootOpts was called by looking for option 43
 			// which is only set by tinkerbell's netboot defaults logic

@@ -99,8 +99,8 @@ spec:
                 type: array
               interfaces:
                 items:
-                  description: Interface represents a network interface configuration
-                    for Hardware.
+                  description: Interface represents configuration related to a network
+                    interface.
                   properties:
                     dhcp:
                       description: DHCP configuration.
@@ -195,6 +195,16 @@ spec:
                       default: false
                       description: DisableDHCP disables DHCP for this interface.
                       type: boolean
+                    isoboot:
+                      description: Isoboot configuration.
+                      properties:
+                        sourceISO:
+                          description: |-
+                            SourceISO is the source url where HookOS, an Operating System Installation Environment (OSIE), ISO lives.
+                            It must be a valid url.URL{} object and must have a url.URL{}.Scheme of HTTP or HTTPS.
+                          format: uri
+                          type: string
+                      type: object
                     netboot:
                       description: Netboot configuration.
                       properties:
