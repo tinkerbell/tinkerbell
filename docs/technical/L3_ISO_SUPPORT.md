@@ -40,8 +40,8 @@ The source ISO is defined by one of the following locations, in order of precede
    http(s)://<TINKERBELL_IP_OR_HOSTNAME>:<PORT>/iso/<MAC_ADDRESS>/hook.iso?sourceISO=<url>
    ```
 
-   > [!NOTE]
-   > Query parameters are not always supported by BMCs. Validate that your BMC supports query parameters before using this method.
+> [!NOTE]
+> Query parameters are not always supported by BMCs. Validate that your BMC supports query parameters before using this method.
 
 1. The `spec.interfaces[].isoboot.sourceISO` field in the Hardware object corresponding to the MAC Address in the URL.
 1. The source ISO defined by the CLI flag `--iso-upstream-url`.
