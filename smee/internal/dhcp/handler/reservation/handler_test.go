@@ -94,13 +94,6 @@ func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (data.Hardware
 	return data.Hardware{DHCP: d, Netboot: n}, m.err
 }
 
-func (m *mockBackend) GetByIP(context.Context, net.IP) (data.Hardware, error) {
-	if m.hardwareNotFound {
-		return data.Hardware{}, hwNotFoundError{}
-	}
-	return data.Hardware{}, errors.New("not implemented")
-}
-
 func TestHandle(t *testing.T) {
 	tests := map[string]struct {
 		server  Handler

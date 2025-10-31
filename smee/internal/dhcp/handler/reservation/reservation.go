@@ -22,7 +22,6 @@ type BackendReader interface {
 	// Read data (from a backend) based on a mac address
 	// and return DHCP headers and options, including netboot info.
 	GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error)
-	GetByIP(context.Context, net.IP) (data.Hardware, error)
 }
 
 // Handler holds the configuration details for the running the DHCP server.

@@ -14,8 +14,4 @@ func TestNoop(t *testing.T) {
 	if diff := cmp.Diff(want.Error(), got.Error()); diff != "" {
 		t.Fatal(diff)
 	}
-	_, _, got = noop{}.GetByIP(context.TODO(), nil)
-	if diff := cmp.Diff(want.Error(), got.Error()); diff != "" {
-		t.Fatal(diff)
-	}
 }
