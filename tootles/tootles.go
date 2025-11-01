@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/hack"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/nocloud"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/http"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/metrics"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/middleware"
@@ -21,6 +22,7 @@ import (
 type Config struct {
 	BackendEc2     ec2.Client
 	BackendHack    hack.Client
+	BackendNoCloud nocloud.Client
 	TrustedProxies string
 	DebugMode      bool
 	BindAddrPort   string
@@ -68,6 +70,11 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	fe.Configure(router)
 
 	hack.Configure(router, c.BackendHack)
+
+	if c.BackendNoCloud != nil {
+		nfe := nocloud.New(c.BackendNoCloud)
+		nfe.Configure(router)
+	}
 
 	return http.Serve(ctx, log, c.BindAddrPort, router)
 }
