@@ -69,5 +69,9 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 	hack.Configure(router, c.BackendHack)
 
+	// Log all registered routes
+	for _, r := range router.Routes() {
+		log.Info(fmt.Sprintf("[ROUTE] %s %s", r.Method, r.Path))
+	}
 	return http.Serve(ctx, log, c.BindAddrPort, router)
 }

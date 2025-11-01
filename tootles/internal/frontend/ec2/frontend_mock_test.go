@@ -45,7 +45,22 @@ func (m *MockClient) GetEC2Instance(arg0 context.Context, ip string) (data.Ec2In
 }
 
 // GetEC2Instance indicates an expected call of GetEC2Instance.
-func (mr *MockClientMockRecorder) GetEC2Instance(arg0, ip interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) GetEC2Instance(arg0, ip any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEC2Instance", reflect.TypeOf((*MockClient)(nil).GetEC2Instance), arg0, ip)
+}
+
+// GetEC2InstanceByInstanceID mocks base method.
+func (m *MockClient) GetEC2InstanceByInstanceID(arg0 context.Context, instanceID string) (data.Ec2Instance, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEC2InstanceByInstanceID", arg0, instanceID)
+	ret0, _ := ret[0].(data.Ec2Instance)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEC2InstanceByInstanceID indicates an expected call of GetEC2InstanceByInstanceID.
+func (mr *MockClientMockRecorder) GetEC2InstanceByInstanceID(arg0, instanceID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEC2InstanceByInstanceID", reflect.TypeOf((*MockClient)(nil).GetEC2InstanceByInstanceID), arg0, instanceID)
 }
