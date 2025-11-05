@@ -12,7 +12,6 @@ import (
 	"github.com/containers/image/v5/pkg/shortnames"
 	"github.com/containers/image/v5/types"
 	"github.com/go-logr/logr"
-	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/pkg/conv"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 )
@@ -94,7 +93,7 @@ func (c *Config) createContainer(ctx context.Context, image containerd.Image, ac
 		oci.WithProcessArgs(args...),
 	}
 	if action.Namespaces.PID == "host" {
-		specOpts = append(specOpts, oci.WithHostNamespace(specs.PIDNamespace))
+		specOpts = append(specOpts, oci.WithHostNamespace("pid"))
 	}
 	name := conv.ParseName(action.ID, action.Name)
 	newOpts = append(newOpts, containerd.WithNewSnapshot(name, image))
