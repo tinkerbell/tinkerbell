@@ -2,7 +2,10 @@ package controller
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -18,15 +21,20 @@ import (
 type ClientFunc func(ctx context.Context, log logr.Logger, hostIP, username, password string, opts *BMCOptions) (*bmclib.Client, error)
 
 // NewClientFunc returns a new BMCClientFactoryFunc. The timeout parameter determines the
-// maximum time to probe for compatible interfaces.
-func NewClientFunc(timeout time.Duration) ClientFunc {
+// maximum time to probe for compatible interfaces. The httpProxyURL parameter specifies the
+// HTTP proxy to use for Redfish communication.
+func NewClientFunc(timeout time.Duration, httpProxyURL string) ClientFunc {
 	// Initializes a bmclib client based on input host and credentials
 	// Establishes a connection with the bmc with client.Open
 	// Returns a bmclib.Client.
 	return func(ctx context.Context, log logr.Logger, hostIP, username, password string, opts *BMCOptions) (*bmclib.Client, error) {
 		var o []bmclib.Option
 		if opts != nil {
-			o = append(o, opts.Translate(hostIP)...)
+			o = append(o, opts.Translate(hostIP, httpProxyURL)...)
+		} else if httpProxyURL != "" {
+			// If opts is nil but global proxy is set, still apply it
+			httpClient := createHTTPClientWithProxy(httpProxyURL, false)
+			o = append(o, bmclib.WithRedfishHTTPClient(httpClient), bmclib.WithHTTPClient(httpClient))
 		}
 		log = log.WithValues("host", hostIP, "username", username)
 		o = append(o, bmclib.WithLogger(log))
@@ -53,11 +61,23 @@ func NewClientFunc(timeout time.Duration) ClientFunc {
 
 type BMCOptions struct {
 	*bmc.ProviderOptions
-	rpcSecrets map[rpc.Algorithm][]string
+	rpcSecrets  map[rpc.Algorithm][]string
+	InsecureTLS bool
 }
 
-func (b BMCOptions) Translate(host string) []bmclib.Option {
+func (b BMCOptions) Translate(host string, httpProxyURL string) []bmclib.Option {
 	o := []bmclib.Option{}
+
+	// Configure HTTP proxy for HTTP-based providers if specified either globally or via Redfish options.
+	// This must be done before the early return so the global proxy works even when ProviderOptions is nil.
+	proxyURL := httpProxyURL
+	if b.ProviderOptions != nil && b.Redfish != nil && b.Redfish.HTTPProxy != "" {
+		proxyURL = b.Redfish.HTTPProxy
+	}
+	if proxyURL != "" {
+		httpClient := createHTTPClientWithProxy(proxyURL, b.InsecureTLS)
+		o = append(o, bmclib.WithRedfishHTTPClient(httpClient), bmclib.WithHTTPClient(httpClient))
+	}
 
 	if b.ProviderOptions == nil {
 		return o
@@ -231,4 +251,23 @@ func toStringSlice(p []bmc.ProviderName) []string {
 		s = append(s, v.String())
 	}
 	return s
+}
+
+// createHTTPClientWithProxy creates an HTTP client configured to use the specified proxy.
+func createHTTPClientWithProxy(proxyURL string, insecureTLS bool) *http.Client {
+	proxyFunc := func(_ *http.Request) (*url.URL, error) {
+		return url.Parse(proxyURL)
+	}
+
+	transport := &http.Transport{
+		Proxy: proxyFunc,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecureTLS, // #nosec G402 -- optional insecure mode
+		},
+	}
+
+	return &http.Client{
+		Transport: transport,
+		Timeout:   60 * time.Second,
+	}
 }

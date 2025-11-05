@@ -69,6 +69,8 @@ spec:
               value: {{ .Values.deployment.envs.rufio.bmcConnectTimeout | quote }}
             - name: TINKERBELL_RUFIO_POWER_CHECK_INTERVAL
               value: {{ .Values.deployment.envs.rufio.powerCheckInterval | quote }}
+            - name: TINKERBELL_RUFIO_HTTP_PROXY_URL
+              value: {{ .Values.deployment.envs.rufio.httpProxyURL | quote }}
           # TINK CONTROLLER
             - name: TINKERBELL_TINK_CONTROLLER_ENABLE_LEADER_ELECTION
               value: {{ .Values.deployment.envs.tinkController.enableLeaderElection | quote }}

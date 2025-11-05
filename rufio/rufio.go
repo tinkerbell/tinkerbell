@@ -39,6 +39,7 @@ type Config struct {
 	ProbeAddr               netip.AddrPort
 	BMCConnectTimeout       time.Duration
 	PowerCheckInterval      time.Duration
+	HTTPProxyURL            string
 }
 
 type Option func(*Config)
@@ -91,6 +92,12 @@ func WithLeaderElectionNamespace(namespace string) Option {
 	}
 }
 
+func WithHTTPProxyURL(proxyURL string) Option {
+	return func(c *Config) {
+		c.HTTPProxyURL = proxyURL
+	}
+}
+
 func NewConfig(opts ...Option) *Config {
 	defaults := &Config{
 		EnableLeaderElection: true,
@@ -121,7 +128,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	controllerruntime.SetLogger(log)
 	clog.SetLogger(log)
 
-	mgr, err := controller.NewManager(c.Client, options, c.PowerCheckInterval)
+	mgr, err := controller.NewManager(c.Client, options, c.PowerCheckInterval, c.HTTPProxyURL)
 	if err != nil {
 		return err
 	}

@@ -121,6 +121,11 @@ spec:
                         description: Redfish contains the options to customize the
                           Redfish provider.
                         properties:
+                          httpProxy:
+                            description: |-
+                              HTTPProxy is the URL of the HTTP proxy to use for Redfish communication.
+                              Example: http://proxy.example.com:8080
+                            type: string
                           port:
                             description: Port that redfish will use for calls.
                             type: integer

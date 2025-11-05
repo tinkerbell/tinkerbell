@@ -18,6 +18,10 @@ type RedfishOptions struct {
 	// With redfish implementations that manage multiple systems via a single endpoint, this allows for specifying the system to manage.
 	// +optional
 	SystemName string `json:"systemName,omitempty"`
+	// HTTPProxy is the URL of the HTTP proxy to use for Redfish communication.
+	// Example: http://proxy.example.com:8080
+	// +optional
+	HTTPProxy string `json:"httpProxy,omitempty"`
 }
 
 // IPMITOOLOptions contains the ipmitool provider specific options.
