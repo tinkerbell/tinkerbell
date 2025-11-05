@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/ccoveille/go-safecast"
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/go-logr/logr"
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/block"
@@ -40,7 +40,7 @@ func DiscoverCPU(l logr.Logger) *data.CPU {
 		if p == nil {
 			continue
 		}
-		id, err := safecast.ToUint32(p.ID)
+		id, err := safecast.Convert[uint32](p.ID)
 		if err != nil {
 			id = uint32(0)
 		}
@@ -293,7 +293,7 @@ func humanReadable[T byteSize](byts T) string {
 		tpb := int64(byts)
 		unit, unitString := amountString(tpb)
 		tpb = int64(math.Ceil(float64(byts) / float64(unit)))
-		t, err := safecast.ToUint64(tpb)
+		t, err := safecast.Convert[uint64](tpb)
 		if err != nil {
 			t = uint64(0)
 		}

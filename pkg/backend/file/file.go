@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ccoveille/go-safecast"
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -296,7 +296,7 @@ func (w *Watcher) translate(r dhcp) (*data.DHCP, *data.Netboot, error) {
 	// lease time
 	// Default to one week
 	d.LeaseTime = 604800
-	if v, err := safecast.ToUint32(r.LeaseTime); err == nil {
+	if v, err := safecast.Convert[uint32](r.LeaseTime); err == nil {
 		d.LeaseTime = v
 	}
 

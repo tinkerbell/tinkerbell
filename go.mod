@@ -7,13 +7,13 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20251010091507-63cb571e5597
-	github.com/ccoveille/go-safecast v1.7.0
+	github.com/ccoveille/go-safecast/v2 v2.0.0
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/containerd/containerd v1.7.29
 	github.com/containers/image/v5 v5.36.2
 	github.com/diskfs/go-diskfs v1.7.0
 	github.com/distribution/reference v0.6.0
-	github.com/docker/docker v28.5.1+incompatible
+	github.com/docker/docker v28.5.2+incompatible
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/gliderlabs/ssh v0.3.8
@@ -22,11 +22,12 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20210315223345-82c243799c99
-	github.com/insomniacslk/dhcp v0.0.0-20251007151141-da879a2c3546
+	github.com/insomniacslk/dhcp v0.0.0-20251020182700-175e84fbb167
 	github.com/jacobweinstock/registrar v0.4.7
 	github.com/jaypipes/ghw v0.20.0
 	github.com/nats-io/nats.go v1.47.0
 	github.com/oklog/ulid/v2 v2.1.1
+	github.com/opencontainers/runtime-spec v1.2.1
 	github.com/peterbourgon/ff/v4 v4.0.0-beta.1
 	github.com/pin/tftp/v3 v3.1.0
 	github.com/prometheus/client_golang v1.23.2
@@ -47,7 +48,7 @@ require (
 	golang.org/x/sync v0.17.0
 	golang.org/x/sys v0.37.0
 	golang.org/x/text v0.30.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251007200510-49b9836ed3ff
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251103181224-f26f9409b101
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v3 v3.0.1
@@ -189,7 +190,6 @@ require (
 	github.com/opencontainers/cgroups v0.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
-	github.com/opencontainers/runtime-spec v1.2.1 // indirect
 	github.com/opencontainers/selinux v1.12.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
