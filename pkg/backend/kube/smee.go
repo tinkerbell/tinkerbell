@@ -8,7 +8,7 @@ import (
 	"net/netip"
 	"net/url"
 
-	"github.com/ccoveille/go-safecast"
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -197,7 +197,7 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 	// lease time required
 	// Default to one week
 	d.LeaseTime = 604800
-	if v, err := safecast.ToUint32(h.LeaseTime); err == nil {
+	if v, err := safecast.Convert[uint32](h.LeaseTime); err == nil {
 		d.LeaseTime = v
 	}
 

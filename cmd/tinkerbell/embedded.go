@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ccoveille/go-safecast"
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/spf13/pflag"
 	"github.com/tinkerbell/tinkerbell/apiserver"
@@ -110,7 +110,7 @@ func kubeAPIServerFlags(kaffs *ff.FlagSet) func(*pflag.Flag) {
 func zapLogger(level int) *zap.Logger {
 	config := zap.NewProductionConfig()
 	config.OutputPaths = []string{"stdout"}
-	l, err := safecast.ToInt8(level)
+	l, err := safecast.Convert[int8](level)
 	if err != nil {
 		l = 0
 	}
