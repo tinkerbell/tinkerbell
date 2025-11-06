@@ -12,7 +12,7 @@ import (
 	"dario.cat/mergo"
 	"github.com/bmc-toolbox/bmclib/v2"
 	"github.com/bmc-toolbox/bmclib/v2/providers/rpc"
-	"github.com/ccoveille/go-safecast"
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 )
@@ -109,7 +109,7 @@ func (b BMCOptions) Translate(host string, httpProxyURL string) []bmclib.Option 
 	// intelAmt options
 	if b.IntelAMT != nil {
 		// must not be negative, must not be greater than the uint32 max value
-		p, err := safecast.ToUint32(b.IntelAMT.Port)
+		p, err := safecast.Convert[uint32](b.IntelAMT.Port)
 		if err != nil {
 			p = 16992
 		}

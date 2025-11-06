@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ccoveille/go-safecast"
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
@@ -84,7 +84,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 				if err != nil {
 					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number, see the iPXE Architecture Mapping documentation for more details", kv[0])
 				}
-				ukey, err := safecast.ToUint16(key)
+				ukey, err := safecast.Convert[uint16](key)
 				if err != nil {
 					return nil, fmt.Errorf("invalid architecture in IPXEArchMapping: %q, must be a number (uint16), see the iPXE Architecture Mapping documentation for more details", kv[0])
 				}
