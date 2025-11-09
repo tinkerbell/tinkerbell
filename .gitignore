@@ -45,3 +45,4 @@ Chart.lock
 
 .DS_Store
 dist
+bin
