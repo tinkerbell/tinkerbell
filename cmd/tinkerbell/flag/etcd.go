@@ -1,5 +1,4 @@
 //go:build embedded
-// +build embedded
 
 package flag
 

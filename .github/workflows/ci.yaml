@@ -14,6 +14,42 @@ env:
   GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          args: --timeout=10m
+
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - uses: bufbuild/buf-action@v1
+        with:
+          lint: ${{ github.event_name == 'push' }}
+          format: ${{ github.event_name == 'push' }}
+          breaking: ${{ github.event_name == 'push' }}
+
+      - name: Generate Protobuf code
+        run: buf generate
+
   validation:
     runs-on: ubuntu-latest
     steps:
@@ -35,8 +71,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-tools-bin-
 
-      - name: Run all CI checks, linting, tests, etc
-        run: make ci TEST_ARGS="-count=1"
+      - name: Run all CI checks and tests
+        run: make test coverage
 
       - name: upload to codecov
         uses: codecov/codecov-action@v5
@@ -48,9 +84,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
       - name: install helm
         uses: Azure/setup-helm@v4
@@ -66,6 +99,7 @@ jobs:
       github.ref == 'refs/heads/main' ||
       startsWith(github.ref, 'refs/tags/v')
     needs:
+      - lint
       - validation
     permissions:
       contents: read
@@ -78,10 +112,9 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      # Add support for more platforms with QEMU (optional)
-      # https://github.com/docker/setup-qemu-action
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -113,6 +146,10 @@ jobs:
     needs:
       - validate-helm-chart
       - build-publish-container-images
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -120,7 +157,6 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      # Go is needed to get the VERSION in the Makefile which is used in the Helm packaging
       - name: Setup Go
         uses: actions/setup-go@v6
         with:

@@ -79,6 +79,7 @@ dockers_v2:
       - '{{ .Env.REGISTRY }}/{{ envOrDefault "IMAGE_NAME" (trimsuffix (trimprefix .GitURL "https://github.com/") ".git") }}'
     tags:
       - '{{ if eq .Env.IS_RELEASE "true" }}v{{ .Version }}{{ end }}'
+      - "{{ if .IsNightly }}edge{{ end }}"
       - "{{ if not .IsNightly }}latest{{ end }}"
       - '{{ if eq .Branch "main" }}sha-{{ .ShortCommit }}{{ end }}'
     labels:
@@ -87,6 +88,7 @@ dockers_v2:
       "org.opencontainers.image.revision": "{{.FullCommit}}"
       "org.opencontainers.image.version": "v{{.Version}}"
       "org.opencontainers.image.source": "{{.GitURL}}"
+    disable: false
 
   - id: tink-agent
     dockerfile: Dockerfile.agent
@@ -94,6 +96,7 @@ dockers_v2:
       - '{{ .Env.REGISTRY }}/{{ trimsuffix (envOrDefault "IMAGE_NAME" (trimsuffix (trimprefix .GitURL "https://github.com/") ".git")) .ProjectName }}tink-agent'
     tags:
       - '{{ if eq .Env.IS_RELEASE "true" }}v{{ .Version }}{{ end }}'
+      - "{{ if .IsNightly }}edge{{ end }}"
       - "{{ if not .IsNightly }}latest{{ end }}"
       - '{{ if eq .Branch "main" }}sha-{{ .ShortCommit }}{{ end }}'
     labels:
@@ -102,6 +105,7 @@ dockers_v2:
       "org.opencontainers.image.revision": "{{.FullCommit}}"
       "org.opencontainers.image.version": "v{{.Version}}"
       "org.opencontainers.image.source": "{{.GitURL}}"
+    disable: false
 
 docker_signs:
   - cmd: cosign
