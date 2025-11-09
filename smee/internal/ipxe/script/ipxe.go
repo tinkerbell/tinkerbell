@@ -322,9 +322,13 @@ func (h *Handler) buildHook(span trace.Span, hw info) Hook {
 	}
 	if hw.OSIE.Kernel != "" {
 		auto.Kernel = hw.OSIE.Kernel
+	} else {
+		auto.Kernel = fmt.Sprintf("vmlinuz-%s", arch)
 	}
 	if hw.OSIE.Initrd != "" {
 		auto.Initrd = hw.OSIE.Initrd
+	} else {
+		auto.Initrd = fmt.Sprintf("initramfs-%s", arch)
 	}
 	if span.SpanContext().IsSampled() {
 		auto.TraceID = span.SpanContext().TraceID().String()
