@@ -59,21 +59,24 @@ func (h Handler) HandleTFTP(filename string, rf io.ReaderFrom) error {
 	defer span.End()
 
 	// Get machine data from backend
-	hwInfo, err := getByMac(ctx, mac, h.Backend)
+	hw, err := getByMac(ctx, mac, h.Backend)
 	if err != nil {
 		log.Error(err, "backend lookup failed, using MAC address defaults", "mac", mac.String())
 		return fmt.Errorf("failed to get machine info for MAC %s: %w", mac.String(), err)
 	}
 
-	if !hwInfo.AllowNetboot {
+	if !hw.AllowNetboot {
 		e := errors.New("netboot not allowed for this machine")
 		span.SetStatus(codes.Error, e.Error())
 		log.Error(e, "mac", mac.String())
 		return e
 	}
 
+	// Build Hook struct from hardware info
+	auto := h.buildHook(span, hw)
+
 	// Generate the iPXE script content
-	content, err := GenerateTemplate(hwInfo, pxeTemplate)
+	content, err := GenerateTemplate(auto, pxeTemplate)
 	if err != nil {
 		e := fmt.Errorf("failed to generate pxelinux config: %w", err)
 		log.Error(e, "failed to generate pxelinux config")

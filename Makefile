@@ -93,7 +93,7 @@ help: ## Print this help
 
 .PHONY: build
 build: generate $(GORELEASER) ## Build the Tinkerbell and Tink Agent binaries
-	$(GORELEASER) build --snapshot --clean
+	$(GORELEASER) build --clean
 
 TEST_PKG ?=
 TEST_PKGS :=
@@ -188,11 +188,11 @@ helm-template: ## Helm template for Tinkerbell
 ######### Build container images - start #########
 .PHONY: build-image
 build-image: $(GORELEASER) ## Build the container images
-	$(GORELEASER) release --snapshot --clean --verbose
+	$(GORELEASER) release --clean --skip=sign --verbose
 
 .PHONY: build-image-push
 build-image-push: $(GORELEASER) ## Build and push the container images
-	GORELEASER_CURRENT_TAG=$(shell git rev-parse HEAD) $(GORELEASER) release --clean ${GORELEASER_EXTRA_FLAGS}
+	GORELEASER_CURRENT_TAG=$(shell git rev-parse HEAD) $(GORELEASER) release --clean --skip=validate --skip=sign ${GORELEASER_EXTRA_FLAGS}
 
 ######### Build container images - end   #########
 
