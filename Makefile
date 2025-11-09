@@ -44,7 +44,7 @@ else ifeq ($(LOCAL_ARCH),aarch64)
 	LOCAL_ARCH_ALT := arm64
 endif
 GITHUB_REPOSITORY_OWNER ?= tinkerbell
-HELM_REPO_NAME ?= ghcr.io/${GITHUB_REPOSITORY_OWNER}/charts/tinkerbell
+HELM_REPO_NAME ?= ghcr.io/${GITHUB_REPOSITORY_OWNER}/charts
 
 ########### Tools variables ###########
 # Tool versions
@@ -192,7 +192,7 @@ build-image: $(GORELEASER) ## Build the container images
 
 .PHONY: build-image-push
 build-image-push: $(GORELEASER) ## Build and push the container images
-	$(GORELEASER) release --clean --verbose ${GORELEASER_EXTRA_FLAGS}
+	GORELEASER_CURRENT_TAG=$(shell git rev-parse HEAD) $(GORELEASER) release --clean ${GORELEASER_EXTRA_FLAGS}
 
 ######### Build container images - end   #########
 
