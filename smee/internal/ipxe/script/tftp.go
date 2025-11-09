@@ -21,7 +21,7 @@ const pxeLinuxPrefix = "pxelinux.cfg/01-"
 // U-Boot will fetch these files using the same protocol (TFTP) that was used to fetch this config.
 // The paths are relative to the TFTP server root directory.
 var pxeTemplate = `
-default {{ if .AllowNetboot }}deploy{{ else }}local{{ end }}
+default deploy
 
 label deploy
 		kernel {{ .Kernel }}
