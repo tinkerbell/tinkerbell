@@ -2,6 +2,7 @@ package controller_test
 
 import (
 	"context"
+	"time"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	"github.com/bmc-toolbox/bmclib/v2/providers"
@@ -97,7 +98,7 @@ func (t *testProvider) SetVirtualMedia(_ context.Context, _ string, _ string) (o
 // newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc.
 func newTestClient(provider *testProvider) controller.ClientFunc {
 	return func(ctx context.Context, log logr.Logger, hostIP, username, password string, opts *controller.BMCOptions) (*bmclib.Client, error) {
-		o := opts.Translate(hostIP, "")
+		o := opts.Translate(hostIP, "", time.Minute)
 		reg := registrar.NewRegistry(registrar.WithLogger(log))
 		reg.Register(provider.Name(), provider.Protocol(), provider.Features(), nil, provider)
 		o = append(o, bmclib.WithLogger(log), bmclib.WithRegistry(reg))

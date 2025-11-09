@@ -49,7 +49,7 @@ deployment:
       metricsAddr: ""
       powerCheckInterval: "30m0s"
       probeAddr: ""
-      httpProxyURL: ""
+      httpProxy: ""
     secondstar:
       bindPort: 2222
       hostKeyPath: ""

@@ -34,7 +34,7 @@ deployment:
       metricsAddr: {{ .Values.deployment.envs.rufio.metricsAddr }}
       powerCheckInterval: {{ .Values.deployment.envs.rufio.powerCheckInterval }}
       probeAddr: {{ .Values.deployment.envs.rufio.probeAddr }}
-      httpProxyURL: {{ .Values.deployment.envs.rufio.httpProxyURL }}
+      httpProxy: {{ .Values.deployment.envs.rufio.httpProxy }}
     secondstar:
       bindPort: {{ .Values.deployment.envs.secondstar.bindPort }}
       hostKeyPath: {{ .Values.deployment.envs.secondstar.hostKeyPath }}

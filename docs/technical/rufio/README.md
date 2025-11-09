@@ -27,9 +27,9 @@ spec:
       namespace: sample
     insecureTLS: false
     providerOptions:
+      httpProxy: "http://proxy.internal.example:8080"
       redfish:
         port: 443
-        httpProxy: "http://proxy.internal.example:8080"
 ```
 
 The `connection` object contains the required fields for establishing a BMC connection. Fields `host`, `port` represent the BMC IP for the physical machine and `insecureTLS` instructs weather to use insecure TLS connectivity for performing BMC API calls. Field `authSecretRef` is a `SecretReference` which points to a kubernetes secret that contains the username/password for authenticating BMC API calls.
@@ -98,14 +98,14 @@ The Task controller watches for Task objects on the cluster. When a new Task is 
 
 Options per provider can be defined in the `spec.connection.providerOptions` field of a `Machine` or `Task` object.
 
-#### HTTP proxy support (Redfish)
+#### HTTP proxy support
 
-Rufio can reach Redfish BMCs through an HTTP proxy. There are two ways to configure the proxy:
+Rufio can reach BMCs through an HTTP proxy for all HTTP-based providers (Redfish, Dell, GoFish, etc.). There are two ways to configure the proxy:
 
-1. **Global proxy** set the `HTTPProxyURL` field when constructing Rufio's config. When using the combined Tinkerbell binary you can pass `--rufio-http-proxy-url http://proxy.internal.example:8080`, and when deploying with the Helm chart you can set `deployment.envs.rufio.httpProxyURL` (for example `--set deployment.envs.rufio.httpProxyURL=http://proxy.internal.example:8080`). The same proxy is used for every Redfish connection unless overridden per resource.
-2. **Per-resource proxy** specify `spec.connection.providerOptions.redfish.httpProxy` on a `Machine` or `Task`. This value takes precedence over the global setting and lets different BMCs use different proxies (or no proxy).
+1. **Global proxy** configure a proxy that applies to all BMC connections. When using the combined Tinkerbell binary, pass the CLI flag `--rufio-http-proxy http://proxy.internal.example:8080`. When deploying with the Helm chart, set `deployment.envs.rufio.httpProxy` (for example `--set deployment.envs.rufio.httpProxy=http://proxy.internal.example:8080`). The same proxy is used for every HTTP-based provider connection unless overridden per resource.
+2. **Per-resource proxy** specify `spec.connection.providerOptions.httpProxy` on a `Machine` or `Task`. This value takes precedence over the global setting and lets different BMCs use different proxies (or no proxy).
 
-When either option is used, Rufio injects the proxy-aware HTTP client into all HTTP-based bmclib providers (Redfish, Dell, GoFish, etc.), so credential negotiation and follow-up calls all travel through the proxy.
+When either option is configured, all HTTP-based bmclib providers will use the proxy for credential negotiation and subsequent API calls.
 
 > Note: when the `rpc` provider options are specified:  
     1. the `authSecretRef` is not required, otherwise it is required.  
@@ -128,9 +128,9 @@ spec:
       name: sample-machine-auth
       namespace: rufio-system
     providerOptions:
+      httpProxy: "http://proxy.internal.example:8080"
       redfish:
         port: 443
-        httpProxy: "http://proxy.internal.example:8080"
       ipmitool:
         cipherSuite: 3
         port: 623

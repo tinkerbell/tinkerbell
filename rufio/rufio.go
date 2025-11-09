@@ -39,7 +39,7 @@ type Config struct {
 	ProbeAddr               netip.AddrPort
 	BMCConnectTimeout       time.Duration
 	PowerCheckInterval      time.Duration
-	HTTPProxyURL            string
+	HTTPProxy               string
 }
 
 type Option func(*Config)
@@ -92,9 +92,9 @@ func WithLeaderElectionNamespace(namespace string) Option {
 	}
 }
 
-func WithHTTPProxyURL(proxyURL string) Option {
+func WithHTTPProxy(proxy string) Option {
 	return func(c *Config) {
-		c.HTTPProxyURL = proxyURL
+		c.HTTPProxy = proxy
 	}
 }
 
@@ -128,7 +128,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	controllerruntime.SetLogger(log)
 	clog.SetLogger(log)
 
-	mgr, err := controller.NewManager(c.Client, options, c.PowerCheckInterval, c.HTTPProxyURL)
+	mgr, err := controller.NewManager(c.Client, options, c.PowerCheckInterval, c.HTTPProxy)
 	if err != nil {
 		return err
 	}
