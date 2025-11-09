@@ -44,7 +44,7 @@ else ifeq ($(LOCAL_ARCH),aarch64)
 	LOCAL_ARCH_ALT := arm64
 endif
 GITHUB_REPOSITORY_OWNER ?= tinkerbell
-HELM_REPO_NAME ?= ghcr.io/${GITHUB_REPOSITORY_OWNER}/charts
+HELM_REPO_NAME ?= ghcr.io/${GITHUB_REPOSITORY_OWNER}/charts/tinkerbell
 
 ########### Tools variables ###########
 # Tool versions
