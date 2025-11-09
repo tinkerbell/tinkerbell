@@ -160,7 +160,7 @@ spec:
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRY_DELAY
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetryDelay | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL
-              value: {{ coalesce .Values.artifactsFileServer .Values.deployment.envs.smee.ipxeHttpScriptOsieURL | quote }}
+              value: {{ printf "http://%s:%.0f" (coalesce .Values.deployment.envs.globals.publicIpv4 $publicIP) .Values.service.ports.httpHook.port | quote }}
             - name: TINKERBELL_IPXE_OVERRIDE_ARCH_MAPPING
               value: {{ .Values.deployment.envs.smee.ipxeOverrideArchMapping | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT
@@ -231,6 +231,8 @@ spec:
               value: {{ ( join "," $trustedProxies ) | quote }}
             - name: TINKERBELL_PUBLIC_IPV4
               value: {{ (coalesce .Values.deployment.envs.globals.publicIpv4 $publicIP) | quote }}
+            - name: TINKERBELL_ENABLE_HOOK
+              value: {{ .Values.deployment.envs.globals.enableHook | quote }}
             - name: TINKERBELL_ENABLE_SMEE
               value: {{ .Values.deployment.envs.globals.enableSmee | quote }}
             - name: TINKERBELL_ENABLE_TOOTLES
@@ -274,6 +276,13 @@ spec:
             {{- end }}
             - containerPort: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindPort }}
             {{- with .Values.service.ports.httpSmee }}
+              name: {{ .name }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.deployment.envs.globals.enableHook }}
+            - containerPort: {{ .Values.deployment.envs.hook.bindPort }}
+            {{- with .Values.service.ports.httpHook }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}

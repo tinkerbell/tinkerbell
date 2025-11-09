@@ -11,7 +11,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/${{ github.repository }}
   CGO_ENABLED: 0
-  GO_VERSION: "1.25"
+  GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
 
 jobs:
   validation:
@@ -26,7 +26,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "${{ env.GO_VERSION }}"
+          go-version-file: 'go.mod'
           cache: false
 
       - name: Restore Go cache
@@ -96,62 +96,6 @@ jobs:
       - name: Lint and Template Helm chart
         run: make helm-lint helm-template
 
-  build-binaries:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - name: tinkerbell
-            make-target: cross-compile
-            artifact-name: tinkerbell-binaries
-          - name: tink-agent
-            make-target: cross-compile-agent
-            artifact-name: tink-agent-binaries
-          - name: tinkerbell-embedded-linux
-            make-target: checksums-embedded
-            artifact-name: tinkerbell-embedded-binaries
-            extra-paths: out/checksums-embedded.txt
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "${{ env.GO_VERSION }}"
-          cache: false
-
-      - name: Restore Go cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          # always grab from the restore-keys pattern below,
-          # like Linux-go-$hash-YYYY-MM-DD as saved by CI
-          key: ${{ runner.os }}-go-${{ hashFiles('go.mod') }}
-
-      - name: Fix no space errors and Fetch Deps
-        run: |
-          # fixes "write /run/user/1001/355792648: no space left on device" error
-          sudo mount -o remount,size=3G /run/user/1001 || true
-          go get -t ./... && go mod tidy && go mod download
-
-      - name: Compile binaries for ${{ matrix.name }}
-        run: make ${{ matrix.make-target }}
-      
-      - name: Upload binaries
-        uses: actions/upload-artifact@v5
-        with:
-          name: ${{ matrix.artifact-name }}
-          path: |
-            out/${{ matrix.name }}-*
-            ${{ matrix.extra-paths }}
-          if-no-files-found: error
-
   build-publish-container-images:
     runs-on: ubuntu-latest
     if: |
@@ -159,16 +103,10 @@ jobs:
       startsWith(github.ref, 'refs/tags/v')
     needs:
       - validation
-      - build-binaries
-    strategy:
-      matrix:
-        include:
-          - artifact_name: tinkerbell-binaries
-            image_name: ghcr.io/tinkerbell/tinkerbell
-            make-target: build-push-image
-          - artifact_name: tink-agent-binaries
-            image_name: ghcr.io/tinkerbell/tink-agent
-            make-target: build-push-image-agent
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -190,24 +128,18 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download binaries
-        uses: actions/download-artifact@v6
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: ./out
-          merge-multiple: true
-      # Artifact upload doesn't preserve permissions so we need to fix them.
-      - name: Fix permissions
-        run: chmod +x out/*
-
-      - name: Prepare build environment
-        run: make prepare-buildx
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.0.0
       
-      - name: Build and publish container images
-        run: make ${{ matrix.make-target }}
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: ${{ startsWith(github.ref, 'refs/tags/v') && 'release --clean' || 'release --snapshot --clean' }}
         env:
-          IMAGE_NAME: ${{ matrix.image_name }}
-          IMAGE_NAME_AGENT: ${{ matrix.image_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
   package-publish-helm-chart:
     runs-on: ubuntu-latest
@@ -228,7 +160,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "${{ env.GO_VERSION }}"
+          go-version-file: 'go.mod'
           cache: false
 
       - name: Restore Go cache
@@ -255,36 +187,3 @@ jobs:
 
       - name: Package and publish the Helm chart
         run: make helm-publish
-
-  release-notes:
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - build-publish-container-images
-      - package-publish-helm-chart
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Download embedded binaries
-        uses: actions/download-artifact@v6
-        with:
-          name: tinkerbell-embedded-binaries
-          path: ./out
-          merge-multiple: true
-      # Artifact upload doesn't preserve permissions so we need to fix them.
-      - name: Fix permissions
-        run: chmod +x out/tinkerbell-*
-
-      - name: Publish Changelog to GitHub
-        uses: ncipollo/release-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          artifactErrorsFailBuild: true
-          generateReleaseNotes: true
-          draft: true
-          prerelease: true
-          artifacts: "out/tinkerbell-embedded-linux-*,out/checksums-embedded.txt"

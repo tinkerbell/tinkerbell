@@ -411,7 +411,7 @@ func TestSetNetworkBootOpts(t *testing.T) {
 					ClientHWAddr: net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 					Options: dhcpv4.OptionsFromList(
 						dhcpv4.OptUserClass(dhcp.Tinkerbell.String()),
-						dhcpv4.OptClientArch(iana.UBOOT_ARM64),
+						dhcpv4.OptClientArch(iana.Arch(999)), // Use truly unknown architecture
 					),
 				},
 				n: &data.Netboot{AllowNetboot: true},

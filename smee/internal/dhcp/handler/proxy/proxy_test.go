@@ -40,7 +40,11 @@ func (m *mockBackend) GetByMac(_ context.Context, _ net.HardwareAddr) (data.Hard
 }
 
 func TestHandle(t *testing.T) {
-	lo, _ := net.InterfaceByName("lo")
+	// Get loopback interface - handle platform differences (lo on Linux, lo0 on macOS/BSD)
+	lo, err := nettest.LoopbackInterface()
+	if err != nil {
+		t.Fatalf("failed to get loopback interface: %v", err)
+	}
 	ip := netip.MustParseAddr("127.0.0.1")
 	binServerTFTP := netip.AddrPortFrom(ip, 69)
 	binServerHTTP, _ := url.Parse("http://localhost:8080")

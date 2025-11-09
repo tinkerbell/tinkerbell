@@ -21,7 +21,7 @@ if [[ $? -gt 0 ]]; then
   usage
 fi
 
-eval set -- ${args}
+eval set -- "${args}"
 while :
 do
   case $1 in
@@ -41,21 +41,21 @@ do
       shift ;;
     # -- means the end of the arguments; drop this, and break out of the while loop
     --) shift; break ;;
-    *) >&2 echo Unsupported option: $1
+    *) >&2 echo Unsupported option: "$1"
        usage ;;
   esac
 done
 
-mkdir -p "$certs_dir"
+mkdir -p "${certs_dir}"
 
-alt_name="DNS.9 = $apiserver_ip"
+alt_name="DNS.9 = ${apiserver_ip}"
 # determine if the apiserver_ip is an IP or a hostname
-if [[ $apiserver_ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if [[ ${apiserver_ip} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "IP address detected"
-    alt_name="IP.2 = $apiserver_ip"
+    alt_name="IP.2 = ${apiserver_ip}"
 fi
 
-cat > "$certs_dir"/csr.conf <<EOF
+cat > "${certs_dir}"/csr.conf <<EOF
 [ req ]
 default_bits = 2048
 prompt = no
@@ -84,7 +84,7 @@ DNS.6 = kube-apiserver
 DNS.7 = tinkerbell
 DNS.8 = localhost
 IP.1 = 127.0.0.1
-$alt_name
+${alt_name}
 
 [ v3_ext ]
 authorityKeyIdentifier=keyid,issuer:always
@@ -94,23 +94,23 @@ extendedKeyUsage=serverAuth,clientAuth
 subjectAltName=@alt_names
 EOF
 
-openssl genrsa -out "$certs_dir"/service-account-key.pem 4096
-openssl req -new -x509 -days 365 -key "$certs_dir"/service-account-key.pem -subj "/CN=test" -sha256 -out "$certs_dir"/service-account.pem
-openssl genrsa -out "$certs_dir"/ca.key 2048
-openssl req -x509 -new -nodes -key "$certs_dir"/ca.key -subj "/CN=test" -days 10000 -out "$certs_dir"/ca.crt
-openssl genrsa -out "$certs_dir"/server.key 2048
-openssl req -new -key "$certs_dir"/server.key -out "$certs_dir"/server.csr -config "$certs_dir"/csr.conf
-openssl x509 -req -in "$certs_dir"/server.csr -CA "$certs_dir"/ca.crt -CAkey "$certs_dir"/ca.key -CAcreateserial -out "$certs_dir"/server.crt -days 10000 -extensions v3_ext -extfile "$certs_dir"/csr.conf
+openssl genrsa -out "${certs_dir}"/service-account-key.pem 4096
+openssl req -new -x509 -days 365 -key "${certs_dir}"/service-account-key.pem -subj "/CN=test" -sha256 -out "${certs_dir}"/service-account.pem
+openssl genrsa -out "${certs_dir}"/ca.key 2048
+openssl req -x509 -new -nodes -key "${certs_dir}"/ca.key -subj "/CN=test" -days 10000 -out "${certs_dir}"/ca.crt
+openssl genrsa -out "${certs_dir}"/server.key 2048
+openssl req -new -key "${certs_dir}"/server.key -out "${certs_dir}"/server.csr -config "${certs_dir}"/csr.conf
+openssl x509 -req -in "${certs_dir}"/server.csr -CA "${certs_dir}"/ca.crt -CAkey "${certs_dir}"/ca.key -CAcreateserial -out "${certs_dir}"/server.crt -days 10000 -extensions v3_ext -extfile "${certs_dir}"/csr.conf
 
 # This creates a kubeconfig that will point to the name or IP address passed in via the -i flag for the apiserver
-kubectl config set-cluster local-apiserver --certificate-authority="$certs_dir"/ca.crt --embed-certs=true --server=https://"$apiserver_ip":6443 --kubeconfig="$certs_dir"/kubeconfig
-kubectl config set-credentials admin --client-certificate="$certs_dir"/server.crt --client-key="$certs_dir"/server.key --embed-certs=true --kubeconfig="$certs_dir"/kubeconfig
-kubectl config set-context default --cluster=local-apiserver --user=admin --kubeconfig="$certs_dir"/kubeconfig
-kubectl config use-context default --kubeconfig="$certs_dir"/kubeconfig && chmod 644 "$certs_dir"/kubeconfig
+kubectl config set-cluster local-apiserver --certificate-authority="${certs_dir}"/ca.crt --embed-certs=true --server=https://"${apiserver_ip}":6443 --kubeconfig="${certs_dir}"/kubeconfig
+kubectl config set-credentials admin --client-certificate="${certs_dir}"/server.crt --client-key="${certs_dir}"/server.key --embed-certs=true --kubeconfig="${certs_dir}"/kubeconfig
+kubectl config set-context default --cluster=local-apiserver --user=admin --kubeconfig="${certs_dir}"/kubeconfig
+kubectl config use-context default --kubeconfig="${certs_dir}"/kubeconfig && chmod 644 "${certs_dir}"/kubeconfig
 
 # This creates a kubeconfig that will point to localhost for the apiserver
 kubeconfig_localhost="kubeconfig.localhost"
-kubectl config set-cluster local-apiserver --certificate-authority="$certs_dir"/ca.crt --embed-certs=true --server=https://localhost:6443 --kubeconfig="$certs_dir/$kubeconfig_localhost"
-kubectl config set-credentials admin --client-certificate="$certs_dir"/server.crt --client-key="$certs_dir"/server.key --embed-certs=true --kubeconfig="$certs_dir/$kubeconfig_localhost"
-kubectl config set-context default --cluster=local-apiserver --user=admin --kubeconfig="$certs_dir/$kubeconfig_localhost"
-kubectl config use-context default --kubeconfig="$certs_dir/$kubeconfig_localhost" && chmod 644 "$certs_dir/$kubeconfig_localhost"
+kubectl config set-cluster local-apiserver --certificate-authority="${certs_dir}"/ca.crt --embed-certs=true --server=https://localhost:6443 --kubeconfig="${certs_dir}/${kubeconfig_localhost}"
+kubectl config set-credentials admin --client-certificate="${certs_dir}"/server.crt --client-key="${certs_dir}"/server.key --embed-certs=true --kubeconfig="${certs_dir}/${kubeconfig_localhost}"
+kubectl config set-context default --cluster=local-apiserver --user=admin --kubeconfig="${certs_dir}/${kubeconfig_localhost}"
+kubectl config use-context default --kubeconfig="${certs_dir}/${kubeconfig_localhost}" && chmod 644 "${certs_dir}/${kubeconfig_localhost}"

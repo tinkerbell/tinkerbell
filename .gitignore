@@ -42,3 +42,6 @@ certs/
 *.tgz
 Chart.lock
 .vscode/
+
+.DS_Store
+dist

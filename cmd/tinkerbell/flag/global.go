@@ -24,6 +24,7 @@ type GlobalConfig struct {
 	EnableTinkController bool
 	EnableRufio          bool
 	EnableSecondStar     bool
+	EnableHook           bool
 	EnableCRDMigrations  bool
 	EmbeddedGlobalConfig EmbeddedGlobalConfig
 	BackendKubeOptions   BackendKubeOptions
@@ -59,6 +60,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(EnableTinkController, ffval.NewValueDefault(&gc.EnableTinkController, gc.EnableTinkController))
 	fs.Register(EnableRufioController, ffval.NewValueDefault(&gc.EnableRufio, gc.EnableRufio))
 	fs.Register(EnableSecondStar, ffval.NewValueDefault(&gc.EnableSecondStar, gc.EnableSecondStar))
+	fs.Register(EnableHook, ffval.NewValueDefault(&gc.EnableHook, gc.EnableHook))
 	fs.Register(EnableCRDMigrations, ffval.NewValueDefault(&gc.EnableCRDMigrations, gc.EnableCRDMigrations))
 	fs.Register(LogLevelConfig, ffval.NewValueDefault(&gc.LogLevel, gc.LogLevel))
 	fs.Register(OTELEndpoint, ffval.NewValueDefault(&gc.OTELEndpoint, gc.OTELEndpoint))
@@ -173,6 +175,11 @@ var EnableKubeAPIServer = Config{
 var EnableETCD = Config{
 	Name:  "enable-embedded-etcd",
 	Usage: "enables the embedded etcd",
+}
+
+var EnableHook = Config{
+	Name:  "enable-hook",
+	Usage: "enable Hook service",
 }
 
 var EnableCRDMigrations = Config{

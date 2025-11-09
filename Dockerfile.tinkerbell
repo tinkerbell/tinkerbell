@@ -1,10 +1,61 @@
-FROM --platform=$BUILDPLATFORM alpine:3.22
+# Multi-stage build for statically compiled ipmitool
+FROM --platform=$TARGETOS/$TARGETARCH alpine:3.22 AS ipmitool
 
 ARG TARGETOS
 ARG TARGETARCH
 
-# Install ipmitool needed for bmclib.
-RUN apk add --upgrade ipmitool=1.8.19-r1
+# Install build dependencies
+RUN apk add --no-cache \
+    git \
+    autoconf \
+    automake \
+    ca-certificates \
+    libtool \
+    make \
+    gcc \
+    g++ \
+    musl-dev \
+    openssl-dev \
+    openssl-libs-static \
+    readline-dev \
+    readline-static \
+    ncurses-static \
+    ncurses-dev \
+    zlib-static \
+    file
 
-COPY out/tinkerbell-${TARGETOS}-${TARGETARCH} /tinkerbell
+# Clone ipmitool source
+WORKDIR /build
+RUN git clone https://github.com/ipmitool/ipmitool.git .
+
+# Build static binary
+# The trick is that libtool's -static flag doesn't actually create static binaries,
+# it just means "don't make dynamic libraries". We need to use -all-static for that.
+RUN ./bootstrap && \
+    CFLAGS="-Wno-error=incompatible-pointer-types" ./configure \
+    --enable-static \
+    --disable-shared \
+    --prefix=/usr && \
+    make -j$(nproc) && \
+    cd src && \
+    /bin/sh ../libtool --silent --tag=CC --mode=link gcc \
+        -fno-strict-aliasing -Wreturn-type -all-static \
+        -o ipmitool.static \
+        ipmitool.o ipmishell.o ../lib/libipmitool.la plugins/libintf.la \
+        -lcrypto -lreadline -lncurses && \
+    strip ipmitool.static
+
+# Verify it's static
+RUN file src/ipmitool.static && \
+    ldd src/ipmitool.static 2>&1 || true
+
+
+FROM scratch
+
+ARG TARGETOS
+ARG TARGETARCH
+
+COPY ${TARGETOS}/${TARGETARCH}/tinkerbell /tinkerbell
+COPY --from=ipmitool /build/src/ipmitool.static /usr/sbin/ipmitool
+COPY --from=ipmitool /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT [ "/tinkerbell" ]
