@@ -49,8 +49,6 @@ github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM=
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
-github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20251010091507-63cb571e5597 h1:V8lDpeWcQXhlarTtD5op6++v5Dh6wO4WTBXq8ugNuj4=
-github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20251010091507-63cb571e5597/go.mod h1:2tYJD9JtY1tJxLHhslICrFOZhxE9O4gYMb1nJ5BKI5w=
 github.com/bmc-toolbox/common v0.0.0-20250112191656-b6de52e8303d h1:5c0jhS9jNLm1t3GVEESsWv+p6recFRLGW90zp8HDIDs=
 github.com/bmc-toolbox/common v0.0.0-20250112191656-b6de52e8303d/go.mod h1:Cdnkm+edb6C0pVkyCrwh3JTXAe0iUF9diDG/DztPI9I=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
@@ -329,6 +327,8 @@ github.com/mdlayher/packet v1.1.2 h1:3Up1NG6LZrsgDVn6X4L9Ge/iyRyxFEFD9o6Pr3Q1nQY
 github.com/mdlayher/packet v1.1.2/go.mod h1:GEu1+n9sG5VtiRE4SydOmX5GTwyyYlteZiFU+x0kew4=
 github.com/mdlayher/socket v0.4.1 h1:eM9y2/jlbs1M615oshPQOHZzj6R6wMT7bX5NPiQvn2U=
 github.com/mdlayher/socket v0.4.1/go.mod h1:cAqeGjoufqdxWkD7DkpyS+wcefOtmu5OQ8KuoJGIReA=
+github.com/michaelin/bmclib/v2 v2.3.5-0.20251109141344-d8dd3c011fb4 h1:ZpvfJxvANIq5eyu42VSS698415rq2gX6j7xtKi63RQ0=
+github.com/michaelin/bmclib/v2 v2.3.5-0.20251109141344-d8dd3c011fb4/go.mod h1:2tYJD9JtY1tJxLHhslICrFOZhxE9O4gYMb1nJ5BKI5w=
 github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible h1:aKW/4cBs+yK6gpqU3K/oIwk9Q/XICqd3zOX/UFuvqmk=
 github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible/go.mod h1:8AuVvqP/mXw1px98n46wfvcGfQ4ci2FwoAjKYxuo3Z4=
 github.com/mitchellh/copystructure v1.2.0 h1:vpKXTN4ewci03Vljg/q9QvCGUDttBOGBIa15WveJJGw=

@@ -315,3 +315,11 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.33.4
 	k8s.io/sample-controller => k8s.io/sample-controller v0.33.4
 )
+
+// Map the local/fork import path to the canonical bmc-toolbox module so tooling
+// consumes the module that declares module path "github.com/bmc-toolbox/bmclib/v2".
+// During development use your fork's latest main. We'll replace the canonical
+// module to point at a local clone of your fork (created next) so the build
+// uses the fork's latest commit on main.
+// Use the fork on GitHub at the specific commit for development.
+replace github.com/bmc-toolbox/bmclib/v2 => github.com/michaelin/bmclib/v2 v2.3.5-0.20251109141344-d8dd3c011fb4
