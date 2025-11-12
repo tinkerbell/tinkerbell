@@ -65,7 +65,9 @@ func (h *TFTP) ListenAndServe(ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			h.Log.Error(err, "failed to close connection")
+		}
 		ts.Shutdown()
 	}()
 
@@ -120,27 +122,19 @@ func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
 			// later: check if the requested file is pxelinux.cfg and the hardware provides a template, then serve it.
 		}
 
-		// if AssetDir is set, try to read the file from disk
+		// if AssetDir is set, stream the file directly from disk if found.
 		if h.AssetDir != "" {
-			// join the h.AssetDir with the full requested path ("full") in a secure way; prevent path traversal
-			assetPath := filepath.Join(h.AssetDir, full)
-			log.Info("attempting to load file from asset dir", "assetPath", assetPath, "assetDir", h.AssetDir)
-			content, err = os.ReadFile(assetPath)
-			if err == nil {
-				log.Info("loaded file from asset dir", "assetPath", assetPath)
-				ok = true
-			} else {
-				log.Error(err, "failed to read file from asset dir", "assetPath", assetPath)
+			servedFromDisk, err := tryServeAssetFromDisk(filename, rf, h, full, log, span)
+			if servedFromDisk {
+				return err
 			}
 		}
 
 		// if still not ok, return error; file not found. otherwise proceed to patch and serve.
-		if !ok {
-			err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
-			log.Error(err, "file unknown")
-			span.SetStatus(codes.Error, err.Error())
-			return err
-		}
+		err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
+		log.Error(err, "file unknown")
+		span.SetStatus(codes.Error, err.Error())
+		return err
 	}
 
 	content, err = binary.Patch(content, h.Patch)
@@ -162,6 +156,37 @@ func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
 	span.SetStatus(codes.Ok, filename)
 
 	return nil
+}
+
+func tryServeAssetFromDisk(filename string, rf io.ReaderFrom, h TFTP, full string, log logr.Logger, span trace.Span) (bool, error) {
+	// Join the h.AssetDir with the full requested path ("full") in a secure way; prevent path traversal
+	assetPath := filepath.Join(h.AssetDir, full)
+	log.Info("attempting to load file from asset dir", "assetPath", assetPath, "assetDir", h.AssetDir)
+
+	file, err := os.Open(assetPath)
+	if err != nil {
+		log.Error(err, "failed to read file from asset dir", "assetPath", assetPath)
+		return false, nil
+	}
+
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			log.Error(cerr, "failed to close file", "assetPath", assetPath)
+		}
+	}()
+
+	log.Info("streaming file directly from asset dir", "assetPath", assetPath)
+
+	bytesSent, err := rf.ReadFrom(file)
+	if err != nil {
+		log.Error(err, "file serve failed", "bytesSent", bytesSent)
+		span.SetStatus(codes.Error, err.Error())
+		return true, err
+	}
+
+	log.Info("file served from disk", "bytesSent", bytesSent)
+	span.SetStatus(codes.Ok, filename)
+	return true, nil
 }
 
 // HandleWrite handles TFTP PUT requests. It will always return an error. This library does not support PUT.
