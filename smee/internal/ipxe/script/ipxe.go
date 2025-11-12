@@ -53,6 +53,7 @@ type info struct {
 	IPXEScript    string
 	IPXEScriptURL *url.URL
 	OSIE          OSIE
+	PXELINUX      PXELINUX
 }
 
 // OSIE or OS Installation Environment is the data about where the OSIE parts are located.
@@ -63,6 +64,11 @@ type OSIE struct {
 	Kernel string
 	// Initrd is the name of the initrd file.
 	Initrd string
+}
+
+// PXELINUX represents PXELinux template, for u-boot "pxelinux.cfg" booting
+type PXELINUX struct {
+	Template string `json:"template,omitempty"`
 }
 
 // getByMac uses the BackendReader to get the (hardware) data and then
@@ -96,6 +102,7 @@ func getByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (info
 		IPXEScript:    n.IPXEScript,
 		IPXEScriptURL: n.IPXEScriptURL,
 		OSIE:          OSIE(n.OSIE),
+		PXELINUX:      PXELINUX(n.PXELINUX),
 	}, nil
 }
 
@@ -127,6 +134,7 @@ func getByIP(ctx context.Context, ip net.IP, br BackendReader) (info, error) {
 		IPXEScript:    n.IPXEScript,
 		IPXEScriptURL: n.IPXEScriptURL,
 		OSIE:          OSIE(n.OSIE),
+		PXELINUX:      PXELINUX(n.PXELINUX),
 	}, nil
 }
 

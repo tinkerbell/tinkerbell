@@ -52,6 +52,7 @@ type Netboot struct {
 	Console       string
 	Facility      string
 	OSIE          OSIE
+	PXELINUX      PXELINUX
 }
 
 // Isoboot holds info used in booting a client using an ISO image.
@@ -70,6 +71,11 @@ type OSIE struct {
 	Kernel string
 	// Initrd is the name of the initrd file.
 	Initrd string
+}
+
+// PXELINUX represents PXELinux template, for u-boot "pxelinux.cfg" booting
+type PXELINUX struct {
+	Template string `json:"template,omitempty"`
 }
 
 // EncodeToAttributes returns a slice of opentelemetry attributes that can be used to set span.SetAttributes.

@@ -281,6 +281,12 @@ func toNetbootData(i *v1alpha1.Netboot, facility string) (*data.Netboot, error) 
 		n.OSIE.Initrd = i.OSIE.Initrd
 	}
 
+	// PXELINUX data
+	n.PXELINUX = data.PXELINUX{}
+	if i.PXELINUX != nil {
+		n.PXELINUX.Template = i.PXELINUX.Template
+	}
+
 	return n, nil
 }
 

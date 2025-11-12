@@ -14,12 +14,20 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pin/tftp/v3"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	binary "github.com/tinkerbell/tinkerbell/smee/internal/ipxe/binary/file"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// BackendReader is the interface for getting data from a backend.
+//
+// Backends implement this interface to provide DHCP and Netboot data to the handlers.
+type BackendReader interface {
+	GetByIP(context.Context, net.IP) (data.Hardware, error)
+}
 
 // TFTP config settings.
 type TFTP struct {
@@ -29,6 +37,7 @@ type TFTP struct {
 	Timeout              time.Duration
 	Patch                []byte
 	BlockSize            int
+	Backend              BackendReader
 }
 
 // ListenAndServe will listen and serve iPXE binaries over TFTP.
@@ -102,6 +111,13 @@ func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
 
 	content, ok := binary.Files[filepath.Base(shortfile)]
 	if !ok {
+		hardware, errHw := h.Backend.GetByIP(context.Background(), client.IP)
+		if errHw != nil {
+			log.Error(errHw, "failed to get hardware by IP")
+		} else {
+			log.Info("got tftp request for hardware", "hardware", hardware)
+		}
+
 		err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
 		log.Error(err, "file unknown")
 		span.SetStatus(codes.Error, err.Error())
