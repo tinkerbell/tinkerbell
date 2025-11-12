@@ -420,6 +420,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			Patch:                []byte(c.IPXE.EmbeddedScriptPatch),
 			BlockSize:            c.TFTP.BlockSize,
 			AssetDir:             c.TFTP.AssetDir,
+			Backend:              c.Backend,
 		}
 
 		log.Info("starting tftp server", "bindAddr", addrPort.String())
