@@ -29,6 +29,7 @@ type TFTP struct {
 	Timeout              time.Duration
 	Patch                []byte
 	BlockSize            int
+	AssetDir             string
 }
 
 // ListenAndServe will listen and serve iPXE binaries over TFTP.
