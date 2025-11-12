@@ -207,6 +207,8 @@ spec:
               value: {{ .Values.deployment.envs.smee.tftpBlockSize | quote }}
             - name: TINKERBELL_TFTP_SINGLE_PORT
               value: {{ .Values.deployment.envs.smee.tftpSinglePort | quote }}
+            - name: TINKERBELL_TFTP_ASSET_DIR
+              value: {{ .Values.deployment.envs.smee.tftpAssetDir | quote }}
           # SECONDSTAR
             - name: TINKERBELL_SECONDSTAR_PORT
               value: {{ .Values.deployment.envs.secondstar.bindPort | quote }}
