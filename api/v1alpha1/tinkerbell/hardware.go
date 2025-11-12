@@ -138,6 +138,17 @@ type Interface struct {
 	DisableDHCP bool `json:"disableDhcp,omitempty"`
 }
 
+// PXELINUX represents PXELinux configuration, for u-boot "pxelinux.cfg" booting.
+// This is used to instruct Smee's TFTP serve to serve out certain files for PXELinux booting.
+// The main pxelinux.cfg asset (in "extlinux" format; see u-boot's distroboot and bootstd docs) is
+// generated on the fly from a template defined in PXELINUX struct.
+// Other assets (eg, vmlinuz, initramfs, dtb) are served from a filesystem path defined in Smee's configuration,
+type PXELINUX struct {
+	// Template is the PXELinux template to use for generating the pxelinux.cfg file.
+	// It should be in "extlinux" format, as per u-boot's distroboot and bootstd documentation.
+	Template string `json:"template,omitempty"`
+}
+
 // Netboot configuration.
 type Netboot struct {
 	//+optional
@@ -151,6 +162,9 @@ type Netboot struct {
 
 	//+optional
 	OSIE *OSIE `json:"osie,omitempty"`
+
+	//+optional
+	PXELINUX *PXELINUX `json:"pxelinux,omitempty"`
 }
 
 // Isoboot configuration for booting a client using an ISO image.
