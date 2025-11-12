@@ -97,7 +97,8 @@ deployment:
       syslogBindAddr: ""
       syslogBindPort: 514
       syslogEnabled: true
-      tftpBlockSize: 512
+      # use a large block size for faster TFTP transfers
+      tftpBlockSize: 8192 # default is 512
       tftpServerBindAddr: ""
       tftpServerBindPort: 69
       tftpServerEnabled: true
