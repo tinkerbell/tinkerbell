@@ -38,6 +38,7 @@ type TFTP struct {
 	Patch                []byte
 	BlockSize            int
 	Backend              BackendReader
+	AssetDir             string
 }
 
 // ListenAndServe will listen and serve iPXE binaries over TFTP.
@@ -115,7 +116,7 @@ func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
 		if errHw != nil {
 			log.Error(errHw, "failed to get hardware by IP")
 		} else {
-			log.Info("got tftp request for hardware", "hardware", hardware)
+			log.Info("got tftp request for hardware", "assetDir", h.AssetDir, "hardware", hardware)
 		}
 
 		err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
