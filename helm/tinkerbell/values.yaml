@@ -102,6 +102,7 @@ deployment:
       tftpServerBindPort: 69
       tftpServerEnabled: true
       tftpTimeout: "10s"
+      tftpAssetDir: "" # serves extra TFTP files from this (in-pod) directory if set
     tinkController:
       enableLeaderElection: true
       leaderElectionNamespace: ""
