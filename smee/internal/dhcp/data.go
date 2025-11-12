@@ -54,6 +54,7 @@ type Netboot struct {
 	Console       string
 	Facility      string
 	OSIE          OSIE
+	PXELINUX      PXELINUX
 }
 
 // Isoboot holds info used in booting a client using an ISO image.
@@ -62,6 +63,11 @@ type Isoboot struct {
 	// It must be a valid url.URL{} object and must have a url.URL{}.Scheme of HTTP or HTTPS.
 	//+optional
 	SourceISO *url.URL
+}
+
+// PXELINUX represents PXELinux template, for u-boot "pxelinux.cfg" booting
+type PXELINUX struct {
+	Template string `json:"template,omitempty"`
 }
 
 // OSIE or OS Installation Environment is the data about where the OSIE parts are located.

@@ -240,6 +240,20 @@ spec:
                             kernel:
                               type: string
                           type: object
+                        pxelinux:
+                          description: |-
+                            PXELINUX represents PXELinux configuration, for u-boot "pxelinux.cfg" booting.
+                            This is used to instruct Smee's TFTP serve to serve out certain files for PXELinux booting.
+                            The main pxelinux.cfg asset (in "extlinux" format; see u-boot's distroboot and bootstd docs) is
+                            generated on the fly from a template defined in PXELINUX struct.
+                            Other assets (eg, vmlinuz, initramfs, dtb) are served from a filesystem path defined in Smee's configuration,
+                          properties:
+                            template:
+                              description: |-
+                                Template is the PXELinux template to use for generating the pxelinux.cfg file.
+                                It should be in "extlinux" format, as per u-boot's distroboot and bootstd documentation.
+                              type: string
+                          type: object
                       type: object
                   type: object
                 type: array
