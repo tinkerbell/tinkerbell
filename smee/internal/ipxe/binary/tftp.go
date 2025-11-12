@@ -116,13 +116,31 @@ func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
 		if errHw != nil {
 			log.Error(errHw, "failed to get hardware by IP")
 		} else {
-			log.Info("got tftp request for hardware", "assetDir", h.AssetDir, "hardware", hardware)
+			log.Info("got tftp request for hardware", "shortfile", shortfile, "baseShortfile", filepath.Base(shortfile), "assetDir", h.AssetDir, "hardware", hardware)
+			// later: check if the requested file is pxelinux.cfg and the hardware provides a template, then serve it.
 		}
 
-		err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
-		log.Error(err, "file unknown")
-		span.SetStatus(codes.Error, err.Error())
-		return err
+		// if AssetDir is set, try to read the file from disk
+		if h.AssetDir != "" {
+			// join the h.AssetDir with the full requested path ("full") in a secure way; prevent path traversal
+			assetPath := filepath.Join(h.AssetDir, full)
+			log.Info("attempting to load file from asset dir", "assetPath", assetPath, "assetDir", h.AssetDir)
+			content, err = os.ReadFile(assetPath)
+			if err == nil {
+				log.Info("loaded file from asset dir", "assetPath", assetPath)
+				ok = true
+			} else {
+				log.Error(err, "failed to read file from asset dir", "assetPath", assetPath)
+			}
+		}
+
+		// if still not ok, return error; file not found. otherwise proceed to patch and serve.
+		if !ok {
+			err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
+			log.Error(err, "file unknown")
+			span.SetStatus(codes.Error, err.Error())
+			return err
+		}
 	}
 
 	content, err = binary.Patch(content, h.Patch)
