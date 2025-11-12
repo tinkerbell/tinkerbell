@@ -68,6 +68,12 @@ type ProviderOptions struct {
 	// The default order is: ipmitool, asrockrack, gofish, intelamt, dell, supermicro, openbmc.
 	// +optional
 	PreferredOrder []ProviderName `json:"preferredOrder,omitempty"`
+	// HTTPProxy is the URL of the HTTP proxy to use for HTTP-based provider communication.
+	// This applies to all HTTP-based providers (Redfish, Dell, GoFish, etc.).
+	// Example: http://proxy.example.com:8080
+	// +optional
+	// +kubebuilder:validation:Format=uri
+	HTTPProxy string `json:"httpProxy,omitempty"`
 	// IntelAMT contains the options to customize the IntelAMT provider.
 	// +optional
 	IntelAMT *IntelAMTOptions `json:"intelAMT,omitempty"`

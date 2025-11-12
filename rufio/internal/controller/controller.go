@@ -34,7 +34,7 @@ type Reconciler struct {
 	backoff *backoff.ExponentialBackOff
 }
 
-func NewManager(cfg *rest.Config, opts controllerruntime.Options, powerCheckInterval time.Duration) (controllerruntime.Manager, error) {
+func NewManager(cfg *rest.Config, opts controllerruntime.Options, powerCheckInterval time.Duration, httpProxy string) (controllerruntime.Manager, error) {
 	if opts.Scheme == nil {
 		opts.Scheme = DefaultScheme()
 	}
@@ -52,7 +52,7 @@ func NewManager(cfg *rest.Config, opts controllerruntime.Options, powerCheckInte
 		return nil, fmt.Errorf("set up ready check: %w", err)
 	}
 
-	if err := NewReconciler(mgr.GetClient()).SetupWithManager(context.Background(), mgr, NewClientFunc(time.Minute), powerCheckInterval); err != nil {
+	if err := NewReconciler(mgr.GetClient()).SetupWithManager(context.Background(), mgr, NewClientFunc(time.Minute, httpProxy), powerCheckInterval); err != nil {
 		return nil, fmt.Errorf("unable to create reconciler: %w", err)
 	}
 
