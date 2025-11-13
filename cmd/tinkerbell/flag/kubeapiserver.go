@@ -1,5 +1,4 @@
 //go:build embedded
-// +build embedded
 
 package flag
 
@@ -7,6 +6,10 @@ import "github.com/peterbourgon/ff/v4/ffval"
 
 type EmbeddedKubeAPIServerConfig struct {
 	DisableLogging bool
+	// These fields will be populated from global config
+	BindAddr    string
+	TLSCertFile string
+	TLSKeyFile  string
 }
 
 func RegisterKubeAPIServer(fs *Set, ec *EmbeddedKubeAPIServerConfig) {

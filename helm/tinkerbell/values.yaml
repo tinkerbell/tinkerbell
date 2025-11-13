@@ -30,6 +30,7 @@ deployment:
       enableCRDMigrations: true
       enableRufioController: true
       enableSecondstar: true
+      enableHook: true
       enableSmee: true
       enableTootles: true
       enableTinkServer: true
@@ -54,6 +55,10 @@ deployment:
       hostKeyPath: ""
       ipmitoolPath: "/usr/sbin/ipmitool"
       idleTimeout: "15m"
+      logLevel: 0
+    hook:
+      bindAddr: ""
+      bindPort: 7173
       logLevel: 0
     smee:
       dhcpBindAddr: ""
@@ -130,7 +135,7 @@ deployment:
   imageTag:
   init:
     enabled: true
-    # if `interfaceMode: ipvlan`, then ghcr.io/jacobweinstock/relay-init:v0.1.0 (has nmap and nmap-scripts) is required. Otherwise, alpine can be used. 
+    # if `interfaceMode: ipvlan`, then ghcr.io/jacobweinstock/relay-init:v0.1.0 (has nmap and nmap-scripts) is required. Otherwise, alpine can be used.
     image: ghcr.io/jacobweinstock/relay-init:v0.1.0
     # interfaceMode determines how we create the interface needed to listen for DHCP broadcast traffic.
     # by default macvlan is used. ipvlan is the only other option.
@@ -192,6 +197,10 @@ service:
     httpTootles:
       name: http-tootles
       port: 7172
+      protocol: TCP
+    httpHook:
+      name: http-hook
+      port: 7173
       protocol: TCP
     ssh:
       name: ssh
@@ -263,7 +272,7 @@ optional:
       loadBalancerIP: ""
       type: LoadBalancer
     affinity: {}
-  
+
   # kubevip objects are used to provide a LoadBalancer IP for the Tinkerbell services.
   # Optional, enabled by default.
   kubevip:

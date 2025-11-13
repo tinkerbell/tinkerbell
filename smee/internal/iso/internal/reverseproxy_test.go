@@ -149,7 +149,6 @@ func TestReverseProxy(t *testing.T) {
 	if res.StatusCode != http.StatusBadGateway {
 		t.Errorf("request to bad proxy = %v; want 502 StatusBadGateway", res.Status)
 	}
-
 }
 
 // Issue 16875: remove any proxied headers mentioned in the "Connection"
@@ -772,7 +771,7 @@ func TestReverseProxyGetPutBuffer(t *testing.T) {
 func TestReverseProxy_Post(t *testing.T) {
 	const backendResponse = "I am the backend"
 	const backendStatus = 200
-	var requestBody = bytes.Repeat([]byte("a"), 1<<20)
+	requestBody := bytes.Repeat([]byte("a"), 1<<20)
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		slurp, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -1576,7 +1575,6 @@ func TestUnannouncedTrailer(t *testing.T) {
 	if g, w := res.Trailer.Get("X-Unannounced-Trailer"), "unannounced_trailer_value"; g != w {
 		t.Errorf("Trailer(X-Unannounced-Trailer) = %q; want %q", g, w)
 	}
-
 }
 
 func TestSetURL(t *testing.T) {
@@ -1725,7 +1723,7 @@ func Test1xxHeadersNotModifiedAfterRoundTrip(t *testing.T) {
 	// Trigger data race while iterating over response headers.
 	// When run with -race, this causes the condition in https://go.dev/issue/65123 often
 	// enough to detect reliably.
-	for _ = range rw.Header() {
+	for range rw.Header() {
 	}
 }
 
