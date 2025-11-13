@@ -42,6 +42,10 @@ func (h *TFTP) ListenAndServe(ctx context.Context) error {
 		return err
 	}
 
+	h.Log.Info("starting TFTP server",
+		"addr", h.Addr.String(), "singlePort", h.EnableTFTPSinglePort,
+		"blockSize", h.BlockSize, "timeout", h.Timeout.String())
+
 	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
 	ts.SetTimeout(h.Timeout)
 	ts.SetBlockSize(h.BlockSize)
