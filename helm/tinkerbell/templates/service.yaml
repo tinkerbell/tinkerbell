@@ -40,6 +40,12 @@ spec:
     protocol: {{ .Values.service.ports.httpSmee.protocol }}
     name: {{ .Values.service.ports.httpSmee.name }}
   {{- end }}
+  {{- if .Values.deployment.envs.globals.enableHook}}
+  - port: {{ .Values.service.ports.httpHook.port }}
+    targetPort: {{ .Values.service.ports.httpHook.name }}
+    protocol: {{ .Values.service.ports.httpHook.protocol }}
+    name: {{ .Values.service.ports.httpHook.name }}
+  {{- end }}
   {{- if .Values.deployment.envs.globals.enableTootles }}
   - port: {{ .Values.service.ports.httpTootles.port }}
     targetPort: {{ .Values.service.ports.httpTootles.name }}

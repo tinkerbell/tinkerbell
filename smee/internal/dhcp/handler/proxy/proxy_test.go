@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/insomniacslk/dhcp/dhcpv4"
+	"github.com/insomniacslk/dhcp/iana"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"golang.org/x/net/ipv4"
@@ -40,7 +41,11 @@ func (m *mockBackend) GetByMac(_ context.Context, _ net.HardwareAddr) (data.Hard
 }
 
 func TestHandle(t *testing.T) {
-	lo, _ := net.InterfaceByName("lo")
+	// Get loopback interface - handle platform differences (lo on Linux, lo0 on macOS/BSD)
+	lo, err := nettest.LoopbackInterface()
+	if err != nil {
+		t.Fatalf("failed to get loopback interface: %v", err)
+	}
 	ip := netip.MustParseAddr("127.0.0.1")
 	binServerTFTP := netip.AddrPortFrom(ip, 69)
 	binServerHTTP, _ := url.Parse("http://localhost:8080")
@@ -70,6 +75,7 @@ func TestHandle(t *testing.T) {
 			},
 			pkt: &dhcpv4.DHCPv4{
 				OpCode:       dhcpv4.OpcodeBootRequest,
+				HWType:       iana.HWTypeEthernet,
 				ClientHWAddr: []byte{1, 2, 3, 4, 5, 6},
 				Options:      dhcpv4.OptionsFromList(dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover)),
 			},
@@ -87,6 +93,7 @@ func TestHandle(t *testing.T) {
 			},
 			pkt: &dhcpv4.DHCPv4{
 				OpCode:       dhcpv4.OpcodeBootRequest,
+				HWType:       iana.HWTypeEthernet,
 				ClientHWAddr: []byte{1, 2, 3, 4, 5, 6},
 				Options: dhcpv4.OptionsFromList(
 					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
@@ -110,6 +117,7 @@ func TestHandle(t *testing.T) {
 			},
 			pkt: &dhcpv4.DHCPv4{
 				OpCode:       dhcpv4.OpcodeBootRequest,
+				HWType:       iana.HWTypeEthernet,
 				ClientHWAddr: []byte{1, 2, 3, 4, 5, 6},
 				Options: dhcpv4.OptionsFromList(
 					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
@@ -123,6 +131,7 @@ func TestHandle(t *testing.T) {
 			md:   &dhcp.Metadata{IfName: lo.Name, IfIndex: lo.Index},
 			want: &dhcpv4.DHCPv4{
 				OpCode:         dhcpv4.OpcodeBootReply,
+				HWType:         iana.HWTypeEthernet,
 				ClientHWAddr:   []byte{1, 2, 3, 4, 5, 6},
 				ClientIPAddr:   []byte{0, 0, 0, 0},
 				YourIPAddr:     []byte{0, 0, 0, 0},
@@ -136,6 +145,7 @@ func TestHandle(t *testing.T) {
 					dhcpv4.OptClassIdentifier("PXEClient"),
 					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}),
 					dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{6: []byte{8}}.ToBytes()),
+					dhcpv4.OptGeneric(dhcpv4.OptionPXELinuxConfigFile, []byte("pxelinux.cfg/01-01-02-03-04-05-06")),
 				),
 			},
 			wantErr: false,
@@ -149,6 +159,7 @@ func TestHandle(t *testing.T) {
 			},
 			pkt: &dhcpv4.DHCPv4{
 				OpCode:       dhcpv4.OpcodeBootRequest,
+				HWType:       iana.HWTypeEthernet,
 				ClientHWAddr: []byte{1, 2, 3, 4, 5, 6},
 				Options: dhcpv4.OptionsFromList(
 					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
@@ -163,6 +174,7 @@ func TestHandle(t *testing.T) {
 			md:   &dhcp.Metadata{IfName: lo.Name, IfIndex: lo.Index},
 			want: &dhcpv4.DHCPv4{
 				OpCode:         dhcpv4.OpcodeBootReply,
+				HWType:         iana.HWTypeEthernet,
 				ClientHWAddr:   []byte{1, 2, 3, 4, 5, 6},
 				ClientIPAddr:   []byte{0, 0, 0, 0},
 				YourIPAddr:     []byte{0, 0, 0, 0},
@@ -176,6 +188,7 @@ func TestHandle(t *testing.T) {
 					dhcpv4.OptClassIdentifier("PXEClient"),
 					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}),
 					dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{6: []byte{8}}.ToBytes()),
+					dhcpv4.OptGeneric(dhcpv4.OptionPXELinuxConfigFile, []byte("pxelinux.cfg/01-01-02-03-04-05-06")),
 				),
 			},
 			wantErr: false,
@@ -189,6 +202,7 @@ func TestHandle(t *testing.T) {
 			},
 			pkt: &dhcpv4.DHCPv4{
 				OpCode:       dhcpv4.OpcodeBootRequest,
+				HWType:       iana.HWTypeEthernet,
 				ClientHWAddr: []byte{1, 2, 3, 4, 5, 6},
 				Options: dhcpv4.OptionsFromList(
 					dhcpv4.OptMessageType(dhcpv4.MessageTypeRequest),
@@ -202,6 +216,7 @@ func TestHandle(t *testing.T) {
 			md:   &dhcp.Metadata{IfName: lo.Name, IfIndex: lo.Index},
 			want: &dhcpv4.DHCPv4{
 				OpCode:         dhcpv4.OpcodeBootReply,
+				HWType:         iana.HWTypeEthernet,
 				ClientHWAddr:   []byte{1, 2, 3, 4, 5, 6},
 				ClientIPAddr:   []byte{0, 0, 0, 0},
 				YourIPAddr:     []byte{0, 0, 0, 0},
@@ -215,6 +230,7 @@ func TestHandle(t *testing.T) {
 					dhcpv4.OptClassIdentifier("PXEClient"),
 					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}),
 					dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{6: []byte{8}}.ToBytes()),
+					dhcpv4.OptGeneric(dhcpv4.OptionPXELinuxConfigFile, []byte("pxelinux.cfg/01-01-02-03-04-05-06")),
 				),
 			},
 			wantErr: false,
@@ -228,6 +244,7 @@ func TestHandle(t *testing.T) {
 			},
 			pkt: &dhcpv4.DHCPv4{
 				OpCode:       dhcpv4.OpcodeBootRequest,
+				HWType:       iana.HWTypeEthernet,
 				ClientHWAddr: []byte{1, 2, 3, 4, 5, 6},
 				Options: dhcpv4.OptionsFromList(
 					dhcpv4.OptMessageType(dhcpv4.MessageTypeRequest),
@@ -241,6 +258,7 @@ func TestHandle(t *testing.T) {
 			md:   &dhcp.Metadata{IfName: lo.Name, IfIndex: lo.Index},
 			want: &dhcpv4.DHCPv4{
 				OpCode:         dhcpv4.OpcodeBootReply,
+				HWType:         iana.HWTypeEthernet,
 				ClientHWAddr:   []byte{1, 2, 3, 4, 5, 6},
 				ClientIPAddr:   []byte{0, 0, 0, 0},
 				YourIPAddr:     []byte{0, 0, 0, 0},
@@ -254,6 +272,7 @@ func TestHandle(t *testing.T) {
 					dhcpv4.OptClassIdentifier("PXEClient"),
 					dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}),
 					dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{6: []byte{8}}.ToBytes()),
+					dhcpv4.OptGeneric(dhcpv4.OptionPXELinuxConfigFile, []byte("pxelinux.cfg/01-01-02-03-04-05-06")),
 				),
 			},
 			wantErr: false,

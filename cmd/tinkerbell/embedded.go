@@ -1,5 +1,4 @@
 //go:build embedded
-// +build embedded
 
 package main
 
@@ -19,6 +18,13 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Store references to kube-apiserver flag values that conflict with global flags
+var (
+	bindAddrValue    pflag.Value
+	tlsCertFileValue pflag.Value
+	tlsKeyFileValue  pflag.Value
+)
+
 func init() {
 	// defaults for etcd
 	ecfg := embed.NewConfig()
@@ -36,7 +42,7 @@ func init() {
 	flag.RegisterEtcd(&flag.Set{FlagSet: efs}, ec)
 	embeddedFlagSet = efs
 	apiserverFS, runFunc := apiserver.ConfigAndFlags(&kac.DisableLogging)
-	apiserverFS.VisitAll(kubeAPIServerFlags(kaffs))
+	apiserverFS.VisitAll(kubeAPIServerFlags(kaffs, kac))
 
 	// register the run command
 	embeddedApiserverExecute = runFunc
@@ -70,13 +76,30 @@ func init() {
 	}
 }
 
-func kubeAPIServerFlags(kaffs *ff.FlagSet) func(*pflag.Flag) {
+func kubeAPIServerFlags(kaffs *ff.FlagSet, _ *flag.EmbeddedKubeAPIServerConfig) func(*pflag.Flag) {
 	return func(f *pflag.Flag) {
 		// help and v already exist in the global flags defined above so we skip them
 		// here to avoid duplicate flag errors.
 		if f.Name == "help" || f.Name == "v" {
 			return
 		}
+
+		// For critical flags that conflict with global flags, we'll set their values
+		// from the global config after parsing, so we skip adding them to avoid duplicates
+		// but store a reference to the Value so we can set it later
+		if f.Name == "bind-address" || f.Name == "tls-cert-file" || f.Name == "tls-key-file" {
+			// Store the pflag.Value so we can set it from global config later
+			switch f.Name {
+			case "bind-address":
+				bindAddrValue = f.Value
+			case "tls-cert-file":
+				tlsCertFileValue = f.Value
+			case "tls-key-file":
+				tlsKeyFileValue = f.Value
+			}
+			return
+		}
+
 		fc := ff.FlagConfig{
 			LongName: f.Name,
 			Usage:    f.Usage,
@@ -127,4 +150,34 @@ func zapLogger(level int) *zap.Logger {
 	}
 
 	return logger.Named("etcd")
+}
+
+// SetKubeAPIServerConfigFromGlobals configures the kube-apiserver flags from global config.
+// This must be called after flag parsing but before starting the API server.
+func SetKubeAPIServerConfigFromGlobals(bindAddr, tlsCertFile, tlsKeyFile string) error {
+	// Set bind address if provided
+	if bindAddrValue != nil && bindAddr != "" {
+		if err := bindAddrValue.Set(bindAddr); err != nil {
+			return fmt.Errorf("failed to set bind-address: %w", err)
+		}
+	}
+
+	// Set TLS cert file if provided
+	if tlsCertFileValue != nil && tlsCertFile != "" {
+		if err := tlsCertFileValue.Set(tlsCertFile); err != nil {
+			return fmt.Errorf("failed to set tls-cert-file: %w", err)
+		}
+	}
+
+	// Set TLS key file if provided
+	if tlsKeyFileValue != nil && tlsKeyFile != "" {
+		if err := tlsKeyFileValue.Set(tlsKeyFile); err != nil {
+			return fmt.Errorf("failed to set tls-key-file: %w", err)
+		}
+	}
+
+	// Note: If TLS cert/key are not provided, kube-apiserver will generate self-signed certificates
+	// automatically. This is normal for embedded deployments.
+
+	return nil
 }

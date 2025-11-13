@@ -9,94 +9,94 @@ option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
 /*
  * ActionStatusRequest is the state of a single Workflow Action
  */
- message ActionStatusRequest {
-    /*
-     * The workflow id
-     */
-    string workflow_id = 1;
-    /*
-     * The agent id
-     */
-    string agent_id = 2;
-    /*
-     * The name of the task this action is part of
-     */
-    string task_id = 3;
-    /*
-     * The action id
-     */
-    string action_id = 4;
-    /*
-     * The name of the action
-     */
-    string action_name = 5;
-    /*
-     * The state of the action. Those are the same described for workflow as
-     * well. pending, running, successful and so on.
-     */
-    StateType action_state = 6;
-    /*
+message ActionStatusRequest {
+  /*
+   * The workflow id
+   */
+  string workflow_id = 1;
+  /*
+   * The agent id
+   */
+  string agent_id = 2;
+  /*
+   * The name of the task this action is part of
+   */
+  string task_id = 3;
+  /*
+   * The action id
+   */
+  string action_id = 4;
+  /*
+   * The name of the action
+   */
+  string action_name = 5;
+  /*
+   * The state of the action. Those are the same described for workflow as
+   * well. pending, running, successful and so on.
+   */
+  StateType action_state = 6;
+  /*
      This is the time when the action started the execution
-     */
-    google.protobuf.Timestamp execution_start = 7;
-    /*
-     * This is the time when the action stopped the execution
-     */
-    google.protobuf.Timestamp execution_stop = 8;
-    /*
-     * The execution duration time for the action
-     */
-    string execution_duration = 9;
-    /*
-     * The message returned from the action.
-     */
-    ActionMessage message = 10;
+  */
+  google.protobuf.Timestamp execution_start = 7;
+  /*
+   * This is the time when the action stopped the execution
+   */
+  google.protobuf.Timestamp execution_stop = 8;
+  /*
+   * The execution duration time for the action
+   */
+  string execution_duration = 9;
+  /*
+   * The message returned from the action.
+   */
+  ActionMessage message = 10;
 
+  /*
+   * The various state a workflow can be
+   */
+  enum StateType {
     /*
-     * The various state a workflow can be
+     * Unspecified is the default state of a workflow. It means that the state of
+     * the workflow is not known.
      */
-    enum StateType {
-      /*
-       * Unspecified is the default state of a workflow. It means that the state of
-       * the workflow is not known.
-       */
-      UNSPECIFIED = 0;
-      /*
-       * A workflow is in pending state when it is waiting for the hardware to pick
-       * it up and start the execution.
-      */
-      PENDING = 1;
-      /*
-       * A workflow is in a running state when the Agent started the
-       * execution of it, and it is currently in execution inside the device
-       * itself.
-       */
-      RUNNING = 2;
-      /*
-       * Failed is a final state. Something wrong happened during the execution of
-       * the workflow inside the target. Have a look at the logs to see if you can
-       * spot what is going on.
-       */
-      FAILED = 3;
-      /*
-       * Timeout is final state, almost like FAILED but it communicate to you that
-       * an action or the overall workflow reached the specified timeout.
-       */
-      TIMEOUT = 4;
-      /*
-       * This is the state we all deserve. The execution of the workflow is over
-       * and everything is just fine. Sit down, and enjoy your great work.
-       */
-      SUCCESS = 5;
-    }
+    UNSPECIFIED = 0;
+    /*
+     * A workflow is in pending state when it is waiting for the hardware to pick
+     * it up and start the execution.
+     */
+    PENDING = 1;
+    /*
+     * A workflow is in a running state when the Agent started the
+     * execution of it, and it is currently in execution inside the device
+     * itself.
+     */
+    RUNNING = 2;
+    /*
+     * Failed is a final state. Something wrong happened during the execution of
+     * the workflow inside the target. Have a look at the logs to see if you can
+     * spot what is going on.
+     */
+    FAILED = 3;
+    /*
+     * Timeout is final state, almost like FAILED but it communicate to you that
+     * an action or the overall workflow reached the specified timeout.
+     */
+    TIMEOUT = 4;
+    /*
+     * This is the state we all deserve. The execution of the workflow is over
+     * and everything is just fine. Sit down, and enjoy your great work.
+     */
+    SUCCESS = 5;
   }
+}
 
 /*
  * ActionMessage to report the status of a single action, it's an object so it can be extended
  */
 message ActionMessage {
-    /*
-     * Message is the human readable message that can be used to describe the status of the action
-     */
-    string message = 1;
+  /*
+   * Message is the human readable message that can be used to describe the status of the action
+   */
+  string message = 1;
 }
