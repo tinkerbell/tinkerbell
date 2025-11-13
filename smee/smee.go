@@ -361,7 +361,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		}
 		tftpHandler := binary.TFTP{
 			Log:                  log,
-			EnableTFTPSinglePort: true,
+			EnableTFTPSinglePort: false,
 			Addr:                 addrPort,
 			Timeout:              c.TFTP.Timeout,
 			Patch:                []byte(c.IPXE.EmbeddedScriptPatch),
