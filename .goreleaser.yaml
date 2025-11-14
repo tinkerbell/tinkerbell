@@ -1,7 +1,5 @@
 version: 2
 
-project_name: ""
-
 env:
   - REGISTRY={{ envOrDefault "REGISTRY" "ghcr.io" }}
   - IS_RELEASE={{ envOrDefault "IS_RELEASE" "false" }}
