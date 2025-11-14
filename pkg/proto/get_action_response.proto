@@ -5,53 +5,52 @@ package proto;
 option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
 
 /*
- * ActionResponse 
+ * ActionResponse
  */
 message ActionResponse {
-   /* The workflow id */
-   string workflow_id = 1;
-   /* The name of the task to which the action belongs */
-   string task_id = 2;
-   /*
-    * agent_id is the id of the worker that is executing the action
-    */
-   string agent_id = 3;
-   /* Action id */
-   string action_id = 4;
-   /*
-    * The name of the action
-    */
-   string name = 5;
-   /*
-    * The docker/oci image the action starts from
-    */
-   string image = 6;
-   /*
-    * Every action has a timeout, after that the execution stops and the action
-    * gets in a timeout state.
-    */
-   int64 timeout = 7;
-   /*
-    * You can override the command executed for the container
-    */
-   repeated string command = 8;  
-   /*
-    * You can mount directory from your host to the running action, mainly to
-    * share files, or state
-    */
-   repeated string volumes = 9;
-   /*
-    * Set environment variables usable from the action itself.
-    */
-   repeated string environment = 10;
-   /*
-    * Set the namespace that the process IDs will be in.
-    */
-   string pid = 11;
+  /* The workflow id */
+  string workflow_id = 1;
+  /* The name of the task to which the action belongs */
+  string task_id = 2;
+  /*
+   * agent_id is the id of the worker that is executing the action
+   */
+  string agent_id = 3;
+  /* Action id */
+  string action_id = 4;
+  /*
+   * The name of the action
+   */
+  string name = 5;
+  /*
+   * The docker/oci image the action starts from
+   */
+  string image = 6;
+  /*
+   * Every action has a timeout, after that the execution stops and the action
+   * gets in a timeout state.
+   */
+  int64 timeout = 7;
+  /*
+   * You can override the command executed for the container
+   */
+  repeated string command = 8;
+  /*
+   * You can mount directory from your host to the running action, mainly to
+   * share files, or state
+   */
+  repeated string volumes = 9;
+  /*
+   * Set environment variables usable from the action itself.
+   */
+  repeated string environment = 10;
+  /*
+   * Set the namespace that the process IDs will be in.
+   */
+  string pid = 11;
 }
 
-
 enum PreconditionFailureViolation {
-   PRECONDITION_FAILURE_VIOLATION_UNSPECIFIED = 0;
-   PRECONDITION_FAILURE_VIOLATION_NO_ACTION_AVAILABLE = 1;
+  PRECONDITION_FAILURE_VIOLATION_UNSPECIFIED = 0;
+  PRECONDITION_FAILURE_VIOLATION_NO_ACTION_AVAILABLE = 1;
 }
