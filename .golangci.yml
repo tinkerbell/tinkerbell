@@ -1,9 +1,7 @@
 version: "2"
 run:
-  # The default runtime timeout is 1m, which doesn't work well on Github Actions.
-  timeout: 4m
+  allow-parallel-runners: true
 linters:
-  default: none
   enable:
     - asciicheck
     - bodyclose
@@ -12,20 +10,25 @@ linters:
     - dogsled
     - dupl
     - durationcheck
-    - errcheck
-    - errname
+    - err113
     - errorlint
     - exhaustive
+    - forbidigo
     - forcetypeassert
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
     - gocognit
     - goconst
     - gocritic
+    - gocyclo
+    - godot
     - goheader
+    - gomodguard
     - goprintffuncname
     - gosec
-    - govet
     - importas
-    - ineffassign
+    - lll
     - makezero
     - misspell
     - nakedret
@@ -33,6 +36,8 @@ linters:
     - nilerr
     - noctx
     - nolintlint
+    - paralleltest
+    - prealloc
     - predeclared
     - revive
     - rowserrcheck
@@ -42,117 +47,64 @@ linters:
     - tparallel
     - unconvert
     - unparam
-    - unused
     - wastedassign
     - whitespace
+    - wrapcheck
   settings:
-    cyclop:
-      max-complexity: 37
-      package-average: 34
-    dupl:
-      threshold: 200
-    errorlint:
-      # Forcing %w in error wrapping forces authors to make errors part of their package APIs. The decision to make
-      # an error part of a package API should be a conscious decision by the author.
-      # Also see Hyrums Law.
-      errorf: false
-      asserts: false
     exhaustive:
       default-signifies-exhaustive: true
-    gocognit:
-      min-complexity: 100
-    goconst:
-      min-len: 4
-      min-occurrences: 5
-    gosec:
-      excludes:
-        - G107 # Potential HTTP request made with variable url
-        - G204 # Subprocess launched with function call as argument or cmd arguments
-        - G404 # Use of weak random number generator (math/rand instead of crypto/rand
-    nestif:
-      min-complexity: 8
+    gomoddirectives:
+      replace-allow-list:
+        - sigs.k8s.io/cluster-api
+      replace-local: false
+      exclude-forbidden: false
+      retract-allow-no-explanation: false
+    importas:
+      alias:
+        - pkg: k8s.io/api/core/v1
+          alias: corev1
+        - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
+          alias: apiextensionsv1
+        - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+          alias: metav1
+        - pkg: k8s.io/apimachinery/pkg/api/errors
+          alias: apierrors
+        - pkg: k8s.io/apimachinery/pkg/util/errors
+          alias: kerrors
+        - pkg: sigs.k8s.io/controller-runtime
+          alias: ctrl
+      no-unaliased: true
     nolintlint:
-      require-explanation: true
+      require-explanation: false
       require-specific: true
       allow-unused: false
-    revive:
-      severity: warning
-      rules:
-        - name: atomic
-        - name: blank-imports
-        - name: bool-literal-in-expr
-        - name: confusing-naming
-        - name: constant-logical-expr
-        - name: context-as-argument
-        - name: context-keys-type
-        - name: deep-exit
-        - name: defer
-        - name: range-val-in-closure
-        - name: range-val-address
-        - name: dot-imports
-        - name: error-naming
-        - name: error-return
-        - name: error-strings
-        - name: errorf
-        - name: exported
-        - name: identical-branches
-        - name: if-return
-        - name: import-shadowing
-        - name: increment-decrement
-        - name: indent-error-flow
-        - name: indent-error-flow
-        - name: package-comments
-        - name: range
-        - name: receiver-naming
-        - name: redefines-builtin-id
-        - name: superfluous-else
-        - name: struct-tag
-        - name: time-naming
-        - name: unexported-naming
-        - name: unexported-return
-        - name: unnecessary-stmt
-        - name: unreachable-code
-        - name: unused-parameter
-        - name: var-declaration
-        - name: var-naming
-        - name: unconditional-recursion
-        - name: waitgroup-by-value
-        # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#struct-tag
-        - name: struct-tag
-          arguments:
-            - json,inline
-            - yaml,omitzero
-            - protobuf,casttype
+    staticcheck:
+      checks:
+        - all
+    tagliatelle:
+      case:
+        rules:
+          json: goCamel
+    unused:
+      field-writes-are-uses: true
+    lll:
+      # Max line length, lines longer will be reported.
+      # '\t' is counted as 1 character by default, and can be changed with the tab-width option.
+      # Default: 120.
+      line-length: 160
   exclusions:
     generated: lax
-    presets:
-      - comments
-      - common-false-positives
-      - legacy
-      - std-error-handling
     rules:
       - linters:
-          - dupl
-          - errcheck
-          - forcetypeassert
-          - gocyclo
-          - gosec
-          - noctx
-        path: _test\.go
+          - lll
+          - wsl_v5
+        source: '^// \+kubebuilder:'
       - linters:
-          # This check is of questionable value
-          - tparallel
-        text: call t.Parallel on the top level as well as its subtests
-      - linters:
-          - cyclop
-          - goconst
-        path: (.+)_test\.go
+          - lll
+        path: controller/*/(.+)_test.go
     paths:
-      - smee/internal/iso/internal/reverseproxy.go
-      - smee/internal/iso/internal/reverseproxy_test.go
-      - smee/internal/iso/internal/acsii.go
-      - smee/internal/iso/internal/acsii_test.go
-      - cmd/tinkerbell/flag/url.go
+      - zz_generated.*\.go$
+      - .*conversion.*\.go$
       - third_party$
       - builtin$
       - examples$
@@ -164,14 +116,25 @@ formatters:
     - gofmt
     - gofumpt
     - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/tinkerbell/cluster-api-provider-tinkerbell)
+        - blank
+        - dot
+        - alias
+        - localmodule
+      custom-order: true
+    goimports:
+      local-prefixes:
+        - github.com/tinkerbell/cluster-api-provider-tinkerbell
   exclusions:
     generated: lax
     paths:
-      - smee/internal/iso/internal/reverseproxy.go
-      - smee/internal/iso/internal/reverseproxy_test.go
-      - smee/internal/iso/internal/acsii.go
-      - smee/internal/iso/internal/acsii_test.go
-      - cmd/tinkerbell/flag/url.go
+      - zz_generated.*\.go$
+      - .*conversion.*\.go$
       - third_party$
       - builtin$
       - examples$
