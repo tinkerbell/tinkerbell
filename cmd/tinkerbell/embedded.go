@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ccoveille/go-safecast/v2"
+	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/spf13/pflag"
 	"github.com/tinkerbell/tinkerbell/apiserver"
@@ -36,7 +37,10 @@ func init() {
 	// register flags
 	kaffs := ff.NewFlagSet("embedded kube-apiserver")
 	kafs := &flag.Set{FlagSet: kaffs}
-	kac := &flag.EmbeddedKubeAPIServerConfig{}
+	kac := &flag.EmbeddedKubeAPIServerConfig{
+		TLSCertFile: "/certs/server.crt",
+		TLSKeyFile:  "/certs/server.key",
+	}
 	flag.RegisterKubeAPIServer(kafs, kac)
 	efs := ff.NewFlagSet("embedded etcd").SetParent(kaffs)
 	flag.RegisterEtcd(&flag.Set{FlagSet: efs}, ec)
@@ -44,8 +48,28 @@ func init() {
 	apiserverFS, runFunc := apiserver.ConfigAndFlags(&kac.DisableLogging)
 	apiserverFS.VisitAll(kubeAPIServerFlags(kaffs, kac))
 
-	// register the run command
-	embeddedApiserverExecute = runFunc
+	// register the run command with a wrapper that applies global config
+	embeddedApiserverExecute = func(ctx context.Context, log logr.Logger, bindAddr, tlsCertFile, tlsKeyFile string) error {
+		// Apply global configuration to kube-apiserver flags
+		if bindAddrValue != nil && bindAddr != "" {
+			if err := bindAddrValue.Set(bindAddr); err != nil {
+				return fmt.Errorf("failed to set bind-address: %w", err)
+			}
+		}
+		if tlsCertFileValue != nil && tlsCertFile != "" {
+			if err := tlsCertFileValue.Set(tlsCertFile); err != nil {
+				return fmt.Errorf("failed to set tls-cert-file: %w", err)
+			}
+		}
+		if tlsKeyFileValue != nil && tlsKeyFile != "" {
+			if err := tlsKeyFileValue.Set(tlsKeyFile); err != nil {
+				return fmt.Errorf("failed to set tls-key-file: %w", err)
+			}
+		}
+		// Note: If TLS cert/key are not provided, kube-apiserver will generate self-signed certificates
+		// automatically. This is normal for embedded deployments.
+		return runFunc(ctx, log)
+	}
 	embeddedKubeControllerManagerExecute = apiserver.Kubecontrollermanager
 	embeddedEtcdExecute = func(ctx context.Context, logLevel int) error {
 		ll := ternary((logLevel != 0), logLevel, ec.LogLevel)
@@ -150,34 +174,4 @@ func zapLogger(level int) *zap.Logger {
 	}
 
 	return logger.Named("etcd")
-}
-
-// SetKubeAPIServerConfigFromGlobals configures the kube-apiserver flags from global config.
-// This must be called after flag parsing but before starting the API server.
-func SetKubeAPIServerConfigFromGlobals(bindAddr, tlsCertFile, tlsKeyFile string) error {
-	// Set bind address if provided
-	if bindAddrValue != nil && bindAddr != "" {
-		if err := bindAddrValue.Set(bindAddr); err != nil {
-			return fmt.Errorf("failed to set bind-address: %w", err)
-		}
-	}
-
-	// Set TLS cert file if provided
-	if tlsCertFileValue != nil && tlsCertFile != "" {
-		if err := tlsCertFileValue.Set(tlsCertFile); err != nil {
-			return fmt.Errorf("failed to set tls-cert-file: %w", err)
-		}
-	}
-
-	// Set TLS key file if provided
-	if tlsKeyFileValue != nil && tlsKeyFile != "" {
-		if err := tlsKeyFileValue.Set(tlsKeyFile); err != nil {
-			return fmt.Errorf("failed to set tls-key-file: %w", err)
-		}
-	}
-
-	// Note: If TLS cert/key are not provided, kube-apiserver will generate self-signed certificates
-	// automatically. This is normal for embedded deployments.
-
-	return nil
 }
