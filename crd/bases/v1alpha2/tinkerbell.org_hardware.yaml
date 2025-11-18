@@ -21,11 +21,7 @@ spec:
     singular: hardware
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .status.state
-      name: State
-      type: string
-    name: v1alpha2
+  - name: v1alpha2
     schema:
       openAPIV3Schema:
         description: Hardware is the Schema for the Hardware API.
@@ -384,11 +380,6 @@ spec:
                   type: object
                 type: array
             type: object
-          status:
-            description: HardwareStatus defines the observed state of Hardware.
-            type: object
         type: object
     served: true
     storage: true
-    subresources:
-      status: {}
