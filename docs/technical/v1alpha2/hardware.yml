@@ -17,8 +17,8 @@ spec:
       ethernets:
         eth0:
           addresses:
-            - {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").dhcp.ipam.ipv4.address }}/{{ (index . "52:54:00:41:05:c6").dhcp.ipam.ipv4.prefix }}
-          gateway4: {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").dhcp.ipam.ipv4.gateway }}
+            - {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}/{{ (index . "52:54:00:41:05:c6").ipam.ipv4.prefix }}
+          gateway4: {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.gateway }}
           nameservers:
             addresses:
               - 8.8.8.8
@@ -56,55 +56,58 @@ spec:
               VENDOR_ID="my-provider-123"
   networkInterfaces:
     "52:54:00:41:05:c6":
-      dhcp:
-        ipam:
-          ipv4:
-            address: "192.168.1.100"
-            prefix: "24"
-            gateway: "192.168.1.1"
-          ipv6:
-            address: "2001:db8:1:1::"
-            prefix: "64"
-            gateway: "fe80::1"
-        hostname: "example"
-        domainName: "tinkerbell.org"
+      attributes:
+        arch: "x86_64"
+        ifaceName: "eno1"
+        uefi: true
         vlanID: "110"
-        nameservers:
-          - "1.1.1.1"
-        timeservers:
-          - "pool.ntp.org"
-          - "204.197.163.71"
-        leaseTimeSeconds: 86400
+      dhcp:
+        bootFileName: "ztp.json"
         classlessStaticRoutes:
           - destinationDescriptor: "192.168.1.0/24"
             router: "192.168.1.254"
+        domainName: "tinkerbell.org"
+        hostname: "example"
+        leaseTimeSeconds: 86400
+        nameservers:
+          - "1.1.1.1"
         tftpServerName: "192.168.2.2"
-        bootFileName: "ztp.json"
-        arch: "x86_64"
-        uefi: true
-        ifaceName: "eno1"
+        timeservers:
+          - "pool.ntp.org"
+          - "204.197.163.71"
+      disableDHCP: false
+      disableNetboot: false
+      ipam:
+        ipv4:
+          address: "192.168.1.100"
+          gateway: "192.168.1.1"
+          prefix: "24"
+        ipv6:
+          address: "2001:db8:1:1::"
+          gateway: "fe80::1"
+          prefix: "64"
+      isoboot:
+        sourceISO: "https://github.com/tinkerbell/hook/releases/download/v0.11.1/hook-latest-lts-x86_64-efi-initrd.iso"
       netboot:
         ipxe:
-          url: "https://boot.netboot.xyz"
+          binary: "snp-x86_64.efi"
           contents: |
             dhcp
             chain --autofree https://boot.netboot.xyz
-          binary: "snp-x86_64.efi"
+          url: "https://boot.netboot.xyz"
         osie:
           baseURL: "http://192.168.3.4:8080"
-          kernel: "my-custom-vmlinuz"
           initrd: "my-custominitrd"
-      isoboot:
-        sourceISO: "https://github.com/tinkerbell/hook/releases/download/v0.11.1/hook-latest-lts-x86_64-efi-initrd.iso"
+          kernel: "my-custom-vmlinuz"
   references:
     additional:
       "lvm":
+        group: "example.org"
         name: "example"
         namespace: "tinkerbell"
-        group: "example.org"
-        version: "v1"
         resource: "lvms"
-    builtins:
+        version: "v1"
+    builtin:
       bmc:
         name: "example"
         namespace: "tinkerbell"

@@ -310,8 +310,10 @@ spec:
                             with this Workflow.
                           properties:
                             name:
+                              description: Name of the object.
                               type: string
                             namespace:
+                              description: Namespace where the object resides.
                               type: string
                           type: object
                       type: object
@@ -326,8 +328,10 @@ spec:
                         Pipeline config.
                       properties:
                         name:
+                          description: Name of the object.
                           type: string
                         namespace:
+                          description: Namespace where the object resides.
                           type: string
                       type: object
                   type: object
