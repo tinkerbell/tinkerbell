@@ -45,6 +45,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 }
 
 type ConditionType string
+
 type ConditionStatus string
 
 const (
@@ -96,8 +97,6 @@ func HasConditionStatus(existingConditions []Condition, ct ConditionType, cs Con
 // This is a generic function that works with Machine, Task, and Job types.
 func SetCondition(existingConditions []Condition, toAdd Condition) []Condition {
 	if existingConditions == nil {
-		var empty []Condition
-		existingConditions = empty
 		existingConditions = []Condition{toAdd}
 		return existingConditions
 	}

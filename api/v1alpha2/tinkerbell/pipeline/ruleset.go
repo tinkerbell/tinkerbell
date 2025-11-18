@@ -12,7 +12,6 @@ type RuleSet struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec RuleSetSpec `json:"spec,omitempty"`
-	//Status RuleSetStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -61,5 +60,3 @@ type TemplateConfig struct {
 	// Ref is the name of an existing in cluster Template object to use in the Workflow.
 	Ref string `json:"ref,omitempty"`
 }
-
-type RuleSetStatus struct{}

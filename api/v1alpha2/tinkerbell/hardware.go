@@ -4,11 +4,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=hardware,scope=Namespaced,categories=tinkerbell,singular=hardware,shortName=hw
 // +kubebuilder:storageversion
-// +kubebuilder:printcolumn:JSONPath=".status.state",name=State,type=string
 // +kubebuilder:metadata:labels=clusterctl.cluster.x-k8s.io=
 // +kubebuilder:metadata:labels=clusterctl.cluster.x-k8s.io/move=
 
@@ -17,8 +15,7 @@ type Hardware struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HardwareSpec   `json:"spec,omitempty"`
-	Status HardwareStatus `json:"status,omitempty"`
+	Spec HardwareSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -347,10 +344,6 @@ type StorageDevice struct {
 	//	\dev\sda
 	//+optional
 	Name string `json:"name,omitempty"`
-}
-
-// HardwareStatus defines the observed state of Hardware.
-type HardwareStatus struct {
 }
 
 // AutoCapabilities defines the configuration for the automatic capabilities of this Hardware.
