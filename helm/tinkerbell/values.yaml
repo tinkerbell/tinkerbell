@@ -16,6 +16,7 @@ deployment:
   # It is not set because in the deployment.yaml a coalesce is used with this value
   # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
   agentImageTag:
+  annotations: {}
   daemonSet:
     enabled: false
   envs:
@@ -220,6 +221,8 @@ service:
       protocol: TCP
   selector:
     app: tinkerbell
+  sessionAffinity: None
+  sessionAffinityConfig: {}
   type: LoadBalancer
 trustedProxies: []
 

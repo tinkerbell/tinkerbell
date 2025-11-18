@@ -31,6 +31,10 @@ spec:
   {{- end }}
   template:
     metadata:
+      annotations:
+        {{- with .Values.deployment.annotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       labels:
         app: {{ .Values.name }}
         stack: tinkerbell

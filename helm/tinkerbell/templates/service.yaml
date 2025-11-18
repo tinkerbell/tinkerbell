@@ -21,6 +21,13 @@ spec:
   loadBalancerIP: {{ coalesce .Values.service.loadBalancerIP .Values.publicIP }}
   externalTrafficPolicy: Local
   {{- end }}
+  sessionAffinity: {{ .Values.service.sessionAffinity }}
+  {{- if .Values.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+    {{- with .Values.service.sessionAffinityConfig }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
   ports:
   {{- if .Values.deployment.envs.globals.enableSmee}}
   - port: {{ .Values.service.ports.dhcp.port }}
