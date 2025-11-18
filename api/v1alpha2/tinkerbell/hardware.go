@@ -72,7 +72,31 @@ type Instance struct {
 	// +optional
 	KernelParams []string `json:"kernelParams,omitempty"`
 
-	// NetworkData is data following the cloud-init nocloud datasource for network data.
+	// Metadata is data following the cloud-init NoCloud datasource for meta-data
+	//
+	// https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#meta-data
+	//
+	// This string can be templated with values from the Hardware object by using the
+	// standard Go templating format, https://pkg.go.dev/text/template.
+	// Always start with ".hardware", then use dot notation to the desired key.
+	//
+	// {{ .hardware.location.to.a.key.in.the.spec }}
+	//
+	// For example:
+	// Reference the first ssh key in the list:
+	// {{ .hardware.instance.sshKeys[0] }}
+	//
+	// or
+	//
+	// Reference the IPv4 address of a network interface:
+	// {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").dhcp.ipam.ipv4.address }}
+	// +optional
+	Metadata *string `json:"metadata,omitempty"`
+
+	// NetworkConfig is config following the cloud-init NoCloud datasource for network configuration.
+	//
+	// https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#network-config
+	//
 	// This string can be templated with values from the Hardware object by using the
 	// standard Go templating format, https://pkg.go.dev/text/template.
 	// Always start with ".hardware", then use dot notation to the desired key.
@@ -93,7 +117,10 @@ type Instance struct {
 	// SSHKeys are public SSH keys associated with this Hardware.
 	SSHKeys []string `json:"sshKeys,omitempty"`
 
-	// Userdata is data with a structure understood by the producer and consumer of the data.
+	// Userdata is data following the cloud-init NoCloud datasource for user-data.
+	//
+	// https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#user-data
+	//
 	// This string can be templated with values from the Hardware object by using the
 	// standard Go templating format, https://pkg.go.dev/text/template.
 	// Always start with ".hardware", then use dot notation to the desired key.
@@ -111,7 +138,10 @@ type Instance struct {
 	// +optional
 	Userdata *string `json:"userdata,omitempty"`
 
-	// Vendordata is data with a structure understood by the producer and consumer of the data.
+	// Vendordata is data following the cloud-init NoCloud datasource for vendor-data.
+	//
+	// https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#vendor-data
+	//
 	// This string can be templated with values from the Hardware object by using the
 	// standard Go templating format, https://pkg.go.dev/text/template.
 	// Always start with ".hardware", then use dot notation to the desired key.

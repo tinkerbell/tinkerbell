@@ -29,20 +29,20 @@ type WorkflowList struct {
 
 // WorkflowSpec defines the desired state of Workflow.
 type WorkflowSpec struct {
-	// Name is a human readable name for the Workflow.
-	Name string `json:"name"`
-
 	// Actions that the Workflow runs.
 	Actions []Action `json:"actions"`
-
-	// Volumes defined here are added to all Actions in the Workfow.
-	Volumes []Volume `json:"volumes,omitempty"`
 
 	// Environment variables here are added to all Action in the Workflow.
 	Environment []Environment `json:"environment,omitempty"`
 
+	// Name is a human readable name for the Workflow.
+	Name string `json:"name"`
+
 	// TimeoutSeconds applied to the Workflow.
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+
+	// Volumes defined here are added to all Actions in the Workfow.
+	Volumes []Volume `json:"volumes,omitempty"`
 }
 
 // Action represents a workflow action.

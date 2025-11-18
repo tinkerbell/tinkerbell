@@ -533,6 +533,11 @@ func (in *Instance) DeepCopyInto(out *Instance) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.Metadata != nil {
+		in, out := &in.Metadata, &out.Metadata
+		*out = new(string)
+		**out = **in
+	}
 	if in.NetworkConfig != nil {
 		in, out := &in.NetworkConfig, &out.NetworkConfig
 		*out = new(string)
@@ -1060,11 +1065,6 @@ func (in *WorkflowSpec) DeepCopyInto(out *WorkflowSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.Volumes != nil {
-		in, out := &in.Volumes, &out.Volumes
-		*out = make([]Volume, len(*in))
-		copy(*out, *in)
-	}
 	if in.Environment != nil {
 		in, out := &in.Environment, &out.Environment
 		*out = make([]Environment, len(*in))
@@ -1074,6 +1074,11 @@ func (in *WorkflowSpec) DeepCopyInto(out *WorkflowSpec) {
 		in, out := &in.TimeoutSeconds, &out.TimeoutSeconds
 		*out = new(int64)
 		**out = **in
+	}
+	if in.Volumes != nil {
+		in, out := &in.Volumes, &out.Volumes
+		*out = make([]Volume, len(*in))
+		copy(*out, *in)
 	}
 }
 
