@@ -168,6 +168,15 @@ func tryServeAssetFromHardware(filename string, client net.UDPAddr, rf io.Reader
 	inputFnLength := len(full)
 	if inputFnLength < pxelinuxFullMACPrefixLen || full[0:pxelinuxFullMACPrefixLen] != pxelinuxFullMACPrefix {
 		log.Info("pxelinux.cfg request does not match prefix", "full", full)
+
+		// detour, again; if it's not a pxelinux.cfg request, it might be a RaspberryPi doing it's EEPROM "netboot" requests
+		// eg full = "196f8c53/start4.elf" where 196f8c53 the Broadcom serial# - NOT the MAC address
+		// example from rpi docs:                9ffefdef so 8 bytes
+		// the idea is to have the Hardware PXELinux have a field for the rpi serial#, plus a target prefix that
+		// would serve assets from disk. Eg map "196f8c53" to prefix "rpi/rpi4b/" and serve "rpi/rpi4b/start4.elf" from disk
+		// Templating/having 196f8c53/config.txt in the Hardware might be convenient as well.
+		// All this is on-hold pending mainline kernel/u-boot support for the RPi5's new Cadence MACB Ethernet to land. (it's already in kernel)
+
 		return false, nil // didn't try to serve, "next!"
 	}
 
