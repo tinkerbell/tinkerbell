@@ -101,9 +101,8 @@ spec:
             chain --autofree https://boot.netboot.xyz
           url: "https://boot.netboot.xyz"
         osie:
-          baseURL: "http://192.168.3.4:8080"
-          initrd: "my-custominitrd"
-          kernel: "my-custom-vmlinuz"
+          initrdURL: "http://192.168.3.4:8080/my-custominitrd"
+          kernelURL: "http://192.168.3.4:8080/my-custom-vmlinuz"
   references:
     additional:
       "lvm":
