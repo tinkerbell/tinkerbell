@@ -5,7 +5,6 @@ metadata:
   name: example
   namespace: tinkerbell
 spec:
-  name: example
   actions:
     - name: "action 1"
       image: "alpine"
@@ -22,9 +21,10 @@ spec:
         pid: "1"
       retries: 4
       timeoutSeconds: 120
-  volumes:
-    - "/etc/data:/data:ro"
   environment:
     - key: "one"
       value: "1"
+  name: example
   timeoutSeconds: 600
+  volumes:
+    - "/etc/data:/data:ro"

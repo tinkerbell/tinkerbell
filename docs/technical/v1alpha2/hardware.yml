@@ -11,6 +11,11 @@ spec:
   instance:
     kernelParams:
       - "console=ttyS2"
+    metadata: |
+      instance-id: iid-local01
+      local-hostname: my-nocloud-vm
+      hostname: my-nocloud-vm
+      cloud-name: nocloud
     networkConfig: |
       network:
       version: 2
