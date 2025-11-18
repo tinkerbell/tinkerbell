@@ -83,7 +83,9 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 		return nil, err
 	}
 
-	bmc.AddToScheme(rs)
+	if err := bmc.AddToScheme(rs); err != nil {
+		return nil, err
+	}
 
 	if err := api.AddToSchemeBMC(rs); err != nil {
 		return nil, err
