@@ -332,12 +332,11 @@ type IPXE struct {
 
 // OSIE configuration.
 type OSIE struct {
-	// BaseURL where OSIE kernel and initrd are hosted.
-	BaseURL string `json:"baseURL,omitempty"`
-	// Initrd name of the OSIE.
-	Initrd string `json:"initrd,omitempty"`
-	// Kernel name of the OSIE.
-	Kernel string `json:"kernel,omitempty"`
+	// InitrdURL is a URL to an initrd image.
+	InitrdURL string `json:"initrdURL,omitempty"`
+
+	// KernelURL is a URL to a kernel image.
+	KernelURL string `json:"kernelURL,omitempty"`
 }
 
 // References
