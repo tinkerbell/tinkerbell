@@ -343,15 +343,11 @@ spec:
                           description: OSIE (Operating System Installation Environment)
                             configuration.
                           properties:
-                            baseURL:
-                              description: BaseURL where OSIE kernel and initrd are
-                                hosted.
+                            initrdURL:
+                              description: InitrdURL is a URL to an initrd image.
                               type: string
-                            initrd:
-                              description: Initrd name of the OSIE.
-                              type: string
-                            kernel:
-                              description: Kernel name of the OSIE.
+                            kernelURL:
+                              description: KernelURL is a URL to a kernel image.
                               type: string
                           type: object
                       type: object
