@@ -53,7 +53,10 @@ spec:
                   It is typically the MAC address of the primary network interface.
                 type: string
               attributes:
-                description: Attributes related to the Hardware.
+                description: |-
+                  Attributes related to Hardware. These are attributes that are needed/used to make logical decisions
+                  around builtin capabilities. For example, the Arch determines which OSIE files to server (x86_64 or aarch64).
+                  The UEFI boolean us needed/used to determine options in IPMI calls.
                 properties:
                   arch:
                     description: |-
@@ -65,7 +68,8 @@ spec:
                     type: boolean
                 type: object
               auto:
-                description: Auto is the configuration for the automatic capabilities.
+                description: AutoCapabilities defines the configuration for the automatic
+                  capabilities of this Hardware.
                 properties:
                   enrollmentEnabled:
                     default: false
@@ -75,8 +79,8 @@ spec:
                     type: boolean
                 type: object
               instance:
-                description: Instance describes instance specific data that is generally
-                  unused by Tinkerbell core.
+                description: Instance describes data that is less permanent than any
+                  physical attributes of the Hardware.
                 properties:
                   metadata:
                     description: |-

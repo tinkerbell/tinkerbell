@@ -35,13 +35,15 @@ type HardwareSpec struct {
 	// It is typically the MAC address of the primary network interface.
 	AgentID string `json:"agentID,omitempty"`
 
-	// Attributes related to the Hardware.
+	// Attributes related to Hardware. These are attributes that are needed/used to make logical decisions
+	// around builtin capabilities. For example, the Arch determines which OSIE files to server (x86_64 or aarch64).
+	// The UEFI boolean us needed/used to determine options in IPMI calls.
 	Attributes *Attributes `json:"attributes,omitempty"`
 
-	// Auto is the configuration for the automatic capabilities.
+	// AutoCapabilities defines the configuration for the automatic capabilities of this Hardware.
 	Auto AutoCapabilities `json:"auto,omitempty"`
 
-	// Instance describes instance specific data that is generally unused by Tinkerbell core.
+	// Instance describes data that is less permanent than any physical attributes of the Hardware.
 	// +optional
 	Instance *Instance `json:"instance,omitempty"`
 
@@ -60,7 +62,9 @@ type HardwareSpec struct {
 	StorageDevices []StorageDevice `json:"storageDevices,omitempty"`
 }
 
-// Attributes related to a network interface.
+// Attributes related to Hardware. These are attributes that are needed/used to make logical decisions
+// around builtin capabilities. For example, the Arch determines which OSIE files to server (x86_64 or aarch64).
+// The UEFI boolean us needed/used to determine options in IPMI calls.
 type Attributes struct {
 	// Arch represents the Hardware's architecture type.
 	// For example; x86_64 or aarch64
@@ -198,8 +202,7 @@ type NetworkInterface struct {
 	Netboot *Netboot `json:"netboot,omitempty"`
 }
 
-// DHCP describes basic network configuration to be served in DHCP OFFER responses. It can be
-// considered a DHCP reservation.
+// DHCP describes basic network configuration to be served in DHCP responses.
 // +kubebuilder:validation:XValidation:rule=(has(self.tftpServerName) && self.tftpServerName != "") == (has(self.bootFileName) && self.bootFileName != ""),message="TFTPServerName and BootFileName must both be specified or both be empty"
 type DHCP struct {
 	// BootFileName is the boot file name. DHCP option 67.
