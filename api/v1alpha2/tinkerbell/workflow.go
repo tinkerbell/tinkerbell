@@ -14,8 +14,7 @@ type Workflow struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   WorkflowSpec   `json:"spec,omitempty"`
-	Status WorkflowStatus `json:"status,omitempty"`
+	Spec WorkflowSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -24,7 +23,8 @@ type Workflow struct {
 type WorkflowList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Workflow `json:"items"`
+
+	Items []Workflow `json:"items"`
 }
 
 // WorkflowSpec defines the desired state of Workflow.
@@ -33,53 +33,58 @@ type WorkflowSpec struct {
 	Actions []Action `json:"actions"`
 
 	// Environment variables here are added to all Action in the Workflow.
+	// +optional
 	Environment []Environment `json:"environment,omitempty"`
 
 	// Name is a human readable name for the Workflow.
 	Name string `json:"name"`
 
 	// TimeoutSeconds applied to the Workflow.
+	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
 	// Volumes defined here are added to all Actions in the Workfow.
+	// +optional
 	Volumes []Volume `json:"volumes,omitempty"`
 }
 
-// Action represents a workflow action.
+// Action represents a Workflow Action.
 type Action struct {
-	// Name is a name for the action.
+	// Name is a human readable name for the Action.
 	Name string `json:"name" yaml:"name"`
 
-	// Image is an OCI image.
+	// Image is an OCI image. Should generally be a fully qualified OCI image reference.
+	// For example, quay.io/tinkerbell/actions/image2disk:v1.0.0
 	Image string `json:"image" yaml:"image"`
 
-	// Cmd defines the command to use when launching the image. It overrides the default command
-	// of the Action image. It must be a unix path to an executable program.
+	// Command defines the command to use when launching the image. It overrides the default command
+	// of the Action image. It must be a unix path to an executable program. When omited, the image's
+	// default command/entrypoint is used.
 	// +kubebuilder:validation:Pattern=`^(/[^/ ]*)+/?$`
 	// +optional
 	Command string `json:"command,omitempty,omitzero" yaml:"command,omitempty,omitzero"`
 
-	// Args are a set of arguments to be passed to the command executed by the container on
-	// launch.
+	// Args are a set of arguments to be passed to the command executed by the container on launch.
 	// +optional
 	Args []string `json:"args,omitempty,omitzero" yaml:"args,omitempty,omitzero"`
 
-	// Environment defines environment variables that will be available inside an Action container.
+	// Environment defines environment variables that will be available inside a container.
 	//+optional
 	Environment []Environment `json:"environment,omitempty,omitzero" yaml:"environment,omitempty,omitzero"`
 
-	// Volumes defines the volumes to mount into the container.
+	// Volumes defines the volumes that will be mounted into the container.
 	// +optional
 	Volumes []Volume `json:"volumes,omitempty,omitzero" yaml:"volumes,omitempty,omitzero"`
 
-	// Namespaces defines the Linux namespaces this container should execute in.
+	// Namespaces defines the Linux namespaces with which the container should configured.
 	// +optional
 	Namespaces Namespaces `json:"namespaces,omitempty,omitzero" yaml:"namespaces,omitempty,omitzero"`
 
-	// Retries is the number of times the Action should be run when completed unsuccessfully.
+	// Retries is the number of times the Action should be run until completed successfully.
 	Retries int `json:"retries,omitempty,omitzero" yaml:"retries,omitempty,omitzero"`
 
-	// TimeoutSeconds in seconds for this Action to complete.
+	// TimeoutSeconds is the total number of seconds the Action is allowed to run without completing
+	// before marking it as timed out.
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty,omitzero" yaml:"timeoutSeconds,omitempty,omitzero"`
 }
 
@@ -118,6 +123,3 @@ type Namespaces struct {
 	// +optional
 	PID string `json:"pid,omitempty,omitzero" yaml:"pid,omitempty,omitzero"`
 }
-
-// WorkflowStatus defines the observed state of Workflow.
-type WorkflowStatus struct{}
