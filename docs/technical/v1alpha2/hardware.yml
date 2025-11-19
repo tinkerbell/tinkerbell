@@ -99,6 +99,7 @@ spec:
         ipxe:
           binary: "snp-x86_64.efi"
           contents: |
+            #!ipxe
             dhcp
             chain --autofree https://boot.netboot.xyz
           url: "https://boot.netboot.xyz"
