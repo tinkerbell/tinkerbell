@@ -46,24 +46,24 @@ spec:
               actions:
                 description: Actions that the Workflow runs.
                 items:
-                  description: Action represents a workflow action.
+                  description: Action represents a Workflow Action.
                   properties:
                     args:
-                      description: |-
-                        Args are a set of arguments to be passed to the command executed by the container on
-                        launch.
+                      description: Args are a set of arguments to be passed to the
+                        command executed by the container on launch.
                       items:
                         type: string
                       type: array
                     command:
                       description: |-
-                        Cmd defines the command to use when launching the image. It overrides the default command
-                        of the Action image. It must be a unix path to an executable program.
+                        Command defines the command to use when launching the image. It overrides the default command
+                        of the Action image. It must be a unix path to an executable program. When omited, the image's
+                        default command/entrypoint is used.
                       pattern: ^(/[^/ ]*)+/?$
                       type: string
                     environment:
                       description: Environment defines environment variables that
-                        will be available inside an Action container.
+                        will be available inside a container.
                       items:
                         description: Environment defines environmental variables.
                         properties:
@@ -79,14 +79,16 @@ spec:
                         type: object
                       type: array
                     image:
-                      description: Image is an OCI image.
+                      description: |-
+                        Image is an OCI image. Should generally be a fully qualified OCI image reference.
+                        For example, quay.io/tinkerbell/actions/image2disk:v1.0.0
                       type: string
                     name:
-                      description: Name is a name for the action.
+                      description: Name is a human readable name for the Action.
                       type: string
                     namespaces:
-                      description: Namespaces defines the Linux namespaces this container
-                        should execute in.
+                      description: Namespaces defines the Linux namespaces with which
+                        the container should configured.
                       properties:
                         network:
                           description: Network defines the network namespace.
@@ -97,14 +99,17 @@ spec:
                       type: object
                     retries:
                       description: Retries is the number of times the Action should
-                        be run when completed unsuccessfully.
+                        be run until completed successfully.
                       type: integer
                     timeoutSeconds:
-                      description: TimeoutSeconds in seconds for this Action to complete.
+                      description: |-
+                        TimeoutSeconds is the total number of seconds the Action is allowed to run without completing
+                        before marking it as timed out.
                       format: int64
                       type: integer
                     volumes:
-                      description: Volumes defines the volumes to mount into the container.
+                      description: Volumes defines the volumes that will be mounted
+                        into the container.
                       items:
                         description: "Volume is a specification for mounting a location
                           on a Host into an Action container.\nVolumes take the form
@@ -161,9 +166,6 @@ spec:
             required:
             - actions
             - name
-            type: object
-          status:
-            description: WorkflowStatus defines the observed state of Workflow.
             type: object
         type: object
     served: true
