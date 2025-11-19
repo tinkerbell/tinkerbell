@@ -8,9 +8,10 @@ spec:
   agentID: "1234"
   auto:
     enrollmentEnabled: false
+  attributes:
+    arch: "x86_64"
+    uefi: true
   instance:
-    kernelParams:
-      - "console=ttyS2"
     metadata: |
       instance-id: iid-local01
       local-hostname: my-nocloud-vm
@@ -29,6 +30,11 @@ spec:
               - 8.8.8.8
               - 8.8.4.4
           dhcp4: false
+    osie:
+      initrdURL: "http://192.168.3.4:8080/my-custominitrd"
+      kernelParams:
+        - "console=ttyS2"
+      kernelURL: "http://192.168.3.4:8080/my-custom-vmlinuz"
     sshKeys:
       - "ssh-rsa AAAAB3NzaC1yc2E..."
     userdata: |
@@ -61,16 +67,12 @@ spec:
               VENDOR_ID="my-provider-123"
   networkInterfaces:
     "52:54:00:41:05:c6":
-      attributes:
-        arch: "x86_64"
-        ifaceName: "eno1"
-        uefi: true
-        vlanID: "110"
       dhcp:
         bootFileName: "ztp.json"
         classlessStaticRoutes:
           - destinationDescriptor: "192.168.1.0/24"
             router: "192.168.1.254"
+        disabled: false
         domainName: "tinkerbell.org"
         hostname: "example"
         leaseTimeSeconds: 86400
@@ -80,8 +82,7 @@ spec:
         timeservers:
           - "pool.ntp.org"
           - "204.197.163.71"
-      disableDHCP: false
-      disableNetboot: false
+        vlanID: "110"
       ipam:
         ipv4:
           address: "192.168.1.100"
@@ -94,15 +95,13 @@ spec:
       isoboot:
         sourceISO: "https://github.com/tinkerbell/hook/releases/download/v0.11.1/hook-latest-lts-x86_64-efi-initrd.iso"
       netboot:
+        disabled: false
         ipxe:
           binary: "snp-x86_64.efi"
           contents: |
             dhcp
             chain --autofree https://boot.netboot.xyz
           url: "https://boot.netboot.xyz"
-        osie:
-          initrdURL: "http://192.168.3.4:8080/my-custominitrd"
-          kernelURL: "http://192.168.3.4:8080/my-custom-vmlinuz"
   references:
     additional:
       "lvm":

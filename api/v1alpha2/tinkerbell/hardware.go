@@ -24,7 +24,8 @@ type Hardware struct {
 type HardwareList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Hardware `json:"items"`
+
+	Items []Hardware `json:"items"`
 }
 
 // HardwareSpec defines the desired state of Hardware.
@@ -33,6 +34,9 @@ type HardwareSpec struct {
 	// This is used to identify Hardware during the discovery and enrollment process.
 	// It is typically the MAC address of the primary network interface.
 	AgentID string `json:"agentID,omitempty"`
+
+	// Attributes related to the Hardware.
+	Attributes *Attributes `json:"attributes,omitempty"`
 
 	// Auto is the configuration for the automatic capabilities.
 	Auto AutoCapabilities `json:"auto,omitempty"`
@@ -56,23 +60,27 @@ type HardwareSpec struct {
 	StorageDevices []StorageDevice `json:"storageDevices,omitempty"`
 }
 
+// Attributes related to a network interface.
+type Attributes struct {
+	// Arch represents the Hardware's architecture type.
+	// For example; x86_64 or aarch64
+	Arch string `json:"arch,omitempty"`
+
+	// UEFI reports whether the Hardware uses UEFI.
+	UEFI bool `json:"uefi,omitempty"`
+}
+
 // AutoCapabilities defines the configuration for the automatic capabilities of this Hardware.
 type AutoCapabilities struct {
-	// EnrollmentEnabled enables automatic enrollment of the Hardware.
+	// EnrollmentEnabled reports whether automatic enrollment of the Hardware is enabled.
 	// When set to true, auto enrollment will create Workflows for this Hardware.
 	// +kubebuilder:default=false
 	EnrollmentEnabled bool `json:"enrollmentEnabled,omitempty"`
 }
 
-// Instance describes instance specific data. Instance specific data is typically dependent on the
-// permanent OS that a piece of hardware runs. This data is often served by an instance metadata
-// service such as Tinkerbell's Hegel. The core Tinkerbell stack does not leverage this data.
+// Instance describes data that is less permanent than any physical attributes of the Hardware.
 type Instance struct {
-	// KernelParams passed to the kernel when launching the OSIE. Parameters are joined with a space.
-	// +optional
-	KernelParams []string `json:"kernelParams,omitempty"`
-
-	// Metadata is data following the cloud-init NoCloud datasource for meta-data
+	// Metadata is data following the cloud-init NoCloud datasource for meta-data.
 	//
 	// https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#meta-data
 	//
@@ -113,6 +121,10 @@ type Instance struct {
 	// {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").dhcp.ipam.ipv4.address }}
 	// +optional
 	NetworkConfig *string `json:"networkConfig,omitempty"`
+
+	// OSIE (Operating System Installation Environment) configuration.
+	// +optional
+	OSIE *OSIE `json:"osie,omitempty"`
 
 	// SSHKeys are public SSH keys associated with this Hardware.
 	SSHKeys []string `json:"sshKeys,omitempty"`
@@ -169,24 +181,13 @@ type MAC string
 
 // NetworkInterface is the desired configuration for a particular network interface.
 type NetworkInterface struct {
-	// Attributes related to the network interface.
-	Attributes *Attributes `json:"attributes,omitempty"`
-
-	// DHCP is the basic network information for serving DHCP requests. Required when DisableDHCP is false.
+	// DHCP is the options for serving DHCP requests.
 	// +optional
 	DHCP *DHCP `json:"dhcp,omitempty"`
 
-	// DisableDHCP disables DHCP for this interface. Implies DisableNetboot.
-	// +kubebuilder:default=false
-	DisableDHCP bool `json:"disableDHCP,omitempty"`
-
-	// DisableNetboot disables netbooting for this interface. The interface will still receive
-	// network information specified by DHCP.
-	// +kubebuilder:default=false
-	DisableNetboot bool `json:"disableNetboot,omitempty"`
-
 	// IPAM is the IP address management for this interface.
-	IPAM IPAM `json:"ipam,omitempty"`
+	// +optional
+	IPAM *IPAM `json:"ipam,omitempty"`
 
 	// Isoboot configuration.
 	// +optional
@@ -195,19 +196,6 @@ type NetworkInterface struct {
 	// Netboot configuration.
 	// +optional
 	Netboot *Netboot `json:"netboot,omitempty"`
-}
-
-// Attributes related to a network interface.
-type Attributes struct {
-	// These are from the old v1alpha1. Need to figure out what to do with them.
-	Arch      string `json:"arch,omitempty"`
-	IfaceName string `json:"ifaceName,omitempty"`
-	UEFI      bool   `json:"uefi,omitempty"`
-
-	// VLANID is a VLAN ID between 0 and 4096.
-	// +kubebuilder:validation:Pattern=`^(([0-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))(,[1-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))*)$`
-	// +optional
-	VLANID *string `json:"vlanID,omitempty"`
 }
 
 // DHCP describes basic network configuration to be served in DHCP OFFER responses. It can be
@@ -226,7 +214,12 @@ type DHCP struct {
 	ClasslessStaticRoutes []ClasslessStaticRoute `json:"classlessStaticRoutes,omitempty"`
 
 	// DomainName to be written. DHCP option 15.
+	// +optional
 	DomainName string `json:"domainName,omitempty"`
+
+	// Disabled reports whether DHCP for this interface is disabled.
+	// +kubebuilder:default=false
+	Disabled bool `json:"disabled,omitempty"`
 
 	// Hostname is DHCP option 12.
 	// +kubebuilder:validation:Pattern=`^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])$`
@@ -255,6 +248,11 @@ type DHCP struct {
 	// Timeservers corresponding to DHCP option 42.
 	// +optional
 	Timeservers []Timeserver `json:"timeservers,omitempty"`
+
+	// VLANID is a VLAN ID between 0 and 4096. DHCP option 43 suboption 116.
+	// +kubebuilder:validation:Pattern=`^(([0-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))(,[1-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))*)$`
+	// +optional
+	VLANID *string `json:"vlanID,omitempty"`
 }
 
 // ClasslessStaticRoute represents a classless static route for DHCP option 121 (RFC 3442).
@@ -280,6 +278,7 @@ type Timeserver string
 type IPAM struct {
 	// IPv4 is the IPv4 address and associated network data.
 	IPv4 *IP `json:"ipv4,omitempty"`
+
 	// IPv6 is the IPv6 address and associated network data.
 	IPv6 *IP `json:"ipv6,omitempty"`
 }
@@ -288,8 +287,10 @@ type IPAM struct {
 type IP struct {
 	// Address is the unique network address.
 	Address string `json:"address,omitempty"`
+
 	// Gateway is the default gateway address to serve.
 	Gateway string `json:"gateway,omitempty"`
+
 	// Prefix is the subnet length.
 	Prefix string `json:"prefix,omitempty"`
 }
@@ -305,13 +306,13 @@ type Isoboot struct {
 
 // Netboot configuration.
 type Netboot struct {
+	// Disabled reports whether netbooting for this interface is disabled.
+	// +kubebuilder:default=false
+	Disabled bool `json:"disabled,omitempty"`
+
 	// IPXE configuration.
 	// +optional
 	IPXE *IPXE `json:"ipxe,omitempty"`
-
-	// OSIE (Operating System Installation Environment) configuration.
-	// +optional
-	OSIE *OSIE `json:"osie,omitempty"`
 }
 
 // IPXE configuration.
@@ -323,27 +324,41 @@ type IPXE struct {
 	// - snp-arm64.efi
 	// - snp-x86_64.efi
 	// See the iPXE Architecture Mapping documentation for more details.
+	// +optional
 	Binary string `json:"binary,omitempty"`
+
 	// Contents of an iPXE script.
+	// +optional
 	Contents string `json:"contents,omitempty"`
+
 	// URL of an iPXE script.
+	// +optional
 	URL string `json:"url,omitempty"`
 }
 
-// OSIE configuration.
+// OSIE (Operating System Installation Environment) configuration.
 type OSIE struct {
 	// InitrdURL is a URL to an initrd image.
+	// +optional
 	InitrdURL string `json:"initrdURL,omitempty"`
 
+	// KernelParams passed to the kernel command line when launching the OSIE.
+	// +optional
+	KernelParams []string `json:"kernelParams,omitempty"`
+
 	// KernelURL is a URL to a kernel image.
+	// +optional
 	KernelURL string `json:"kernelURL,omitempty"`
 }
 
-// References
+// References represents builtin and additional reference maps.
 type References struct {
-	// Additional
+	// Additional references are dynamic and defined by the user.
+	// +optional
 	Additional map[string]Reference `json:"additional,omitempty"`
-	// Builtin
+
+	// Builtin references are predefined.
+	// +optional
 	Builtin BuiltinReferences `json:"builtin,omitempty"`
 }
 
@@ -379,6 +394,7 @@ type BuiltinReferences struct {
 type SimpleReference struct {
 	// Name of the object.
 	Name string `json:"name,omitempty"`
+
 	// Namespace where the object resides.
 	Namespace string `json:"namespace,omitempty"`
 }
@@ -400,6 +416,5 @@ type StorageDevice struct {
 	// Bad (invalid Linux path)
 	//
 	//	\dev\sda
-	// +optional
 	Name string `json:"name,omitempty"`
 }
