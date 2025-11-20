@@ -39,10 +39,6 @@ type WorkflowSpec struct {
 	// Name is a human readable name for the Workflow.
 	Name string `json:"name"`
 
-	// TimeoutSeconds applied to the Workflow.
-	// +optional
-	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
-
 	// Volumes defined here are added to all Actions in the Workfow.
 	// +optional
 	Volumes []Volume `json:"volumes,omitempty"`
