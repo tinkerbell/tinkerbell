@@ -146,10 +146,6 @@ spec:
               name:
                 description: Name is a human readable name for the Workflow.
                 type: string
-              timeoutSeconds:
-                description: TimeoutSeconds applied to the Workflow.
-                format: int64
-                type: integer
               volumes:
                 description: Volumes defined here are added to all Actions in the
                   Workfow.
