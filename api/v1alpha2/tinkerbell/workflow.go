@@ -54,7 +54,7 @@ type Action struct {
 	Image string `json:"image" yaml:"image"`
 
 	// Command defines the command to use when launching the image. It overrides the default command
-	// of the Action image. It must be a unix path to an executable program. When omited, the image's
+	// of the Action image. It must be a unix path to an executable program. When omitted, the image's
 	// default command/entrypoint is used.
 	// +kubebuilder:validation:Pattern=`^(/[^/ ]*)+/?$`
 	// +optional
