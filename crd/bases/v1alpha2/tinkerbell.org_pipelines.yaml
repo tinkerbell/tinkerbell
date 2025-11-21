@@ -453,8 +453,6 @@ spec:
                         type: string
                       state:
                         type: string
-                    required:
-                    - state
                     type: object
                   pipeline:
                     properties:
@@ -480,8 +478,6 @@ spec:
                         type: string
                       state:
                         type: string
-                    required:
-                    - state
                     type: object
                   workflow:
                     properties:
@@ -507,8 +503,6 @@ spec:
                         type: string
                       state:
                         type: string
-                    required:
-                    - state
                     type: object
                 type: object
               renderedPipeline:
@@ -549,8 +543,6 @@ spec:
                                 type: string
                               state:
                                 type: string
-                            required:
-                            - state
                             type: object
                           args:
                             description: Args are a set of arguments to be passed
@@ -561,7 +553,7 @@ spec:
                           command:
                             description: |-
                               Command defines the command to use when launching the image. It overrides the default command
-                              of the Action image. It must be a unix path to an executable program. When omited, the image's
+                              of the Action image. It must be a unix path to an executable program. When omitted, the image's
                               default command/entrypoint is used.
                             pattern: ^(/[^/ ]*)+/?$
                             type: string
@@ -691,8 +683,6 @@ spec:
                           type: string
                         state:
                           type: string
-                      required:
-                      - state
                       type: object
                   required:
                   - actions
