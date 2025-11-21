@@ -25,6 +25,5 @@ spec:
     - key: "one"
       value: "1"
   name: example
-  timeoutSeconds: 600
   volumes:
     - "/etc/data:/data:ro"
