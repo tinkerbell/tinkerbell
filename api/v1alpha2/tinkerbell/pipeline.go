@@ -80,6 +80,9 @@ type PipelineWorkflow struct {
 	// +optional
 	TemplateMap map[string]string `json:"templateMap,omitempty"`
 
+	// TimeoutSeconds is the duration for the Workflow before marking it as timed out.
+	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+
 	// WorkflowRef is the Workflow associated with this Pipeline config.
 	WorkflowRef SimpleReference `json:"workflowRef,omitempty"`
 }

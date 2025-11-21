@@ -327,6 +327,11 @@ spec:
                       description: TemplateMap is a mapping of key/values that will
                         be used when templating a Workflow.
                       type: object
+                    timeoutSeconds:
+                      description: TimeoutSeconds is the duration for the Workflow
+                        before marking it as timed out.
+                      format: int64
+                      type: integer
                     workflowRef:
                       description: WorkflowRef is the Workflow associated with this
                         Pipeline config.

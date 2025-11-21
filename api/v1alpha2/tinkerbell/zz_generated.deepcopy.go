@@ -908,6 +908,11 @@ func (in *PipelineWorkflow) DeepCopyInto(out *PipelineWorkflow) {
 			(*out)[key] = val
 		}
 	}
+	if in.TimeoutSeconds != nil {
+		in, out := &in.TimeoutSeconds, &out.TimeoutSeconds
+		*out = new(int64)
+		**out = **in
+	}
 	out.WorkflowRef = in.WorkflowRef
 }
 

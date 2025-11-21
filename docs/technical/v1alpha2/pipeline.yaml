@@ -41,6 +41,7 @@ spec:
           namespace: "tinkerbell"
       templateMap:
         "workflowKey": "value"
+      timeoutSeconds: 300
       workflowRef:
         name: "example"
         namespace: "tinkerbell"        
