@@ -71,7 +71,7 @@ type ActionWithMetadata struct {
 	Image string `json:"image" yaml:"image"`
 
 	// Command defines the command to use when launching the image. It overrides the default command
-	// of the Action image. It must be a unix path to an executable program. When omited, the image's
+	// of the Action image. It must be a unix path to an executable program. When omitted, the image's
 	// default command/entrypoint is used.
 	// +kubebuilder:validation:Pattern=`^(/[^/ ]*)+/?$`
 	// +optional
@@ -241,14 +241,13 @@ type (
 )
 
 const (
-	StatePreparing State = iota
+	StatePreparing State = iota + 1
 	StatePending
 	StateRunning
 	StatePost
 	StateSuccess
 	StateFailed
 	StateTimeout
-	StateUndefined
 
 	ActionStatePending = StatePending
 	ActionStateRunning = StateRunning
@@ -273,26 +272,26 @@ const (
 
 func (s State) String() string {
 	switch s {
-	case 0:
+	case StatePreparing:
 		return "Preparing"
-	case 1:
+	case StatePending:
 		return "Pending"
-	case 2:
+	case StateRunning:
 		return "Running"
-	case 3:
+	case StatePost:
 		return "Post"
-	case 4:
+	case StateSuccess:
 		return "Success"
-	case 5:
+	case StateFailed:
 		return "Failed"
-	case 6:
+	case StateTimeout:
 		return "Timeout"
 	}
 	return fmt.Sprintf("State(%d)", s)
 }
 
-func (c State) MarshalText() ([]byte, error) {
-	return []byte(c.String()), nil
+func (s State) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
 }
 
 type Metadata struct {
@@ -304,7 +303,7 @@ type Metadata struct {
 
 	Hardware string `json:"hardware,omitempty"`
 
-	State State `json:"state"`
+	State State `json:"state,omitempty"`
 
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 
