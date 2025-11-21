@@ -20,17 +20,17 @@ spec:
       disabled: false
       hardware:
         bootOptions:
-          toggleAllowNetboot: true
+          toggleNetboot: true
           isoURL: "https://tinkerbell.org/iso/00-01-02-03-04-05/hook.iso"
           bootMode: isoboot
-          custombootConfig:
-            preparingActions:
+          customboot:
+            preOperations:
               - powerAction: "off"
               - bootDevice:
                   device: "pxe"
                   efiBoot: true
               - powerAction: "on"
-            postActions:
+            postOperations:
               - bootDevice:
                   device: "disk"
                   persistent: true
