@@ -19,27 +19,32 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.templateRef
-      name: Template
+    - jsonPath: .status.metadata.pipeline.state
+      name: Pipeline State
       type: string
-    - jsonPath: .status.state
-      name: State
+    - jsonPath: .status.metadata.workflow.name
+      name: Workflow Name
       type: string
-    - jsonPath: .status.currentState.taskName
-      name: Task
+    - jsonPath: .status.metadata.action.name
+      name: Action Name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.metadata.workflow.state
+      name: Workflow State
       priority: 1
       type: string
-    - jsonPath: .status.currentState.actionName
-      name: Action
+    - jsonPath: .status.metadata.workflow.agentID
+      name: Workflow Agent
+      priority: 1
       type: string
-    - jsonPath: .status.currentState.agentID
-      name: Agent
+    - jsonPath: .status.metadata.workflow.hardware
+      name: Workflow Hardware
+      priority: 1
       type: string
-    - jsonPath: .spec.hardwareRef
-      name: Hardware
-      type: string
-    - jsonPath: .status.templateRendering
-      name: Template-Rendering
+    - jsonPath: .status.workflowRendering
+      name: Workflow Rendering
       priority: 1
       type: string
     name: v1alpha2
@@ -95,11 +100,11 @@ spec:
                     additionalProperties:
                       type: string
                     description: TemplateMap is a mapping of key/values that will
-                      be used when templating a Workflow.
+                      be used when templating all Workflows.
                     type: object
                   timeoutSeconds:
                     description: TimeoutSeconds is the duration for the Pipeline before
-                      marking it as Timed out.
+                      marking it as timed out.
                     format: int64
                     type: integer
                   volumes:
@@ -129,13 +134,13 @@ spec:
                         processed or not.
                       type: boolean
                     hardware:
-                      description: HardwareRef is the Hardware and options associated
+                      description: Hardware is the Hardware and options associated
                         with this Workflow.
                       properties:
                         bootOptions:
                           description: |-
                             BootOptions are options that control the booting of Hardware.
-                            These are only applicable when a HardwareRef is provided.
+                            These are only applicable when a Reference is provided.
                           properties:
                             bootMode:
                               description: BootMode is the type of booting that will
@@ -143,17 +148,16 @@ spec:
                               enum:
                               - netboot
                               - isoboot
-                              - iso
                               - customboot
                               type: string
-                            custombootConfig:
+                            customboot:
                               description: |-
-                                CustombootConfig is the configuration for the "customboot" boot mode.
-                                This allows users to define custom BMC Actions.
+                                Customboot is the configuration for the "customboot" boot mode.
+                                This allows users to define custom BMC Operations for pre and post a Workflow.
                               properties:
-                                postActions:
+                                postOperations:
                                   description: |-
-                                    PostActions are the BMC Actions that will be run after all Workflow Actions have completed.
+                                    PostOperations are the BMC Actions that will be run after all Workflow Actions have completed.
                                     In most cases these Actions should get a Machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
                                     These Actions will be run only if the main Workflow Actions complete successfully.
                                   items:
@@ -220,9 +224,9 @@ spec:
                                         type: object
                                     type: object
                                   type: array
-                                preparingActions:
+                                preOperations:
                                   description: |-
-                                    PreparingActions are the BMC Actions that will be run before any Workflow Actions.
+                                    PreOperations are the BMC Actions that will be run before any Workflow Actions.
                                     In most cases these Actions should get a Machine into a state where a Tink Agent is running.
                                   items:
                                     description: |-
@@ -291,18 +295,18 @@ spec:
                               type: object
                             isoURL:
                               description: |-
-                                ISOURL is the URL of the ISO that will be one-time booted. When this field is set,
-                                the controller will create a job.bmc.tinkerbell.org object
-                                for getting the associated hardware into a CDROM booting state.
-                                A HardwareRef that contains a spec.BmcRef must be provided.
+                                ISOURL is the URL of the ISO that will be one-time booted.
+                                When this field is set, a job.bmc.tinkerbell.org object will be created
+                                for getting the associated Hardware into a CDROM booting state.
+                                A Pipeline Hardware Reference that contains a spec.reference.builtin.bmc must be provided.
                                 BootMode must be set to "isoboot".
                               format: url
                               type: string
-                            toggleAllowNetboot:
+                            toggleNetboot:
                               description: |-
-                                ToggleAllowNetboot indicates whether the controller should toggle the field in the associated hardware for allowing PXE booting.
-                                This will be enabled before a Workflow is executed and disabled after the Workflow has completed successfully.
-                                A HardwareRef must be provided.
+                                ToggleNetboot indicates whether the the field in the associated Hardware for allowing network booting should
+                                be enabled before the Workflow is executed and disabled after the Workflow has completed successfully.
+                                A Hardware Reference must be provided.
                               type: boolean
                           type: object
                         reference:
@@ -338,12 +342,8 @@ spec:
                 type: array
             type: object
           status:
-            description: PipelineStatus defines the observed state of a Workflow.
+            description: PipelineStatus defines the observed state of a Pipeline.
             properties:
-              agentID:
-                description: AgentID is the ID of the Agent with which this Workflow
-                  is associated.
-                type: string
               bootOptions:
                 description: BootOptions holds the state of any boot options.
                 properties:
@@ -413,45 +413,145 @@ spec:
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
-              currentState:
-                description: CurrentState tracks where the workflow is in its execution.
-                properties:
-                  actionID:
-                    type: string
-                  actionName:
-                    type: string
-                  agentID:
-                    type: string
-                  state:
-                    type: string
-                  taskID:
-                    type: string
-                  taskName:
-                    type: string
-                type: object
               globalExecutionStop:
                 description: |-
-                  GlobalExecutionStop represents the time when the Workflow should stop executing.
-                  After this time, the Workflow will be marked as TIMEOUT.
+                  GlobalExecutionStop represents the time when the Pipeline should stop executing.
+                  After this time, if the Pipeline has not completed it will be marked as timed out.
                 format: date-time
                 type: string
               globalTimeout:
-                description: GlobalTimeout represents the max execution time.
+                description: GlobalTimeout represents the max execution duration time.
                 format: int64
                 type: integer
-              state:
-                description: State is the current overall state of the Workflow.
-                type: string
-              tasks:
-                description: Tasks are the tasks to be run by the Agent(s).
+              metadata:
+                description: |-
+                  Metadata tracks where the Pipeline is in its execution.
+                  It holds the current state of the Pipeline as a whole,
+                  the current Workflow, and the current Action.
+                properties:
+                  action:
+                    properties:
+                      agentID:
+                        type: string
+                      endTime:
+                        format: date-time
+                        type: string
+                      executionDuration:
+                        type: string
+                      hardware:
+                        type: string
+                      id:
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
+                        type: string
+                      name:
+                        type: string
+                      startTime:
+                        format: date-time
+                        type: string
+                      state:
+                        type: string
+                    required:
+                    - state
+                    type: object
+                  pipeline:
+                    properties:
+                      agentID:
+                        type: string
+                      endTime:
+                        format: date-time
+                        type: string
+                      executionDuration:
+                        type: string
+                      hardware:
+                        type: string
+                      id:
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
+                        type: string
+                      name:
+                        type: string
+                      startTime:
+                        format: date-time
+                        type: string
+                      state:
+                        type: string
+                    required:
+                    - state
+                    type: object
+                  workflow:
+                    properties:
+                      agentID:
+                        type: string
+                      endTime:
+                        format: date-time
+                        type: string
+                      executionDuration:
+                        type: string
+                      hardware:
+                        type: string
+                      id:
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
+                        type: string
+                      name:
+                        type: string
+                      startTime:
+                        format: date-time
+                        type: string
+                      state:
+                        type: string
+                    required:
+                    - state
+                    type: object
+                type: object
+              renderedPipeline:
+                description: RenderedPipeline are the Workflows to be run by this
+                  Pipeline.
                 items:
-                  description: Task represents a series of actions to be completed
-                    by an Agent.
+                  description: |-
+                    WorkflowWithMetadata is a copy of WorkflowSpec with the addition of Metadata.
+                    Users don't need Metadata in the CRD Spec so we don't include it but we need
+                    it in the CRD Status.
                   properties:
                     actions:
+                      description: Actions that the Workflow runs.
                       items:
-                        description: Action represents a Workflow Action.
+                        description: ActionWithMetadata
                         properties:
+                          actionMetadata:
+                            properties:
+                              agentID:
+                                type: string
+                              endTime:
+                                format: date-time
+                                type: string
+                              executionDuration:
+                                type: string
+                              hardware:
+                                type: string
+                              id:
+                                description: |-
+                                  UID is a type that holds unique ID values, including UUIDs.  Because we
+                                  don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                                  intent and helps make sure that UIDs and names do not get conflated.
+                                type: string
+                              name:
+                                type: string
+                              startTime:
+                                format: date-time
+                                type: string
+                              state:
+                                type: string
+                            required:
+                            - state
+                            type: object
                           args:
                             description: Args are a set of arguments to be passed
                               to the command executed by the container on launch.
@@ -533,30 +633,75 @@ spec:
                         - name
                         type: object
                       type: array
-                    agentID:
-                      type: string
                     environment:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    id:
-                      type: string
+                      description: Environment variables here are added to all Action
+                        in the Workflow.
+                      items:
+                        description: Environment defines environmental variables.
+                        properties:
+                          key:
+                            description: Key is the name of the environmental variable.
+                            type: string
+                          value:
+                            description: Value is the value of the environmental variable.
+                            type: string
+                        required:
+                        - key
+                        - value
+                        type: object
+                      type: array
                     name:
+                      description: Name is a human readable name for the Workflow.
                       type: string
                     volumes:
+                      description: Volumes defined here are added to all Actions in
+                        the Workfow.
                       items:
+                        description: "Volume is a specification for mounting a location
+                          on a Host into an Action container.\nVolumes take the form
+                          {SRC-VOLUME-NAME | SRC-HOST-DIR}:TGT-CONTAINER-DIR:OPTIONS.\nWhen
+                          specifying a VOLUME-NAME that does not exist it will be
+                          created for you.\nExamples:\n\nRead-only bind mount bound
+                          to /data\n\n\t/etc/data:/data:ro\n\nWritable volume name
+                          bound to /data\n\n\tshared_volume:/data\n\nSee https://docs.docker.com/storage/volumes/
+                          for additional details."
                         type: string
                       type: array
+                    workflowMetadata:
+                      properties:
+                        agentID:
+                          type: string
+                        endTime:
+                          format: date-time
+                          type: string
+                        executionDuration:
+                          type: string
+                        hardware:
+                          type: string
+                        id:
+                          description: |-
+                            UID is a type that holds unique ID values, including UUIDs.  Because we
+                            don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                            intent and helps make sure that UIDs and names do not get conflated.
+                          type: string
+                        name:
+                          type: string
+                        startTime:
+                          format: date-time
+                          type: string
+                        state:
+                          type: string
+                      required:
+                      - state
+                      type: object
                   required:
                   - actions
-                  - agentID
-                  - id
                   - name
                   type: object
                 type: array
-              templateRendering:
+              workflowRendering:
                 description: |-
-                  TemplateRendering indicates whether the template was rendered successfully.
+                  WorkflowRendering indicates whether the Workflows were all rendered successfully.
                   Possible values are "successful" or "failed" or "unknown".
                 type: string
             type: object

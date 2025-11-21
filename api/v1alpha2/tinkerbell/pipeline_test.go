@@ -15,24 +15,24 @@ func TestSetCondition(t *testing.T) {
 	}{
 		"update existing condition": {
 			ExistingConditions: []PipelineCondition{
-				{Type: ToggleAllowNetbootTrue, Status: metav1.ConditionTrue},
-				{Type: ToggleAllowNetbootFalse, Status: metav1.ConditionTrue},
+				{Type: ToggleNetbootTrue, Status: metav1.ConditionTrue},
+				{Type: ToggleNetbootFalse, Status: metav1.ConditionTrue},
 			},
 			WantConditions: []PipelineCondition{
-				{Type: ToggleAllowNetbootTrue, Status: metav1.ConditionFalse},
-				{Type: ToggleAllowNetbootFalse, Status: metav1.ConditionTrue},
+				{Type: ToggleNetbootTrue, Status: metav1.ConditionFalse},
+				{Type: ToggleNetbootFalse, Status: metav1.ConditionTrue},
 			},
-			Condition: PipelineCondition{Type: ToggleAllowNetbootTrue, Status: metav1.ConditionFalse},
+			Condition: PipelineCondition{Type: ToggleNetbootTrue, Status: metav1.ConditionFalse},
 		},
 		"append new condition": {
 			ExistingConditions: []PipelineCondition{
-				{Type: ToggleAllowNetbootTrue, Status: metav1.ConditionTrue},
+				{Type: ToggleNetbootTrue, Status: metav1.ConditionTrue},
 			},
 			WantConditions: []PipelineCondition{
-				{Type: ToggleAllowNetbootTrue, Status: metav1.ConditionTrue},
-				{Type: ToggleAllowNetbootFalse, Status: metav1.ConditionFalse},
+				{Type: ToggleNetbootTrue, Status: metav1.ConditionTrue},
+				{Type: ToggleNetbootFalse, Status: metav1.ConditionFalse},
 			},
-			Condition: PipelineCondition{Type: ToggleAllowNetbootFalse, Status: metav1.ConditionFalse},
+			Condition: PipelineCondition{Type: ToggleNetbootFalse, Status: metav1.ConditionFalse},
 		},
 	}
 	for name, tt := range tests {
