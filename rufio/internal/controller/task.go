@@ -90,6 +90,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmc.Task, taskPa
 	var username, password string
 	opts := &BMCOptions{
 		ProviderOptions: task.Spec.Connection.ProviderOptions,
+		InsecureTLS:     task.Spec.Connection.InsecureTLS,
 	}
 	if task.Spec.Connection.ProviderOptions != nil && task.Spec.Connection.ProviderOptions.RPC != nil {
 		opts.ProviderOptions = task.Spec.Connection.ProviderOptions
