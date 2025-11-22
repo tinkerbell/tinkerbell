@@ -141,6 +141,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TFTPServerBindPort, ffval.NewValueDefault(&sc.Config.TFTP.BindPort, sc.Config.TFTP.BindPort))
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
+	fs.Register(TFTPCacheDir, ffval.NewValueDefault(&sc.Config.TFTP.CacheDir, sc.Config.TFTP.CacheDir))
 }
 
 // Convert CLI specific fields to smee.Config fields.
@@ -399,6 +400,11 @@ var TFTPTimeout = Config{
 var TFTPBlockSize = Config{
 	Name:  "tftp-block-size",
 	Usage: "[tftp] TFTP block size a value between 512 (the default block size for TFTP) and 65456 (the max size a UDP packet payload can be)",
+}
+
+var TFTPCacheDir = Config{
+	Name:  "tftp-cache-dir",
+	Usage: "[tftp] directory to cache downloaded hook files (initramfs and kernel)",
 }
 
 // iPXE flags.

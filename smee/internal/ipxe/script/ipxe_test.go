@@ -52,8 +52,8 @@ echo Loading the Tinkerbell Hook iPXE script...
 
 set arch x86_64
 set download-url http://127.1.1.1
-set kernel vmlinuz-${arch}
-set initrd initramfs-${arch}
+set kernel vmlinuz-x86_64
+set initrd initramfs-x86_64
 set retries:int32 10
 set retry_delay:int32 3
 
