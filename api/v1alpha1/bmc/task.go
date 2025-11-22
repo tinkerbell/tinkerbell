@@ -136,9 +136,10 @@ func (t *Task) HasCondition(cType TaskConditionType, cStatus ConditionStatus) bo
 	return false
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=tasks,scope=Namespaced,categories=tinkerbell,singular=task,shortName=t
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:resource:path=tasks,scope=Namespaced,categories=tinkerbell,singular=task,shortName=t
 
 // Task is the Schema for the Task API.
 type Task struct {
