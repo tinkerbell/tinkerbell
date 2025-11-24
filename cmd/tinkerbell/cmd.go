@@ -52,7 +52,7 @@ var (
 	embeddedKubeControllerManagerExecute func(context.Context, string) error
 )
 
-func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop,gocognit // Will need to look into reducing the cyclomatic complexity.
+func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop,gocognit,nolintlint // Will need to look into reducing the cyclomatic complexity.
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig:    kubeConfig(),
 		PublicIP:             detectPublicIPv4(),
