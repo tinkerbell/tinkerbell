@@ -28,12 +28,12 @@ var pxeTemplate = `
 default deploy
 
 label deploy
-		kernel {{ .Kernel }}
+		kernel {{ if .Kernel }}{{ .Kernel }}{{ else }}vmlinuz-{{ .Arch }}{{ end }}
 		append console=tty1 console=ttyAMA0,115200 loglevel=7 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory \
 		net.ifnames=0 {{- if ne .VLANID "" }} vlan_id={{ .VLANID }} {{- end }} facility={{ .Facility }} syslog_host={{ .SyslogHost }} grpc_authority={{ .TinkGRPCAuthority }} \
 		tinkerbell_tls={{ .TinkerbellTLS }} tinkerbell_insecure_tls={{ .TinkerbellInsecureTLS }} worker_id={{ .WorkerID }} hw_addr={{ .HWAddr }} \
-		modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt {{- range .ExtraKernelParams}} {{.}} {{- end}}
-		initrd {{ .Initrd }}
+		modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=initramfs-{{ .Arch }} {{- range .ExtraKernelParams}} {{.}} {{- end}}
+		initrd {{ if .Initrd }}{{ .Initrd }}{{ else }}initramfs-{{ .Arch }}{{ end }}
 		ipappend 2
 
 label local
