@@ -20,6 +20,7 @@ import (
 	"github.com/peterbourgon/ff/v4/ffhelp"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/crd"
+	"github.com/tinkerbell/tinkerbell/hook"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
 	"github.com/tinkerbell/tinkerbell/pkg/build"
 	"github.com/tinkerbell/tinkerbell/rufio"
@@ -38,7 +39,6 @@ const (
 	defaultRufioProbePort            = 8083
 	defaultSecondStarPort            = 2222
 	defaultSmeeHTTPPort              = 7171
-	defaultSmeeHTTPSPort             = 7272
 	defaultTinkControllerMetricsPort = 8080
 	defaultTinkControllerProbePort   = 8081
 	defaultTinkServerPort            = 42113
@@ -47,12 +47,12 @@ const (
 
 var (
 	embeddedFlagSet                      *ff.FlagSet
-	embeddedApiserverExecute             func(context.Context, logr.Logger) error
+	embeddedApiserverExecute             func(context.Context, logr.Logger, string, string, string) error
 	embeddedEtcdExecute                  func(context.Context, int) error
 	embeddedKubeControllerManagerExecute func(context.Context, string) error
 )
 
-func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop // Will need to look into reducing the cyclomatic complexity.
+func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop,gocognit,nolintlint // Will need to look into reducing the cyclomatic complexity.
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig:    kubeConfig(),
 		PublicIP:             detectPublicIPv4(),
@@ -62,14 +62,17 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		EnableTinkController: true,
 		EnableRufio:          true,
 		EnableSecondStar:     true,
+		EnableHook:           true,
 		EnableCRDMigrations:  true,
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
 		},
 		BackendKubeOptions: flag.BackendKubeOptions{
-			QPS:   defaultQPS,   // Default QPS value. A negative value disables client-side ratelimiting.
-			Burst: defaultBurst, // Default burst value.
+			QPS:                         defaultQPS,      // Default QPS value. A negative value disables client-side ratelimiting.
+			Burst:                       defaultBurst,    // Default burst value.
+			APIServerHealthTimeout:      2 * time.Minute, // Default timeout: 2 minutes to prevent permanent error loops
+			APIServerHealthPollInterval: 2 * time.Second, // Default poll interval: check every 2 seconds
 		},
 	}
 
@@ -121,6 +124,19 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		},
 	}
 
+	hookOpts := []hook.Option{
+		hook.WithImagePath("/var/lib/hook"),
+		hook.WithOCIRegistry("ghcr.io"),
+		hook.WithOCIRepository("tinkerbell/hook"),
+		hook.WithOCIReference("latest"),
+		hook.WithPullTimeout(10 * time.Minute),
+		hook.WithHTTPAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), 7173))),
+		hook.WithEnableHTTPServer(true),
+	}
+	hc := &flag.HookConfig{
+		Config: hook.NewConfig(hookOpts...),
+	}
+
 	// order here determines the help output.
 	top := ff.NewFlagSet("smee - DHCP and iPXE service")
 	if embeddedFlagSet != nil {
@@ -132,13 +148,15 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
 	rfs := ff.NewFlagSet("rufio - BMC controller").SetParent(cfs)
 	ssfs := ff.NewFlagSet("secondstar - SSH over serial service").SetParent(rfs)
-	gfs := ff.NewFlagSet("globals").SetParent(ssfs)
+	hookfs := ff.NewFlagSet("hook - Hook image service").SetParent(ssfs)
+	gfs := ff.NewFlagSet("globals").SetParent(hookfs)
 	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
 	flag.RegisterTootlesFlags(&flag.Set{FlagSet: hfs}, h)
 	flag.RegisterTinkServerFlags(&flag.Set{FlagSet: tfs}, ts)
 	flag.RegisterTinkControllerFlags(&flag.Set{FlagSet: cfs}, tc)
 	flag.RegisterRufioFlags(&flag.Set{FlagSet: rfs}, rc)
 	flag.RegisterSecondStarFlags(&flag.Set{FlagSet: ssfs}, ssc)
+	flag.RegisterHookFlags(&flag.Set{FlagSet: hookfs}, hc)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
 	if embeddedApiserverExecute != nil && embeddedFlagSet != nil {
 		// This way the embedded flags only show up when the embedded services have been compiled in.
@@ -171,6 +189,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		"tinkControllerEnabled", globals.EnableTinkController,
 		"rufioEnabled", globals.EnableRufio,
 		"secondStarEnabled", globals.EnableSecondStar,
+		"hookEnabled", globals.EnableHook,
 		"publicIP", globals.PublicIP,
 		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
 		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
@@ -181,6 +200,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr)
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
 	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
+	// Share the hook image path with TFTP server
+	s.Config.TFTP.CacheDir = hc.Config.ImagePath
 	// Configure TLS if cert and key files are provided
 	if globals.TLS.CertFile != "" && globals.TLS.KeyFile != "" {
 		// Load the certificates with extensive logging
@@ -259,8 +280,18 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		if embeddedApiserverExecute != nil {
+			// Pass global TLS and bind address to API server
+			bindAddr := ""
+			if globals.BindAddr.IsValid() {
+				bindAddr = globals.BindAddr.String()
+			}
+			cliLog.Info("starting kube-apiserver",
+				"bindAddr", bindAddr,
+				"tlsCertFile", globals.TLS.CertFile,
+				"tlsKeyFile", globals.TLS.KeyFile)
+
 			if err := retry.Do(func() error {
-				if err := embeddedApiserverExecute(ctx, log.WithName("kube-apiserver")); err != nil {
+				if err := embeddedApiserverExecute(ctx, log.WithName("kube-apiserver"), bindAddr, globals.TLS.CertFile, globals.TLS.KeyFile); err != nil {
 					return fmt.Errorf("API server error: %w", err)
 				}
 				return nil
@@ -270,6 +301,11 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		}
 		return nil
 	})
+
+	// Hook
+	if globals.BindAddr.IsValid() {
+		hc.Config.HTTPAddr = netip.AddrPortFrom(globals.BindAddr, hc.Config.HTTPAddr.Port())
+	}
 
 	if numEnabled(globals) == 0 {
 		globals.Backend = "pass"
@@ -282,7 +318,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				return fmt.Errorf("failed to create kube backend with no indexes: %w", err)
 			}
 			// Wait for the API server to be healthy and ready.
-			if err := backendNoIndexes.WaitForAPIServer(ctx, cliLog, 20*time.Second, 5*time.Second, nil); err != nil {
+			// Use configurable timeout and poll interval to prevent permanent error loops on first boot.
+			if err := backendNoIndexes.WaitForAPIServer(ctx, cliLog, globals.BackendKubeOptions.APIServerHealthTimeout, globals.BackendKubeOptions.APIServerHealthPollInterval, nil); err != nil {
 				return fmt.Errorf("failed to wait for API server health: %w", err)
 			}
 
@@ -414,6 +451,19 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return nil
 	})
 
+	// Hook
+	g.Go(func() error {
+		if !globals.EnableHook {
+			cliLog.Info("hook service is disabled")
+			return nil
+		}
+		ll := ternary((hc.LogLevel != 0), hc.LogLevel, globals.LogLevel)
+		if err := hc.Config.Start(ctx, defaultLogger(ll).WithName("hook")); err != nil {
+			return fmt.Errorf("failed to start hook service: %w", err)
+		}
+		return nil
+	})
+
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
@@ -446,6 +496,9 @@ func numEnabled(globals *flag.GlobalConfig) int {
 		n++
 	}
 	if globals.EnableSecondStar {
+		n++
+	}
+	if globals.EnableHook {
 		n++
 	}
 	return n

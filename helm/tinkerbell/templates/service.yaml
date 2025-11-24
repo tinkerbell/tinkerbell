@@ -21,6 +21,13 @@ spec:
   loadBalancerIP: {{ coalesce .Values.service.loadBalancerIP .Values.publicIP }}
   externalTrafficPolicy: Local
   {{- end }}
+  sessionAffinity: {{ .Values.service.sessionAffinity }}
+  {{- if .Values.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+    {{- with .Values.service.sessionAffinityConfig }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
   ports:
   {{- if .Values.deployment.envs.globals.enableSmee}}
   - port: {{ .Values.service.ports.dhcp.port }}
@@ -39,6 +46,12 @@ spec:
     targetPort: {{ .Values.service.ports.httpSmee.name }}
     protocol: {{ .Values.service.ports.httpSmee.protocol }}
     name: {{ .Values.service.ports.httpSmee.name }}
+  {{- end }}
+  {{- if .Values.deployment.envs.globals.enableHook}}
+  - port: {{ .Values.service.ports.httpHook.port }}
+    targetPort: {{ .Values.service.ports.httpHook.name }}
+    protocol: {{ .Values.service.ports.httpHook.protocol }}
+    name: {{ .Values.service.ports.httpHook.name }}
   {{- end }}
   {{- if .Values.deployment.envs.globals.enableTootles }}
   - port: {{ .Values.service.ports.httpTootles.port }}
