@@ -83,6 +83,10 @@ type ProviderOptions struct {
 	// RPC contains the options to customize the RPC provider.
 	// +optional
 	RPC *RPCOptions `json:"rpc,omitempty"`
+
+	// HomeAssistant contains the options to customize the HomeAssistant provider.
+	// +optional
+	HomeAssistant *HomeAssistantOptions `json:"homeassistant,omitempty"`
 }
 
 // Connection contains connection data for a Baseboard Management Controller.
