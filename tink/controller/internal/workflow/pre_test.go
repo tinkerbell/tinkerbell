@@ -142,15 +142,33 @@ func TestPrepareWorkflow(t *testing.T) {
 				},
 				Status: v1alpha1.WorkflowStatus{
 					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
+						Jobs: map[string]v1alpha1.JobStatus{
+							fmt.Sprintf("%s-test-workflow", jobNameNetboot): {ExistingJobDeleted: true},
+						},
 					},
 				},
+			},
+			job: &bmc.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-test-workflow", jobNameCustombootPost),
+					Namespace: "default",
+				},
+				Spec:   bmc.JobSpec{},
+				Status: bmc.JobStatus{},
 			},
 			wantWorkflow: &v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
 					BootOptions: v1alpha1.BootOptionsStatus{
 						Jobs: map[string]v1alpha1.JobStatus{
 							fmt.Sprintf("%s-test-workflow", jobNameNetboot): {ExistingJobDeleted: true},
+						},
+					},
+					Conditions: []v1alpha1.WorkflowCondition{
+						{
+							Type:    "BootJobSetupComplete",
+							Status:  "True",
+							Reason:  "Created",
+							Message: "job created",
 						},
 					},
 				},
@@ -196,15 +214,33 @@ func TestPrepareWorkflow(t *testing.T) {
 				},
 				Status: v1alpha1.WorkflowStatus{
 					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
+						Jobs: map[string]v1alpha1.JobStatus{
+							fmt.Sprintf("%s-test-workflow", jobNameISOMount): {ExistingJobDeleted: true},
+						},
 					},
 				},
+			},
+			job: &bmc.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-test-workflow", jobNameCustombootPost),
+					Namespace: "default",
+				},
+				Spec:   bmc.JobSpec{},
+				Status: bmc.JobStatus{},
 			},
 			wantWorkflow: &v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
 					BootOptions: v1alpha1.BootOptionsStatus{
 						Jobs: map[string]v1alpha1.JobStatus{
 							fmt.Sprintf("%s-test-workflow", jobNameISOMount): {ExistingJobDeleted: true},
+						},
+					},
+					Conditions: []v1alpha1.WorkflowCondition{
+						{
+							Type:    "BootJobSetupComplete",
+							Status:  "True",
+							Reason:  "Created",
+							Message: "job created",
 						},
 					},
 				},
@@ -261,9 +297,19 @@ func TestPrepareWorkflow(t *testing.T) {
 				},
 				Status: v1alpha1.WorkflowStatus{
 					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
+						Jobs: map[string]v1alpha1.JobStatus{
+							fmt.Sprintf("%s-test-workflow", jobNameCustombootPreparing): {ExistingJobDeleted: true},
+						},
 					},
 				},
+			},
+			job: &bmc.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-test-workflow", jobNameCustombootPost),
+					Namespace: "default",
+				},
+				Spec:   bmc.JobSpec{},
+				Status: bmc.JobStatus{},
 			},
 			wantWorkflow: &v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
@@ -271,6 +317,72 @@ func TestPrepareWorkflow(t *testing.T) {
 						Jobs: map[string]v1alpha1.JobStatus{
 							fmt.Sprintf("%s-test-workflow", jobNameCustombootPreparing): {ExistingJobDeleted: true},
 						},
+					},
+					Conditions: []v1alpha1.WorkflowCondition{
+						{
+							Type:    "BootJobSetupComplete",
+							Status:  "True",
+							Reason:  "Created",
+							Message: "job created",
+						},
+					},
+				},
+			},
+		},
+		"boot mode customboot no preparing actions": {
+			wantResult: reconcile.Result{Requeue: false},
+			hardware: &v1alpha1.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hardware",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.HardwareSpec{
+					BMCRef: &v1.TypedLocalObjectReference{
+						Name: "test-bmc",
+						Kind: "machine.bmc.tinkerbell.org",
+					},
+				},
+			},
+			wantHardware: &v1alpha1.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hardware",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.HardwareSpec{
+					BMCRef: &v1.TypedLocalObjectReference{
+						Name: "test-bmc",
+						Kind: "machine.bmc.tinkerbell.org",
+					},
+				},
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-workflow",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					HardwareRef: "test-hardware",
+					BootOptions: v1alpha1.BootOptions{
+						BootMode: v1alpha1.BootModeCustomboot,
+						CustombootConfig: v1alpha1.CustombootConfig{
+							PostActions: []bmc.Action{
+								{
+									PowerAction: valueToPointer(bmc.PowerHardOff),
+								},
+							},
+						},
+					},
+				},
+				Status: v1alpha1.WorkflowStatus{
+					BootOptions: v1alpha1.BootOptionsStatus{
+						Jobs: map[string]v1alpha1.JobStatus{},
+					},
+				},
+			},
+			wantWorkflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					BootOptions: v1alpha1.BootOptionsStatus{
+						Jobs: map[string]v1alpha1.JobStatus{},
 					},
 				},
 			},

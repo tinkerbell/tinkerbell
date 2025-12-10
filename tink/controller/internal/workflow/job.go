@@ -31,7 +31,7 @@ func (j jobName) String() string {
 func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobName) (reconcile.Result, error) {
 	// there are 3 phases. 1. Clean up existing 2. Create new 3. Track status
 	// 1. clean up existing job if it wasn't already deleted
-	if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted {
+	if j, found := s.workflow.Status.BootOptions.Jobs[name.String()]; found && !j.ExistingJobDeleted {
 		journal.Log(ctx, "deleting existing job", "name", name)
 		result, err := s.deleteExisting(ctx, name)
 		if err != nil {
@@ -43,6 +43,10 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 
 	// 2. create a new job
 	if uid := s.workflow.Status.BootOptions.Jobs[name.String()].UID; uid == "" {
+		if len(actions) == 0 {
+			journal.Log(ctx, "no actions provided", "name", name)
+			return reconcile.Result{}, nil
+		}
 		journal.Log(ctx, "no uid found for job", "name", name)
 		result, err := s.createJob(ctx, actions, name)
 		if err != nil {

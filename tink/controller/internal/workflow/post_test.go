@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
@@ -167,8 +168,14 @@ func TestPostActions(t *testing.T) {
 						State: v1alpha1.WorkflowStateSuccess,
 					},
 					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{
-							fmt.Sprintf("%s-test-workflow", jobNameISOEject): {ExistingJobDeleted: true},
+						Jobs: map[string]v1alpha1.JobStatus{},
+					},
+					Conditions: []v1alpha1.WorkflowCondition{
+						{
+							Type:    v1alpha1.BootJobSetupComplete,
+							Status:  metav1.ConditionTrue,
+							Reason:  "Created",
+							Message: "job created",
 						},
 					},
 				},
@@ -263,7 +270,7 @@ func TestPostActions(t *testing.T) {
 				},
 			},
 		},
-		"customboot post actions": {
+		"customboot post actions running": {
 			wantResult: reconcile.Result{
 				Requeue: true,
 			},
@@ -314,9 +321,23 @@ func TestPostActions(t *testing.T) {
 						State: v1alpha1.WorkflowStateSuccess,
 					},
 					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
+						Jobs: map[string]v1alpha1.JobStatus{
+							fmt.Sprintf("%s-test-workflow", jobNameCustombootPost): {
+								ExistingJobDeleted: true,
+								Complete:           false,
+							},
+						},
 					},
+					State: v1alpha1.WorkflowStatePost,
 				},
+			},
+			job: &bmc.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-test-workflow", jobNameCustombootPost),
+					Namespace: "default",
+				},
+				Spec:   bmc.JobSpec{},
+				Status: bmc.JobStatus{},
 			},
 			wantWorkflow: &v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
@@ -326,6 +347,15 @@ func TestPostActions(t *testing.T) {
 					BootOptions: v1alpha1.BootOptionsStatus{
 						Jobs: map[string]v1alpha1.JobStatus{
 							fmt.Sprintf("%s-test-workflow", jobNameCustombootPost): {ExistingJobDeleted: true},
+						},
+					},
+					State: v1alpha1.WorkflowStatePost,
+					Conditions: []v1alpha1.WorkflowCondition{
+						{
+							Type:    v1alpha1.BootJobSetupComplete,
+							Status:  metav1.ConditionTrue,
+							Reason:  "Created",
+							Message: "job created",
 						},
 					},
 				},
@@ -384,6 +414,67 @@ func TestPostActions(t *testing.T) {
 				},
 			},
 		},
+		"customboot no post actions": {
+			wantResult: reconcile.Result{
+				Requeue: false,
+			},
+			hardware: &v1alpha1.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hardware",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.HardwareSpec{
+					BMCRef: &v1.TypedLocalObjectReference{
+						Name: "test-bmc",
+						Kind: "machine.bmc.tinkerbell.org",
+					},
+				},
+			},
+			wantHardware: &v1alpha1.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hardware",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.HardwareSpec{
+					BMCRef: &v1.TypedLocalObjectReference{
+						Name: "test-bmc",
+						Kind: "machine.bmc.tinkerbell.org",
+					},
+				},
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-workflow",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					HardwareRef: "test-hardware",
+					BootOptions: v1alpha1.BootOptions{
+						BootMode:         v1alpha1.BootModeCustomboot,
+						CustombootConfig: v1alpha1.CustombootConfig{},
+					},
+				},
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{
+						State: v1alpha1.WorkflowStateSuccess,
+					},
+					BootOptions: v1alpha1.BootOptionsStatus{
+						Jobs: map[string]v1alpha1.JobStatus{},
+					},
+				},
+			},
+			wantWorkflow: &v1alpha1.Workflow{
+				Status: v1alpha1.WorkflowStatus{
+					CurrentState: &v1alpha1.CurrentState{
+						State: v1alpha1.WorkflowStateSuccess,
+					},
+					BootOptions: v1alpha1.BootOptionsStatus{
+						Jobs: map[string]v1alpha1.JobStatus{},
+					},
+					State: v1alpha1.WorkflowStateSuccess,
+				},
+			},
+		},
 		"netboot mode": {
 			wantResult: reconcile.Result{},
 			hardware:   &v1alpha1.Hardware{},
@@ -433,6 +524,7 @@ func TestPostActions(t *testing.T) {
 			s := &state{
 				workflow: tc.workflow,
 				client:   clientBuilder.Build(),
+				backoff:  backoff.NewExponentialBackOff(),
 			}
 			ctx := context.Background()
 			ctx = journal.New(ctx)
