@@ -28,7 +28,7 @@ func TestHandleJob(t *testing.T) {
 		wantResult   reconcile.Result
 		job          *bmc.Job
 	}{
-		"existing job deleted, new job created and completed": {
+		"existing job deleted, new job already created and completed": {
 			workflow: &v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
 					BootOptions: v1alpha1.BootOptionsStatus{
@@ -95,7 +95,8 @@ func TestHandleJob(t *testing.T) {
 			hardware:   new(v1alpha1.Hardware),
 			wantResult: reconcile.Result{Requeue: true},
 		},
-		"existing job deleted, create new job": {
+
+		"create new job": {
 			workflow: &v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
@@ -144,11 +145,13 @@ func TestHandleJob(t *testing.T) {
 					},
 				},
 			},
-			actions:    []bmc.Action{},
+			actions: []bmc.Action{
+				{PowerAction: toPtr(bmc.PowerStatus)},
+			},
 			name:       jobNameNetboot,
 			wantResult: reconcile.Result{Requeue: true},
 		},
-		"existing job deleted, new job created": {
+		"existing job running, track status": {
 			workflow: &v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
@@ -233,4 +236,8 @@ func TestHandleJob(t *testing.T) {
 			}
 		})
 	}
+}
+
+func toPtr[T any](v T) *T {
+	return &v
 }

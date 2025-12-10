@@ -63,7 +63,7 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 				return r, err
 			}
-			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete {
+			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete || len(s.workflow.Spec.BootOptions.CustombootConfig.PostActions) == 0 {
 				// Post Action handling must only change the Status.State if the status.State was not a failure state (i.e. not FAILED, TIMEOUT).
 				if s.workflow.Status.CurrentState != nil {
 					s.workflow.Status.State = s.workflow.Status.CurrentState.State
