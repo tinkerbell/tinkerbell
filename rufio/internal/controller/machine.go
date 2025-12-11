@@ -103,6 +103,7 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *bmc.Machine, bm
 	var username, password string
 	opts := &BMCOptions{
 		ProviderOptions: bm.Spec.Connection.ProviderOptions,
+		InsecureTLS:     bm.Spec.Connection.InsecureTLS,
 	}
 	if bm.Spec.Connection.ProviderOptions != nil && bm.Spec.Connection.ProviderOptions.RPC != nil {
 		opts.ProviderOptions = bm.Spec.Connection.ProviderOptions
