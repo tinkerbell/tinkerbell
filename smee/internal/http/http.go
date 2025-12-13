@@ -28,7 +28,7 @@ func createHandler(log logr.Logger, otelOperation string, trustedProxies []strin
 		}
 		// otelhttp.WithRouteTag takes a route and an http handler function, wraps the function
 		// with otelhttp, and returns the route again and http.Handler all set for mux.Handle().
-		mux.Handle(pattern, LogRequest(otelhttp.WithRouteTag(pattern, handler), log))
+		mux.Handle(pattern, LogRequest(handler, log))
 	}
 
 	// wrap the mux with an OpenTelemetry interceptor
