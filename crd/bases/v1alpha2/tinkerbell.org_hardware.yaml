@@ -346,11 +346,15 @@ spec:
                                 - snp-x86_64.efi
                                 See the iPXE Architecture Mapping documentation for more details.
                               type: string
-                            contents:
-                              description: Contents of an iPXE script.
+                            script:
+                              description: |-
+                                Script, when defined, overrides the Tinkerbell iPXE script.
+                                Must start with: #!ipxe
                               type: string
                             url:
-                              description: URL of an iPXE script.
+                              description: |-
+                                URL, when defined, overrides the Tinkerbell iPXE script and uses iPXE's chainloading capabilities
+                                to download and run the script at the defined URL.
                               type: string
                           type: object
                       type: object

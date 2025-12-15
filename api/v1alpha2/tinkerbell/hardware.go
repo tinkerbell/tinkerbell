@@ -330,11 +330,13 @@ type IPXE struct {
 	// +optional
 	Binary string `json:"binary,omitempty"`
 
-	// Contents of an iPXE script.
+	// Script, when defined, overrides the Tinkerbell iPXE script.
+	// Must start with: #!ipxe
 	// +optional
-	Contents string `json:"contents,omitempty"`
+	Script string `json:"script,omitempty"`
 
-	// URL of an iPXE script.
+	// URL, when defined, overrides the Tinkerbell iPXE script and uses iPXE's chainloading capabilities
+	// to download and run the script at the defined URL.
 	// +optional
 	URL string `json:"url,omitempty"`
 }

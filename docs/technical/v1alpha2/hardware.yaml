@@ -98,7 +98,7 @@ spec:
         disabled: false
         ipxe:
           binary: "snp-x86_64.efi"
-          contents: |
+          script: |
             #!ipxe
             dhcp
             chain --autofree https://boot.netboot.xyz
