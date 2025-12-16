@@ -19,11 +19,12 @@ import (
 )
 
 type Config struct {
-	BackendEc2     ec2.Client
-	BackendHack    hack.Client
-	TrustedProxies string
-	DebugMode      bool
-	BindAddrPort   string
+	BackendEc2       ec2.Client
+	BackendHack      hack.Client
+	TrustedProxies   string
+	DebugMode        bool
+	BindAddrPort     string
+	InstanceEndpoint bool
 }
 
 func NewConfig(c Config, addrPort string) *Config {
@@ -64,7 +65,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	// healthcheck.Configure(router, be)
 
 	// TODO(chrisdoherty4) Handle multiple frontends.
-	fe := ec2.New(c.BackendEc2)
+	fe := ec2.New(c.BackendEc2, c.InstanceEndpoint)
 	fe.Configure(router)
 
 	hack.Configure(router, c.BackendHack)
