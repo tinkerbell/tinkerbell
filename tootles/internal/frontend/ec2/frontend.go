@@ -32,13 +32,15 @@ type Client interface {
 // Frontend is an EC2 HTTP API frontend. It is responsible for configuring routers with handlers
 // for the AWS EC2 instance metadata API.
 type Frontend struct {
-	client Client
+	client           Client
+	instanceEndpoint bool
 }
 
 // New creates a new Frontend.
-func New(client Client) Frontend {
+func New(client Client, instanceEndpoint bool) Frontend {
 	return Frontend{
-		client: client,
+		client:           client,
+		instanceEndpoint: instanceEndpoint,
 	}
 }
 
@@ -63,10 +65,12 @@ func (f Frontend) Configure(router gin.IRouter) {
 			f.writeInstanceDataOrErrToHTTP(ctx, getInstanceErr, r.Filter(instance))
 		})
 
-		v20090404viaInstanceID.GET(r.Endpoint, func(ctx *gin.Context) {
-			instance, getInstanceErr := f.getInstanceViaInstanceID(ctx)
-			f.writeInstanceDataOrErrToHTTP(ctx, getInstanceErr, r.Filter(instance))
-		})
+		if f.instanceEndpoint {
+			v20090404viaInstanceID.GET(r.Endpoint, func(ctx *gin.Context) {
+				instance, getInstanceErr := f.getInstanceViaInstanceID(ctx)
+				f.writeInstanceDataOrErrToHTTP(ctx, getInstanceErr, r.Filter(instance))
+			})
+		}
 
 		staticRoutes.FromEndpoint(r.Endpoint)
 	}
@@ -79,7 +83,9 @@ func (f Frontend) Configure(router gin.IRouter) {
 
 	for _, r := range staticRoutes.Build() {
 		staticEndpointBinder(v20090404, r.Endpoint, r.Children)
-		staticEndpointBinder(v20090404viaInstanceID, r.Endpoint, r.Children)
+		if f.instanceEndpoint {
+			staticEndpointBinder(v20090404viaInstanceID, r.Endpoint, r.Children)
+		}
 	}
 }
 
