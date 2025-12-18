@@ -29,3 +29,8 @@ func (n Backend) GetHackInstance(context.Context, string) (data.HackInstance, er
 func (n Backend) GetEC2Instance(context.Context, string) (data.Ec2Instance, error) {
 	return data.Ec2Instance{}, errAlways
 }
+
+// GetNoCloudInstance exists to satisfy the nocloud.Client interface. It is not implemented.
+func (n Backend) GetNoCloudInstance(context.Context, string) (data.NoCloudInstance, error) {
+	return data.NoCloudInstance{}, errAlways
+}
