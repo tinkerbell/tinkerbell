@@ -25,7 +25,7 @@ require (
 	github.com/insomniacslk/dhcp v0.0.0-20251020182700-175e84fbb167
 	github.com/jacobweinstock/registrar v0.4.7
 	github.com/jaypipes/ghw v0.21.2
-	github.com/nats-io/nats.go v1.47.0
+	github.com/nats-io/nats.go v1.48.0
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/opencontainers/runtime-spec v1.2.1
 	github.com/peterbourgon/ff/v4 v4.0.0-beta.1
