@@ -44,7 +44,8 @@ spec:
             description: WorkflowSpec defines the desired state of Workflow.
             properties:
               actions:
-                description: Actions that the Workflow runs.
+                description: Actions are the list of individual Actions that are part
+                  of this Workflow.
                 items:
                   description: Action represents a Workflow Action.
                   properties:
@@ -61,17 +62,17 @@ spec:
                         default command/entrypoint is used.
                       pattern: ^(/[^/ ]*)+/?$
                       type: string
-                    environment:
-                      description: Environment defines environment variables that
-                        will be available inside a container.
+                    envVars:
+                      description: EnvVars defines environment variables that will
+                        be available inside a container.
                       items:
-                        description: Environment defines environmental variables.
+                        description: EnvVar defines a single environment variable.
                         properties:
                           key:
-                            description: Key is the name of the environmental variable.
+                            description: Key is the name of the environment variable.
                             type: string
                           value:
-                            description: Value is the value of the environmental variable.
+                            description: Value is the value of the environment variable.
                             type: string
                         required:
                         - key
@@ -81,7 +82,7 @@ spec:
                     image:
                       description: |-
                         Image is an OCI image. Should generally be a fully qualified OCI image reference.
-                        For example, quay.io/tinkerbell/actions/image2disk:v1.0.0
+                        For example, quay.io/tinkerbell/actions/image2disk:v1.0.0 or docker.io/library/alpine:3.23
                       type: string
                     name:
                       description: Name is a human readable name for the Action.
@@ -126,17 +127,17 @@ spec:
                   - name
                   type: object
                 type: array
-              environment:
-                description: Environment variables here are added to all Action in
-                  the Workflow.
+              envVars:
+                description: EnvVars variables here are added to all Actions in the
+                  Workflow.
                 items:
-                  description: Environment defines environmental variables.
+                  description: EnvVar defines a single environment variable.
                   properties:
                     key:
-                      description: Key is the name of the environmental variable.
+                      description: Key is the name of the environment variable.
                       type: string
                     value:
-                      description: Value is the value of the environmental variable.
+                      description: Value is the value of the environment variable.
                       type: string
                   required:
                   - key

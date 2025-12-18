@@ -11,7 +11,7 @@ spec:
       command: "/bin/sleep"
       args:
         - "1"
-      environment:
+      envVars:
         - key: "key"
           value: "value"
       volumes:
@@ -21,9 +21,9 @@ spec:
         pid: "1"
       retries: 4
       timeoutSeconds: 120
-  environment:
+  envVars:
     - key: "one"
       value: "1"
   name: example
   volumes:
-    - "/etc/data:/data:ro"
+    - "/etc/data1:/data1:ro"

@@ -77,19 +77,20 @@ spec:
                   or not.
                 type: boolean
               globals:
-                description: Globals apply to all Workflows in the Pipeline.
+                description: Globals are extra configuration that is applied to all
+                  Workflows in the Pipeline.
                 properties:
-                  environment:
-                    description: Environment variables here are added to all Workflows
-                      in the Pipeline.
+                  envVars:
+                    description: EnvVar variables here are additive to any existing
+                      environment variables.
                     items:
-                      description: Environment defines environmental variables.
+                      description: EnvVar defines a single environment variable.
                       properties:
                         key:
-                          description: Key is the name of the environmental variable.
+                          description: Key is the name of the environment variable.
                           type: string
                         value:
-                          description: Value is the value of the environmental variable.
+                          description: Value is the value of the environment variable.
                           type: string
                       required:
                       - key
@@ -100,16 +101,11 @@ spec:
                     additionalProperties:
                       type: string
                     description: TemplateMap is a mapping of key/values that will
-                      be used when templating all Workflows.
+                      be used when templating a Workflow.
                     type: object
-                  timeoutSeconds:
-                    description: TimeoutSeconds is the duration for the Pipeline before
-                      marking it as timed out.
-                    format: int64
-                    type: integer
                   volumes:
-                    description: Volumes defined here are added to all Workflows in
-                      the Pipeline.
+                    description: Volumes defined here are additive to any existing
+                      volumes.
                     items:
                       description: "Volume is a specification for mounting a location
                         on a Host into an Action container.\nVolumes take the form
@@ -121,6 +117,12 @@ spec:
                       type: string
                     type: array
                 type: object
+              timeoutSeconds:
+                description: |-
+                  TimeoutSeconds is the duration before a timed out is reached.
+                  A zero value means no timeout.
+                format: int64
+                type: integer
               workflows:
                 description: Workflows that are run as part of the Pipeline.
                 items:
@@ -133,6 +135,50 @@ spec:
                       description: Disabled indicates whether this Workflow will be
                         processed or not.
                       type: boolean
+                    extra:
+                      description: Extra configuration that is applied to this specific
+                        Workflow.
+                      properties:
+                        envVars:
+                          description: EnvVar variables here are additive to any existing
+                            environment variables.
+                          items:
+                            description: EnvVar defines a single environment variable.
+                            properties:
+                              key:
+                                description: Key is the name of the environment variable.
+                                type: string
+                              value:
+                                description: Value is the value of the environment
+                                  variable.
+                                type: string
+                            required:
+                            - key
+                            - value
+                            type: object
+                          type: array
+                        templateMap:
+                          additionalProperties:
+                            type: string
+                          description: TemplateMap is a mapping of key/values that
+                            will be used when templating a Workflow.
+                          type: object
+                        volumes:
+                          description: Volumes defined here are additive to any existing
+                            volumes.
+                          items:
+                            description: "Volume is a specification for mounting a
+                              location on a Host into an Action container.\nVolumes
+                              take the form {SRC-VOLUME-NAME | SRC-HOST-DIR}:TGT-CONTAINER-DIR:OPTIONS.\nWhen
+                              specifying a VOLUME-NAME that does not exist it will
+                              be created for you.\nExamples:\n\nRead-only bind mount
+                              bound to /data\n\n\t/etc/data:/data:ro\n\nWritable volume
+                              name bound to /data\n\n\tshared_volume:/data\n\nSee
+                              https://docs.docker.com/storage/volumes/ for additional
+                              details."
+                            type: string
+                          type: array
+                      type: object
                     hardware:
                       description: Hardware is the Hardware and options associated
                         with this Workflow.
@@ -321,15 +367,10 @@ spec:
                               type: string
                           type: object
                       type: object
-                    templateMap:
-                      additionalProperties:
-                        type: string
-                      description: TemplateMap is a mapping of key/values that will
-                        be used when templating a Workflow.
-                      type: object
                     timeoutSeconds:
-                      description: TimeoutSeconds is the duration for the Workflow
-                        before marking it as timed out.
+                      description: |-
+                        TimeoutSeconds is the duration before a timed out is reached.
+                        A zero value means no timeout.
                       format: int64
                       type: integer
                     workflowRef:
@@ -515,7 +556,7 @@ spec:
                   Pipeline.
                 items:
                   description: |-
-                    WorkflowWithMetadata is a copy of WorkflowSpec with the addition of Metadata.
+                    WorkflowWithMetadata is a copy of WorkflowSpec with the addition of the ActionWithMetadata.
                     Users don't need Metadata in the CRD Spec so we don't include it but we need
                     it in the CRD Status.
                   properties:
@@ -562,18 +603,18 @@ spec:
                               default command/entrypoint is used.
                             pattern: ^(/[^/ ]*)+/?$
                             type: string
-                          environment:
-                            description: Environment defines environment variables
-                              that will be available inside a container.
+                          envVars:
+                            description: EnvVars defines environment variables that
+                              will be available inside a container.
                             items:
-                              description: Environment defines environmental variables.
+                              description: EnvVar defines a single environment variable.
                               properties:
                                 key:
-                                  description: Key is the name of the environmental
+                                  description: Key is the name of the environment
                                     variable.
                                   type: string
                                 value:
-                                  description: Value is the value of the environmental
+                                  description: Value is the value of the environment
                                     variable.
                                   type: string
                               required:
@@ -584,7 +625,7 @@ spec:
                           image:
                             description: |-
                               Image is an OCI image. Should generally be a fully qualified OCI image reference.
-                              For example, quay.io/tinkerbell/actions/image2disk:v1.0.0
+                              For example, quay.io/tinkerbell/actions/image2disk:v1.0.0 or docker.io/library/alpine:3.23
                             type: string
                           name:
                             description: Name is a human readable name for the Action.
@@ -634,13 +675,13 @@ spec:
                       description: Environment variables here are added to all Action
                         in the Workflow.
                       items:
-                        description: Environment defines environmental variables.
+                        description: EnvVar defines a single environment variable.
                         properties:
                           key:
-                            description: Key is the name of the environmental variable.
+                            description: Key is the name of the environment variable.
                             type: string
                           value:
-                            description: Value is the value of the environmental variable.
+                            description: Value is the value of the environment variable.
                             type: string
                         required:
                         - key
