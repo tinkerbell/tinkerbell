@@ -29,12 +29,12 @@ type WorkflowList struct {
 
 // WorkflowSpec defines the desired state of Workflow.
 type WorkflowSpec struct {
-	// Actions that the Workflow runs.
+	// Actions are the list of individual Actions that are part of this Workflow.
 	Actions []Action `json:"actions"`
 
-	// Environment variables here are added to all Action in the Workflow.
+	// EnvVars variables here are added to all Actions in the Workflow.
 	// +optional
-	Environment []Environment `json:"environment,omitempty"`
+	EnvVars []EnvVar `json:"envVars,omitempty"`
 
 	// Name is a human readable name for the Workflow.
 	Name string `json:"name"`
@@ -50,8 +50,10 @@ type Action struct {
 	Name string `json:"name" yaml:"name"`
 
 	// Image is an OCI image. Should generally be a fully qualified OCI image reference.
-	// For example, quay.io/tinkerbell/actions/image2disk:v1.0.0
+	// For example, quay.io/tinkerbell/actions/image2disk:v1.0.0 or docker.io/library/alpine:3.23
 	Image string `json:"image" yaml:"image"`
+
+	// EntryPoint
 
 	// Command defines the command to use when launching the image. It overrides the default command
 	// of the Action image. It must be a unix path to an executable program. When omitted, the image's
@@ -64,9 +66,9 @@ type Action struct {
 	// +optional
 	Args []string `json:"args,omitempty,omitzero" yaml:"args,omitempty,omitzero"`
 
-	// Environment defines environment variables that will be available inside a container.
+	// EnvVars defines environment variables that will be available inside a container.
 	//+optional
-	Environment []Environment `json:"environment,omitempty,omitzero" yaml:"environment,omitempty,omitzero"`
+	EnvVars []EnvVar `json:"envVars,omitempty,omitzero" yaml:"envVars,omitempty,omitzero"`
 
 	// Volumes defines the volumes that will be mounted into the container.
 	// +optional
@@ -84,11 +86,11 @@ type Action struct {
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty,omitzero" yaml:"timeoutSeconds,omitempty,omitzero"`
 }
 
-// Environment defines environmental variables.
-type Environment struct {
-	// Key is the name of the environmental variable.
+// EnvVar defines a single environment variable.
+type EnvVar struct {
+	// Key is the name of the environment variable.
 	Key string `json:"key" yaml:"key"`
-	// Value is the value of the environmental variable.
+	// Value is the value of the environment variable.
 	Value string `json:"value" yaml:"value"`
 }
 

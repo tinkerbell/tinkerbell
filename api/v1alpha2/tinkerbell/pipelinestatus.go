@@ -40,7 +40,7 @@ type PipelineStatus struct {
 	Conditions []PipelineCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
-// WorkflowWithMetadata is a copy of WorkflowSpec with the addition of Metadata.
+// WorkflowWithMetadata is a copy of WorkflowSpec with the addition of the ActionWithMetadata.
 // Users don't need Metadata in the CRD Spec so we don't include it but we need
 // it in the CRD Status.
 type WorkflowWithMetadata struct {
@@ -49,7 +49,7 @@ type WorkflowWithMetadata struct {
 
 	// Environment variables here are added to all Action in the Workflow.
 	// +optional
-	Environment []Environment `json:"environment,omitempty"`
+	Environment []EnvVar `json:"environment,omitempty"`
 
 	// Name is a human readable name for the Workflow.
 	Name string `json:"name"`
@@ -63,42 +63,7 @@ type WorkflowWithMetadata struct {
 
 // ActionWithMetadata
 type ActionWithMetadata struct {
-	// Name is a human readable name for the Action.
-	Name string `json:"name" yaml:"name"`
-
-	// Image is an OCI image. Should generally be a fully qualified OCI image reference.
-	// For example, quay.io/tinkerbell/actions/image2disk:v1.0.0
-	Image string `json:"image" yaml:"image"`
-
-	// Command defines the command to use when launching the image. It overrides the default command
-	// of the Action image. It must be a unix path to an executable program. When omitted, the image's
-	// default command/entrypoint is used.
-	// +kubebuilder:validation:Pattern=`^(/[^/ ]*)+/?$`
-	// +optional
-	Command string `json:"command,omitempty,omitzero" yaml:"command,omitempty,omitzero"`
-
-	// Args are a set of arguments to be passed to the command executed by the container on launch.
-	// +optional
-	Args []string `json:"args,omitempty,omitzero" yaml:"args,omitempty,omitzero"`
-
-	// Environment defines environment variables that will be available inside a container.
-	//+optional
-	Environment []Environment `json:"environment,omitempty,omitzero" yaml:"environment,omitempty,omitzero"`
-
-	// Volumes defines the volumes that will be mounted into the container.
-	// +optional
-	Volumes []Volume `json:"volumes,omitempty,omitzero" yaml:"volumes,omitempty,omitzero"`
-
-	// Namespaces defines the Linux namespaces with which the container should configured.
-	// +optional
-	Namespaces Namespaces `json:"namespaces,omitempty,omitzero" yaml:"namespaces,omitempty,omitzero"`
-
-	// Retries is the number of times the Action should be run until completed successfully.
-	Retries int `json:"retries,omitempty,omitzero" yaml:"retries,omitempty,omitzero"`
-
-	// TimeoutSeconds is the total number of seconds the Action is allowed to run without completing
-	// before marking it as timed out.
-	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty,omitzero" yaml:"timeoutSeconds,omitempty,omitzero"`
+	Action `json:",inline"`
 
 	Metadata Metadata `json:"actionMetadata,omitempty"`
 }

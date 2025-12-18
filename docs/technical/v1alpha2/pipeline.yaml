@@ -7,17 +7,25 @@ metadata:
 spec:
   disabled: false
   globals:
-    environment:
-      - key: one
+    envVars:
+      - key: globalOne
         value: "1"
     templateMap:
       "globalKey": "value"
-    timeoutSeconds: 600
     volumes:
-      - "/etc/data:/data:ro"
+      - "/etc/data2:/data2:ro"
+  timeoutSeconds: 600
   workflows:
     - agentID: "1234"
       disabled: false
+      extra:
+        envVars:
+          - key: workflowOne
+            value: "1"
+        templateMap:
+          "workflowKey": "value"
+        volumes:
+          - "/etc/data3:/data4:ro"
       hardware:
         bootOptions:
           toggleNetboot: true
@@ -39,10 +47,7 @@ spec:
         reference:
           name: "example"
           namespace: "tinkerbell"
-      templateMap:
-        "workflowKey": "value"
-      timeoutSeconds: 300
+      timeoutSeconds: 600
       workflowRef:
         name: "example"
-        namespace: "tinkerbell"        
-          
+        namespace: "tinkerbell"

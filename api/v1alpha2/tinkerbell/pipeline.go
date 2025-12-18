@@ -43,24 +43,29 @@ type PipelineSpec struct {
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
 
-	// Globals apply to all Workflows in the Pipeline.
-	Globals *Globals `json:"globals,omitempty"`
+	// Globals are extra configuration that is applied to all Workflows in the Pipeline.
+	Globals *Extra `json:"globals,omitempty"`
+
+	// TimeoutSeconds is the duration before a timed out is reached.
+	// A zero value means no timeout.
+	// +optional
+	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
 	// Workflows that are run as part of the Pipeline.
 	Workflows []PipelineWorkflow `json:"workflows,omitempty"`
 }
 
-type Globals struct {
-	// Environment variables here are added to all Workflows in the Pipeline.
-	Environment []Environment `json:"environment,omitempty"`
+type Extra struct {
+	// EnvVar variables here are additive to any existing environment variables.
+	// +optional
+	EnvVar []EnvVar `json:"envVars,omitempty"`
 
-	// TemplateMap is a mapping of key/values that will be used when templating all Workflows.
+	// TemplateMap is a mapping of key/values that will be used when templating a Workflow.
+	// +optional
 	TemplateMap map[string]string `json:"templateMap,omitempty"`
 
-	// TimeoutSeconds is the duration for the Pipeline before marking it as timed out.
-	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
-
-	// Volumes defined here are added to all Workflows in the Pipeline.
+	// Volumes defined here are additive to any existing volumes.
+	// +optional
 	Volumes []Volume `json:"volumes,omitempty"`
 }
 
@@ -72,15 +77,17 @@ type PipelineWorkflow struct {
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
 
+	// Extra configuration that is applied to this specific Workflow.
+	// +optional
+	Extra *Extra `json:"extra,omitempty"`
+
 	// Hardware is the Hardware and options associated with this Workflow.
 	// +optional
 	Hardware *PipelineHardware `json:"hardware,omitempty"`
 
-	// TemplateMap is a mapping of key/values that will be used when templating a Workflow.
+	// TimeoutSeconds is the duration before a timed out is reached.
+	// A zero value means no timeout.
 	// +optional
-	TemplateMap map[string]string `json:"templateMap,omitempty"`
-
-	// TimeoutSeconds is the duration for the Workflow before marking it as timed out.
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
 	// WorkflowRef is the Workflow associated with this Pipeline config.
