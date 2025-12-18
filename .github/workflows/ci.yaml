@@ -30,7 +30,7 @@ jobs:
           cache: false
 
       - name: Restore Go cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/go/pkg/mod
@@ -70,7 +70,7 @@ jobs:
 
       - name: Save Go cache
         if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           # Caches both the downloaded modules and the compiled build cache.
           path: |
@@ -125,7 +125,7 @@ jobs:
           cache: false
 
       - name: Restore Go cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/go/pkg/mod
@@ -144,7 +144,7 @@ jobs:
         run: make ${{ matrix.make-target }}
       
       - name: Upload binaries
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact-name }}
           path: |
@@ -232,7 +232,7 @@ jobs:
           cache: false
 
       - name: Restore Go cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/go/pkg/mod
