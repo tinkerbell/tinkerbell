@@ -1,4 +1,7 @@
 {{- if .Values.optional.hookos.enabled }}
+{{- if not .Values.artifactsFileServer }}
+  {{- fail "artifactsFileServer must be set when hookos is enabled" }}
+{{- else }}
 {{- if not .Values.optional.hookos.hostNetwork }}
 {{- $artifactsURL := urlParse .Values.artifactsFileServer }}
 {{- $artifactsHost :=  split ":" $artifactsURL.host }}
@@ -32,5 +35,6 @@ spec:
     {{- with .Values.optional.hookos.selector }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

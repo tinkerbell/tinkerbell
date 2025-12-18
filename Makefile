@@ -10,7 +10,7 @@ ifeq ($(shell uname), Darwin)
   ifeq ($(shell expr $(MAKE_VERSION) \< 4), 1)
     $(error "GNU Make 4.x is required (Current version: $(MAKE_VERSION)) Install it via Homebrew with 'brew install make' and use 'gmake' instead of 'make'.")
   endif
-  ifeq ($(shell command -v brew 2>/dev/null), /usr/local/bin/brew)
+  ifneq ($(shell command -v brew 2>/dev/null), "")
     HOMEBREW_PREFIX := $(shell brew --prefix)
     PATH := $(HOMEBREW_PREFIX)/opt/coreutils/libexec/gnubin:$(HOMEBREW_PREFIX)/opt/gnu-sed/libexec/gnubin:$(HOMEBREW_PREFIX)/opt/gnu-tar/libexec/gnubin:$(HOMEBREW_PREFIX)/opt/findutils/libexec/gnubin:$(PATH)
   endif
