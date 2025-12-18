@@ -62,9 +62,9 @@ type HardwareSpec struct {
 	//+optional
 	Interfaces []Interface `json:"interfaces,omitempty"`
 
-	// References allow for linking custom resource objects of any kind to this Hardware object.
+	// References allows for linking custom resource objects of any kind to this Hardware object.
 	// These are available in Templates for templating. They are referenced by the name of the reference.
-	// For example, given a reference with the name "lvm", you can access it in a template with {{ .references.lvm }}.
+	// For example, given a reference with the name "lvm", you can access it in a template with .references.lvm.
 	//+optional
 	References map[string]Reference `json:"references,omitempty"`
 
