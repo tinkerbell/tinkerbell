@@ -78,6 +78,13 @@ spec:
                   providerOptions:
                     description: ProviderOptions contains provider specific options.
                     properties:
+                      httpProxy:
+                        description: |-
+                          HTTPProxy is the URL of the HTTP proxy to use for HTTP-based provider communication.
+                          This applies to all HTTP-based providers (Redfish, Dell, GoFish, etc.).
+                          Example: http://proxy.example.com:8080
+                        format: uri
+                        type: string
                       intelAMT:
                         description: IntelAMT contains the options to customize the
                           IntelAMT provider.
