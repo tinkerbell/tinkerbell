@@ -23,7 +23,7 @@ spec:
       ethernets:
         eth0:
           addresses:
-            - {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}/{{ (index . "52:54:00:41:05:c6").ipam.ipv4.prefix }}
+            - {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}/{{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.prefix }}
           gateway4: {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.gateway }}
           nameservers:
             addresses:
