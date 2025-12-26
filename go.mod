@@ -9,7 +9,7 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20251010091507-63cb571e5597
 	github.com/ccoveille/go-safecast/v2 v2.0.0
 	github.com/cenkalti/backoff/v5 v5.0.3
-	github.com/containerd/containerd v1.7.29
+	github.com/containerd/containerd v1.7.30
 	github.com/containers/image/v5 v5.36.2
 	github.com/diskfs/go-diskfs v1.7.0
 	github.com/distribution/reference v0.6.0
@@ -191,7 +191,7 @@ require (
 	github.com/opencontainers/cgroups v0.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
-	github.com/opencontainers/selinux v1.13.0 // indirect
+	github.com/opencontainers/selinux v1.13.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
