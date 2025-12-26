@@ -24,7 +24,7 @@ jobs:
         run: (cd smee/internal/ipxe/binary/file/; MAKEFLAGS=-j$(nproc) ./script/build_and_pr.sh build)
       - name: Git commit and push changes
         if: ${{ steps.build_ipxe.outputs.new_binaries_built == 'true' }}
-        uses: planetscale/ghcommit-action@v0.2.19
+        uses: planetscale/ghcommit-action@v0.2.20
         with:
           commit_message: "Automated iPXE binaries built"
           repo: ${{ github.repository }}
