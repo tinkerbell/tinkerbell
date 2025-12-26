@@ -87,8 +87,7 @@ test: ## Run go test
 
 .PHONY: test-api
 test-api: ## Run go test for API
-	cd api
-	CGO_ENABLED=1 go test -race -coverprofile=coverage-api.txt -covermode=atomic -v ${TEST_ARGS} ${TEST_PKGS}
+	(cd api; CGO_ENABLED=1 go test -race -coverprofile=coverage-api.txt -covermode=atomic -v ${TEST_ARGS} ${TEST_PKGS})
 
 .PHONY: vet
 vet: ## Run go vet
@@ -110,11 +109,9 @@ coverage: test ## Show test coverage
 
 .PHONY: coverage-api
 coverage-api: test-api ## Show API test coverage
-	cd api
-	## Filter out generated files
-	cat coverage-api.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > coverage-api.out
-	go tool cover -func=coverage-api.out
-
+    ## Filter out generated files
+	cat api/coverage-api.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > api/coverage-api.out
+	go tool cover -func=api/coverage-api.out
 
 .PHONY: ci-checks
 ci-checks: .github/workflows/ci-checks.sh ## Run the ci-checks.sh script
