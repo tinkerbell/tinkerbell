@@ -355,8 +355,8 @@ spec:
                                 A Hardware Reference must be provided.
                               type: boolean
                           type: object
-                        reference:
-                          description: Reference is the Hardware object associated
+                        hardwareRef:
+                          description: HardwareRef is the Hardware object associated
                             with this Workflow.
                           properties:
                             name:
