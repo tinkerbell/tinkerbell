@@ -99,8 +99,8 @@ type PipelineHardware struct {
 	// These are only applicable when a Reference is provided.
 	BootOptions BootOptions `json:"bootOptions,omitempty,omitzero"`
 
-	// Reference is the Hardware object associated with this Workflow.
-	Reference SimpleReference `json:"reference,omitempty"`
+	// HardwareRef is the Hardware object associated with this Workflow.
+	HardwareRef SimpleReference `json:"hardwareRef,omitempty"`
 }
 
 // BootOptions are options that control the booting of Hardware.

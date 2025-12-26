@@ -44,7 +44,7 @@ spec:
                   persistent: true
                   efiBoot: true
               - powerAction: "reset"
-        reference:
+        hardwareRef:
           name: "example"
           namespace: "tinkerbell"
       timeoutSeconds: 600
