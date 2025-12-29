@@ -18,7 +18,8 @@ type TootlesConfig struct {
 }
 
 var KubeIndexesTootles = map[kube.IndexType]kube.Index{
-	kube.IndexTypeIPAddr: kube.Indexes[kube.IndexTypeIPAddr],
+	kube.IndexTypeIPAddr:     kube.Indexes[kube.IndexTypeIPAddr],
+	kube.IndexTypeInstanceID: kube.Indexes[kube.IndexTypeInstanceID],
 }
 
 func RegisterTootlesFlags(fs *Set, h *TootlesConfig) {
@@ -26,6 +27,7 @@ func RegisterTootlesFlags(fs *Set, h *TootlesConfig) {
 	fs.Register(TootlesBindPort, ffval.NewValueDefault(&h.BindPort, h.BindPort))
 	fs.Register(TootlesDebugMode, ffval.NewValueDefault(&h.Config.DebugMode, h.Config.DebugMode))
 	fs.Register(TootlesLogLevel, ffval.NewValueDefault(&h.LogLevel, h.LogLevel))
+	fs.Register(TootlesInstanceEndpoint, ffval.NewValueDefault(&h.Config.InstanceEndpoint, h.Config.InstanceEndpoint))
 }
 
 var TootlesBindAddr = Config{
@@ -46,6 +48,11 @@ var TootlesDebugMode = Config{
 var TootlesLogLevel = Config{
 	Name:  "tootles-log-level",
 	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
+}
+
+var TootlesInstanceEndpoint = Config{
+	Name:  "tootles-instance-endpoint",
+	Usage: "whether to enable /tootles/instanceID/<instanceID> endpoint that is independent from client IP address",
 }
 
 // Convert converts TootlesConfig data types to tootles.Config data types.
