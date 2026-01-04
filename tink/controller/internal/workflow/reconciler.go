@@ -11,10 +11,12 @@ import (
 	"github.com/go-logr/logr"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -34,6 +36,8 @@ const (
 	//
 	// Deprecated: use templateDataHardware instead. This key will be removed in a future release.
 	templateDataHardwareLegacy = "Hardware"
+	// templateDataSecret is the key used to access secret data in the template data.
+	templateDataSecret = "secret"
 )
 
 type dynamicClient interface {
@@ -110,6 +114,7 @@ type state struct {
 // +kubebuilder:rbac:groups=tinkerbell.org,resources=templates;templates/status,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=tinkerbell.org,resources=workflows;workflows/status,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=job;job/status,verbs=get;list;watch;delete;create
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile handles Workflow objects. This includes Template rendering, optional Hardware allowPXE toggling, and optional Hardware one-time netbooting.
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -354,6 +359,25 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 	}
 	data[templateDataReferences] = references
 
+	// Fetch secret data if a secret reference is provided in the template
+	if tpl.Spec.SecretRef != nil {
+		secretData, err := retrieveSecretData(ctx, r.client, tpl.Spec.SecretRef.Name, tpl.Namespace)
+		if err != nil {
+			logger.Error(err, "error fetching secret data for template")
+			journal.Log(ctx, "error fetching secret data")
+			stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
+			stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+				Type:    v1alpha1.TemplateRenderedSuccess,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Error",
+				Message: fmt.Sprintf("error fetching secret: %v", err),
+				Time:    &metav1.Time{Time: metav1.Now().UTC()},
+			})
+			return err
+		}
+		data[templateDataSecret] = secretData
+	}
+
 	tinkWf, err := renderTemplateHardware(stored.Name, pointerToValue(tpl.Spec.Data), data)
 	if err != nil {
 		journal.Log(ctx, "error rendering template")
@@ -412,6 +436,34 @@ func structToMap(item interface{}) (map[string]interface{}, error) {
 	// Unmarshal the JSON to a map[string]interface{}.
 	if err = json.Unmarshal(jsonBytes, &result); err != nil {
 		return nil, err
+	}
+
+	return result, nil
+}
+
+// retrieveSecretData fetches all data from a Kubernetes Secret.
+// The secret must exist in the specified namespace (same as the Template namespace).
+// Returns a map of secret keys to their string values.
+func retrieveSecretData(ctx context.Context, client ctrlclient.Client, secretName, secretNamespace string) (map[string]interface{}, error) {
+	if secretName == "" {
+		return nil, fmt.Errorf("secret name cannot be empty")
+	}
+	if secretNamespace == "" {
+		return nil, fmt.Errorf("secret namespace cannot be empty")
+	}
+
+	secret := &corev1.Secret{}
+	if err := client.Get(ctx, types.NamespacedName{Name: secretName, Namespace: secretNamespace}, secret); err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil, fmt.Errorf("secret not found: name=%s, namespace=%s", secretName, secretNamespace)
+		}
+		return nil, fmt.Errorf("failed to get secret: %w", err)
+	}
+
+	// Convert secret data ([]byte values) to string values for template rendering
+	result := make(map[string]interface{})
+	for key, value := range secret.Data {
+		result[key] = string(value)
 	}
 
 	return result, nil
