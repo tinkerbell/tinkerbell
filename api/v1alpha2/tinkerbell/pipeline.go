@@ -46,8 +46,8 @@ type PipelineSpec struct {
 	// Globals are extra configuration that is applied to all Workflows in the Pipeline.
 	Globals *Extra `json:"globals,omitempty"`
 
-	// TimeoutSeconds is the duration before a timed out is reached.
-	// A zero value means no timeout.
+	// TimeoutSeconds is the duration before a Pipeline time out is reached.
+	// A zero or nil value means no timeout.
 	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
@@ -56,9 +56,9 @@ type PipelineSpec struct {
 }
 
 type Extra struct {
-	// EnvVar variables here are additive to any existing environment variables.
+	// EnvVars defined here are additive to any existing environment variables.
 	// +optional
-	EnvVar []EnvVar `json:"envVars,omitempty"`
+	EnvVars []EnvVar `json:"envVars,omitempty"`
 
 	// TemplateMap is a mapping of key/values that will be used when templating a Workflow.
 	// +optional
@@ -85,12 +85,12 @@ type PipelineWorkflow struct {
 	// +optional
 	Hardware *PipelineHardware `json:"hardware,omitempty"`
 
-	// TimeoutSeconds is the duration before a timed out is reached.
-	// A zero value means no timeout.
+	// TimeoutSeconds is the duration before a Workflow time out is reached.
+	// A zero or nil value means no timeout.
 	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
-	// WorkflowRef is the Workflow associated with this Pipeline config.
+	// WorkflowRef is the Workflow associated with this Pipeline.
 	WorkflowRef SimpleReference `json:"workflowRef,omitempty"`
 }
 
