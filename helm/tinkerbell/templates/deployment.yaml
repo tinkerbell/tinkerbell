@@ -80,6 +80,10 @@ spec:
               value: {{ .Values.deployment.envs.tinkController.metricsAddr | quote }}
             - name: TINKERBELL_TINK_CONTROLLER_PROBE_ADDR
               value: {{ .Values.deployment.envs.tinkController.probeAddr | quote }}
+            - name: TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES
+              value: {{ .Values.deployment.envs.tinkController.referenceAllowListRules | quote }}
+            - name: TINKERBELL_TINK_CONTROLLER_REFERENCE_DENY_LIST_RULES
+              value: {{ .Values.deployment.envs.tinkController.referenceDenyListRules | quote }}
           # TINK SERVER
             - name: TINKERBELL_TINK_SERVER_BIND_ADDR
               value: {{ .Values.deployment.envs.tinkServer.bindAddr | quote }}
