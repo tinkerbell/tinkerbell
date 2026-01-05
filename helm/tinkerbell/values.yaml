@@ -109,8 +109,8 @@ deployment:
       logLevel: 0
       metricsAddr: ""
       probeAddr: ""
-      referenceAllowListRules: ""
-      referenceDenyListRules: ""
+      referenceAllowListRules: {}
+      referenceDenyListRules: {}
     tinkServer:
       autoDiscoveryAutoEnrollmentEnabled: false
       autoDiscoveryEnabled: false
