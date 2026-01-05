@@ -152,7 +152,7 @@ spec:
                 type: string
               volumes:
                 description: Volumes defined here are added to all Actions in the
-                  Workfow.
+                  Workflow.
                 items:
                   description: "Volume is a specification for mounting a location
                     on a Host into an Action container.\nVolumes take the form {SRC-VOLUME-NAME

@@ -32,7 +32,7 @@ import (
 
 // BMC is the Schema for the bmcs API.
 type BMC struct {
-	metav1.TypeMeta   `json:""`
+	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   BMCSpec   `json:"spec,omitempty"`
@@ -43,7 +43,7 @@ type BMC struct {
 
 // BMCList contains a list of BMCs.
 type BMCList struct {
-	metav1.TypeMeta `json:""`
+	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []BMC `json:"items"`
 }

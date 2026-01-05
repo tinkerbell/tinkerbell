@@ -235,7 +235,7 @@ type DHCP struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
 	// +optional
-	LeaseTimeSeconds *int64 `json:"leaseTimeSeconds"`
+	LeaseTimeSeconds *int64 `json:"leaseTimeSeconds,omitempty"`
 
 	// Nameservers corresponding to DHCP option 6.
 	// +optional

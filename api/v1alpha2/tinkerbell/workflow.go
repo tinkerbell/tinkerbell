@@ -41,7 +41,7 @@ type WorkflowSpec struct {
 	// Name is a human readable name for the Workflow.
 	Name string `json:"name"`
 
-	// Volumes defined here are added to all Actions in the Workfow.
+	// Volumes defined here are added to all Actions in the Workflow.
 	// +optional
 	Volumes []Volume `json:"volumes,omitempty"`
 }
