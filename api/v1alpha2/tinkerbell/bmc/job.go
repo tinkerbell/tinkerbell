@@ -44,10 +44,18 @@ type JobList struct {
 }
 
 // JobSpec defines the desired state of Job.
+// +kubebuilder:validation:XValidation:rule="!(has(self.bmcRef) && has(self.connection))",message="bmcRef and connection are mutually exclusive"
 type JobSpec struct {
-	// BMCRef represents the BMC resource to execute the job.
-	// All the operations in the job are executed for the same BMC.
-	BMCRef SimpleReference `json:"bmcRef"`
+	// BMCRef represents the BMC object that will be used for connection details when executing the Job.
+	// All the operations in the Job are executed for the same BMC.
+	// Mutually exclusive with Connection.
+	// +optional
+	BMCRef SimpleReference `json:"bmcRef,omitempty"`
+
+	// Connection contains connection details that will be used for executing the Job.
+	// Mutually exclusive with BMCRef.
+	// +optional
+	Connection Connection `json:"connection,omitempty"`
 
 	// Operations represents a list of baseboard management actions to be executed.
 	// The operations are executed sequentially. Controller waits for one operation to complete before executing the next.

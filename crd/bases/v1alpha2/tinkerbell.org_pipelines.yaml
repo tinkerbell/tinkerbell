@@ -264,6 +264,12 @@ spec:
                                         description: PowerAction represents a baseboard
                                           management power operation.
                                         type: string
+                                      timeoutSeconds:
+                                        description: |-
+                                          TimeoutSeconds defines the maximum time in seconds the Operation is allowed to run.
+                                          If not defined, the default from the runtime is used.
+                                        format: int64
+                                        type: integer
                                       virtualMediaAction:
                                         description: VirtualMediaAction represents
                                           a baseboard management virtual media insert/eject.
@@ -337,6 +343,12 @@ spec:
                                         description: PowerAction represents a baseboard
                                           management power operation.
                                         type: string
+                                      timeoutSeconds:
+                                        description: |-
+                                          TimeoutSeconds defines the maximum time in seconds the Operation is allowed to run.
+                                          If not defined, the default from the runtime is used.
+                                        format: int64
+                                        type: integer
                                       virtualMediaAction:
                                         description: VirtualMediaAction represents
                                           a baseboard management virtual media insert/eject.

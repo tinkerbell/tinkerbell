@@ -76,4 +76,8 @@ type Operations struct {
 
 	// VirtualMediaAction represents a baseboard management virtual media insert/eject.
 	VirtualMediaAction *VirtualMediaAction `json:"virtualMediaAction,omitempty"`
+
+	// TimeoutSeconds defines the maximum time in seconds the Operation is allowed to run.
+	// If not defined, the default from the runtime is used.
+	TimeoutSeconds int64 `json:"timeoutSeconds,omitempty"`
 }

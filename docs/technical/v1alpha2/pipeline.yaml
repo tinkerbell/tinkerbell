@@ -27,9 +27,9 @@ spec:
         volumes:
           - "/etc/data3:/data4:ro"
       hardware:
-        bmcRef:
-          name: "example"
-          namespace: "tinkerbell"
+        #bmcRef:
+        #  name: "example"
+        #  namespace: "tinkerbell"
         bootOptions:
           toggleNetboot: true
           isoURL: "https://tinkerbell.org/iso/00-01-02-03-04-05/hook.iso"
