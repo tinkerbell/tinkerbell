@@ -1,5 +1,5 @@
 ---
-apiVersion: "tinkerbell.org/v1alpha2"
+apiVersion: tinkerbell.org/v1alpha2
 kind: Workflow
 metadata:
   name: example
