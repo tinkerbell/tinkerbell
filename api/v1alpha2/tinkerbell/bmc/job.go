@@ -45,17 +45,17 @@ type JobList struct {
 
 // JobSpec defines the desired state of Job.
 type JobSpec struct {
-	// MachineRef represents the Machine resource to execute the job.
-	// All the tasks in the job are executed for the same Machine.
-	MachineRef MachineRef `json:"machineRef"`
+	// BMCRef represents the BMC resource to execute the job.
+	// All the operations in the job are executed for the same BMC.
+	BMCRef BMCRef `json:"bmcRef"`
 
-	// Tasks represents a list of baseboard management actions to be executed.
-	// The tasks are executed sequentially. Controller waits for one task to complete before executing the next.
-	// If a single task fails, job execution stops and sets condition Failed.
-	// Condition Completed is set only if all the tasks were successful.
+	// Operations represents a list of baseboard management actions to be executed.
+	// The operations are executed sequentially. Controller waits for one operation to complete before executing the next.
+	// If a single operation fails, job execution stops and sets condition Failed.
+	// Condition Completed is set only if all the operations were successful.
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:UniqueItems=false
-	Tasks []Operations `json:"tasks"`
+	Operations []Operations `json:"operations"`
 }
 
 // JobStatus defines the observed state of Job.
@@ -74,11 +74,11 @@ type JobStatus struct {
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
-// MachineRef is used to reference a Machine object.
-type MachineRef struct {
-	// Name of the Machine.
+// BMCRef is used to reference a BMC object.
+type BMCRef struct {
+	// Name of the BMC.
 	Name string `json:"name"`
 
-	// Namespace the Machine resides in.
+	// Namespace the BMC resides in.
 	Namespace string `json:"namespace"`
 }

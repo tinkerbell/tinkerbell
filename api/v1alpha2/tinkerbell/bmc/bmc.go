@@ -34,14 +34,34 @@ var (
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = schemeBuilder.AddToScheme
-
-	objectTypes = []runtime.Object{}
 )
 
+// addKnownTypes adds the set of types defined in this package to the supplied scheme.
+// This returns nil in order to comply with the expected function signature in runtime.NewSchemeBuilder.
 func addKnownTypes(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(GroupVersion, objectTypes...)
+	scheme.AddKnownTypes(GroupVersion, []runtime.Object{}...)
 	metav1.AddToGroupVersion(scheme, GroupVersion)
 	return nil
+}
+
+// Connection contains connection data for a Baseboard Management Controller.
+type Connection struct {
+	// AuthSecretRef is the SecretReference that contains authentication information of the Machine.
+	// The Secret must contain username and password keys. This is optional as it is not required when using
+	// the RPC provider.
+	// +optional
+	AuthSecretRef SecretReference `json:"authSecretRef"`
+
+	// Host is the host IP address or hostname of the Machine.
+	// +kubebuilder:validation:MinLength=1
+	Host string `json:"host"`
+
+	// InsecureTLS specifies trusted TLS connections.
+	InsecureTLS bool `json:"insecureTLS"`
+
+	// ProviderOptions contains provider specific options.
+	// +optional
+	ProviderOptions *ProviderOptions `json:"providerOptions,omitempty"`
 }
 
 type ConditionType string
@@ -94,7 +114,7 @@ func HasConditionStatus(existingConditions []Condition, ct ConditionType, cs Con
 }
 
 // SetCondition applies the condition to the resource's status. If the condition already exists, it is updated.
-// This is a generic function that works with Machine, Task, and Job types.
+// This is a generic function that works with BMC, Operation, and Job types.
 func SetCondition(existingConditions []Condition, toAdd Condition) []Condition {
 	if existingConditions == nil {
 		existingConditions = []Condition{toAdd}

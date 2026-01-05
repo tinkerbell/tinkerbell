@@ -183,10 +183,23 @@ spec:
                       description: Hardware is the Hardware and options associated
                         with this Workflow.
                       properties:
+                        bmcRef:
+                          description: |-
+                            BMCRef is the bmc.tinkerbell.org object associated with this Workflow.
+                            When specified, the BootOptions will be applied using this bmc.tinkerbell.org object.
+                            Mutually exclusive with HardwareRef.
+                          properties:
+                            name:
+                              description: Name of the object.
+                              type: string
+                            namespace:
+                              description: Namespace where the object resides.
+                              type: string
+                          type: object
                         bootOptions:
                           description: |-
                             BootOptions are options that control the booting of Hardware.
-                            These are only applicable when a Reference is provided.
+                            These are only applicable when a HardwareRef or a BMCRef is provided.
                           properties:
                             bootMode:
                               description: BootMode is the type of booting that will
@@ -204,7 +217,7 @@ spec:
                                 postOperations:
                                   description: |-
                                     PostOperations are the BMC Actions that will be run after all Workflow Actions have completed.
-                                    In most cases these Actions should get a Machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
+                                    In most cases these Actions should get a machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
                                     These Actions will be run only if the main Workflow Actions complete successfully.
                                   items:
                                     description: |-
@@ -273,7 +286,7 @@ spec:
                                 preOperations:
                                   description: |-
                                     PreOperations are the BMC Actions that will be run before any Workflow Actions.
-                                    In most cases these Actions should get a Machine into a state where a Tink Agent is running.
+                                    In most cases these Actions should get a machine into a state where a Tink Agent is running.
                                   items:
                                     description: |-
                                       Operations defines the operations that can be performed against a BMC.
@@ -356,8 +369,11 @@ spec:
                               type: boolean
                           type: object
                         hardwareRef:
-                          description: HardwareRef is the Hardware object associated
-                            with this Workflow.
+                          description: |-
+                            HardwareRef is the Hardware object associated with this Workflow.
+                            This is used if the Workflow has templating that requires Hardware information.
+                            When specified, the BootOptions will be applied using the BMCRef defined in the Hardware object.
+                            Mutually exclusive with BMCRef.
                           properties:
                             name:
                               description: Name of the object.
@@ -367,6 +383,9 @@ spec:
                               type: string
                           type: object
                       type: object
+                      x-kubernetes-validations:
+                      - message: hardwareRef and bmcRef are mutually exclusive
+                        rule: '!(has(self.hardwareRef) && has(self.bmcRef))'
                     timeoutSeconds:
                       description: |-
                         TimeoutSeconds is the duration before a timed out is reached.

@@ -43,27 +43,27 @@ spec:
           spec:
             description: JobSpec defines the desired state of Job.
             properties:
-              machineRef:
+              bmcRef:
                 description: |-
-                  MachineRef represents the Machine resource to execute the job.
-                  All the tasks in the job are executed for the same Machine.
+                  BMCRef represents the BMC resource to execute the job.
+                  All the operations in the job are executed for the same BMC.
                 properties:
                   name:
-                    description: Name of the Machine.
+                    description: Name of the BMC.
                     type: string
                   namespace:
-                    description: Namespace the Machine resides in.
+                    description: Namespace the BMC resides in.
                     type: string
                 required:
                 - name
                 - namespace
                 type: object
-              tasks:
+              operations:
                 description: |-
-                  Tasks represents a list of baseboard management actions to be executed.
-                  The tasks are executed sequentially. Controller waits for one task to complete before executing the next.
-                  If a single task fails, job execution stops and sets condition Failed.
-                  Condition Completed is set only if all the tasks were successful.
+                  Operations represents a list of baseboard management actions to be executed.
+                  The operations are executed sequentially. Controller waits for one operation to complete before executing the next.
+                  If a single operation fails, job execution stops and sets condition Failed.
+                  Condition Completed is set only if all the operations were successful.
                 items:
                   description: |-
                     Operations defines the operations that can be performed against a BMC.
@@ -127,8 +127,8 @@ spec:
                 minItems: 1
                 type: array
             required:
-            - machineRef
-            - tasks
+            - bmcRef
+            - operations
             type: object
           status:
             description: JobStatus defines the observed state of Job.

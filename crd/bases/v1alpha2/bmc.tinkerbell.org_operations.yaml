@@ -4,38 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  labels:
-    clusterctl.cluster.x-k8s.io: ""
-    clusterctl.cluster.x-k8s.io/move: ""
-  name: machines.bmc.tinkerbell.org
+  name: operations.bmc.tinkerbell.org
 spec:
   group: bmc.tinkerbell.org
   names:
     categories:
     - tinkerbell
-    kind: Machine
-    listKind: MachineList
-    plural: machines
+    kind: Operation
+    listKind: OperationList
+    plural: operations
     shortNames:
-    - m
-    singular: machine
+    - o
+    singular: operation
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - description: The contactable status of the machine
-      jsonPath: .status.conditions[?(@.type=="Contactable")].status
-      name: contactable
-      priority: 1
-      type: string
-    - description: The power state of the machine
-      jsonPath: .status.conditions[?(@.type=="PowerState")].status
-      name: power-state
-      priority: 1
-      type: string
-    name: v1alpha2
+  - name: v1alpha2
     schema:
       openAPIV3Schema:
-        description: Machine is the Schema for the machines API.
+        description: Operation is the Schema for the Operation API.
         properties:
           apiVersion:
             description: |-
@@ -55,11 +41,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: MachineSpec defines desired machine state.
+            description: OperationSpec defines the desired state of Operation.
             properties:
               connection:
-                description: Connection contains connection data for a Baseboard Management
-                  Controller.
+                description: Connection represents the BMC connectivity information.
                 properties:
                   authSecretRef:
                     description: |-
@@ -254,12 +239,77 @@ spec:
                 - host
                 - insecureTLS
                 type: object
-            required:
-            - connection
+              operation:
+                description: Operation defines the specific operation to be performed.
+                maxProperties: 1
+                properties:
+                  bootDevice:
+                    description: BootDevice is the device to set as the first boot
+                      device on the Machine.
+                    properties:
+                      device:
+                        description: Device is the name of the device to set as the
+                          first boot device.
+                        type: string
+                      efiBoot:
+                        description: EFIBoot indicates whether the boot device should
+                          be set to efiboot mode.
+                        type: boolean
+                      persistent:
+                        description: Persistent indicates whether the boot device
+                          should be set persistently as the first boot device.
+                        type: boolean
+                    type: object
+                  powerAction:
+                    allOf:
+                    - enum:
+                      - "on"
+                      - "off"
+                      - soft
+                      - status
+                      - cycle
+                      - reset
+                    - enum:
+                      - "on"
+                      - "off"
+                      - soft
+                      - status
+                      - cycle
+                      - reset
+                    description: PowerAction represents a baseboard management power
+                      operation.
+                    type: string
+                  virtualMediaAction:
+                    description: VirtualMediaAction represents a baseboard management
+                      virtual media insert/eject.
+                    properties:
+                      kind:
+                        description: Kind represents the kind of virtual media.
+                        type: string
+                      mediaURL:
+                        description: mediaURL represents the URL of the image to be
+                          inserted into the virtual media, or empty to eject media.
+                        type: string
+                    required:
+                    - kind
+                    type: object
+                type: object
+              timeoutSeconds:
+                description: |-
+                  TimeoutSeconds defines the maximum time in seconds the Operation is allowed to run.
+                  If not defined, the default from the runtime is used.
+                format: int64
+                type: integer
             type: object
           status:
-            description: MachineStatus defines the observed state of Machine.
+            description: OperationStatus defines the observed state of Operation.
             properties:
+              completionTime:
+                description: |-
+                  CompletionTime represents time when the Operation was completed.
+                  The completion time is only set when the Operation finishes successfully.
+                format: date-time
+                type: string
               conditions:
                 description: Conditions represents the latest available observations
                   of an object's current state.
@@ -292,6 +342,11 @@ spec:
                   - type
                   type: object
                 type: array
+              startTime:
+                description: StartTime represents time when the Operation started
+                  processing.
+                format: date-time
+                type: string
             type: object
         type: object
     served: true

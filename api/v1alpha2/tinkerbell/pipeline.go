@@ -94,13 +94,22 @@ type PipelineWorkflow struct {
 	WorkflowRef SimpleReference `json:"workflowRef,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!(has(self.hardwareRef) && has(self.bmcRef))",message="hardwareRef and bmcRef are mutually exclusive"
 type PipelineHardware struct {
 	// BootOptions are options that control the booting of Hardware.
-	// These are only applicable when a Reference is provided.
+	// These are only applicable when a HardwareRef or a BMCRef is provided.
 	BootOptions BootOptions `json:"bootOptions,omitempty,omitzero"`
 
 	// HardwareRef is the Hardware object associated with this Workflow.
+	// This is used if the Workflow has templating that requires Hardware information.
+	// When specified, the BootOptions will be applied using the BMCRef defined in the Hardware object.
+	// Mutually exclusive with BMCRef.
 	HardwareRef SimpleReference `json:"hardwareRef,omitempty"`
+
+	// BMCRef is the bmc.tinkerbell.org object associated with this Workflow.
+	// When specified, the BootOptions will be applied using this bmc.tinkerbell.org object.
+	// Mutually exclusive with HardwareRef.
+	BMCRef SimpleReference `json:"bmcRef,omitempty"`
 }
 
 // BootOptions are options that control the booting of Hardware.
@@ -133,10 +142,10 @@ type BootOptions struct {
 // Customboot defines the configuration for the customboot boot mode.
 type Customboot struct {
 	// PreOperations are the BMC Actions that will be run before any Workflow Actions.
-	// In most cases these Actions should get a Machine into a state where a Tink Agent is running.
+	// In most cases these Actions should get a machine into a state where a Tink Agent is running.
 	PreOperations []bmc.Operations `json:"preOperations,omitempty"`
 	// PostOperations are the BMC Actions that will be run after all Workflow Actions have completed.
-	// In most cases these Actions should get a Machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
+	// In most cases these Actions should get a machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
 	// These Actions will be run only if the main Workflow Actions complete successfully.
 	PostOperations []bmc.Operations `json:"postOperations,omitempty"`
 }
