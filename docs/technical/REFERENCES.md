@@ -207,3 +207,13 @@ Environment Variables:
 ```bash
 export TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES='{"reference":{"resource":["hardware"]}}|{"reference":{"resource":["workflows"]}}'
 ```
+
+Helm Values:
+
+- `deployment.envs.tinkController.referenceAllowListRules`
+- `deployment.envs.tinkController.referenceDenyListRules`
+
+```yaml
+--set-json 'deployment.envs.tinkController.referenceAllowListRules={"reference":{"resource":["secrets"]}}'
+--set-json 'deployment.envs.tinkController.referenceDenyListRules={"reference":{"resource":["pods"]}}'
+```
