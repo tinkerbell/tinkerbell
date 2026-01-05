@@ -27,7 +27,7 @@ import (
 
 // Job is the Schema for the bmcjobs API.
 type Job struct {
-	metav1.TypeMeta   `json:""`
+	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   JobSpec   `json:"spec,omitempty"`
@@ -38,7 +38,7 @@ type Job struct {
 
 // JobList contains a list of Job.
 type JobList struct {
-	metav1.TypeMeta `json:""`
+	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Job `json:"items"`
 }

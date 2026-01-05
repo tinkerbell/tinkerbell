@@ -15,7 +15,7 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type="date"
 // +kubebuilder:printcolumn:JSONPath=".status.metadata.workflow.state",name="Workflow State",type=string,priority=1
 // +kubebuilder:printcolumn:JSONPath=".status.metadata.workflow.agentID",name="Workflow Agent",type=string,priority=1
-// +kubebuilder:printcolumn:JSONPath=".status.metadata.workflow.hardware",name=Workflow Hardware,type=string,priority=1
+// +kubebuilder:printcolumn:JSONPath=".status.metadata.workflow.hardware",name="Workflow Hardware",type=string,priority=1
 // +kubebuilder:printcolumn:JSONPath=".status.workflowRendering",name="Workflow Rendering",type=string,priority=1
 
 // Pipeline is the Schema for the Pipeline API.
