@@ -225,7 +225,6 @@ spec:
                                       Only a single field in the struct should be defined at any given time
                                       as only one operation can be performed at a time.
                                       For example either PowerAction or BootDevice.
-                                    maxProperties: 1
                                     properties:
                                       bootDevice:
                                         description: BootDevice is the device to set
@@ -282,6 +281,12 @@ spec:
                                         - kind
                                         type: object
                                     type: object
+                                    x-kubernetes-validations:
+                                    - message: only one of powerAction, bootDevice,
+                                        or virtualMediaAction can be specified
+                                      rule: '(has(self.powerAction) ? 1 : 0) + (has(self.bootDevice)
+                                        ? 1 : 0) + (has(self.virtualMediaAction) ?
+                                        1 : 0) == 1'
                                   type: array
                                 preOperations:
                                   description: |-
@@ -293,7 +298,6 @@ spec:
                                       Only a single field in the struct should be defined at any given time
                                       as only one operation can be performed at a time.
                                       For example either PowerAction or BootDevice.
-                                    maxProperties: 1
                                     properties:
                                       bootDevice:
                                         description: BootDevice is the device to set
@@ -350,6 +354,12 @@ spec:
                                         - kind
                                         type: object
                                     type: object
+                                    x-kubernetes-validations:
+                                    - message: only one of powerAction, bootDevice,
+                                        or virtualMediaAction can be specified
+                                      rule: '(has(self.powerAction) ? 1 : 0) + (has(self.bootDevice)
+                                        ? 1 : 0) + (has(self.virtualMediaAction) ?
+                                        1 : 0) == 1'
                                   type: array
                               type: object
                             isoURL:

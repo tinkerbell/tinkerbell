@@ -65,7 +65,7 @@ func (p PowerAction) String() string {
 // Only a single field in the struct should be defined at any given time
 // as only one operation can be performed at a time.
 // For example either PowerAction or BootDevice.
-// +kubebuilder:validation:MaxProperties:=1
+// +kubebuilder:validation:XValidation:rule="(has(self.powerAction) ? 1 : 0) + (has(self.bootDevice) ? 1 : 0) + (has(self.virtualMediaAction) ? 1 : 0) == 1",message="only one of powerAction, bootDevice, or virtualMediaAction can be specified"
 type Operations struct {
 	// PowerAction represents a baseboard management power operation.
 	// +kubebuilder:validation:Enum=on;off;soft;status;cycle;reset

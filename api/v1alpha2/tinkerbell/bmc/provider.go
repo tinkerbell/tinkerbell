@@ -89,16 +89,7 @@ type HMACAlgorithm string
 
 // HMACSecrets holds per Algorithm slice secrets.
 // These secrets will be used to create HMAC signatures.
-type HMACSecrets map[HMACAlgorithm][]SecretReference
-
-type SecretReference struct {
-	// name is unique within a namespace to reference a secret resource.
-	// +optional
-	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
-	// namespace defines the space within which the secret name must be unique.
-	// +optional
-	Namespace string `json:"namespace,omitempty" protobuf:"bytes,2,opt,name=namespace"`
-}
+type HMACSecrets map[HMACAlgorithm][]SimpleReference
 
 // RPCOptions defines the configurable options to use when sending rpc notifications.
 type RPCOptions struct {

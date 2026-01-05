@@ -53,13 +53,14 @@ spec:
                       the RPC provider.
                     properties:
                       name:
-                        description: name is unique within a namespace to reference
-                          a secret resource.
+                        description: Name of the object.
                         type: string
                       namespace:
-                        description: namespace defines the space within which the
-                          secret name must be unique.
+                        description: Namespace in which the object resides.
                         type: string
+                    required:
+                    - name
+                    - namespace
                     type: object
                   host:
                     description: Host is the host IP address or hostname of the Machine.
@@ -160,15 +161,19 @@ spec:
                               secrets:
                                 additionalProperties:
                                   items:
+                                    description: SimpleReference is used to reference
+                                      an object.
                                     properties:
                                       name:
-                                        description: name is unique within a namespace
-                                          to reference a secret resource.
+                                        description: Name of the object.
                                         type: string
                                       namespace:
-                                        description: namespace defines the space within
-                                          which the secret name must be unique.
+                                        description: Namespace in which the object
+                                          resides.
                                         type: string
+                                    required:
+                                    - name
+                                    - namespace
                                     type: object
                                   type: array
                                 description: Secrets are a map of algorithms to secrets
@@ -241,7 +246,6 @@ spec:
                 type: object
               operation:
                 description: Operation defines the specific operation to be performed.
-                maxProperties: 1
                 properties:
                   bootDevice:
                     description: BootDevice is the device to set as the first boot
@@ -294,6 +298,11 @@ spec:
                     - kind
                     type: object
                 type: object
+                x-kubernetes-validations:
+                - message: only one of powerAction, bootDevice, or virtualMediaAction
+                    can be specified
+                  rule: '(has(self.powerAction) ? 1 : 0) + (has(self.bootDevice) ?
+                    1 : 0) + (has(self.virtualMediaAction) ? 1 : 0) == 1'
               timeoutSeconds:
                 description: |-
                   TimeoutSeconds defines the maximum time in seconds the Operation is allowed to run.

@@ -68,13 +68,14 @@ spec:
                       the RPC provider.
                     properties:
                       name:
-                        description: name is unique within a namespace to reference
-                          a secret resource.
+                        description: Name of the object.
                         type: string
                       namespace:
-                        description: namespace defines the space within which the
-                          secret name must be unique.
+                        description: Namespace in which the object resides.
                         type: string
+                    required:
+                    - name
+                    - namespace
                     type: object
                   host:
                     description: Host is the host IP address or hostname of the Machine.
@@ -175,15 +176,19 @@ spec:
                               secrets:
                                 additionalProperties:
                                   items:
+                                    description: SimpleReference is used to reference
+                                      an object.
                                     properties:
                                       name:
-                                        description: name is unique within a namespace
-                                          to reference a secret resource.
+                                        description: Name of the object.
                                         type: string
                                       namespace:
-                                        description: namespace defines the space within
-                                          which the secret name must be unique.
+                                        description: Namespace in which the object
+                                          resides.
                                         type: string
+                                    required:
+                                    - name
+                                    - namespace
                                     type: object
                                   type: array
                                 description: Secrets are a map of algorithms to secrets

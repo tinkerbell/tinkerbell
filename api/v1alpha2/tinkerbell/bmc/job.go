@@ -47,7 +47,7 @@ type JobList struct {
 type JobSpec struct {
 	// BMCRef represents the BMC resource to execute the job.
 	// All the operations in the job are executed for the same BMC.
-	BMCRef BMCRef `json:"bmcRef"`
+	BMCRef SimpleReference `json:"bmcRef"`
 
 	// Operations represents a list of baseboard management actions to be executed.
 	// The operations are executed sequentially. Controller waits for one operation to complete before executing the next.
@@ -74,11 +74,11 @@ type JobStatus struct {
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
-// BMCRef is used to reference a BMC object.
-type BMCRef struct {
-	// Name of the BMC.
+// SimpleReference is used to reference an object.
+type SimpleReference struct {
+	// Name of the object.
 	Name string `json:"name"`
 
-	// Namespace the BMC resides in.
+	// Namespace in which the object resides.
 	Namespace string `json:"namespace"`
 }

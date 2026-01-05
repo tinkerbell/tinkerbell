@@ -50,7 +50,7 @@ type Connection struct {
 	// The Secret must contain username and password keys. This is optional as it is not required when using
 	// the RPC provider.
 	// +optional
-	AuthSecretRef SecretReference `json:"authSecretRef"`
+	AuthSecretRef SimpleReference `json:"authSecretRef"`
 
 	// Host is the host IP address or hostname of the Machine.
 	// +kubebuilder:validation:MinLength=1
