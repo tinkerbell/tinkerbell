@@ -18,6 +18,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
+	"github.com/tinkerbell/tinkerbell/pkg/build"
 	"github.com/tinkerbell/tinkerbell/tink/agent"
 )
 
@@ -84,7 +85,7 @@ func main() {
 	// tink server address is required, maybe, depending on the transport
 
 	log := defaultLogger(c.LogLevel).WithValues("agentID", c.AgentID)
-	log.Info("starting Agent", "runtime", c.Options.RuntimeSelected, "transport", c.Options.TransportSelected)
+	log.Info("starting Agent", "runtime", c.Options.RuntimeSelected, "transport", c.Options.TransportSelected, "version", build.GitRevision())
 	log.V(4).Info("agent configuration", "config", c)
 
 	if err := c.Options.ConfigureAndRun(ctx, log, c.AgentID); err != nil {

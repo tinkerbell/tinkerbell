@@ -213,3 +213,12 @@ export TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES='{"reference":{"res
 ## See Also
 
 - [Template Secrets](TEMPLATE_SECRETS.md) - For injecting sensitive credentials into templates
+Helm Values:
+
+- `deployment.envs.tinkController.referenceAllowListRules`
+- `deployment.envs.tinkController.referenceDenyListRules`
+
+```yaml
+--set-json 'deployment.envs.tinkController.referenceAllowListRules={"reference":{"resource":["secrets"]}}'
+--set-json 'deployment.envs.tinkController.referenceDenyListRules={"reference":{"resource":["pods"]}}'
+```
