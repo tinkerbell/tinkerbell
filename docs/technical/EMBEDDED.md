@@ -76,3 +76,46 @@ To further configure the embedded Kubernetes API server, please refer to the [Ku
 ## ETCD
 
 The embedded etcd server is configured by default to only listen on localhost, no TLS is enabled, and its data directory is `/tmp/default.etcd`. At the moment, only the data directory is configurable. See the Tinkerbell help command `tinkerbell --help` for more information on the embedded etcd server configuration options.
+
+## Example
+
+The following is a working example of running Tinkerbell with all embedded services enabled.
+
+```bash
+# Create all needed certs
+mkdir certs
+wget https://raw.githubusercontent.com/tinkerbell/tinkerbell/refs/heads/main/script/certs.sh -O certs/certs.sh
+chmod +x certs/certs.sh
+./certs/certs.sh -d ./certs
+
+# Set ENV variables
+export TINKERBELL_ETCD_SERVERS=http://localhost:2379
+export TINKERBELL_SERVICE_ACCOUNT_KEY_FILE=certs/service-account-key.pem
+export TINKERBELL_SERVICE_ACCOUNT_SIGNING_KEY_FILE=certs/service-account-key.pem
+export TINKERBELL_SERVICE_ACCOUNT_ISSUER=api
+export TINKERBELL_TLS_CERT_FILE=certs/server.crt
+export TINKERBELL_TLS_PRIVATE_KEY_FILE=certs/server.key
+export TINKERBELL_CLIENT_CA_FILE=certs/ca.crt
+export TINKERBELL_LOGGING_FORMAT=json
+export TINKERBELL_BACKEND_KUBE_CONFIG=certs/kubeconfig
+export TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS=tink_worker_image=ghcr.io/tinkerbell/tink-agent:latest
+export HOOKOS_NGINX_PORT=32768
+export TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL=http://"${HOST_IP:-$(hostname -I | awk '{print $1}')}":"${HOOKOS_NGINX_PORT}"
+
+# Download and extract all HookOS artifacts
+# This example only downloads the x86_64 artifacts.
+mkdir -p hookos
+wget https://github.com/tinkerbell/hook/releases/download/latest/hook_latest-lts-x86_64.tar.gz -O hookos/hook.tar.gz
+tar -xvf hookos/hook.tar.gz -C hookos
+rm hookos/hook.tar.gz
+(cd hookos; ln -nfs ./initramfs-latest-lts-x86_64 initramfs-x86_64)
+(cd hookos; ln -nfs ./vmlinuz-latest-lts-x86_64 vmlinuz-x86_64)
+docker run -d --name image-server -p "${HOOKOS_NGINX_PORT}":80 -v "${PWD}"/hookos:/usr/share/nginx/html/ nginx
+
+# Run Tinkerbell
+# sudo is needed as ports for things like TFTP and DHCP are by default privileged ports.
+sudo -E ./tinkerbell-embedded-linux-amd64
+
+# In a different terminal, set your KUBECONFIG to use the embedded kube-apiserver
+export KUBECONFIG=certs/kubeconfig
+```
