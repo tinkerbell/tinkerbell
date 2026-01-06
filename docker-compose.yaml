@@ -1,8 +1,9 @@
 # Example run command: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL="http://192.168.2.50:8787" PARENT_INTERFACE=eno1 docker compose up
+# The KUBECONFIG will be available here: KUBECONFIG=out/kubeconfig
 services:
 
   etcd:
-    image: registry.k8s.io/etcd:3.5.15-0
+    image: registry.k8s.io/etcd:3.5.21-0
     networks:
       01-tinkerbell_default:
     command:
@@ -14,7 +15,7 @@ services:
       - etcd:/data
 
   kube-apiserver:
-    image: registry.k8s.io/kube-apiserver:v1.32.2
+    image: registry.k8s.io/kube-apiserver:v1.33.6
     networks:
       01-tinkerbell_default:
     command:
@@ -38,7 +39,7 @@ services:
         condition: service_completed_successfully
 
   kube-controller-manager:
-    image: registry.k8s.io/kube-controller-manager:v1.32.2
+    image: registry.k8s.io/kube-controller-manager:v1.33.6
     networks:
       01-tinkerbell_default:
     command:
@@ -88,8 +89,8 @@ services:
         condition: service_completed_successfully
 
   kubeconfig:
-    image: bitnami/kubectl:1.30.4
-    entrypoint: /bin/sh
+    image: bitnami/kubectl:latest
+    entrypoint: /bin/bash
     user: root
     command: |
       -c '/certs.sh -d /certs -i kube-apiserver && cp -a /certs/kubeconfig.localhost /kubeconfiglocal/kubeconfig'
