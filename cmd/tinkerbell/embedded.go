@@ -77,6 +77,15 @@ func kubeAPIServerFlags(kaffs *ff.FlagSet) func(*pflag.Flag) {
 		if f.Name == "help" || f.Name == "v" {
 			return
 		}
+		// rename these kube-apiserver flags to avoid name conflicts with Tinkerbell flags
+		switch f.Name {
+		case "bind-address", "tls-cert-file", "tls-private-key-file":
+			// bind-address and tls-cert-file conflict with existing Tinkerbell flags.
+			// tls-private-key-file does not, but it forms a pair with tls-cert-file,
+			// so we rename all three for clarity and consistency.
+			f.Name = fmt.Sprintf("kube-apiserver-%s", f.Name)
+		}
+
 		fc := ff.FlagConfig{
 			LongName: f.Name,
 			Usage:    f.Usage,
