@@ -217,3 +217,89 @@ Helm Values:
 --set-json 'deployment.envs.tinkController.referenceAllowListRules={"reference":{"resource":["secrets"]}}'
 --set-json 'deployment.envs.tinkController.referenceDenyListRules={"reference":{"resource":["pods"]}}'
 ```
+
+## Full Example
+
+The following is a full example of defining a Reference in a Hardware object to a Kubernetes Secret object, configuring access to it, using that Reference in a Template, and defining a Workflow that uses that Template.
+
+1. Create the Secret
+
+   ```bash
+   kubectl create -n tinkerbell secret generic my-secret --from-literal=username=myuser --from-literal=password=mypassword
+   ```
+
+1. Configure access to just this specific Secret
+
+   ```bash
+   --set-json 'deployment.envs.tinkController.referenceAllowListRules={"source":{"name":["example-hardware"],"namespace":["tinkerbell"]},"reference":{"name":["my-secret"],"namespace":["tinkerbell"],"resource":["secrets"]}}' 
+   ```
+
+1. Create the Hardware object, with the Reference to the Secret
+
+   ```bash
+   kubectl apply -f - <<EOF
+   apiVersion: tinkerbell.org/v1alpha1
+   kind: Hardware
+   metadata:
+     name: example-hardware
+     namespace: tinkerbell
+   spec:
+     references:
+       secret:
+         name: my-secret
+         namespace: tinkerbell
+         resource: secrets
+         version: v1
+   EOF
+   ```
+
+1. Create the Template, using the templating syntax to access the Secret
+
+   ```bash
+   kubectl apply -f - <<EOF
+   apiVersion: tinkerbell.org/v1alpha1
+   kind: Template
+   metadata:
+     name: example-template
+     namespace: tinkerbell
+   spec:
+     data: |
+       name: example
+       global_timeout: 90
+       tasks:
+         - name: "first task"
+           worker: "{{.device_1}}"
+           actions:
+             - name: "reference one"
+               image: alpine
+               timeout: 60
+               command: ["echo", "{{ .references.secret.data.username | b64dec }}"]
+             - name: "reference two"
+               image: alpine
+               timeout: 60
+               command: ["echo", "{{ .references.secret.data.password | b64dec }}"]
+   EOF
+   ```
+
+1. Create the Workflow, referencing the Hardware and Template
+
+   ```bash
+   kubectl apply -f - <<EOF
+   apiVersion: tinkerbell.org/v1alpha1
+   kind: Workflow
+   metadata:
+     name: example-workflow
+     namespace: tinkerbell
+   spec:
+     templateRef: example-template
+     hardwareMap:
+       device_1: "52:54:00:41:05:c6"
+     hardwareRef: example-hardware
+   EOF
+   ```
+
+1. Inspect the Workflow to show that the data was rendered from the Secret
+
+   ```bash
+   kubectl get workflow example-workflow -n tinkerbell -o yaml
+   ```
