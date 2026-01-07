@@ -228,7 +228,7 @@ The following is a full example of defining a Reference in a Hardware object to 
    kubectl create -n tinkerbell secret generic my-secret --from-literal=username=myuser --from-literal=password=mypassword
    ```
 
-1. Configure access to just this specific Secret
+1. Configure access to just this specific Secret by setting the allow list rule below when deploying Tinkerbell with Helm
 
    ```bash
    --set-json 'deployment.envs.tinkController.referenceAllowListRules={"source":{"name":["example-hardware"],"namespace":["tinkerbell"]},"reference":{"name":["my-secret"],"namespace":["tinkerbell"],"resource":["secrets"]}}' 
