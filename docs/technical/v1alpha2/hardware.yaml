@@ -1,0 +1,119 @@
+---
+apiVersion: tinkerbell.org/v1alpha2
+kind: Hardware
+metadata:
+  name: example
+  namespace: tinkerbell
+spec:
+  agentID: "1234"
+  auto:
+    enrollmentEnabled: false
+  attributes:
+    arch: "x86_64"
+    uefi: true
+  instance:
+    metadata: |
+      instance-id: iid-local01
+      local-hostname: my-nocloud-vm
+      hostname: my-nocloud-vm
+      cloud-name: nocloud
+    networkConfig: |
+      network:
+      version: 2
+      ethernets:
+        eth0:
+          addresses:
+            - {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}/{{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.prefix }}
+          gateway4: {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.gateway }}
+          nameservers:
+            addresses:
+              - 8.8.8.8
+              - 8.8.4.4
+          dhcp4: false
+    osie:
+      initrdURL: "http://192.168.3.4:8080/my-custominitrd"
+      kernelParams:
+        - "console=ttyS2"
+      kernelURL: "http://192.168.3.4:8080/my-custom-vmlinuz"
+    sshKeys:
+      - "ssh-rsa AAAAB3NzaC1yc2E..."
+    userdata: |
+      #cloud-config
+      users:
+        - name: clouduser
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          ssh_authorized_keys:
+            - {{ .hardware.instance.sshKeys[0] }}
+      
+      runcmd:
+        - echo "Hello from cloud-init!" > /home/clouduser/greeting.txt
+        - apt update
+    vendordata: |
+      #cloud-config
+      vendor_data:
+        enabled: true
+        # Example: Define a custom script to run
+        runcmd:
+          - echo "Vendor-specific script executed!" > /var/log/vendor-script.log
+          - apt-get update -y
+          - apt-get install -y some-vendor-package
+        # Example: Inject a file
+        write_files:
+          - path: /etc/vendor-config.conf
+            permissions: '0644'
+            content: |
+              # Vendor specific configuration
+              VENDOR_SETTING=true
+              VENDOR_ID="my-provider-123"
+  networkInterfaces:
+    "52:54:00:41:05:c6":
+      dhcp:
+        bootFileName: "ztp.json"
+        classlessStaticRoutes:
+          - destinationDescriptor: "192.168.1.0/24"
+            router: "192.168.1.254"
+        disabled: false
+        domainName: "tinkerbell.org"
+        hostname: "example"
+        leaseTimeSeconds: 86400
+        nameservers:
+          - "1.1.1.1"
+        tftpServerName: "192.168.2.2"
+        timeservers:
+          - "pool.ntp.org"
+          - "204.197.163.71"
+        vlanID: "110"
+      ipam:
+        ipv4:
+          address: "192.168.1.100"
+          gateway: "192.168.1.1"
+          prefix: "24"
+        ipv6:
+          address: "2001:db8:1:1::"
+          gateway: "fe80::1"
+          prefix: "64"
+      isoboot:
+        sourceISO: "https://github.com/tinkerbell/hook/releases/download/v0.11.1/hook-latest-lts-x86_64-efi-initrd.iso"
+      netboot:
+        disabled: false
+        ipxe:
+          binary: "snp-x86_64.efi"
+          script: |
+            #!ipxe
+            dhcp
+            chain --autofree https://boot.netboot.xyz
+          url: "https://boot.netboot.xyz"
+  references:
+    additional:
+      "lvm":
+        group: "example.org"
+        name: "example"
+        namespace: "tinkerbell"
+        resource: "lvms"
+        version: "v1"
+    builtin:
+      bmc:
+        name: "example"
+        namespace: "tinkerbell"
+  storageDevices:
+    - name: "/dev/sda"

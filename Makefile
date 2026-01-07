@@ -85,6 +85,10 @@ endif
 test: ## Run go test
 	CGO_ENABLED=1 go test -race -coverprofile=coverage.txt -covermode=atomic -v ${TEST_ARGS} ${TEST_PKGS}
 
+.PHONY: test-api
+test-api: ## Run go test for API
+	(cd api; CGO_ENABLED=1 go test -race -coverprofile=coverage-api.txt -covermode=atomic -v ${TEST_ARGS} ${TEST_PKGS})
+
 .PHONY: vet
 vet: ## Run go vet
 	go vet ./...
@@ -98,10 +102,16 @@ FILE_TO_NOT_INCLUDE_IN_COVERAGE := script/version/main.go|*.pb.go|zz_generated.d
 
 .PHONY: coverage
 coverage: test ## Show test coverage
-## Filter out generated files
+    ## Filter out generated files
 	cat coverage.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > coverage.out
 	go tool cover -func=coverage.out
 	mv coverage.out coverage.txt
+
+.PHONY: coverage-api
+coverage-api: test-api ## Show API test coverage
+    ## Filter out generated files
+	cat api/coverage-api.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > api/coverage-api.out
+	go tool cover -func=api/coverage-api.out
 
 .PHONY: ci-checks
 ci-checks: .github/workflows/ci-checks.sh ## Run the ci-checks.sh script
@@ -174,7 +184,8 @@ generate-proto: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) ## Gen
 # Kubernetes CRD generation
 .PHONY: manifests
 manifests: $(CONTROLLER_GEN_FQP) ## Generate WebhookConfiguration and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=crd/bases
+	(cd api/v1alpha1; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha1)
+	(cd api/v1alpha2; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha2)
 	$(MAKE) fmt
 
 .PHONY: generate

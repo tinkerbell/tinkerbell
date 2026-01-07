@@ -1,0 +1,13 @@
+---
+apiVersion: tinkerbell.org/v1alpha2
+kind: BMC
+metadata:
+  name: example
+  namespace: tinkerbell
+spec:
+  connection:
+    host: 0.0.0.0
+    authSecretRef:
+      name: bm-auth
+      namespace: tinkerbell
+    insecureTLS: false
