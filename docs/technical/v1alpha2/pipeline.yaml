@@ -1,0 +1,56 @@
+---
+apiVersion: tinkerbell.org/v1alpha2
+kind: Pipeline
+metadata:
+  name: example
+  namespace: tinkerbell
+spec:
+  disabled: false
+  globals:
+    envVars:
+      - key: globalOne
+        value: "1"
+    templateMap:
+      "globalKey": "value"
+    volumes:
+      - "/etc/data2:/data2:ro"
+  timeoutSeconds: 600
+  workflows:
+    - agentID: "1234"
+      disabled: false
+      extra:
+        envVars:
+          - key: workflowOne
+            value: "1"
+        templateMap:
+          "workflowKey": "value"
+        volumes:
+          - "/etc/data3:/data4:ro"
+      hardware:
+        #bmcRef:
+        #  name: "example"
+        #  namespace: "tinkerbell"
+        bootOptions:
+          toggleNetboot: true
+          isoURL: "https://tinkerbell.org/iso/00-01-02-03-04-05/hook.iso"
+          bootMode: isoboot
+          customboot:
+            preOperations:
+              - powerAction: "off"
+              - bootDevice:
+                  device: "pxe"
+                  efiBoot: true
+              - powerAction: "on"
+            postOperations:
+              - bootDevice:
+                  device: "disk"
+                  persistent: true
+                  efiBoot: true
+              - powerAction: "reset"
+        hardwareRef:
+          name: "example"
+          namespace: "tinkerbell"
+      timeoutSeconds: 600
+      workflowRef:
+        name: "example"
+        namespace: "tinkerbell"

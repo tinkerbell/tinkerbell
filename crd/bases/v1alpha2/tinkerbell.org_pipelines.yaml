@@ -1,0 +1,789 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: pipelines.tinkerbell.org
+spec:
+  group: tinkerbell.org
+  names:
+    categories:
+    - tinkerbell
+    kind: Pipeline
+    listKind: PipelineList
+    plural: pipelines
+    shortNames:
+    - pl
+    singular: pipeline
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.metadata.pipeline.state
+      name: Pipeline State
+      type: string
+    - jsonPath: .status.metadata.workflow.name
+      name: Workflow Name
+      type: string
+    - jsonPath: .status.metadata.action.name
+      name: Action Name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.metadata.workflow.state
+      name: Workflow State
+      priority: 1
+      type: string
+    - jsonPath: .status.metadata.workflow.agentID
+      name: Workflow Agent
+      priority: 1
+      type: string
+    - jsonPath: .status.metadata.workflow.hardware
+      name: Workflow Hardware
+      priority: 1
+      type: string
+    - jsonPath: .status.workflowRendering
+      name: Workflow Rendering
+      priority: 1
+      type: string
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: Pipeline is the Schema for the Pipeline API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PipelineSpec defines Workflows and associated options.
+            properties:
+              disabled:
+                description: Disabled indicates whether the Pipeline will be processed
+                  or not.
+                type: boolean
+              globals:
+                description: Globals are extra configuration that is applied to all
+                  Workflows in the Pipeline.
+                properties:
+                  envVars:
+                    description: EnvVars defined here are additive to any existing
+                      environment variables.
+                    items:
+                      description: EnvVar defines a single environment variable.
+                      properties:
+                        key:
+                          description: Key is the name of the environment variable.
+                          type: string
+                        value:
+                          description: Value is the value of the environment variable.
+                          type: string
+                      required:
+                      - key
+                      - value
+                      type: object
+                    type: array
+                  templateMap:
+                    additionalProperties:
+                      type: string
+                    description: TemplateMap is a mapping of key/values that will
+                      be used when templating a Workflow.
+                    type: object
+                  volumes:
+                    description: Volumes defined here are additive to any existing
+                      volumes.
+                    items:
+                      description: "Volume is a specification for mounting a location
+                        on a Host into an Action container.\nVolumes take the form
+                        {SRC-VOLUME-NAME | SRC-HOST-DIR}:TGT-CONTAINER-DIR:OPTIONS.\nWhen
+                        specifying a VOLUME-NAME that does not exist it will be created
+                        for you.\nExamples:\n\nRead-only bind mount bound to /data\n\n\t/etc/data:/data:ro\n\nWritable
+                        volume name bound to /data\n\n\tshared_volume:/data\n\nSee
+                        https://docs.docker.com/storage/volumes/ for additional details."
+                      type: string
+                    type: array
+                type: object
+              timeoutSeconds:
+                description: |-
+                  TimeoutSeconds is the duration before a Pipeline time out is reached.
+                  A zero or nil value means no timeout.
+                format: int64
+                type: integer
+              workflows:
+                description: Workflows that are run as part of the Pipeline.
+                items:
+                  properties:
+                    agentID:
+                      description: AgentID is the ID of the Agent that is to run this
+                        Workflow.
+                      type: string
+                    disabled:
+                      description: Disabled indicates whether this Workflow will be
+                        processed or not.
+                      type: boolean
+                    extra:
+                      description: Extra configuration that is applied to this specific
+                        Workflow.
+                      properties:
+                        envVars:
+                          description: EnvVars defined here are additive to any existing
+                            environment variables.
+                          items:
+                            description: EnvVar defines a single environment variable.
+                            properties:
+                              key:
+                                description: Key is the name of the environment variable.
+                                type: string
+                              value:
+                                description: Value is the value of the environment
+                                  variable.
+                                type: string
+                            required:
+                            - key
+                            - value
+                            type: object
+                          type: array
+                        templateMap:
+                          additionalProperties:
+                            type: string
+                          description: TemplateMap is a mapping of key/values that
+                            will be used when templating a Workflow.
+                          type: object
+                        volumes:
+                          description: Volumes defined here are additive to any existing
+                            volumes.
+                          items:
+                            description: "Volume is a specification for mounting a
+                              location on a Host into an Action container.\nVolumes
+                              take the form {SRC-VOLUME-NAME | SRC-HOST-DIR}:TGT-CONTAINER-DIR:OPTIONS.\nWhen
+                              specifying a VOLUME-NAME that does not exist it will
+                              be created for you.\nExamples:\n\nRead-only bind mount
+                              bound to /data\n\n\t/etc/data:/data:ro\n\nWritable volume
+                              name bound to /data\n\n\tshared_volume:/data\n\nSee
+                              https://docs.docker.com/storage/volumes/ for additional
+                              details."
+                            type: string
+                          type: array
+                      type: object
+                    hardware:
+                      description: Hardware is the Hardware and options associated
+                        with this Workflow.
+                      properties:
+                        bmcRef:
+                          description: |-
+                            BMCRef is the bmc.tinkerbell.org object associated with this Workflow.
+                            When specified, the BootOptions will be applied using this bmc.tinkerbell.org object.
+                            Mutually exclusive with HardwareRef.
+                          properties:
+                            name:
+                              description: Name of the object.
+                              type: string
+                            namespace:
+                              description: Namespace where the object resides.
+                              type: string
+                          type: object
+                        bootOptions:
+                          description: |-
+                            BootOptions are options that control the booting of Hardware.
+                            These are only applicable when a HardwareRef or a BMCRef is provided.
+                          properties:
+                            bootMode:
+                              description: BootMode is the type of booting that will
+                                be done. One of "netboot", "isoboot", or "customboot".
+                              enum:
+                              - netboot
+                              - isoboot
+                              - customboot
+                              type: string
+                            customboot:
+                              description: |-
+                                Customboot is the configuration for the "customboot" boot mode.
+                                This allows users to define custom BMC Operations for pre and post a Workflow.
+                              properties:
+                                postOperations:
+                                  description: |-
+                                    PostOperations are the BMC Actions that will be run after all Workflow Actions have completed.
+                                    In most cases these Actions should get a machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
+                                    These Actions will be run only if the main Workflow Actions complete successfully.
+                                  items:
+                                    description: |-
+                                      Operations defines the operations that can be performed against a BMC.
+                                      Only a single field in the struct should be defined at any given time
+                                      as only one operation can be performed at a time.
+                                      For example either PowerAction or BootDevice.
+                                    properties:
+                                      bootDevice:
+                                        description: BootDevice is the device to set
+                                          as the first boot device on the Machine.
+                                        properties:
+                                          device:
+                                            description: Device is the name of the
+                                              device to set as the first boot device.
+                                            type: string
+                                          efiBoot:
+                                            description: EFIBoot indicates whether
+                                              the boot device should be set to efiboot
+                                              mode.
+                                            type: boolean
+                                          persistent:
+                                            description: Persistent indicates whether
+                                              the boot device should be set persistently
+                                              as the first boot device.
+                                            type: boolean
+                                        type: object
+                                      powerAction:
+                                        allOf:
+                                        - enum:
+                                          - "on"
+                                          - "off"
+                                          - soft
+                                          - status
+                                          - cycle
+                                          - reset
+                                        - enum:
+                                          - "on"
+                                          - "off"
+                                          - soft
+                                          - status
+                                          - cycle
+                                          - reset
+                                        description: PowerAction represents a baseboard
+                                          management power operation.
+                                        type: string
+                                      timeoutSeconds:
+                                        description: |-
+                                          TimeoutSeconds defines the maximum time in seconds the Operation is allowed to run.
+                                          If not defined, the default from the runtime is used.
+                                        format: int64
+                                        type: integer
+                                      virtualMediaAction:
+                                        description: VirtualMediaAction represents
+                                          a baseboard management virtual media insert/eject.
+                                        properties:
+                                          kind:
+                                            description: Kind represents the kind
+                                              of virtual media.
+                                            type: string
+                                          mediaURL:
+                                            description: mediaURL represents the URL
+                                              of the image to be inserted into the
+                                              virtual media, or empty to eject media.
+                                            type: string
+                                        required:
+                                        - kind
+                                        type: object
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: only one of powerAction, bootDevice,
+                                        or virtualMediaAction can be specified
+                                      rule: '(has(self.powerAction) ? 1 : 0) + (has(self.bootDevice)
+                                        ? 1 : 0) + (has(self.virtualMediaAction) ?
+                                        1 : 0) == 1'
+                                  type: array
+                                preOperations:
+                                  description: |-
+                                    PreOperations are the BMC Actions that will be run before any Workflow Actions.
+                                    In most cases these Actions should get a machine into a state where a Tink Agent is running.
+                                  items:
+                                    description: |-
+                                      Operations defines the operations that can be performed against a BMC.
+                                      Only a single field in the struct should be defined at any given time
+                                      as only one operation can be performed at a time.
+                                      For example either PowerAction or BootDevice.
+                                    properties:
+                                      bootDevice:
+                                        description: BootDevice is the device to set
+                                          as the first boot device on the Machine.
+                                        properties:
+                                          device:
+                                            description: Device is the name of the
+                                              device to set as the first boot device.
+                                            type: string
+                                          efiBoot:
+                                            description: EFIBoot indicates whether
+                                              the boot device should be set to efiboot
+                                              mode.
+                                            type: boolean
+                                          persistent:
+                                            description: Persistent indicates whether
+                                              the boot device should be set persistently
+                                              as the first boot device.
+                                            type: boolean
+                                        type: object
+                                      powerAction:
+                                        allOf:
+                                        - enum:
+                                          - "on"
+                                          - "off"
+                                          - soft
+                                          - status
+                                          - cycle
+                                          - reset
+                                        - enum:
+                                          - "on"
+                                          - "off"
+                                          - soft
+                                          - status
+                                          - cycle
+                                          - reset
+                                        description: PowerAction represents a baseboard
+                                          management power operation.
+                                        type: string
+                                      timeoutSeconds:
+                                        description: |-
+                                          TimeoutSeconds defines the maximum time in seconds the Operation is allowed to run.
+                                          If not defined, the default from the runtime is used.
+                                        format: int64
+                                        type: integer
+                                      virtualMediaAction:
+                                        description: VirtualMediaAction represents
+                                          a baseboard management virtual media insert/eject.
+                                        properties:
+                                          kind:
+                                            description: Kind represents the kind
+                                              of virtual media.
+                                            type: string
+                                          mediaURL:
+                                            description: mediaURL represents the URL
+                                              of the image to be inserted into the
+                                              virtual media, or empty to eject media.
+                                            type: string
+                                        required:
+                                        - kind
+                                        type: object
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: only one of powerAction, bootDevice,
+                                        or virtualMediaAction can be specified
+                                      rule: '(has(self.powerAction) ? 1 : 0) + (has(self.bootDevice)
+                                        ? 1 : 0) + (has(self.virtualMediaAction) ?
+                                        1 : 0) == 1'
+                                  type: array
+                              type: object
+                            isoURL:
+                              description: |-
+                                ISOURL is the URL of the ISO that will be one-time booted.
+                                When this field is set, a job.bmc.tinkerbell.org object will be created
+                                for getting the associated Hardware into a CDROM booting state.
+                                A Pipeline Hardware Reference that contains a spec.reference.builtin.bmc must be provided.
+                                BootMode must be set to "isoboot".
+                              format: url
+                              type: string
+                            toggleNetboot:
+                              description: |-
+                                ToggleNetboot indicates whether the the field in the associated Hardware for allowing network booting should
+                                be enabled before the Workflow is executed and disabled after the Workflow has completed successfully.
+                                A Hardware Reference must be provided.
+                              type: boolean
+                          type: object
+                        hardwareRef:
+                          description: |-
+                            HardwareRef is the Hardware object associated with this Workflow.
+                            This is used if the Workflow has templating that requires Hardware information.
+                            When specified, the BootOptions will be applied using the BMCRef defined in the Hardware object.
+                            Mutually exclusive with BMCRef.
+                          properties:
+                            name:
+                              description: Name of the object.
+                              type: string
+                            namespace:
+                              description: Namespace where the object resides.
+                              type: string
+                          type: object
+                      type: object
+                      x-kubernetes-validations:
+                      - message: hardwareRef and bmcRef are mutually exclusive
+                        rule: '!(has(self.hardwareRef) && has(self.bmcRef))'
+                    timeoutSeconds:
+                      description: |-
+                        TimeoutSeconds is the duration before a Workflow time out is reached.
+                        A zero or nil value means no timeout.
+                      format: int64
+                      type: integer
+                    workflowRef:
+                      description: WorkflowRef is the Workflow associated with this
+                        Pipeline.
+                      properties:
+                        name:
+                          description: Name of the object.
+                          type: string
+                        namespace:
+                          description: Namespace where the object resides.
+                          type: string
+                      type: object
+                  type: object
+                type: array
+            type: object
+          status:
+            description: PipelineStatus defines the observed state of a Pipeline.
+            properties:
+              bootOptions:
+                description: BootOptions holds the state of any boot options.
+                properties:
+                  allowNetboot:
+                    description: AllowNetboot holds the state of the the controller's
+                      interactions with the allowPXE field in a Hardware object.
+                    properties:
+                      toggledFalse:
+                        type: boolean
+                      toggledTrue:
+                        type: boolean
+                    type: object
+                  jobs:
+                    additionalProperties:
+                      description: JobStatus holds the state of a specific job.bmc.tinkerbell.org
+                        object created.
+                      properties:
+                        complete:
+                          description: Complete indicates whether the created job.bmc.tinkerbell.org
+                            has reported its conditions as complete.
+                          type: boolean
+                        existingJobDeleted:
+                          description: |-
+                            ExistingJobDeleted indicates whether any existing job.bmc.tinkerbell.org was deleted.
+                            The name of each job.bmc.tinkerbell.org object created by the controller is the same, so only one can exist at a time.
+                            Using the same name was chosen so that there is only ever 1 job.bmc.tinkerbell.org per Hardware/Machine.bmc.tinkerbell.org.
+                            This makes clean up easier and we dont just orphan jobs every time.
+                          type: boolean
+                        uid:
+                          description: |-
+                            UID is the UID of the job.bmc.tinkerbell.org object associated with this workflow.
+                            This is used to uniquely identify the job.bmc.tinkerbell.org object, as
+                            all objects for a specific Hardware/Machine.bmc.tinkerbell.org are created with the same name.
+                          type: string
+                      type: object
+                    description: Jobs holds the state of any job.bmc.tinkerbell.org
+                      objects created.
+                    type: object
+                type: object
+              conditions:
+                description: Conditions are the latest available observations of an
+                  object's current state.
+                items:
+                  description: JobCondition describes current state of a job.
+                  properties:
+                    message:
+                      description: Message is a human readable message indicating
+                        details about last transition.
+                      type: string
+                    reason:
+                      description: Reason is a (brief) reason for the condition's
+                        last transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    time:
+                      description: Time when the condition was created.
+                      format: date-time
+                      type: string
+                    type:
+                      description: Type of job condition, Complete or Failed.
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
+              globalExecutionStop:
+                description: |-
+                  GlobalExecutionStop represents the time when the Pipeline should stop executing.
+                  After this time, if the Pipeline has not completed it will be marked as timed out.
+                format: date-time
+                type: string
+              globalTimeout:
+                description: GlobalTimeout represents the max execution duration time.
+                format: int64
+                type: integer
+              metadata:
+                description: |-
+                  Metadata tracks where the Pipeline is in its execution.
+                  It holds the current state of the Pipeline as a whole,
+                  the current Workflow, and the current Action.
+                properties:
+                  action:
+                    properties:
+                      agentID:
+                        type: string
+                      endTime:
+                        format: date-time
+                        type: string
+                      executionDuration:
+                        type: string
+                      hardware:
+                        type: string
+                      id:
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
+                        type: string
+                      name:
+                        type: string
+                      startTime:
+                        format: date-time
+                        type: string
+                      state:
+                        type: string
+                    type: object
+                  pipeline:
+                    properties:
+                      agentID:
+                        type: string
+                      endTime:
+                        format: date-time
+                        type: string
+                      executionDuration:
+                        type: string
+                      hardware:
+                        type: string
+                      id:
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
+                        type: string
+                      name:
+                        type: string
+                      startTime:
+                        format: date-time
+                        type: string
+                      state:
+                        type: string
+                    type: object
+                  workflow:
+                    properties:
+                      agentID:
+                        type: string
+                      endTime:
+                        format: date-time
+                        type: string
+                      executionDuration:
+                        type: string
+                      hardware:
+                        type: string
+                      id:
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
+                        type: string
+                      name:
+                        type: string
+                      startTime:
+                        format: date-time
+                        type: string
+                      state:
+                        type: string
+                    type: object
+                type: object
+              renderedPipeline:
+                description: RenderedPipeline are the Workflows to be run by this
+                  Pipeline.
+                items:
+                  description: |-
+                    WorkflowWithMetadata is a copy of WorkflowSpec with the addition of the ActionWithMetadata.
+                    Users don't need Metadata in the CRD Spec so we don't include it but we need
+                    it in the CRD Status.
+                  properties:
+                    actions:
+                      description: Actions that the Workflow runs.
+                      items:
+                        description: ActionWithMetadata
+                        properties:
+                          actionMetadata:
+                            properties:
+                              agentID:
+                                type: string
+                              endTime:
+                                format: date-time
+                                type: string
+                              executionDuration:
+                                type: string
+                              hardware:
+                                type: string
+                              id:
+                                description: |-
+                                  UID is a type that holds unique ID values, including UUIDs.  Because we
+                                  don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                                  intent and helps make sure that UIDs and names do not get conflated.
+                                type: string
+                              name:
+                                type: string
+                              startTime:
+                                format: date-time
+                                type: string
+                              state:
+                                type: string
+                            type: object
+                          args:
+                            description: Args are a set of arguments to be passed
+                              to the command executed by the container on launch.
+                            items:
+                              type: string
+                            type: array
+                          command:
+                            description: |-
+                              Command defines the command to use when launching the image. It overrides the default command
+                              of the Action image. It must be a unix path to an executable program. When omitted, the image's
+                              default command/entrypoint is used.
+                            pattern: ^(/[^/ ]*)+/?$
+                            type: string
+                          envVars:
+                            description: EnvVars defines environment variables that
+                              will be available inside a container.
+                            items:
+                              description: EnvVar defines a single environment variable.
+                              properties:
+                                key:
+                                  description: Key is the name of the environment
+                                    variable.
+                                  type: string
+                                value:
+                                  description: Value is the value of the environment
+                                    variable.
+                                  type: string
+                              required:
+                              - key
+                              - value
+                              type: object
+                            type: array
+                          image:
+                            description: |-
+                              Image is an OCI image. Should generally be a fully qualified OCI image reference.
+                              For example, quay.io/tinkerbell/actions/image2disk:v1.0.0 or docker.io/library/alpine:3.23
+                            type: string
+                          name:
+                            description: Name is a human readable name for the Action.
+                            type: string
+                          namespaces:
+                            description: Namespaces defines the Linux namespaces with
+                              which the container should configured.
+                            properties:
+                              network:
+                                description: Network defines the network namespace.
+                                type: string
+                              pid:
+                                description: PID defines the PID namespace
+                                type: string
+                            type: object
+                          retries:
+                            description: Retries is the number of times the Action
+                              should be run until completed successfully.
+                            type: integer
+                          timeoutSeconds:
+                            description: |-
+                              TimeoutSeconds is the total number of seconds the Action is allowed to run without completing
+                              before marking it as timed out.
+                            format: int64
+                            type: integer
+                          volumes:
+                            description: Volumes defines the volumes that will be
+                              mounted into the container.
+                            items:
+                              description: "Volume is a specification for mounting
+                                a location on a Host into an Action container.\nVolumes
+                                take the form {SRC-VOLUME-NAME | SRC-HOST-DIR}:TGT-CONTAINER-DIR:OPTIONS.\nWhen
+                                specifying a VOLUME-NAME that does not exist it will
+                                be created for you.\nExamples:\n\nRead-only bind mount
+                                bound to /data\n\n\t/etc/data:/data:ro\n\nWritable
+                                volume name bound to /data\n\n\tshared_volume:/data\n\nSee
+                                https://docs.docker.com/storage/volumes/ for additional
+                                details."
+                              type: string
+                            type: array
+                        required:
+                        - image
+                        - name
+                        type: object
+                      type: array
+                    environment:
+                      description: Environment variables here are added to all Action
+                        in the Workflow.
+                      items:
+                        description: EnvVar defines a single environment variable.
+                        properties:
+                          key:
+                            description: Key is the name of the environment variable.
+                            type: string
+                          value:
+                            description: Value is the value of the environment variable.
+                            type: string
+                        required:
+                        - key
+                        - value
+                        type: object
+                      type: array
+                    name:
+                      description: Name is a human readable name for the Workflow.
+                      type: string
+                    volumes:
+                      description: Volumes defined here are added to all Actions in
+                        the Workflow.
+                      items:
+                        description: "Volume is a specification for mounting a location
+                          on a Host into an Action container.\nVolumes take the form
+                          {SRC-VOLUME-NAME | SRC-HOST-DIR}:TGT-CONTAINER-DIR:OPTIONS.\nWhen
+                          specifying a VOLUME-NAME that does not exist it will be
+                          created for you.\nExamples:\n\nRead-only bind mount bound
+                          to /data\n\n\t/etc/data:/data:ro\n\nWritable volume name
+                          bound to /data\n\n\tshared_volume:/data\n\nSee https://docs.docker.com/storage/volumes/
+                          for additional details."
+                        type: string
+                      type: array
+                    workflowMetadata:
+                      properties:
+                        agentID:
+                          type: string
+                        endTime:
+                          format: date-time
+                          type: string
+                        executionDuration:
+                          type: string
+                        hardware:
+                          type: string
+                        id:
+                          description: |-
+                            UID is a type that holds unique ID values, including UUIDs.  Because we
+                            don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                            intent and helps make sure that UIDs and names do not get conflated.
+                          type: string
+                        name:
+                          type: string
+                        startTime:
+                          format: date-time
+                          type: string
+                        state:
+                          type: string
+                      type: object
+                  required:
+                  - actions
+                  - name
+                  type: object
+                type: array
+              workflowRendering:
+                description: |-
+                  WorkflowRendering indicates whether the Workflows were all rendered successfully.
+                  Possible values are "successful" or "failed" or "unknown".
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
