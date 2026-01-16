@@ -515,7 +515,7 @@ func TestIsRaspberryPI(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := isRaspberryPI(tt.mac)
+			got := IsRaspberryPI(tt.mac)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Fatal(diff)
 			}

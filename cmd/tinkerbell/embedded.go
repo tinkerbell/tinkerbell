@@ -1,5 +1,4 @@
 //go:build embedded
-// +build embedded
 
 package main
 
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ccoveille/go-safecast/v2"
+	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/spf13/pflag"
 	"github.com/tinkerbell/tinkerbell/apiserver"
@@ -17,6 +17,13 @@ import (
 	"go.etcd.io/etcd/server/v3/embed"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+)
+
+// Store references to kube-apiserver flag values that conflict with global flags
+var (
+	bindAddrValue    pflag.Value
+	tlsCertFileValue pflag.Value
+	tlsKeyFileValue  pflag.Value
 )
 
 func init() {
@@ -30,16 +37,39 @@ func init() {
 	// register flags
 	kaffs := ff.NewFlagSet("embedded kube-apiserver")
 	kafs := &flag.Set{FlagSet: kaffs}
-	kac := &flag.EmbeddedKubeAPIServerConfig{}
+	kac := &flag.EmbeddedKubeAPIServerConfig{
+		TLSCertFile: "/certs/server.crt",
+		TLSKeyFile:  "/certs/server.key",
+	}
 	flag.RegisterKubeAPIServer(kafs, kac)
 	efs := ff.NewFlagSet("embedded etcd").SetParent(kaffs)
 	flag.RegisterEtcd(&flag.Set{FlagSet: efs}, ec)
 	embeddedFlagSet = efs
 	apiserverFS, runFunc := apiserver.ConfigAndFlags(&kac.DisableLogging)
-	apiserverFS.VisitAll(kubeAPIServerFlags(kaffs))
+	apiserverFS.VisitAll(kubeAPIServerFlags(kaffs, kac))
 
-	// register the run command
-	embeddedApiserverExecute = runFunc
+	// register the run command with a wrapper that applies global config
+	embeddedApiserverExecute = func(ctx context.Context, log logr.Logger, bindAddr, tlsCertFile, tlsKeyFile string) error {
+		// Apply global configuration to kube-apiserver flags
+		if bindAddrValue != nil && bindAddr != "" {
+			if err := bindAddrValue.Set(bindAddr); err != nil {
+				return fmt.Errorf("failed to set bind-address: %w", err)
+			}
+		}
+		if tlsCertFileValue != nil && tlsCertFile != "" {
+			if err := tlsCertFileValue.Set(tlsCertFile); err != nil {
+				return fmt.Errorf("failed to set tls-cert-file: %w", err)
+			}
+		}
+		if tlsKeyFileValue != nil && tlsKeyFile != "" {
+			if err := tlsKeyFileValue.Set(tlsKeyFile); err != nil {
+				return fmt.Errorf("failed to set tls-key-file: %w", err)
+			}
+		}
+		// Note: If TLS cert/key are not provided, kube-apiserver will generate self-signed certificates
+		// automatically. This is normal for embedded deployments.
+		return runFunc(ctx, log)
+	}
 	embeddedKubeControllerManagerExecute = apiserver.Kubecontrollermanager
 	embeddedEtcdExecute = func(ctx context.Context, logLevel int) error {
 		ll := ternary((logLevel != 0), logLevel, ec.LogLevel)
@@ -70,20 +100,28 @@ func init() {
 	}
 }
 
-func kubeAPIServerFlags(kaffs *ff.FlagSet) func(*pflag.Flag) {
+func kubeAPIServerFlags(kaffs *ff.FlagSet, _ *flag.EmbeddedKubeAPIServerConfig) func(*pflag.Flag) {
 	return func(f *pflag.Flag) {
 		// help and v already exist in the global flags defined above so we skip them
 		// here to avoid duplicate flag errors.
 		if f.Name == "help" || f.Name == "v" {
 			return
 		}
-		// rename these kube-apiserver flags to avoid name conflicts with Tinkerbell flags
-		switch f.Name {
-		case "bind-address", "tls-cert-file", "tls-private-key-file":
-			// bind-address and tls-cert-file conflict with existing Tinkerbell flags.
-			// tls-private-key-file does not, but it forms a pair with tls-cert-file,
-			// so we rename all three for clarity and consistency.
-			f.Name = fmt.Sprintf("kube-apiserver-%s", f.Name)
+
+		// For critical flags that conflict with global flags, we'll set their values
+		// from the global config after parsing, so we skip adding them to avoid duplicates
+		// but store a reference to the Value so we can set it later
+		if f.Name == "bind-address" || f.Name == "tls-cert-file" || f.Name == "tls-key-file" {
+			// Store the pflag.Value so we can set it from global config later
+			switch f.Name {
+			case "bind-address":
+				bindAddrValue = f.Value
+			case "tls-cert-file":
+				tlsCertFileValue = f.Value
+			case "tls-key-file":
+				tlsKeyFileValue = f.Value
+			}
+			return
 		}
 
 		fc := ff.FlagConfig{

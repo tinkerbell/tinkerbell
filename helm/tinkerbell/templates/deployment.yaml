@@ -31,6 +31,10 @@ spec:
   {{- end }}
   template:
     metadata:
+      annotations:
+        {{- with .Values.deployment.annotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       labels:
         app: {{ .Values.name }}
         stack: tinkerbell
@@ -168,7 +172,7 @@ spec:
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRY_DELAY
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetryDelay | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL
-              value: {{ coalesce .Values.artifactsFileServer .Values.deployment.envs.smee.ipxeHttpScriptOsieURL | quote }}
+              value: {{ printf "http://%s:%.0f" (coalesce .Values.deployment.envs.globals.publicIpv4 $publicIP) .Values.service.ports.httpHook.port | quote }}
             - name: TINKERBELL_IPXE_OVERRIDE_ARCH_MAPPING
               value: {{ .Values.deployment.envs.smee.ipxeOverrideArchMapping | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT
@@ -241,6 +245,8 @@ spec:
               value: {{ ( join "," $trustedProxies ) | quote }}
             - name: TINKERBELL_PUBLIC_IPV4
               value: {{ (coalesce .Values.deployment.envs.globals.publicIpv4 $publicIP) | quote }}
+            - name: TINKERBELL_ENABLE_HOOK
+              value: {{ .Values.deployment.envs.globals.enableHook | quote }}
             - name: TINKERBELL_ENABLE_SMEE
               value: {{ .Values.deployment.envs.globals.enableSmee | quote }}
             - name: TINKERBELL_ENABLE_TOOTLES
@@ -288,6 +294,13 @@ spec:
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
+          {{- if .Values.deployment.envs.globals.enableHook }}
+            - containerPort: {{ .Values.deployment.envs.hook.bindPort }}
+            {{- with .Values.service.ports.httpHook }}
+              name: {{ .name }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
           {{- if .Values.deployment.envs.globals.enableTootles }}
             - containerPort: {{ .Values.deployment.envs.tootles.bindPort }}
             {{- with .Values.service.ports.httpTootles }}
@@ -317,6 +330,42 @@ spec:
             {{- end }}
           {{- end }}
           resources: {{ toYaml .Values.deployment.resources | nindent 12 }}
+          {{- if and .Values.deployment.probes.liveness.enabled .Values.deployment.envs.globals.enableSmee }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.deployment.probes.liveness.httpGet.path }}
+              port: {{ .Values.deployment.probes.liveness.httpGet.port }}
+              scheme: {{ .Values.deployment.probes.liveness.httpGet.scheme }}
+            initialDelaySeconds: {{ .Values.deployment.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deployment.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.deployment.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.deployment.probes.liveness.failureThreshold }}
+            successThreshold: {{ .Values.deployment.probes.liveness.successThreshold }}
+          {{- end }}
+          {{- if and .Values.deployment.probes.readiness.enabled .Values.deployment.envs.globals.enableSmee }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.deployment.probes.readiness.httpGet.path }}
+              port: {{ .Values.deployment.probes.readiness.httpGet.port }}
+              scheme: {{ .Values.deployment.probes.readiness.httpGet.scheme }}
+            initialDelaySeconds: {{ .Values.deployment.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deployment.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.deployment.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.deployment.probes.readiness.failureThreshold }}
+            successThreshold: {{ .Values.deployment.probes.readiness.successThreshold }}
+          {{- end }}
+          {{- if and .Values.deployment.probes.startup.enabled .Values.deployment.envs.globals.enableSmee }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.deployment.probes.startup.httpGet.path }}
+              port: {{ .Values.deployment.probes.startup.httpGet.port }}
+              scheme: {{ .Values.deployment.probes.startup.httpGet.scheme }}
+            initialDelaySeconds: {{ .Values.deployment.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deployment.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.deployment.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.deployment.probes.startup.failureThreshold }}
+            successThreshold: {{ .Values.deployment.probes.startup.successThreshold }}
+          {{- end }}
           securityContext:
             capabilities:
               add:

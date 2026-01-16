@@ -6,12 +6,12 @@ edition = "2023";
 
 package proto;
 
-option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
-
 import "get_action_request.proto";
 import "get_action_response.proto";
 import "report_action_status_request.proto";
 import "report_action_status_response.proto";
+
+option go_package = "github.com/tinkerbell/tinkerbell/pkg/proto";
 
 /*
  * WorkflowService for getting actions and reporting the status of the actions

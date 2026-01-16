@@ -16,6 +16,7 @@ deployment:
   # It is not set because in the deployment.yaml a coalesce is used with this value
   # and the .Chart.AppVersion. This allows CI and the release process to set the value properly.
   agentImageTag:
+  annotations: {}
   daemonSet:
     enabled: false
   envs:
@@ -30,6 +31,7 @@ deployment:
       enableCRDMigrations: true
       enableRufioController: true
       enableSecondstar: true
+      enableHook: true
       enableSmee: true
       enableTootles: true
       enableTinkServer: true
@@ -54,6 +56,10 @@ deployment:
       hostKeyPath: ""
       ipmitoolPath: "/usr/sbin/ipmitool"
       idleTimeout: "15m"
+      logLevel: 0
+    hook:
+      bindAddr: ""
+      bindPort: 7173
       logLevel: 0
     smee:
       dhcpBindAddr: ""
@@ -153,6 +159,45 @@ deployment:
   selector: {}
   strategy:
     type: RollingUpdate
+  # Kubernetes probes configuration
+  # Uses Smee's /healthcheck endpoint on the HTTP script server port (7171)
+  probes:
+    # Liveness probe - restarts the container if it fails
+    liveness:
+      enabled: true
+      httpGet:
+        path: /healthcheck
+        port: http-smee
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 3
+      successThreshold: 1
+    # Readiness probe - removes pod from service endpoints if it fails
+    readiness:
+      enabled: true
+      httpGet:
+        path: /healthcheck
+        port: http-smee
+        scheme: HTTP
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+      successThreshold: 1
+    # Startup probe - gives the container time to start before liveness kicks in
+    startup:
+      enabled: true
+      httpGet:
+        path: /healthcheck
+        port: http-smee
+        scheme: HTTP
+      initialDelaySeconds: 0
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 30
+      successThreshold: 1
   tolerations: []
   # Additional volumes on the output Deployment definition.
   volumes: []
@@ -198,6 +243,10 @@ service:
       name: http-tootles
       port: 7172
       protocol: TCP
+    httpHook:
+      name: http-hook
+      port: 7173
+      protocol: TCP
     ssh:
       name: ssh
       port: 2222
@@ -216,6 +265,8 @@ service:
       protocol: TCP
   selector:
     app: tinkerbell
+  sessionAffinity: None
+  sessionAffinityConfig: {}
   type: LoadBalancer
 trustedProxies: []
 

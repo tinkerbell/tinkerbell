@@ -142,6 +142,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
 	fs.Register(TFTPSinglePort, ffval.NewValueDefault(&sc.Config.TFTP.SinglePort, sc.Config.TFTP.SinglePort))
+	fs.Register(TFTPCacheDir, ffval.NewValueDefault(&sc.Config.TFTP.CacheDir, sc.Config.TFTP.CacheDir))
 }
 
 // Convert CLI specific fields to smee.Config fields.
@@ -405,6 +406,11 @@ var TFTPBlockSize = Config{
 var TFTPSinglePort = Config{
 	Name:  "tftp-single-port",
 	Usage: "[tftp] Use a single port for TFTP transfers",
+}
+
+var TFTPCacheDir = Config{
+	Name:  "tftp-cache-dir",
+	Usage: "[tftp] directory to cache downloaded hook files (initramfs and kernel)",
 }
 
 // iPXE flags.

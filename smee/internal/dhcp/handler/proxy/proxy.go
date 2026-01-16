@@ -197,6 +197,11 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	// without this the pxe client will try to broadcast a request message to port 4011 for the ipxe script.
 	reply.ServerIPAddr = ns
 
+	// Set option 209 - PXE Linux Configuration File
+	// used by pxelinux to determine the config file to use.
+	// useful with U-Boot and pxelinux.
+	reply.UpdateOption(i.PxeLinuxConfigFileOption(i.Mac))
+
 	// set sname header
 	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
 	reply.ServerHostName = ns.String()

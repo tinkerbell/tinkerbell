@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -288,11 +289,16 @@ func (h *Handler) serveBootScript(ctx context.Context, w http.ResponseWriter, na
 	}
 }
 
-func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
+// buildHook constructs a Hook struct from hardware info and handler configuration.
+func (h *Handler) buildHook(span trace.Span, hw info) Hook {
 	mac := hw.MACAddress
 	arch := hw.Arch
 	if arch == "" {
 		arch = "x86_64"
+
+		if dhcp.IsRaspberryPI(mac) {
+			arch = "armbian-bcm2711-current"
+		}
 	}
 	// The worker ID will default to the mac address or use the one specified.
 	wID := mac.String()
@@ -329,6 +335,11 @@ func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
 		auto.TraceID = span.SpanContext().TraceID().String()
 	}
 
+	return auto
+}
+
+func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
+	auto := h.buildHook(span, hw)
 	return GenerateTemplate(auto, HookScript)
 }
 

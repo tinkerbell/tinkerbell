@@ -6,9 +6,11 @@ import (
 	"net"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
+	"github.com/insomniacslk/dhcp/iana"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
@@ -91,6 +93,11 @@ func (h *Handler) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n *d
 			}
 		}
 		d.BootFileName = "/netboot-not-allowed"
+		if slices.ContainsFunc(d.ClientArch(), func(a iana.Arch) bool {
+			return a == iana.UBOOT_ARM64 || a == iana.UBOOT_ARM32 || a == iana.Arch(41)
+		}) {
+			d.BootFileName = ""
+		}
 		d.ServerIPAddr = net.IPv4(0, 0, 0, 0)
 		if n.AllowNetboot {
 			i := dhcp.NewInfo(m, dhcp.WithMacAddrFormat(h.Netboot.InjectMacAddrFormat), dhcp.WithIPXEBinary(n.IPXEBinary), dhcp.WithArchMappingOverride(h.Netboot.IPXEArchMapping))
