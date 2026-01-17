@@ -2,6 +2,8 @@
 
 This doc will explain what Hardware references are, how to define them, how to use them in a Template, and how to configure access to them.
 
+> **Note**: For simple, namespace-scoped secret injection (like passwords and API tokens), consider [Template Secrets](TEMPLATE_SECRETS.md) as an alternative to References. Template Secrets provide a simpler approach for credential handling within the same namespace, while References offer more flexible, policy-controlled access to any Kubernetes resource across namespaces.
+
 ## What are References?
 
 References are a way to link a Hardware resource to other Kubernetes objects. Once these links are established the fields in the referenced objects are accessible for use in templating a Tinkerbell Template.
@@ -208,6 +210,9 @@ Environment Variables:
 export TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES='{"reference":{"resource":["hardware"]}}|{"reference":{"resource":["workflows"]}}'
 ```
 
+## See Also
+
+- [Template Secrets](TEMPLATE_SECRETS.md) - For injecting sensitive credentials into templates
 Helm Values:
 
 - `deployment.envs.tinkController.referenceAllowListRules`

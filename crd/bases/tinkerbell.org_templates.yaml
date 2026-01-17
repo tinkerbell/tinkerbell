@@ -49,6 +49,21 @@ spec:
             properties:
               data:
                 type: string
+              secretRef:
+                description: |-
+                  SecretRef is an optional reference to a Kubernetes Secret whose data
+                  will be available in the template as `.secret.<key>`.
+                  All keys from the referenced secret will be exposed to the template.
+                  The secret must exist in the same namespace as the Template.
+                properties:
+                  name:
+                    description: Name is the name of the secret in the same namespace
+                      as the Template.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
             type: object
           status:
             description: TemplateStatus defines the observed state of Template.
