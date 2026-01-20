@@ -32,6 +32,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
 	"github.com/tinkerbell/tinkerbell/smee/internal/syslog"
+	"github.com/tinkerbell/tinkerbell/smee/internal/tftp"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -56,17 +57,21 @@ const (
 	DefaultTFFTPBlockSize  = 512
 	DefaultTFFTPSinglePort = true
 	DefaultTFFTPTimeout    = 10 * time.Second
+	DefaultTFFTPAnticipate = uint(1)
+	DefaultTFTPCacheDir    = "/var/lib/hook"
 	DefaultDHCPPort        = 67
 	DefaultSyslogPort      = 514
 	DefaultHTTPPort        = 7171
 	DefaultHTTPSPort       = 7272
 	DefaultTinkServerPort  = 42113
 
-	IPXEBinaryURI  = "/ipxe/binary/"
-	IPXEScriptURI  = "/ipxe/script/"
-	ISOURI         = "/iso/"
-	HealthCheckURI = "/healthcheck"
-	MetricsURI     = "/metrics"
+	IPXEBinaryPattern = `\.(efi|kpxe|pxe)$`
+	IPXEBinaryURI     = "/ipxe/binary/"
+	IPXEScriptPattern = `^(pxelinux\.cfg/)`
+	IPXEScriptURI     = "/ipxe/script/"
+	ISOURI            = "/iso/"
+	HealthCheckURI    = "/healthcheck"
+	MetricsURI        = "/metrics"
 )
 
 type DHCPMode string
@@ -136,8 +141,12 @@ type TFTP struct {
 	BlockSize int
 	// SinglePort configures whether to use single-port TFTP mode.
 	SinglePort bool
+	// Anticipate is the number of packets to send before the first ACK. (Experimental)
+	Anticipate uint
 	// Timeout is the timeout for each serving each TFTP request.
 	Timeout time.Duration
+	// CacheDir is the directory to cache downloaded hook files.
+	CacheDir string
 	// Enabled is a flag to enable or disable the TFTP server.
 	Enabled bool
 }
@@ -297,6 +306,8 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			BlockSize:  DefaultTFFTPBlockSize,
 			SinglePort: DefaultTFFTPSinglePort,
 			Timeout:    DefaultTFFTPTimeout,
+			Anticipate: DefaultTFFTPAnticipate,
+			CacheDir:   DefaultTFTPCacheDir,
 			Enabled:    true,
 		},
 		TinkServer: TinkServer{},
@@ -351,37 +362,18 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		})
 	}
 
-	// tftp
-	if c.TFTP.Enabled {
-		// 1. data validation
-		// 2. start the tftp server
-		addrPort := netip.AddrPortFrom(c.TFTP.BindAddr, c.TFTP.BindPort)
-		if !addrPort.IsValid() {
-			return fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", addrPort.Addr(), addrPort.Port())
-		}
-		tftpHandler := binary.TFTP{
-			Log:                  log,
-			EnableTFTPSinglePort: c.TFTP.SinglePort,
-			Addr:                 addrPort,
-			Timeout:              c.TFTP.Timeout,
-			Patch:                []byte(c.IPXE.EmbeddedScriptPatch),
-			BlockSize:            c.TFTP.BlockSize,
-		}
-
-		// start the ipxe binary tftp server
-		log.Info("starting tftp server", "bindAddr", addrPort.String())
-		g.Go(func() error {
-			return tftpHandler.ListenAndServe(ctx)
-		})
-	}
-
+	tftpHandlers := tftp.HandlerMapping{}
 	handlers := http.HandlerMapping{}
 	// http ipxe binaries
 	if c.IPXE.HTTPBinaryServer.Enabled {
+		bh := binary.Handler{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)}
 		// 1. data validation
 		// 2. start the http server for ipxe binaries
 		// serve ipxe binaries from the "/ipxe/" URI.
-		handlers[IPXEBinaryURI] = binary.Handler{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)}.Handle
+		handlers[IPXEBinaryURI] = bh.Handle
+		if c.TFTP.Enabled {
+			tftpHandlers[IPXEBinaryPattern] = bh.HandleTFTP
+		}
 	}
 
 	// http ipxe script
@@ -402,6 +394,9 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 		// serve ipxe script from the "/" URI.
 		handlers[IPXEScriptURI] = jh.HandlerFunc()
+		if c.TFTP.Enabled {
+			tftpHandlers[IPXEScriptPattern] = jh.HandleTFTP
+		}
 	}
 
 	if c.ISO.Enabled {
@@ -469,6 +464,31 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 					TLSCerts:       c.TLS.Certs,
 				}
 				return hs.ServeHTTPS(ctx, ap, handlers)
+			})
+		}
+
+		// tftp
+		if c.TFTP.Enabled {
+			// 1. data validation
+			// 2. start the tftp server
+			addrPort := netip.AddrPortFrom(c.TFTP.BindAddr, c.TFTP.BindPort)
+			if !addrPort.IsValid() {
+				return fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", addrPort.Addr(), addrPort.Port())
+			}
+
+			// start the ipxe binary tftp server
+			log.Info("starting tftp server", "bindAddr", addrPort.String())
+			g.Go(func() error {
+				ts := tftp.ConfigTFTP{
+					Anticipate:           c.TFTP.Anticipate,
+					BlockSize:            c.TFTP.BlockSize,
+					CacheDir:             c.TFTP.CacheDir,
+					EnableTFTPSinglePort: c.TFTP.SinglePort,
+					Logger:               log,
+					Patch:                []byte(c.IPXE.EmbeddedScriptPatch),
+					Timeout:              c.TFTP.Timeout,
+				}
+				return ts.ServeTFTP(ctx, addrPort.String(), tftpHandlers)
 			})
 		}
 	}

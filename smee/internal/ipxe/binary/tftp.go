@@ -3,14 +3,11 @@ package binary
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"net"
-	"net/netip"
-	"os"
 	"path"
 	"path/filepath"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/pin/tftp/v3"
@@ -21,49 +18,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// TFTP config settings.
-type TFTP struct {
-	Log                  logr.Logger
-	EnableTFTPSinglePort bool
-	Addr                 netip.AddrPort
-	Timeout              time.Duration
-	Patch                []byte
-	BlockSize            int
-}
-
-// ListenAndServe will listen and serve iPXE binaries over TFTP.
-func (h *TFTP) ListenAndServe(ctx context.Context) error {
-	a, err := net.ResolveUDPAddr("udp", h.Addr.String())
-	if err != nil {
-		return err
-	}
-	conn, err := net.ListenUDP("udp", a)
-	if err != nil {
-		return err
-	}
-
-	h.Log.Info("starting TFTP server",
-		"addr", h.Addr.String(), "singlePort", h.EnableTFTPSinglePort,
-		"blockSize", h.BlockSize, "timeout", h.Timeout.String())
-
-	ts := tftp.NewServer(h.HandleRead, h.HandleWrite)
-	ts.SetTimeout(h.Timeout)
-	ts.SetBlockSize(h.BlockSize)
-	if h.EnableTFTPSinglePort {
-		ts.EnableSinglePort()
-	}
-
-	go func() {
-		<-ctx.Done()
-		conn.Close()
-		ts.Shutdown()
-	}()
-
-	return ts.Serve(conn)
-}
-
-// HandleRead handlers TFTP GET requests. The function signature satisfies the tftp.Server.readHandler parameter type.
-func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
+// HandleTFTP implements the TFTP read function handler.
+func (h Handler) HandleTFTP(filename string, rf io.ReaderFrom) error {
 	client := net.UDPAddr{}
 	if rpi, ok := rf.(tftp.OutgoingTransfer); ok {
 		client = rpi.RemoteAddr()
@@ -100,43 +56,48 @@ func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
 	)
 	defer span.End()
 
+	// Check if binary exists in embedded files
 	content, ok := binary.Files[filepath.Base(shortfile)]
 	if !ok {
-		err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
-		log.Error(err, "file unknown")
-		span.SetStatus(codes.Error, err.Error())
-		return err
+		log.Info("iPXE binary not found", "filename", filename)
+		span.SetStatus(codes.Error, "file not found")
+		return ErrNotFound
 	}
 
-	content, err = binary.Patch(content, h.Patch)
+	// Apply patch if configured
+	if len(h.Patch) > 0 {
+		var err error
+		content, err = binary.Patch(content, h.Patch)
+		if err != nil {
+			log.Error(err, "failed to patch binary")
+			span.SetStatus(codes.Error, err.Error())
+			return err
+		}
+	}
+
+	log.Info("successfully loaded iPXE binary", "size", len(content))
+
+	// Serve the content
+	return serveContent(content, rf, log, span, filename)
+}
+
+func serveContent(content []byte, rf io.ReaderFrom, log logr.Logger, span trace.Span, filename string) error {
+	if transfer, ok := rf.(interface{ SetSize(int64) }); ok {
+		transfer.SetSize(int64(len(content)))
+	}
+
+	reader := bytes.NewReader(content)
+	bytesRead, err := rf.ReadFrom(reader)
 	if err != nil {
-		log.Error(err, "failed to patch binary")
+		log.Error(err, "file serve failed", "bytesRead", bytesRead, "contentSize", len(content))
 		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
-	ct := bytes.NewReader(content)
-	b, err := rf.ReadFrom(ct)
-	if err != nil {
-		log.Error(err, "file serve failed", "b", b, "contentSize", len(content))
-		span.SetStatus(codes.Error, err.Error())
-
-		return err
-	}
-	log.Info("file served", "bytesSent", b, "contentSize", len(content))
+	log.Info("file served", "bytesSent", bytesRead, "contentSize", len(content))
 	span.SetStatus(codes.Ok, filename)
-
 	return nil
 }
 
-// HandleWrite handles TFTP PUT requests. It will always return an error. This library does not support PUT.
-func (h TFTP) HandleWrite(filename string, wt io.WriterTo) error {
-	err := fmt.Errorf("access_violation: %w", os.ErrPermission)
-	client := net.UDPAddr{}
-	if rpi, ok := wt.(tftp.OutgoingTransfer); ok {
-		client = rpi.RemoteAddr()
-	}
-	h.Log.Error(err, "client", client, "event", "put", "filename", filename)
-
-	return err
-}
+// ErrNotFound represents a file not found error
+var ErrNotFound = errors.New("file not found")
