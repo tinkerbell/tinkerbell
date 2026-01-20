@@ -124,6 +124,7 @@ deployment:
       bindPort: 7172
       debugMode: false
       logLevel: 0
+      instanceEndpoint: false # if true, Tootles will serve metadata at /tootles/instanceID/<instanceID> to _any_ client
   hostNetwork: false
   image: ghcr.io/tinkerbell/tinkerbell
   imagePullPolicy: IfNotPresent

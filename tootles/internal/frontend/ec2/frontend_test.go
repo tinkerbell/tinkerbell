@@ -219,12 +219,113 @@ func TestFrontendDynamicEndpoints(t *testing.T) {
 
 			router := gin.New()
 
-			fe := ec2.New(client)
+			fe := ec2.New(client, false)
 			fe.Configure(router)
 
 			// Validate both with and without a trailing slash returns the same result.
 			validate(t, router, tc.Endpoint, tc.Expect)
 			validate(t, router, tc.Endpoint+"/", tc.Expect)
+		})
+	}
+}
+
+func TestFrontendInstanceIDDynamicEndpoints(t *testing.T) {
+	cases := []struct {
+		Name     string
+		Endpoint string
+		Instance data.Ec2Instance
+		Expect   string
+	}{
+		{
+			Name:     "InstanceID",
+			Endpoint: "/tootles/instanceID/instance-id-in-url/2009-04-04/meta-data/instance-id",
+			Instance: data.Ec2Instance{
+				Metadata: data.Metadata{
+					InstanceID: "instance-id-in-url",
+				},
+			},
+			Expect: "instance-id-in-url",
+		},
+		{
+			Name:     "Hostname",
+			Endpoint: "/tootles/instanceID/instance-id-in-url/2009-04-04/meta-data/hostname",
+			Instance: data.Ec2Instance{
+				Metadata: data.Metadata{
+					InstanceID: "instance-id-in-url",
+					Hostname:   "hostname",
+				},
+			},
+			Expect: "hostname",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			client := ec2.NewMockClient(ctrl)
+			client.EXPECT().
+				GetEC2InstanceByInstanceID(gomock.Any(), gomock.Any()).
+				Return(tc.Instance, nil).
+				Times(2)
+
+			router := gin.New()
+
+			fe := ec2.New(client, true)
+			fe.Configure(router)
+
+			// Validate both with and without a trailing slash returns the same result.
+			validate(t, router, tc.Endpoint, tc.Expect)
+			validate(t, router, tc.Endpoint+"/", tc.Expect)
+		})
+	}
+}
+
+func TestFrontendInstanceIDEndpointsReturn404WhenDisabled(t *testing.T) {
+	cases := []struct {
+		Name     string
+		Endpoint string
+	}{
+		{
+			Name:     "InstanceIDDynamicEndpoint",
+			Endpoint: "/tootles/instanceID/instance-id-in-url/2009-04-04/meta-data/instance-id",
+		},
+		{
+			Name:     "HostnameDynamicEndpoint",
+			Endpoint: "/tootles/instanceID/instance-id-in-url/2009-04-04/meta-data/hostname",
+		},
+		{
+			Name:     "UserdataDynamicEndpoint",
+			Endpoint: "/tootles/instanceID/instance-id-in-url/2009-04-04/user-data",
+		},
+		{
+			Name:     "StaticEndpoint",
+			Endpoint: "/tootles/instanceID/instance-id-in-url/2009-04-04/meta-data/operating-system/license_activation",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			client := ec2.NewMockClient(ctrl)
+			// No expectations set on the client as the endpoints should not be registered
+
+			router := gin.New()
+
+			// Create frontend with instanceEndpoint flag set to false
+			fe := ec2.New(client, false)
+			fe.Configure(router)
+
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest("GET", tc.Endpoint, nil)
+
+			// RemoteAddr must be valid in case the request gets that far
+			r.RemoteAddr = "10.10.10.10:0"
+
+			router.ServeHTTP(w, r)
+
+			if w.Code != http.StatusNotFound {
+				t.Fatalf("Expected status: 404; Received status: %d for endpoint: %s", w.Code, tc.Endpoint)
+			}
 		})
 	}
 }
@@ -271,6 +372,11 @@ version`,
 			Endpoint: "/2009-04-04/meta-data/operating-system/license_activation",
 			Expect:   `state`,
 		},
+		{
+			Name:     "MetadataOperatingSystemLicenseActivationViaInstanceEndpoint",
+			Endpoint: "/tootles/instanceID/instance-id-in-url/2009-04-04/meta-data/operating-system/license_activation",
+			Expect:   `state`,
+		},
 	}
 
 	for _, tc := range cases {
@@ -280,7 +386,7 @@ version`,
 
 			router := gin.New()
 
-			fe := ec2.New(client)
+			fe := ec2.New(client, true)
 			fe.Configure(router)
 
 			// Validate both with and without a trailing slash returns the same result.
@@ -320,7 +426,7 @@ func Test404OnInstanceNotFound(t *testing.T) {
 
 	router := gin.New()
 
-	fe := ec2.New(client)
+	fe := ec2.New(client, true)
 	fe.Configure(router)
 
 	w := httptest.NewRecorder()
@@ -347,7 +453,7 @@ func Test500OnGenericError(t *testing.T) {
 
 	router := gin.New()
 
-	fe := ec2.New(client)
+	fe := ec2.New(client, true)
 	fe.Configure(router)
 
 	w := httptest.NewRecorder()
@@ -377,7 +483,7 @@ func Test400OnInvalidRemoteAddr(t *testing.T) {
 
 		router := gin.New()
 
-		fe := ec2.New(client)
+		fe := ec2.New(client, true)
 		fe.Configure(router)
 
 		w := httptest.NewRecorder()

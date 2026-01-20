@@ -110,6 +110,8 @@ spec:
               value: {{ .Values.deployment.envs.tootles.bindPort | quote }}
             - name: TINKERBELL_TOOTLES_DEBUG_MODE
               value: {{ .Values.deployment.envs.tootles.debugMode | quote }}
+            - name: TINKERBELL_TOOTLES_INSTANCE_ENDPOINT
+              value: {{ .Values.deployment.envs.tootles.instanceEndpoint | quote }}
             - name: TINKERBELL_TOOTLES_LOG_LEVEL
               value: {{ .Values.deployment.envs.tootles.logLevel | quote }}
           # SMEE

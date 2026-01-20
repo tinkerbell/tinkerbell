@@ -15,6 +15,7 @@ const (
 	IndexTypeMachineName     IndexType = "machine.metadata.name"
 	IndexTypeWorkflowAgentID IndexType = WorkflowByAgentID
 	IndexTypeHardwareAgentID IndexType = HardwareByAgentID
+	IndexTypeInstanceID      IndexType = InstanceIDIndex
 )
 
 // Indexes that are currently known.
@@ -48,6 +49,11 @@ var Indexes = map[IndexType]Index{
 		Obj:          &tinkerbell.Hardware{},
 		Field:        HardwareByAgentID,
 		ExtractValue: HardwareByAgentIDFunc,
+	},
+	IndexTypeInstanceID: {
+		Obj:          &tinkerbell.Hardware{},
+		Field:        InstanceIDIndex,
+		ExtractValue: InstanceIDFunc,
 	},
 }
 
@@ -143,4 +149,17 @@ func HardwareByAgentIDFunc(obj client.Object) []string {
 		return []string{}
 	}
 	return []string{hw.Spec.AgentID}
+}
+
+// InstanceIDIndex is an index used with a controller-runtime client to lookup hardware by its metadata instance id.
+const InstanceIDIndex = ".Spec.Metadata.Instance.ID" // #nosec G101 - This is a field path, not a credential
+func InstanceIDFunc(obj client.Object) []string {
+	hw, ok := obj.(*tinkerbell.Hardware)
+	if !ok {
+		return nil
+	}
+	if hw.Spec.Metadata == nil || hw.Spec.Metadata.Instance == nil || hw.Spec.Metadata.Instance.ID == "" {
+		return []string{}
+	}
+	return []string{hw.Spec.Metadata.Instance.ID}
 }
