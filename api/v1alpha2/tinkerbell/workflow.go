@@ -41,6 +41,25 @@ type WorkflowSpec struct {
 	// Name is a human readable name for the Workflow.
 	Name string `json:"name"`
 
+	// References are dynamic and defined by the user.
+	// These will be available to use in Actions as template dot notation.
+	//
+	// For example, given the following reference:
+	//
+	// References:
+	//   config:
+	//     name: my-config
+	//     namespace: tinkerbell
+	//     resource: configmaps
+	//     version: v1
+	//
+	// The following Action template string can be used access the reference:
+	//
+	// {{ .references.config.data.my-key }}
+	//
+	// +optional
+	References map[string]Reference `json:"references,omitempty"`
+
 	// Volumes defined here are added to all Actions in the Workflow.
 	// +optional
 	Volumes []Volume `json:"volumes,omitempty"`

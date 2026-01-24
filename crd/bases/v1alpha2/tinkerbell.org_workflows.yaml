@@ -150,6 +150,52 @@ spec:
               name:
                 description: Name is a human readable name for the Workflow.
                 type: string
+              references:
+                additionalProperties:
+                  properties:
+                    group:
+                      description: |-
+                        Group of the referent.
+                        More info: https://kubernetes.io/docs/reference/using-api/#api-groups
+                      type: string
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                      type: string
+                    resource:
+                      description: |-
+                        Resource of the referent. Must be the pluralized kind of the referent. Must be all lowercase.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    version:
+                      description: |-
+                        API version of the referent.
+                        More info: https://kubernetes.io/docs/reference/using-api/#api-versioning
+                      type: string
+                  type: object
+                description: |-
+                  References are dynamic and defined by the user.
+                  These will be available to use in Actions as template dot notation.
+
+                  For example, given the following reference:
+
+                  References:
+                    config:
+                      name: my-config
+                      namespace: tinkerbell
+                      resource: configmaps
+                      version: v1
+
+                  The following Action template string can be used access the reference:
+
+                  {{ .references.config.data.my-key }}
+                type: object
               volumes:
                 description: Volumes defined here are added to all Actions in the
                   Workflow.
