@@ -1,0 +1,24 @@
+---
+apiVersion: bmc.tinkerbell.org/v1alpha2
+kind: Job
+metadata:
+  name: example
+  namespace: tinkerbell
+spec:
+  bmcRef:
+    name: example
+    namespace: tinkerbell
+  #connection:
+  #  host: 0.0.0.0
+  #  authSecretRef:
+  #    name: bm-auth
+  #    namespace: tinkerbell
+  #  insecureTLS: false
+  operations:
+    - powerAction: "off"
+      timeoutSeconds: 600
+    - bootDevice:
+        device: "pxe"
+        persistent: false
+        efiBoot: true
+    - powerAction: "on"

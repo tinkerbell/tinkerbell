@@ -1,0 +1,220 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  labels:
+    clusterctl.cluster.x-k8s.io: ""
+    clusterctl.cluster.x-k8s.io/move: ""
+  name: workflows.tinkerbell.org
+spec:
+  group: tinkerbell.org
+  names:
+    categories:
+    - tinkerbell
+    kind: Workflow
+    listKind: WorkflowList
+    plural: workflows
+    shortNames:
+    - wf
+    singular: workflow
+  scope: Namespaced
+  versions:
+  - name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: Workflow is the Schema for the Workflow API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: WorkflowSpec defines the desired state of Workflow.
+            properties:
+              actions:
+                description: Actions are the list of individual Actions that are part
+                  of this Workflow.
+                items:
+                  description: Action represents a Workflow Action.
+                  properties:
+                    args:
+                      description: Args are a set of arguments to be passed to the
+                        command executed by the container on launch.
+                      items:
+                        type: string
+                      type: array
+                    command:
+                      description: |-
+                        Command defines the command to use when launching the image. It overrides the default command
+                        of the Action image. It must be a unix path to an executable program. When omitted, the image's
+                        default command/entrypoint is used.
+                      pattern: ^(/[^/ ]*)+/?$
+                      type: string
+                    envVars:
+                      description: EnvVars defines environment variables that will
+                        be available inside a container.
+                      items:
+                        description: EnvVar defines a single environment variable.
+                        properties:
+                          key:
+                            description: Key is the name of the environment variable.
+                            type: string
+                          value:
+                            description: Value is the value of the environment variable.
+                            type: string
+                        required:
+                        - key
+                        - value
+                        type: object
+                      type: array
+                    image:
+                      description: |-
+                        Image is an OCI image. Should generally be a fully qualified OCI image reference.
+                        For example, quay.io/tinkerbell/actions/image2disk:v1.0.0 or docker.io/library/alpine:3.23
+                      type: string
+                    name:
+                      description: Name is a human readable name for the Action.
+                      type: string
+                    namespaces:
+                      description: Namespaces defines the Linux namespaces with which
+                        the container should configured.
+                      properties:
+                        network:
+                          description: Network defines the network namespace.
+                          type: string
+                        pid:
+                          description: PID defines the PID namespace
+                          type: string
+                      type: object
+                    retries:
+                      description: Retries is the number of times the Action should
+                        be run until completed successfully.
+                      type: integer
+                    timeoutSeconds:
+                      description: |-
+                        TimeoutSeconds is the total number of seconds the Action is allowed to run without completing
+                        before marking it as timed out.
+                      format: int64
+                      type: integer
+                    volumes:
+                      description: Volumes defines the volumes that will be mounted
+                        into the container.
+                      items:
+                        description: "Volume is a specification for mounting a location
+                          on a Host into an Action container.\nVolumes take the form
+                          {SRC-VOLUME-NAME | SRC-HOST-DIR}:TGT-CONTAINER-DIR:OPTIONS.\nWhen
+                          specifying a VOLUME-NAME that does not exist it will be
+                          created for you.\nExamples:\n\nRead-only bind mount bound
+                          to /data\n\n\t/etc/data:/data:ro\n\nWritable volume name
+                          bound to /data\n\n\tshared_volume:/data\n\nSee https://docs.docker.com/storage/volumes/
+                          for additional details."
+                        type: string
+                      type: array
+                  required:
+                  - image
+                  - name
+                  type: object
+                type: array
+              envVars:
+                description: EnvVars variables here are added to all Actions in the
+                  Workflow.
+                items:
+                  description: EnvVar defines a single environment variable.
+                  properties:
+                    key:
+                      description: Key is the name of the environment variable.
+                      type: string
+                    value:
+                      description: Value is the value of the environment variable.
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
+              name:
+                description: Name is a human readable name for the Workflow.
+                type: string
+              references:
+                additionalProperties:
+                  properties:
+                    group:
+                      description: |-
+                        Group of the referent.
+                        More info: https://kubernetes.io/docs/reference/using-api/#api-groups
+                      type: string
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                      type: string
+                    resource:
+                      description: |-
+                        Resource of the referent. Must be the pluralized kind of the referent. Must be all lowercase.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    version:
+                      description: |-
+                        API version of the referent.
+                        More info: https://kubernetes.io/docs/reference/using-api/#api-versioning
+                      type: string
+                  type: object
+                description: |-
+                  References are dynamic and defined by the user.
+                  These will be available to use in Actions as template dot notation.
+
+                  For example, given the following reference:
+
+                  References:
+                    config:
+                      name: my-config
+                      namespace: tinkerbell
+                      resource: configmaps
+                      version: v1
+
+                  The following Action template string can be used access the reference:
+
+                  {{ .references.config.data.my-key }}
+                type: object
+              volumes:
+                description: Volumes defined here are added to all Actions in the
+                  Workflow.
+                items:
+                  description: "Volume is a specification for mounting a location
+                    on a Host into an Action container.\nVolumes take the form {SRC-VOLUME-NAME
+                    | SRC-HOST-DIR}:TGT-CONTAINER-DIR:OPTIONS.\nWhen specifying a
+                    VOLUME-NAME that does not exist it will be created for you.\nExamples:\n\nRead-only
+                    bind mount bound to /data\n\n\t/etc/data:/data:ro\n\nWritable
+                    volume name bound to /data\n\n\tshared_volume:/data\n\nSee https://docs.docker.com/storage/volumes/
+                    for additional details."
+                  type: string
+                type: array
+            required:
+            - actions
+            - name
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

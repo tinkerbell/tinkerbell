@@ -1,0 +1,437 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  labels:
+    clusterctl.cluster.x-k8s.io: ""
+    clusterctl.cluster.x-k8s.io/move: ""
+  name: hardware.tinkerbell.org
+spec:
+  group: tinkerbell.org
+  names:
+    categories:
+    - tinkerbell
+    kind: Hardware
+    listKind: HardwareList
+    plural: hardware
+    shortNames:
+    - hw
+    singular: hardware
+  scope: Namespaced
+  versions:
+  - name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: Hardware is the Schema for the Hardware API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HardwareSpec defines the desired state of Hardware.
+            properties:
+              agentID:
+                description: |-
+                  AgentID is the unique identifier an Agent uses that is associated with this Hardware.
+                  This is used to identify Hardware during the discovery and enrollment process.
+                  It is typically the MAC address of the primary network interface.
+                type: string
+              attributes:
+                description: |-
+                  Attributes related to Hardware. These are attributes that are needed/used to make logical decisions
+                  around builtin capabilities. For example, the Arch determines which OSIE files to server (x86_64 or aarch64).
+                  The UEFI boolean us needed/used to determine options in IPMI calls.
+                properties:
+                  arch:
+                    description: |-
+                      Arch represents the Hardware's architecture type.
+                      For example; x86_64 or aarch64
+                    type: string
+                  uefi:
+                    description: UEFI reports whether the Hardware uses UEFI.
+                    type: boolean
+                type: object
+              auto:
+                description: AutoCapabilities defines the configuration for the automatic
+                  capabilities of this Hardware.
+                properties:
+                  enrollmentEnabled:
+                    default: false
+                    description: |-
+                      EnrollmentEnabled reports whether automatic enrollment of the Hardware is enabled.
+                      When set to true, auto enrollment will create Workflows for this Hardware.
+                    type: boolean
+                type: object
+              instance:
+                description: Instance describes data that is less permanent than any
+                  physical attributes of the Hardware.
+                properties:
+                  metadata:
+                    description: |-
+                      Metadata is data following the cloud-init NoCloud datasource for meta-data.
+
+                      https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#meta-data
+
+                      This string can be templated with values from the Hardware object by using the
+                      standard Go templating format, https://pkg.go.dev/text/template.
+                      Always start with ".hardware", then use dot notation to the desired key.
+
+                      {{ .hardware.location.to.a.key.in.the.spec }}
+
+                      For example:
+                      Reference the first ssh key in the list:
+                      {{ .hardware.instance.sshKeys[0] }}
+
+                      or
+
+                      Reference the IPv4 address of a network interface:
+                      {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").dhcp.ipam.ipv4.address }}
+                    type: string
+                  networkConfig:
+                    description: |-
+                      NetworkConfig is config following the cloud-init NoCloud datasource for network configuration.
+
+                      https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#network-config
+
+                      This string can be templated with values from the Hardware object by using the
+                      standard Go templating format, https://pkg.go.dev/text/template.
+                      Always start with ".hardware", then use dot notation to the desired key.
+
+                      {{ .hardware.location.to.a.key.in.the.spec }}
+
+                      For example:
+                      Reference the first ssh key in the list:
+                      {{ .hardware.instance.sshKeys[0] }}
+
+                      or
+
+                      Reference the IPv4 address of a network interface:
+                      {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").dhcp.ipam.ipv4.address }}
+                    type: string
+                  osie:
+                    description: OSIE (Operating System Installation Environment)
+                      configuration.
+                    properties:
+                      initrdURL:
+                        description: InitrdURL is a URL to an initrd image.
+                        type: string
+                      kernelParams:
+                        description: KernelParams passed to the kernel command line
+                          when launching the OSIE.
+                        items:
+                          type: string
+                        type: array
+                      kernelURL:
+                        description: KernelURL is a URL to a kernel image.
+                        type: string
+                    type: object
+                  sshKeys:
+                    description: SSHKeys are public SSH keys associated with this
+                      Hardware.
+                    items:
+                      type: string
+                    type: array
+                  userdata:
+                    description: |-
+                      Userdata is data following the cloud-init NoCloud datasource for user-data.
+
+                      https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#user-data
+
+                      This string can be templated with values from the Hardware object by using the
+                      standard Go templating format, https://pkg.go.dev/text/template.
+                      Always start with ".hardware", then use dot notation to the desired key.
+
+                      {{ .hardware.location.to.a.key.in.the.spec }}
+
+                      For example:
+                      Reference the first ssh key in the list:
+                      {{ .hardware.instance.sshKeys[0] }}
+
+                      or
+
+                      Reference the IPv4 address of a network interface:
+                      {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").dhcp.ipam.ipv4.address }}
+                    type: string
+                  vendordata:
+                    description: |-
+                      Vendordata is data following the cloud-init NoCloud datasource for vendor-data.
+
+                      https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#vendor-data
+
+                      This string can be templated with values from the Hardware object by using the
+                      standard Go templating format, https://pkg.go.dev/text/template.
+                      Always start with ".hardware", then use dot notation to the desired key.
+
+                      {{ .hardware.location.to.a.key.in.the.spec }}
+
+                      For example:
+                      Reference the first ssh key in the list:
+                      {{ .hardware.instance.sshKeys[0] }}
+
+                      or
+
+                      Reference the IPv4 address of a network interface:
+                      {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}
+                    type: string
+                type: object
+              networkInterfaces:
+                additionalProperties:
+                  description: NetworkInterface is the desired configuration for a
+                    particular network interface.
+                  properties:
+                    dhcp:
+                      description: DHCP is the options for serving DHCP requests.
+                      properties:
+                        bootFileName:
+                          description: |-
+                            BootFileName is the boot file name. DHCP option 67.
+                            Used for explicit boot file configuration, required by some network boot clients
+                            like NVIDIA NVOS switches.
+                            If specified, TFTPServerName must also be specified.
+                          type: string
+                        classlessStaticRoutes:
+                          description: ClasslessStaticRoutes defines static routes
+                            to be sent via DHCP option 121 (RFC 3442).
+                          items:
+                            description: ClasslessStaticRoute represents a classless
+                              static route for DHCP option 121 (RFC 3442).
+                            properties:
+                              destinationDescriptor:
+                                description: |-
+                                  DestinationDescriptor is the network address and prefix length.
+                                  The format is "network/prefixlength", e.g., "192.168.1.0/24" or "10.0.0.0/8".
+                                pattern: ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/(3[0-2]|[12]?[0-9])$
+                                type: string
+                              router:
+                                description: Router is the IP address of the router
+                                  for this route.
+                                pattern: ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$
+                                type: string
+                            required:
+                            - destinationDescriptor
+                            - router
+                            type: object
+                          type: array
+                        disabled:
+                          default: false
+                          description: Disabled reports whether DHCP for this interface
+                            is disabled.
+                          type: boolean
+                        domainName:
+                          description: DomainName to be written. DHCP option 15.
+                          type: string
+                        hostname:
+                          description: Hostname is DHCP option 12.
+                          pattern: ^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])$
+                          type: string
+                        leaseTimeSeconds:
+                          default: 86400
+                          description: |-
+                            LeaseTimeSeconds to serve. 24h default. Maximum equates to max uint32 as defined by RFC 2132
+                            § 9.2 (https://www.rfc-editor.org/rfc/rfc2132.html#section-9.2). DHCP option 51.
+                          format: int64
+                          maximum: 4294967295
+                          minimum: 0
+                          type: integer
+                        nameservers:
+                          description: Nameservers corresponding to DHCP option 6.
+                          items:
+                            description: Nameserver is an IP or hostname.
+                            pattern: ^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$|^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$
+                            type: string
+                          type: array
+                        tftpServerName:
+                          description: |-
+                            TFTPServerName is the TFTP server name or IP address. DHCP option 66.
+                            Used for explicit TFTP server configuration, required by some network boot clients
+                            like NVIDIA NVOS switches.
+                            If specified, BootFileName must also be specified.
+                          type: string
+                        timeservers:
+                          description: Timeservers corresponding to DHCP option 42.
+                          items:
+                            description: Timeserver is an IP or hostname.
+                            pattern: ^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$|^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$
+                            type: string
+                          type: array
+                        vlanID:
+                          description: VLANID is a VLAN ID between 0 and 4096. DHCP
+                            option 43 suboption 116.
+                          pattern: ^(([0-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))(,[1-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))*)$
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: TFTPServerName and BootFileName must both be specified
+                          or both be empty
+                        rule: (has(self.tftpServerName) && self.tftpServerName !=
+                          "") == (has(self.bootFileName) && self.bootFileName != "")
+                    ipam:
+                      description: IPAM is the IP address management for this interface.
+                      properties:
+                        ipv4:
+                          description: IPv4 is the IPv4 address and associated network
+                            data.
+                          properties:
+                            address:
+                              description: Address is the unique network address.
+                              type: string
+                            gateway:
+                              description: Gateway is the default gateway address
+                                to serve.
+                              type: string
+                            prefix:
+                              description: Prefix is the subnet length.
+                              type: string
+                          type: object
+                        ipv6:
+                          description: IPv6 is the IPv6 address and associated network
+                            data.
+                          properties:
+                            address:
+                              description: Address is the unique network address.
+                              type: string
+                            gateway:
+                              description: Gateway is the default gateway address
+                                to serve.
+                              type: string
+                            prefix:
+                              description: Prefix is the subnet length.
+                              type: string
+                          type: object
+                      type: object
+                    isoboot:
+                      description: Isoboot configuration.
+                      properties:
+                        sourceISO:
+                          description: |-
+                            SourceISO is the source url where HookOS, an Operating System Installation Environment (OSIE), ISO lives.
+                            It must be a valid url.URL{} object and must have a url.URL{}.Scheme of HTTP or HTTPS.
+                          format: uri
+                          type: string
+                      type: object
+                    netboot:
+                      description: Netboot configuration.
+                      properties:
+                        disabled:
+                          default: false
+                          description: Disabled reports whether netbooting for this
+                            interface is disabled.
+                          type: boolean
+                        ipxe:
+                          description: IPXE configuration.
+                          properties:
+                            binary:
+                              description: |-
+                                Binary, when defined, overrides Smee's default mapping of architecture to iPXE binary.
+                                The following binary names are supported:
+                                - undionly.kpxe
+                                - ipxe.efi
+                                - snp-arm64.efi
+                                - snp-x86_64.efi
+                                See the iPXE Architecture Mapping documentation for more details.
+                              type: string
+                            script:
+                              description: |-
+                                Script, when defined, overrides the Tinkerbell iPXE script.
+                                Must start with: #!ipxe
+                              type: string
+                            url:
+                              description: |-
+                                URL, when defined, overrides the Tinkerbell iPXE script and uses iPXE's chainloading capabilities
+                                to download and run the script at the defined URL.
+                              type: string
+                          type: object
+                      type: object
+                  type: object
+                description: NetworkInterfaces defines the desired DHCP and netboot
+                  configuration for a network interface.
+                type: object
+              references:
+                description: |-
+                  References allow for linking custom resource objects of any kind to this Hardware object.
+                  These are available in Workflows for templating. They are referenced by the name of the reference.
+                  For example, given a reference with the name "lvm", you can access it in a Workflow with {{ .references.lvm }}.
+                properties:
+                  additional:
+                    additionalProperties:
+                      properties:
+                        group:
+                          description: |-
+                            Group of the referent.
+                            More info: https://kubernetes.io/docs/reference/using-api/#api-groups
+                          type: string
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                        namespace:
+                          description: |-
+                            Namespace of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                          type: string
+                        resource:
+                          description: |-
+                            Resource of the referent. Must be the pluralized kind of the referent. Must be all lowercase.
+                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                          type: string
+                        version:
+                          description: |-
+                            API version of the referent.
+                            More info: https://kubernetes.io/docs/reference/using-api/#api-versioning
+                          type: string
+                      type: object
+                    description: Additional references are dynamic and defined by
+                      the user.
+                    type: object
+                  builtin:
+                    description: Builtin references are predefined.
+                    properties:
+                      bmc:
+                        description: BMC is the reference to a machine.bmc.tinkerbell.org
+                          object.
+                        properties:
+                          name:
+                            description: Name of the object.
+                            type: string
+                          namespace:
+                            description: Namespace where the object resides.
+                            type: string
+                        type: object
+                    type: object
+                type: object
+              storageDevices:
+                description: StorageDevices is a list of storage devices that will
+                  be available in the OSIE.
+                items:
+                  description: / StorageDevice describes a storage device that is
+                    be present on the Hardware.
+                  properties:
+                    name:
+                      description: "Name must be a valid Linux path. It should not
+                        contain partitions.\n\nGood\n\n\t/dev/sda\n\t/dev/nvme0n1\n\nBad
+                        (contains partitions)\n\n\t/dev/sda1\n\t/dev/nvme0n1p1\n\nBad
+                        (invalid Linux path)\n\n\t\\dev\\sda"
+                      type: string
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
