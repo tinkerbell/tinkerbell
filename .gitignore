@@ -38,6 +38,7 @@ ipxe-*.tar.gz
 kubeconfig
 
 certs/
+tmp/
 # helm chart files and directories
 *.tgz
 Chart.lock
