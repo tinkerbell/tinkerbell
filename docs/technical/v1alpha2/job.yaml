@@ -17,8 +17,8 @@ spec:
   operations:
     - powerAction: "off"
       timeoutSeconds: 600
-    - oneTimeBootDeviceAction:
-        device:
-          - "pxe"
-        efiBoot: false
+    - bootDevice:
+        device: "pxe"
+        persistent: false
+        efiBoot: true
     - powerAction: "on"
