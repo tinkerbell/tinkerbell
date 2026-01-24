@@ -60,7 +60,7 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubernetes v1.34.3
 	quamina.net/go/quamina v1.5.2-0.20250207005432-0526acc321a8
-	sigs.k8s.io/controller-runtime v0.21.0
+	sigs.k8s.io/controller-runtime v0.22.5
 )
 
 require (
