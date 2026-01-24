@@ -1,0 +1,47 @@
+---
+apiVersion: tinkerbell.org/v1alpha2
+kind: Policy
+metadata:
+  name: example
+  namespace: tinkerbell
+spec:
+  rules:
+    #hardwareAutoSelction:
+    #  - {}
+    pipelineAutoCreation:
+      - rules:
+          - networkInterfaces:
+              mac: [{"wildcard": "*"}]
+        config:
+          namespace: tinkerbell
+          addAttributes: true
+          disabled: false
+          extra:
+            envVars:
+              - key: EXAMPLE_ENV
+                value: example_value
+            templateMap:
+              "exampleKey": value
+            volumes:
+              - "/etc/data2:/data2:ro"
+          timeoutSeconds: 600
+          workflowRef:
+            name: example-workflow
+            namespace: tinkerbell
+    referenceAccess:
+      hardware:
+        - source:
+            name: ["example-hardware"]
+            namespace: ["tinkerbell"]
+          reference:
+            name: ["my-secret"]
+            namespace: ["tinkerbell"]
+            resource: ["secrets"]
+      workflow:
+        - source:
+            name: ["example-workflow"]
+            namespace: ["tinkerbell"]
+          reference:
+            name: ["my-secret"]
+            namespace: ["tinkerbell"]
+            resource: ["secrets"]    
