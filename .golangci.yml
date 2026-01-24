@@ -132,6 +132,10 @@ linters:
       - std-error-handling
     rules:
       - linters:
+          - revive
+        text: "var-naming: avoid package names that conflict with Go standard library package names"
+        path: (smee|tootles)/internal/http/
+      - linters:
           - dupl
           - errcheck
           - forcetypeassert

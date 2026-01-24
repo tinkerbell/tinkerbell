@@ -2,7 +2,7 @@
 // +kubebuilder:object:generate=true
 // +groupName=tinkerbell.org
 // +versionName:=v1alpha1
-package api
+package api //nolint:revive // this is fine
 
 import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
