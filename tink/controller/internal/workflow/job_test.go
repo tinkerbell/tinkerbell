@@ -215,7 +215,7 @@ func TestHandleJob(t *testing.T) {
 			scheme := runtime.NewScheme()
 			api.AddToSchemeBMC(scheme)
 			api.AddToSchemeTinkerbell(scheme)
-			clientBuilder := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tc.hardware, tc.workflow)
+			clientBuilder := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1alpha1.Hardware{}, &v1alpha1.Template{}, &v1alpha1.Workflow{}, &v1alpha1.WorkflowRuleSet{}, &bmc.Job{}, &bmc.Machine{}, &bmc.Task{}).WithRuntimeObjects(tc.hardware, tc.workflow)
 			if tc.job != nil {
 				clientBuilder.WithRuntimeObjects(tc.job)
 			}

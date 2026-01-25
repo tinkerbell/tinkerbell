@@ -517,7 +517,7 @@ func TestPostActions(t *testing.T) {
 			if tc.workflow != nil {
 				ro = append(ro, tc.workflow)
 			}
-			clientBuilder := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(ro...)
+			clientBuilder := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1alpha1.Hardware{}, &v1alpha1.Template{}, &v1alpha1.Workflow{}, &v1alpha1.WorkflowRuleSet{}, &bmc.Job{}, &bmc.Machine{}, &bmc.Task{}).WithRuntimeObjects(ro...)
 			if tc.job != nil {
 				clientBuilder.WithRuntimeObjects(tc.job)
 			}

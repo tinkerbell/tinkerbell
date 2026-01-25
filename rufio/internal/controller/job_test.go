@@ -43,7 +43,6 @@ func TestJobReconcile(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			clnt := newClientBuilder().
 				WithObjects(tt.job, tt.machine, tt.secret).
-				WithStatusSubresource(tt.job, tt.machine).
 				WithIndex(&bmc.Task{}, ".metadata.controller", controller.TaskOwnerIndexFunc).
 				Build()
 
