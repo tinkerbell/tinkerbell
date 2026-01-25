@@ -15,7 +15,7 @@ services:
       - etcd:/data
 
   kube-apiserver:
-    image: registry.k8s.io/kube-apiserver:v1.33.6
+    image: registry.k8s.io/kube-apiserver:v1.34.3
     networks:
       01-tinkerbell_default:
     command:
@@ -39,7 +39,7 @@ services:
         condition: service_completed_successfully
 
   kube-controller-manager:
-    image: registry.k8s.io/kube-controller-manager:v1.33.6
+    image: registry.k8s.io/kube-controller-manager:v1.34.3
     networks:
       01-tinkerbell_default:
     command:
