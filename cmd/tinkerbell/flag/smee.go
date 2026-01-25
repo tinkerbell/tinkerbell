@@ -203,11 +203,15 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 	}
 
 	s.Config.TinkServer.AddrPort = func() string {
-		_, port := splitHostPort(s.Config.TinkServer.AddrPort)
+		host, port := splitHostPort(s.Config.TinkServer.AddrPort)
 		if port == "" {
 			port = fmt.Sprintf("%d", smee.DefaultTinkServerPort)
 		}
-		return fmt.Sprintf("%s:%s", publicIP.String(), port)
+		// Only use publicIP as fallback when host is empty/unset
+		if host == "" && publicIP.IsValid() && !publicIP.IsUnspecified() {
+			host = publicIP.String()
+		}
+		return fmt.Sprintf("%s:%s", host, port)
 	}()
 
 	// Set bind addresses if bindAddr is specified.
