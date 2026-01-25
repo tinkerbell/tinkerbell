@@ -45,8 +45,9 @@ func newClientBuilder() *fake.ClientBuilder {
 	// Use a basic ObjectTracker that does NOT do managed fields tracking.
 	// controller-runtime v0.22+ uses FieldManagedObjectTracker by default which causes issues
 	// with MergeFrom patches when TypeMeta is not properly set.
-	// Note: This is incompatible with WithStatusSubresource, so tests must NOT use
-	// WithStatusSubresource when using newClientBuilder().
+	// Note: WithObjectTracker is incompatible with WithStatusSubresource, so tests using
+	// newClientBuilder() must NOT chain WithStatusSubresource. Tests that need WithStatusSubresource
+	// (like those in tink/controller/internal/workflow) should create their own fake client builder.
 	codecs := serializer.NewCodecFactory(scheme)
 	tracker := k8stesting.NewObjectTracker(scheme, codecs.UniversalDecoder())
 
@@ -70,7 +71,9 @@ func newClientBuilder() *fake.ClientBuilder {
 				return c.Update(ctx, obj, opts...)
 			},
 			// SubResourcePatch and SubResourceUpdate use direct Update since we're using a basic
-			// ObjectTracker without status subresource support.
+			// ObjectTracker without status subresource support. As a result, the patch parameter
+			// provided to SubResourcePatch is intentionally ignored and a full update is performed
+			// instead; tests relying on real patch semantics should not use this helper.
 			SubResourcePatch: func(ctx context.Context, c client.Client, _ string, obj client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) error {
 				ensureTypeMeta(obj)
 				return c.Update(ctx, obj)
