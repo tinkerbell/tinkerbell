@@ -18,6 +18,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -32,11 +33,33 @@ func init() {
 }
 
 func GetFakeClientBuilder() *fake.ClientBuilder {
+	ensureTypeMeta := func(obj client.Object) {
+		if obj != nil {
+			gvks, _, _ := runtimescheme.ObjectKinds(obj)
+			if len(gvks) > 0 {
+				obj.GetObjectKind().SetGroupVersionKind(gvks[0])
+			}
+		}
+	}
+
 	return fake.NewClientBuilder().WithScheme(
 		runtimescheme,
 	).WithRuntimeObjects(
 		&v1alpha1.Hardware{}, &v1alpha1.Template{}, &v1alpha1.Workflow{},
-	)
+	).WithStatusSubresource(&v1alpha1.Hardware{}, &v1alpha1.Template{}, &v1alpha1.Workflow{}, &v1alpha1.WorkflowRuleSet{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, client client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				err := client.Get(ctx, key, obj, opts...)
+				ensureTypeMeta(obj)
+				return err
+			},
+			SubResourceGet: func(ctx context.Context, client client.Client, subResource string, obj client.Object, subResourceObj client.Object, opts ...client.SubResourceGetOption) error {
+				err := client.SubResource(subResource).Get(ctx, obj, subResourceObj, opts...)
+				ensureTypeMeta(obj)
+				ensureTypeMeta(subResourceObj)
+				return err
+			},
+		})
 }
 
 type fakeDynamicClient struct {
@@ -128,6 +151,10 @@ func TestHandleHardwareAllowPXE(t *testing.T) {
 					Namespace:       "default",
 					ResourceVersion: "1001",
 				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Hardware",
+					APIVersion: "tinkerbell.org/v1alpha1",
+				},
 				Spec: v1alpha1.HardwareSpec{
 					Interfaces: []v1alpha1.Interface{
 						{
@@ -168,6 +195,10 @@ func TestHandleHardwareAllowPXE(t *testing.T) {
 					Name:            "machine1",
 					Namespace:       "default",
 					ResourceVersion: "1001",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Hardware",
+					APIVersion: "tinkerbell.org/v1alpha1",
 				},
 				Spec: v1alpha1.HardwareSpec{
 					Interfaces: []v1alpha1.Interface{
@@ -240,6 +271,10 @@ func TestReconcile(t *testing.T) {
 			wantWflow: &v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					ResourceVersion: "999",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workflow",
+					APIVersion: "tinkerbell.org/v1alpha1",
 				},
 			},
 			wantErr: nil,

@@ -518,7 +518,7 @@ func TestSetAllowPXE(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			// Create fake client with existing objects
-			clientBuilder := fake.NewClientBuilder().WithScheme(scheme)
+			clientBuilder := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1alpha1.Hardware{}, &v1alpha1.Template{}, &v1alpha1.Workflow{}, &v1alpha1.WorkflowRuleSet{})
 			if tc.existingObjects != nil {
 				clientBuilder = clientBuilder.WithObjects(tc.existingObjects...)
 			}
@@ -630,6 +630,7 @@ func TestSetAllowPXE_RetryMechanism(t *testing.T) {
 			// Create base client
 			baseClient := fake.NewClientBuilder().
 				WithScheme(scheme).
+				WithStatusSubresource(&v1alpha1.Hardware{}, &v1alpha1.Template{}, &v1alpha1.Workflow{}, &v1alpha1.WorkflowRuleSet{}).
 				WithObjects(hardware).
 				Build()
 

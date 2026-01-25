@@ -113,7 +113,6 @@ func TestMachineReconcile(t *testing.T) {
 
 			client := newClientBuilder().
 				WithObjects(bm, tt.secret).
-				WithStatusSubresource(bm).
 				Build()
 
 			fakeRecorder := record.NewFakeRecorder(2)
@@ -145,6 +144,10 @@ func TestMachineReconcile(t *testing.T) {
 
 func createMachineWithRPC(secret *corev1.Secret) *bmc.Machine {
 	machine := &bmc.Machine{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: bmc.GroupVersion.String(),
+			Kind:       "Machine",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-bm",
 			Namespace: "test-namespace",
@@ -180,6 +183,10 @@ func createMachineWithRPC(secret *corev1.Secret) *bmc.Machine {
 
 func createMachine() *bmc.Machine {
 	return &bmc.Machine{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: bmc.GroupVersion.String(),
+			Kind:       "Machine",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-bm",
 			Namespace: "test-namespace",

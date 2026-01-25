@@ -11,14 +11,19 @@ import (
 	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	k8stesting "k8s.io/client-go/testing"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 // This source file is currently a bucket of stuff. If it grows too big, consider breaking it
 // into more granular helper sources.
 
 // newClientBuilder creates a fake kube client builder loaded with Rufio's and Kubernetes'
-// corev1 schemes.
+// corev1 schemes. It uses a basic ObjectTracker to avoid managed fields issues with
+// controller-runtime v0.22+.
 func newClientBuilder() *fake.ClientBuilder {
 	scheme := runtime.NewScheme()
 	if err := api.AddToSchemeBMC(scheme); err != nil {
@@ -28,8 +33,53 @@ func newClientBuilder() *fake.ClientBuilder {
 		panic(err)
 	}
 
+	ensureTypeMeta := func(obj client.Object) {
+		if obj != nil {
+			gvks, _, _ := scheme.ObjectKinds(obj)
+			if len(gvks) > 0 {
+				obj.GetObjectKind().SetGroupVersionKind(gvks[0])
+			}
+		}
+	}
+
+	// Use a basic ObjectTracker that does NOT do managed fields tracking.
+	// controller-runtime v0.22+ uses FieldManagedObjectTracker by default which causes issues
+	// with MergeFrom patches when TypeMeta is not properly set.
+	// Note: This is incompatible with WithStatusSubresource, so tests must NOT use
+	// WithStatusSubresource when using newClientBuilder().
+	codecs := serializer.NewCodecFactory(scheme)
+	tracker := k8stesting.NewObjectTracker(scheme, codecs.UniversalDecoder())
+
 	return fake.NewClientBuilder().
-		WithScheme(scheme)
+		WithScheme(scheme).
+		WithObjectTracker(tracker).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				err := c.Get(ctx, key, obj, opts...)
+				ensureTypeMeta(obj)
+				return err
+			},
+			SubResourceGet: func(ctx context.Context, c client.Client, subResource string, obj client.Object, subResourceObj client.Object, opts ...client.SubResourceGetOption) error {
+				err := c.SubResource(subResource).Get(ctx, obj, subResourceObj, opts...)
+				ensureTypeMeta(obj)
+				ensureTypeMeta(subResourceObj)
+				return err
+			},
+			Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				ensureTypeMeta(obj)
+				return c.Update(ctx, obj, opts...)
+			},
+			// SubResourcePatch and SubResourceUpdate use direct Update since we're using a basic
+			// ObjectTracker without status subresource support.
+			SubResourcePatch: func(ctx context.Context, c client.Client, _ string, obj client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) error {
+				ensureTypeMeta(obj)
+				return c.Update(ctx, obj)
+			},
+			SubResourceUpdate: func(ctx context.Context, c client.Client, _ string, obj client.Object, _ ...client.SubResourceUpdateOption) error {
+				ensureTypeMeta(obj)
+				return c.Update(ctx, obj)
+			},
+		})
 }
 
 type testProvider struct {

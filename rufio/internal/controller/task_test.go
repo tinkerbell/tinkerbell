@@ -169,7 +169,6 @@ func TestTaskReconcile(t *testing.T) {
 
 			cluster := newClientBuilder().
 				WithObjects(task, secret).
-				WithStatusSubresource(task).
 				Build()
 
 			reconciler := controller.NewTaskReconciler(cluster, newTestClient(tt.provider))
@@ -262,6 +261,10 @@ func TestTaskReconcile(t *testing.T) {
 
 func createTask(name string, action bmc.Action, secret *corev1.Secret) *bmc.Task {
 	return &bmc.Task{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: bmc.GroupVersion.String(),
+			Kind:       "Task",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
@@ -287,6 +290,10 @@ func createTask(name string, action bmc.Action, secret *corev1.Secret) *bmc.Task
 
 func createTaskWithRPC(name string, action bmc.Action, secret *corev1.Secret) *bmc.Task {
 	task := &bmc.Task{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: bmc.GroupVersion.String(),
+			Kind:       "Task",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
