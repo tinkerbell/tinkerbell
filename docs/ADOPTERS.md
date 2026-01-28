@@ -62,4 +62,13 @@ Use this template in the [Adopters List](#adopters-list) section:
 - **Contacts**:
   - CNCF Slack: @Jacob Weinstock
 
+### Rackdog
 
+- **Description**: Rackdog is a bare-metal cloud platform that provides on-demand dedicated servers across multiple locations.
+- **Usage**: Rackdog uses Tinkerbell as its bare-metal provisioning engine to provision bare metal servers, enabling automated OS deployment and infrastructure lifecycle management for customer workloads.
+- **Links**:
+  - [Website](https://rackdog.com)
+  - [Panel](https://metal.rackdog.com)
+  - [API Documentation](https://rackdog.readme.io/reference/poweron)
+- **Contacts**:
+  - CNCF Slack: @Burke Butler
