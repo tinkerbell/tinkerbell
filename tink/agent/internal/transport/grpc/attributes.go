@@ -44,6 +44,8 @@ func ToProto(a *data.AgentAttributes) *proto.AgentAttributes {
 			PhysicalBlockSize: block.PhysicalBlockSize,
 			Vendor:            block.Vendor,
 			Model:             block.Model,
+			Wwn:               block.WWN,
+			SerialNumber:      block.SerialNumber,
 		})
 	}
 
