@@ -3,7 +3,6 @@ merge_queue:
 queue_rules:
   - name: default
     batch_size: 1
-    allow_inplace_checks: true
     queue_conditions:
       - base=main
       - or:
@@ -29,6 +28,8 @@ queue_rules:
       - check-success=build-binaries (tinkerbell, cross-compile, tinkerbell-binaries)
       - label!=do-not-merge
       - label=ready-to-merge
+      # This extra condition forces draft PR mode (prevents in-place checks)
+      - queue-position>=0
     merge_method: merge
     commit_message_template: |
       {{ title }} (#{{ number }})
