@@ -19,6 +19,245 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+func TestTemplateActions(t *testing.T) {
+	tests := map[string]struct {
+		actions     []bmc.Action
+		hardware    *v1alpha1.Hardware
+		wantActions []bmc.Action
+		wantErr     bool
+	}{
+		"nil hardware returns actions unchanged": {
+			actions: []bmc.Action{
+				{PowerAction: valueToPointer(bmc.PowerOn)},
+			},
+			hardware: nil,
+			wantActions: []bmc.Action{
+				{PowerAction: valueToPointer(bmc.PowerOn)},
+			},
+		},
+		"no template syntax returns actions unchanged": {
+			actions: []bmc.Action{
+				{PowerAction: valueToPointer(bmc.PowerOn)},
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/image.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+			hardware: &v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{DHCP: &v1alpha1.DHCP{MAC: "52:54:00:12:34:01"}},
+					},
+				},
+			},
+			wantActions: []bmc.Action{
+				{PowerAction: valueToPointer(bmc.PowerOn)},
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/image.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+		},
+		"template first MAC address": {
+			actions: []bmc.Action{
+				{PowerAction: valueToPointer(bmc.PowerHardOff)},
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://172.17.1.1:7171/iso/{{ index .MACAddresses 0 }}/hook.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+				{PowerAction: valueToPointer(bmc.PowerOn)},
+			},
+			hardware: &v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{DHCP: &v1alpha1.DHCP{MAC: "52:54:00:12:34:01"}},
+					},
+				},
+			},
+			wantActions: []bmc.Action{
+				{PowerAction: valueToPointer(bmc.PowerHardOff)},
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://172.17.1.1:7171/iso/52-54-00-12-34-01/hook.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+				{PowerAction: valueToPointer(bmc.PowerOn)},
+			},
+		},
+		"template second MAC address": {
+			actions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/iso/{{ index .MACAddresses 1 }}/image.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+			hardware: &v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{DHCP: &v1alpha1.DHCP{MAC: "52:54:00:12:34:01"}},
+						{DHCP: &v1alpha1.DHCP{MAC: "52:54:00:12:34:02"}},
+					},
+				},
+			},
+			wantActions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/iso/52-54-00-12-34-02/image.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+		},
+		"empty mediaURL with template syntax stays empty": {
+			actions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+			hardware: &v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{DHCP: &v1alpha1.DHCP{MAC: "52:54:00:12:34:01"}},
+					},
+				},
+			},
+			wantActions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+		},
+		"hardware with no interfaces": {
+			actions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/image.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+			hardware: &v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{},
+				},
+			},
+			wantActions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/image.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+		},
+		"hardware with interface but no DHCP": {
+			actions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/image.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+			hardware: &v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{Netboot: &v1alpha1.Netboot{AllowPXE: valueToPointer(true)}},
+					},
+				},
+			},
+			wantActions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/image.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+		},
+		"invalid template syntax returns error": {
+			actions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/{{ .Invalid",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+			hardware: &v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{DHCP: &v1alpha1.DHCP{MAC: "52:54:00:12:34:01"}},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		"index out of range returns error": {
+			actions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/{{ index .MACAddresses 5 }}/image.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+			hardware: &v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{DHCP: &v1alpha1.DHCP{MAC: "52:54:00:12:34:01"}},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		"multiple actions with templates": {
+			actions: []bmc.Action{
+				{PowerAction: valueToPointer(bmc.PowerHardOff)},
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://172.17.1.1:7171/iso/{{ index .MACAddresses 0 }}/hook.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+				{BootDevice: &bmc.BootDeviceConfig{
+					Device:  bmc.CDROM,
+					EFIBoot: true,
+				}},
+				{PowerAction: valueToPointer(bmc.PowerOn)},
+			},
+			hardware: &v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{DHCP: &v1alpha1.DHCP{MAC: "aa:bb:cc:dd:ee:ff"}},
+					},
+				},
+			},
+			wantActions: []bmc.Action{
+				{PowerAction: valueToPointer(bmc.PowerHardOff)},
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://172.17.1.1:7171/iso/aa-bb-cc-dd-ee-ff/hook.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+				{BootDevice: &bmc.BootDeviceConfig{
+					Device:  bmc.CDROM,
+					EFIBoot: true,
+				}},
+				{PowerAction: valueToPointer(bmc.PowerOn)},
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := templateActions(tc.actions, tc.hardware)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("templateActions() error = %v, wantErr %v", err, tc.wantErr)
+				return
+			}
+			if tc.wantErr {
+				return
+			}
+			if diff := cmp.Diff(tc.wantActions, got); diff != "" {
+				t.Errorf("templateActions() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestPrepareWorkflow(t *testing.T) {
 	tests := map[string]struct {
 		wantResult   reconcile.Result
