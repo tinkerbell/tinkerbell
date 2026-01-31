@@ -3,6 +3,7 @@ merge_queue:
 queue_rules:
   - name: default
     batch_size: 1
+    allow_inplace_checks: true
     queue_conditions:
       - base=main
       - or:
