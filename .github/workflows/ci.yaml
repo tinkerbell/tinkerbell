@@ -45,6 +45,9 @@ jobs:
           sudo mount -o remount,size=3G /run/user/1001 || true
           go get -t ./... && go mod tidy && go mod download
 
+      - name: Generate UI assets
+        run: make ui-generate
+
       - name: Run all CI checks, linting, tests, etc
         run: make ci TEST_ARGS="-count=1"
 
@@ -139,6 +142,9 @@ jobs:
           # fixes "write /run/user/1001/355792648: no space left on device" error
           sudo mount -o remount,size=3G /run/user/1001 || true
           go get -t ./... && go mod tidy && go mod download
+
+      - name: Generate UI assets
+        run: make ui-generate
 
       - name: Compile binaries for ${{ matrix.name }}
         run: make ${{ matrix.make-target }}

@@ -15,6 +15,7 @@ type TootlesConfig struct {
 	BindAddr netip.Addr
 	BindPort int
 	LogLevel int
+	NoLog    bool
 }
 
 var KubeIndexesTootles = map[kube.IndexType]kube.Index{
@@ -27,6 +28,7 @@ func RegisterTootlesFlags(fs *Set, h *TootlesConfig) {
 	fs.Register(TootlesBindPort, ffval.NewValueDefault(&h.BindPort, h.BindPort))
 	fs.Register(TootlesDebugMode, ffval.NewValueDefault(&h.Config.DebugMode, h.Config.DebugMode))
 	fs.Register(TootlesLogLevel, ffval.NewValueDefault(&h.LogLevel, h.LogLevel))
+	fs.Register(TootlesNoLog, ffval.NewValueDefault(&h.NoLog, h.NoLog))
 	fs.Register(TootlesInstanceEndpoint, ffval.NewValueDefault(&h.Config.InstanceEndpoint, h.Config.InstanceEndpoint))
 }
 
@@ -48,6 +50,11 @@ var TootlesDebugMode = Config{
 var TootlesLogLevel = Config{
 	Name:  "tootles-log-level",
 	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
+}
+
+var TootlesNoLog = Config{
+	Name:  "tootles-no-log",
+	Usage: "disable all logging output for Tootles service",
 }
 
 var TootlesInstanceEndpoint = Config{

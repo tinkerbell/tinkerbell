@@ -270,8 +270,10 @@ spec:
                         type: boolean
                     type: object
                   oneTimeBootDeviceAction:
-                    description: OneTimeBootDeviceAction represents a baseboard management
-                      one time set boot device operation.
+                    description: |-
+                      OneTimeBootDeviceAction represents a baseboard management one time set boot device operation.
+
+                      Deprecated: This field is deprecated and will be removed in a future release. Use bootDevice instead.
                     properties:
                       device:
                         description: |-

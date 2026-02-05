@@ -42,3 +42,10 @@ certs/
 *.tgz
 Chart.lock
 .vscode/
+
+# Web UI
+ui/templates/*_templ.go
+ui/node_modules/
+ui/out/
+.DS_Store
+Thumbs.db

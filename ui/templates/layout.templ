@@ -1,0 +1,433 @@
+package templates
+
+// Layout is the base HTML layout for all pages.
+// baseURL is the URL prefix for all routes (e.g., "/ui").
+templ Layout(title string, baseURL string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title }</title>
+			<!-- Favicon -->
+			<link rel="icon" type="image/svg+xml" href={ baseURL + "/favicon.svg" }/>
+			<link rel="alternate icon" href={ baseURL + "/favicon.ico" }/>
+			<link rel="mask-icon" href={ baseURL + "/artwork/Tinkerbell-Icon-Dark.svg" } color="#000000"/>
+			<!-- Inter font is self-hosted via CSS -->
+			<!-- Dark mode - apply immediately to prevent flash -->
+			<script>
+				(function() {
+					var theme = localStorage.getItem('theme');
+					var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					if (theme === 'dark' || (!theme && prefersDark)) {
+						document.documentElement.classList.add('dark');
+					}
+				})();
+			</script>
+			<!-- Set background color immediately for dark mode -->
+			<style>
+			html.dark { background-color: #2d333b; }
+				html:not(.dark) { background-color: #f9fafb; }
+			</style>
+			<!-- Tailwind CSS -->
+			<link rel="stylesheet" href={ baseURL + "/css/output.css" }/>
+			<!-- htmx -->
+			<script src={ baseURL + "/js/htmx.min.js" }></script>
+		</head>
+		<body class="bg-gray-50 dark:bg-darkBg" data-base-url={ baseURL }>
+			{ children... }
+			@Scripts(baseURL)
+		</body>
+	</html>
+}
+
+// Sidebar renders the main navigation sidebar.
+// baseURL is the URL prefix for all routes (e.g., "/ui").
+templ Sidebar(namespaces []string, baseURL string) {
+	<!-- sidebar -->
+	<div id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 flex-shrink-0 bg-gray-100 dark:bg-darkNav text-white dark:text-white border-r border-gray-200 dark:border-darkBorderSoft transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0 md:flex md:flex-col">
+		@Logo(baseURL)
+		@NamespaceSelector(namespaces)
+		<hr class="h-px my-4 bg-gray-300 dark:bg-darkBorderSoft border-0"/>
+		@Navigation(baseURL)
+		@SidebarFooter()
+	</div>
+}
+
+// MobileMenuOverlay renders the mobile menu background overlay.
+templ MobileMenuOverlay() {
+	<!-- Mobile menu overlay -->
+	<div id="mobileMenuOverlay" class="fixed inset-0 z-40 bg-black bg-opacity-50 hidden md:hidden"></div>
+}
+
+// Logo renders the Tinkerbell logo.
+// baseURL is the URL prefix for all routes (e.g., "/ui").
+templ Logo(baseURL string) {
+	<!-- Logo and Selectors -->
+	<a href={ templ.SafeURL(baseURL + "/") } class="flex items-center mx-3 mb-6 mt-4">
+		<img 
+			src={ baseURL + "/artwork/Tinkerbell-Logo-Landscape-Dark-2.png" }
+			alt="Tinkerbell Logo"
+			class="h-10 w-auto dark:hidden"
+		/>
+		<img 
+			src={ baseURL + "/artwork/Tinkerbell-Logo-Landscape-Light-2.png" }
+			alt="Tinkerbell Logo"
+			class="h-10 w-auto hidden dark:block"
+		/>
+	</a>
+}
+
+// NamespaceSelector renders the namespace dropdown selector.
+templ NamespaceSelector(namespaces []string) {
+	<div class="flex items-center space-x-2 px-4 mb-1">
+		<span href="#" class="text-xs text-gray-700 dark:text-gray-300">
+			Namespace
+		</span>
+	</div>
+	<div class="relative inline-block text-left space-x-2 px-4 mb-1">
+		<button 
+			id="dropdownButton"
+			class="inline-flex justify-between items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-darkBg border border-gray-300 dark:border-darkBorder rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-darkBorder focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-700 focus:ring-tink-teal-500 dark:focus:ring-tink-teal-400 cursor-pointer"
+			type="button"
+		>
+			<span id="selectedOption">{ AllNamespace }</span>
+			<svg class="h-5 w-5 ml-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+				<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+			</svg>
+		</button>
+		<div 
+			id="dropdownMenu"
+			class="origin-top-right absolute left-4 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-darkBg ring-1 ring-black dark:ring-darkBorder ring-opacity-5 divide-y divide-gray-100 dark:divide-darkBorderSoft focus:outline-none hidden z-50"
+			role="menu" 
+			aria-orientation="vertical" 
+			aria-labelledby="dropdownButton"
+		>
+			<div class="py-1" role="none">
+				<a 
+					href="#"
+					class="namespace-option text-gray-700 dark:text-gray-300 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-darkBorder hover:text-gray-900 dark:hover:text-white cursor-pointer"
+					role="menuitem" 
+					data-value={ AllNamespace }
+				>
+					{ AllNamespace }
+				</a>
+				for _, namespace := range namespaces {
+					<a 
+						href="#"
+						class="namespace-option text-gray-700 dark:text-gray-300 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-darkBorder hover:text-gray-900 dark:hover:text-white cursor-pointer"
+						role="menuitem" 
+						data-value={ namespace }
+					>
+						{ namespace }
+					</a>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+// Navigation renders the main navigation menu.
+// baseURL is the URL prefix for all routes (e.g., "/ui").
+templ Navigation(baseURL string) {
+	<!-- Navigation links -->
+	<div class="flex flex-col flex-1 overflow-y-auto">
+		<nav class="flex-1 px-2 py-4">
+			for _, item := range []NavItem{
+				{Name: "Hardware", Icon: hardwareIcon(), Href: baseURL + "/hardware"},
+				{Name: "Templates", Icon: templatesIcon(), Href: baseURL + "/templates"},
+			} {
+				@NavLink(item)
+			}
+			@WorkflowsDropdown(baseURL)
+			@BMCDropdown(baseURL)
+			@NavLink(NavItem{Name: "CRDs", Icon: crdsIcon(), Href: baseURL + "/"})
+		</nav>
+	</div>
+}
+
+// NavLink renders a single navigation link.
+templ NavLink(item NavItem) {
+	<a 
+		href={ templ.SafeURL(item.Href) }
+		class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-tink-teal-50 dark:hover:bg-darkBorder hover:text-tink-teal-600 dark:hover:text-tink-teal-400 transition-colors duration-200 rounded-md"
+	>
+		<span class="mr-2">
+			@templ.Raw(item.Icon)
+		</span>
+		{ item.Name }
+	</a>
+}
+
+// WorkflowsDropdown renders the Workflows navigation dropdown menu.
+// baseURL is the URL prefix for all routes (e.g., "/ui").
+templ WorkflowsDropdown(baseURL string) {
+	<div class="workflows-dropdown-container">
+		<div class="flex items-center justify-between w-full px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-tink-teal-50 dark:hover:bg-darkBorder hover:text-tink-teal-600 dark:hover:text-tink-teal-400 transition-colors duration-200 rounded-md">
+			<a href={ templ.SafeURL(baseURL + "/workflows") } class="flex items-center flex-1">
+				<span class="mr-2">
+					@templ.Raw(workflowsIcon())
+				</span>
+				<span class="text-gray-700 dark:text-gray-300">Workflows</span>
+			</a>
+			<button 
+				type="button"
+				class="cursor-pointer"
+				aria-controls="workflows-dropdown" 
+				data-collapse-toggle="workflows-dropdown"
+			>
+				<svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+					<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4"/>
+				</svg>
+			</button>
+		</div>
+		<ul id="workflows-dropdown" class="hidden">
+			<li>
+				<a 
+					href={ templ.SafeURL(baseURL + "/workflows/rulesets") }
+					class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 transition duration-200 rounded-lg pl-11 hover:bg-tink-teal-50 dark:hover:bg-darkBorder hover:text-tink-teal-600 dark:hover:text-tink-teal-400 workflows-nav-item"
+					data-href={ baseURL + "/workflows/rulesets" }
+				>
+					<span class="mr-2">
+						@templ.Raw(rulesetsIcon())
+					</span>
+					Rulesets
+				</a>
+			</li>
+		</ul>
+	</div>
+}
+
+// BMCDropdown renders the BMC navigation dropdown menu.
+// baseURL is the URL prefix for all routes (e.g., "/ui").
+templ BMCDropdown(baseURL string) {
+	<button 
+		type="button"
+		class="flex items-center justify-between w-full px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-tink-teal-50 dark:hover:bg-darkBorder hover:text-tink-teal-600 dark:hover:text-tink-teal-400 transition-colors duration-200 rounded-md cursor-pointer"
+		aria-controls="dropdown-example" 
+		data-collapse-toggle="dropdown-example"
+	>
+		<div class="flex items-center">
+			<span class="mr-2">
+				@templ.Raw(bmcIcon())
+			</span>
+			<span class="text-gray-700 dark:text-gray-300">BMC</span>
+		</div>
+		<svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+			<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4"/>
+		</svg>
+	</button>
+	<ul id="dropdown-example" class="hidden">
+		for _, item := range []NavItem{
+			{Name: "Machines", Icon: bmcIcon(), Href: baseURL + "/bmc/machines"},
+			{Name: "Jobs", Icon: jobsIcon(), Href: baseURL + "/bmc/jobs"},
+			{Name: "Tasks", Icon: tasksIcon(), Href: baseURL + "/bmc/tasks"},
+		} {
+			<li>
+				<a 
+					href={ templ.SafeURL(item.Href) }
+					class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 transition duration-200 rounded-lg pl-11 hover:bg-tink-teal-50 dark:hover:bg-darkBorder hover:text-tink-teal-600 dark:hover:text-tink-teal-400 bmc-nav-item"
+					data-href={ item.Href }
+				>
+					<span class="mr-2">
+						@templ.Raw(item.Icon)
+					</span>
+					{ item.Name }
+				</a>
+			</li>
+		}
+	</ul>
+}
+
+// SidebarFooter renders the footer section of the sidebar with version and links.
+templ SidebarFooter() {
+	<!-- Sidebar Footer -->
+	<div class="mt-auto border-t border-gray-300 dark:border-darkBorderSoft px-4 py-4">
+		<div class="flex items-center justify-between mb-3">
+			<span class="text-xs text-gray-600 dark:text-gray-400">
+				{ templ.EscapeString(getVersion()) }
+			</span>
+			<div class="flex items-center space-x-3">
+				<!-- GitHub Icon Link -->
+				<a 
+					href="https://github.com/tinkerbell/tinkerbell" 
+					target="_blank" 
+					rel="noopener noreferrer"
+					class="text-gray-600 dark:text-gray-400 hover:text-tink-teal-600 dark:hover:text-tink-teal-400 transition-colors duration-200"
+					aria-label="GitHub Repository"
+					title="GitHub Repository"
+				>
+					<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+						<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+					</svg>
+				</a>
+				<!-- Docs Icon Link -->
+				<a 
+					href="https://tinkerbell.org" 
+					target="_blank" 
+					rel="noopener noreferrer"
+					class="text-gray-600 dark:text-gray-400 hover:text-tink-teal-600 dark:hover:text-tink-teal-400 transition-colors duration-200"
+					aria-label="Documentation"
+					title="Documentation"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+					</svg>
+				</a>
+			</div>
+		</div>
+	</div>
+}
+
+// Header renders the top header bar.
+templ Header() {
+	<div class="flex items-center justify-between h-16 bg-white border-b border-gray-200 dark:bg-darkBg dark:border-darkBorderSoft pr-4">
+		<div class="flex items-center">
+			@MobileMenuButton()
+			@SearchBar()
+		</div>
+		<div class="flex items-center space-x-4">
+			@DarkModeToggle()
+			@UserProfileDropdown()
+		</div>
+	</div>
+}
+
+// MobileMenuButton renders the hamburger menu button for mobile.
+templ MobileMenuButton() {
+	<!-- Mobile menu button -->
+	<button 
+		id="mobileMenuButton"
+		class="md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-tink-teal-500 mr-2 cursor-pointer"
+		aria-label="Open main menu"
+	>
+		<svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+		</svg>
+	</button>
+}
+
+// SearchBar renders the global search input.
+templ SearchBar() {
+	<div class="flex items-center px-4">
+		<div class="relative w-full max-w-xl">
+			<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+				<svg class="w-5 h-5 text-gray-500 dark:text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+				</svg>
+			</div>
+			<input
+				id="globalSearch"
+				class="w-full border rounded-md pl-10 pr-4 py-2 bg-white dark:bg-darkBg border-gray-300 dark:border-darkBorder text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-tink-teal-500 focus:border-tink-teal-500 dark:focus:ring-tink-teal-400 dark:focus:border-tink-teal-400"
+				type="text" 
+				placeholder="Jump to... (Ctrl+K)"
+				autocomplete="off"
+			/>
+			<!-- Search Results Dropdown -->
+			<div id="globalSearchResults" class="hidden absolute z-50 mt-1 min-w-full w-max bg-white dark:bg-darkNav border border-gray-200 dark:border-darkBorder rounded-lg shadow-lg max-h-96 overflow-y-auto">
+				<!-- Results will be populated by JavaScript -->
+			</div>
+		</div>
+	</div>
+}
+
+// UserProfileDropdown renders the user profile dropdown with API server info and logout.
+templ UserProfileDropdown() {
+	<!-- User Profile Dropdown -->
+	<div class="flex items-center relative">
+		<button 
+			id="userProfileButton"
+			class="p-2 rounded-full bg-gray-200 dark:bg-darkNav text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-darkBorderSoft transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-tink-teal-500 cursor-pointer"
+			aria-label="User Profile"
+			aria-haspopup="true"
+			aria-expanded="false"
+		>
+		<!-- Fairy/Tinkerbell avatar icon -->
+		<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+			</svg>
+		</button>
+		
+		<!-- Dropdown menu -->
+		<div 
+			id="userProfileDropdown"
+			class="hidden absolute right-0 top-12 mt-2 w-72 bg-white dark:bg-darkNav rounded-lg shadow-lg border border-gray-200 dark:border-darkBorder z-50"
+		>
+			<!-- User Info Section -->
+			<div class="px-4 py-3 border-b border-gray-200 dark:border-darkBorder">
+				<div class="flex items-center justify-center mb-3">
+				<div class="w-16 h-16 rounded-full bg-tink-teal-100 dark:bg-tink-teal-900/30 flex items-center justify-center">
+					<svg class="w-10 h-10 text-tink-teal-600 dark:text-tink-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+						</svg>
+					</div>
+				</div>
+				<div class="text-center mb-2">
+					<p class="text-sm font-semibold text-gray-900 dark:text-white">Service Account</p>
+				</div>
+				<div id="apiServerDisplayContainer" class="text-center hidden">
+					<p id="apiServerDisplay" class="text-xs text-gray-600 dark:text-gray-400 break-all"></p>
+				</div>
+			</div>
+			
+			<!-- Menu Items -->
+			<div class="py-2">
+				<a 
+					id="permissionsLink"
+					href="/permissions"
+					class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors duration-200 cursor-pointer"
+				>
+					<svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+					</svg>
+					View Permissions
+				</a>
+				<button 
+					id="logoutButton"
+					class="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors duration-200 cursor-pointer"
+				>
+					<svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+					</svg>
+					Sign Out
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+// DarkModeToggle renders the dark/light mode toggle button.
+templ DarkModeToggle() {
+	<!-- Dark/Light mode toggle -->
+	<div class="flex items-center">
+		<button 
+			id="darkModeToggle"
+			class="p-2 rounded-lg bg-gray-200 dark:bg-darkBg text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-darkBorder transition-colors duration-200 cursor-pointer"
+			aria-label="Toggle dark mode"
+		>
+			<!-- Sun icon (visible in dark mode) -->
+			<svg id="sunIcon" class="w-5 h-5 hidden dark:block" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+				<path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
+			</svg>
+			<!-- Moon icon (visible in light mode) -->
+			<svg id="moonIcon" class="w-5 h-5 dark:hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+				<path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+			</svg>
+		</button>
+	</div>
+}
+
+// Footer renders the CNCF trademark and copyright information.
+templ Footer() {
+	<footer class="flex-shrink-0 bg-white dark:bg-darkBg border-t border-gray-200 dark:border-darkBorder text-center text-xs text-gray-600 dark:text-gray-400 py-4 px-6">
+		<p class="mb-2">
+			© { templ.EscapeString(currentYear()) } <a href="https://www.linuxfoundation.org/" class="text-tink-teal-600 dark:text-tink-teal-400 hover:underline" target="_blank" rel="noopener noreferrer">The Linux Foundation</a>. All rights reserved.
+		</p>
+		<p class="mb-2">
+			The Linux Foundation has registered trademarks and uses trademarks.
+		</p>
+		<p>
+			For a list of trademarks of The Linux Foundation, please see our <a href="https://www.linuxfoundation.org/en/trademark-usage" class="text-tink-teal-600 dark:text-tink-teal-400 hover:underline" target="_blank" rel="noopener noreferrer">Trademark Usage</a> page.
+		</p>
+	</footer>
+}

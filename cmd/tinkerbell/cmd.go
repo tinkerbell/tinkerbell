@@ -28,6 +28,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/controller"
 	"github.com/tinkerbell/tinkerbell/tink/server"
 	"github.com/tinkerbell/tinkerbell/tootles"
+	"github.com/tinkerbell/tinkerbell/ui"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/client-go/rest"
@@ -43,6 +44,7 @@ const (
 	defaultTinkControllerProbePort   = 8081
 	defaultTinkServerPort            = 42113
 	defaultTootlesPort               = 50061
+	defaultUIPort                    = 8085
 )
 
 var (
@@ -62,6 +64,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		EnableTinkController: true,
 		EnableRufio:          true,
 		EnableSecondStar:     true,
+		EnableUI:             false,
 		EnableCRDMigrations:  true,
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
@@ -121,6 +124,14 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		},
 	}
 
+	uiOpts := []ui.Option{
+		ui.WithURLPrefix("/ui"),
+		ui.WithBindPort(defaultUIPort),
+	}
+	uic := &flag.UIConfig{
+		Config: ui.NewConfig(uiOpts...),
+	}
+
 	// order here determines the help output.
 	top := ff.NewFlagSet("smee - DHCP and iPXE service")
 	if embeddedFlagSet != nil {
@@ -132,13 +143,15 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	cfs := ff.NewFlagSet("tink controller - Workflow controller").SetParent(tfs)
 	rfs := ff.NewFlagSet("rufio - BMC controller").SetParent(cfs)
 	ssfs := ff.NewFlagSet("secondstar - SSH over serial service").SetParent(rfs)
-	gfs := ff.NewFlagSet("globals").SetParent(ssfs)
+	uifs := ff.NewFlagSet("ui - UI service").SetParent(ssfs)
+	gfs := ff.NewFlagSet("globals").SetParent(uifs)
 	flag.RegisterSmeeFlags(&flag.Set{FlagSet: sfs}, s)
 	flag.RegisterTootlesFlags(&flag.Set{FlagSet: hfs}, h)
 	flag.RegisterTinkServerFlags(&flag.Set{FlagSet: tfs}, ts)
 	flag.RegisterTinkControllerFlags(&flag.Set{FlagSet: cfs}, tc)
 	flag.RegisterRufioFlags(&flag.Set{FlagSet: rfs}, rc)
 	flag.RegisterSecondStarFlags(&flag.Set{FlagSet: ssfs}, ssc)
+	flag.RegisterUIFlags(&flag.Set{FlagSet: uifs}, uic)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
 	if embeddedApiserverExecute != nil && embeddedFlagSet != nil {
 		// This way the embedded flags only show up when the embedded services have been compiled in.
@@ -161,7 +174,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return e
 	}
 
-	log := defaultLogger(globals.LogLevel)
+	log := getLogger(false, globals.LogLevel)
 	cliLog := log.WithName("cli")
 	cliLog.Info("starting tinkerbell",
 		"version", build.GitRevision(),
@@ -171,6 +184,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		"tinkControllerEnabled", globals.EnableTinkController,
 		"rufioEnabled", globals.EnableRufio,
 		"secondStarEnabled", globals.EnableSecondStar,
+		"uiEnabled", globals.EnableUI,
 		"publicIP", globals.PublicIP,
 		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
 		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
@@ -231,6 +245,9 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	if globals.BindAddr.IsValid() {
 		ssc.Config.BindAddr = globals.BindAddr
 	}
+
+	// UI
+	uic.Convert(globals.BindAddr, globals.TLS.CertFile, globals.TLS.KeyFile)
 
 	g, ctx := errgroup.WithContext(ctx)
 	// Etcd server
@@ -343,7 +360,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((s.LogLevel != 0), s.LogLevel, globals.LogLevel)
-		if err := s.Config.Start(ctx, defaultLogger(ll).WithName("smee")); err != nil {
+		if err := s.Config.Start(ctx, getLogger(s.NoLog, ll).WithName("smee")); err != nil {
 			return fmt.Errorf("failed to start smee service: %w", err)
 		}
 		return nil
@@ -356,7 +373,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((h.LogLevel != 0), h.LogLevel, globals.LogLevel)
-		if err := h.Config.Start(ctx, defaultLogger(ll).WithName("tootles")); err != nil {
+		if err := h.Config.Start(ctx, getLogger(h.NoLog, ll).WithName("tootles")); err != nil {
 			return fmt.Errorf("failed to start tootles service: %w", err)
 		}
 		return nil
@@ -369,7 +386,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((ts.LogLevel != 0), ts.LogLevel, globals.LogLevel)
-		if err := ts.Config.Start(ctx, defaultLogger(ll).WithName("tink-server")); err != nil {
+		if err := ts.Config.Start(ctx, getLogger(ts.NoLog, ll).WithName("tink-server")); err != nil {
 			return fmt.Errorf("failed to start tink server service: %w", err)
 		}
 		return nil
@@ -382,7 +399,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((tc.LogLevel != 0), tc.LogLevel, globals.LogLevel)
-		if err := tc.Config.Start(ctx, defaultLogger(ll).WithName("tink-controller")); err != nil {
+		if err := tc.Config.Start(ctx, getLogger(tc.NoLog, ll).WithName("tink-controller")); err != nil {
 			return fmt.Errorf("failed to start tink controller service: %w", err)
 		}
 		return nil
@@ -395,7 +412,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((rc.LogLevel != 0), rc.LogLevel, globals.LogLevel)
-		if err := rc.Config.Start(ctx, defaultLogger(ll).WithName("rufio")); err != nil {
+		if err := rc.Config.Start(ctx, getLogger(rc.NoLog, ll).WithName("rufio")); err != nil {
 			return fmt.Errorf("failed to start rufio service: %w", err)
 		}
 		return nil
@@ -408,8 +425,21 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return nil
 		}
 		ll := ternary((ssc.LogLevel != 0), ssc.LogLevel, globals.LogLevel)
-		if err := ssc.Config.Start(ctx, defaultLogger(ll).WithName("secondstar")); err != nil {
+		if err := ssc.Config.Start(ctx, getLogger(ssc.NoLog, ll).WithName("secondstar")); err != nil {
 			return fmt.Errorf("failed to start secondstar service: %w", err)
+		}
+		return nil
+	})
+
+	// UI
+	g.Go(func() error {
+		if !globals.EnableUI {
+			cliLog.Info("ui service is disabled")
+			return nil
+		}
+		ll := ternary((uic.LogLevel != 0), uic.LogLevel, globals.LogLevel)
+		if err := uic.Config.Start(ctx, getLogger(uic.NoLog, ll).WithName("ui")); err != nil {
+			return fmt.Errorf("failed to start ui service: %w", err)
 		}
 		return nil
 	})
@@ -448,6 +478,9 @@ func numEnabled(globals *flag.GlobalConfig) int {
 	if globals.EnableSecondStar {
 		n++
 	}
+	if globals.EnableUI {
+		n++
+	}
 	return n
 }
 
@@ -474,6 +507,15 @@ func enabledIndexes(smeeEnabled, tootlesEnabled, tinkServerEnabled, secondStarEn
 	}
 
 	return idxs
+}
+
+// getLogger returns a logger based on the configuration.
+// If noLog is true, returns a logger that discards all output.
+func getLogger(noLog bool, level int) logr.Logger {
+	if noLog {
+		return logr.Discard()
+	}
+	return defaultLogger(level)
 }
 
 // defaultLogger uses the slog logr implementation.

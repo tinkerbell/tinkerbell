@@ -94,7 +94,7 @@ fmt: $(GOIMPORTS_FQP) ## Run go fmt
 	go fmt ./...
 	$(GOIMPORTS_FQP) -w .
 
-FILE_TO_NOT_INCLUDE_IN_COVERAGE := script/version/main.go|*.pb.go|zz_generated.deepcopy.go|facility_string.go|severity_string.go
+FILE_TO_NOT_INCLUDE_IN_COVERAGE := script/version/main.go|*.pb.go|zz_generated.deepcopy.go|facility_string.go|severity_string.go|*_templ.go
 
 .PHONY: coverage
 coverage: test ## Show test coverage
@@ -109,6 +109,9 @@ ci-checks: .github/workflows/ci-checks.sh ## Run the ci-checks.sh script
 
 .PHONY: ci
 ci: ci-checks coverage lint vet ## Runs all the same validations and tests that run in CI
+
+# Include UI Makefile
+include ui/Makefile
 
 # Run go generate
 generated_go_files := \
@@ -181,6 +184,9 @@ manifests: $(CONTROLLER_GEN_FQP) ## Generate WebhookConfiguration and CustomReso
 generate: $(CONTROLLER_GEN_FQP) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN_FQP) object:headerFile="script/boilerplate.go.txt" paths="./..."
 	$(MAKE) fmt
+
+.PHONY: generate-all
+generate-all: generate generate-proto generate-go ui-generate manifests ## Run all code generation steps
 
 .PHONY: dep-graph
 dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph

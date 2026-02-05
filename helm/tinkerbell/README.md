@@ -21,7 +21,7 @@ LB_IP=192.168.2.116
 # Set the artifacts file server URL for HookOS
 ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
 
-helm template tinkerbell . \
+helm upgrade --install tinkerbell . \
   --create-namespace \
   --namespace tinkerbell \
   --wait \

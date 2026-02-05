@@ -222,6 +222,17 @@ spec:
               value: {{ .Values.deployment.envs.secondstar.idleTimeout | quote }}
             - name: TINKERBELL_SECONDSTAR_LOG_LEVEL
               value: {{ .Values.deployment.envs.secondstar.logLevel | quote }}
+          # UI
+            - name: TINKERBELL_UI_BIND_ADDR
+              value: {{ .Values.deployment.envs.ui.bindAddr | quote }}
+            - name: TINKERBELL_UI_BIND_PORT
+              value: {{ .Values.deployment.envs.ui.bindPort | quote }}
+            - name: TINKERBELL_UI_DEBUG_MODE
+              value: {{ .Values.deployment.envs.ui.debugMode | quote }}
+            - name: TINKERBELL_UI_LOG_LEVEL
+              value: {{ .Values.deployment.envs.ui.logLevel | quote }}
+            - name: TINKERBELL_UI_URL_PREFIX
+              value: {{ .Values.deployment.envs.ui.urlPrefix | quote }}
           # GLOBALS
             - name: TINKERBELL_LOG_LEVEL
               value: {{ .Values.deployment.envs.globals.logLevel | quote }}
@@ -259,6 +270,8 @@ spec:
               value: {{ .Values.deployment.envs.globals.enableRufioController | quote }}
             - name: TINKERBELL_ENABLE_SECONDSTAR
               value: {{ .Values.deployment.envs.globals.enableSecondstar | quote }}
+            - name: TINKERBELL_ENABLE_UI
+              value: {{ .Values.deployment.envs.globals.enableUI | quote }}
             - name: TINKERBELL_ENABLE_CRD_MIGRATIONS
               value: {{ .Values.deployment.envs.globals.enableCRDMigrations | quote }}
             - name: TINKERBELL_TLS_CERT_FILE
@@ -311,6 +324,13 @@ spec:
           {{- if .Values.deployment.envs.globals.enableSecondstar }}
             - containerPort: {{ .Values.deployment.envs.secondstar.bindPort }}
             {{- with .Values.service.ports.ssh }}
+              name: {{ .name }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.deployment.envs.globals.enableUI }}
+            - containerPort: {{ .Values.deployment.envs.ui.bindPort }}
+            {{- with .Values.service.ports.ui }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}

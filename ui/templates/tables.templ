@@ -1,0 +1,588 @@
+package templates
+
+import "strconv"
+
+// Shared table components for reducing duplication
+
+// TableCard wraps table content with consistent card styling
+templ TableCard() {
+	<div class="bg-white dark:bg-darkNav rounded-lg shadow-sm border border-gray-200 dark:border-darkBorder">
+		{ children... }
+	</div>
+}
+
+// TableCardHeader renders the card header with count and search input
+templ TableCardHeader(count int, resourceName string) {
+	<div class="border-b border-gray-200 dark:border-darkBorder px-6 py-4 flex items-center justify-between">
+		<span class="text-sm font-medium text-gray-500 dark:text-gray-400">{ strconv.Itoa(count) } { resourceName }</span>
+		<div class="relative">
+			<input type="text" id="pageSearch" placeholder="Search..." class="page-search block w-48 pl-9 pr-3 py-1.5 text-sm border border-gray-300 dark:border-darkBorder rounded-md bg-white dark:bg-darkBg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-tink-teal-500" />
+			<div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+				<svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+				</svg>
+			</div>
+		</div>
+	</div>
+}
+
+// TableCardFooter renders the pagination footer
+templ TableCardFooter(pagination PaginationData) {
+	<div class="px-6 py-3 flex items-center justify-between border-t border-gray-200 dark:border-darkBorder">
+		<div class="text-sm text-gray-500 dark:text-gray-400">
+			Showing
+			<span class="font-medium text-gray-700 dark:text-gray-300">{ strconv.Itoa(pagination.StartItem) }</span>
+			to
+			<span class="font-medium text-gray-700 dark:text-gray-300">{ strconv.Itoa(pagination.EndItem) }</span>
+			of
+			<span class="font-medium text-gray-700 dark:text-gray-300">{ strconv.Itoa(pagination.TotalItems) }</span>
+			results
+		</div>
+		<div>
+			@PaginationNav(pagination)
+		</div>
+	</div>
+}
+
+// ContentArea Templates for each resource type
+
+templ ContentArea(hardwareData HardwarePageData) {
+	<div class="p-6 bg-gray-50 dark:bg-darkBg">
+		<!-- Page Header -->
+		<div class="mb-6">
+			<h1 class="text-2xl font-light text-gray-900 dark:text-white">Hardware</h1>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage and monitor your Hardware infrastructure</p>
+		</div>
+
+		<!-- Hardware Table Card -->
+		<div id="hardware-content">
+			@HardwareTableContent(hardwareData)
+		</div>
+	</div>
+}
+
+templ WorkflowContentArea(workflowData WorkflowPageData) {
+	<div class="p-6 bg-gray-50 dark:bg-darkBg">
+		<!-- Page Header -->
+		<div class="mb-6">
+			<h1 class="text-2xl font-light text-gray-900 dark:text-white">Workflows</h1>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Monitor and manage Workflow executions</p>
+		</div>
+
+		<!-- Workflows Table Card -->
+		<div id="workflow-content">
+			@WorkflowTableContent(workflowData)
+		</div>
+	</div>
+}
+
+templ TemplateContentArea(templateData TemplatePageData) {
+	<div class="p-6 bg-gray-50 dark:bg-darkBg">
+		<!-- Page Header -->
+		<div class="mb-6">
+			<h1 class="text-2xl font-light text-gray-900 dark:text-white">Templates</h1>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage Workflow Templates and configurations</p>
+		</div>
+
+		<!-- Templates Table Card -->
+		<div id="templates-content">
+			@TemplateTableContent(templateData)
+		</div>
+	</div>
+}
+
+templ BMCMachineContentArea(machineData BMCMachinePageData) {
+	<div class="p-6 bg-gray-50 dark:bg-darkBg">
+		<!-- Page Header -->
+		<div class="mb-6">
+			<h1 class="text-2xl font-light text-gray-900 dark:text-white">Machines</h1>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage Baseboard Management Controllers</p>
+		</div>
+
+		<!-- Machines Table Card -->
+		<div id="bmc-machines-content">
+			@BMCMachineTableContent(machineData)
+		</div>
+	</div>
+}
+
+templ BMCJobContentArea(jobData BMCJobPageData) {
+	<div class="p-6 bg-gray-50 dark:bg-darkBg">
+		<!-- Page Header -->
+		<div class="mb-6">
+			<h1 class="text-2xl font-light text-gray-900 dark:text-white">Jobs</h1>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Monitor Job executions</p>
+		</div>
+
+		<!-- Jobs Table Card -->
+		<div id="bmc-jobs-content">
+			@BMCJobTableContent(jobData)
+		</div>
+	</div>
+}
+
+templ BMCTaskContentArea(taskData BMCTaskPageData) {
+	<div class="p-6 bg-gray-50 dark:bg-darkBg">
+		<!-- Page Header -->
+		<div class="mb-6">
+			<h1 class="text-2xl font-light text-gray-900 dark:text-white">Tasks</h1>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Monitor individual Task executions</p>
+		</div>
+
+		<!-- Tasks Table Card -->
+		<div id="bmc-tasks-content">
+			@BMCTaskTableContent(taskData)
+		</div>
+	</div>
+}
+
+// Table content templates for HTMX partial updates
+
+templ HardwareTableContent(hardwareData HardwarePageData) {
+	@TableCard() {
+		@TableCardHeader(hardwareData.Pagination.TotalItems, "Hardware")
+		<div class="overflow-x-auto">
+			<table class="min-w-full divide-y divide-gray-200 dark:divide-darkBorder">
+				<thead class="bg-gray-50 dark:bg-darkBg/50">
+					<tr>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Name</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Namespace</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">MAC Address</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">IP Address</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Age</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-darkNav divide-y divide-gray-100 dark:divide-darkBorder">
+					for _, hw := range hardwareData.Hardware {
+					<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder/50 cursor-pointer transition-colors clickable-row" data-href={ "/hardware/" + hw.Namespace + "/" + hw.Name }>
+						<td class="px-6 py-4 whitespace-nowrap">
+							<div class="flex items-center">
+								<div class="flex-shrink-0 h-8 w-8 rounded-md bg-tink-teal-50 dark:bg-tink-teal-900/30 flex items-center justify-center">
+									@templ.Raw(hardwareIcon())
+								</div>
+								<div class="ml-3">
+									<span class="text-sm font-medium text-gray-900 dark:text-white">{ hw.Name }</span>
+									if hw.Description != "" {
+										<p class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{ hw.Description }</p>
+									}
+								</div>
+							</div>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap">
+							<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-300">{ hw.Namespace }</span>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600 dark:text-gray-300">{ hw.MAC }</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600 dark:text-gray-300">{ hw.IPv4Address }</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ hw.CreatedAt }</td>
+					</tr>
+					}
+					if len(hardwareData.Hardware) == 0 {
+						<tr>
+							<td colspan="5" class="px-6 py-12 text-center">
+								<div class="flex flex-col items-center">
+									<div class="h-12 w-12 rounded-full bg-gray-100 dark:bg-darkBorderSoft flex items-center justify-center mb-4">
+										@templ.Raw(hardwareIcon())
+									</div>
+									<p class="text-sm font-medium text-gray-900 dark:text-white">No Hardware found</p>
+								</div>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		@TableCardFooter(hardwareData.Pagination)
+	}
+}
+
+templ WorkflowTableContent(workflowData WorkflowPageData) {
+	@TableCard() {
+		@TableCardHeader(workflowData.Pagination.TotalItems, "Workflows")
+		<div class="overflow-x-auto">
+			<table class="min-w-full divide-y divide-gray-200 dark:divide-darkBorder">
+				<thead class="bg-gray-50 dark:bg-darkBg/50">
+					<tr>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Name</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Namespace</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Template</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">State</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Age</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-darkNav divide-y divide-gray-100 dark:divide-darkBorder">
+					for _, wf := range workflowData.Workflows {
+					<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder/50 cursor-pointer transition-colors clickable-row" data-href={ "/workflows/" + wf.Namespace + "/" + wf.Name }>
+						<td class="px-6 py-4 whitespace-nowrap">
+							<div class="flex items-center">
+								<div class="flex-shrink-0 h-8 w-8 rounded-md bg-tink-teal-50 dark:bg-tink-teal-900/30 flex items-center justify-center">
+									@templ.Raw(workflowsIcon())
+								</div>
+								<span class="ml-3 text-sm font-medium text-gray-900 dark:text-white">{ wf.Name }</span>
+							</div>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap">
+							<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-300">{ wf.Namespace }</span>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm">
+							if wf.TemplateRef != "" {
+								<a href={ templ.SafeURL("/templates/" + wf.Namespace + "/" + wf.TemplateRef) } class="text-tink-teal-600 hover:text-tink-teal-700 dark:text-tink-teal-400 dark:hover:text-tink-teal-300 hover:underline" onclick="event.stopPropagation()">{ wf.TemplateRef }</a>
+							}
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap">@StatusBadge(wf.State)</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ wf.CreatedAt }</td>
+					</tr>
+					}
+					if len(workflowData.Workflows) == 0 {
+						<tr>
+							<td colspan="5" class="px-6 py-12 text-center">
+								<div class="flex flex-col items-center">
+									<div class="h-12 w-12 rounded-full bg-gray-100 dark:bg-darkBorderSoft flex items-center justify-center mb-4">
+										@templ.Raw(workflowsIcon())
+									</div>
+									<p class="text-sm font-medium text-gray-900 dark:text-white">No Workflows found</p>
+								</div>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		@TableCardFooter(workflowData.Pagination)
+	}
+}
+
+templ TemplateTableContent(templateData TemplatePageData) {
+	@TableCard() {
+		@TableCardHeader(templateData.Pagination.TotalItems, "Templates")
+		<div class="overflow-x-auto">
+			<table class="min-w-full divide-y divide-gray-200 dark:divide-darkBorder">
+				<thead class="bg-gray-50 dark:bg-darkBg/50">
+					<tr>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Name</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Namespace</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Age</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-darkNav divide-y divide-gray-100 dark:divide-darkBorder">
+					for _, tpl := range templateData.Templates {
+					<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder/50 cursor-pointer transition-colors clickable-row" data-href={ "/templates/" + tpl.Namespace + "/" + tpl.Name }>
+						<td class="px-6 py-4 whitespace-nowrap">
+							<div class="flex items-center">
+								<div class="flex-shrink-0 h-8 w-8 rounded-md bg-tink-teal-50 dark:bg-tink-teal-900/30 flex items-center justify-center">@templ.Raw(templatesIcon())</div>
+								<span class="ml-3 text-sm font-medium text-gray-900 dark:text-white">{ tpl.Name }</span>
+							</div>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-300">{ tpl.Namespace }</span></td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ tpl.CreatedAt }</td>
+					</tr>
+					}
+					if len(templateData.Templates) == 0 {
+						<tr><td colspan="3" class="px-6 py-12 text-center"><div class="flex flex-col items-center"><div class="h-12 w-12 rounded-full bg-gray-100 dark:bg-darkBorderSoft flex items-center justify-center mb-4">@templ.Raw(templatesIcon())</div><p class="text-sm font-medium text-gray-900 dark:text-white">No Templates found</p></div></td></tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		@TableCardFooter(templateData.Pagination)
+	}
+}
+
+templ BMCMachineTableContent(machineData BMCMachinePageData) {
+	@TableCard() {
+		@TableCardHeader(machineData.Pagination.TotalItems, "Machines")
+		<div class="overflow-x-auto">
+			<table class="min-w-full divide-y divide-gray-200 dark:divide-darkBorder">
+				<thead class="bg-gray-50 dark:bg-darkBg/50">
+					<tr>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Name</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Namespace</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Contactable</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Endpoint</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Age</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-darkNav divide-y divide-gray-100 dark:divide-darkBorder">
+					for _, machine := range machineData.Machines {
+					<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder/50 cursor-pointer transition-colors clickable-row" data-href={ "/bmc/machines/" + machine.Namespace + "/" + machine.Name }>
+						<td class="px-6 py-4 whitespace-nowrap">
+							<div class="flex items-center">
+								<div class="flex-shrink-0 h-8 w-8 rounded-md bg-tink-teal-50 dark:bg-tink-teal-900/30 flex items-center justify-center">@templ.Raw(bmcIcon())</div>
+								<span class="ml-3 text-sm font-medium text-gray-900 dark:text-white">{ machine.Name }</span>
+							</div>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-300">{ machine.Namespace }</span></td>
+						<td class="px-6 py-4 whitespace-nowrap">@StatusBadge(machine.Contactable)</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600 dark:text-gray-300">{ machine.Endpoint }</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ machine.CreatedAt }</td>
+					</tr>
+					}
+					if len(machineData.Machines) == 0 {
+						<tr><td colspan="5" class="px-6 py-12 text-center"><div class="flex flex-col items-center"><div class="h-12 w-12 rounded-full bg-gray-100 dark:bg-darkBorderSoft flex items-center justify-center mb-4">@templ.Raw(bmcIcon())</div><p class="text-sm font-medium text-gray-900 dark:text-white">No Machines found</p></div></td></tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		@TableCardFooter(machineData.Pagination)
+	}
+}
+
+templ BMCJobTableContent(jobData BMCJobPageData) {
+	@TableCard() {
+		@TableCardHeader(jobData.Pagination.TotalItems, "Jobs")
+		<div class="overflow-x-auto">
+			<table class="min-w-full divide-y divide-gray-200 dark:divide-darkBorder">
+				<thead class="bg-gray-50 dark:bg-darkBg/50">
+					<tr>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Name</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Namespace</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Machine</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Status</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Completed</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Age</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-darkNav divide-y divide-gray-100 dark:divide-darkBorder">
+					for _, job := range jobData.Jobs {
+					<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder/50 cursor-pointer transition-colors clickable-row" data-href={ "/bmc/jobs/" + job.Namespace + "/" + job.Name }>
+						<td class="px-6 py-4 whitespace-nowrap">
+							<div class="flex items-center">
+								<div class="flex-shrink-0 h-8 w-8 rounded-md bg-tink-teal-50 dark:bg-tink-teal-900/30 flex items-center justify-center">@templ.Raw(jobsIcon())</div>
+								<span class="ml-3 text-sm font-medium text-gray-900 dark:text-white">{ job.Name }</span>
+							</div>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-300">{ job.Namespace }</span></td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm"><a href={ templ.SafeURL("/bmc/machines/" + job.MachineRef) } class="text-tink-teal-600 dark:text-tink-teal-400 hover:text-tink-teal-800 dark:hover:text-tink-teal-300 hover:underline" onclick="event.stopPropagation()">{ job.MachineRef }</a></td>
+						<td class="px-6 py-4 whitespace-nowrap">@StatusBadge(job.Status)</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ job.CompletedAt }</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ job.CreatedAt }</td>
+					</tr>
+					}
+					if len(jobData.Jobs) == 0 {
+						<tr><td colspan="6" class="px-6 py-12 text-center"><div class="flex flex-col items-center"><div class="h-12 w-12 rounded-full bg-gray-100 dark:bg-darkBorderSoft flex items-center justify-center mb-4">@templ.Raw(jobsIcon())</div><p class="text-sm font-medium text-gray-900 dark:text-white">No Jobs found</p></div></td></tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		@TableCardFooter(jobData.Pagination)
+	}
+}
+
+templ BMCTaskTableContent(taskData BMCTaskPageData) {
+	@TableCard() {
+		@TableCardHeader(taskData.Pagination.TotalItems, "Tasks")
+		<div class="overflow-x-auto">
+			<table class="min-w-full divide-y divide-gray-200 dark:divide-darkBorder">
+				<thead class="bg-gray-50 dark:bg-darkBg/50">
+					<tr>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Name</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Namespace</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Job</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Type</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Status</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Age</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-darkNav divide-y divide-gray-100 dark:divide-darkBorder">
+					for _, task := range taskData.Tasks {
+					<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder/50 cursor-pointer transition-colors clickable-row" data-href={ "/bmc/tasks/" + task.Namespace + "/" + task.Name }>
+						<td class="px-6 py-4 whitespace-nowrap">
+							<div class="flex items-center">
+								<div class="flex-shrink-0 h-8 w-8 rounded-md bg-tink-teal-50 dark:bg-tink-teal-900/30 flex items-center justify-center">@templ.Raw(tasksIcon())</div>
+								<span class="ml-3 text-sm font-medium text-gray-900 dark:text-white">{ task.Name }</span>
+							</div>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-300">{ task.Namespace }</span></td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{ task.JobRef }</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{ task.TaskType }</td>
+						<td class="px-6 py-4 whitespace-nowrap">@StatusBadge(task.Status)</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ task.CreatedAt }</td>
+					</tr>
+					}
+					if len(taskData.Tasks) == 0 {
+						<tr><td colspan="6" class="px-6 py-12 text-center"><div class="flex flex-col items-center"><div class="h-12 w-12 rounded-full bg-gray-100 dark:bg-darkBorderSoft flex items-center justify-center mb-4">@templ.Raw(tasksIcon())</div><p class="text-sm font-medium text-gray-900 dark:text-white">No Tasks found</p></div></td></tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		@TableCardFooter(taskData.Pagination)
+	}
+}
+
+templ WorkflowRuleSetContentArea(rulesetData WorkflowRuleSetPageData) {
+	<div class="p-6 bg-gray-50 dark:bg-darkBg">
+		<!-- Page Header -->
+		<div class="mb-6">
+			<h1 class="text-2xl font-light text-gray-900 dark:text-white">Workflow Rulesets</h1>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage automatic Workflow creation rules</p>
+		</div>
+
+		<!-- WorkflowRuleSets Table Card -->
+		<div id="workflowruleset-content">
+			@WorkflowRuleSetTableContent(rulesetData)
+		</div>
+	</div>
+}
+
+templ WorkflowRuleSetTableContent(rulesetData WorkflowRuleSetPageData) {
+	@TableCard() {
+		@TableCardHeader(rulesetData.Pagination.TotalItems, "Rulesets")
+		<div class="overflow-x-auto">
+			<table class="min-w-full divide-y divide-gray-200 dark:divide-darkBorder">
+				<thead class="bg-gray-50 dark:bg-darkBg/50">
+					<tr>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Name</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Namespace</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Template</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Age</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-darkNav divide-y divide-gray-100 dark:divide-darkBorder">
+					for _, rs := range rulesetData.RuleSets {
+					<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder/50 cursor-pointer transition-colors clickable-row" data-href={ "/workflows/rulesets/" + rs.Namespace + "/" + rs.Name }>
+						<td class="px-6 py-4 whitespace-nowrap">
+							<div class="flex items-center">
+								<div class="flex-shrink-0 h-8 w-8 rounded-md bg-tink-teal-50 dark:bg-tink-teal-900/30 flex items-center justify-center">
+									@templ.Raw(rulesetsIcon())
+								</div>
+								<span class="ml-3 text-sm font-medium text-gray-900 dark:text-white">{ rs.Name }</span>
+							</div>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap">
+							<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-300">{ rs.Namespace }</span>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm">
+							if rs.TemplateRef != "" && rs.TemplateRef != "N/A" {
+								<a href={ templ.SafeURL("/templates/" + rs.Namespace + "/" + rs.TemplateRef) } class="text-tink-teal-600 hover:text-tink-teal-700 dark:text-tink-teal-400 dark:hover:text-tink-teal-300 hover:underline" onclick="event.stopPropagation()">{ rs.TemplateRef }</a>
+							} else {
+								<span class="text-gray-500 dark:text-gray-400">-</span>
+							}
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ rs.CreatedAt }</td>
+					</tr>
+					}
+					if len(rulesetData.RuleSets) == 0 {
+						<tr>
+							<td colspan="4" class="px-6 py-12 text-center">
+								<div class="flex flex-col items-center">
+									<div class="h-12 w-12 rounded-full bg-gray-100 dark:bg-darkBorderSoft flex items-center justify-center mb-4">
+										@templ.Raw(rulesetsIcon())
+									</div>
+									<p class="text-sm font-medium text-gray-900 dark:text-white">No Workflow RuleSets found</p>
+								</div>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		@TableCardFooter(rulesetData.Pagination)
+	}
+}
+
+// PaginationNav renders the pagination controls
+templ PaginationNav(pagination PaginationData) {
+	<nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+		// Previous button
+		if pagination.CurrentPage > 1 {
+			<button 
+			class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-darkBorder bg-white dark:bg-darkNav text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-darkBorderSoft cursor-pointer"
+				hx-get={ pagination.ResourcePath + "?page=" + strconv.Itoa(pagination.CurrentPage-1) }
+				hx-target={ pagination.TargetID }
+				hx-swap="innerHTML"
+			>
+				<span class="sr-only">Previous</span>
+				<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+					<path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+				</svg>
+			</button>
+		} else {
+			<button 
+				class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-darkBorder bg-gray-100 dark:bg-darkBg text-sm font-medium text-gray-400 dark:text-gray-500 cursor-not-allowed"
+				disabled
+			>
+				<span class="sr-only">Previous</span>
+				<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+					<path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+				</svg>
+			</button>
+		}
+		
+		// Page numbers - show a window around the current page  
+		// Show first page if not in range
+		if pagination.CurrentPage > 3 {
+			<button 
+			class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-darkBorder bg-white dark:bg-darkNav text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-darkBorderSoft cursor-pointer"
+				hx-get={ pagination.ResourcePath + "?page=1" }
+				hx-target={ pagination.TargetID }
+				hx-swap="innerHTML"
+			>
+				1
+			</button>
+			if pagination.CurrentPage > 4 {
+				<span class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-darkBorder bg-white dark:bg-darkBg text-sm font-medium text-gray-500 dark:text-gray-400">
+					...
+				</span>
+			}
+		}
+		
+		for page := 1; page <= pagination.TotalPages; page++ {
+			if page >= pagination.CurrentPage-2 && page <= pagination.CurrentPage+2 {
+				if page == pagination.CurrentPage {
+				<button class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-darkBorder bg-tink-teal-50 dark:bg-tink-teal-900/30 text-sm font-medium text-tink-teal-600 dark:text-tink-teal-400">
+						{ strconv.Itoa(page) }
+					</button>
+				} else {
+					<button 
+					class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-darkBorder bg-white dark:bg-darkNav text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-darkBorderSoft cursor-pointer"
+						hx-get={ pagination.ResourcePath + "?page=" + strconv.Itoa(page) }
+						hx-target={ pagination.TargetID }
+						hx-swap="innerHTML"
+					>
+						{ strconv.Itoa(page) }
+					</button>
+				}
+			}
+		}
+		
+		// Show last page if not in range
+		if pagination.CurrentPage < pagination.TotalPages-2 {
+			if pagination.CurrentPage < pagination.TotalPages-3 {
+				<span class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-darkBorder bg-white dark:bg-darkBg text-sm font-medium text-gray-500 dark:text-gray-400">
+					...
+				</span>
+			}
+			<button 
+				class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-darkBorder bg-white dark:bg-darkBg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer"
+				hx-get={ pagination.ResourcePath + "?page=" + strconv.Itoa(pagination.TotalPages) }
+				hx-target={ pagination.TargetID }
+				hx-swap="innerHTML"
+			>
+				{ strconv.Itoa(pagination.TotalPages) }
+			</button>
+		}
+		
+		// Next button
+		if pagination.CurrentPage < pagination.TotalPages {
+			<button 
+			class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-darkBorder bg-white dark:bg-darkNav text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-darkBorderSoft cursor-pointer"
+				hx-get={ pagination.ResourcePath + "?page=" + strconv.Itoa(pagination.CurrentPage+1) }
+				hx-target={ pagination.TargetID }
+				hx-swap="innerHTML"
+			>
+				<span class="sr-only">Next</span>
+				<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+					<path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+				</svg>
+			</button>
+		} else {
+			<button 
+				class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-darkBorder bg-gray-100 dark:bg-darkBg text-sm font-medium text-gray-400 dark:text-gray-500 cursor-not-allowed"
+				disabled
+			>
+				<span class="sr-only">Next</span>
+				<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+					<path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+				</svg>
+			</button>
+		}
+	</nav>
+}
