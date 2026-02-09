@@ -1,0 +1,130 @@
+version: 2
+
+env:
+  - REGISTRY={{ envOrDefault "REGISTRY" "ghcr.io" }}
+  - IS_RELEASE={{ envOrDefault "IS_RELEASE" "false" }}
+
+builds:
+  - id: tinkerbell
+    env: ["CGO_ENABLED=0"]
+    main: ./cmd/tinkerbell
+    binary: tinkerbell
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    no_unique_dist_dir: false
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+      - -extldflags '-static'
+    skip: false
+
+  - id: tinkerbell-embedded
+    env: ["CGO_ENABLED=0"]
+    main: ./cmd/tinkerbell
+    binary: tinkerbell-embedded
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    tags:
+      - embedded
+    no_unique_dist_dir: false
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+      - -extldflags '-static'
+    skip: false
+
+  - id: tink-agent
+    env: ["CGO_ENABLED=0"]
+    main: ./cmd/agent
+    binary: tink-agent
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    no_unique_dist_dir: false
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+      - -extldflags '-static'
+    skip: false
+
+upx:
+  - enabled: true
+    ids:
+      - tinkerbell
+      - tinkerbell-embedded
+      - tink-agent
+    compress: best
+    lzma: true
+
+checksum:
+  name_template: "{{ .ArtifactName }}-checksums.txt"
+  split: true
+
+release:
+  disable: true
+
+snapshot:
+  version_template: "{{ .Version }}-next"
+
+dockers_v2:
+  - id: tinkerbell
+    dockerfile: Dockerfile.tinkerbell
+    images:
+      - '{{ .Env.REGISTRY }}/{{ envOrDefault "IMAGE_NAME" (trimsuffix (trimprefix .GitURL "https://github.com/") ".git") }}'
+    tags:
+      - '{{ if eq .Env.IS_RELEASE "true" }}v{{ .Version }}{{ end }}'
+      - "{{ if .IsNightly }}edge{{ end }}"
+      - "{{ if not .IsNightly }}latest{{ end }}"
+      - '{{ if eq .Branch "main" }}sha-{{ .ShortCommit }}{{ end }}'
+    labels:
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.name": "{{.ProjectName}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "v{{.Version}}"
+      "org.opencontainers.image.source": "{{.GitURL}}"
+
+  - id: tinkerbell-embedded
+    dockerfile: Dockerfile.tinkerbell
+    build_args:
+      BINARY: tinkerbell-embedded
+    images:
+      - '{{ .Env.REGISTRY }}/{{ envOrDefault "IMAGE_NAME" (trimsuffix (trimprefix .GitURL "https://github.com/") ".git") }}'
+    tags:
+      - '{{ if eq .Env.IS_RELEASE "true" }}v{{ .Version }}-embedded{{ end }}'
+      - "{{ if .IsNightly }}edge-embedded{{ end }}"
+      - "{{ if not .IsNightly }}latest-embedded{{ end }}"
+      - '{{ if eq .Branch "main" }}embedded-sha-{{ .ShortCommit }}{{ end }}'
+    labels:
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.name": "{{.ProjectName}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "v{{.Version}}-embedded"
+      "org.opencontainers.image.source": "{{.GitURL}}"
+
+  - id: tink-agent
+    dockerfile: Dockerfile.agent
+    images:
+      - '{{ .Env.REGISTRY }}/{{ trimsuffix (envOrDefault "IMAGE_NAME" (trimsuffix (trimprefix .GitURL "https://github.com/") ".git")) .ProjectName }}tink-agent'
+    tags:
+      - '{{ if eq .Env.IS_RELEASE "true" }}v{{ .Version }}{{ end }}'
+      - "{{ if .IsNightly }}edge{{ end }}"
+      - "{{ if not .IsNightly }}latest{{ end }}"
+      - '{{ if eq .Branch "main" }}sha-{{ .ShortCommit }}{{ end }}'
+    labels:
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.name": "{{.ProjectName}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "v{{.Version}}"
+      "org.opencontainers.image.source": "{{.GitURL}}"
+
+docker_signs:
+  - cmd: cosign
+    args:
+      - "sign"
+      - "--yes"
+      - "${artifact}@${digest}"
