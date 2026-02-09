@@ -62,7 +62,7 @@ func TestTemplateActions(t *testing.T) {
 			actions: []bmc.Action{
 				{PowerAction: valueToPointer(bmc.PowerHardOff)},
 				{VirtualMediaAction: &bmc.VirtualMediaAction{
-					MediaURL: "http://172.17.1.1:7171/iso/{{ index .MACAddresses 0 }}/hook.iso",
+					MediaURL: `http://172.17.1.1:7171/iso/{{ (index .Hardware.Interfaces 0).DHCP.MAC | replace ":" "-" }}/hook.iso`,
 					Kind:     bmc.VirtualMediaCD,
 				}},
 				{PowerAction: valueToPointer(bmc.PowerOn)},
@@ -86,7 +86,7 @@ func TestTemplateActions(t *testing.T) {
 		"template second MAC address": {
 			actions: []bmc.Action{
 				{VirtualMediaAction: &bmc.VirtualMediaAction{
-					MediaURL: "http://example.com/iso/{{ index .MACAddresses 1 }}/image.iso",
+					MediaURL: `http://example.com/iso/{{ (index .Hardware.Interfaces 1).DHCP.MAC | replace ":" "-" }}/image.iso`,
 					Kind:     bmc.VirtualMediaCD,
 				}},
 			},
@@ -185,7 +185,7 @@ func TestTemplateActions(t *testing.T) {
 		"index out of range returns error": {
 			actions: []bmc.Action{
 				{VirtualMediaAction: &bmc.VirtualMediaAction{
-					MediaURL: "http://example.com/{{ index .MACAddresses 5 }}/image.iso",
+					MediaURL: "http://example.com/{{ (index .Hardware.Interfaces 5).DHCP.MAC }}/image.iso",
 					Kind:     bmc.VirtualMediaCD,
 				}},
 			},
@@ -198,6 +198,27 @@ func TestTemplateActions(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		"access MAC with replace returns dash format": {
+			actions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: `http://example.com/mac/{{ (index .Hardware.Interfaces 0).DHCP.MAC | replace ":" "-" }}/image.iso`,
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+			hardware: &v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{DHCP: &v1alpha1.DHCP{MAC: "52:54:00:12:34:01"}},
+					},
+				},
+			},
+			wantActions: []bmc.Action{
+				{VirtualMediaAction: &bmc.VirtualMediaAction{
+					MediaURL: "http://example.com/mac/52-54-00-12-34-01/image.iso",
+					Kind:     bmc.VirtualMediaCD,
+				}},
+			},
+		},
 		"multiple actions with templates": {
 			actions: []bmc.Action{
 				{PowerAction: valueToPointer(bmc.PowerHardOff)},
@@ -206,7 +227,7 @@ func TestTemplateActions(t *testing.T) {
 					Kind:     bmc.VirtualMediaCD,
 				}},
 				{VirtualMediaAction: &bmc.VirtualMediaAction{
-					MediaURL: "http://172.17.1.1:7171/iso/{{ index .MACAddresses 0 }}/hook.iso",
+					MediaURL: `http://172.17.1.1:7171/iso/{{ (index .Hardware.Interfaces 0).DHCP.MAC | replace ":" "-" }}/hook.iso`,
 					Kind:     bmc.VirtualMediaCD,
 				}},
 				{BootDevice: &bmc.BootDeviceConfig{

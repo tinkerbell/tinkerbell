@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
@@ -201,31 +201,26 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 
 // templateData holds data available for templating in customboot actions.
 type templateData struct {
-	// MACAddresses contains all interface MAC addresses in dash-separated format, indexed by interface order.
-	// Example: {{ index .MACAddresses 0 }} returns "52-54-00-12-34-01"
-	MACAddresses []string
+	// Hardware embeds HardwareSpec to expose Interfaces at the top level.
+	Hardware struct {
+		v1alpha1.HardwareSpec
+	}
 }
 
 // templateActions processes BMC actions and templates any string fields that contain Go template syntax.
 // Currently supports templating of VirtualMediaAction.MediaURL field.
-// Available template variables:
-//   - {{ index .MACAddresses 0 }}: First interface MAC address in dash-separated format (e.g., "52-54-00-12-34-01")
-//   - {{ index .MACAddresses 1 }}: Second interface MAC address, etc.
+//
+// Available template data:
+//   - {{ (index .Hardware.Interfaces 0).DHCP.MAC }}: MAC address (colon format, e.g., "52:54:00:12:34:01")
+//   - {{ (index .Hardware.Interfaces 0).DHCP.MAC | replace ":" "-" }}: MAC in dash format (e.g., "52-54-00-12-34-01")
 func templateActions(actions []bmc.Action, hw *v1alpha1.Hardware) ([]bmc.Action, error) {
 	if hw == nil {
 		return actions, nil
 	}
 
-	// Build template data
+	// Build template data by embedding HardwareSpec
 	data := templateData{}
-
-	// Collect all MAC addresses in dash-separated format for ISO URL compatibility
-	for _, iface := range hw.Spec.Interfaces {
-		if iface.DHCP != nil && iface.DHCP.MAC != "" {
-			mac := strings.ReplaceAll(iface.DHCP.MAC, ":", "-")
-			data.MACAddresses = append(data.MACAddresses, mac)
-		}
-	}
+	data.Hardware.HardwareSpec = hw.Spec
 
 	// Process each action
 	result := make([]bmc.Action, len(actions))
@@ -250,7 +245,8 @@ func templateActions(actions []bmc.Action, hw *v1alpha1.Hardware) ([]bmc.Action,
 
 // templateString executes a Go template string with the provided data.
 func templateString(tmplStr string, data templateData) (string, error) {
-	tmpl, err := template.New("action").Parse(tmplStr)
+	// Use Sprig hermetic functions for template operations (includes replace, etc.)
+	tmpl, err := template.New("action").Funcs(sprig.HermeticTxtFuncMap()).Parse(tmplStr)
 	if err != nil {
 		return "", err
 	}
