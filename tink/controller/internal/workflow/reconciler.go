@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -93,9 +94,10 @@ func NewReconciler(client ctrlclient.Client, dc dynamicClient, opts ...Option) *
 	return d
 }
 
-func (r *Reconciler) SetupWithManager(mgr manager.Manager) error {
+func (r *Reconciler) SetupWithManager(mgr manager.Manager, opts controller.Options) error {
 	return ctrl.
 		NewControllerManagedBy(mgr).
+		WithOptions(opts).
 		For(&v1alpha1.Workflow{}).
 		Complete(r)
 }

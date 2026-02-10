@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/rest"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -35,6 +36,7 @@ type Config struct {
 	DynamicClient           dynamicClient
 	ReferenceAllowListRules []string
 	ReferenceDenyListRules  []string
+	MaxConcurrentReconciles int
 }
 
 type dynamicClient interface {
@@ -99,7 +101,8 @@ func WithReferenceDenyListRules(rules []string) Option {
 
 func NewConfig(opts ...Option) *Config {
 	defatuls := &Config{
-		EnableLeaderElection: true,
+		EnableLeaderElection:    true,
+		MaxConcurrentReconciles: 1,
 	}
 
 	for _, opt := range opts {
@@ -135,7 +138,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		wfOpts = append(wfOpts, workflow.WithDenyReferenceRules(c.ReferenceDenyListRules))
 	}
 
-	mgr, err := newManager(c.Client, c.DynamicClient, options, wfOpts...)
+	mgr, err := newManager(c.Client, c.DynamicClient, options, c.MaxConcurrentReconciles, wfOpts...)
 	if err != nil {
 		return err
 	}
@@ -145,7 +148,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 // NewManager creates a new controller manager with tink controller controllers pre-registered.
 // If opts.Scheme is nil, DefaultScheme() is used.
-func newManager(cfg *rest.Config, dc dynamicClient, opts controllerruntime.Options, wfOpts ...workflow.Option) (controllerruntime.Manager, error) {
+func newManager(cfg *rest.Config, dc dynamicClient, opts controllerruntime.Options, maxConcurrentReconciles int, wfOpts ...workflow.Option) (controllerruntime.Manager, error) {
 	if opts.Scheme == nil {
 		s := runtime.NewScheme()
 		_ = schemeBuilder.AddToScheme(s)
@@ -165,7 +168,7 @@ func newManager(cfg *rest.Config, dc dynamicClient, opts controllerruntime.Optio
 		return nil, fmt.Errorf("set up ready check: %w", err)
 	}
 
-	if err = workflow.NewReconciler(mgr.GetClient(), dc, wfOpts...).SetupWithManager(mgr); err != nil {
+	if err = workflow.NewReconciler(mgr.GetClient(), dc, wfOpts...).SetupWithManager(mgr, ctrlcontroller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}); err != nil {
 		return nil, fmt.Errorf("setup workflow reconciler: %w", err)
 	}
 

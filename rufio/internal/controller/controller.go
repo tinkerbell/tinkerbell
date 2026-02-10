@@ -10,8 +10,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	controllerruntime "sigs.k8s.io/controller-runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 )
 
@@ -34,12 +35,12 @@ type Reconciler struct {
 	backoff *backoff.ExponentialBackOff
 }
 
-func NewManager(cfg *rest.Config, opts controllerruntime.Options, powerCheckInterval time.Duration) (controllerruntime.Manager, error) {
+func NewManager(cfg *rest.Config, opts ctrl.Options, powerCheckInterval time.Duration, maxConcurrentReconciles int) (ctrl.Manager, error) {
 	if opts.Scheme == nil {
 		opts.Scheme = DefaultScheme()
 	}
 
-	mgr, err := controllerruntime.NewManager(cfg, opts)
+	mgr, err := ctrl.NewManager(cfg, opts)
 	if err != nil {
 		return nil, fmt.Errorf("controller manager: %w", err)
 	}
@@ -52,7 +53,8 @@ func NewManager(cfg *rest.Config, opts controllerruntime.Options, powerCheckInte
 		return nil, fmt.Errorf("set up ready check: %w", err)
 	}
 
-	if err := NewReconciler(mgr.GetClient()).SetupWithManager(context.Background(), mgr, NewClientFunc(time.Minute), powerCheckInterval); err != nil {
+	ctrlOpts := ctrlcontroller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}
+	if err := NewReconciler(mgr.GetClient()).SetupWithManager(context.Background(), mgr, NewClientFunc(time.Minute), powerCheckInterval, ctrlOpts); err != nil {
 		return nil, fmt.Errorf("unable to create reconciler: %w", err)
 	}
 
@@ -71,16 +73,16 @@ func NewReconciler(c client.Client) *Reconciler {
 	}
 }
 
-func (r *Reconciler) SetupWithManager(ctx context.Context, mgr controllerruntime.Manager, bmcClient ClientFunc, powerCheckInterval time.Duration) error {
-	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("machine-controller"), bmcClient, powerCheckInterval).SetupWithManager(mgr); err != nil {
+func (r *Reconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, bmcClient ClientFunc, powerCheckInterval time.Duration, opts ctrlcontroller.Options) error {
+	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("machine-controller"), bmcClient, powerCheckInterval).SetupWithManager(mgr, opts); err != nil {
 		return fmt.Errorf("unable to create Machines controller: %w", err)
 	}
 
-	if err := NewJobReconciler(mgr.GetClient()).SetupWithManager(ctx, mgr); err != nil {
+	if err := NewJobReconciler(mgr.GetClient()).SetupWithManager(ctx, mgr, opts); err != nil {
 		return fmt.Errorf("unable to create Jobs controller: %w", err)
 	}
 
-	if err := NewTaskReconciler(mgr.GetClient(), bmcClient).SetupWithManager(mgr); err != nil {
+	if err := NewTaskReconciler(mgr.GetClient(), bmcClient).SetupWithManager(mgr, opts); err != nil {
 		return fmt.Errorf("unable to create Tasks controller: %w", err)
 	}
 

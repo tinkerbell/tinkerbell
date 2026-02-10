@@ -39,6 +39,7 @@ type Config struct {
 	ProbeAddr               netip.AddrPort
 	BMCConnectTimeout       time.Duration
 	PowerCheckInterval      time.Duration
+	MaxConcurrentReconciles int
 }
 
 type Option func(*Config)
@@ -93,7 +94,8 @@ func WithLeaderElectionNamespace(namespace string) Option {
 
 func NewConfig(opts ...Option) *Config {
 	defaults := &Config{
-		EnableLeaderElection: true,
+		EnableLeaderElection:    true,
+		MaxConcurrentReconciles: 1,
 	}
 
 	for _, opt := range opts {
@@ -121,7 +123,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	controllerruntime.SetLogger(log)
 	clog.SetLogger(log)
 
-	mgr, err := controller.NewManager(c.Client, options, c.PowerCheckInterval)
+	mgr, err := controller.NewManager(c.Client, options, c.PowerCheckInterval, c.MaxConcurrentReconciles)
 	if err != nil {
 		return err
 	}

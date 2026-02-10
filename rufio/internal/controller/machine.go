@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
 // MachineReconciler reconciles a Machine object.
@@ -218,8 +219,9 @@ func retrieveHMACSecrets(ctx context.Context, c client.Client, hmacSecrets bmc.H
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MachineReconciler) SetupWithManager(mgr ctrl.Manager, opts ctrlcontroller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(opts).
 		For(&bmc.Machine{}).
 		Complete(r)
 }
