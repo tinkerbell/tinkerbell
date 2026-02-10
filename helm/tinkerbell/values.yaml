@@ -47,6 +47,7 @@ deployment:
       leaderElectionNamespace: ""
       logLevel: 0
       metricsAddr: ""
+      maxConcurrentReconciles: 1
       powerCheckInterval: "30m0s"
       probeAddr: ""
     secondstar:
@@ -108,6 +109,7 @@ deployment:
       leaderElectionNamespace: ""
       logLevel: 0
       metricsAddr: ""
+      maxConcurrentReconciles: 1
       probeAddr: ""
       referenceAllowListRules: {}
       referenceDenyListRules: {}
