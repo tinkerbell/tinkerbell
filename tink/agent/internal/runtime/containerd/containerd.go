@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	gocni "github.com/containerd/go-cni"
 
@@ -111,44 +112,46 @@ func NewConfig(log logr.Logger, opts ...Opt) (*Config, error) {
 	c := &Config{
 		Log:        log,
 		Namespace:  defaultNamespace,
-		Client:     &containerd.Client{},
 		SocketPath: defaultSocketPath,
-		CNI:        nil,
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
 
-	client, err := containerd.New(c.SocketPath)
-	if err != nil {
-		return nil, fmt.Errorf("error creating containerd client: %w", err)
+	if c.Client == nil {
+		client, err := containerd.New(c.SocketPath)
+		if err != nil {
+			return nil, fmt.Errorf("error creating containerd client: %w", err)
+		}
+		c.Client = client
 	}
-	c.Client = client
 
-	// Initialize CNI for bridge networking.
-	// First, try to load existing CNI configs from the standard config directory.
-	// This allows HookOS or users to provide their own CNI configuration with custom subnets.
-	cni, err := gocni.New(
-		gocni.WithPluginDir([]string{defaultCNIBinDir}),
-		gocni.WithPluginConfDir(defaultCNIConfDir),
-		gocni.WithDefaultConf,
-	)
-	if err != nil {
-		// No existing CNI configs found, fall back to our embedded default bridge config.
-		log.V(1).Info("CNI initialization from config directory failed, using fallback bridge config", "confDir", defaultCNIConfDir, "error", err)
-		cni, err = gocni.New(
+	if c.CNI != nil {
+		// Initialize CNI for bridge networking.
+		// First, try to load existing CNI configs from the standard config directory.
+		// This allows HookOS or users to provide their own CNI configuration with custom subnets.
+		cni, err := gocni.New(
 			gocni.WithPluginDir([]string{defaultCNIBinDir}),
-			gocni.WithConfListBytes([]byte(fallbackBridgeConflist)),
+			gocni.WithPluginConfDir(defaultCNIConfDir),
+			gocni.WithDefaultConf,
 		)
 		if err != nil {
-			log.V(1).Info("CNI initialization failed, bridge networking unavailable", "error", err)
+			// No existing CNI configs found, fall back to our embedded default bridge config.
+			log.V(1).Info("CNI initialization from config directory failed, using fallback bridge config", "confDir", defaultCNIConfDir, "error", err)
+			cni, err = gocni.New(
+				gocni.WithPluginDir([]string{defaultCNIBinDir}),
+				gocni.WithConfListBytes([]byte(fallbackBridgeConflist)),
+			)
+			if err != nil {
+				log.V(1).Info("CNI initialization failed, bridge networking unavailable", "error", err)
+			} else {
+				c.CNI = cni
+				log.V(1).Info("CNI initialized with fallback bridge config")
+			}
 		} else {
 			c.CNI = cni
-			log.V(1).Info("CNI initialized with fallback bridge config")
+			log.V(1).Info("CNI initialized from config directory", "confDir", defaultCNIConfDir)
 		}
-	} else {
-		c.CNI = cni
-		log.V(1).Info("CNI initialized from config directory", "confDir", defaultCNIConfDir)
 	}
 
 	// Check IP forwarding - required for CNI bridge NAT/masquerade to work.
@@ -220,7 +223,11 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 		} else {
 			c.Log.V(1).Info("CNI network setup complete", "container", containerID, "netns", netns)
 			defer func() {
-				if err := c.CNI.Remove(ctx, containerID, netns); err != nil {
+				// Use a background context for cleanup so teardown completes
+				// even if the parent context has been canceled.
+				cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				if err := c.CNI.Remove(cleanupCtx, containerID, netns); err != nil {
 					c.Log.Error(err, "failed to remove CNI network", "container", containerID)
 				}
 			}()

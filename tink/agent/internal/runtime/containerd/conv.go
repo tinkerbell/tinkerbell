@@ -11,11 +11,11 @@ import (
 // parseVolumes converts action volumes to OCI runtime spec mounts.
 // Volume format: {SRC-HOST-DIR}:{TGT-CONTAINER-DIR}[:OPTIONS]
 // Options can include: ro (read-only), rw (read-write, default)
+// Only bind mounts with absolute or relative path sources are supported;
+// named volumes are silently ignored.
 // Examples:
 //   - /etc/data:/data:ro     - Read-only bind mount
 //   - /tmp/work:/work        - Read-write bind mount (default)
-//   - named-volume:/data     - Read-write named volume
-//   - named-volume:/data:ro  - Read-only named volume
 func parseVolumes(volumes []spec.Volume) []specs.Mount {
 	var mounts []specs.Mount
 	for _, v := range volumes {
