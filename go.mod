@@ -9,6 +9,8 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20251010091507-63cb571e5597
 	github.com/ccoveille/go-safecast/v2 v2.0.0
 	github.com/cenkalti/backoff/v5 v5.0.3
+	github.com/containerd/containerd/v2 v2.2.1
+	github.com/containerd/go-cni v1.1.13
 	github.com/containers/image/v5 v5.36.2
 	github.com/diskfs/go-diskfs v1.7.0
 	github.com/distribution/reference v0.6.0
@@ -60,11 +62,6 @@ require (
 	k8s.io/kubernetes v1.34.3
 	quamina.net/go/quamina v1.5.2-0.20250207005432-0526acc321a8
 	sigs.k8s.io/controller-runtime v0.22.5
-)
-
-require (
-	github.com/containerd/containerd/v2 v2.2.1
-	github.com/containerd/go-cni v1.1.13
 )
 
 require (

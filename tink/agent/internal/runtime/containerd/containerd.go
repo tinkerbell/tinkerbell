@@ -8,7 +8,6 @@ import (
 	gocni "github.com/containerd/go-cni"
 
 	containerd "github.com/containerd/containerd/v2/client"
-	"github.com/containerd/containerd/v2/core/containers"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
@@ -25,6 +24,9 @@ const (
 	// Default CNI paths used by HookOS
 	defaultCNIBinDir  = "/opt/cni/bin"
 	defaultCNIConfDir = "/etc/cni/net.d"
+
+	defaultNamespace  = "tinkerbell"
+	defaultSocketPath = "/run/containerd/containerd.sock"
 
 	// Fallback bridge network configuration for tink-agent containers.
 	// Only used if no CNI configs exist in /etc/cni/net.d/.
@@ -106,26 +108,22 @@ func WithSocketPath(socketPath string) Opt {
 }
 
 func NewConfig(log logr.Logger, opts ...Opt) (*Config, error) {
-	c := &Config{Log: log}
+	c := &Config{
+		Log:        log,
+		Namespace:  defaultNamespace,
+		Client:     &containerd.Client{},
+		SocketPath: defaultSocketPath,
+		CNI:        nil,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
 
-	if c.Namespace != "" {
-		client, err := containerd.New(c.SocketPath)
-		if err != nil {
-			return nil, fmt.Errorf("error creating containerd client: %w", err)
-		}
-		c.Client = client
+	client, err := containerd.New(c.SocketPath)
+	if err != nil {
+		return nil, fmt.Errorf("error creating containerd client: %w", err)
 	}
-
-	if c.Client == nil {
-		client, err := containerd.New("/run/containerd/containerd.sock")
-		if err != nil {
-			return nil, fmt.Errorf("error creating containerd client: %w", err)
-		}
-		c.Client = client
-	}
+	c.Client = client
 
 	// Initialize CNI for bridge networking.
 	// First, try to load existing CNI configs from the standard config directory.
@@ -137,7 +135,7 @@ func NewConfig(log logr.Logger, opts ...Opt) (*Config, error) {
 	)
 	if err != nil {
 		// No existing CNI configs found, fall back to our embedded default bridge config.
-		log.V(1).Info("no CNI configs found in config directory, using fallback bridge config", "confDir", defaultCNIConfDir)
+		log.V(1).Info("CNI initialization from config directory failed, using fallback bridge config", "confDir", defaultCNIConfDir, "error", err)
 		cni, err = gocni.New(
 			gocni.WithPluginDir([]string{defaultCNIBinDir}),
 			gocni.WithConfListBytes([]byte(fallbackBridgeConflist)),
@@ -260,14 +258,15 @@ func (c *Config) createContainer(ctx context.Context, image containerd.Image, ac
 		oci.WithEnv(conv.ParseEnv(action.Env)),
 	}
 
-	// Only override CMD if Cmd or Args are specified, preserving the image's ENTRYPOINT
-	if action.Cmd != "" || len(action.Args) > 0 {
-		specOpts = append(specOpts, withCmd(action.Cmd, action.Args...))
+	if action.Cmd != "" {
+		specOpts = append(specOpts, oci.WithProcessArgs(append([]string{action.Cmd}, action.Args...)...))
+	} else if len(action.Args) > 0 {
+		specOpts = append(specOpts, oci.WithImageConfigArgs(image, action.Args))
 	}
 
 	// Add volume mounts
 	if len(action.Volumes) > 0 {
-		mounts := conv.ParseVolumes(action.Volumes)
+		mounts := parseVolumes(action.Volumes)
 		if len(mounts) > 0 {
 			specOpts = append(specOpts, oci.WithMounts(mounts))
 			c.Log.V(1).Info("volume mounts configured", "count", len(mounts))
@@ -293,35 +292,9 @@ func (c *Config) createContainer(ctx context.Context, image containerd.Image, ac
 	return c.Client.NewContainer(ctx, name, newOpts...)
 }
 
-// withCmd sets the CMD portion of the container's process args, preserving the ENTRYPOINT.
-// This mimics Docker's behavior where CMD provides default arguments to ENTRYPOINT.
-func withCmd(cmd string, args ...string) oci.SpecOpts {
-	return func(_ context.Context, _ oci.Client, _ *containers.Container, s *specs.Spec) error {
-		if s.Process == nil {
-			s.Process = &specs.Process{}
-		}
-
-		// Build the new CMD args
-		var cmdArgs []string
-		if cmd != "" {
-			cmdArgs = append([]string{cmd}, args...)
-		} else {
-			cmdArgs = args
-		}
-
-		if len(s.Process.Args) == 0 {
-			// No entrypoint from image, CMD becomes the full command
-			s.Process.Args = cmdArgs
-		} else {
-			// Preserve entrypoint (first element), replace CMD with our args
-			entrypoint := s.Process.Args[0]
-			s.Process.Args = append([]string{entrypoint}, cmdArgs...)
-		}
-		return nil
-	}
-}
-
-// isIPForwardingEnabled enables IPv4 forwarding which is required for CNI bridge
+// isIPForwardingEnabled reports whether IPv4 forwarding is enabled.
+//
+// IPv4 forwarding is required for CNI bridge
 // networking with NAT/masquerade to work properly.
 func isIPForwardingEnabled(log logr.Logger) (bool, error) {
 	const ipForwardPath = "/proc/sys/net/ipv4/ip_forward"
