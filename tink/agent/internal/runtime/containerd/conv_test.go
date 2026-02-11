@@ -48,7 +48,7 @@ func TestParseVolume(t *testing.T) {
 				Type:        "bind",
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "ro", "noexec"},
+				Options:     []string{"rbind", "noexec", "ro"},
 			},
 		},
 		"relative source with dot prefix": {
@@ -99,12 +99,21 @@ func TestParseVolume(t *testing.T) {
 			},
 		},
 		"options with whitespace trimmed": {
-			volume: "/host/path:/container/path: ro , rw ",
+			volume: "/host/path:/container/path: ro , noexec ",
 			want: &specs.Mount{
 				Type:        "bind",
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "ro", "rw"},
+				Options:     []string{"rbind", "noexec", "ro"},
+			},
+		},
+		"conflicting ro and rw uses last wins": {
+			volume: "/host/path:/container/path:ro,rw",
+			want: &specs.Mount{
+				Type:        "bind",
+				Source:      "/host/path",
+				Destination: "/container/path",
+				Options:     []string{"rbind", "rw"},
 			},
 		},
 		"whitespace-only option is filtered": {

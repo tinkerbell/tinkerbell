@@ -57,13 +57,15 @@ func parseVolume(log logr.Logger, volume string) *specs.Mount {
 	if len(parts) >= 3 {
 		opts := strings.Split(parts[2], ",")
 		options = []string{"rbind"}
+		// Track the last-specified ro/rw option (last-wins, matching Linux mount behavior).
+		rwMode := ""
 		for _, opt := range opts {
 			trimmed := strings.TrimSpace(opt)
 			switch trimmed {
 			case "ro":
-				options = append(options, "ro")
+				rwMode = "ro"
 			case "rw":
-				options = append(options, "rw")
+				rwMode = "rw"
 			default:
 				// Pass through other options
 				if trimmed != "" {
@@ -71,17 +73,11 @@ func parseVolume(log logr.Logger, volume string) *specs.Mount {
 				}
 			}
 		}
-		// Ensure we have rw or ro
-		hasRWOption := false
-		for _, opt := range options {
-			if opt == "rw" || opt == "ro" {
-				hasRWOption = true
-				break
-			}
+		// Default to rw if neither ro nor rw was specified.
+		if rwMode == "" {
+			rwMode = "rw"
 		}
-		if !hasRWOption {
-			options = append(options, "rw")
-		}
+		options = append(options, rwMode)
 	}
 
 	return &specs.Mount{

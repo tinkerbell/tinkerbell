@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"syscall"
 	"time"
 
 	gocni "github.com/containerd/go-cni"
@@ -221,24 +222,25 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	c.Log.V(1).Info("network configuration", "useHostNetwork", useHostNetwork, "cniAvailable", c.CNI != nil, "networkNamespace", a.Namespaces.Network)
 	if !useHostNetwork && c.CNI != nil {
 		netns := fmt.Sprintf("/proc/%d/ns/net", task.Pid())
-		if _, err := c.CNI.Setup(ctx, containerID, netns); err != nil {
-			c.Log.Error(err, "failed to setup CNI network, container will have no network")
+		_, cniSetupErr := c.CNI.Setup(ctx, containerID, netns)
+		// Always attempt to remove the CNI network, even if setup returned an error,
+		// to avoid leaking any partially configured resources.
+		defer func() {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := c.CNI.Remove(cleanupCtx, containerID, netns); err != nil {
+				c.Log.Error(err, "failed to remove CNI network", "container", containerID)
+			}
+		}()
+		if cniSetupErr != nil {
+			c.Log.Error(cniSetupErr, "failed to setup CNI network, container will have no network")
 			// If CNI setup fails, we continue - the container will have no network
 			// but this is better than failing completely. The error is logged for debugging.
 		} else {
 			c.Log.V(1).Info("CNI network setup complete", "container", containerID, "netns", netns)
-			defer func() {
-				// Use a background context for cleanup so teardown completes
-				// even if the parent context has been canceled.
-				cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				if err := c.CNI.Remove(cleanupCtx, containerID, netns); err != nil {
-					c.Log.Error(err, "failed to remove CNI network", "container", containerID)
-				}
-			}()
 		}
 	} else if !useHostNetwork && c.CNI == nil {
-		c.Log.Info("WARNING: CNI not available, container will have isolated network with no connectivity")
+		c.Log.Info("CNI not available, container will have isolated network with no connectivity")
 	}
 
 	var statusC <-chan containerd.ExitStatus
@@ -253,11 +255,21 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 		return fmt.Errorf("error starting task: %w", err)
 	}
 
-	exitStatus := <-statusC
-	if exitStatus.ExitCode() != 0 {
-		return fmt.Errorf("task exited with non-zero code: %d, error: %w", exitStatus.ExitCode(), exitStatus.Error())
+	select {
+	case exitStatus := <-statusC:
+		if exitStatus.ExitCode() != 0 {
+			return fmt.Errorf("task exited with non-zero code: %d, error: %w", exitStatus.ExitCode(), exitStatus.Error())
+		}
+		return nil
+	case <-ctx.Done():
+		// Context was cancelled; kill the task and wait for it to exit.
+		if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
+			c.Log.Error(err, "failed to kill task after context cancellation")
+		}
+		// Drain the exit status channel so deferred cleanup can proceed.
+		<-statusC
+		return fmt.Errorf("context cancelled while waiting for task: %w", ctx.Err())
 	}
-	return nil
 }
 
 func (c *Config) createContainer(ctx context.Context, image containerd.Image, action spec.Action, useHostNetwork bool) (containerd.Container, error) {
@@ -338,6 +350,9 @@ func withEntrypointOverride(image containerd.Image, cmd string) oci.SpecOpts {
 		}
 
 		// Replace entrypoint with action.Cmd, keep image CMD
+		if s.Process == nil {
+			s.Process = &specs.Process{}
+		}
 		s.Process.Args = append([]string{cmd}, ociimage.Config.Cmd...)
 
 		return nil
