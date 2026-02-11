@@ -28,6 +28,7 @@ require (
 	github.com/jaypipes/ghw v0.23.0
 	github.com/nats-io/nats.go v1.48.0
 	github.com/oklog/ulid/v2 v2.1.1
+	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/runtime-spec v1.3.0
 	github.com/peterbourgon/ff/v4 v4.0.0-beta.1
 	github.com/pin/tftp/v3 v3.1.0
@@ -190,7 +191,6 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/opencontainers/cgroups v0.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opencontainers/selinux v1.13.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7 // indirect

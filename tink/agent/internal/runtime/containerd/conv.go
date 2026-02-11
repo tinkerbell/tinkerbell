@@ -58,15 +58,16 @@ func parseVolume(log logr.Logger, volume string) *specs.Mount {
 		opts := strings.Split(parts[2], ",")
 		options = []string{"rbind"}
 		for _, opt := range opts {
-			switch strings.TrimSpace(opt) {
+			trimmed := strings.TrimSpace(opt)
+			switch trimmed {
 			case "ro":
 				options = append(options, "ro")
 			case "rw":
 				options = append(options, "rw")
 			default:
 				// Pass through other options
-				if opt != "" {
-					options = append(options, strings.TrimSpace(opt))
+				if trimmed != "" {
+					options = append(options, trimmed)
 				}
 			}
 		}

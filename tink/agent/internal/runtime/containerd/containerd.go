@@ -2,6 +2,7 @@ package containerd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -9,6 +10,9 @@ import (
 	gocni "github.com/containerd/go-cni"
 
 	containerd "github.com/containerd/containerd/v2/client"
+	"github.com/containerd/containerd/v2/core/containers"
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
@@ -16,6 +20,7 @@ import (
 	"github.com/containers/image/v5/pkg/shortnames"
 	"github.com/containers/image/v5/types"
 	"github.com/go-logr/logr"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/pkg/conv"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
@@ -274,8 +279,9 @@ func (c *Config) createContainer(ctx context.Context, image containerd.Image, ac
 		// Both specified: override entrypoint and cmd
 		specOpts = append(specOpts, oci.WithProcessArgs(append([]string{action.Cmd}, action.Args...)...))
 	case action.Cmd != "":
-		// Only entrypoint override: use Cmd as the sole process arg
-		specOpts = append(specOpts, oci.WithProcessArgs(action.Cmd))
+		// Only entrypoint override: replace entrypoint but keep image CMD.
+		// This mirrors Docker behavior where setting Entrypoint alone preserves CMD.
+		specOpts = append(specOpts, withEntrypointOverride(image, action.Cmd))
 	case len(action.Args) > 0:
 		// Only args override: keep image ENTRYPOINT, replace CMD
 		specOpts = append(specOpts, oci.WithImageConfigArgs(image, action.Args))
@@ -307,6 +313,35 @@ func (c *Config) createContainer(ctx context.Context, image containerd.Image, ac
 	newOpts = append(newOpts, containerd.WithNewSpec(specOpts...))
 
 	return c.Client.NewContainer(ctx, name, newOpts...)
+}
+
+// withEntrypointOverride returns an oci.SpecOpts that overrides the image's ENTRYPOINT
+// with the given command while preserving the image's CMD. This mirrors Docker's behavior
+// where setting only the Entrypoint preserves the existing CMD from the image config.
+func withEntrypointOverride(image containerd.Image, cmd string) oci.SpecOpts {
+	return func(ctx context.Context, _ oci.Client, _ *containers.Container, s *oci.Spec) error {
+		ic, err := image.Config(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get image config: %w", err)
+		}
+		if !images.IsConfigType(ic.MediaType) {
+			return fmt.Errorf("unknown image config media type %s", ic.MediaType)
+		}
+
+		var ociimage v1.Image
+		imageConfigBytes, err := content.ReadBlob(ctx, image.ContentStore(), ic)
+		if err != nil {
+			return fmt.Errorf("failed to read image config: %w", err)
+		}
+		if err := json.Unmarshal(imageConfigBytes, &ociimage); err != nil {
+			return fmt.Errorf("failed to unmarshal image config: %w", err)
+		}
+
+		// Replace entrypoint with action.Cmd, keep image CMD
+		s.Process.Args = append([]string{cmd}, ociimage.Config.Cmd...)
+
+		return nil
+	}
 }
 
 // isIPForwardingEnabled reports whether IPv4 forwarding is enabled.

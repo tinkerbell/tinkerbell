@@ -107,6 +107,15 @@ func TestParseVolume(t *testing.T) {
 				Options:     []string{"rbind", "ro", "rw"},
 			},
 		},
+		"whitespace-only option is filtered": {
+			volume: "/host/path:/container/path: ",
+			want: &specs.Mount{
+				Type:        "bind",
+				Source:      "/host/path",
+				Destination: "/container/path",
+				Options:     []string{"rbind", "rw"},
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
