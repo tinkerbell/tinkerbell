@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 )
@@ -16,10 +17,10 @@ import (
 // Examples:
 //   - /etc/data:/data:ro     - Read-only bind mount
 //   - /tmp/work:/work        - Read-write bind mount (default)
-func parseVolumes(volumes []spec.Volume) []specs.Mount {
+func parseVolumes(log logr.Logger, volumes []spec.Volume) []specs.Mount {
 	var mounts []specs.Mount
 	for _, v := range volumes {
-		mount := parseVolume(string(v))
+		mount := parseVolume(log, string(v))
 		if mount != nil {
 			mounts = append(mounts, *mount)
 		}
@@ -28,17 +29,24 @@ func parseVolumes(volumes []spec.Volume) []specs.Mount {
 }
 
 // parseVolume parses a single volume string into a specs.Mount.
-func parseVolume(volume string) *specs.Mount {
+func parseVolume(log logr.Logger, volume string) *specs.Mount {
 	parts := strings.SplitN(volume, ":", 3)
 	if len(parts) < 2 {
+		log.V(1).Info("invalid volume format, must be at least source:destination, skipping", "volume", volume)
 		return nil
 	}
 
 	source := parts[0]
 	destination := parts[1]
+	// Destination (container path) must be non-empty and absolute.
+	if destination == "" || !filepath.IsAbs(destination) {
+		log.V(1).Info("invalid volume destination, must be non-empty and absolute, skipping", "volume", volume)
+		return nil
+	}
 
 	if !filepath.IsAbs(source) && !strings.HasPrefix(source, ".") {
 		// Skip named volumes - not supported without a volume manager
+		log.V(1).Info("skipping named volume, only bind mounts with absolute or relative paths are supported", "volume", volume)
 		return nil
 	}
 

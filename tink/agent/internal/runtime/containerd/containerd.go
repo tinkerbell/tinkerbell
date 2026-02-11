@@ -126,7 +126,7 @@ func NewConfig(log logr.Logger, opts ...Opt) (*Config, error) {
 		c.Client = client
 	}
 
-	if c.CNI != nil {
+	if c.CNI == nil {
 		// Initialize CNI for bridge networking.
 		// First, try to load existing CNI configs from the standard config directory.
 		// This allows HookOS or users to provide their own CNI configuration with custom subnets.
@@ -265,15 +265,25 @@ func (c *Config) createContainer(ctx context.Context, image containerd.Image, ac
 		oci.WithEnv(conv.ParseEnv(action.Env)),
 	}
 
-	if action.Cmd != "" {
+	// Replicate Docker's Entrypoint/Cmd semantics:
+	// - action.Cmd maps to Docker's Entrypoint (the binary to run)
+	// - action.Args maps to Docker's Cmd (arguments to the entrypoint)
+	// In OCI spec, Process.Args = Entrypoint + Cmd combined.
+	switch {
+	case action.Cmd != "" && len(action.Args) > 0:
+		// Both specified: override entrypoint and cmd
 		specOpts = append(specOpts, oci.WithProcessArgs(append([]string{action.Cmd}, action.Args...)...))
-	} else if len(action.Args) > 0 {
+	case action.Cmd != "":
+		// Only entrypoint override: use Cmd as the sole process arg
+		specOpts = append(specOpts, oci.WithProcessArgs(action.Cmd))
+	case len(action.Args) > 0:
+		// Only args override: keep image ENTRYPOINT, replace CMD
 		specOpts = append(specOpts, oci.WithImageConfigArgs(image, action.Args))
 	}
 
 	// Add volume mounts
 	if len(action.Volumes) > 0 {
-		mounts := parseVolumes(action.Volumes)
+		mounts := parseVolumes(c.Log, action.Volumes)
 		if len(mounts) > 0 {
 			specOpts = append(specOpts, oci.WithMounts(mounts))
 			c.Log.V(1).Info("volume mounts configured", "count", len(mounts))
