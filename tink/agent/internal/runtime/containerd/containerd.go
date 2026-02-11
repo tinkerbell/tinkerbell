@@ -208,14 +208,29 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	if err != nil {
 		return fmt.Errorf("error creating container: %w", err)
 	}
-	defer func() { _ = tainer.Delete(ctx, containerd.WithSnapshotCleanup) }()
+	defer func() {
+		dctx, cancel := context.WithTimeout(namespaces.WithNamespace(context.Background(), c.Namespace), 10*time.Second)
+		if err := tainer.Delete(dctx, containerd.WithSnapshotCleanup); err != nil {
+			c.Log.Info("failed to delete container", "container", tainer.ID(), "error", err)
+		}
+		cancel()
+	}()
 
 	// create the task
 	task, err := tainer.NewTask(ctx, cio.NewCreator(cio.WithStdio))
 	if err != nil {
 		return fmt.Errorf("error creating task: %w", err)
 	}
-	defer func() { _, _ = task.Delete(ctx) }()
+	defer func() {
+		dctx, cancel := context.WithTimeout(namespaces.WithNamespace(context.Background(), c.Namespace), 10*time.Second)
+		status, err := task.Delete(dctx)
+		if err != nil {
+			c.Log.Info("failed to delete task", "task", task.ID(), "error", err)
+		} else {
+			c.Log.V(1).Info("task deleted", "task", task.ID(), "status", status)
+		}
+		cancel()
+	}()
 
 	// Setup CNI networking if not using host network
 	containerID := tainer.ID()
@@ -226,11 +241,11 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 		// Always attempt to remove the CNI network, even if setup returned an error,
 		// to avoid leaking any partially configured resources.
 		defer func() {
-			cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
+			cleanupCtx, cancel := context.WithTimeout(namespaces.WithNamespace(context.Background(), c.Namespace), 10*time.Second)
 			if err := c.CNI.Remove(cleanupCtx, containerID, netns); err != nil {
-				c.Log.Error(err, "failed to remove CNI network", "container", containerID)
+				c.Log.Info("failed to remove CNI network", "container", containerID, "error", err)
 			}
+			cancel()
 		}()
 		if cniSetupErr != nil {
 			c.Log.Error(cniSetupErr, "failed to setup CNI network, container will have no network")
