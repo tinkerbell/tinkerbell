@@ -131,5 +131,110 @@ spec:
       - powerAction: "reset"
 ```
 
-[PREPARING Reference](/tink/controller/internal/workflow/pre.go#L158)  
+[PREPARING Reference](/tink/controller/internal/workflow/pre.go#L158)
 [POST Reference](/tink/controller/internal/workflow/post.go#L61)
+
+#### Example: PXE Boot with customboot
+
+The `customboot` mode can replicate the `netboot` behavior while allowing additional customization. This is useful when you need fine-grained control over the boot sequence:
+
+```yaml
+apiVersion: "tinkerbell.org/v1alpha1"
+kind: Workflow
+metadata:
+  name: example-pxe-boot
+spec:
+  templateRef: example
+  hardwareRef: example
+  bootOptions:
+    bootMode: customboot
+    custombootConfig:
+      preparingActions:
+      - powerAction: "off"
+      - bootDevice:
+          device: "pxe"
+          efiBoot: true  # Set based on your hardware requirements
+      - powerAction: "on"
+      postActions:
+      - powerAction: "off"
+      - bootDevice:
+          device: "disk"
+          persistent: true
+          efiBoot: true
+      - powerAction: "on"
+```
+
+This configuration will:
+1. Power off the machine
+2. Set the next boot device to PXE
+3. Power on the machine (boots from network)
+4. After workflow completion, power off the machine
+5. Set boot device back to disk persistently
+6. Power on the machine to boot from disk
+
+### Templating in customboot
+
+The `customboot` mode supports Go template syntax in action fields, enabling dynamic configuration based on Hardware specifications. This is particularly useful for virtual media URLs that need to include the Machine's MAC address.
+
+#### Available Template Data
+
+Templates have access to the full Hardware specification through the `.Hardware` variable:
+
+- `{{ (index .Hardware.Interfaces 0).DHCP.MAC }}` - First interface MAC address in colon format (e.g., `52:54:00:12:34:01`)
+- `{{ (index .Hardware.Interfaces 1).DHCP.MAC }}` - Second interface MAC address, etc.
+
+#### Template Functions
+
+Templates support [Sprig hermetic functions](https://masterminds.github.io/sprig/) for string manipulation and more:
+
+- `replace` - String replacement (e.g., `replace ":" "-"` converts colons to dashes)
+- `upper`, `lower` - Case conversion
+- `trim`, `trimPrefix`, `trimSuffix` - String trimming
+- And many more...
+
+#### Example: Virtual Media with MAC-based URL
+
+The most common use case is mounting a virtual CD-ROM with a URL that includes the Machine's MAC address:
+
+```yaml
+apiVersion: "tinkerbell.org/v1alpha1"
+kind: Workflow
+metadata:
+  name: example-iso-boot
+spec:
+  templateRef: example
+  hardwareRef: example
+  bootOptions:
+    bootMode: customboot
+    custombootConfig:
+      preparingActions:
+      - powerAction: "off"
+      - virtualMediaAction:
+          # Template the MAC address in dash-separated format for ISO URL
+          mediaURL: 'http://172.17.1.1:7171/iso/{{ (index .Hardware.Interfaces 0).DHCP.MAC | replace ":" "-" }}/hook.iso'
+          kind: "CD"
+      - bootDevice:
+          device: "cdrom"
+          efiBoot: true
+      - powerAction: "on"
+      postActions:
+      - powerAction: "off"
+      - virtualMediaAction:
+          mediaURL: ""  # Eject the ISO
+          kind: "CD"
+      - bootDevice:
+          device: "disk"
+          persistent: true
+          efiBoot: true
+      - powerAction: "on"
+```
+
+For a Hardware resource with MAC address `aa:bb:cc:dd:ee:ff`, the template would expand to:
+
+```
+http://172.17.1.1:7171/iso/aa-bb-cc-dd-ee-ff/hook.iso
+```
+
+#### Template Error Handling
+
+If a template fails to parse or execute (e.g., accessing an interface that doesn't exist), the Workflow will transition to the `FAILED` state with an appropriate error message in the Workflow status conditions.

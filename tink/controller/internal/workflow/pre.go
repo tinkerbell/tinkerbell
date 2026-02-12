@@ -1,10 +1,13 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
@@ -155,7 +158,31 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPreparing, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode customboot preparing")
-			r, err := s.handleJob(ctx, s.workflow.Spec.BootOptions.CustombootConfig.PreparingActions, name)
+			hw, err := hardwareFrom(ctx, s.client, s.workflow)
+			if err != nil {
+				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+					Type:    v1alpha1.BootJobSetupFailed,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Error",
+					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
+					Time:    &metav1.Time{Time: metav1.Now().UTC()},
+				})
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
+			}
+			actions, err := templateActions(s.workflow.Spec.BootOptions.CustombootConfig.PreparingActions, hw)
+			if err != nil {
+				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+					Type:    v1alpha1.BootJobSetupFailed,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Error",
+					Message: fmt.Sprintf("failed to template actions: %s", err.Error()),
+					Time:    &metav1.Time{Time: metav1.Now().UTC()},
+				})
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return reconcile.Result{}, fmt.Errorf("failed to template actions: %w", err)
+			}
+			r, err := s.handleJob(ctx, actions, name)
 			if err != nil {
 				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 				return r, err
@@ -170,4 +197,64 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	return reconcile.Result{}, nil
+}
+
+// templateData holds data available for templating in customboot actions.
+type templateData struct {
+	// Hardware embeds HardwareSpec to expose Interfaces at the top level.
+	Hardware struct {
+		v1alpha1.HardwareSpec
+	}
+}
+
+// templateActions processes BMC actions and templates any string fields that contain Go template syntax.
+// Currently supports templating of VirtualMediaAction.MediaURL field.
+//
+// Available template data:
+//   - {{ (index .Hardware.Interfaces 0).DHCP.MAC }}: MAC address (colon format, e.g., "52:54:00:12:34:01")
+//   - {{ (index .Hardware.Interfaces 0).DHCP.MAC | replace ":" "-" }}: MAC in dash format (e.g., "52-54-00-12-34-01")
+func templateActions(actions []bmc.Action, hw *v1alpha1.Hardware) ([]bmc.Action, error) {
+	if hw == nil {
+		return actions, nil
+	}
+
+	// Build template data by embedding HardwareSpec
+	data := templateData{}
+	data.Hardware.HardwareSpec = hw.Spec
+
+	// Process each action
+	result := make([]bmc.Action, len(actions))
+	for i, action := range actions {
+		result[i] = action
+
+		// Template VirtualMediaAction.MediaURL if present
+		if action.VirtualMediaAction != nil {
+			templated, err := templateString(action.VirtualMediaAction.MediaURL, data)
+			if err != nil {
+				return nil, fmt.Errorf("failed to template VirtualMediaAction.MediaURL: %w", err)
+			}
+			// Create a copy to avoid modifying the original
+			vmAction := *action.VirtualMediaAction
+			vmAction.MediaURL = templated
+			result[i].VirtualMediaAction = &vmAction
+		}
+	}
+
+	return result, nil
+}
+
+// templateString executes a Go template string with the provided data.
+func templateString(tmplStr string, data templateData) (string, error) {
+	// Use Sprig hermetic functions for template operations (includes replace, etc.)
+	tmpl, err := template.New("action").Funcs(sprig.HermeticTxtFuncMap()).Parse(tmplStr)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }

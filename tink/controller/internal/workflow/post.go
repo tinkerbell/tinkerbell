@@ -58,7 +58,17 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPost, s.workflow.GetName()))
 		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
 			journal.Log(ctx, "boot mode customboot post")
-			r, err := s.handleJob(ctx, s.workflow.Spec.BootOptions.CustombootConfig.PostActions, name)
+			hw, err := hardwareFrom(ctx, s.client, s.workflow)
+			if err != nil {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
+			}
+			actions, err := templateActions(s.workflow.Spec.BootOptions.CustombootConfig.PostActions, hw)
+			if err != nil {
+				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+				return reconcile.Result{}, fmt.Errorf("failed to template post actions: %w", err)
+			}
+			r, err := s.handleJob(ctx, actions, name)
 			if err != nil {
 				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
 				return r, err
