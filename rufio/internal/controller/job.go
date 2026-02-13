@@ -27,6 +27,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
@@ -223,7 +224,7 @@ func (r *JobReconciler) patchStatus(ctx context.Context, job *bmc.Job, patch cli
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts ctrlcontroller.Options) error {
 	if err := mgr.GetFieldIndexer().IndexField(
 		ctx,
 		&bmc.Task{},
@@ -234,6 +235,7 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(opts).
 		For(&bmc.Job{}).
 		Watches(
 			&bmc.Task{},

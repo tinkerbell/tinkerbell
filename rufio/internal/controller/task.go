@@ -27,6 +27,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
 const powerActionRequeueAfter = 3 * time.Second
@@ -293,8 +294,9 @@ func (r *TaskReconciler) patchStatus(ctx context.Context, task *bmc.Task, patch 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *TaskReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *TaskReconciler) SetupWithManager(mgr ctrl.Manager, opts ctrlcontroller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(opts).
 		For(&bmc.Task{}).
 		Complete(r)
 }
