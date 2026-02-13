@@ -26,6 +26,8 @@ go.work.sum
 
 # local binaries
 out/
+bin/
+dist/
 
 # Go coverage profile
 coverage.txt

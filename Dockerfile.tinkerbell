@@ -1,10 +1,36 @@
-FROM --platform=$BUILDPLATFORM alpine:3.23
-
+FROM --platform=$TARGETOS/$TARGETARCH alpine:3.23 AS ipmitool
 ARG TARGETOS
 ARG TARGETARCH
 
-# Install ipmitool needed for bmclib.
-RUN apk add --upgrade ipmitool=1.8.19-r1
+# Build dependencies for static ipmitool
+RUN apk add --no-cache \
+    git autoconf automake ca-certificates libtool make gcc g++ musl-dev \
+    openssl-dev openssl-libs-static readline-dev readline-static \
+    ncurses-static ncurses-dev zlib-static file
 
-COPY out/tinkerbell-${TARGETOS}-${TARGETARCH} /tinkerbell
-ENTRYPOINT [ "/tinkerbell" ]
+WORKDIR /build
+RUN git clone https://github.com/ipmitool/ipmitool.git .
+
+# Build static binary (requires -all-static flag for truly static linking)
+RUN ./bootstrap && \
+    CFLAGS="-Wno-error=incompatible-pointer-types" ./configure \
+        --enable-static --disable-shared --prefix=/usr && \
+    make -j$(nproc) && cd src && \
+    /bin/sh ../libtool --silent --tag=CC --mode=link gcc \
+        -fno-strict-aliasing -Wreturn-type -all-static \
+        -o ipmitool.static \
+        ipmitool.o ipmishell.o ../lib/libipmitool.la plugins/libintf.la \
+        -lcrypto -lreadline -lncurses && \
+    strip ipmitool.static && \
+    file ipmitool.static
+
+FROM scratch
+ARG BINARY
+ARG TARGETOS
+ARG TARGETARCH
+
+COPY ${TARGETOS}/${TARGETARCH}/${BINARY:-tinkerbell} /tinkerbell
+COPY --from=ipmitool /build/src/ipmitool.static /usr/sbin/ipmitool
+COPY --from=ipmitool /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+ENTRYPOINT ["/tinkerbell"]
