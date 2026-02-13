@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	gocni "github.com/containerd/go-cni"
 
 	containerd "github.com/containerd/containerd/v2/client"
@@ -165,10 +166,10 @@ func NewConfig(log logr.Logger, opts ...Opt) (*Config, error) {
 	if c.CNI != nil {
 		enabled, err := isIPForwardingEnabled(log)
 		if err != nil {
-			log.V(1).Info("unable to check for IP forwarding, CNI bridge NAT may not work", "error", err)
+			log.Info("unable to check for IP forwarding, CNI bridge NAT may not work", "error", err)
 		}
 		if !enabled {
-			log.V(1).Info("IP forwarding is disabled, CNI bridge NAT will not work. Container network may have no external connectivity.")
+			log.Info("IP forwarding is disabled, CNI bridge NAT will not work. Container network may have no external connectivity.")
 		}
 	}
 
@@ -191,11 +192,19 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	image, err := c.Client.GetImage(ctx, imageName)
 	if err != nil {
 		// if the image isn't already in our namespaced context, then pull it
-		image, err = c.Client.Pull(ctx, imageName, containerd.WithPullUnpack, containerd.WithResolver(docker.NewResolver(docker.ResolverOptions{})))
-		if err != nil {
-			return fmt.Errorf("error pulling image: %w", err)
+		pullImage := func() error {
+			image, err = c.Client.Pull(ctx, imageName, containerd.WithPullUnpack, containerd.WithResolver(docker.NewResolver(docker.ResolverOptions{})))
+			if err != nil {
+				return fmt.Errorf("error pulling image: %w", err)
+			}
+			c.Log.V(1).Info("image pulled", "image", image.Name())
+
+			return nil
 		}
-		c.Log.V(1).Info("image pulled", "image", image.Name())
+		err := retry.Do(pullImage, retry.Attempts(5), retry.Delay(2*time.Second), retry.MaxDelay(10*time.Second), retry.DelayType(retry.BackOffDelay))
+		if err != nil {
+			return err
+		}
 	}
 
 	// Determine network mode.
@@ -278,9 +287,11 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 		return nil
 	case <-ctx.Done():
 		// Context was cancelled; kill the task and wait for it to exit.
-		if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
+		kctx, cancel := context.WithTimeout(namespaces.WithNamespace(context.Background(), c.Namespace), 10*time.Second)
+		if err := task.Kill(kctx, syscall.SIGKILL); err != nil {
 			c.Log.Error(err, "failed to kill task after context cancellation")
 		}
+		cancel()
 		// Drain the exit status channel so deferred cleanup can proceed.
 		<-statusC
 		return fmt.Errorf("context cancelled while waiting for task: %w", ctx.Err())
