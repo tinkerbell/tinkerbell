@@ -17,6 +17,7 @@ func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
 	fs.Register(TinkControllerLeaderElectionNamespace, ffval.NewValueDefault(&t.Config.LeaderElectionNamespace, t.Config.LeaderElectionNamespace))
 	fs.Register(TinkControllerMetricsAddr, &netip.AddrPort{AddrPort: &t.Config.MetricsAddr})
 	fs.Register(TinkControllerProbeAddr, &netip.AddrPort{AddrPort: &t.Config.ProbeAddr})
+	fs.Register(TinkControllerMaxConcurrentReconciles, ffval.NewValueDefault(&t.Config.MaxConcurrentReconciles, t.Config.MaxConcurrentReconciles))
 	fs.Register(TinkControllerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
 	fs.Register(TinkControllerReferenceAllowListRules, delimitedlist.New(&t.Config.ReferenceAllowListRules, '|'))
 	fs.Register(TinkControllerReferenceDenyListRules, delimitedlist.New(&t.Config.ReferenceDenyListRules, '|'))
@@ -55,4 +56,9 @@ var TinkControllerReferenceAllowListRules = Config{
 var TinkControllerReferenceDenyListRules = Config{
 	Name:  "tink-controller-reference-deny-list-rules",
 	Usage: "rules for which Hardware Reference objects are not accessible to Templates, defaults to deny all",
+}
+
+var TinkControllerMaxConcurrentReconciles = Config{
+	Name:  "tink-controller-max-concurrent-reconciles",
+	Usage: "maximum number of concurrent reconciles for tink controller",
 }

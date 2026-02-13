@@ -69,6 +69,8 @@ spec:
               value: {{ .Values.deployment.envs.rufio.bmcConnectTimeout | quote }}
             - name: TINKERBELL_RUFIO_POWER_CHECK_INTERVAL
               value: {{ .Values.deployment.envs.rufio.powerCheckInterval | quote }}
+            - name: TINKERBELL_RUFIO_MAX_CONCURRENT_RECONCILES
+              value: {{ .Values.deployment.envs.rufio.maxConcurrentReconciles | quote }}
           # TINK CONTROLLER
             - name: TINKERBELL_TINK_CONTROLLER_ENABLE_LEADER_ELECTION
               value: {{ .Values.deployment.envs.tinkController.enableLeaderElection | quote }}
@@ -80,6 +82,8 @@ spec:
               value: {{ .Values.deployment.envs.tinkController.metricsAddr | quote }}
             - name: TINKERBELL_TINK_CONTROLLER_PROBE_ADDR
               value: {{ .Values.deployment.envs.tinkController.probeAddr | quote }}
+            - name: TINKERBELL_TINK_CONTROLLER_MAX_CONCURRENT_RECONCILES
+              value: {{ .Values.deployment.envs.tinkController.maxConcurrentReconciles | quote }}
             - name: TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES
             {{- if .Values.deployment.envs.tinkController.referenceAllowListRules }}
               value: {{ .Values.deployment.envs.tinkController.referenceAllowListRules | toJson | quote }}
