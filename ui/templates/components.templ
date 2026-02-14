@@ -1,6 +1,6 @@
 package templates
 
-// Reusable detail components - Headlamp-style UI
+// Reusable detail components - UI
 templ DetailMainContent(resourceType, name, namespace, backLink string, content templ.Component) {
 	<div class="flex flex-col flex-1 min-h-0 min-w-0">
 		@Header()
@@ -22,7 +22,7 @@ templ BackLink(resourceType, backLink string) {
 	</a>
 }
 
-// SectionBox - Headlamp-style card container with title
+// SectionBox - card container with title
 templ SectionBox(title string) {
 	<div class="bg-white dark:bg-darkNav rounded-lg shadow-sm border border-gray-200 dark:border-darkBorder mb-6 max-w-full overflow-hidden">
 		<div class="border-b border-gray-200 dark:border-darkBorder px-6 py-4">
@@ -59,7 +59,7 @@ templ MainInfoHeader(name, status string) {
 	</div>
 }
 
-// NameValueTable - Headlamp-style key-value table
+// NameValueTable - key-value table
 templ NameValueTable(rows []InfoRow) {
 	<div class="overflow-x-auto">
 		<table class="min-w-full">
@@ -111,7 +111,7 @@ templ AnnotationChips(annotations map[string]string) {
 	}
 }
 
-// MetadataTable - Headlamp-style metadata display
+// MetadataTable - metadata display
 templ MetadataTable(name, namespace, createdAt string, labels, annotations map[string]string) {
 	<div class="overflow-x-auto">
 		<table class="min-w-full">
