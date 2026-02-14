@@ -8,6 +8,7 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/bmc-toolbox/bmclib/v2"
+	"github.com/bmc-toolbox/bmclib/v2/providers/homeassistant"
 	"github.com/bmc-toolbox/bmclib/v2/providers/rpc"
 	"github.com/ccoveille/go-safecast/v2"
 	"github.com/go-logr/logr"
@@ -104,6 +105,12 @@ func (b BMCOptions) Translate(host string) []bmclib.Option {
 		o = append(o, bmclib.WithRPCOpt(op))
 	}
 
+	// homeassistant options
+	if b.HomeAssistant != nil {
+		haConfig := b.translateHomeAssistant()
+		o = append(o, bmclib.WithHomeAssistantOpt(haConfig))
+	}
+
 	return o
 }
 
@@ -134,6 +141,15 @@ func (b BMCOptions) translateRPC(host string) rpc.Provider {
 	}
 
 	_ = mergo.Merge(&o, &defaults, mergo.WithOverride, mergo.WithTransformers(&rpc.Provider{}))
+
+	return o
+}
+
+func (b BMCOptions) translateHomeAssistant() homeassistant.Config {
+	o := homeassistant.Config{
+		SwitchEntityID:             b.HomeAssistant.SwitchEntityID,
+		PowerOperationDelaySeconds: b.HomeAssistant.PowerOperationDelaySeconds,
+	}
 
 	return o
 }
