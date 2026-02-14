@@ -1,0 +1,937 @@
+package templates
+
+// DashboardPage is the landing page showing all CRDs.
+templ DashboardPage(cfg PageConfig, data DashboardData) {
+	@Layout("Tinkerbell", cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@DashboardMainContent(data, cfg.BaseURL)
+		</div>
+	}
+}
+
+// Homepage is the main hardware listing page.
+templ Homepage(cfg PageConfig, hardwareData HardwarePageData) {
+	@Layout("Tinkerbell - Hardware", cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@MainContent(hardwareData, cfg.BaseURL)
+		</div>
+	}
+}
+
+// WorkflowPage is the workflows listing page.
+templ WorkflowPage(cfg PageConfig, workflowData WorkflowPageData) {
+	@Layout("Tinkerbell - Workflows", cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@WorkflowMainContent(workflowData, cfg.BaseURL)
+		</div>
+	}
+}
+
+// TemplatePage is the templates listing page.
+templ TemplatePage(cfg PageConfig, templateData TemplatePageData) {
+	@Layout("Tinkerbell - Templates", cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@TemplateMainContent(templateData, cfg.BaseURL)
+		</div>
+	}
+}
+
+// BMCMachinePage is the Machines listing page.
+templ BMCMachinePage(cfg PageConfig, machineData BMCMachinePageData) {
+	@Layout("Tinkerbell - Machines", cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@BMCMachineMainContent(machineData, cfg.BaseURL)
+		</div>
+	}
+}
+
+// BMCJobPage is the Jobs listing page.
+templ BMCJobPage(cfg PageConfig, jobData BMCJobPageData) {
+	@Layout("Tinkerbell - Jobs", cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@BMCJobMainContent(jobData, cfg.BaseURL)
+		</div>
+	}
+}
+
+// BMCTaskPage is the Tasks listing page.
+templ BMCTaskPage(cfg PageConfig, taskData BMCTaskPageData) {
+	@Layout("Tinkerbell - Tasks", cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@BMCTaskMainContent(taskData, cfg.BaseURL)
+		</div>
+	}
+}
+
+// WorkflowRuleSetPage is the workflowrulesets listing page.
+templ WorkflowRuleSetPage(cfg PageConfig, rulesetData WorkflowRuleSetPageData) {
+	@Layout("Tinkerbell - Workflow Rulesets", cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@WorkflowRuleSetMainContent(rulesetData, cfg.BaseURL)
+		</div>
+	}
+}
+
+// Detail Pages
+
+// HardwareDetailPage shows details for a specific hardware resource.
+templ HardwareDetailPage(cfg PageConfig, hw HardwareDetail) {
+	@Layout("Hardware - " + hw.Name, cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@DetailMainContent("Hardware", hw.Name, hw.Namespace, cfg.BaseURL + "/hardware", HardwareDetailContent(hw, cfg.BaseURL))
+		</div>
+	}
+}
+
+// WorkflowDetailPage shows details for a specific workflow.
+templ WorkflowDetailPage(cfg PageConfig, wf WorkflowDetail) {
+	@Layout("Workflow - " + wf.Name, cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@DetailMainContent("Workflows", wf.Name, wf.Namespace, cfg.BaseURL + "/workflows", WorkflowDetailContent(wf, cfg.BaseURL))
+		</div>
+	}
+}
+
+// TemplateDetailPage shows details for a specific template.
+templ TemplateDetailPage(cfg PageConfig, tpl TemplateDetail) {
+	@Layout("Template - " + tpl.Name, cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@DetailMainContent("Templates", tpl.Name, tpl.Namespace, cfg.BaseURL + "/templates", TemplateDetailContent(tpl, cfg.BaseURL))
+		</div>
+	}
+}
+
+// BMCMachineDetailPage shows details for a specific Machine.
+templ BMCMachineDetailPage(cfg PageConfig, machine BMCMachineDetail) {
+	@Layout("Machine - " + machine.Name, cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@DetailMainContent("Machines", machine.Name, machine.Namespace, cfg.BaseURL + "/bmc/machines", BMCMachineDetailContent(machine, cfg.BaseURL))
+		</div>
+	}
+}
+
+// BMCJobDetailPage shows details for a specific Job.
+templ BMCJobDetailPage(cfg PageConfig, job BMCJobDetail) {
+	@Layout("Job - " + job.Name, cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@DetailMainContent("Jobs", job.Name, job.Namespace, cfg.BaseURL + "/bmc/jobs", BMCJobDetailContent(job, cfg.BaseURL))
+		</div>
+	}
+}
+
+// BMCTaskDetailPage shows details for a specific Task.
+templ BMCTaskDetailPage(cfg PageConfig, task BMCTaskDetail) {
+	@Layout("Task - " + task.Name, cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@DetailMainContent("Tasks", task.Name, task.Namespace, cfg.BaseURL + "/bmc/tasks", BMCTaskDetailContent(task, cfg.BaseURL))
+		</div>
+	}
+}
+
+// WorkflowRuleSetDetailPage shows details for a specific workflowruleset.
+templ WorkflowRuleSetDetailPage(cfg PageConfig, rs WorkflowRuleSetDetail) {
+	@Layout("WorkflowRuleSet - " + rs.Name, cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			@DetailMainContent("Workflow Rulesets", rs.Name, rs.Namespace, cfg.BaseURL + "/workflows/rulesets", WorkflowRuleSetDetailContent(rs, cfg.BaseURL))
+		</div>
+	}
+}
+
+// NotFoundPage shows a styled 404 page for missing resources.
+templ NotFoundPage(cfg PageConfig, resourceType, resourceName, resourceNamespace, backLink, backLinkLabel, message string) {
+	@Layout("Not Found - " + resourceType, cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			<div class="flex flex-col flex-1 min-h-0 min-w-0">
+				@Header()
+				<div class="flex-1 overflow-y-auto overflow-x-hidden">
+					<div class="p-6 bg-gray-50 dark:bg-darkBg max-w-full">
+						@BackLink(backLinkLabel, backLink)
+						<div class="flex items-center justify-center min-h-[60vh]">
+							<div class="text-center max-w-md">
+								<div class="mx-auto h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-6">
+									<svg class="h-8 w-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+									</svg>
+								</div>
+								<h2 class="text-2xl font-light text-gray-900 dark:text-white mb-2">{ resourceType } Not Found</h2>
+								<p class="text-gray-600 dark:text-gray-400 mb-4">
+									The { resourceType } <span class="font-mono font-medium text-gray-900 dark:text-white">{ resourceNamespace }/{ resourceName }</span> does not exist.
+								</p>
+								if message != "" {
+									<p class="text-sm text-gray-500 dark:text-gray-500 mb-6">{ message }</p>
+								}
+								<a href={ templ.SafeURL(backLink) } class="inline-flex items-center px-4 py-2 bg-tink-teal-600 hover:bg-tink-teal-700 text-white font-medium rounded-lg transition-colors">
+									<svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+									</svg>
+									Back to { backLinkLabel }
+								</a>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// LoginPage is the service token login page.
+templ LoginPage(baseURL string) {
+	@Layout("Tinkerbell - Login", baseURL) {
+		<div class="min-h-screen flex flex-col bg-gray-50 dark:bg-darkBg">
+			<!-- Dark/Light mode toggle in top-right corner -->
+			<div class="fixed top-4 right-4 z-10">
+				@DarkModeToggle()
+			</div>
+			<!-- Scrollable content area -->
+			<div class="flex-1 overflow-y-auto flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+				<div class="max-w-md w-full space-y-8">
+				<!-- Logo -->
+				<div class="text-center">
+					<img 
+						src={ baseURL + "/artwork/Tinkerbell-Logo-Landscape-Dark-2.png" }
+						alt="Tinkerbell Logo"
+						class="h-16 w-auto dark:hidden mx-auto"
+					/>
+					<img 
+						src={ baseURL + "/artwork/Tinkerbell-Logo-Landscape-Light-2.png" }
+						alt="Tinkerbell Logo"
+						class="h-16 w-auto hidden dark:block mx-auto"
+					/>
+					<h2 class="mt-6 text-center text-3xl font-light text-gray-900 dark:text-white">
+						Sign In
+					</h2>
+				</div>
+
+				<!-- Login Form -->
+				<div class="mt-8 bg-white dark:bg-darkBorderSoft rounded-lg shadow px-4 py-5 sm:px-6">
+					<form id="loginForm" onsubmit="return handleLoginFormSubmit(event)" class="space-y-6">
+						<!-- API Server URL Input -->
+						<div>
+							<label for="apiServerInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Kubernetes API Server URL
+							</label>
+							<input 
+								id="apiServerInput"
+								name="apiServer"
+								type="text"
+							class="w-full px-3 py-2 border border-gray-300 dark:border-darkBorder rounded-lg shadow-sm focus:ring-tink-teal-500 focus:border-tink-teal-500 bg-white dark:bg-darkNav text-gray-900 dark:text-gray-100 text-sm placeholder-gray-400 dark:placeholder-gray-500"
+								placeholder="https://kubernetes.default.svc or https://192.168.1.1:6443"
+							/>
+						</div>
+
+						<!-- Token Input -->
+						<div>
+							<label for="tokenInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Service Account Token
+							</label>
+							<textarea 
+								id="tokenInput"
+								name="token"
+								rows="6"
+							class="w-full px-3 py-2 border border-gray-300 dark:border-darkBorder rounded-lg shadow-sm focus:ring-tink-teal-500 focus:border-tink-teal-500 bg-white dark:bg-darkNav text-gray-900 dark:text-gray-100 font-mono text-sm placeholder-gray-400 dark:placeholder-gray-500"
+								placeholder="Paste your service account token here..."
+							></textarea>
+						</div>
+					<!-- TLS Verification Checkbox -->
+					<div class="flex items-center">
+						<input 
+							id="insecureSkipVerify"
+							name="insecureSkipVerify"
+							type="checkbox"
+							class="h-4 w-4 text-tink-teal-600 focus:ring-tink-teal-500 border-gray-300 dark:border-darkBorder rounded"
+						/>
+						<label for="insecureSkipVerify" class="ml-2 flex items-center text-sm text-gray-700 dark:text-gray-300">
+							Skip TLS verification (insecure)
+							<div class="relative ml-1 group">
+								<svg class="w-4 h-4 text-gray-400 dark:text-gray-500 cursor-help" fill="currentColor" viewBox="0 0 20 20">
+									<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+								</svg>
+								<div class="absolute left-0 bottom-6 mb-1 hidden group-hover:block w-64 p-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded shadow-lg z-10">
+									⚠️ Warning: Disabling TLS verification exposes you to man-in-the-middle attacks. Only use this for development/testing with self-signed certificates.
+								</div>
+							</div>
+						</label>
+					</div>
+						<!-- Error Message -->
+						<div id="loginError" class="rounded-lg bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-800 hidden">
+							<div class="p-3">
+								<div class="flex items-center">
+									<svg class="w-5 h-5 text-red-600 dark:text-red-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+										<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+									</svg>
+									<p class="text-sm text-red-800 dark:text-red-200 flex-1" id="loginErrorMessage"></p>
+								</div>
+							</div>
+							<!-- Collapsible Details Section -->
+							<div id="loginErrorDetailsSection" class="hidden border-t border-red-300 dark:border-red-800">
+								<button 
+									type="button"
+									onclick="toggleErrorDetails()"
+									class="w-full px-3 py-2 text-left text-xs text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800 transition-colors flex items-center justify-between"
+								>
+									<span class="font-medium">Technical details</span>
+									<svg id="errorDetailsArrow" class="w-4 h-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+									</svg>
+								</button>
+								<div id="loginErrorDetails" class="max-h-0 overflow-hidden transition-all duration-200">
+									<div class="px-3 pb-3">
+										<code class="block text-xs bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-100 p-2 rounded font-mono whitespace-pre-wrap break-all"></code>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Success Message -->
+						<div id="loginSuccess" class="p-3 rounded-lg bg-green-100 dark:bg-green-900 border border-green-300 dark:border-green-800 hidden">
+							<div class="flex items-center">
+								<svg class="w-5 h-5 text-green-600 dark:text-green-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+									<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+								</svg>
+								<p class="text-sm text-green-800 dark:text-green-200" id="loginSuccessMessage"></p>
+							</div>
+						</div>
+
+						<!-- Submit Button -->
+						<button 
+							type="submit"
+							id="loginButton"
+							class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-tink-teal-600 hover:bg-tink-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tink-teal-500 dark:focus:ring-offset-darkBg transition-colors"
+						>
+							Sign in
+						</button>
+					</form>
+				</div>
+
+				<!-- Info -->
+				<div class="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
+					<p>Your token stays in your browser and is never saved on our servers.</p>
+				</div>
+
+				<!-- Collapsible Token Generation Instructions -->
+				<div class="mt-4">
+					<button 
+						type="button"
+						onclick="toggleTokenInstructions()"
+						aria-expanded="false"
+						aria-controls="tokenInstructions"
+						class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-darkBorderSoft rounded-lg hover:bg-gray-200 dark:hover:bg-darkBorder transition-colors"
+					>
+						<span class="flex items-center">
+							<!-- Help/Question icon -->
+							<svg class="w-5 h-5 mr-2 text-tink-teal-600 dark:text-tink-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+							</svg>
+							How to generate a token
+						</span>
+						<svg id="tokenInstructionsArrow" class="w-5 h-5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+						</svg>
+					</button>
+					<div id="tokenInstructions" class="overflow-hidden transition-all duration-300 ease-in-out max-h-0 opacity-0">
+						<div class="mt-3 space-y-4">
+							<!-- Step 1 -->
+							<div class="bg-white dark:bg-darkBorderSoft rounded-lg border border-gray-200 dark:border-darkBorder p-4">
+								<div class="flex items-start justify-between mb-2">
+									<div class="flex items-center">
+										<span class="flex items-center justify-center w-6 h-6 rounded-full bg-tink-teal-100 dark:bg-tink-teal-900 text-tink-teal-700 dark:text-tink-teal-300 text-xs font-bold mr-2">1</span>
+										<h5 class="text-sm font-semibold text-gray-900 dark:text-white">Create a ServiceAccount</h5>
+									</div>
+									<button onclick="copyToClipboard('step1-code', this)" class="copy-btn p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors" title="Copy to clipboard">
+										<svg class="w-4 h-4 copy-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+										</svg>
+										<svg class="w-4 h-4 check-icon hidden text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+										</svg>
+									</button>
+								</div>
+								<p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Creates a new service account that the dashboard will use to authenticate with your cluster.</p>
+								<code id="step1-code" class="block text-xs bg-gray-100 dark:bg-darkBg text-gray-800 dark:text-gray-200 p-2 rounded-md font-mono">kubectl create serviceaccount my-admin-sa --namespace=tinkerbell</code>
+							</div>
+
+							<!-- Step 2 -->
+							<div class="bg-white dark:bg-darkBorderSoft rounded-lg border border-gray-200 dark:border-darkBorder p-4">
+								<div class="flex items-center mb-2">
+									<span class="flex items-center justify-center w-6 h-6 rounded-full bg-tink-teal-100 dark:bg-tink-teal-900 text-tink-teal-700 dark:text-tink-teal-300 text-xs font-bold mr-2">2</span>
+									<h5 class="text-sm font-semibold text-gray-900 dark:text-white">Grant permissions</h5>
+								</div>
+								<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-2 mb-3">
+									<p class="text-xs text-yellow-800 dark:text-yellow-200">
+										<strong>Note:</strong> If you previously created a ClusterRoleBinding, delete it first with: 
+										<code class="bg-yellow-100 dark:bg-yellow-900/40 px-1 rounded">kubectl delete clusterrolebinding my-admin-sa-binding</code>
+									</p>
+								</div>
+								<p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Choose one of the following permission levels:</p>
+						
+						<!-- Cluster-wide access option -->
+						<div class="mt-3">
+							<div class="flex items-start justify-between mb-1">
+								<p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Cluster-wide access:</p>
+								<button onclick="copyToClipboard('step2-cluster-code', this)" class="copy-btn p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors cursor-pointer" title="Copy to clipboard">
+									<svg class="w-3.5 h-3.5 copy-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+									</svg>
+									<svg class="w-3.5 h-3.5 check-icon hidden text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+									</svg>
+								</button>
+							</div>
+							<code id="step2-cluster-code" class="block text-xs bg-gray-100 dark:bg-darkBg text-gray-800 dark:text-gray-200 p-2 rounded-md font-mono">kubectl create clusterrolebinding my-admin-sa-binding --clusterrole=cluster-admin --serviceaccount=tinkerbell:my-admin-sa</code>
+						</div>
+						
+						<!-- Namespace-specific access option -->
+						<div class="mt-3">
+							<div class="flex items-start justify-between mb-1">
+								<p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Or namespace-specific access (recommended):</p>
+								<button onclick="copyToClipboard('step2-namespace-code', this)" class="copy-btn p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors cursor-pointer" title="Copy to clipboard">
+									<svg class="w-3.5 h-3.5 copy-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+									</svg>
+									<svg class="w-3.5 h-3.5 check-icon hidden text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+									</svg>
+								</button>
+							</div>
+							<code id="step2-namespace-code" class="block text-xs bg-gray-100 dark:bg-darkBg text-gray-800 dark:text-gray-200 p-2 rounded-md font-mono whitespace-pre-wrap break-words">kubectl create role tinkerbell-admin --verb=get,list --resource=hardware.tinkerbell.org,templates.tinkerbell.org,workflows.tinkerbell.org,workflowrulesets.tinkerbell.org --resource=jobs.bmc.tinkerbell.org,machines.bmc.tinkerbell.org,tasks.bmc.tinkerbell.org --namespace=tinkerbell && kubectl create rolebinding my-admin-sa-binding --role=tinkerbell-admin --serviceaccount=tinkerbell:my-admin-sa --namespace=tinkerbell</code>
+							<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Note: Creates a custom role with Tinkerbell resource permissions.</p>
+						</div>
+					</div>
+
+					<!-- Step 3 -->
+					<div class="bg-white dark:bg-darkBorderSoft rounded-lg border border-gray-200 dark:border-darkBorder p-4">
+								<div class="flex items-start justify-between mb-2">
+									<div class="flex items-center">
+										<span class="flex items-center justify-center w-6 h-6 rounded-full bg-tink-teal-100 dark:bg-tink-teal-900 text-tink-teal-700 dark:text-tink-teal-300 text-xs font-bold mr-2">3</span>
+										<h5 class="text-sm font-semibold text-gray-900 dark:text-white">Generate token</h5>
+									</div>
+									<button onclick="copyToClipboard('step3-code', this)" class="copy-btn p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors" title="Copy to clipboard">
+										<svg class="w-4 h-4 copy-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+										</svg>
+										<svg class="w-4 h-4 check-icon hidden text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+										</svg>
+									</button>
+								</div>
+								<p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Creates a token for the service account. Default expiry is 1 hour.</p>
+								<code id="step3-code" class="block text-xs bg-gray-100 dark:bg-darkBg text-gray-800 dark:text-gray-200 p-2 rounded-md font-mono">kubectl create token my-admin-sa --namespace=tinkerbell</code>
+								
+								<!-- Token duration options -->
+								<div class="mt-3 pt-3 border-t border-gray-200 dark:border-darkBorder">
+									<p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Or create a longer-lived token:</p>
+									<div class="flex flex-wrap gap-2">
+										<button onclick="copyToClipboard(null, this, 'kubectl create token my-admin-sa --namespace=tinkerbell --duration=24h')" class="copy-btn inline-flex items-center px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-darkBg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-darkBorder transition-colors">
+											<span>24 hours</span>
+											<svg class="w-3 h-3 ml-1 copy-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+											</svg>
+											<svg class="w-3 h-3 ml-1 check-icon hidden text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+											</svg>
+										</button>
+										<button onclick="copyToClipboard(null, this, 'kubectl create token my-admin-sa --namespace=tinkerbell --duration=168h')" class="copy-btn inline-flex items-center px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-darkBg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-darkBorder transition-colors">
+											<span>1 week</span>
+											<svg class="w-3 h-3 ml-1 copy-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+											</svg>
+											<svg class="w-3 h-3 ml-1 check-icon hidden text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+											</svg>
+										</button>
+										<button onclick="copyToClipboard(null, this, 'kubectl create token my-admin-sa --namespace=tinkerbell --duration=8760h')" class="copy-btn inline-flex items-center px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-darkBg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-darkBorder transition-colors">
+											<span>1 year</span>
+											<svg class="w-3 h-3 ml-1 copy-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+											</svg>
+											<svg class="w-3 h-3 ml-1 check-icon hidden text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+											</svg>
+										</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			</div>
+
+			<!-- Footer with CNCF Trademarks -->
+			@Footer()
+		</div>
+
+		<!-- Inline script for form submission -->
+		<script>
+			function toggleErrorDetails() {
+				const details = document.getElementById('loginErrorDetails');
+				const arrow = document.getElementById('errorDetailsArrow');
+				const isCollapsed = details.classList.contains('max-h-0');
+				
+				if (isCollapsed) {
+					details.classList.remove('max-h-0');
+					details.classList.add('max-h-96');
+					arrow.classList.add('rotate-180');
+				} else {
+					details.classList.add('max-h-0');
+					details.classList.remove('max-h-96');
+					arrow.classList.remove('rotate-180');
+				}
+			}
+
+			function toggleTokenInstructions() {
+				const instructions = document.getElementById('tokenInstructions');
+				const arrow = document.getElementById('tokenInstructionsArrow');
+				const button = arrow.closest('button');
+				const isCollapsed = instructions.classList.contains('max-h-0');
+				
+				if (isCollapsed) {
+					// Expand
+					instructions.classList.remove('max-h-0', 'opacity-0');
+					instructions.classList.add('max-h-[2000px]', 'opacity-100');
+					arrow.classList.add('rotate-180');
+					button.setAttribute('aria-expanded', 'true');
+				} else {
+					// Collapse
+					instructions.classList.add('max-h-0', 'opacity-0');
+					instructions.classList.remove('max-h-[2000px]', 'opacity-100');
+					arrow.classList.remove('rotate-180');
+					button.setAttribute('aria-expanded', 'false');
+				}
+			}
+
+			function copyToClipboard(elementId, button, directText) {
+				const text = directText || document.getElementById(elementId).textContent;
+				
+				// Show success feedback function
+				function showSuccess() {
+					const copyIcon = button.querySelector('.copy-icon');
+					const checkIcon = button.querySelector('.check-icon');
+					if (copyIcon && checkIcon) {
+						copyIcon.classList.add('hidden');
+						checkIcon.classList.remove('hidden');
+						
+						// Reset after 2 seconds
+						setTimeout(() => {
+							copyIcon.classList.remove('hidden');
+							checkIcon.classList.add('hidden');
+						}, 2000);
+					}
+				}
+				
+				// Try modern clipboard API first (requires HTTPS)
+				if (navigator.clipboard && window.isSecureContext) {
+					navigator.clipboard.writeText(text).then(showSuccess).catch(err => {
+						console.error('Clipboard API failed:', err);
+						fallbackCopy(text, showSuccess);
+					});
+				} else {
+					// Fallback for HTTP contexts
+					fallbackCopy(text, showSuccess);
+				}
+			}
+			
+			function fallbackCopy(text, onSuccess) {
+				const textarea = document.createElement('textarea');
+				textarea.value = text;
+				textarea.style.position = 'fixed';
+				textarea.style.left = '-9999px';
+				textarea.style.top = '-9999px';
+				document.body.appendChild(textarea);
+				textarea.focus();
+				textarea.select();
+				
+				try {
+					document.execCommand('copy');
+					onSuccess();
+				} catch (err) {
+					console.error('Fallback copy failed:', err);
+					alert('Copy failed. Please select and copy manually.');
+				}
+				
+				document.body.removeChild(textarea);
+			}
+
+			function handleLoginFormSubmit(event) {
+				event.preventDefault();
+				
+				const apiServerInput = document.getElementById('apiServerInput');
+				const tokenInput = document.getElementById('tokenInput');
+			const insecureSkipVerifyCheckbox = document.getElementById('insecureSkipVerify');
+			const loginButton = document.getElementById('loginButton');
+			const loginError = document.getElementById('loginError');
+			const loginErrorMessage = document.getElementById('loginErrorMessage');
+			const loginSuccess = document.getElementById('loginSuccess');
+			const loginSuccessMessage = document.getElementById('loginSuccessMessage');
+
+			loginError.classList.add('hidden');
+			loginSuccess.classList.add('hidden');
+
+			const apiServer = apiServerInput.value.trim();
+			const token = tokenInput.value.trim();
+			const insecureSkipVerify = insecureSkipVerifyCheckbox.checked;			
+			if (!apiServer) {
+					loginErrorMessage.textContent = 'Please provide the Kubernetes API server URL';
+					loginError.classList.remove('hidden');
+					return false;
+				}
+				
+				if (!token) {
+					loginErrorMessage.textContent = 'Please provide a service account token';
+					loginError.classList.remove('hidden');
+					return false;
+				}
+
+				loginButton.disabled = true;
+				loginButton.textContent = 'Signing in...';
+
+				const baseURL = document.body.dataset.baseUrl || '';
+				fetch(baseURL + '/api/auth/login', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/x-www-form-urlencoded',
+					},
+					credentials: 'same-origin',
+					body: new URLSearchParams({ token, apiServer, insecureSkipVerify: insecureSkipVerify.toString() }),
+				})
+				.then(response => {
+					return response.json().then(data => ({ status: response.status, data }));
+				})
+				.then(({ status, data }) => {
+					if (status !== 200) {
+						const error = new Error(data.error || 'Login failed');
+						error.details = data.details;
+						throw error;
+					}
+
+					// Show success message
+					loginSuccessMessage.textContent = 'Login successful! Redirecting...';
+					loginSuccess.classList.remove('hidden');
+
+					// Redirect to home page
+					setTimeout(() => {
+						window.location.href = baseURL + '/';
+					}, 500);
+				})
+				.catch(error => {
+					console.error('Login error:', error);
+					loginErrorMessage.textContent = error.message || 'An error occurred during login';
+					
+					// Show technical details if available
+					const detailsSection = document.getElementById('loginErrorDetailsSection');
+					const detailsCode = document.querySelector('#loginErrorDetails code');
+					if (error.details) {
+						detailsCode.textContent = error.details;
+						detailsSection.classList.remove('hidden');
+					} else {
+						detailsSection.classList.add('hidden');
+					}
+					
+					loginError.classList.remove('hidden');
+					loginButton.disabled = false;
+					loginButton.textContent = 'Sign in';
+				});
+
+				return false;
+			}
+		</script>
+	}
+}
+
+// PermissionsPage shows the user's Tinkerbell RBAC permissions.
+// It loads immediately with loading indicators, then fetches each resource's permissions via HTMX.
+templ PermissionsPage(cfg PageConfig, resources []ResourceInfo) {
+	@Layout("Tinkerbell - Permissions", cfg.BaseURL) {
+		<div class="flex h-screen bg-white dark:bg-darkBg">
+			@MobileMenuOverlay()
+			@Sidebar(cfg.Namespaces, cfg.BaseURL)
+			<div class="flex-1 flex flex-col overflow-hidden">
+				@Header()
+				<main class="flex-1 overflow-y-auto p-6">
+					<div class="max-w-7xl mx-auto">
+						<div class="mb-6">
+							<h1 class="text-2xl font-light text-gray-900 dark:text-white">Tinkerbell Permissions</h1>
+							<p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+								View your service account's access to Tinkerbell resources
+							</p>
+						</div>
+						
+						<!-- Token Expiry Info -->
+						<div id="tokenExpiryCard" class="mb-6 hidden">
+							<div class="bg-white dark:bg-darkNav rounded-lg shadow-sm border border-gray-200 dark:border-darkBorder p-4">
+								<div class="flex items-center gap-3">
+									<div id="tokenExpiryIcon" class="flex-shrink-0">
+										<!-- Icon will be set by JS -->
+									</div>
+									<div class="flex-1">
+										<h3 class="text-sm font-medium text-gray-900 dark:text-white">Token Status</h3>
+										<p id="tokenExpiryText" class="text-sm text-gray-600 dark:text-gray-400">
+											<!-- Duration will be set by JS -->
+										</p>
+									</div>
+									<div id="tokenExpiryBadge" class="flex-shrink-0">
+										<!-- Badge will be set by JS -->
+									</div>
+								</div>
+							</div>
+						</div>
+						<script>
+							(function() {
+								function getCookie(name) {
+									const value = `; ${document.cookie}`;
+									const parts = value.split(`; ${name}=`);
+									if (parts.length === 2) return parts.pop().split(';').shift();
+									return null;
+								}
+
+								function formatDuration(ms) {
+									const totalSeconds = Math.floor(ms / 1000);
+									const days = Math.floor(totalSeconds / 86400);
+									const hours = Math.floor((totalSeconds % 86400) / 3600);
+									const minutes = Math.floor((totalSeconds % 3600) / 60);
+									
+									const parts = [];
+									if (days > 0) parts.push(`${days}d`);
+									if (hours > 0) parts.push(`${hours}h`);
+									if (minutes > 0 && days === 0) parts.push(`${minutes}m`);
+									
+									return parts.length > 0 ? parts.join(' ') : 'less than a minute';
+								}
+
+								function updateTokenExpiry() {
+									const card = document.getElementById('tokenExpiryCard');
+									const iconDiv = document.getElementById('tokenExpiryIcon');
+									const textP = document.getElementById('tokenExpiryText');
+									const badgeDiv = document.getElementById('tokenExpiryBadge');
+									
+									// Read expiry timestamp from token_expiry cookie (Unix timestamp in seconds)
+									const expiryStr = getCookie('token_expiry');
+									if (!expiryStr) {
+										card.classList.add('hidden');
+										return;
+									}
+									
+									const expirySec = parseInt(expiryStr, 10);
+									if (isNaN(expirySec)) {
+										card.classList.add('hidden');
+										return;
+									}
+									
+									const expiryDate = new Date(expirySec * 1000);
+									const now = new Date();
+									const diffMs = expiryDate - now;
+									
+									card.classList.remove('hidden');
+									
+									if (diffMs <= 0) {
+										// Expired
+										iconDiv.innerHTML = '<svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+										textP.textContent = 'Your token has expired. Please log in again.';
+										textP.className = 'text-sm text-red-600 dark:text-red-400';
+										badgeDiv.innerHTML = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Expired</span>';
+									} else if (diffMs < 3600000) {
+										// Less than 1 hour - warning
+										iconDiv.innerHTML = '<svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+										textP.textContent = `Expires in ${formatDuration(diffMs)} (${expiryDate.toLocaleString()})`;
+										textP.className = 'text-sm text-amber-600 dark:text-amber-400';
+										badgeDiv.innerHTML = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">Expiring Soon</span>';
+									} else {
+										// Valid
+										iconDiv.innerHTML = '<svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+										textP.textContent = `Expires in ${formatDuration(diffMs)} (${expiryDate.toLocaleString()})`;
+										textP.className = 'text-sm text-gray-600 dark:text-gray-400';
+										badgeDiv.innerHTML = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Valid</span>';
+									}
+								}
+								
+								// Update on page load
+								updateTokenExpiry();
+								
+								// Update every minute
+								setInterval(updateTokenExpiry, 60000);
+							})();
+						</script>
+						
+						<div class="bg-white dark:bg-darkNav rounded-lg shadow-sm border border-gray-200 dark:border-darkBorder overflow-hidden">
+							<div class="overflow-x-auto">
+								<table class="min-w-full divide-y divide-gray-200 dark:divide-darkBorder">
+									<thead class="bg-gray-50 dark:bg-darkBg">
+										<tr>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+												Resource
+											</th>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+												API Group
+											</th>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+												Scope
+											</th>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+												Allowed Verbs
+											</th>
+										</tr>
+									</thead>
+									<tbody class="bg-white dark:bg-darkNav divide-y divide-gray-100 dark:divide-darkBorder">
+										for _, res := range resources {
+											@PermissionRowLoading(res.Resource, res.APIGroup, cfg.BaseURL)
+										}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</main>
+			</div>
+		</div>
+	}
+}
+
+// PermissionRowLoading shows a loading state for a permission row, which will be replaced via HTMX.
+templ PermissionRowLoading(resource, apiGroup, baseURL string) {
+	<tr
+		class="hover:bg-gray-50 dark:hover:bg-darkBorder transition-colors duration-150"
+		hx-get={ baseURL + "/permissions/check/" + resource + "?group=" + apiGroup }
+		hx-trigger="load"
+		hx-swap="outerHTML"
+	>
+		<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+			{ resource }
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+			<span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono">
+				{ apiGroup }
+			</span>
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+			<div class="animate-pulse flex space-x-2">
+				<div class="h-5 w-24 bg-gray-200 dark:bg-gray-600 rounded"></div>
+			</div>
+		</td>
+		<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+			<div class="animate-pulse flex space-x-1">
+				<div class="h-5 w-10 bg-gray-200 dark:bg-gray-600 rounded"></div>
+				<div class="h-5 w-10 bg-gray-200 dark:bg-gray-600 rounded"></div>
+				<div class="h-5 w-12 bg-gray-200 dark:bg-gray-600 rounded"></div>
+			</div>
+		</td>
+	</tr>
+}
+
+// PermissionRow shows the loaded permission status for a resource.
+templ PermissionRow(perm Permission) {
+	<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder transition-colors duration-150">
+		<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+			{ perm.Resource }
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+			<span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono">
+				{ perm.APIGroup }
+			</span>
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+			if perm.Namespace == "" {
+				if len(perm.Verbs) > 0 {
+					<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+						All Namespaces
+					</span>
+				} else {
+					<span class="text-gray-400 dark:text-gray-500">—</span>
+				}
+			} else {
+				<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200">
+					{ perm.Namespace }
+				</span>
+			}
+		</td>
+		<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+			if len(perm.Verbs) == 0 {
+				<span class="text-gray-400 dark:text-gray-500 italic">No access</span>
+			} else {
+				<div class="flex flex-wrap gap-1">
+					for _, verb := range perm.Verbs {
+						@VerbBadge(verb)
+					}
+				</div>
+			}
+		</td>
+	</tr>
+}
+
+// PermissionRowError shows an error state for a permission row.
+templ PermissionRowError(resource, apiGroup string) {
+	<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder transition-colors duration-150 bg-red-50 dark:bg-red-900/20">
+		<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+			{ resource }
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+			<span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono">
+				{ apiGroup }
+			</span>
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+			<span class="text-gray-400 dark:text-gray-500">—</span>
+		</td>
+		<td class="px-6 py-4 text-sm text-red-600 dark:text-red-400">
+			<span class="italic">Error checking permissions</span>
+		</td>
+	</tr>
+}
+
+// VerbBadge renders a colored badge for RBAC verbs.
+templ VerbBadge(verb string) {
+	switch verb {
+		case "get", "list", "watch":
+			<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+				{ verb }
+			</span>
+		case "create":
+			<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+				{ verb }
+			</span>
+		case "update", "patch":
+			<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100">
+				{ verb }
+			</span>
+		case "delete":
+			<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+				{ verb }
+			</span>
+		default:
+			<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+				{ verb }
+			</span>
+	}
+}

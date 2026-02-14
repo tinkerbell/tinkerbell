@@ -1,0 +1,2 @@
+# Mark templ-generated Go files so GitHub collapses diffs and excludes from language stats.
+ui/templates/*_templ.go linguist-generated=true

@@ -1,0 +1,8 @@
+package templates
+
+// Scripts renders the application JavaScript from an external file.
+// The JavaScript is served from /js/app.js (embedded in the binary).
+// baseURL is the URL prefix for all routes (e.g., "/ui").
+templ Scripts(baseURL string) {
+	<script src={ baseURL + "/js/app.js" }></script>
+}

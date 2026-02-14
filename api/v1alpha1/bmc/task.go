@@ -49,6 +49,8 @@ type Action struct {
 	PowerAction *PowerAction `json:"powerAction,omitempty"`
 
 	// OneTimeBootDeviceAction represents a baseboard management one time set boot device operation.
+	//
+	// Deprecated: This field is deprecated and will be removed in a future release. Use bootDevice instead.
 	// +kubebuilder:deprecatedversion:warning="oneTimeBootDeviceAction is deprecated and will be removed in a future release. Use bootDevice instead."
 	OneTimeBootDeviceAction *OneTimeBootDeviceAction `json:"oneTimeBootDeviceAction,omitempty"`
 

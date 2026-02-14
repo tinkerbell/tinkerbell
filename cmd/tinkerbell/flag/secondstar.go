@@ -10,6 +10,7 @@ type SecondStarConfig struct {
 	Config      *secondstar.Config
 	HostKeyPath string
 	LogLevel    int
+	NoLog       bool
 }
 
 var KubeIndexesSecondStar = map[kube.IndexType]kube.Index{
@@ -23,6 +24,7 @@ func RegisterSecondStarFlags(fs *Set, ssc *SecondStarConfig) {
 	fs.Register(SecondStarIPMIToolPath, ffval.NewValueDefault(&ssc.Config.IPMITOOLPath, ssc.Config.IPMITOOLPath))
 	fs.Register(SecondStarIdleTimeout, ffval.NewValueDefault(&ssc.Config.IdleTimeout, ssc.Config.IdleTimeout))
 	fs.Register(SecondStarLogLevel, ffval.NewValueDefault(&ssc.LogLevel, ssc.LogLevel))
+	fs.Register(SecondStarNoLog, ffval.NewValueDefault(&ssc.NoLog, ssc.NoLog))
 }
 
 var SecondStarPort = Config{
@@ -48,6 +50,11 @@ var SecondStarIdleTimeout = Config{
 var SecondStarLogLevel = Config{
 	Name:  "secondstar-log-level",
 	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
+}
+
+var SecondStarNoLog = Config{
+	Name:  "secondstar-no-log",
+	Usage: "disable all logging output for SecondStar service",
 }
 
 func (ssc *SecondStarConfig) Convert() error {

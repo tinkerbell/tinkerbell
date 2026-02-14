@@ -25,6 +25,7 @@ type SmeeConfig struct {
 	// The cmd package is responsible for putting the fields back together into a url.URL for use in service package configs.
 	DHCPIPXEScript URLBuilder
 	LogLevel       int
+	NoLog          bool
 }
 
 var KubeIndexesSmee = map[kube.IndexType]kube.Index{
@@ -129,6 +130,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 
 	// Log level
 	fs.Register(SmeeLogLevel, ffval.NewValueDefault(&sc.LogLevel, sc.LogLevel))
+	fs.Register(SmeeNoLog, ffval.NewValueDefault(&sc.NoLog, sc.NoLog))
 
 	// Syslog Flags
 	fs.Register(SyslogEnabled, ffval.NewValueDefault(&sc.Config.Syslog.Enabled, sc.Config.Syslog.Enabled))
@@ -474,6 +476,11 @@ var TinkServerInsecureTLS = Config{
 var SmeeLogLevel = Config{
 	Name:  "smee-log-level",
 	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
+}
+
+var SmeeNoLog = Config{
+	Name:  "smee-no-log",
+	Usage: "disable all logging output for Smee service",
 }
 
 var DHCPEnableNetbootOptions = Config{
