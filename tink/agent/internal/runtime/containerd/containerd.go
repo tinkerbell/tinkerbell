@@ -2,6 +2,8 @@ package containerd
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -187,8 +189,6 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	if r != nil && len(r.PullCandidates) > 0 {
 		imageName = r.PullCandidates[0].Value.String()
 	}
-	// set up a containerd namespace
-	ctx = namespaces.WithNamespace(ctx, c.Namespace)
 	image, err := c.Client.GetImage(ctx, imageName)
 	if err != nil {
 		// if the image isn't already in our namespaced context, then pull it
@@ -212,8 +212,25 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	// Use host networking only if explicitly requested via namespaces.network: "host"
 	useHostNetwork := a.Namespaces.Network == "host"
 
+	// Build DNS configuration files for the container.
+	// Both host-network and isolated-network containers need DNS files because
+	// containerd does not automatically mount /etc/resolv.conf, /etc/hosts, or
+	// /etc/hostname into containers. For host-network containers, localhost
+	// nameservers are preserved since they are reachable. For isolated-network
+	// containers, localhost nameservers are filtered out (unreachable from a
+	// separate network namespace) and replaced with public DNS fallbacks.
+	df, err := prepareDNSFiles(useHostNetwork)
+	if err != nil {
+		return fmt.Errorf("failed to build DNS files: %w", err)
+	}
+	defer func() {
+		if err := df.cleanup(); err != nil {
+			c.Log.Info("failed to cleanup DNS files", "error", err)
+		}
+	}()
+
 	// create a container
-	tainer, err := c.createContainer(ctx, image, a, useHostNetwork)
+	tainer, hostname, err := c.createContainer(ctx, image, a, useHostNetwork, df)
 	if err != nil {
 		return fmt.Errorf("error creating container: %w", err)
 	}
@@ -224,6 +241,13 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 		}
 		cancel()
 	}()
+
+	// Populate hosts and hostname files using the hostname computed during
+	// container creation (host's real hostname for host-network, truncated
+	// container ID for isolated-network).
+	if err := df.setHostname(hostname, useHostNetwork); err != nil {
+		c.Log.Error(err, "failed to set container hostname in DNS files")
+	}
 
 	// create the task
 	task, err := tainer.NewTask(ctx, cio.NewCreator(cio.WithStdio))
@@ -298,7 +322,7 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	}
 }
 
-func (c *Config) createContainer(ctx context.Context, image containerd.Image, action spec.Action, useHostNetwork bool) (containerd.Container, error) {
+func (c *Config) createContainer(ctx context.Context, image containerd.Image, action spec.Action, useHostNetwork bool, df *dnsFiles) (containerd.Container, string, error) {
 	newOpts := []containerd.NewContainerOpts{}
 	specOpts := []oci.SpecOpts{
 		oci.WithImageConfig(image), // Loads ENTRYPOINT and CMD from image
@@ -346,11 +370,56 @@ func (c *Config) createContainer(ctx context.Context, image containerd.Image, ac
 	// If not using host network, leave the network namespace isolated - CNI will be setup
 	// after the task is created in Execute()
 
-	name := conv.ParseName(action.ID, action.Name)
-	newOpts = append(newOpts, containerd.WithNewSnapshot(name, image))
+	// Bind-mount generated DNS config files (resolv.conf, hosts, hostname).
+	// Containerd does not do this automatically.
+	specOpts = append(specOpts, dnsSpecOpts(df)...)
+	c.Log.V(1).Info("DNS configuration files mounted")
+
+	// Generate a unique container ID (64-character hex string from 32 random
+	// bytes) matching nerdctl's approach. The human-readable name is used for
+	// the snapshot so containers are easier to identify during debugging.
+	containerID, err := generateID()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate container ID: %w", err)
+	}
+	snapshotName := conv.ParseName(action.ID, action.Name)
+	newOpts = append(newOpts, containerd.WithNewSnapshot(snapshotName, image))
+
+	// Compute the container hostname. For host-network containers, use the
+	// host's real hostname; for isolated-network containers, use the first
+	// 12 chars of the container ID (matching nerdctl/Docker convention).
+	hostname := truncateHostname(containerID)
+	if useHostNetwork {
+		if h, err := os.Hostname(); err != nil {
+			c.Log.Info("failed to get host hostname, using container ID", "error", err)
+		} else {
+			hostname = h
+		}
+	}
+
+	// Set the OCI spec hostname so gethostname(2) / the hostname command
+	// inside the container returns the correct value.
+	specOpts = append(specOpts, oci.WithHostname(hostname))
 	newOpts = append(newOpts, containerd.WithNewSpec(specOpts...))
 
-	return c.Client.NewContainer(ctx, name, newOpts...)
+	// Set container labels so nerdctl can display container metadata correctly.
+	// - nerdctl/name: human-readable name shown in the NAMES column of nerdctl ps.
+	// - nerdctl/extraHosts: custom host-to-IP mappings (--add-host); empty for
+	//   tink-agent containers but must be set to "[]" so nerdctl inspect shows
+	//   an empty array instead of null.
+	// - nerdctl/hostname: the container hostname, used by nerdctl inspect.
+	labels := map[string]string{
+		"nerdctl/name":       snapshotName,
+		"nerdctl/extraHosts": "[]",
+		"nerdctl/hostname":   hostname,
+	}
+	newOpts = append(newOpts, containerd.WithContainerLabels(labels))
+
+	ctr, err := c.Client.NewContainer(ctx, containerID, newOpts...)
+	if err != nil {
+		return nil, "", err
+	}
+	return ctr, hostname, nil
 }
 
 // withEntrypointOverride returns an oci.SpecOpts that overrides the image's ENTRYPOINT
@@ -383,6 +452,16 @@ func withEntrypointOverride(image containerd.Image, cmd string) oci.SpecOpts {
 
 		return nil
 	}
+}
+
+// generateID creates a random container ID as a 64-character hex string
+// (32 random bytes), matching nerdctl's approach to container ID generation.
+func generateID() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate random ID: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // isIPForwardingEnabled reports whether IPv4 forwarding is enabled.
