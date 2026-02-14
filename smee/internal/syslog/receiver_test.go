@@ -36,11 +36,6 @@ func TestStartReceiver(t *testing.T) {
 			wantErr:   true,
 			errSubstr: "resolve syslog udp listen address",
 		},
-		"address in use": {
-			laddr:   "127.0.0.1:1", // Port 1 is typically reserved
-			parsers: 1,
-			wantErr: true,
-		},
 	}
 
 	for name, tc := range tests {
@@ -61,6 +56,25 @@ func TestStartReceiver(t *testing.T) {
 				t.Errorf("StartReceiver() unexpected error = %v", err)
 			}
 		})
+	}
+}
+
+func TestStartReceiver_AddressInUse(t *testing.T) {
+	// First, open a UDP port to hold it
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatalf("failed to open UDP port: %v", err)
+	}
+	defer conn.Close()
+	addr := conn.LocalAddr().String()
+
+	// Now try to start a receiver on the same port - should fail
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err = StartReceiver(ctx, logr.Discard(), addr, 1)
+	if err == nil {
+		t.Error("StartReceiver() expected error for address in use but got none")
 	}
 }
 

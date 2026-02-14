@@ -1,0 +1,140 @@
+/* Self-hosted Inter font */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 600;
+  font-display: swap;
+  src: url('../fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 600;
+  font-display: swap;
+  src: url('../fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@import "tailwindcss";
+
+@variant dark (&:is(.dark *));
+
+@theme {
+  /* Font family - Inter for clean, modern look */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Tinkerbell brand colors - Blue */
+  --color-tink-blue-DEFAULT: #00254f;
+  --color-tink-blue-50: #e6f0ff;
+  --color-tink-blue-100: #cce0ff;
+  --color-tink-blue-200: #99c2ff;
+  --color-tink-blue-300: #66a3ff;
+  --color-tink-blue-400: #3385ff;
+  --color-tink-blue-500: #0066ff;
+  --color-tink-blue-600: #0052cc;
+  --color-tink-blue-700: #003d99;
+  --color-tink-blue-800: #002966;
+  --color-tink-blue-900: #00254f;
+
+  /* Tinkerbell brand colors - Teal */
+  --color-tink-teal-DEFAULT: #0087ac;
+  --color-tink-teal-50: #e6f7fb;
+  --color-tink-teal-100: #cceff7;
+  --color-tink-teal-200: #99dfef;
+  --color-tink-teal-300: #66cfe7;
+  --color-tink-teal-400: #33bfdf;
+  --color-tink-teal-500: #00afd7;
+  --color-tink-teal-600: #0087ac;
+  --color-tink-teal-700: #006581;
+  --color-tink-teal-800: #004456;
+  --color-tink-teal-900: #00222b;
+
+  /* Tinkerbell brand colors - Yellow */
+  --color-tink-yellow-DEFAULT: #ffd100;
+  --color-tink-yellow-50: #fffbe6;
+  --color-tink-yellow-100: #fff7cc;
+  --color-tink-yellow-200: #ffef99;
+  --color-tink-yellow-300: #ffe766;
+  --color-tink-yellow-400: #ffdf33;
+  --color-tink-yellow-500: #ffd100;
+  --color-tink-yellow-600: #cca700;
+  --color-tink-yellow-700: #997d00;
+  --color-tink-yellow-800: #665400;
+  --color-tink-yellow-900: #332a00;
+
+  /* Electric Purple - for annotations */
+  --color-electric-purple-DEFAULT: #7E57C2;
+  --color-electric-purple-50: #f3f0fa;
+  --color-electric-purple-100: #e7e1f5;
+  --color-electric-purple-200: #cfc3eb;
+  --color-electric-purple-300: #b7a5e1;
+  --color-electric-purple-400: #9f87d7;
+  --color-electric-purple-500: #7E57C2;
+  --color-electric-purple-600: #65469b;
+  --color-electric-purple-700: #4c3574;
+  --color-electric-purple-800: #33234d;
+  --color-electric-purple-900: #1a1226;
+
+  /* Mint Green - for labels */
+  --color-mint-green-DEFAULT: #48BB78;
+  --color-mint-green-50: #f0faf4;
+  --color-mint-green-100: #e1f5e9;
+  --color-mint-green-200: #c3ebd3;
+  --color-mint-green-300: #a5e1bd;
+  --color-mint-green-400: #87d7a7;
+  --color-mint-green-500: #48BB78;
+  --color-mint-green-600: #3a9660;
+  --color-mint-green-700: #2b7148;
+  --color-mint-green-800: #1d4b30;
+  --color-mint-green-900: #0e2618;
+
+  /* Dark mode colors - GitHub Soft Dark theme */
+  --color-darkNav: #22272e;
+  --color-darkBg: #2d333b;
+  --color-darkBorder: #444c56;
+  --color-darkBorderSoft: #373e47;
+}
+
+/* YAML Syntax Highlighting */
+.yaml-key {
+  color: #7ee787; /* Green - like GitHub */
+}
+
+.yaml-colon {
+  color: #8b949e; /* Gray */
+}
+
+.yaml-string {
+  color: #a5d6ff; /* Light blue */
+}
+
+.yaml-number {
+  color: #79c0ff; /* Blue */
+}
+
+.yaml-boolean {
+  color: #ff7b72; /* Red/coral */
+}
+
+.yaml-null {
+  color: #ff7b72; /* Red/coral */
+}
+
+.yaml-comment {
+  color: #8b949e; /* Gray */
+  font-style: italic;
+}
+
+.yaml-dash {
+  color: #8b949e; /* Gray */
+}
+
+.yaml-anchor {
+  color: #d2a8ff; /* Purple */
+}
+
+.yaml-template {
+  color: #ffa657; /* Orange - for template variables */
+}

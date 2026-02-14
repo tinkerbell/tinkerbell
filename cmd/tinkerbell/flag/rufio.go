@@ -9,6 +9,7 @@ import (
 type RufioConfig struct {
 	Config   *rufio.Config
 	LogLevel int
+	NoLog    bool
 }
 
 func RegisterRufioFlags(fs *Set, t *RufioConfig) {
@@ -20,6 +21,7 @@ func RegisterRufioFlags(fs *Set, t *RufioConfig) {
 	fs.Register(RufioPowerCheckInterval, ffval.NewValueDefault(&t.Config.PowerCheckInterval, t.Config.PowerCheckInterval))
 	fs.Register(RufioMaxConcurrentReconciles, ffval.NewValueDefault(&t.Config.MaxConcurrentReconciles, t.Config.MaxConcurrentReconciles))
 	fs.Register(RufioLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
+	fs.Register(RufioNoLog, ffval.NewValueDefault(&t.NoLog, t.NoLog))
 }
 
 var RufioControllerEnableLeaderElection = Config{
@@ -60,4 +62,9 @@ var RufioLogLevel = Config{
 var RufioMaxConcurrentReconciles = Config{
 	Name:  "rufio-max-concurrent-reconciles",
 	Usage: "maximum number of concurrent reconciles for rufio controllers",
+}
+
+var RufioNoLog = Config{
+	Name:  "rufio-no-log",
+	Usage: "disable all logging output for Rufio service",
 }

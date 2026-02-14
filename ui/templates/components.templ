@@ -1,0 +1,585 @@
+package templates
+
+// Reusable detail components - UI
+templ DetailMainContent(resourceType, name, namespace, backLink string, content templ.Component) {
+	<div class="flex flex-col flex-1 min-h-0 min-w-0">
+		@Header()
+		<div class="flex-1 overflow-y-auto overflow-x-hidden">
+			<div class="p-6 bg-gray-50 dark:bg-darkBg max-w-full">
+				@BackLink(resourceType, backLink)
+				@content
+			</div>
+		</div>
+	</div>
+}
+
+templ BackLink(resourceType, backLink string) {
+	<a href={ templ.SafeURL(backLink) } class="inline-flex items-center text-sm font-medium text-tink-teal-600 hover:text-tink-teal-700 dark:text-tink-teal-400 dark:hover:text-tink-teal-300 mb-4">
+		<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+		</svg>
+		Back to { resourceType }
+	</a>
+}
+
+// SectionBox - card container with title
+templ SectionBox(title string) {
+	<div class="bg-white dark:bg-darkNav rounded-lg shadow-sm border border-gray-200 dark:border-darkBorder mb-6 max-w-full overflow-hidden">
+		<div class="border-b border-gray-200 dark:border-darkBorder px-6 py-4">
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-white">{ title }</h2>
+		</div>
+		<div class="p-6 overflow-hidden">
+			{ children... }
+		</div>
+	</div>
+}
+
+// SectionBoxCollapsible - Collapsible version of SectionBox
+templ SectionBoxCollapsible(title string, defaultOpen bool) {
+	<details class="bg-white dark:bg-darkNav rounded-lg shadow-sm border border-gray-200 dark:border-darkBorder mb-6 max-w-full overflow-hidden" if defaultOpen { open }>
+		<summary class="flex items-center justify-between px-6 py-4 cursor-pointer border-b border-gray-200 dark:border-darkBorder hover:bg-gray-50 dark:hover:bg-darkBorder rounded-t-lg">
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-white">{ title }</h2>
+			<svg class="w-5 h-5 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+			</svg>
+		</summary>
+		<div class="p-6 overflow-hidden">
+			{ children... }
+		</div>
+	</details>
+}
+
+// MainInfoHeader - Large title with status badge
+templ MainInfoHeader(name, status string) {
+	<div class="flex items-center justify-between mb-6">
+		<h1 class="text-2xl font-light text-gray-900 dark:text-white">{ name }</h1>
+		if status != "" {
+			@StatusBadge(status)
+		}
+	</div>
+}
+
+// NameValueTable - key-value table
+templ NameValueTable(rows []InfoRow) {
+	<div class="overflow-x-auto">
+		<table class="min-w-full">
+			<tbody>
+				for _, row := range rows {
+					if !row.Hide && row.Value != "" {
+						<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+							<td class="py-3 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">{ row.Name }</td>
+							<td class="py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">{ row.Value }</td>
+						</tr>
+					}
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+// LabelChips - Display labels as inline chips
+templ LabelChips(labels map[string]string) {
+	if len(labels) > 0 {
+		<div class="flex flex-wrap gap-2">
+			for key, value := range labels {
+				<span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-mint-green-50 text-mint-green-700 dark:bg-mint-green-900/40 dark:text-mint-green-300 border border-mint-green-200 dark:border-mint-green-700">
+					<span class="font-semibold">{ key }</span>
+					<span class="mx-1 text-mint-green-400">=</span>
+					<span>{ value }</span>
+				</span>
+			}
+		</div>
+	} else {
+		<span class="text-sm text-gray-500 dark:text-gray-400 italic">No labels</span>
+	}
+}
+
+// AnnotationChips - Display annotations as inline chips
+templ AnnotationChips(annotations map[string]string) {
+	if len(annotations) > 0 {
+		<div class="flex flex-wrap gap-2">
+			for key, value := range annotations {
+				<span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-electric-purple-50 text-electric-purple-700 dark:bg-electric-purple-900/40 dark:text-electric-purple-300 border border-electric-purple-200 dark:border-electric-purple-700">
+					<span class="font-semibold whitespace-nowrap">{ key }</span>
+					<span class="mx-1 text-electric-purple-400">=</span>
+					<span class="whitespace-nowrap">{ value }</span>
+				</span>
+			}
+		</div>
+	} else {
+		<span class="text-sm text-gray-500 dark:text-gray-400 italic">No annotations</span>
+	}
+}
+
+// MetadataTable - metadata display
+templ MetadataTable(name, namespace, createdAt string, labels, annotations map[string]string) {
+	<div class="overflow-x-auto">
+		<table class="min-w-full">
+			<tbody>
+				<tr class="border-b border-gray-100 dark:border-darkBorder">
+					<td class="py-3 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Name</td>
+					<td class="py-3 text-sm text-gray-900 dark:text-white font-mono whitespace-nowrap">{ name }</td>
+				</tr>
+				<tr class="border-b border-gray-100 dark:border-darkBorder">
+					<td class="py-3 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Namespace</td>
+					<td class="py-3 text-sm text-gray-900 dark:text-white">
+						<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-darkBorderSoft dark:text-gray-200">
+							{ namespace }
+						</span>
+					</td>
+				</tr>
+				<tr class="border-b border-gray-100 dark:border-darkBorder">
+					<td class="py-3 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Created</td>
+					<td class="py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">{ createdAt }</td>
+				</tr>
+				<tr class="border-b border-gray-100 dark:border-darkBorder">
+					<td class="py-3 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap align-top">Labels</td>
+					<td class="py-3">
+						@LabelChips(labels)
+					</td>
+				</tr>
+				<tr class="last:border-b-0">
+					<td class="py-3 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap align-top">Annotations</td>
+					<td class="py-3">
+						@AnnotationChips(annotations)
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+}
+
+// CodeBlock - Styled code/YAML display
+templ CodeBlock(code string) {
+	<pre class="bg-darkBg dark:bg-darkBg text-gray-100 p-4 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap">{ code }</pre>
+}
+
+// CodeBlockYAML - Code block with YAML syntax highlighting
+templ CodeBlockYAML(code string) {
+	<pre class="yaml-code bg-darkBg dark:bg-darkBg text-gray-100 p-4 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap">{ code }</pre>
+}
+
+// CodeBlockWithCopy - Code block with copy button
+templ CodeBlockWithCopy(code, id string) {
+	<div class="relative">
+		<div class="absolute top-2 right-2 z-10">
+			<button 
+				data-copy-target={ id }
+				class="copy-btn inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors border border-gray-600"
+			>
+				<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+				</svg>
+				Copy
+			</button>
+		</div>
+		<pre id={ id } class="bg-darkBg dark:bg-darkBg text-gray-100 p-4 pt-12 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap">{ code }</pre>
+	</div>
+}
+
+// CodeBlockYAMLWithCopy - Code block with YAML syntax highlighting and copy button
+templ CodeBlockYAMLWithCopy(code, id string) {
+	<div class="relative">
+		<div class="absolute top-2 right-2 z-10">
+			<button 
+				data-copy-target={ id }
+				class="copy-btn inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors border border-gray-600"
+			>
+				<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+				</svg>
+				Copy
+			</button>
+		</div>
+		<pre id={ id } class="yaml-code bg-darkBg dark:bg-darkBg text-gray-100 p-4 pt-12 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap">{ code }</pre>
+	</div>
+}
+
+templ StatusBadge(status string) {
+	if status == "Online" || status == "SUCCESS" || status == "Completed" || status == "Ready" || status == "on" || status == "True" {
+		<span class="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md bg-tink-teal-100 text-tink-teal-800 dark:bg-tink-teal-800 dark:text-tink-teal-100">
+			<svg class="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+				<circle cx="4" cy="4" r="3"/>
+			</svg>
+			{ status }
+		</span>
+	} else if status == "Provisioning" || status == "RUNNING" || status == "Running" || status == "Pending" {
+		<span class="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md bg-tink-yellow-100 text-tink-yellow-800 dark:bg-tink-yellow-700 dark:text-tink-yellow-100">
+			<svg class="w-3 h-3 mr-1.5 animate-pulse" fill="currentColor" viewBox="0 0 8 8">
+				<circle cx="4" cy="4" r="3"/>
+			</svg>
+			{ status }
+		</span>
+	} else if status == "Offline" || status == "FAILED" || status == "Failed" || status == "off" || status == "False" || status == "Error" {
+		<span class="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100">
+			<svg class="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+				<circle cx="4" cy="4" r="3"/>
+			</svg>
+			{ status }
+		</span>
+	} else {
+		<span class="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-200">
+			{ status }
+		</span>
+	}
+}
+
+// MainContent templates for each resource type
+templ MainContent(hardwareData HardwarePageData, baseURL string) {
+	<!-- Main content -->
+	<div class="flex flex-col flex-1 min-h-0 min-w-0">
+		@Header()
+		<div class="flex-1 overflow-y-auto overflow-x-hidden">
+			@ContentArea(hardwareData)
+		</div>
+	</div>
+}
+
+templ WorkflowMainContent(workflowData WorkflowPageData, baseURL string) {
+	<!-- Workflow Main content -->
+	<div class="flex flex-col flex-1 min-h-0 min-w-0">
+		@Header()
+		<div class="flex-1 overflow-y-auto overflow-x-hidden">
+			@WorkflowContentArea(workflowData)
+		</div>
+	</div>
+}
+
+templ TemplateMainContent(templateData TemplatePageData, baseURL string) {
+	<!-- Template Main content -->
+	<div class="flex flex-col flex-1 min-h-0 min-w-0">
+		@Header()
+		<div class="flex-1 overflow-y-auto overflow-x-hidden">
+			@TemplateContentArea(templateData)
+		</div>
+	</div>
+}
+
+templ BMCMachineMainContent(machineData BMCMachinePageData, baseURL string) {
+	<!-- BMC Machine Main content -->
+	<div class="flex flex-col flex-1 min-h-0 min-w-0">
+		@Header()
+		<div class="flex-1 overflow-y-auto overflow-x-hidden">
+			@BMCMachineContentArea(machineData)
+		</div>
+	</div>
+}
+
+templ BMCJobMainContent(jobData BMCJobPageData, baseURL string) {
+	<!-- BMC Job Main content -->
+	<div class="flex flex-col flex-1 min-h-0 min-w-0">
+		@Header()
+		<div class="flex-1 overflow-y-auto overflow-x-hidden">
+			@BMCJobContentArea(jobData)
+		</div>
+	</div>
+}
+
+templ BMCTaskMainContent(taskData BMCTaskPageData, baseURL string) {
+	<!-- BMC Task Main content -->
+	<div class="flex flex-col flex-1 min-h-0 min-w-0">
+		@Header()
+		<div class="flex-1 overflow-y-auto overflow-x-hidden">
+			@BMCTaskContentArea(taskData)
+		</div>
+	</div>
+}
+
+templ WorkflowRuleSetMainContent(rulesetData WorkflowRuleSetPageData, baseURL string) {
+	<!-- WorkflowRuleSet Main content -->
+	<div class="flex flex-col flex-1 min-h-0 min-w-0">
+		@Header()
+		<div class="flex-1 overflow-y-auto overflow-x-hidden">
+			@WorkflowRuleSetContentArea(rulesetData)
+		</div>
+	</div>
+}
+
+// DashboardMainContent renders the main content area for the dashboard/landing page.
+templ DashboardMainContent(data DashboardData, baseURL string) {
+	<div class="flex flex-col flex-1 min-h-0 min-w-0">
+		@Header()
+		<div class="flex-1 overflow-y-auto overflow-x-hidden">
+			<div class="p-6 bg-gray-50 dark:bg-darkBg">
+				<!-- Hero section -->
+				<div class="mb-8">
+					<h1 class="text-3xl font-light text-gray-900 dark:text-white mb-2">Tinkerbell Resources</h1>
+					<p class="text-gray-600 dark:text-gray-400">Browse the Tinkerbell Custom Resource Definitions</p>
+				</div>
+				<!-- CRD Groups -->
+				for _, group := range data.Groups {
+					<div class="mb-8">
+						<h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+							<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-tink-teal-100 dark:bg-tink-teal-900/40 mr-3">
+								@CubeIcon()
+							</span>
+							{ group.Name }
+						</h2>
+						<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+							for _, crdInfo := range group.CRDs {
+								@CRDCard(crdInfo)
+							}
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+// CRDCard renders a single CRD as a collapsible card.
+templ CRDCard(crdInfo CRDInfo) {
+	<details class="group/card bg-white dark:bg-darkNav rounded-lg shadow-sm border border-gray-200 dark:border-darkBorder overflow-hidden">
+		<!-- Card Header (clickable to expand/collapse) -->
+		<summary class="px-5 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-darkBorder list-none">
+			<div class="flex items-center justify-between">
+				<div class="flex items-center">
+					<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-darkBorderSoft mr-3">
+						@CRDKindIcon(crdInfo.Kind)
+					</span>
+					<h3 class="text-lg font-semibold text-gray-900 dark:text-white">{ crdInfo.Kind }</h3>
+					<span class="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-gray-100 dark:bg-darkBorderSoft text-gray-600 dark:text-gray-400">
+						{ crdInfo.Version }
+					</span>
+				</div>
+				<svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open/card:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+				</svg>
+			</div>
+			if crdInfo.Description != "" {
+				<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">{ crdInfo.Description }</p>
+			}
+		</summary>
+		<!-- Expandable content -->
+		<div class="border-t border-gray-100 dark:border-darkBorder">
+			<!-- Spec Fields (collapsed by default) -->
+			if len(crdInfo.SpecFields) > 0 {
+				<details class="group">
+					<summary class="flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-darkBorder text-sm font-medium text-gray-700 dark:text-gray-300">
+						<span class="flex items-center">
+							@SpecIcon()
+							<span class="ml-2">Spec</span>
+							<span class="ml-2 text-xs text-gray-500 dark:text-gray-500">({ len(crdInfo.SpecFields) } fields)</span>
+						</span>
+						<svg class="w-4 h-4 text-gray-400 transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+						</svg>
+					</summary>
+					<div class="px-5 pb-4">
+						<!-- Expand/Collapse All buttons -->
+						<div class="flex justify-end gap-2 mb-3 pb-2 border-b border-gray-100 dark:border-darkBorder">
+							<button 
+								type="button"
+								onclick="this.closest('.px-5').querySelectorAll('details').forEach(d => d.open = true)"
+								class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-tink-teal-600 dark:hover:text-tink-teal-400 hover:bg-gray-100 dark:hover:bg-darkBorderSoft rounded transition-colors"
+							>
+								<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+								</svg>
+								Expand All
+							</button>
+							<button 
+								type="button"
+								onclick="this.closest('.px-5').querySelectorAll('details').forEach(d => d.open = false)"
+								class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-tink-teal-600 dark:hover:text-tink-teal-400 hover:bg-gray-100 dark:hover:bg-darkBorderSoft rounded transition-colors"
+							>
+								<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"></path>
+								</svg>
+								Collapse All
+							</button>
+						</div>
+						@SchemaFieldList(crdInfo.SpecFields, 0)
+					</div>
+				</details>
+			}
+			<!-- Status Fields (collapsed by default) -->
+			if len(crdInfo.StatusFields) > 0 {
+				<details class="group border-t border-gray-100 dark:border-darkBorder">
+					<summary class="flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-darkBorder text-sm font-medium text-gray-700 dark:text-gray-300">
+						<span class="flex items-center">
+							@StatusIcon()
+							<span class="ml-2">Status</span>
+							<span class="ml-2 text-xs text-gray-500 dark:text-gray-500">({ len(crdInfo.StatusFields) } fields)</span>
+						</span>
+						<svg class="w-4 h-4 text-gray-400 transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+						</svg>
+					</summary>
+					<div class="px-5 pb-4">
+						<!-- Expand/Collapse All buttons -->
+						<div class="flex justify-end gap-2 mb-3 pb-2 border-b border-gray-100 dark:border-darkBorder">
+							<button 
+								type="button"
+								onclick="this.closest('.px-5').querySelectorAll('details').forEach(d => d.open = true)"
+								class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-tink-teal-600 dark:hover:text-tink-teal-400 hover:bg-gray-100 dark:hover:bg-darkBorderSoft rounded transition-colors"
+							>
+								<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+								</svg>
+								Expand All
+							</button>
+							<button 
+								type="button"
+								onclick="this.closest('.px-5').querySelectorAll('details').forEach(d => d.open = false)"
+								class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-tink-teal-600 dark:hover:text-tink-teal-400 hover:bg-gray-100 dark:hover:bg-darkBorderSoft rounded transition-colors"
+							>
+								<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"></path>
+								</svg>
+								Collapse All
+							</button>
+						</div>
+						@SchemaFieldList(crdInfo.StatusFields, 0)
+					</div>
+				</details>
+			}
+		</div>
+	</details>
+}
+
+// SchemaFieldList renders a list of schema fields.
+templ SchemaFieldList(fields []SchemaField, depth int) {
+	<div class={ "space-y-1", templ.KV("pl-4 border-l border-gray-200 dark:border-darkBorder ml-2", depth > 0) }>
+		for _, field := range fields {
+			@SchemaFieldView(field, depth)
+		}
+	</div>
+}
+
+// SchemaFieldView renders a single schema field with optional nested children.
+templ SchemaFieldView(field SchemaField, depth int) {
+	if len(field.Children) > 0 {
+		<details class="group/field">
+			<summary class="flex items-start py-1.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-darkBorder rounded px-2 -mx-2">
+				<svg class="w-4 h-4 text-gray-400 mt-0.5 mr-1 flex-shrink-0 transition-transform duration-200 group-open/field:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+				</svg>
+				<div class="flex-1 min-w-0">
+					<div class="flex items-center flex-wrap gap-1">
+						<span class="font-mono text-sm font-medium text-gray-900 dark:text-white">{ field.Name }</span>
+						@TypeBadge(field.Type)
+						if field.Required {
+							<span class="text-xs text-red-500 dark:text-red-400">*required</span>
+						}
+						if field.Deprecated {
+							<span class="text-xs text-yellow-600 dark:text-yellow-500">*deprecated</span>
+						}
+					</div>
+					if field.Description != "" {
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2" title={ field.Description }>{ field.Description }</p>
+					}
+				</div>
+			</summary>
+			<div class="mt-1">
+				@SchemaFieldList(field.Children, depth+1)
+			</div>
+		</details>
+	} else {
+		<div class="flex items-start py-1.5 px-2 -mx-2 hover:bg-gray-50 dark:hover:bg-darkBorder rounded">
+			<div class="w-4 mr-1 flex-shrink-0"></div>
+			<div class="flex-1 min-w-0">
+				<div class="flex items-center flex-wrap gap-1">
+					<span class="font-mono text-sm font-medium text-gray-900 dark:text-white">{ field.Name }</span>
+					@TypeBadge(field.Type)
+					if field.Required {
+						<span class="text-xs text-red-500 dark:text-red-400">*required</span>
+					}
+					if field.Deprecated {
+						<span class="text-xs text-yellow-600 dark:text-yellow-500">*deprecated</span>
+					}
+					if field.Default != "" {
+						<span class="text-xs text-gray-500 dark:text-gray-500">default: { field.Default }</span>
+					}
+				</div>
+				if field.Description != "" {
+					<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{ field.Description }</p>
+				}
+				if len(field.Enum) > 0 {
+					<div class="flex flex-wrap gap-1 mt-1">
+						for _, e := range field.Enum {
+							<span class="px-1.5 py-0.5 text-xs rounded bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-mono">{ e }</span>
+						}
+					</div>
+				}
+			</div>
+		</div>
+	}
+}
+
+// TypeBadge renders a colored badge for the field type.
+templ TypeBadge(fieldType string) {
+	switch fieldType {
+		case "string":
+			<span class="px-1.5 py-0.5 text-xs rounded bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-mono">string</span>
+		case "integer":
+			<span class="px-1.5 py-0.5 text-xs rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-mono">integer</span>
+		case "boolean":
+			<span class="px-1.5 py-0.5 text-xs rounded bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 font-mono">boolean</span>
+		case "object":
+			<span class="px-1.5 py-0.5 text-xs rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-mono">object</span>
+		case "array":
+			<span class="px-1.5 py-0.5 text-xs rounded bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 font-mono">array</span>
+		default:
+			if len(fieldType) > 6 && fieldType[:6] == "array[" {
+				<span class="px-1.5 py-0.5 text-xs rounded bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 font-mono">{ fieldType }</span>
+			} else {
+				<span class="px-1.5 py-0.5 text-xs rounded bg-gray-100 dark:bg-darkBorderSoft text-gray-600 dark:text-gray-400 font-mono">{ fieldType }</span>
+			}
+	}
+}
+
+// CubeIcon renders a cube icon for the group header.
+templ CubeIcon() {
+	<svg class="w-4 h-4 text-tink-teal-600 dark:text-tink-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+	</svg>
+}
+
+// SpecIcon renders an icon for the spec section.
+templ SpecIcon() {
+	<svg class="w-4 h-4 text-tink-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+	</svg>
+}
+
+// StatusIcon renders an icon for the status section.
+templ StatusIcon() {
+	<svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+	</svg>
+}
+
+// CRDKindIcon renders an icon based on the CRD kind, matching navigation icons.
+templ CRDKindIcon(kind string) {
+	switch kind {
+		case "Hardware":
+			// Server/hardware icon - matches navigation
+			@templ.Raw(hardwareIconSmall())
+		case "Workflow":
+			// Workflow icon - matches navigation
+			@templ.Raw(workflowsIconSmall())
+		case "Template":
+			// Template/document icon - matches navigation
+			@templ.Raw(templatesIconSmall())
+		case "WorkflowRuleSet":
+			// Rules/filter icon
+			<svg class="w-5 h-5 text-tink-teal-600 dark:text-tink-teal-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"></path>
+			</svg>
+		case "Machine":
+			// BMC/chip icon - matches navigation
+			@templ.Raw(bmcIconSmall())
+		case "Job":
+			// Jobs icon - matches navigation
+			@templ.Raw(jobsIconSmall())
+		case "Task":
+			// Tasks icon - matches navigation
+			@templ.Raw(tasksIconSmall())
+		default:
+			// Default cube icon
+			<svg class="w-5 h-5 text-tink-teal-600 dark:text-tink-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+			</svg>
+	}
+}

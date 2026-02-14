@@ -34,6 +34,7 @@ deployment:
       enableTootles: true
       enableTinkServer: true
       enableTinkController: true
+      enableUI: true
       logLevel: 0
       otelEndpoint: ""
       otelInsecure: false
@@ -127,6 +128,12 @@ deployment:
       debugMode: false
       logLevel: 0
       instanceEndpoint: false # if true, Tootles will serve metadata at /tootles/instanceID/<instanceID> to _any_ client
+    ui:
+      bindAddr: ""
+      bindPort: 8085
+      debugMode: false
+      logLevel: 0
+      urlPrefix: "/"
   hostNetwork: false
   image: ghcr.io/tinkerbell/tinkerbell
   imagePullPolicy: IfNotPresent
@@ -216,6 +223,10 @@ service:
     https:
       name: https
       port: 7272
+      protocol: TCP
+    ui:
+      name: ui
+      port: 8085
       protocol: TCP
   selector:
     app: tinkerbell

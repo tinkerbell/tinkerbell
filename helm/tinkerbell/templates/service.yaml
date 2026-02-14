@@ -58,6 +58,12 @@ spec:
     protocol: {{ .Values.service.ports.ssh.protocol }}
     name: {{ .Values.service.ports.ssh.name }}
   {{- end }}
+  {{- if .Values.deployment.envs.globals.enableUI }}
+  - port: {{ .Values.service.ports.ui.port }}
+    targetPort: {{ .Values.service.ports.ui.name }}
+    protocol: {{ .Values.service.ports.ui.protocol }}
+    name: {{ .Values.service.ports.ui.name }}
+  {{- end }}
   {{- if and .Values.deployment.envs.globals.tlsCertFile .Values.deployment.envs.globals.tlsKeyFile }}
   - port: {{ .Values.service.ports.https.port }}
     targetPort: {{ .Values.service.ports.https.name }}

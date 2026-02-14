@@ -212,10 +212,10 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 		return nil
 	}
 
-	if task.OneTimeBootDeviceAction != nil {
+	if task.OneTimeBootDeviceAction != nil { //nolint:staticcheck // oneTimeBootDeviceAction is deprecated but still supported for backward compatibility. We will remove in a future release.
 		// OneTimeBootDeviceAction currently sets the first boot device from Devices.
 		// setPersistent is false.
-		ok, err := bmcClient.SetBootDevice(ctx, string(task.OneTimeBootDeviceAction.Devices[0]), false, task.OneTimeBootDeviceAction.EFIBoot)
+		ok, err := bmcClient.SetBootDevice(ctx, string(task.OneTimeBootDeviceAction.Devices[0]), false, task.OneTimeBootDeviceAction.EFIBoot) //nolint:staticcheck // oneTimeBootDeviceAction is deprecated but still supported for backward compatibility. We will remove in a future release.
 		if err != nil {
 			return fmt.Errorf("failed to perform OneTimeBootDeviceAction: %w", err)
 		}
