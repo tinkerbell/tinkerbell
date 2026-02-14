@@ -64,7 +64,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		EnableTinkController: true,
 		EnableRufio:          true,
 		EnableSecondStar:     true,
-		EnableUI:             false,
+		EnableUI:             true,
 		EnableCRDMigrations:  true,
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
@@ -125,7 +125,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	uiOpts := []ui.Option{
-		ui.WithURLPrefix("/ui"),
+		ui.WithURLPrefix("/"),
 		ui.WithBindPort(defaultUIPort),
 	}
 	uic := &flag.UIConfig{

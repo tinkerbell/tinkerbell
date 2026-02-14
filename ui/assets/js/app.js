@@ -63,19 +63,49 @@ document.addEventListener('click', (event) => {
 	}
 });
 
+// Fallback copy method for non-secure (HTTP) contexts where navigator.clipboard is unavailable
+function fallbackCopyText(text, onSuccess) {
+	const textarea = document.createElement('textarea');
+	textarea.value = text;
+	textarea.style.position = 'fixed';
+	textarea.style.left = '-9999px';
+	textarea.style.top = '-9999px';
+	document.body.appendChild(textarea);
+	textarea.focus();
+	textarea.select();
+
+	try {
+		document.execCommand('copy');
+		onSuccess();
+	} catch (err) {
+		console.error('Fallback copy failed:', err);
+	}
+
+	document.body.removeChild(textarea);
+}
+
 // Handle copy buttons with data-copy-target attribute
 document.addEventListener('click', (event) => {
 	const button = event.target.closest('.copy-btn');
 	if (button && button.dataset.copyTarget) {
 		const element = document.getElementById(button.dataset.copyTarget);
 		if (element) {
-			navigator.clipboard.writeText(element.textContent).then(() => {
+			const text = element.textContent;
+			function showCopied() {
 				const originalHTML = button.innerHTML;
 				button.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Copied!';
 				setTimeout(() => {
 					button.innerHTML = originalHTML;
 				}, 2000);
-			});
+			}
+
+			if (navigator.clipboard && window.isSecureContext) {
+				navigator.clipboard.writeText(text).then(showCopied).catch(() => {
+					fallbackCopyText(text, showCopied);
+				});
+			} else {
+				fallbackCopyText(text, showCopied);
+			}
 		}
 	}
 });

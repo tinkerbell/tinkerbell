@@ -133,7 +133,7 @@ deployment:
       bindPort: 8085
       debugMode: false
       logLevel: 0
-      urlPrefix: "/ui"
+      urlPrefix: "/"
   hostNetwork: false
   image: ghcr.io/tinkerbell/tinkerbell
   imagePullPolicy: IfNotPresent
