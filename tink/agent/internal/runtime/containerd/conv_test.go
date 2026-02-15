@@ -1,6 +1,8 @@
 package containerd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -162,53 +164,187 @@ func TestParseVolume(t *testing.T) {
 func TestParseVolumes(t *testing.T) {
 	log := logr.Discard()
 
-	tests := map[string]struct {
-		volumes []spec.Volume
-		want    int // expected number of mounts
-	}{
-		"nil volumes": {
-			volumes: nil,
-			want:    0,
-		},
-		"empty volumes": {
-			volumes: []spec.Volume{},
-			want:    0,
-		},
-		"single valid volume": {
-			volumes: []spec.Volume{
-				"/host:/container",
-			},
-			want: 1,
-		},
-		"multiple valid volumes": {
-			volumes: []spec.Volume{
-				"/host1:/container1",
-				"/host2:/container2:ro",
-			},
-			want: 2,
-		},
-		"mix of valid and invalid volumes": {
-			volumes: []spec.Volume{
-				"/host:/container",
-				"namedvol:/container2",
-				"/host3:/container3:rw",
-			},
-			want: 2,
-		},
-		"all invalid volumes": {
-			volumes: []spec.Volume{
-				"namedvol:/data",
-				"invalidformat",
-			},
-			want: 0,
-		},
-	}
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			got := parseVolumes(log, tt.volumes)
-			if len(got) != tt.want {
-				t.Errorf("parseVolumes() returned %d mounts, want %d", len(got), tt.want)
-			}
-		})
-	}
+	t.Run("nil volumes", func(t *testing.T) {
+		got := parseVolumes(log, nil)
+		if len(got) != 0 {
+			t.Errorf("parseVolumes(nil) returned %d mounts, want 0", len(got))
+		}
+	})
+
+	t.Run("empty volumes", func(t *testing.T) {
+		got := parseVolumes(log, []spec.Volume{})
+		if len(got) != 0 {
+			t.Errorf("parseVolumes([]) returned %d mounts, want 0", len(got))
+		}
+	})
+
+	t.Run("single valid volume with existing source", func(t *testing.T) {
+		src := t.TempDir()
+		vols := []spec.Volume{spec.Volume(src + ":/container")}
+		got := parseVolumes(log, vols)
+		if len(got) != 1 {
+			t.Fatalf("parseVolumes() returned %d mounts, want 1", len(got))
+		}
+		if got[0].Source != src {
+			t.Errorf("Source = %q, want %q", got[0].Source, src)
+		}
+	})
+
+	t.Run("creates missing source directory", func(t *testing.T) {
+		base := t.TempDir()
+		src := filepath.Join(base, "nonexistent", "deep")
+		vols := []spec.Volume{spec.Volume(src + ":/container")}
+		got := parseVolumes(log, vols)
+		if len(got) != 1 {
+			t.Fatalf("parseVolumes() returned %d mounts, want 1", len(got))
+		}
+		if got[0].Source != src {
+			t.Errorf("Source = %q, want %q", got[0].Source, src)
+		}
+		info, err := os.Stat(src)
+		if err != nil {
+			t.Fatalf("source directory was not created: %v", err)
+		}
+		if !info.IsDir() {
+			t.Fatalf("source path is not a directory")
+		}
+	})
+
+	t.Run("multiple valid volumes", func(t *testing.T) {
+		src1 := t.TempDir()
+		src2 := t.TempDir()
+		vols := []spec.Volume{
+			spec.Volume(src1 + ":/container1"),
+			spec.Volume(src2 + ":/container2:ro"),
+		}
+		got := parseVolumes(log, vols)
+		if len(got) != 2 {
+			t.Errorf("parseVolumes() returned %d mounts, want 2", len(got))
+		}
+	})
+
+	t.Run("mix of valid and invalid volumes", func(t *testing.T) {
+		src1 := t.TempDir()
+		base := t.TempDir()
+		src3 := filepath.Join(base, "newdir")
+		vols := []spec.Volume{
+			spec.Volume(src1 + ":/container"),
+			"namedvol:/container2",
+			spec.Volume(src3 + ":/container3:rw"),
+		}
+		got := parseVolumes(log, vols)
+		if len(got) != 2 {
+			t.Errorf("parseVolumes() returned %d mounts, want 2", len(got))
+		}
+	})
+
+	t.Run("all invalid volumes", func(t *testing.T) {
+		vols := []spec.Volume{
+			"namedvol:/data",
+			"invalidformat",
+		}
+		got := parseVolumes(log, vols)
+		if len(got) != 0 {
+			t.Errorf("parseVolumes() returned %d mounts, want 0", len(got))
+		}
+	})
+
+	t.Run("resolves relative source to absolute", func(t *testing.T) {
+		// Create a temp dir and chdir into it so relative paths resolve there.
+		base := t.TempDir()
+		orig, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { os.Chdir(orig) })
+		if err := os.Chdir(base); err != nil {
+			t.Fatal(err)
+		}
+		vols := []spec.Volume{"./reldir:/container"}
+		got := parseVolumes(log, vols)
+		if len(got) != 1 {
+			t.Fatalf("parseVolumes() returned %d mounts, want 1", len(got))
+		}
+		want := filepath.Join(base, "reldir")
+		if got[0].Source != want {
+			t.Errorf("Source = %q, want %q", got[0].Source, want)
+		}
+		if _, err := os.Stat(want); err != nil {
+			t.Errorf("relative source directory was not created: %v", err)
+		}
+	})
+}
+
+func TestEnsureBindMountSource(t *testing.T) {
+	t.Run("existing directory returns path unchanged", func(t *testing.T) {
+		dir := t.TempDir()
+		got, err := ensureBindMountSource(dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != dir {
+			t.Errorf("got %q, want %q", got, dir)
+		}
+	})
+
+	t.Run("nonexistent path creates directory", func(t *testing.T) {
+		base := t.TempDir()
+		src := filepath.Join(base, "a", "b", "c")
+		got, err := ensureBindMountSource(src)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != src {
+			t.Errorf("got %q, want %q", got, src)
+		}
+		info, err := os.Stat(src)
+		if err != nil {
+			t.Fatalf("directory was not created: %v", err)
+		}
+		if !info.IsDir() {
+			t.Fatal("path is not a directory")
+		}
+		// Verify permissions (0o755).
+		if perm := info.Mode().Perm(); perm != 0o755 {
+			t.Errorf("permissions = %o, want 755", perm)
+		}
+	})
+
+	t.Run("relative path resolved to absolute", func(t *testing.T) {
+		base := t.TempDir()
+		orig, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { os.Chdir(orig) })
+		if err := os.Chdir(base); err != nil {
+			t.Fatal(err)
+		}
+		got, err := ensureBindMountSource("./mydir")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := filepath.Join(base, "mydir")
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+		if _, err := os.Stat(want); err != nil {
+			t.Fatalf("directory was not created: %v", err)
+		}
+	})
+
+	t.Run("existing file returns path as-is", func(t *testing.T) {
+		dir := t.TempDir()
+		f := filepath.Join(dir, "file.txt")
+		if err := os.WriteFile(f, []byte("data"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		got, err := ensureBindMountSource(f)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != f {
+			t.Errorf("got %q, want %q", got, f)
+		}
+	})
 }

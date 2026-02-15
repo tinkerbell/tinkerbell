@@ -1,6 +1,10 @@
 package containerd
 
 import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -22,6 +26,15 @@ func parseVolumes(log logr.Logger, volumes []spec.Volume) []specs.Mount {
 	for _, v := range volumes {
 		mount := parseVolume(log, string(v))
 		if mount != nil {
+			// Resolve relative paths to absolute and auto-create missing source
+			// directories on the host. This matches nerdctl/Docker -v behavior
+			// which calls os.MkdirAll(src, 0o755) for bind mount sources.
+			resolved, err := ensureBindMountSource(mount.Source)
+			if err != nil {
+				log.V(1).Info("failed to ensure bind mount source, skipping volume", "source", mount.Source, "error", err)
+				continue
+			}
+			mount.Source = resolved
 			mounts = append(mounts, *mount)
 		}
 	}
@@ -86,4 +99,35 @@ func parseVolume(log logr.Logger, volume string) *specs.Mount {
 		Destination: destination,
 		Options:     options,
 	}
+}
+
+// ensureBindMountSource resolves relative paths to absolute and creates the
+// source directory if it does not exist, matching nerdctl's handleBindMounts
+// and createDirOnHost behavior for -v style volume mounts.
+// See https://github.com/containerd/nerdctl/blob/61a62f37/pkg/mountutil/mountutil.go#L165
+func ensureBindMountSource(source string) (string, error) {
+	// Resolve relative paths to absolute.
+	if !filepath.IsAbs(source) {
+		abs, err := filepath.Abs(source)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve absolute path for %q: %w", source, err)
+		}
+		source = abs
+	}
+
+	// Check if source exists.
+	_, err := os.Stat(source)
+	if err == nil {
+		return source, nil
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		// Source does not exist; create it as a directory.
+		if err := os.MkdirAll(source, 0o755); err != nil {
+			return "", fmt.Errorf("failed to create bind mount source directory %q: %w", source, err)
+		}
+		return source, nil
+	}
+
+	// Other errors (e.g., permission denied, I/O error, invalid path, etc.) should be returned.
+	return "", fmt.Errorf("failed to stat %q: %w", source, err)
 }
