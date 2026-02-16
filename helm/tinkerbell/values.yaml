@@ -35,6 +35,8 @@ deployment:
       enableTinkServer: true
       enableTinkController: true
       enableUI: true
+      httpPort: 7171
+      httpsPort: 7272
       logLevel: 0
       otelEndpoint: ""
       otelInsecure: false
@@ -75,12 +77,9 @@ deployment:
       dhcpSyslogIP: ""
       dhcpTftpIP: ""
       dhcpTftpPort: 69
-      httpsBindPort: 7272
       ipxeBinaryInjectMacAddrFormat: "" # one of colon, dot, dash, no-delimiter, empty. defaults to colon when empty.
       ipxeEmbeddedScriptPatch: ""
       ipxeHttpBinaryEnabled: true
-      ipxeHttpScriptBindAddr: ""
-      ipxeHttpScriptBindPort: 7171
       ipxeHttpScriptEnabled: true
       ipxeHttpScriptExtraKernelArgs: [] # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
       ipxeHttpScriptTrustedProxies: ""
@@ -123,14 +122,10 @@ deployment:
       bindPort: 42113
       logLevel: 0
     tootles:
-      bindAddr: ""
-      bindPort: 7172
       debugMode: false
       logLevel: 0
       instanceEndpoint: false # if true, Tootles will serve metadata at /tootles/instanceID/<instanceID> to _any_ client
     ui:
-      bindAddr: ""
-      bindPort: 8085
       debugMode: false
       enableAutoLogin: false
       logLevel: 0
@@ -201,13 +196,9 @@ service:
       name: grpc
       port: 42113
       protocol: TCP
-    httpSmee:
-      name: http-smee
+    http:
+      name: http
       port: 7171
-      protocol: TCP
-    httpTootles:
-      name: http-tootles
-      port: 7172
       protocol: TCP
     ssh:
       name: ssh
@@ -224,10 +215,6 @@ service:
     https:
       name: https
       port: 7272
-      protocol: TCP
-    ui:
-      name: ui
-      port: 8085
       protocol: TCP
   selector:
     app: tinkerbell
