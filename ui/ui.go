@@ -2,8 +2,6 @@
 package ui
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -18,30 +16,11 @@ import (
 )
 
 const (
-	// DefaultBindAddr is the default IP address to bind the HTTP server to.
-	DefaultBindAddr = "0.0.0.0"
-	// DefaultBindPort is the default port for the web UI HTTP server.
-	DefaultBindPort = 8085
-
-	// HTTP server timeouts (QUAL-4)
-	// HTTPReadTimeout is the maximum duration for reading the entire request.
-	HTTPReadTimeout = 30 * time.Second
-	// HTTPReadHeaderTimeout is the maximum duration for reading request headers.
-	HTTPReadHeaderTimeout = 10 * time.Second
-	// HTTPWriteTimeout is the maximum duration before timing out writes of the response.
-	HTTPWriteTimeout = 30 * time.Second
-	// HTTPIdleTimeout is the maximum duration for keep-alive connections.
-	HTTPIdleTimeout = 120 * time.Second
-	// HTTPShutdownTimeout is the maximum duration for graceful shutdown.
-	HTTPShutdownTimeout = 30 * time.Second
-	// HTTPMaxHeaderBytes is the maximum size of request headers.
-	HTTPMaxHeaderBytes = 1 << 20 // 1 MB
-
 	// StaticAssetCacheDuration is the cache duration for static assets (24 hours).
 	StaticAssetCacheDuration = 24 * time.Hour
 
 	// DefaultURLPrefix is the default URI path prefix for all web UI routes.
-	DefaultURLPrefix = "/ui"
+	DefaultURLPrefix = "/"
 )
 
 // Config holds the configuration for the web UI service.
@@ -62,12 +41,6 @@ type Config struct {
 
 type Option func(*Config)
 
-func WithBindPort(port int) Option {
-	return func(c *Config) {
-		c.BindPort = port
-	}
-}
-
 func WithURLPrefix(prefix string) Option {
 	return func(c *Config) {
 		c.URLPrefix = prefix
@@ -77,12 +50,8 @@ func WithURLPrefix(prefix string) Option {
 // NewConfig creates a new Config with defaults merged with the provided config.
 func NewConfig(opts ...Option) *Config {
 	dc := &Config{
-		BindAddr:    DefaultBindAddr,
-		BindPort:    DefaultBindPort,
-		DebugMode:   false,
-		TLSCertFile: "",
-		TLSKeyFile:  "",
-		URLPrefix:   DefaultURLPrefix,
+		DebugMode: false,
+		URLPrefix: DefaultURLPrefix,
 	}
 
 	for _, opt := range opts {
@@ -120,14 +89,13 @@ func securityHeadersMiddleware() gin.HandlerFunc {
 	}
 }
 
-// Start starts the web UI HTTP server.
-func (c *Config) Start(ctx context.Context, log logr.Logger) error {
+// Handler returns an http.Handler for the web UI.
+func (c *Config) Handler(log logr.Logger) (http.Handler, error) {
 	if !c.DebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	r := gin.New()
-	r.Use(gin.Recovery())
 	r.Use(securityHeadersMiddleware())
 	base := r.Group(c.URLPrefix)
 
@@ -149,19 +117,19 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	// Create sub-filesystems for artwork and css from the embedded assets
 	artworkFS, err := fs.Sub(assets.Artwork, "artwork")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cssFS, err := fs.Sub(assets.CSS, "css")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	jsFS, err := fs.Sub(assets.JS, "js")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fontsFS, err := fs.Sub(assets.Fonts, "fonts")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Serve embedded static files with cache headers
@@ -269,7 +237,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	if c.EnableAutoLogin {
 		autoClient, err := webhttp.NewKubeClientFromRestConfig(c.AutoLoginRestConfig)
 		if err != nil {
-			return fmt.Errorf("failed to create auto-login kube client: %w", err)
+			return nil, fmt.Errorf("failed to create auto-login kube client: %w", err)
 		}
 		protected.Use(webhttp.AutoLoginMiddleware(autoClient, c.AutoLoginNamespace))
 	} else {
@@ -374,67 +342,5 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		})
 	}
 
-	addr := fmt.Sprintf("%s:%d", c.BindAddr, c.BindPort)
-	log.Info("starting web UI server", "addr", addr, "tlsEnabled", c.TLSCertFile != "")
-
-	// Configure HTTP server with comprehensive timeouts (QUAL-4)
-	srv := &http.Server{
-		Addr:              addr,
-		Handler:           r,
-		ReadTimeout:       HTTPReadTimeout,
-		ReadHeaderTimeout: HTTPReadHeaderTimeout,
-		WriteTimeout:      HTTPWriteTimeout,
-		IdleTimeout:       HTTPIdleTimeout,
-		MaxHeaderBytes:    HTTPMaxHeaderBytes,
-	}
-
-	// Start HTTP server in background goroutine.
-	// Goroutine lifecycle (PHIL-4):
-	// - Starts when Start() is called
-	// - Exits when server encounters an error (sent to errCh)
-	// - Exits when context is canceled and Shutdown() completes
-	errCh := make(chan error, 1)
-	go func() {
-		log.V(1).Info("HTTP server goroutine starting")
-		defer log.V(1).Info("HTTP server goroutine exiting")
-
-		var err error
-		if c.TLSCertFile != "" && c.TLSKeyFile != "" {
-			err = srv.ListenAndServeTLS(c.TLSCertFile, c.TLSKeyFile)
-		} else {
-			err = srv.ListenAndServe()
-		}
-
-		// Server stopped - send error to channel
-		// This goroutine will exit after sending
-		errCh <- err
-	}()
-
-	select {
-	case err := <-errCh:
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error(err, "HTTP server error")
-			return fmt.Errorf("HTTP server failed: %w", err)
-		}
-		log.Info("HTTP server stopped")
-		return nil
-	case <-ctx.Done():
-		log.Info("Received shutdown signal, gracefully shutting down HTTP server")
-
-		// Use timeout for graceful shutdown (PHIL-5)
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), HTTPShutdownTimeout)
-		defer cancel()
-
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			log.Error(err, "Error during graceful shutdown, forcing close")
-			// Force close if graceful shutdown fails
-			if closeErr := srv.Close(); closeErr != nil {
-				log.Error(closeErr, "Error forcing server close")
-			}
-			return fmt.Errorf("server shutdown error: %w", err)
-		}
-
-		log.Info("HTTP server shutdown complete")
-		return nil
-	}
+	return r, nil
 }

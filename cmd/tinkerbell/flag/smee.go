@@ -147,11 +147,11 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 }
 
 // Convert CLI specific fields to smee.Config fields.
-func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr, bindAddr netip.Addr) {
+func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr, bindAddr netip.Addr, defaultPort int) {
 	s.Config.IPXE.HTTPScriptServer.TrustedProxies = ntip.ToPrefixList(trustedProxies).Slice()
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = func() string {
-		var addr string                                 // Defaults
-		port := fmt.Sprintf("%d", smee.DefaultHTTPPort) // Defaults
+		var addr string                        // Defaults
+		port := fmt.Sprintf("%d", defaultPort) // Defaults
 		if !publicIP.IsUnspecified() && publicIP.IsValid() {
 			addr = publicIP.String()
 		}
@@ -170,8 +170,8 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 	}()
 
 	s.Config.DHCP.IPXEHTTPBinaryURL.Host = func() string {
-		var addr string                                 // Defaults
-		port := fmt.Sprintf("%d", smee.DefaultHTTPPort) // Defaults
+		var addr string                        // Defaults
+		port := fmt.Sprintf("%d", defaultPort) // Defaults
 		if !publicIP.IsUnspecified() && publicIP.IsValid() {
 			addr = publicIP.String()
 		}
