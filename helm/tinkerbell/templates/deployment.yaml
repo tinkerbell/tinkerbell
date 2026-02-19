@@ -229,6 +229,8 @@ spec:
               value: {{ .Values.deployment.envs.ui.bindPort | quote }}
             - name: TINKERBELL_UI_DEBUG_MODE
               value: {{ .Values.deployment.envs.ui.debugMode | quote }}
+            - name: TINKERBELL_UI_ENABLE_AUTO_LOGIN
+              value: {{ .Values.deployment.envs.ui.enableAutoLogin | quote }}
             - name: TINKERBELL_UI_LOG_LEVEL
               value: {{ .Values.deployment.envs.ui.logLevel | quote }}
             - name: TINKERBELL_UI_URL_PREFIX

@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"path"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/ui/assets"
 	webhttp "github.com/tinkerbell/tinkerbell/ui/internal/http"
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -50,6 +52,12 @@ type Config struct {
 	TLSCertFile string
 	TLSKeyFile  string
 	URLPrefix   string
+	// EnableAutoLogin bypasses the login page and uses AutoLoginRestConfig for all requests.
+	EnableAutoLogin bool
+	// AutoLoginRestConfig is the Kubernetes REST config used when EnableAutoLogin is true.
+	AutoLoginRestConfig *rest.Config
+	// AutoLoginNamespace is the namespace to use for namespace-scoped fallbacks when EnableAutoLogin is true.
+	AutoLoginNamespace string
 }
 
 type Option func(*Config)
@@ -214,14 +222,28 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		c.Data(http.StatusOK, "image/svg+xml", data)
 	})
 
-	// Auth routes (no CSRF - users don't have sessions yet)
-	base.GET("/login", func(c *gin.Context) {
-		webhttp.HandleLogin(c, log)
-	})
-	base.POST("/api/auth/login", func(c *gin.Context) {
-		webhttp.HandleLoginValidate(c, log)
-	})
-	base.POST("/api/auth/logout", webhttp.HandleLogout)
+	// Auth routes
+	if c.EnableAutoLogin {
+		// Auto-login mode: bypass login page, redirect to dashboard
+		base.GET("/login", func(gc *gin.Context) {
+			gc.Redirect(http.StatusFound, path.Join(c.URLPrefix, "/"))
+		})
+		base.POST("/api/auth/login", func(gc *gin.Context) {
+			gc.JSON(http.StatusForbidden, gin.H{"error": "auto-login enabled, manual login is disabled"})
+		})
+		base.POST("/api/auth/logout", func(gc *gin.Context) {
+			gc.Redirect(http.StatusFound, path.Join(c.URLPrefix, "/"))
+		})
+	} else {
+		// Standard login mode: users authenticate via the login page
+		base.GET("/login", func(gc *gin.Context) {
+			webhttp.HandleLogin(gc, log)
+		})
+		base.POST("/api/auth/login", func(gc *gin.Context) {
+			webhttp.HandleLoginValidate(gc, log)
+		})
+		base.POST("/api/auth/logout", webhttp.HandleLogout)
+	}
 
 	// Health check endpoints (QUAL-5)
 	base.GET("/health", func(c *gin.Context) {
@@ -244,7 +266,15 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 	// Protected routes (require valid kubeconfig)
 	protected := base.Group("/")
-	protected.Use(webhttp.AuthMiddleware(log, c.URLPrefix))
+	if c.EnableAutoLogin {
+		autoClient, err := webhttp.NewKubeClientFromRestConfig(c.AutoLoginRestConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create auto-login kube client: %w", err)
+		}
+		protected.Use(webhttp.AutoLoginMiddleware(autoClient, c.AutoLoginNamespace))
+	} else {
+		protected.Use(webhttp.AuthMiddleware(log, c.URLPrefix))
+	}
 	{
 		// Home page (dashboard / CRD browser)
 		protected.GET("/", func(c *gin.Context) {
