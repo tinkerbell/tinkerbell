@@ -65,6 +65,19 @@ type KubeClient struct {
 
 // NewKubeClientFromTokenAndServer creates a Kubernetes client using JWT token and API server URL.
 func NewKubeClientFromTokenAndServer(token, apiServer string, insecureSkipVerify bool) (*KubeClient, error) {
+	config := &rest.Config{
+		Host:        apiServer,
+		BearerToken: token,
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure: insecureSkipVerify,
+		},
+	}
+
+	return NewKubeClientFromRestConfig(config)
+}
+
+// NewKubeClientFromRestConfig creates a Kubernetes client from an existing REST config.
+func NewKubeClientFromRestConfig(config *rest.Config) (*KubeClient, error) {
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add core types to scheme: %w", err)
@@ -74,14 +87,6 @@ func NewKubeClientFromTokenAndServer(token, apiServer string, insecureSkipVerify
 	}
 	if err := api.AddToSchemeBMC(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add bmc types to scheme: %w", err)
-	}
-
-	config := &rest.Config{
-		Host:        apiServer,
-		BearerToken: token,
-		TLSClientConfig: rest.TLSClientConfig{
-			Insecure: insecureSkipVerify,
-		},
 	}
 
 	c, err := client.New(config, client.Options{Scheme: scheme})

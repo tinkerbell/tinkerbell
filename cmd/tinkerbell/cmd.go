@@ -325,6 +325,10 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		tc.Config.DynamicClient = b
 		rc.Config.Client = b.ClientConfig
 		ssc.Config.Backend = b
+		if uic.Config.EnableAutoLogin {
+			uic.Config.AutoLoginRestConfig = b.ClientConfig
+			uic.Config.AutoLoginNamespace = globals.BackendKubeNamespace
+		}
 	case "file":
 		b, err := newFileBackend(ctx, log, globals.BackendFilePath)
 		if err != nil {
