@@ -14,7 +14,6 @@ type TinkServerConfig struct {
 	BindAddr netip.Addr
 	BindPort uint16
 	LogLevel int
-	NoLog    bool
 }
 
 var KubeIndexesTinkServer = map[kube.IndexType]kube.Index{
@@ -26,7 +25,6 @@ func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {
 	fs.Register(TinkServerBindAddr, &ntip.Addr{Addr: &t.BindAddr})
 	fs.Register(TinkServerBindPort, ffval.NewValueDefault(&t.BindPort, t.BindPort))
 	fs.Register(TinkServerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
-	fs.Register(TinkServerNoLog, ffval.NewValueDefault(&t.NoLog, t.NoLog))
 	fs.Register(TinkServerAutoEnrollmentEnabled, ffval.NewValueDefault(&t.Config.Auto.Enrollment.Enabled, t.Config.Auto.Enrollment.Enabled))
 	fs.Register(TinkerbellAutoDiscoveryEnabled, ffval.NewValueDefault(&t.Config.Auto.Discovery.Enabled, t.Config.Auto.Discovery.Enabled))
 	fs.Register(TinkerbellAutoDiscoveryAutoEnrollmentEnabled, ffval.NewValueDefault(&t.Config.Auto.Discovery.EnrollmentEnabled, t.Config.Auto.Discovery.EnrollmentEnabled))
@@ -54,12 +52,7 @@ var TinkServerBindPort = Config{
 
 var TinkServerLogLevel = Config{
 	Name:  "tink-server-log-level",
-	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
-}
-
-var TinkServerNoLog = Config{
-	Name:  "tink-server-no-log",
-	Usage: "disable all logging output for Tink Server service",
+	Usage: "the higher the number the more verbose, level 0 inherits the global log level, a negative number disables logging",
 }
 
 var TinkServerAutoEnrollmentEnabled = Config{

@@ -80,7 +80,7 @@ func RegisterEmbeddedGlobals(fs *Set, gc *GlobalConfig) {
 // are used to create objects that are used by multiple services.
 var LogLevelConfig = Config{
 	Name:  "log-level",
-	Usage: "the higher the number the more verbose",
+	Usage: "the higher the number the more verbose, a negative number disables logging",
 }
 
 // BackendConfig flags.
