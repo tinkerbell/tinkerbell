@@ -10,7 +10,6 @@ import (
 type TinkControllerConfig struct {
 	Config   *controller.Config
 	LogLevel int
-	NoLog    bool
 }
 
 func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
@@ -20,7 +19,6 @@ func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
 	fs.Register(TinkControllerProbeAddr, &netip.AddrPort{AddrPort: &t.Config.ProbeAddr})
 	fs.Register(TinkControllerMaxConcurrentReconciles, ffval.NewValueDefault(&t.Config.MaxConcurrentReconciles, t.Config.MaxConcurrentReconciles))
 	fs.Register(TinkControllerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
-	fs.Register(TinkControllerNoLog, ffval.NewValueDefault(&t.NoLog, t.NoLog))
 	fs.Register(TinkControllerReferenceAllowListRules, delimitedlist.New(&t.Config.ReferenceAllowListRules, '|'))
 	fs.Register(TinkControllerReferenceDenyListRules, delimitedlist.New(&t.Config.ReferenceDenyListRules, '|'))
 }
@@ -47,12 +45,7 @@ var TinkControllerLeaderElectionNamespace = Config{
 
 var TinkControllerLogLevel = Config{
 	Name:  "tink-controller-log-level",
-	Usage: "the higher the number the more verbose, level 0 inherits the global log level",
-}
-
-var TinkControllerNoLog = Config{
-	Name:  "tink-controller-no-log",
-	Usage: "disable all logging output for Tink Controller service",
+	Usage: "the higher the number the more verbose, level 0 inherits the global log level, a negative number disables logging",
 }
 
 var TinkControllerReferenceAllowListRules = Config{
