@@ -24,6 +24,7 @@ func RegisterUIFlags(fs *Set, h *UIConfig) {
 	fs.Register(UILogLevel, ffval.NewValueDefault(&h.LogLevel, h.LogLevel))
 	fs.Register(UINoLog, ffval.NewValueDefault(&h.NoLog, h.NoLog))
 	fs.Register(UIURLPrefix, ffval.NewValueDefault(&h.Config.URLPrefix, h.Config.URLPrefix))
+	fs.Register(UIEnableAutoLogin, ffval.NewValueDefault(&h.Config.EnableAutoLogin, h.Config.EnableAutoLogin))
 }
 
 var UIBindAddr = Config{
@@ -54,6 +55,11 @@ var UINoLog = Config{
 var UIURLPrefix = Config{
 	Name:  "ui-url-prefix",
 	Usage: "URL path prefix for the UI",
+}
+
+var UIEnableAutoLogin = Config{
+	Name:  "ui-enable-auto-login",
+	Usage: "use the backend kubeconfig for UI authentication, bypassing the login page",
 }
 
 // Convert converts UIConfig data types to ui.Config data types.

@@ -340,6 +340,20 @@ func AuthMiddleware(log logr.Logger, baseURL string) gin.HandlerFunc {
 	}
 }
 
+// AutoLoginMiddleware injects a pre-configured KubeClient into the request context.
+// Used when auto-login is enabled to bypass cookie-based authentication.
+// When namespace is non-empty it is stored as the service-account namespace so
+// that downstream handlers can fall back to namespace-scoped queries.
+func AutoLoginMiddleware(client *KubeClient, namespace string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if namespace != "" {
+			c.Set(cookieNameSANamespace, namespace)
+		}
+		c.Set("kubeClient", client)
+		c.Next()
+	}
+}
+
 // validateTokenPermissions validates that a token has permissions to list Hardware objects.
 // This works for both cluster-wide and namespace-scoped service accounts by using
 // SelfSubjectAccessReview to check if the token can list Hardware resources.

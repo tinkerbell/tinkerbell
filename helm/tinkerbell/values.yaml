@@ -132,6 +132,7 @@ deployment:
       bindAddr: ""
       bindPort: 8085
       debugMode: false
+      enableAutoLogin: false
       logLevel: 0
       urlPrefix: "/"
   hostNetwork: false
