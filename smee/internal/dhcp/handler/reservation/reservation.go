@@ -3,25 +3,21 @@ package reservation
 
 import (
 	"context"
-	"net"
 	"net/netip"
 	"net/url"
 
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 )
 
 // BackendReader is the interface for getting data from a backend.
-//
-// Backends implement this interface to provide DHCP and Netboot data to the handlers.
 type BackendReader interface {
-	// Read data (from a backend) based on a mac address
-	// and return DHCP headers and options, including netboot info.
-	GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error)
+	ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error)
 }
 
 // Handler holds the configuration details for the running the DHCP server.

@@ -4,8 +4,8 @@ package reservation
 import (
 	"context"
 	"errors"
-	"net"
 
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 )
 
@@ -13,6 +13,6 @@ import (
 type noop struct{}
 
 // GetByMac returns an error.
-func (h noop) GetByMac(_ context.Context, _ net.HardwareAddr) (*data.DHCP, *data.Netboot, error) {
-	return nil, nil, errors.New("no backend specified, please specify a backend")
+func (h noop) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
+	return nil, errors.New("no backend specified, please specify a backend")
 }

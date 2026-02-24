@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"net"
-	"net/netip"
-	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -17,7 +14,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 )
 
@@ -236,151 +232,101 @@ func (tt *testData) helper(t *testing.T, l logr.Logger) (*Watcher, string) {
 	return w, name
 }
 
-func TestTranslate(t *testing.T) {
-	input := dhcp{
-		MACAddress:       []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
-		IPAddress:        "192.168.2.150",
-		SubnetMask:       "255.255.255.0",
-		DefaultGateway:   "192.168.2.1",
-		NameServers:      []string{"1.1.1.1", "8.8.8.8"},
-		Hostname:         "test-server",
-		DomainName:       "example.com",
-		BroadcastAddress: "192.168.2.255",
-		NTPServers:       []string{"132.163.96.2"},
-		VLANID:           "100",
-		LeaseTime:        86400,
-		Arch:             "x86_64",
-		DomainSearch:     []string{"example.com"},
-		Netboot: netboot{
-			AllowPXE:      true,
-			IPXEScriptURL: "http://boot.netboot.xyz",
-			IPXEScript:    "#!ipxe\nchain http://boot.netboot.xyz",
-			Console:       "ttyS0",
-			Facility:      "onprem",
-		},
-	}
-	wantDHCP := &data.DHCP{
-		MACAddress:       []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
-		IPAddress:        netip.MustParseAddr("192.168.2.150"),
-		SubnetMask:       net.IPv4Mask(255, 255, 255, 0),
-		DefaultGateway:   netip.MustParseAddr("192.168.2.1"),
-		NameServers:      []net.IP{{1, 1, 1, 1}, {8, 8, 8, 8}},
-		Hostname:         "test-server",
-		DomainName:       "example.com",
-		BroadcastAddress: netip.MustParseAddr("192.168.2.255"),
-		NTPServers:       []net.IP{{132, 163, 96, 2}},
-		VLANID:           "100",
-		LeaseTime:        86400,
-		Arch:             "x86_64",
-		DomainSearch:     []string{"example.com"},
-	}
-	wantNetboot := &data.Netboot{
-		AllowNetboot:  true,
-		IPXEScriptURL: &url.URL{Scheme: "http", Host: "boot.netboot.xyz"},
-		IPXEScript:    "#!ipxe\nchain http://boot.netboot.xyz",
-		Console:       "ttyS0",
-		Facility:      "onprem",
-	}
-	w := &Watcher{Log: logr.Discard()}
-	gotDHCP, gotNetboot, err := w.translate(input)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diff := cmp.Diff(gotDHCP, wantDHCP, cmpopts.IgnoreUnexported(netip.Addr{})); diff != "" {
-		t.Error(diff)
-	}
-	if diff := cmp.Diff(gotNetboot, wantNetboot); diff != "" {
-		t.Error(diff)
-	}
-}
-
-func TestTranslateErrors(t *testing.T) {
+func TestReadHardwareByMac(t *testing.T) {
 	tests := map[string]struct {
-		input   dhcp
-		wantErr error
-	}{
-		"invalid IP":                {input: dhcp{IPAddress: "not an IP"}, wantErr: errParseIP},
-		"invalid subnet mask":       {input: dhcp{IPAddress: "1.1.1.1", SubnetMask: "not a mask"}, wantErr: errParseSubnet},
-		"invalid gateway":           {input: dhcp{IPAddress: "1.1.1.1", SubnetMask: "192.168.1.255", DefaultGateway: "not a gateway"}, wantErr: nil},
-		"invalid broadcast address": {input: dhcp{IPAddress: "1.1.1.1", SubnetMask: "192.168.1.255"}, wantErr: nil},
-		"invalid NameServers":       {input: dhcp{IPAddress: "1.1.1.1", SubnetMask: "192.168.1.255", NameServers: []string{"no good"}}, wantErr: nil},
-		"invalid ntpservers":        {input: dhcp{IPAddress: "1.1.1.1", SubnetMask: "192.168.1.255", NTPServers: []string{"no good"}}, wantErr: nil},
-		"invalid ipxe script url":   {input: dhcp{IPAddress: "1.1.1.1", SubnetMask: "255.255.255.0", Netboot: netboot{IPXEScriptURL: ":not a url"}}, wantErr: errParseURL},
-	}
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			w := &Watcher{Log: logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil))}
-			if _, _, err := w.translate(tt.input); !errors.Is(err, tt.wantErr) {
-				t.Errorf("translate() = %T, want %T", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestGetByMac(t *testing.T) {
-	tests := map[string]struct {
-		mac     net.HardwareAddr
+		mac     string
 		badData bool
 		wantErr error
 	}{
-		"no record found":        {mac: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, wantErr: errRecordNotFound},
-		"record found":           {mac: net.HardwareAddr{0x08, 0x00, 0x27, 0x29, 0x4e, 0x67}, wantErr: nil},
-		"fail error translating": {mac: net.HardwareAddr{0x08, 0x00, 0x27, 0x29, 0x4e, 0x68}, wantErr: errParseIP},
-		"fail parsing file":      {badData: true, wantErr: errFileFormat},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			data := "testdata/example.yaml"
-			if tt.badData {
-				var err error
-				data, err = createFile([]byte("not a yaml file"))
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer os.Remove(data)
-			}
-			w, err := NewWatcher(logr.Discard(), data)
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, err = w.GetByMac(context.Background(), tt.mac)
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatal(err)
-			}
-		})
-	}
-}
-
-func TestGetByIP(t *testing.T) {
-	tests := map[string]struct {
-		ip      net.IP
-		badData bool
-		wantErr error
-	}{
-		"no record found":   {ip: net.IPv4(172, 168, 2, 1), wantErr: errRecordNotFound},
-		"record found":      {ip: net.IPv4(192, 168, 2, 153), wantErr: nil},
+		"no record found":   {mac: "00:01:02:03:04:05", wantErr: errRecordNotFound},
+		"record found":      {mac: "08:00:27:29:4e:67", wantErr: nil},
 		"fail parsing file": {badData: true, wantErr: errFileFormat},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			data := "testdata/example.yaml"
+			dataFile := "testdata/example.yaml"
 			if tt.badData {
 				var err error
-				data, err = createFile([]byte("not a yaml file"))
+				dataFile, err = createFile([]byte("not a yaml file"))
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer os.Remove(data)
+				defer os.Remove(dataFile)
 			}
-			w, err := NewWatcher(logr.Discard(), data)
+			w, err := NewWatcher(logr.Discard(), dataFile)
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = w.GetByIP(context.Background(), tt.ip)
+			hw, err := w.ReadHardware(context.Background(), "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: tt.mac}})
 			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("ReadHardware() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr == nil && hw == nil {
+				t.Fatal("expected hardware, got nil")
+			}
+		})
+	}
+}
+
+func TestReadHardwareByIP(t *testing.T) {
+	tests := map[string]struct {
+		ip      string
+		badData bool
+		wantErr error
+	}{
+		"no record found":   {ip: "172.168.2.1", wantErr: errRecordNotFound},
+		"record found":      {ip: "192.168.2.153", wantErr: nil},
+		"fail parsing file": {badData: true, wantErr: errFileFormat},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			dataFile := "testdata/example.yaml"
+			if tt.badData {
+				var err error
+				dataFile, err = createFile([]byte("not a yaml file"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer os.Remove(dataFile)
+			}
+			w, err := NewWatcher(logr.Discard(), dataFile)
+			if err != nil {
 				t.Fatal(err)
+			}
+			hw, err := w.ReadHardware(context.Background(), "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByIPAddress: tt.ip}})
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("ReadHardware() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr == nil && hw == nil {
+				t.Fatal("expected hardware, got nil")
+			}
+		})
+	}
+}
+
+func TestReadHardwareByName(t *testing.T) {
+	tests := map[string]struct {
+		name    string
+		wantErr error
+	}{
+		"no record found": {name: "nonexistent", wantErr: errRecordNotFound},
+		"record found":    {name: "pxe-virtualbox", wantErr: nil},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			w, err := NewWatcher(logr.Discard(), "testdata/example.yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			hw, err := w.ReadHardware(context.Background(), "", "", data.ReadListOptions{ByName: tt.name})
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("ReadHardware() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr == nil && hw == nil {
+				t.Fatal("expected hardware, got nil")
 			}
 		})
 	}

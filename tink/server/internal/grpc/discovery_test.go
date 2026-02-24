@@ -218,16 +218,18 @@ func TestHandlerDiscover(t *testing.T) {
 			}
 
 			// Create the handler with the fake client
-			handler := &Handler{
-				Logger: logr.Discard(),
-				AutoCapabilities: AutoCapabilities{
+			opts := func(h *Handler) {
+				h.Logger = logr.Discard()
+				h.AutoCapabilities = AutoCapabilities{
 					Discovery: AutoDiscovery{
-						Enabled:                  true,
-						Namespace:                "test-namespace",
-						AutoDiscoveryReadCreator: mockDiscoveryClient,
+						Enabled:         true,
+						Namespace:       "test-namespace",
+						HardwareCreator: mockDiscoveryClient,
+						HardwareReader:  mockDiscoveryClient,
 					},
-				},
+				}
 			}
+			handler := NewHandler(opts)
 
 			// Call Discover method
 			hw, err := handler.Discover(context.Background(), tc.id, tc.attrs)
@@ -314,7 +316,7 @@ type mockAutoDiscoveryClient struct {
 	client client.Client
 }
 
-func (m *mockAutoDiscoveryClient) ReadHardware(ctx context.Context, id, namespace string) (*tinkerbell.Hardware, error) {
+func (m *mockAutoDiscoveryClient) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
 	hw := &tinkerbell.Hardware{}
 	err := m.client.Get(ctx, types.NamespacedName{
 		Name:      id,

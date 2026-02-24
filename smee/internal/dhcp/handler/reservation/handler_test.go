@@ -20,8 +20,10 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/insomniacslk/dhcp/rfc1035label"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	d2 "github.com/tinkerbell/tinkerbell/smee/internal/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -56,44 +58,67 @@ type hwNotFoundError struct{}
 func (hwNotFoundError) NotFound() bool { return true }
 func (hwNotFoundError) Error() string  { return "not found" }
 
-func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error) {
+func (m *mockBackend) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
 	if m.err != nil {
-		return data.Hardware{}, m.err
+		return nil, m.err
 	}
 	if m.hardwareNotFound {
-		return data.Hardware{}, hwNotFoundError{}
+		return nil, hwNotFoundError{}
 	}
-	d := &data.DHCP{
-		MACAddress:     []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
-		IPAddress:      netip.MustParseAddr("192.168.1.100"),
-		SubnetMask:     []byte{255, 255, 255, 0},
-		DefaultGateway: netip.MustParseAddr("192.168.1.1"),
-		NameServers: []net.IP{
-			{1, 1, 1, 1},
+	hw := &tinkerbell.Hardware{
+		Spec: tinkerbell.HardwareSpec{
+			Interfaces: []tinkerbell.Interface{
+				{
+					DHCP: &tinkerbell.DHCP{
+						MAC: net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}.String(),
+						IP: &tinkerbell.IP{
+							Address: "192.168.1.100",
+							Netmask: "255.255.255.0",
+							Gateway: "192.168.1.1",
+							Family:  4,
+						},
+						NameServers:    []string{"1.1.1.1"},
+						Hostname:       "test-host",
+						DomainName:     "mydomain.com",
+						TimeServers:    []string{"132.163.96.2"},
+						LeaseTime:      60,
+						TFTPServerName: m.tftpServerName,
+						BootFileName:   m.bootFileName,
+						Arch: func() string {
+							if m.arch != 0 {
+								return m.arch.String()
+							}
+							return ""
+						}(),
+						ClasslessStaticRoutes: func() []tinkerbell.ClasslessStaticRoute {
+							if len(m.classlessStaticRoutes) == 0 {
+								return nil
+							}
+							var routes []tinkerbell.ClasslessStaticRoute
+							for _, r := range m.classlessStaticRoutes {
+								routes = append(routes, tinkerbell.ClasslessStaticRoute{
+									DestinationDescriptor: r.Dest.String(),
+									Router:                net.IP(r.Router).String(),
+								})
+							}
+							return routes
+						}(),
+					},
+					Netboot: &tinkerbell.Netboot{
+						AllowPXE: &m.allowNetboot,
+						IPXE: func() *tinkerbell.IPXE {
+							if m.ipxeScript != nil {
+								return &tinkerbell.IPXE{URL: m.ipxeScript.String()}
+							}
+							return nil
+						}(),
+					},
+				},
+			},
 		},
-		Hostname:         "test-host",
-		DomainName:       "mydomain.com",
-		BroadcastAddress: netip.MustParseAddr("192.168.1.255"),
-		NTPServers: []net.IP{
-			{132, 163, 96, 2},
-		},
-		LeaseTime: 60,
-		DomainSearch: []string{
-			"mydomain.com",
-		},
-		ClasslessStaticRoutes: m.classlessStaticRoutes,
-		TFTPServerName:        m.tftpServerName,
-		BootFileName:          m.bootFileName,
-	}
-	if m.arch != 0 {
-		d.Arch = m.arch.String()
-	}
-	n := &data.Netboot{
-		AllowNetboot:  m.allowNetboot,
-		IPXEScriptURL: m.ipxeScript,
 	}
 
-	return data.Hardware{DHCP: d, Netboot: n}, m.err
+	return hw, m.err
 }
 
 func TestHandle(t *testing.T) {
@@ -776,8 +801,8 @@ func client(pc net.PacketConn) (*dhcpv4.DHCPv4, error) {
 func TestUpdateMsg(t *testing.T) {
 	type args struct {
 		m       *dhcpv4.DHCPv4
-		data    *data.DHCP
-		netboot *data.Netboot
+		data    *d2.DHCP
+		netboot *d2.Netboot
 		msg     dhcpv4.MessageType
 	}
 	tests := map[string]struct {
@@ -799,8 +824,8 @@ func TestUpdateMsg(t *testing.T) {
 						dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
 					),
 				},
-				data:    &data.DHCP{IPAddress: netip.MustParseAddr("192.168.1.100"), SubnetMask: net.IPMask(net.IP{255, 255, 255, 0}.To4())},
-				netboot: &data.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "auto.ipxe"}},
+				data:    &d2.DHCP{IPAddress: netip.MustParseAddr("192.168.1.100"), SubnetMask: net.IPMask(net.IP{255, 255, 255, 0}.To4())},
+				netboot: &d2.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "auto.ipxe"}},
 				msg:     dhcpv4.MessageTypeDiscover,
 			},
 			want: &dhcpv4.DHCPv4{
@@ -856,8 +881,8 @@ func TestOne(t *testing.T) {
 func TestReadBackend(t *testing.T) {
 	tests := map[string]struct {
 		input       *dhcpv4.DHCPv4
-		wantDHCP    *data.DHCP
-		wantNetboot *data.Netboot
+		wantDHCP    *d2.DHCP
+		wantNetboot *d2.Netboot
 		wantErr     error
 	}{
 		"success": {
@@ -873,7 +898,7 @@ func TestReadBackend(t *testing.T) {
 					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
 				),
 			},
-			wantDHCP: &data.DHCP{
+			wantDHCP: &d2.DHCP{
 				MACAddress:       []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				IPAddress:        netip.MustParseAddr("192.168.1.100"),
 				SubnetMask:       []byte{255, 255, 255, 0},
@@ -886,7 +911,7 @@ func TestReadBackend(t *testing.T) {
 				LeaseTime:        60,
 				DomainSearch:     []string{"mydomain.com"},
 			},
-			wantNetboot: &data.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "auto.ipxe"}},
+			wantNetboot: &d2.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "/auto.ipxe"}},
 			wantErr:     nil,
 		},
 		"failure": {
@@ -1040,9 +1065,13 @@ func TestDHCPOnlyModeReflection(t *testing.T) {
 
 			// Get DHCP and Netboot data from backend
 			ctx := context.Background()
-			hw, err := handler.Backend.GetByMac(ctx, pkt.ClientHWAddr)
+			spec, err := handler.Backend.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: pkt.ClientHWAddr.String()}})
 			if err != nil {
 				t.Fatalf("Failed to get backend data: %v", err)
+			}
+			hw, err := d2.ConvertByMac(ctx, pkt.ClientHWAddr, spec)
+			if err != nil {
+				t.Fatalf("Failed to convert backend data: %v", err)
 			}
 
 			// Call updateMsg to see what gets generated

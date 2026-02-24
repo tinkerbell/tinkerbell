@@ -42,7 +42,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 	// Get all WorkflowRuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
 	// using github.com/timbray/quamina
 	// If there is a match, create a Workflow for the AgentID.
-	wrs, err := h.AutoCapabilities.Enrollment.ReadCreator.ReadWorkflowRuleSets(ctx)
+	wrs, err := h.AutoCapabilities.Enrollment.ListWorkflowRuleSets(ctx, data.ReadListOptions{})
 	if err != nil {
 		journal.Log(ctx, "error getting workflow rules", "error", err)
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))
@@ -113,7 +113,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 		maps.Copy(awf.Spec.HardwareMap, final.wrs.Spec.Workflow.Template.KVs)
 		// TODO: if the awf.Spec.HardwareRef is an empty string, then query for a Hardware object with some corresponding value from the attributes.
 		// If a Hardware object is found add it to the awf.Spec.HardwareRef.
-		if err := h.AutoCapabilities.Enrollment.ReadCreator.CreateWorkflow(ctx, awf); err != nil {
+		if err := h.AutoCapabilities.Enrollment.CreateWorkflow(ctx, awf); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				journal.Log(ctx, "workflow already exists", "workflow", name, "namespace", final.wrs.Spec.Workflow.Namespace)
 				// if we get here, then we didn't find an existing Workflow above, but CreateWorkflow is reporting that there is.

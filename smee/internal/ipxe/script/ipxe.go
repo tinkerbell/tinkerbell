@@ -11,7 +11,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	d2 "github.com/tinkerbell/tinkerbell/smee/internal/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -19,13 +21,8 @@ import (
 )
 
 // BackendReader is the interface for getting data from a backend.
-//
-// Backends implement this interface to provide DHCP and Netboot data to the handlers.
 type BackendReader interface {
-	// Read data (from a backend) based on a mac address
-	// and return DHCP headers and options, including netboot info.
-	GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error)
-	GetByIP(context.Context, net.IP) (data.Hardware, error)
+	ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error)
 }
 
 type Handler struct {
@@ -73,9 +70,13 @@ func getByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (info
 	if br == nil {
 		return info{}, errors.New("backend is nil")
 	}
-	hw, err := br.GetByMac(ctx, mac)
+	spec, err := br.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: mac.String()}})
 	if err != nil {
 		return info{}, err
+	}
+	hw, err := d2.ConvertByMac(ctx, mac, spec)
+	if err != nil {
+		return info{}, fmt.Errorf("failed to convert hardware data: %w", err)
 	}
 
 	if hw.DHCP == nil {
@@ -105,9 +106,13 @@ func getByIP(ctx context.Context, ip net.IP, br BackendReader) (info, error) {
 	if br == nil {
 		return info{}, errors.New("backend is nil")
 	}
-	hw, err := br.GetByIP(ctx, ip)
+	spec, err := br.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByIPAddress: ip.String()}})
 	if err != nil {
 		return info{}, err
+	}
+	hw, err := d2.ConvertByIP(ctx, ip, spec)
+	if err != nil {
+		return info{}, fmt.Errorf("failed to convert hardware data: %w", err)
 	}
 	if hw.DHCP == nil {
 		return info{}, errors.New("no dhcp data")

@@ -1,24 +1,21 @@
-// Package file watches a file for changes and updates the in memory DHCP data.
+// Package file watches a file for changes and updates the in memory hardware data.
 package file
 
 import (
 	"context"
 	"fmt"
-	"net"
-	"net/netip"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
-	"github.com/ccoveille/go-safecast/v2"
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 )
 
 const tracerName = "github.com/tinkerbell/tinkerbell"
@@ -28,38 +25,7 @@ var (
 	// errFileFormat is returned when the file is not in the correct format, e.g. not valid YAML.
 	errFileFormat     = fmt.Errorf("invalid file format")
 	errRecordNotFound = fmt.Errorf("record not found")
-	errParseIP        = fmt.Errorf("failed to parse IP from File")
-	errParseSubnet    = fmt.Errorf("failed to parse subnet mask from File")
-	errParseURL       = fmt.Errorf("failed to parse URL")
 )
-
-// netboot is the structure for the data expected in a file.
-type netboot struct {
-	AllowPXE      bool   `yaml:"allowPxe"`      // If true, the client will be provided netboot options in the DHCP offer/ack.
-	IPXEScriptURL string `yaml:"ipxeScriptUrl"` // Overrides default value of that is passed into DHCP on startup.
-	IPXEScript    string `yaml:"ipxeScript"`    // Overrides a default value that is passed into DHCP on startup.
-	Console       string `yaml:"console"`
-	Facility      string `yaml:"facility"`
-}
-
-// dhcp is the structure for the data expected in a file.
-type dhcp struct {
-	MACAddress       net.HardwareAddr // The MAC address of the client.
-	IPAddress        string           `yaml:"ipAddress"`        // yiaddr DHCP header.
-	SubnetMask       string           `yaml:"subnetMask"`       // DHCP option 1.
-	DefaultGateway   string           `yaml:"defaultGateway"`   // DHCP option 3.
-	NameServers      []string         `yaml:"nameServers"`      // DHCP option 6.
-	Hostname         string           `yaml:"hostname"`         // DHCP option 12.
-	DomainName       string           `yaml:"domainName"`       // DHCP option 15.
-	BroadcastAddress string           `yaml:"broadcastAddress"` // DHCP option 28.
-	NTPServers       []string         `yaml:"ntpServers"`       // DHCP option 42.
-	VLANID           string           `yaml:"vlanID"`           // DHCP option 43.116.
-	LeaseTime        int              `yaml:"leaseTime"`        // DHCP option 51.
-	Arch             string           `yaml:"arch"`             // DHCP option 93.
-	DomainSearch     []string         `yaml:"domainSearch"`     // DHCP option 119.
-	Disabled         bool             // If true, no DHCP response should be sent.
-	Netboot          netboot          `yaml:"netboot"`
-}
 
 // Watcher represents the backend for watching a file for changes and updating the in memory DHCP data.
 type Watcher struct {
@@ -101,99 +67,62 @@ func NewWatcher(l logr.Logger, f string) (*Watcher, error) {
 	return w, nil
 }
 
-// GetByMac is the implementation of the Backend interface.
-// It reads a given file from the in memory data (w.data).
-func (w *Watcher) GetByMac(ctx context.Context, mac net.HardwareAddr) (data.Hardware, error) {
+// ReadHardware is the implementation of the Backend interface.
+// It reads hardware data from the in memory data (w.data) and searches for a match
+// based on the provided ReadListOptions.
+func (w *Watcher) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
-	_, span := tracer.Start(ctx, "backend.file.GetByMac")
+	_, span := tracer.Start(ctx, "backend.file.ReadHardware")
 	defer span.End()
 
-	// get data from file, translate it, then pass it into setDHCPOpts and setNetworkBootOpts
 	w.dataMu.RLock()
 	d := w.data
 	w.dataMu.RUnlock()
-	r := make(map[string]dhcp)
-	if err := yaml.Unmarshal(d, &r); err != nil {
+
+	var hwList []tinkerbell.Hardware
+	if err := yaml.Unmarshal(d, &hwList); err != nil {
 		err := fmt.Errorf("%w: %w", err, errFileFormat)
 		w.Log.Error(err, "failed to unmarshal file data")
 		span.SetStatus(codes.Error, err.Error())
-
-		return data.Hardware{}, err
+		return nil, err
 	}
-	for k, v := range r {
-		if strings.EqualFold(k, mac.String()) {
-			// found a record for this mac address
-			v.MACAddress = mac
-			d, n, err := w.translate(v)
-			if err != nil {
-				span.SetStatus(codes.Error, err.Error())
 
-				return data.Hardware{}, err
-			}
-			span.SetAttributes(d.EncodeToAttributes()...)
-			span.SetAttributes(n.EncodeToAttributes()...)
+	for i := range hwList {
+		hw := &hwList[i]
+		if matchHardware(hw, id, opts) {
 			span.SetStatus(codes.Ok, "")
-
-			return data.Hardware{DHCP: d, Netboot: n}, nil
+			return hw, nil
 		}
 	}
 
-	err := fmt.Errorf("%w: %s", errRecordNotFound, mac.String())
+	err := fmt.Errorf("%w: no matching hardware found", errRecordNotFound)
 	span.SetStatus(codes.Error, err.Error())
-
-	return data.Hardware{}, err
+	return nil, err
 }
 
-// GetByIP is the implementation of the Backend interface.
-// It reads a given file from the in memory data (w.data).
-func (w *Watcher) GetByIP(ctx context.Context, ip net.IP) (data.Hardware, error) {
-	tracer := otel.Tracer(tracerName)
-	_, span := tracer.Start(ctx, "backend.file.GetByIP")
-	defer span.End()
-
-	// get data from file, translate it, then pass it into setDHCPOpts and setNetworkBootOpts
-	w.dataMu.RLock()
-	d := w.data
-	w.dataMu.RUnlock()
-	r := make(map[string]dhcp)
-	if err := yaml.Unmarshal(d, &r); err != nil {
-		err := fmt.Errorf("%w: %w", err, errFileFormat)
-		w.Log.Error(err, "failed to unmarshal file data")
-		span.SetStatus(codes.Error, err.Error())
-
-		return data.Hardware{}, err
+// matchHardware checks if a Hardware object matches the given search criteria.
+func matchHardware(hw *tinkerbell.Hardware, id string, opts data.ReadListOptions) bool {
+	if opts.ByName != "" && hw.Name == opts.ByName {
+		return true
 	}
-	for k, v := range r {
-		if v.IPAddress == ip.String() {
-			// found a record for this ip address
-			v.IPAddress = ip.String()
-			mac, err := net.ParseMAC(k)
-			if err != nil {
-				err := fmt.Errorf("%w: %w", err, errFileFormat)
-				w.Log.Error(err, "failed to parse mac address")
-				span.SetStatus(codes.Error, err.Error())
-
-				return data.Hardware{}, err
+	if opts.ByAgentID != "" && hw.Spec.AgentID == opts.ByAgentID {
+		return true
+	}
+	if opts.Hardware.ByMACAddress != "" {
+		for _, iface := range hw.Spec.Interfaces {
+			if iface.DHCP != nil && strings.EqualFold(iface.DHCP.MAC, opts.Hardware.ByMACAddress) {
+				return true
 			}
-			v.MACAddress = mac
-			d, n, err := w.translate(v)
-			if err != nil {
-				span.SetStatus(codes.Error, err.Error())
-
-				return data.Hardware{}, err
-			}
-			span.SetAttributes(d.EncodeToAttributes()...)
-			span.SetAttributes(n.EncodeToAttributes()...)
-			span.SetStatus(codes.Ok, "")
-
-			return data.Hardware{DHCP: d, Netboot: n}, nil
 		}
 	}
-
-	err := fmt.Errorf("%w: %s", errRecordNotFound, ip.String())
-	span.SetStatus(codes.Error, err.Error())
-
-	return data.Hardware{}, err
+	if opts.Hardware.ByIPAddress != "" {
+		for _, iface := range hw.Spec.Interfaces {
+			if iface.DHCP != nil && iface.DHCP.IP != nil && iface.DHCP.IP.Address == opts.Hardware.ByIPAddress {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Start starts watching a file for changes and updates the in memory data (w.data) on changes.
@@ -228,113 +157,4 @@ func (w *Watcher) Start(ctx context.Context) {
 			w.Log.Info("error watching file", "err", err)
 		}
 	}
-}
-
-// translate converts the data from the file into a data.DHCP and data.Netboot structs.
-func (w *Watcher) translate(r dhcp) (*data.DHCP, *data.Netboot, error) {
-	d := new(data.DHCP)
-	n := new(data.Netboot)
-
-	d.MACAddress = r.MACAddress
-	// ip address, required
-	ip, err := netip.ParseAddr(r.IPAddress)
-	if err != nil {
-		return nil, nil, fmt.Errorf("%w: %w", err, errParseIP)
-	}
-	d.IPAddress = ip
-
-	// subnet mask, required
-	sm := net.ParseIP(r.SubnetMask)
-	if sm == nil {
-		return nil, nil, errParseSubnet
-	}
-	d.SubnetMask = net.IPMask(sm.To4())
-
-	// default gateway, optional
-	if dg, err := netip.ParseAddr(r.DefaultGateway); err != nil {
-		w.Log.Info("failed to parse default gateway", "defaultGateway", r.DefaultGateway, "err", err)
-	} else {
-		d.DefaultGateway = dg
-	}
-
-	// name servers, optional
-	for _, s := range r.NameServers {
-		ip := net.ParseIP(s)
-		if ip == nil {
-			w.Log.Info("failed to parse name server", "nameServer", s)
-			break
-		}
-		d.NameServers = append(d.NameServers, ip)
-	}
-
-	// hostname, optional
-	d.Hostname = r.Hostname
-
-	// domain name, optional
-	d.DomainName = r.DomainName
-
-	// broadcast address, optional
-	if ba, err := netip.ParseAddr(r.BroadcastAddress); err != nil {
-		w.Log.Info("failed to parse broadcast address", "broadcastAddress", r.BroadcastAddress, "err", err)
-	} else {
-		d.BroadcastAddress = ba
-	}
-
-	// ntp servers, optional
-	for _, s := range r.NTPServers {
-		ip := net.ParseIP(s)
-		if ip == nil {
-			w.Log.Info("failed to parse ntp server", "ntpServer", s)
-			break
-		}
-		d.NTPServers = append(d.NTPServers, ip)
-	}
-
-	// vlanid
-	d.VLANID = r.VLANID
-
-	// lease time
-	// Default to one week
-	d.LeaseTime = 604800
-	if v, err := safecast.Convert[uint32](r.LeaseTime); err == nil {
-		d.LeaseTime = v
-	}
-
-	// arch
-	d.Arch = r.Arch
-
-	// domain search
-	d.DomainSearch = r.DomainSearch
-
-	// disabled
-	d.Disabled = r.Disabled
-
-	// allow machine to netboot
-	n.AllowNetboot = r.Netboot.AllowPXE
-
-	// ipxe script url is optional but if provided, it must be a valid url
-	if r.Netboot.IPXEScriptURL != "" {
-		u, err := url.Parse(r.Netboot.IPXEScriptURL)
-		if err != nil {
-			return nil, nil, fmt.Errorf("%w: %w", err, errParseURL)
-		}
-		n.IPXEScriptURL = u
-	}
-
-	// ipxe script
-	if r.Netboot.IPXEScript != "" {
-		n.IPXEScript = r.Netboot.IPXEScript
-	}
-
-	// console
-	if r.Netboot.Console != "" {
-		n.Console = r.Netboot.Console
-	}
-
-	// facility
-	if r.Netboot.Facility != "" {
-		n.Facility = r.Netboot.Facility
-	}
-
-	return d, n, nil
 }

@@ -5,13 +5,14 @@ import (
 	"fmt"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 )
 
 // hardware returns the Hardware object for the given agentID.
 func (h *Handler) hardware(ctx context.Context, agentID string) (*v1alpha1.Hardware, error) {
 	// Check if Hardware object already exists
-	existing, err := h.AutoCapabilities.Discovery.ReadHardware(ctx, agentID, h.AutoCapabilities.Discovery.Namespace)
+	existing, err := h.Backend.ReadHardware(ctx, agentID, h.AutoCapabilities.Discovery.Namespace, data.ReadListOptions{ByAgentID: agentID})
 	if err == nil {
 		journal.Log(ctx, "Hardware object exists")
 		return existing, nil

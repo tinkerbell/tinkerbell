@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	d2 "github.com/tinkerbell/tinkerbell/smee/internal/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	oteldhcp "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 	"go.opentelemetry.io/otel"
@@ -169,18 +170,24 @@ func replyDestination(directPeer net.Addr, giaddr net.IP) net.Addr {
 }
 
 // readBackend encapsulates the backend read and opentelemetry handling.
-func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*data.DHCP, *data.Netboot, error) {
+func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*d2.DHCP, *d2.Netboot, error) {
 	h.setDefaults()
 
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "Hardware data get")
 	defer span.End()
 
-	hw, err := h.Backend.GetByMac(ctx, mac)
+	spec, err := h.Backend.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: mac.String()}})
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 
 		return nil, nil, err
+	}
+	hw, err := d2.ConvertByMac(ctx, mac, spec)
+	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, nil, fmt.Errorf("failed to convert hardware data: %w", err)
 	}
 
 	span.SetAttributes(hw.DHCP.EncodeToAttributes()...)
@@ -191,7 +198,7 @@ func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*data.
 }
 
 // updateMsg handles updating DHCP packets with the data from the backend.
-func (h *Handler) updateMsg(ctx context.Context, pkt *dhcpv4.DHCPv4, d *data.DHCP, n *data.Netboot, msgType dhcpv4.MessageType) *dhcpv4.DHCPv4 {
+func (h *Handler) updateMsg(ctx context.Context, pkt *dhcpv4.DHCPv4, d *d2.DHCP, n *d2.Netboot, msgType dhcpv4.MessageType) *dhcpv4.DHCPv4 {
 	h.setDefaults()
 	mods := []dhcpv4.Modifier{
 		dhcpv4.WithMessageType(msgType),

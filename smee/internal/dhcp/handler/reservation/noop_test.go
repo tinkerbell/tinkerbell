@@ -6,11 +6,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 )
 
 func TestNoop(t *testing.T) {
 	want := errors.New("no backend specified, please specify a backend")
-	_, _, got := noop{}.GetByMac(context.TODO(), nil)
+	_, got := noop{}.ReadHardware(context.TODO(), "", "", data.ReadListOptions{})
 	if diff := cmp.Diff(want.Error(), got.Error()); diff != "" {
 		t.Fatal(diff)
 	}

@@ -18,8 +18,7 @@ import (
 )
 
 type Config struct {
-	Backend grpcinternal.BackendReadWriter
-
+	Backend      grpcinternal.Backend
 	BindAddrPort netip.AddrPort
 	Logger       logr.Logger
 	Auto         AutoCapabilities
@@ -33,14 +32,12 @@ type AutoCapabilities struct {
 
 type Enrollment struct {
 	Enabled bool
-	Backend grpcinternal.AutoEnrollmentReadCreator
 }
 
 type Discovery struct {
 	Enabled           bool
 	Namespace         string
 	EnrollmentEnabled bool
-	Backend           grpcinternal.AutoDiscoveryReadCreator
 }
 
 type TLS struct {
@@ -65,7 +62,7 @@ func WithAutoDiscoveryAutoEnrollmentEnabled(enabled bool) Option {
 }
 
 // WithBackend sets the backend for the server.
-func WithBackend(b grpcinternal.BackendReadWriter) Option {
+func WithBackend(b grpcinternal.Backend) Option {
 	return func(c *Config) {
 		c.Backend = b
 	}
@@ -102,19 +99,17 @@ func NewConfig(opts ...Option) *Config {
 
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	s := &grpcinternal.Handler{
-		BackendReadWriter: c.Backend,
-		Logger:            log,
-		NowFunc:           time.Now,
+		Backend: c.Backend,
+		Logger:  log,
+		NowFunc: time.Now,
 		AutoCapabilities: grpcinternal.AutoCapabilities{
 			Enrollment: grpcinternal.AutoEnrollment{
-				Enabled:     c.Auto.Enrollment.Enabled,
-				ReadCreator: c.Auto.Enrollment.Backend,
+				Enabled: c.Auto.Enrollment.Enabled,
 			},
 			Discovery: grpcinternal.AutoDiscovery{
-				Enabled:                  c.Auto.Discovery.Enabled,
-				Namespace:                c.Auto.Discovery.Namespace,
-				EnrollmentEnabled:        c.Auto.Discovery.EnrollmentEnabled,
-				AutoDiscoveryReadCreator: c.Auto.Discovery.Backend,
+				Enabled:           c.Auto.Discovery.Enabled,
+				Namespace:         c.Auto.Discovery.Namespace,
+				EnrollmentEnabled: c.Auto.Discovery.EnrollmentEnabled,
 			},
 		},
 	}

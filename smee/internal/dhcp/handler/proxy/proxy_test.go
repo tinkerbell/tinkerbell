@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/insomniacslk/dhcp/dhcpv4"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"golang.org/x/net/ipv4"
@@ -31,13 +32,26 @@ type mockBackend struct {
 	err          error
 }
 
-func (m *mockBackend) GetByMac(_ context.Context, _ net.HardwareAddr) (data.Hardware, error) {
+func (m *mockBackend) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
 	if m.err != nil {
-		return data.Hardware{}, m.err
+		return nil, m.err
 	}
-	return data.Hardware{
-		DHCP:    &data.DHCP{},
-		Netboot: &data.Netboot{AllowNetboot: m.allowNetboot, IPXEBinary: m.iPXEBinary},
+	return &tinkerbell.Hardware{
+		Spec: tinkerbell.HardwareSpec{
+			Interfaces: []tinkerbell.Interface{
+				{
+					DHCP: &tinkerbell.DHCP{
+						MAC: opts.Hardware.ByMACAddress,
+					},
+					Netboot: &tinkerbell.Netboot{
+						AllowPXE: &m.allowNetboot,
+						IPXE: &tinkerbell.IPXE{
+							Binary: m.iPXEBinary,
+						},
+					},
+				},
+			},
+		},
 	}, nil
 }
 

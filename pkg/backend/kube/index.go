@@ -13,9 +13,28 @@ const (
 	IndexTypeIPAddr          IndexType = IPAddrIndex
 	IndexTypeHardwareName    IndexType = "hardware.metadata.name"
 	IndexTypeMachineName     IndexType = "machine.metadata.name"
-	IndexTypeWorkflowAgentID IndexType = WorkflowByAgentID
-	IndexTypeHardwareAgentID IndexType = HardwareByAgentID
+	IndexTypeWorkflowAgentID IndexType = WorkflowAgentIDIndex
+	IndexTypeHardwareAgentID IndexType = HardwareAgentIDIndex
 	IndexTypeInstanceID      IndexType = InstanceIDIndex
+
+	// MACAddrIndex is an index used with a controller-runtime client to lookup hardware by MAC.
+	MACAddrIndex = ".Spec.Interfaces.MAC"
+
+	// IPAddrIndex is an index used with a controller-runtime client to lookup hardware by IP.
+	IPAddrIndex = ".Spec.Interfaces.DHCP.IP"
+
+	// NameIndex is an index used with a controller-runtime client to lookup objects by name.
+	NameIndex = ".metadata.name"
+
+	// WorkflowAgentIDIndex is an index used with a controller-runtime client to lookup workflows by their status agent id.
+	WorkflowAgentIDIndex = ".status.agentID"
+
+	// HardwareAgentIDIndex is an index used with a controller-runtime client to lookup hardware by their spec agent id.
+	HardwareAgentIDIndex = ".spec.agentID"
+
+	// InstanceIDIndex is an index used with a controller-runtime client to lookup hardware by its metadata instance id.
+	InstanceIDIndex = ".Spec.Metadata.Instance.ID" // #nosec G101 - This is a field path, not a credential
+
 )
 
 // Indexes that are currently known.
@@ -32,33 +51,30 @@ var Indexes = map[IndexType]Index{
 	},
 	IndexTypeHardwareName: {
 		Obj:          &tinkerbell.Hardware{},
-		Field:        HardwareNameIndex,
-		ExtractValue: HardwareNameFunc,
+		Field:        NameIndex,
+		ExtractValue: HardwareName,
 	},
 	IndexTypeMachineName: {
 		Obj:          &bmc.Machine{},
-		Field:        MachineNameIndex,
-		ExtractValue: MachineNameFunc,
+		Field:        NameIndex,
+		ExtractValue: MachineName,
 	},
 	IndexTypeWorkflowAgentID: {
 		Obj:          &tinkerbell.Workflow{},
-		Field:        WorkflowByAgentID,
-		ExtractValue: WorkflowByAgentIDFunc,
+		Field:        WorkflowAgentIDIndex,
+		ExtractValue: WorkflowAgentID,
 	},
 	IndexTypeHardwareAgentID: {
 		Obj:          &tinkerbell.Hardware{},
-		Field:        HardwareByAgentID,
-		ExtractValue: HardwareByAgentIDFunc,
+		Field:        HardwareAgentIDIndex,
+		ExtractValue: HardwareAgentID,
 	},
 	IndexTypeInstanceID: {
 		Obj:          &tinkerbell.Hardware{},
 		Field:        InstanceIDIndex,
-		ExtractValue: InstanceIDFunc,
+		ExtractValue: InstanceID,
 	},
 }
-
-// MACAddrIndex is an index used with a controller-runtime client to lookup hardware by MAC.
-const MACAddrIndex = ".Spec.Interfaces.MAC"
 
 // MACAddrs returns a list of MAC addresses for a Hardware object.
 func MACAddrs(obj client.Object) []string {
@@ -81,9 +97,6 @@ func GetMACs(h *tinkerbell.Hardware) []string {
 	return macs
 }
 
-// IPAddrIndex is an index used with a controller-runtime client to lookup hardware by IP.
-const IPAddrIndex = ".Spec.Interfaces.DHCP.IP"
-
 // IPAddrs returns a list of IP addresses for a Hardware object.
 func IPAddrs(obj client.Object) []string {
 	hw, ok := obj.(*tinkerbell.Hardware)
@@ -104,10 +117,7 @@ func GetIPs(h *tinkerbell.Hardware) []string {
 	return ips
 }
 
-// NameIndex is an index used with a controller-runtime client to lookup objects by name.
-const HardwareNameIndex = ".metadata.name"
-
-func HardwareNameFunc(obj client.Object) []string {
+func HardwareName(obj client.Object) []string {
 	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {
 		return nil
@@ -115,9 +125,7 @@ func HardwareNameFunc(obj client.Object) []string {
 	return []string{hw.Name}
 }
 
-const MachineNameIndex = ".metadata.name"
-
-func MachineNameFunc(obj client.Object) []string {
+func MachineName(obj client.Object) []string {
 	m, ok := obj.(*bmc.Machine)
 	if !ok {
 		return nil
@@ -125,9 +133,7 @@ func MachineNameFunc(obj client.Object) []string {
 	return []string{m.Name}
 }
 
-const WorkflowByAgentID = ".status.agentID"
-
-func WorkflowByAgentIDFunc(obj client.Object) []string {
+func WorkflowAgentID(obj client.Object) []string {
 	wf, ok := obj.(*tinkerbell.Workflow)
 	if !ok {
 		return nil
@@ -138,9 +144,7 @@ func WorkflowByAgentIDFunc(obj client.Object) []string {
 	return []string{wf.Status.AgentID}
 }
 
-const HardwareByAgentID = ".spec.agentID"
-
-func HardwareByAgentIDFunc(obj client.Object) []string {
+func HardwareAgentID(obj client.Object) []string {
 	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {
 		return nil
@@ -151,9 +155,7 @@ func HardwareByAgentIDFunc(obj client.Object) []string {
 	return []string{hw.Spec.AgentID}
 }
 
-// InstanceIDIndex is an index used with a controller-runtime client to lookup hardware by its metadata instance id.
-const InstanceIDIndex = ".Spec.Metadata.Instance.ID" // #nosec G101 - This is a field path, not a credential
-func InstanceIDFunc(obj client.Object) []string {
+func InstanceID(obj client.Object) []string {
 	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {
 		return nil

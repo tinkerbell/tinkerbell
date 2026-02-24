@@ -19,7 +19,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	d2 "github.com/tinkerbell/tinkerbell/smee/internal/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso/internal"
 )
 
@@ -30,11 +32,9 @@ const (
 	schemeHTTPS         = "https"
 )
 
-// BackendReader is an interface that defines the method to read data from a backend.
+// BackendReader is the interface for getting data from a backend.
 type BackendReader interface {
-	// Read data (from a backend) based on a mac address
-	// and return DHCP headers and options, including netboot info.
-	GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error)
+	ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error)
 }
 
 // Handler is a struct that contains the necessary fields to patch an ISO file with
@@ -372,7 +372,7 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 	return resp, nil
 }
 
-func (h *Handler) constructPatch(console, mac string, d *data.DHCP) string {
+func (h *Handler) constructPatch(console, mac string, d *d2.DHCP) string {
 	syslogHost := fmt.Sprintf("syslog_host=%s", h.Patch.KernelParams.Syslog)
 	grpcAuthority := fmt.Sprintf("grpc_authority=%s", h.Patch.KernelParams.TinkServerGRPCAddr)
 	tinkerbellTLS := fmt.Sprintf("tinkerbell_tls=%v", h.Patch.KernelParams.TinkServerTLS)
@@ -401,17 +401,21 @@ func getMAC(urlPath string) (net.HardwareAddr, error) {
 	return hw, nil
 }
 
-func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br BackendReader) (string, data.Hardware, error) {
+func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br BackendReader) (string, d2.Hardware, error) {
 	if br == nil {
-		return "", data.Hardware{}, errors.New("backend is nil")
+		return "", d2.Hardware{}, errors.New("backend is nil")
 	}
 
-	hw, err := br.GetByMac(ctx, mac)
+	spec, err := br.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: mac.String()}})
 	if err != nil {
-		return "", data.Hardware{}, err
+		return "", d2.Hardware{}, err
+	}
+	hw, err := d2.ConvertByMac(ctx, mac, spec)
+	if err != nil {
+		return "", d2.Hardware{}, fmt.Errorf("failed to convert hardware data: %w", err)
 	}
 
-	return hw.Netboot.Facility, data.Hardware{DHCP: hw.DHCP, Isoboot: hw.Isoboot}, nil
+	return hw.Netboot.Facility, d2.Hardware{DHCP: hw.DHCP, Isoboot: hw.Isoboot}, nil
 }
 
 func randomPercentage(precision int64) float64 {

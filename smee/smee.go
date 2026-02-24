@@ -19,6 +19,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/build"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -37,10 +38,7 @@ import (
 
 // BackendReader is the interface for getting data from a backend.
 type BackendReader interface {
-	// Read data (from a backend) based on a mac address
-	// and return DHCP headers and options, including netboot info.
-	GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error)
-	GetByIP(context.Context, net.IP) (data.Hardware, error)
+	ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error)
 }
 
 const (

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -19,6 +18,7 @@ import (
 	"github.com/diskfs/go-diskfs/filesystem/iso9660"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso/internal"
 )
@@ -111,7 +111,7 @@ func TestPatching(t *testing.T) {
 	// mount the ISO file and check if the magic string was patched
 
 	// If anything changes here the space padding will be different. Be sure to update it accordingly.
-	kernelArgs := `facility=test console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1 vlan_id=400 hw_addr=de:ed:be:ef:fe:ed syslog_host=127.0.0.1:514 grpc_authority=127.0.0.1:42113 tinkerbell_tls=false worker_id=de:ed:be:ef:fe:ed k1=1 k2=2 ipam=:400:::::::`
+	kernelArgs := `facility=test console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1 vlan_id=400 hw_addr=de:ed:be:ef:fe:ed syslog_host=127.0.0.1:514 grpc_authority=127.0.0.1:42113 tinkerbell_tls=false worker_id=de:ed:be:ef:fe:ed k1=1 k2=2 ipam=de-ed-be-ef-fe-ed:400:::::::`
 	wantGrubCfg := fmt.Sprintf(`set timeout=0
 set gfxpayload=text
 menuentry 'LinuxKit ISO Image' {
@@ -327,28 +327,49 @@ func TestMultipleRedirects(t *testing.T) {
 
 type mockBackend struct{}
 
-func (m *mockBackend) GetByMac(context.Context, net.HardwareAddr) (data.Hardware, error) {
-	d := &data.DHCP{
-		VLANID: "400",
+func (m *mockBackend) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
+	if opts.Hardware.ByMACAddress != "" {
+		return &tinkerbell.Hardware{
+			Spec: tinkerbell.HardwareSpec{
+				Interfaces: []tinkerbell.Interface{{
+					DHCP: &tinkerbell.DHCP{
+						MAC:    opts.Hardware.ByMACAddress,
+						VLANID: "400",
+					},
+					Netboot: &tinkerbell.Netboot{
+						AllowPXE: func() *bool { b := false; return &b }(),
+					},
+				}},
+				Metadata: &tinkerbell.HardwareMetadata{
+					Facility: &tinkerbell.MetadataFacility{
+						FacilityCode: "test",
+					},
+				},
+			},
+		}, nil
 	}
-	n := &data.Netboot{
-		Facility: "test",
+	if opts.Hardware.ByIPAddress != "" {
+		return &tinkerbell.Hardware{
+			Spec: tinkerbell.HardwareSpec{
+				Interfaces: []tinkerbell.Interface{{
+					DHCP: &tinkerbell.DHCP{
+						IP: &tinkerbell.IP{
+							Address: opts.Hardware.ByIPAddress,
+						},
+					},
+					Netboot: &tinkerbell.Netboot{
+						AllowPXE: func() *bool { b := false; return &b }(),
+					},
+				}},
+				Metadata: &tinkerbell.HardwareMetadata{
+					Facility: &tinkerbell.MetadataFacility{
+						FacilityCode: "test",
+					},
+				},
+			},
+		}, nil
 	}
-	return data.Hardware{
-		DHCP:    d,
-		Netboot: n,
-	}, nil
-}
-
-func (m *mockBackend) GetByIP(context.Context, net.IP) (data.Hardware, error) {
-	d := &data.DHCP{}
-	n := &data.Netboot{
-		Facility: "test",
-	}
-	return data.Hardware{
-		DHCP:    d,
-		Netboot: n,
-	}, nil
+	return nil, fmt.Errorf("hardware not found")
 }
 
 func TestGetTargetURL(t *testing.T) {

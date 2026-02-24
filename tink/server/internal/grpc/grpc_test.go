@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -162,10 +163,10 @@ func TestGetAction(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			server := &Handler{
-				Logger:            logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
-				BackendReadWriter: &mockBackendReadWriter{workflow: tc.workflow},
-				NowFunc:           func() time.Time { return time.Time{} },
-				RetryOptions:      []backoff.RetryOption{backoff.WithMaxTries(1)},
+				Logger:       logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
+				Backend:      &mockBackendReadWriter{workflow: tc.workflow},
+				NowFunc:      func() time.Time { return time.Time{} },
+				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
 			}
 
 			resp, gotErr := server.GetAction(context.Background(), tc.request)
@@ -199,41 +200,33 @@ func compareErrors(t *testing.T, got, want error) {
 
 type mockBackendReadWriter struct {
 	workflow *tinkerbell.Workflow
-}
-
-func (m *mockBackendReadWriter) Read(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
-	return m.workflow, nil
-}
-
-func (m *mockBackendReadWriter) ReadAll(_ context.Context, _ string) ([]tinkerbell.Workflow, error) {
-	if m.workflow != nil {
-		return []tinkerbell.Workflow{*m.workflow}, nil
-	}
-	return []tinkerbell.Workflow{}, nil
-}
-
-func (m *mockBackendReadWriter) Update(_ context.Context, _ *tinkerbell.Workflow) error {
-	return nil
-}
-
-type mockBackendReadWriterForReport struct {
-	workflow *tinkerbell.Workflow
 	writeErr error
 }
 
-func (m *mockBackendReadWriterForReport) Read(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
+func (m *mockBackendReadWriter) ReadWorkflow(ctx context.Context, name, namespace string, opts data.ReadListOptions) (*tinkerbell.Workflow, error) {
 	if m.workflow == nil {
 		return nil, errors.New("workflow not found")
 	}
 	return m.workflow, nil
 }
 
-func (m *mockBackendReadWriterForReport) ReadAll(_ context.Context, _ string) ([]tinkerbell.Workflow, error) {
-	return nil, nil
+func (m *mockBackendReadWriter) ListWorkflows(ctx context.Context, namespace string, opts data.ReadListOptions) ([]tinkerbell.Workflow, error) {
+	if m.workflow != nil {
+		return []tinkerbell.Workflow{*m.workflow}, nil
+	}
+	return []tinkerbell.Workflow{}, nil
 }
 
-func (m *mockBackendReadWriterForReport) Update(_ context.Context, _ *tinkerbell.Workflow) error {
+func (m *mockBackendReadWriter) UpdateWorkflow(ctx context.Context, wf *tinkerbell.Workflow, opts data.UpdateOptions) error {
 	return m.writeErr
+}
+
+func (m *mockBackendReadWriter) ReadHardware(ctx context.Context, name, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockBackendReadWriter) UpdateHardware(ctx context.Context, hw *tinkerbell.Hardware, opts data.UpdateOptions) error {
+	return errors.New("not implemented")
 }
 
 func TestReportActionStatus(t *testing.T) {
@@ -318,7 +311,7 @@ func TestReportActionStatus(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			handler := &Handler{
-				BackendReadWriter: &mockBackendReadWriterForReport{
+				Backend: &mockBackendReadWriter{
 					workflow: tc.workflow,
 					writeErr: tc.writeErr,
 				},

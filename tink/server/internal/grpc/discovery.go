@@ -31,7 +31,7 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 	journal.Log(ctx, "Discovering hardware", "agentID", agentID, "hardwareName", hwName, "namespace", ns)
 
 	// Check if Hardware object already exists
-	existing, err := h.hardware(ctx, agentID)
+	existing, err := h.AutoCapabilities.Discovery.ReadHardware(ctx, agentID, "", data.ReadListOptions{ByAgentID: agentID})
 	if err == nil {
 		// Hardware object already exists, do not modify
 		journal.Log(ctx, "Hardware object already exists, skipping creation")

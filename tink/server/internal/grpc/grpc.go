@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -12,6 +13,7 @@ import (
 	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
@@ -31,25 +33,71 @@ var (
 	ErrBackendWrite = errors.New("error writing to backend")
 )
 
-type BackendReadWriter interface {
-	ReadAll(ctx context.Context, agentID string) ([]tinkerbell.Workflow, error)
-	Read(ctx context.Context, workflowID, namespace string) (*tinkerbell.Workflow, error)
-	Update(ctx context.Context, wf *tinkerbell.Workflow) error
+type Backend interface {
+	WorkflowReader
+	WorkflowUpdater
+	WorkflowLister
+	HardwareReader
+	HardwareUpdater
+}
+
+type WorkflowCreator interface {
+	CreateWorkflow(ctx context.Context, wf *tinkerbell.Workflow) error
+}
+
+type WorkflowReader interface {
+	ReadWorkflow(ctx context.Context, name, namespace string, opts data.ReadListOptions) (*tinkerbell.Workflow, error)
+}
+
+type WorkflowLister interface {
+	ListWorkflows(ctx context.Context, namespace string, opts data.ReadListOptions) ([]tinkerbell.Workflow, error)
+}
+
+type WorkflowUpdater interface {
+	UpdateWorkflow(ctx context.Context, wf *tinkerbell.Workflow, opts data.UpdateOptions) error
+}
+
+type WorkflowRuleSetLister interface {
+	ListWorkflowRuleSets(ctx context.Context, opts data.ReadListOptions) ([]tinkerbell.WorkflowRuleSet, error)
+}
+
+type HardwareReader interface {
+	ReadHardware(ctx context.Context, name, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error)
+}
+
+type HardwareUpdater interface {
+	UpdateHardware(ctx context.Context, hw *tinkerbell.Hardware, opts data.UpdateOptions) error
+}
+
+type HardwareCreator interface {
+	CreateHardware(ctx context.Context, hw *tinkerbell.Hardware) error
 }
 
 // Handler is a server that implements a workflow API.
 type Handler struct {
-	Logger            logr.Logger
-	BackendReadWriter BackendReadWriter
-	NowFunc           func() time.Time
-	AutoCapabilities  AutoCapabilities
-	RetryOptions      []backoff.RetryOption
+	Logger           logr.Logger
+	Backend          Backend
+	NowFunc          func() time.Time
+	AutoCapabilities AutoCapabilities
+	RetryOptions     []backoff.RetryOption
 
 	proto.UnimplementedWorkflowServiceServer
 }
 
 type options struct {
 	AutoCapabilities AutoCapabilities
+}
+
+type Option func(*Handler)
+
+func NewHandler(opts ...Option) *Handler {
+	h := &Handler{}
+
+	for _, opt := range opts {
+		opt(h)
+	}
+
+	return h
 }
 
 func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
@@ -109,7 +157,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		hwRef = hw
 	}
 
-	wfs, err := h.BackendReadWriter.ReadAll(ctx, req.GetAgentId())
+	wfs, err := h.Backend.ListWorkflows(ctx, "", data.ReadListOptions{ByAgentID: req.GetAgentId()})
 	if err != nil {
 		// TODO: This is where we handle auto capabilities
 		journal.Log(ctx, "error getting Workflows", "error", err)
@@ -131,6 +179,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		journal.Log(ctx, "no Workflow found")
 		return nil, status.Error(codes.NotFound, "no Workflows found")
 	}
+
 	journal.Log(ctx, "found Workflows", "workflows", len(wfs))
 	var wf tinkerbell.Workflow
 	for _, w := range wfs {
@@ -160,6 +209,22 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	if isFirstAction(wf.Status.Tasks[0]) {
 		task = &wf.Status.Tasks[0]
 		journal.Log(ctx, "first Task, first Action")
+
+		// If the Workflow has a Hardware reference update the Attributes annotation.
+		if hwRef == nil {
+			log.Info("looking up Hardware for attributes annotation update", "hardwareRef", wf.Spec.HardwareRef, "namespace", wf.Namespace)
+			existing, err := h.Backend.ReadHardware(ctx, wf.Spec.HardwareRef, wf.Namespace, data.ReadListOptions{ByName: wf.Spec.HardwareRef})
+			if err == nil {
+				log.Info("found Hardware")
+				journal.Log(ctx, "found Hardware for attributes annotation update", "hardware", existing.Name)
+
+				h.updateHardwareWithAttributes(ctx, log, existing, convert(req.GetAgentAttributes()))
+			} else {
+				log.Error(err, "error looking up Hardware for attributes annotation update")
+				journal.Log(ctx, "error looking up Hardware for attributes annotation update", "error", err)
+			}
+		}
+
 	} else {
 		for _, t := range wf.Status.Tasks {
 			// check if all actions have been run successfully in this task.
@@ -233,7 +298,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		TaskName:   task.Name,
 	}
 
-	if err := h.BackendReadWriter.Update(ctx, &wf); err != nil {
+	if err := h.Backend.UpdateWorkflow(ctx, &wf, data.UpdateOptions{StatusOnly: true}); err != nil {
 		return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error writing current state: %v", err))
 	}
 
@@ -321,7 +386,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 	}
 	// 2. Get the workflow
 	namespace, name, _ := strings.Cut(req.GetWorkflowId(), "/")
-	wf, err := h.BackendReadWriter.Read(ctx, name, namespace)
+	wf, err := h.Backend.ReadWorkflow(ctx, name, namespace, data.ReadListOptions{})
 	if err != nil {
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow: %v", err))
 	}
@@ -354,7 +419,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 					ActionName: req.GetActionName(),
 					TaskName:   wf.Status.Tasks[ti].Name,
 				}
-				if err := h.BackendReadWriter.Update(ctx, wf); err != nil {
+				if err := h.Backend.UpdateWorkflow(ctx, wf, data.UpdateOptions{StatusOnly: true}); err != nil {
 					return nil, status.Errorf(codes.Internal, "error writing report status: %v", err)
 				}
 				return &proto.ActionStatusResponse{}, nil
@@ -363,6 +428,32 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 	}
 
 	return &proto.ActionStatusResponse{}, status.Error(codes.NotFound, "action not found")
+}
+
+func (h *Handler) updateHardwareWithAttributes(ctx context.Context, log logr.Logger, hw *tinkerbell.Hardware, attrs *data.AgentAttributes) {
+	// check if the hardware has the attributes annotations, if not add them.
+	if hw != nil && hw.Annotations[attributesAnnotation] == "" {
+		if hw.Annotations == nil {
+			hw.Annotations = make(map[string]string)
+		}
+		if a, err := json.Marshal(attrs); err == nil {
+			hw.Annotations[attributesAnnotation] = string(a)
+			if h.Backend != nil {
+				if err := h.Backend.UpdateHardware(ctx, hw, data.UpdateOptions{}); err != nil {
+					journal.Log(ctx, "error updating Hardware with attributes annotation", "error", err)
+					log.Error(err, "error updating Hardware with attributes annotation")
+				}
+			} else {
+				journal.Log(ctx, "BackendUpdater not configured, cannot update Hardware with attributes annotation")
+				log.Error(errors.New("BackendUpdater not configured"), "BackendUpdater not configured, cannot update Hardware with attributes annotation")
+			}
+			journal.Log(ctx, "updated Hardware with attributes annotation", "hardware", hw)
+			log.Info("updated Hardware with attributes annotation", "hardware", hw)
+		} else {
+			journal.Log(ctx, "error marshaling attributes for annotation", "error", err)
+			log.Error(err, "error marshaling attributes for annotation")
+		}
+	}
 }
 
 func toPtr[T any](v T) *T {
