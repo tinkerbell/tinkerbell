@@ -3,7 +3,7 @@
 
 # Tool versions
 UI_TEMPL_VER := v0.3.977
-UI_BUN_VER := 1.2.5
+UI_BUN_VER := 1.3.9
 
 # Detect OS and architecture for bun download
 UI_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
