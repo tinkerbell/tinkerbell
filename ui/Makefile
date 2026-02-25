@@ -40,11 +40,11 @@ ui-install-deps: $(UI_TEMPL_FQP) $(UI_BUN_FQP) ## Install UI dependencies (bun p
 
 .PHONY: ui-css
 ui-css: $(UI_BUN_FQP) ## Build UI CSS
-	(cd ui && $(UI_BUN_FQP) x @tailwindcss/cli -i assets/css/input.css -o assets/css/output.css --minify)
+	(cd ui && $(UI_BUN_FQP) run tailwindcss -i assets/css/input.css -o assets/css/output.css --minify)
 
 .PHONY: ui-css-watch
 ui-css-watch: $(UI_BUN_FQP) ## Watch and rebuild UI CSS on changes
-	(cd ui && $(UI_BUN_FQP) x @tailwindcss/cli -i assets/css/input.css -o assets/css/output.css --watch)
+	(cd ui && $(UI_BUN_FQP) run tailwindcss -i assets/css/input.css -o assets/css/output.css --watch)
 
 .PHONY: ui-templ
 ui-templ: $(UI_TEMPL_FQP) ## Generate templ templates
