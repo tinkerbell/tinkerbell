@@ -15,18 +15,3 @@ type Backend struct{}
 func (n Backend) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
 	return nil, errAlways
 }
-
-// GetHackInstance exists to satisfy the hack.Client interface. It is not implemented.
-func (n Backend) GetHackInstance(context.Context, string) (data.HackInstance, error) {
-	return data.HackInstance{}, errAlways
-}
-
-// GetEC2Instance exists to satisfy the ec2.Client interface. It is not implemented.
-func (n Backend) GetEC2Instance(context.Context, string) (data.Ec2Instance, error) {
-	return data.Ec2Instance{}, errAlways
-}
-
-// GetEC2InstanceByInstanceID exists to satisfy the ec2.Client interface. It is not implemented.
-func (n Backend) GetEC2InstanceByInstanceID(context.Context, string) (data.Ec2Instance, error) {
-	return data.Ec2Instance{}, errAlways
-}

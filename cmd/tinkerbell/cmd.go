@@ -316,8 +316,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return fmt.Errorf("failed to create kube backend: %w", err)
 		}
 		s.Config.Backend = b
-		h.Config.BackendEc2 = b
-		h.Config.BackendHack = b
+		h.Config.SetBackendFromReader(b)
 		ts.Config.Backend = b
 		tc.Config.Client = b.ClientConfig
 		tc.Config.DynamicClient = b
@@ -336,8 +335,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	case "none":
 		b := newNoopBackend()
 		s.Config.Backend = b
-		h.Config.BackendEc2 = b
-		h.Config.BackendHack = b
+		h.Config.SetBackendFromReader(b)
 	case "pass":
 	default:
 		return fmt.Errorf("unknown backend %q", globals.Backend)

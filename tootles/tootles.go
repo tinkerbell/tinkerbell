@@ -10,6 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/backend"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/hack"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/http"
@@ -25,6 +28,20 @@ type Config struct {
 	DebugMode        bool
 	BindAddrPort     string
 	InstanceEndpoint bool
+}
+
+// HardwareReader is the interface required to read Hardware objects.
+// It is implemented by the kube and noop backends.
+type HardwareReader interface {
+	ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*v1alpha1.Hardware, error)
+}
+
+// SetBackendFromReader configures BackendEc2 and BackendHack from a HardwareReader.
+// This allows callers to wire a backend without importing tootles internal packages.
+func (c *Config) SetBackendFromReader(reader HardwareReader) {
+	b := backend.New(reader)
+	c.BackendEc2 = b
+	c.BackendHack = b
 }
 
 func NewConfig(c Config, addrPort string) *Config {

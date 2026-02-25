@@ -5,18 +5,16 @@ import (
 	"fmt"
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
-	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/codes"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ReadBMCMachine implements the handler.BackendReader interface and returns DHCP and netboot data based on a mac address.
-func (b *Backend) ReadBMCMachine(ctx context.Context, name string) (*data.BMCMachine, error) {
+// ReadBMCMachine looks up a machine.bmc.tinkerbell.org object based on the bmcRef in the hardware object with the given name.
+func (b *Backend) ReadBMCMachine(ctx context.Context, hardwareName string) (*data.BMCMachine, error) {
 	// get the hardware object, using the name, from the cluster
 	// get the ssh public keys from the hardware object, add them to the return data.BMCMachine object
 	// get the bmcRef from the hardware object
@@ -25,34 +23,13 @@ func (b *Backend) ReadBMCMachine(ctx context.Context, name string) (*data.BMCMac
 	// get the secret object, using the machine.bmc object's secret ref, from the cluster
 	// get the user and pass from the secret object, parse out the user and password and add them to the return data.BMCMachine object
 	tracer := otel.Tracer(tracerName)
-	ctx, span := tracer.Start(ctx, "backend.kube.GetByIP")
+	ctx, span := tracer.Start(ctx, "backend.kube.ReadBMCMachine")
 	defer span.End()
 
-	hardwareList := &v1alpha1.HardwareList{}
-
-	// list hardware objects with the given name
-	// We List objects instead of a Get because namespace support is not implemented yet.
-	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{".metadata.name": name}); err != nil {
-		span.SetStatus(codes.Error, err.Error())
-
-		return nil, fmt.Errorf("failed listing hardware for (%v): %w", name, err)
+	hw, err := b.ReadHardware(ctx, hardwareName, "", data.ReadListOptions{ByName: hardwareName})
+	if err != nil {
+		return nil, fmt.Errorf("failed to read hardware for (%v): %w", hardwareName, err)
 	}
-
-	if len(hardwareList.Items) == 0 {
-		err := hardwareNotFoundError{name: name, namespace: ternary(b.Namespace == "", "all namespaces", b.Namespace)}
-		span.SetStatus(codes.Error, err.Error())
-
-		return nil, err
-	}
-
-	if len(hardwareList.Items) > 1 {
-		err := fmt.Errorf("got %d hardware objects for ip: %s, expected only 1", len(hardwareList.Items), name)
-		span.SetStatus(codes.Error, err.Error())
-
-		return nil, err
-	}
-
-	hw := hardwareList.Items[0]
 	response := &data.BMCMachine{}
 	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil {
 		response.SSHPublicKeys = hw.Spec.Metadata.Instance.SSHKeys
@@ -72,7 +49,7 @@ func (b *Backend) machine(ctx context.Context, name string, machine *data.BMCMac
 	}
 
 	bmcList := &bmc.MachineList{}
-	if err := b.cluster.GetClient().List(ctx, bmcList, &client.MatchingFields{".metadata.name": name}); err != nil {
+	if err := b.cluster.GetClient().List(ctx, bmcList, &client.MatchingFields{NameIndex: name}); err != nil {
 		return fmt.Errorf("failed listing bmc machine for (%v): %w", name, err)
 	}
 	if len(bmcList.Items) == 0 {
