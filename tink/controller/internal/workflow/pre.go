@@ -246,7 +246,7 @@ func templateActions(actions []bmc.Action, hw *v1alpha1.Hardware) ([]bmc.Action,
 // templateString executes a Go template string with the provided data.
 func templateString(tmplStr string, data templateData) (string, error) {
 	// Use Sprig hermetic functions for template operations (includes replace, etc.)
-	tmpl, err := template.New("action").Funcs(sprig.HermeticTxtFuncMap()).Parse(tmplStr)
+	tmpl, err := template.New("action").Funcs(sprig.HermeticTxtFuncMap()).Funcs(templateFuncs).Parse(tmplStr)
 	if err != nil {
 		return "", err
 	}
