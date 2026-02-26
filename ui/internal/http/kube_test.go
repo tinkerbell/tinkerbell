@@ -211,7 +211,7 @@ func TestGetBMCJobStatus(t *testing.T) {
 		{
 			name:       "no conditions",
 			conditions: nil,
-			want:       "Unknown",
+			want:       "Pending",
 		},
 		{
 			name: "completed condition",
@@ -251,7 +251,7 @@ func TestGetBMCJobStatus(t *testing.T) {
 					Status: bmcv1alpha1.ConditionFalse,
 				},
 			},
-			want: "Unknown",
+			want: "Pending",
 		},
 		{
 			name: "multiple conditions returns first true match",

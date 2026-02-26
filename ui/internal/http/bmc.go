@@ -466,7 +466,7 @@ func HandleBMCTaskList(c *gin.Context, log logr.Logger) {
 		}
 	} else {
 		for _, task := range taskList.Items {
-			status := statusUnknown
+			status := statusPending
 			completedAt := ""
 			for _, condition := range task.Status.Conditions {
 				if condition.Type == bmc.TaskCompleted && condition.Status == bmc.ConditionTrue {
@@ -480,7 +480,7 @@ func HandleBMCTaskList(c *gin.Context, log logr.Logger) {
 					break
 				}
 			}
-			if status == statusUnknown && task.Status.StartTime != nil {
+			if status == statusPending && task.Status.StartTime != nil {
 				status = statusRunning
 			}
 
@@ -553,7 +553,7 @@ func HandleBMCTaskData(c *gin.Context, log logr.Logger) {
 		}
 	} else {
 		for _, task := range taskList.Items {
-			status := statusUnknown
+			status := statusPending
 			completedAt := ""
 			for _, condition := range task.Status.Conditions {
 				if condition.Type == bmc.TaskCompleted && condition.Status == bmc.ConditionTrue {
@@ -567,7 +567,7 @@ func HandleBMCTaskData(c *gin.Context, log logr.Logger) {
 					break
 				}
 			}
-			if status == statusUnknown && task.Status.StartTime != nil {
+			if status == statusPending && task.Status.StartTime != nil {
 				status = statusRunning
 			}
 
@@ -631,7 +631,7 @@ func HandleBMCTaskDetail(c *gin.Context, log logr.Logger) {
 	specYAML, _ := yaml.Marshal(&task.Spec)
 	statusYAML, _ := yaml.Marshal(&task.Status)
 
-	status := statusUnknown
+	status := statusPending
 	completedAt := ""
 	for _, condition := range task.Status.Conditions {
 		if condition.Type == bmc.TaskCompleted && condition.Status == bmc.ConditionTrue {
@@ -645,7 +645,7 @@ func HandleBMCTaskDetail(c *gin.Context, log logr.Logger) {
 			break
 		}
 	}
-	if status == statusUnknown && task.Status.StartTime != nil {
+	if status == statusPending && task.Status.StartTime != nil {
 		status = statusRunning
 	}
 
