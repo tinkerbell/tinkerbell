@@ -261,3 +261,76 @@ func withTemplateEmptyTasks() workflowModifier {
 		wf.Tasks = []Task{}
 	}
 }
+
+func TestRenderTemplateHardwareWithToYaml(t *testing.T) {
+	templateWithToYaml := `
+version: "0.1"
+name: yaml_func_workflow
+global_timeout: 600
+tasks:
+  - name: "provision"
+    worker: "{{.device_1}}"
+    actions:
+    - name: "apply-config"
+      image: apply-config
+      timeout: 60
+      environment:
+        CONFIG: |
+          {{ .references.config | toYaml | nindent 10 }}
+`
+	hardware := map[string]interface{}{
+		"device_1": "08:00:27:00:00:01",
+		"references": map[string]interface{}{
+			"config": map[string]interface{}{
+				"hostname": "worker-1",
+				"network": map[string]interface{}{
+					"ip":      "192.168.1.10",
+					"gateway": "192.168.1.1",
+				},
+			},
+		},
+	}
+
+	wf, err := renderTemplateHardware("test-toYaml", templateWithToYaml, hardware)
+	assert.NoError(t, err)
+	assert.NotNil(t, wf)
+	assert.Equal(t, "yaml_func_workflow", wf.Name)
+
+	// Verify the rendered action environment contains YAML output
+	env := wf.Tasks[0].Actions[0].Environment
+	configVal, ok := env["CONFIG"]
+	assert.True(t, ok, "CONFIG environment variable should be set")
+	assert.Contains(t, configVal, "hostname: worker-1")
+	assert.Contains(t, configVal, "gateway: 192.168.1.1")
+	assert.Contains(t, configVal, "ip: 192.168.1.10")
+}
+
+func TestRenderTemplateHardwareWithFromYaml(t *testing.T) {
+	templateWithFromYaml := `
+version: "0.1"
+name: yaml_func_workflow
+global_timeout: 600
+tasks:
+  - name: "provision"
+    worker: "{{.device_1}}"
+    actions:
+    - name: "apply-config"
+      image: apply-config
+      timeout: 60
+      environment:
+        HOSTNAME: "{{ (fromYaml .references.yamlConfig).hostname }}"
+`
+	hardware := map[string]interface{}{
+		"device_1": "08:00:27:00:00:01",
+		"references": map[string]interface{}{
+			"yamlConfig": "hostname: worker-1\nip: 192.168.1.10",
+		},
+	}
+
+	wf, err := renderTemplateHardware("test-fromYaml", templateWithFromYaml, hardware)
+	assert.NoError(t, err)
+	assert.NotNil(t, wf)
+
+	env := wf.Tasks[0].Actions[0].Environment
+	assert.Equal(t, "worker-1", env["HOSTNAME"])
+}

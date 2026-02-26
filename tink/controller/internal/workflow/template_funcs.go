@@ -5,12 +5,16 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"sigs.k8s.io/yaml"
 )
 
 // templateFuncs defines the custom functions available to workflow templates.
 var templateFuncs = map[string]interface{}{
 	"formatPartition":       formatPartition,
 	"netmaskToPrefixLength": netmaskToPrefixLength,
+	"toYaml":                toYaml,
+	"fromYaml":              fromYaml,
 }
 
 // formatPartition formats a device path with partition for the device type.
@@ -46,4 +50,27 @@ func netmaskToPrefixLength(netmask string) (string, error) {
 	// Count the number of 1 bits in the netmask
 	ones, _ := net.IPMask(ipv4).Size()
 	return strconv.Itoa(ones), nil
+}
+
+// toYaml marshals a value to a YAML string.
+// Returns an error if marshalling fails, which halts template execution.
+func toYaml(v interface{}) (string, error) {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		return "", fmt.Errorf("toYaml: %w", err)
+	}
+	return strings.TrimSuffix(string(data), "\n"), nil
+}
+
+// fromYaml unmarshals a YAML string into a Go value (map, slice, or scalar).
+// Returns an error if the input is empty or unmarshalling fails, which halts template execution.
+func fromYaml(str string) (interface{}, error) {
+	if str == "" {
+		return nil, fmt.Errorf("fromYaml: empty YAML input")
+	}
+	var out interface{}
+	if err := yaml.Unmarshal([]byte(str), &out); err != nil {
+		return nil, fmt.Errorf("fromYaml: %w", err)
+	}
+	return out, nil
 }

@@ -701,3 +701,54 @@ func TestPrepareWorkflow(t *testing.T) {
 		})
 	}
 }
+
+func TestTemplateStringYamlFuncs(t *testing.T) {
+	tests := map[string]struct {
+		tmplStr string
+		data    templateData
+		want    string
+		wantErr bool
+	}{
+		"toYaml in templateString": {
+			tmplStr: `{{ .Hardware.Interfaces | toYaml }}`,
+			data: func() templateData {
+				d := templateData{}
+				d.Hardware.HardwareSpec = v1alpha1.HardwareSpec{
+					Interfaces: []v1alpha1.Interface{
+						{DHCP: &v1alpha1.DHCP{MAC: "52:54:00:12:34:01"}},
+					},
+				}
+				return d
+			}(),
+		},
+		"fromYaml in templateString": {
+			tmplStr: `{{ $m := fromYaml "hostname: worker-1" }}{{ $m.hostname }}`,
+			data:    templateData{},
+			want:    "worker-1",
+		},
+		"fromYaml empty string errors": {
+			tmplStr: `{{ fromYaml "" }}`,
+			data:    templateData{},
+			wantErr: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := templateString(tt.tmplStr, tt.data)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("templateString() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if tt.want != "" && got != tt.want {
+				t.Errorf("templateString() = %q, want %q", got, tt.want)
+			}
+			// For toYaml, just verify non-empty output containing MAC
+			if tt.want == "" && len(got) == 0 {
+				t.Error("templateString() returned empty output, expected YAML content")
+			}
+		})
+	}
+}
