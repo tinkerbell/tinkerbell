@@ -181,6 +181,15 @@ deployment:
 name: tinkerbell
 publicIP:
 rbac:
+  additionalRoleRules: []
+  # Resource-based rule example:
+  # - apiGroups: [""]             # Required. API groups ("" = core group).
+  #   resources: ["configmaps"]   # Required. Resource types.
+  #   verbs: ["get", "list"]      # Required. Allowed operations.
+  #   resourceNames: ["my-cm"]    # Optional. Restrict to specific resource names.
+  # Non-resource URL rule example:
+  # - nonResourceURLs: ["/healthz"] # Required. Non-resource URL paths.
+  #   verbs: ["get"]                # Required. Allowed operations.
   name: tinkerbell
   type: ClusterRole # or Role
   secrets:
