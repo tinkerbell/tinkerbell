@@ -12,6 +12,8 @@ import (
 
 // Hardware is the combination of structs that hold all the data about a piece of hardware.
 type Hardware struct {
+	// Holds the assigned AgentID from the hardware object
+	AgentID string
 	// DHCP holds the DHCP headers and options to be set in a DHCP handler response.
 	// This is the API between a DHCP handler and a backend.
 	DHCP *DHCP

@@ -48,7 +48,7 @@ type info struct {
 	MACAddress    net.HardwareAddr
 	Arch          string
 	VLANID        string
-	WorkflowID    string
+	AgentID       string
 	Facility      string
 	IPXEScript    string
 	IPXEScriptURL *url.URL
@@ -91,7 +91,7 @@ func getByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (info
 		MACAddress:    d.MACAddress,
 		Arch:          d.Arch,
 		VLANID:        d.VLANID,
-		WorkflowID:    d.MACAddress.String(),
+		AgentID:       hw.AgentID,
 		Facility:      n.Facility,
 		IPXEScript:    n.IPXEScript,
 		IPXEScriptURL: n.IPXEScriptURL,
@@ -122,7 +122,7 @@ func getByIP(ctx context.Context, ip net.IP, br BackendReader) (info, error) {
 		MACAddress:    d.MACAddress,
 		Arch:          d.Arch,
 		VLANID:        d.VLANID,
-		WorkflowID:    d.MACAddress.String(),
+		AgentID:       hw.AgentID,
 		Facility:      n.Facility,
 		IPXEScript:    n.IPXEScript,
 		IPXEScriptURL: n.IPXEScriptURL,
@@ -294,10 +294,10 @@ func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
 	if arch == "" {
 		arch = "x86_64"
 	}
-	// The worker ID will default to the mac address or use the one specified.
+	// The worker ID will default to the mac address or use the one specified in the hardware object
 	wID := mac.String()
-	if hw.WorkflowID != "" {
-		wID = hw.WorkflowID
+	if hw.AgentID != "" {
+		wID = hw.AgentID
 	}
 
 	auto := Hook{
