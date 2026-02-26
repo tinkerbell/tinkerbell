@@ -271,6 +271,34 @@ func TestGetBMCJobStatus(t *testing.T) {
 			},
 			want: "Completed",
 		},
+		{
+			name: "completed takes priority over running",
+			conditions: []bmcv1alpha1.JobCondition{
+				{
+					Type:   bmcv1alpha1.JobRunning,
+					Status: bmcv1alpha1.ConditionTrue,
+				},
+				{
+					Type:   bmcv1alpha1.JobCompleted,
+					Status: bmcv1alpha1.ConditionTrue,
+				},
+			},
+			want: "Completed",
+		},
+		{
+			name: "failed takes priority over running",
+			conditions: []bmcv1alpha1.JobCondition{
+				{
+					Type:   bmcv1alpha1.JobRunning,
+					Status: bmcv1alpha1.ConditionTrue,
+				},
+				{
+					Type:   bmcv1alpha1.JobFailed,
+					Status: bmcv1alpha1.ConditionTrue,
+				},
+			},
+			want: "Failed",
+		},
 	}
 
 	for _, tt := range tests {
@@ -278,6 +306,127 @@ func TestGetBMCJobStatus(t *testing.T) {
 			got := GetBMCJobStatus(tt.conditions)
 			if got != tt.want {
 				t.Errorf("GetBMCJobStatus() = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBmcTaskType(t *testing.T) {
+	tests := []struct {
+		name   string
+		action bmcv1alpha1.Action
+		want   string
+	}{
+		{
+			name:   "empty action returns Unknown",
+			action: bmcv1alpha1.Action{},
+			want:   "Unknown",
+		},
+		{
+			name: "PowerAction returns Power",
+			action: bmcv1alpha1.Action{
+				PowerAction: ptr(bmcv1alpha1.PowerOn),
+			},
+			want: "Power",
+		},
+		{
+			name: "BootDevice returns BootDevice",
+			action: bmcv1alpha1.Action{
+				BootDevice: &bmcv1alpha1.BootDeviceConfig{
+					Device: "pxe",
+				},
+			},
+			want: "BootDevice",
+		},
+		{
+			name: "OneTimeBootDeviceAction returns BootDevice",
+			action: bmcv1alpha1.Action{
+				OneTimeBootDeviceAction: &bmcv1alpha1.OneTimeBootDeviceAction{
+					Devices: []bmcv1alpha1.BootDevice{"pxe"},
+				},
+			},
+			want: "BootDevice",
+		},
+		{
+			name: "VirtualMediaAction returns VirtualMedia",
+			action: bmcv1alpha1.Action{
+				VirtualMediaAction: &bmcv1alpha1.VirtualMediaAction{
+					MediaURL: "http://example.com/image.iso",
+					Kind:     "CD",
+				},
+			},
+			want: "VirtualMedia",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := bmcTaskType(tt.action)
+			if got != tt.want {
+				t.Errorf("bmcTaskType() = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func ptr[T any](v T) *T { return &v }
+
+func TestBmcTaskJobRef(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		labels    map[string]string
+		want      string
+	}{
+		{
+			name:      "nil labels returns N/A",
+			namespace: "default",
+			labels:    nil,
+			want:      "N/A",
+		},
+		{
+			name:      "empty labels returns N/A",
+			namespace: "default",
+			labels:    map[string]string{},
+			want:      "N/A",
+		},
+		{
+			name:      "unrelated labels returns N/A",
+			namespace: "default",
+			labels:    map[string]string{"app": "test"},
+			want:      "N/A",
+		},
+		{
+			name:      "owner-name label returns namespace/name",
+			namespace: "tinkerbell",
+			labels:    map[string]string{"owner-name": "netboot-capt-playground-control-plane-qc8tr"},
+			want:      "tinkerbell/netboot-capt-playground-control-plane-qc8tr",
+		},
+		{
+			name:      "empty owner-name returns N/A",
+			namespace: "default",
+			labels:    map[string]string{"owner-name": ""},
+			want:      "N/A",
+		},
+		{
+			name:      "whitespace owner-name returns N/A",
+			namespace: "default",
+			labels:    map[string]string{"owner-name": "  "},
+			want:      "N/A",
+		},
+		{
+			name:      "owner-name with other labels returns namespace/name",
+			namespace: "default",
+			labels:    map[string]string{"app": "test", "owner-name": "my-job"},
+			want:      "default/my-job",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := bmcTaskJobRef(tt.namespace, tt.labels)
+			if got != tt.want {
+				t.Errorf("bmcTaskJobRef() = %s, want %s", got, tt.want)
 			}
 		})
 	}

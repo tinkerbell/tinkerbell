@@ -1757,7 +1757,7 @@ func BMCJobDetailContent(job BMCJobDetail, baseURL string) templ.Component {
 			}
 			ctx = templ.InitializeContext(ctx)
 			templ_7745c5c3_Err = NameValueTable([]InfoRow{
-				{Name: "Machine Reference", Value: job.MachineRef},
+				{Name: "Machine Reference", Value: job.MachineRef, Link: baseURL + "/bmc/machines/" + job.MachineRef},
 				{Name: "Status", Value: job.Status},
 				{Name: "Completed At", Value: job.CompletedAt},
 			}).Render(ctx, templ_7745c5c3_Buffer)
@@ -1920,7 +1920,12 @@ func BMCTaskDetailContent(task BMCTaskDetail, baseURL string) templ.Component {
 			}
 			ctx = templ.InitializeContext(ctx)
 			templ_7745c5c3_Err = NameValueTable([]InfoRow{
-				{Name: "Job Reference", Value: task.JobRef},
+				{Name: "Job Reference", Value: task.JobRef, Link: func() string {
+					if task.JobRef != "N/A" {
+						return baseURL + "/bmc/jobs/" + task.JobRef
+					}
+					return ""
+				}()},
 				{Name: "Task Type", Value: task.TaskType},
 				{Name: "Status", Value: task.Status},
 				{Name: "Completed At", Value: task.CompletedAt},
