@@ -391,7 +391,11 @@ templ BMCTaskTableContent(taskData BMCTaskPageData) {
 							</div>
 						</td>
 						<td class="px-6 py-4 whitespace-nowrap"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-300">{ task.Namespace }</span></td>
+						if task.JobRef != "N/A" {
+						<td class="px-6 py-4 whitespace-nowrap text-sm"><a href={ templ.SafeURL("/bmc/jobs/" + task.JobRef) } class="text-tink-teal-600 dark:text-tink-teal-400 hover:text-tink-teal-800 dark:hover:text-tink-teal-300 hover:underline" onclick="event.stopPropagation()">{ task.JobRef }</a></td>
+						} else {
 						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{ task.JobRef }</td>
+						}
 						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{ task.TaskType }</td>
 						<td class="px-6 py-4 whitespace-nowrap">@StatusBadge(task.Status)</td>
 						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ task.CreatedAt }</td>
