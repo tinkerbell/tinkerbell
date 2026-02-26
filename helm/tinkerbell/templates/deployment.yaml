@@ -108,10 +108,6 @@ spec:
             - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_AUTO_ENROLLMENT_ENABLED
               value: {{ .Values.deployment.envs.tinkServer.autoDiscoveryAutoEnrollmentEnabled | quote }}
           # TOOTLES
-            - name: TINKERBELL_TOOTLES_BIND_ADDR
-              value: {{ .Values.deployment.envs.tootles.bindAddr | quote }}
-            - name: TINKERBELL_TOOTLES_BIND_PORT
-              value: {{ .Values.deployment.envs.tootles.bindPort | quote }}
             - name: TINKERBELL_TOOTLES_DEBUG_MODE
               value: {{ .Values.deployment.envs.tootles.debugMode | quote }}
             - name: TINKERBELL_TOOTLES_INSTANCE_ENDPOINT
@@ -161,10 +157,6 @@ spec:
               value: {{ .Values.deployment.envs.smee.ipxeHttpBinaryEnabled | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_ENABLED
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptEnabled | quote }}
-            - name: TINKERBELL_IPXE_HTTP_SCRIPT_BIND_ADDR
-              value: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindAddr | quote }}
-            - name: TINKERBELL_IPXE_HTTP_SCRIPT_BIND_PORT
-              value: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindPort | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS
               value: {{ join " " ( append .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs ( printf "tink_worker_image=%s:%s" .Values.deployment.agentImage (coalesce .Values.deployment.agentImageTag .Chart.AppVersion) ) ) | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TRUSTED_PROXIES
@@ -223,10 +215,6 @@ spec:
             - name: TINKERBELL_SECONDSTAR_LOG_LEVEL
               value: {{ .Values.deployment.envs.secondstar.logLevel | quote }}
           # UI
-            - name: TINKERBELL_UI_BIND_ADDR
-              value: {{ .Values.deployment.envs.ui.bindAddr | quote }}
-            - name: TINKERBELL_UI_BIND_PORT
-              value: {{ .Values.deployment.envs.ui.bindPort | quote }}
             - name: TINKERBELL_UI_DEBUG_MODE
               value: {{ .Values.deployment.envs.ui.debugMode | quote }}
             - name: TINKERBELL_UI_ENABLE_AUTO_LOGIN
@@ -280,8 +268,10 @@ spec:
               value: {{ .Values.deployment.envs.globals.tlsCertFile | quote }}
             - name: TINKERBELL_TLS_KEY_FILE
               value: {{ .Values.deployment.envs.globals.tlsKeyFile | quote }}
-            - name: TINKERBELL_HTTPS_BIND_PORT
-              value: {{ .Values.deployment.envs.smee.httpsBindPort | quote }}
+            - name: TINKERBELL_HTTP_PORT
+              value: {{ .Values.deployment.envs.globals.httpPort | quote }}
+            - name: TINKERBELL_HTTPS_PORT
+              value: {{ .Values.deployment.envs.globals.httpsPort | quote }}
             {{- with .Values.deployment.additionalEnvs }}
           # Additional environment variables
             {{- toYaml . | nindent 12 }}
@@ -303,19 +293,12 @@ spec:
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
-            - containerPort: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindPort }}
-            {{- with .Values.service.ports.httpSmee }}
+          {{- end }}
+            - containerPort: {{ .Values.deployment.envs.globals.httpPort }} # This is always enabled because /metrics and /healthcheck are always enabled.
+            {{- with .Values.service.ports.http }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
-          {{- end }}
-          {{- if .Values.deployment.envs.globals.enableTootles }}
-            - containerPort: {{ .Values.deployment.envs.tootles.bindPort }}
-            {{- with .Values.service.ports.httpTootles }}
-              name: {{ .name }}
-              protocol: {{ .protocol }}
-            {{- end }}
-          {{- end }}
           {{- if .Values.deployment.envs.globals.enableTinkServer }}
             - containerPort: {{ .Values.deployment.envs.tinkServer.bindPort }}
             {{- with .Values.service.ports.grpc }}
@@ -330,15 +313,8 @@ spec:
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
-          {{- if .Values.deployment.envs.globals.enableUI }}
-            - containerPort: {{ .Values.deployment.envs.ui.bindPort }}
-            {{- with .Values.service.ports.ui }}
-              name: {{ .name }}
-              protocol: {{ .protocol }}
-            {{- end }}
-          {{- end }}
           {{- if and .Values.deployment.envs.globals.tlsCertFile .Values.deployment.envs.globals.tlsKeyFile }}
-            - containerPort: {{ .Values.deployment.envs.smee.httpsBindPort }}
+            - containerPort: {{ .Values.deployment.envs.globals.httpsPort }}
             {{- with .Values.service.ports.https }}
               name: {{ .name }}
               protocol: {{ .protocol }}

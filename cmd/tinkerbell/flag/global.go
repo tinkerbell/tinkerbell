@@ -18,6 +18,8 @@ type GlobalConfig struct {
 	TrustedProxies       []netip.Prefix
 	PublicIP             netip.Addr
 	BindAddr             netip.Addr
+	HTTPPort             int
+	HTTPSPort            int
 	EnableSmee           bool
 	EnableTootles        bool
 	EnableTinkServer     bool
@@ -54,6 +56,8 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(BackendKubeNamespace, ffval.NewValueDefault(&gc.BackendKubeNamespace, gc.BackendKubeNamespace))
 	fs.Register(KubeQPS, ffval.NewValueDefault(&gc.BackendKubeOptions.QPS, gc.BackendKubeOptions.QPS))
 	fs.Register(BindAddr, &ntip.Addr{Addr: &gc.BindAddr})
+	fs.Register(HTTPPort, ffval.NewValueDefault(&gc.HTTPPort, gc.HTTPPort))
+	fs.Register(HTTPSPort, ffval.NewValueDefault(&gc.HTTPSPort, gc.HTTPSPort))
 	fs.Register(EnableSmee, ffval.NewValueDefault(&gc.EnableSmee, gc.EnableSmee))
 	fs.Register(EnableTootles, ffval.NewValueDefault(&gc.EnableTootles, gc.EnableTootles))
 	fs.Register(EnableTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
@@ -201,4 +205,14 @@ var TLSCertFile = Config{
 var TLSKeyFile = Config{
 	Name:  "tls-key-file",
 	Usage: "[tls] path to the TLS key file",
+}
+
+var HTTPPort = Config{
+	Name:  "http-port",
+	Usage: "port for the HTTP server",
+}
+
+var HTTPSPort = Config{
+	Name:  "https-port",
+	Usage: "port for the HTTPS server, unused when no TLS cert and key are provided",
 }
