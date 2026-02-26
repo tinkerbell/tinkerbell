@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: {{ .Values.rbac.type }}
 metadata:
   name: {{ .Values.rbac.name }}-role
-  {{- if eq .Values.rbac.type "Role"  }}
+  {{- if eq .Values.rbac.type "Role" }}
   namespace: {{ .Release.Namespace | quote }}
   {{- end }}
 rules:
@@ -30,3 +30,21 @@ rules:
   - apiGroups: ["bmc.tinkerbell.org"]
     resources: ["jobs/finalizers", "machines/finalizers", "tasks/finalizers"]
     verbs: ["update"]
+  {{- range .Values.rbac.additionalRoleRules }}
+  {{- if and (hasKey . "resources") (hasKey . "nonResourceURLs") }}
+    {{- fail "rbac.additionalRoleRules: a rule must not specify both 'resources' and 'nonResourceURLs' (they are mutually exclusive per Kubernetes RBAC PolicyRule)" }}
+  {{- end }}
+  {{- if not (or (hasKey . "resources") (hasKey . "nonResourceURLs")) }}
+    {{- fail "rbac.additionalRoleRules: each rule must specify either 'resources' or 'nonResourceURLs'" }}
+  {{- end }}
+  - {{- if hasKey . "resources" }}
+    apiGroups: {{ include "tinkerbell.toJsonArray" .apiGroups }}
+    resources: {{ include "tinkerbell.toJsonArray" .resources }}
+    {{- with (include "tinkerbell.toOptionalJsonArray" .resourceNames) }}
+    resourceNames: {{ . }}
+    {{- end }}
+    {{- else }}
+    nonResourceURLs: {{ include "tinkerbell.toJsonArray" .nonResourceURLs }}
+    {{- end }}
+    verbs: {{ include "tinkerbell.toJsonArray" .verbs }}
+  {{- end }}

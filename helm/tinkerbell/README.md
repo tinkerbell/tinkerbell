@@ -96,6 +96,49 @@ optional:
 | `trustedProxies` | List of trusted proxy CIDRs | `[]` |
 | `artifactsFileServer` | URL for the HookOS artifacts server | `""` |
 
+## Additional RBAC Rules
+
+The `rbac.additionalRoleRules` field allows appending custom RBAC policy rules to the Tinkerbell role. Each entry follows the Kubernetes [PolicyRule](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#role-and-clusterrole) schema. There are two mutually exclusive rule types:
+
+**Resource-based rules** (for Kubernetes API resources like configmaps, pods, etc.):
+
+- Required: `apiGroups`, `resources`, `verbs` (all must be arrays of strings)
+- Optional: `resourceNames`
+
+**Non-resource URL rules** (for non-resource endpoints like /healthz, /metrics):
+
+- Required: `nonResourceURLs`, `verbs` (both must be arrays of strings)
+- `apiGroups`, `resources`, and `resourceNames` must **not** be specified
+
+Resource-based rule:
+
+```bash
+helm install tinkerbell . \
+  --namespace tinkerbell \
+  --set-json 'rbac.additionalRoleRules=[{"apiGroups":[""],"resources":["configmaps"],"verbs":["get","list"]}]'
+```
+
+Using `resourceNames` to restrict access to specific resources:
+
+```bash
+helm install tinkerbell . \
+  --namespace tinkerbell \
+  --set-json 'rbac.additionalRoleRules=[{"apiGroups":[""],"resources":["configmaps"],"resourceNames":["my-config"],"verbs":["get"]}]'
+```
+
+Non-resource URL rule:
+
+```bash
+helm install tinkerbell . \
+  --namespace tinkerbell \
+  --set-json 'rbac.additionalRoleRules=[{"nonResourceURLs":["/healthz","/metrics"],"verbs":["get"]}]'
+```
+
+> [!CAUTION]
+> When `rbac.type` is `ClusterRole` (the default), additional rules grant **cluster-wide** access, not just within the release namespace.
+> No content-level validation is performed on rule values. Users are responsible for following the principle of least privilege.
+> Avoid wildcards (`*`) and privileged verbs (`escalate`, `bind`, `impersonate`) unless absolutely necessary.
+
 ## Examples
 
 ### Disabling specific services
@@ -124,7 +167,7 @@ helm install tinkerbell . \
   --set deployment.envs.smee.dhcpMode=auto-proxy
 ```
 
-### Upgrading from Helm chart version 0.6.2
+## Upgrading from Helm chart version 0.6.2
 
 > [!IMPORTANT]
 > Before upgrading ensure there are no actively running `workflows.tinkerbell.org` or `jobs.bmc.tinkerbell.org`.
