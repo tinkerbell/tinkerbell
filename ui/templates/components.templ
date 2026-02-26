@@ -68,7 +68,11 @@ templ NameValueTable(rows []InfoRow) {
 					if !row.Hide && row.Value != "" {
 						<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
 							<td class="py-3 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">{ row.Name }</td>
+							if row.Link != "" {
+							<td class="py-3 text-sm whitespace-nowrap"><a href={ templ.SafeURL(row.Link) } class="text-tink-teal-600 hover:text-tink-teal-700 dark:text-tink-teal-400 dark:hover:text-tink-teal-300 hover:underline">{ row.Value }</a></td>
+							} else {
 							<td class="py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">{ row.Value }</td>
+							}
 						</tr>
 					}
 				}

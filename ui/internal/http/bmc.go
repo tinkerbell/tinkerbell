@@ -2,7 +2,9 @@ package webhttp
 
 import (
 	"fmt"
+	"path"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 
@@ -267,12 +269,16 @@ func HandleBMCJobList(c *gin.Context, log logr.Logger) {
 		}
 	} else {
 		for _, job := range jobList.Items {
+			completedAt := ""
+			if job.Status.CompletionTime != nil {
+				completedAt = job.Status.CompletionTime.Format("2006-01-02 15:04:05")
+			}
 			webJob := templates.BMCJob{
 				Name:        job.Name,
 				Namespace:   job.Namespace,
 				MachineRef:  job.Spec.MachineRef.Namespace + "/" + job.Spec.MachineRef.Name,
 				Status:      GetBMCJobStatus(job.Status.Conditions),
-				CompletedAt: "",
+				CompletedAt: completedAt,
 				CreatedAt:   job.GetCreationTimestamp().Format("2006-01-02 15:04:05"),
 			}
 			jobs = append(jobs, webJob)
@@ -333,12 +339,16 @@ func HandleBMCJobData(c *gin.Context, log logr.Logger) {
 		}
 	} else {
 		for _, job := range jobList.Items {
+			completedAt := ""
+			if job.Status.CompletionTime != nil {
+				completedAt = job.Status.CompletionTime.Format("2006-01-02 15:04:05")
+			}
 			webJob := templates.BMCJob{
 				Name:        job.Name,
 				Namespace:   job.Namespace,
 				MachineRef:  job.Spec.MachineRef.Namespace + "/" + job.Spec.MachineRef.Name,
 				Status:      GetBMCJobStatus(job.Status.Conditions),
-				CompletedAt: "",
+				CompletedAt: completedAt,
 				CreatedAt:   job.GetCreationTimestamp().Format("2006-01-02 15:04:05"),
 			}
 			jobs = append(jobs, webJob)
@@ -390,12 +400,17 @@ func HandleBMCJobDetail(c *gin.Context, log logr.Logger) {
 	specYAML, _ := yaml.Marshal(&job.Spec)
 	statusYAML, _ := yaml.Marshal(&job.Status)
 
+	completedAt := ""
+	if job.Status.CompletionTime != nil {
+		completedAt = job.Status.CompletionTime.Format("2006-01-02 15:04:05")
+	}
+
 	jobDetail := templates.BMCJobDetail{
 		Name:        job.Name,
 		Namespace:   job.Namespace,
 		MachineRef:  job.Spec.MachineRef.Namespace + "/" + job.Spec.MachineRef.Name,
 		Status:      GetBMCJobStatus(job.Status.Conditions),
-		CompletedAt: "",
+		CompletedAt: completedAt,
 		CreatedAt:   job.GetCreationTimestamp().Format("2006-01-02 15:04:05"),
 		Labels:      job.Labels,
 		Annotations: job.Annotations,
@@ -465,16 +480,16 @@ func HandleBMCTaskList(c *gin.Context, log logr.Logger) {
 					break
 				}
 			}
-
-			taskType := "Unknown"
-			if task.Spec.Task.PowerAction != nil {
-				taskType = "Power"
+			if status == statusUnknown && task.Status.StartTime != nil {
+				status = statusRunning
 			}
+
+			taskType := bmcTaskType(task.Spec.Task)
 
 			webTask := templates.BMCTask{
 				Name:        task.Name,
 				Namespace:   task.Namespace,
-				JobRef:      "N/A",
+				JobRef:      bmcTaskJobRef(task.Namespace, task.Labels),
 				TaskType:    taskType,
 				Status:      status,
 				CompletedAt: completedAt,
@@ -552,16 +567,16 @@ func HandleBMCTaskData(c *gin.Context, log logr.Logger) {
 					break
 				}
 			}
-
-			taskType := "Unknown"
-			if task.Spec.Task.PowerAction != nil {
-				taskType = "Power"
+			if status == statusUnknown && task.Status.StartTime != nil {
+				status = statusRunning
 			}
+
+			taskType := bmcTaskType(task.Spec.Task)
 
 			webTask := templates.BMCTask{
 				Name:        task.Name,
 				Namespace:   task.Namespace,
-				JobRef:      "N/A",
+				JobRef:      bmcTaskJobRef(task.Namespace, task.Labels),
 				TaskType:    taskType,
 				Status:      status,
 				CompletedAt: completedAt,
@@ -630,16 +645,16 @@ func HandleBMCTaskDetail(c *gin.Context, log logr.Logger) {
 			break
 		}
 	}
-
-	taskType := "Unknown"
-	if task.Spec.Task.PowerAction != nil {
-		taskType = "Power"
+	if status == statusUnknown && task.Status.StartTime != nil {
+		status = statusRunning
 	}
+
+	taskType := bmcTaskType(task.Spec.Task)
 
 	taskDetail := templates.BMCTaskDetail{
 		Name:        task.Name,
 		Namespace:   task.Namespace,
-		JobRef:      "N/A",
+		JobRef:      bmcTaskJobRef(task.Namespace, task.Labels),
 		TaskType:    taskType,
 		Status:      status,
 		CompletedAt: completedAt,
@@ -658,4 +673,28 @@ func HandleBMCTaskDetail(c *gin.Context, log logr.Logger) {
 	component := templates.BMCTaskDetailPage(cfg, taskDetail)
 	c.Header("Content-Type", "text/html")
 	RenderComponent(c.Request.Context(), c.Writer, component, log)
+}
+
+// bmcTaskType determines the task type string from a BMC Action.
+func bmcTaskType(action bmc.Action) string {
+	if action.VirtualMediaAction != nil {
+		return "VirtualMedia"
+	}
+	if action.BootDevice != nil || action.OneTimeBootDeviceAction != nil { //nolint:staticcheck // OneTimeBootDeviceAction is deprecated but not removed yet, it's still necessary.
+		return "BootDevice"
+	}
+	if action.PowerAction != nil {
+		return "Power"
+	}
+	return "Unknown"
+}
+
+// bmcTaskJobRef extracts the job name from the task's "owner-name" label
+// and returns it in "namespace/name" format for linking.
+// Returns "N/A" if the label is not present or empty.
+func bmcTaskJobRef(namespace string, labels map[string]string) string {
+	if name, ok := labels["owner-name"]; ok && strings.TrimSpace(name) != "" {
+		return path.Join(namespace, name)
+	}
+	return "N/A"
 }

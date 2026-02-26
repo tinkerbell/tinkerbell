@@ -149,7 +149,7 @@ func newTestBMCJob(name, namespace, machine string, conditions []bmcv1alpha1.Job
 	}
 }
 
-func newTestBMCTask(name, namespace string, power bmcv1alpha1.PowerAction) *bmcv1alpha1.Task {
+func newTestBMCTask(name, namespace string, power bmcv1alpha1.PowerAction) *bmcv1alpha1.Task { //nolint:unparam // not a problem that namespace always receives "default".
 	return &bmcv1alpha1.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              name,

@@ -375,6 +375,7 @@ type BMCTaskDetail struct {
 type InfoRow struct {
 	Name  string
 	Value string
+	Link  string // If set, Value is rendered as a hyperlink to this URL.
 	Hide  bool
 }
 
