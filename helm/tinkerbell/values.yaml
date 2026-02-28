@@ -105,6 +105,7 @@ deployment:
       tftpServerEnabled: true
       tftpTimeout: "10s"
       tftpSinglePort: true # if true, use single port mode for TFTP server
+      tftpAssetDir: "" # serves extra TFTP files from this (in-pod) directory if set
     tinkController:
       enableLeaderElection: true
       leaderElectionNamespace: ""
