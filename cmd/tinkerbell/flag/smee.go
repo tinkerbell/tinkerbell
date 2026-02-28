@@ -109,6 +109,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(IPXEHTTPScriptRetries, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Retries, sc.Config.IPXE.HTTPScriptServer.Retries))
 	fs.Register(IPXEHTTPScriptRetryDelay, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.RetryDelay, sc.Config.IPXE.HTTPScriptServer.RetryDelay))
 	fs.Register(IPXEHTTPScriptOSIEURL, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURL})
+	fs.Register(IPXEScriptSyslogFQDN, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.SyslogFQDN, sc.Config.IPXE.HTTPScriptServer.SyslogFQDN))
 	fs.Register(IPXEBinaryInjectMacAddrFormat, &ffval.Enum[constant.MACFormat]{
 		ParseFunc: macAddrFormatParser,
 		Valid:     []constant.MACFormat{constant.MacAddrFormatColon, constant.MacAddrFormatDot, constant.MacAddrFormatDash, constant.MacAddrFormatNoDelimiter},
@@ -203,11 +204,15 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 	}
 
 	s.Config.TinkServer.AddrPort = func() string {
-		_, port := splitHostPort(s.Config.TinkServer.AddrPort)
+		host, port := splitHostPort(s.Config.TinkServer.AddrPort)
 		if port == "" {
 			port = fmt.Sprintf("%d", smee.DefaultTinkServerPort)
 		}
-		return fmt.Sprintf("%s:%s", publicIP.String(), port)
+		// Only use publicIP as fallback when host is empty/unset
+		if host == "" && publicIP.IsValid() && !publicIP.IsUnspecified() {
+			host = publicIP.String()
+		}
+		return fmt.Sprintf("%s:%s", host, port)
 	}()
 
 	// Set bind addresses if bindAddr is specified.
@@ -363,6 +368,11 @@ var IPXEHTTPScriptRetries = Config{
 var IPXEHTTPScriptRetryDelay = Config{
 	Name:  "ipxe-http-script-retry-delay",
 	Usage: "[ipxe] delay (in seconds) between retries when fetching kernel and initrd files in the iPXE script",
+}
+
+var IPXEScriptSyslogFQDN = Config{
+	Name:  "ipxe-script-syslog-fqdn",
+	Usage: "[ipxe] syslog server hostname/FQDN for iPXE scripts (if empty, falls back to --dhcp-syslog-ip)",
 }
 
 // iPXE HTTP binary flags.
