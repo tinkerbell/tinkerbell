@@ -76,6 +76,22 @@ spec:
                   providerOptions:
                     description: ProviderOptions contains provider specific options.
                     properties:
+                      homeassistant:
+                        description: HomeAssistant contains the options to customize
+                          the HomeAssistant provider.
+                        properties:
+                          powerOperationDelaySeconds:
+                            description: PowerOperationDelaySeconds is the number
+                              of seconds to wait after a power operation before proceeding
+                            format: int32
+                            type: integer
+                          switchEntityID:
+                            description: SwitchEntityID is the entity ID of the Home
+                              Assistant switch entity to control power state
+                            type: string
+                        required:
+                        - switchEntityID
+                        type: object
                       intelAMT:
                         description: IntelAMT contains the options to customize the
                           IntelAMT provider.
