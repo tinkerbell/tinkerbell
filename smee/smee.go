@@ -164,6 +164,9 @@ type IPXEHTTPScriptServer struct {
 	OSIEURL         *url.URL
 	TrustedProxies  []string
 	ExtraKernelArgs []string
+	// SyslogFQDN is the hostname/FQDN for the syslog server in iPXE scripts.
+	// If empty, falls back to DHCP.SyslogIP.
+	SyslogFQDN string
 }
 
 type DHCP struct {
@@ -386,12 +389,17 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 	// http ipxe script
 	if c.IPXE.HTTPScriptServer.Enabled {
+		// Use SyslogFQDN if set, otherwise fall back to SyslogIP
+		syslogHost := c.IPXE.HTTPScriptServer.SyslogFQDN
+		if syslogHost == "" {
+			syslogHost = c.DHCP.SyslogIP.String()
+		}
 		jh := script.Handler{
 			Logger:                log,
 			Backend:               c.Backend,
 			OSIEURL:               c.IPXE.HTTPScriptServer.OSIEURL.String(),
 			ExtraKernelParams:     c.IPXE.HTTPScriptServer.ExtraKernelArgs,
-			PublicSyslogFQDN:      c.DHCP.SyslogIP.String(),
+			PublicSyslogFQDN:      syslogHost,
 			TinkServerTLS:         c.TinkServer.UseTLS,
 			TinkServerInsecureTLS: c.TinkServer.InsecureTLS,
 			TinkServerGRPCAddr:    c.TinkServer.AddrPort,
