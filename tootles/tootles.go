@@ -3,34 +3,25 @@
 package tootles
 
 import (
-	"context"
 	"fmt"
+	"net/http"
 
 	"dario.cat/mergo"
 	"github.com/gin-gonic/gin"
-	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/hack"
-	"github.com/tinkerbell/tinkerbell/tootles/internal/http"
-	"github.com/tinkerbell/tinkerbell/tootles/internal/metrics"
-	"github.com/tinkerbell/tinkerbell/tootles/internal/middleware"
-	"github.com/tinkerbell/tinkerbell/tootles/internal/xff"
 )
 
 type Config struct {
 	BackendEc2       ec2.Client
 	BackendHack      hack.Client
-	TrustedProxies   string
 	DebugMode        bool
-	BindAddrPort     string
 	InstanceEndpoint bool
 }
 
-func NewConfig(c Config, addrPort string) *Config {
+func NewConfig(c Config) *Config {
 	defaults := &Config{
-		DebugMode:    false,
-		BindAddrPort: addrPort,
+		DebugMode: false,
 	}
 
 	if err := mergo.Merge(defaults, &c); err != nil {
@@ -40,35 +31,31 @@ func NewConfig(c Config, addrPort string) *Config {
 	return defaults
 }
 
-func (c *Config) Start(ctx context.Context, log logr.Logger) error {
-	xffmw, err := xff.MiddlewareFromUnparsed(c.TrustedProxies)
-	if err != nil {
-		return err
-	}
-
-	registry := prometheus.NewRegistry()
-
+// EC2MetadataHandler returns an http.Handler that serves EC2-style metadata at
+// /2009-04-04/... and optionally /tootles/instanceID/:instanceID/2009-04-04/...
+func (c *Config) EC2MetadataHandler() http.Handler {
 	if !c.DebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	router := gin.New()
-	router.Use(
-		metrics.InstrumentRequestCount(registry),
-		metrics.InstrumentRequestDuration(registry),
-		gin.Recovery(),
-		middleware.Logging(log),
-		xffmw,
-	)
 
-	metrics.Configure(router, registry)
-	// healthcheck.Configure(router, be)
-
-	// TODO(chrisdoherty4) Handle multiple frontends.
 	fe := ec2.New(c.BackendEc2, c.InstanceEndpoint)
 	fe.Configure(router)
 
+	return router
+}
+
+// HackMetadataHandler returns an http.Handler that serves the /metadata endpoint
+// for the rootio hub action.
+func (c *Config) HackMetadataHandler() http.Handler {
+	if !c.DebugMode {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	router := gin.New()
+
 	hack.Configure(router, c.BackendHack)
 
-	return http.Serve(ctx, log, c.BindAddrPort, router)
+	return router
 }

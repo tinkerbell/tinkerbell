@@ -148,14 +148,10 @@ service:
       name: {{ .Values.service.ports.grpc.name }}
       port: {{ .Values.service.ports.grpc.port }}
       protocol: {{ .Values.service.ports.grpc.protocol }}
-    httpSmee:
-      name: {{ .Values.service.ports.httpSmee.name }}
-      port: {{ .Values.service.ports.httpSmee.port }}
-      protocol: {{ .Values.service.ports.httpSmee.protocol }}
-    httpTootles:
-      name: {{ .Values.service.ports.httpTootles.name }}
-      port: {{ .Values.service.ports.httpTootles.port }}
-      protocol: {{ .Values.service.ports.httpTootles.protocol }}
+    http:
+      name: {{ .Values.service.ports.http.name }}
+      port: {{ .Values.service.ports.http.port }}
+      protocol: {{ .Values.service.ports.http.protocol }}
     ssh:
       name: {{ .Values.service.ports.ssh.name }}
       port: {{ .Values.service.ports.ssh.port }}

@@ -6,11 +6,9 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"log/slog"
+	"net/http"
 	"net/netip"
-	"os"
-	"path/filepath"
-	"strconv"
+	"path"
 	"strings"
 	"time"
 
@@ -18,10 +16,15 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/crd"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
 	"github.com/tinkerbell/tinkerbell/pkg/build"
+	"github.com/tinkerbell/tinkerbell/pkg/http/handler"
+	"github.com/tinkerbell/tinkerbell/pkg/http/middleware"
+	httpserver "github.com/tinkerbell/tinkerbell/pkg/http/server"
+	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/rufio"
 	"github.com/tinkerbell/tinkerbell/secondstar"
 	"github.com/tinkerbell/tinkerbell/smee"
@@ -38,13 +41,19 @@ const (
 	defaultRufioMetricsPort          = 8082
 	defaultRufioProbePort            = 8083
 	defaultSecondStarPort            = 2222
-	defaultSmeeHTTPPort              = 7171
-	defaultSmeeHTTPSPort             = 7272
+	defaultHTTPPort                  = 7171
+	defaultHTTPSPort                 = 7272
 	defaultTinkControllerMetricsPort = 8080
 	defaultTinkControllerProbePort   = 8081
 	defaultTinkServerPort            = 42113
-	defaultTootlesPort               = 50061
-	defaultUIPort                    = 8085
+	routeMetrics                     = "/metrics"
+	routeHealthcheck                 = "/healthcheck"
+	routeEC2Metadata                 = "/2009-04-04/"
+	routeTootles                     = "/tootles/"
+	routeHackMetadata                = "/metadata"
+	routeISO                         = smee.ISOURI
+	routeIPXEBinary                  = smee.IPXEBinaryURI
+	routeIPXEScript                  = smee.IPXEScriptURI
 )
 
 var (
@@ -54,7 +63,8 @@ var (
 	embeddedKubeControllerManagerExecute func(context.Context, string) error
 )
 
-func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop // Will need to look into reducing the cyclomatic complexity.
+func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop,gocognit // Will need to look into reducing the cyclomatic complexity.
+	startTime := time.Now()
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig:    kubeConfig(),
 		PublicIP:             detectPublicIPv4(),
@@ -66,6 +76,9 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		EnableSecondStar:     true,
 		EnableUI:             true,
 		EnableCRDMigrations:  true,
+		HTTPPort:             defaultHTTPPort,
+		HTTPSPort:            defaultHTTPSPort,
+		BindAddr:             detectPublicIPv4(),
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
@@ -78,18 +91,10 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
-		DHCPIPXEBinary: flag.URLBuilder{
-			Port: defaultSmeeHTTPPort,
-		},
-		DHCPIPXEScript: flag.URLBuilder{
-			Port: defaultSmeeHTTPPort,
-		},
 	}
 
 	h := &flag.TootlesConfig{
-		Config:   tootles.NewConfig(tootles.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTootlesPort)),
-		BindAddr: detectPublicIPv4(),
-		BindPort: defaultTootlesPort,
+		Config: tootles.NewConfig(tootles.Config{}),
 	}
 	ts := &flag.TinkServerConfig{
 		Config:   server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
@@ -126,7 +131,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	uiOpts := []ui.Option{
 		ui.WithURLPrefix("/"),
-		ui.WithBindPort(defaultUIPort),
 	}
 	uic := &flag.UIConfig{
 		Config: ui.NewConfig(uiOpts...),
@@ -192,7 +196,13 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	)
 
 	// Smee
-	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr)
+	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr, globals.HTTPPort)
+	if s.DHCPIPXEBinary.Port == 0 {
+		s.DHCPIPXEBinary.Port = globals.HTTPPort
+	}
+	if s.DHCPIPXEScript.Port == 0 {
+		s.DHCPIPXEScript.Port = globals.HTTPPort
+	}
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
 	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
 	// Configure TLS if cert and key files are provided
@@ -210,9 +220,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		s.Config.TLS.Certs = []tls.Certificate{cert}
 	}
 
-	// Tootles
-	h.Convert(&globals.TrustedProxies, globals.BindAddr)
-
 	// Tink Server
 	ts.Convert(globals.BindAddr)
 	// Configure TLS if cert and key files are provided
@@ -222,6 +229,20 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return fmt.Errorf("failed to load TLS credentials for Tink Server gRPC: %w", err)
 		}
 		ts.Config.TLS.Cert = creds
+		// When using TLS with the Tink Server, the Agent needs to know that TLS is enabled.
+		// This is done in the Smee config.
+		// First check if the extra kernel parameter already exists.
+		updated := false
+		for i, arg := range s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs {
+			if strings.HasPrefix(arg, "tinkerbell_tls") {
+				s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs[i] = "tinkerbell_tls=true"
+				updated = true
+				break
+			}
+		}
+		if !updated {
+			s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs = append(s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs, "tinkerbell_tls=true")
+		}
 	}
 
 	// Tink Controller
@@ -246,8 +267,20 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		ssc.Config.BindAddr = globals.BindAddr
 	}
 
-	// UI
-	uic.Convert(globals.BindAddr, globals.TLS.CertFile, globals.TLS.KeyFile)
+	// Initialize OTel before starting goroutines so the provider outlives
+	// all goroutines (Smee non-HTTP, consolidated HTTP server, etc.).
+	// otel.Init is a no-op when globals.OTELEndpoint is empty.
+	otelCtx, otelShutdown, err := otel.Init(ctx, otel.Config{
+		Servicename: "tinkerbell",
+		Endpoint:    globals.OTELEndpoint,
+		Insecure:    globals.OTELInsecure,
+		Logger:      log.WithName("otel"),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize OpenTelemetry: %w", err)
+	}
+	ctx = otelCtx
+	defer otelShutdown()
 
 	g, ctx := errgroup.WithContext(ctx)
 	// Etcd server
@@ -357,30 +390,145 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return nil
 	})
 
-	// Smee
+	// Smee (non-HTTP services: DHCP, TFTP, syslog)
 	g.Go(func() error {
 		if !globals.EnableSmee {
 			cliLog.Info("smee service is disabled")
 			return nil
 		}
 		ll := ternary((s.LogLevel != 0), s.LogLevel, globals.LogLevel)
-		if err := s.Config.Start(ctx, getLogger(ll).WithName("smee")); err != nil {
+		smeeLog := getLogger(ll).WithName("smee")
+
+		// Register Smee-specific Prometheus metrics (DHCP counters, etc.).
+		// OTel is already initialized globally above, so we only init metrics
+		// here to avoid overwriting the global tracer provider.
+		s.Config.InitMetrics()
+
+		if err := s.Config.Start(ctx, smeeLog); err != nil {
 			return fmt.Errorf("failed to start smee service: %w", err)
 		}
 		return nil
 	})
 
-	// Tootles
+	// HTTP server
 	g.Go(func() error {
-		if !globals.EnableTootles {
-			cliLog.Info("tootles service is disabled")
-			return nil
+		httpLog := getLogger(globals.LogLevel).WithName("http")
+		routeList := &httpserver.Routes{}
+
+		// Smee HTTP handlers
+		if globals.EnableSmee {
+			ll := ternary((s.LogLevel != 0), s.LogLevel, globals.LogLevel)
+			smeeLog := getLogger(ll).WithName("smee")
+
+			if h := s.Config.BinaryHandler(smeeLog); h != nil {
+				routeList.Register(routeIPXEBinary,
+					middleware.WithLogLevel(middleware.LogLevelAlways, h),
+					"smee iPXE binary handler",
+				)
+			}
+			if h := s.Config.ScriptHandler(smeeLog); h != nil {
+				routeList.Register(routeIPXEScript,
+					middleware.WithLogLevel(middleware.LogLevelAlways, h),
+					"smee iPXE script handler",
+				)
+			}
+			isoH, err := s.Config.ISOHandler(smeeLog)
+			if err != nil {
+				return fmt.Errorf("failed to create smee iso handler: %w", err)
+			}
+			if isoH != nil {
+				routeList.Register(routeISO,
+					middleware.WithLogLevel(middleware.LogLevelNever, isoH),
+					"smee ISO handler",
+					httpserver.WithHTTPSEnabled(true),
+				)
+			}
 		}
-		ll := ternary((h.LogLevel != 0), h.LogLevel, globals.LogLevel)
-		if err := h.Config.Start(ctx, getLogger(ll).WithName("tootles")); err != nil {
-			return fmt.Errorf("failed to start tootles service: %w", err)
+
+		// Tootles HTTP handlers
+		if globals.EnableTootles {
+			ec2H := middleware.WithLogLevel(middleware.LogLevelAlways, h.Config.EC2MetadataHandler())
+			routeList.Register(routeEC2Metadata,
+				ec2H,
+				"EC2 metadata handler",
+				httpserver.WithHTTPSEnabled(true),
+				httpserver.WithRewriteHTTPToHTTPS(true),
+			)
+			if h.Config.InstanceEndpoint {
+				routeList.Register(routeTootles,
+					ec2H,
+					"EC2 instance endpoint handler",
+					httpserver.WithHTTPSEnabled(true),
+					httpserver.WithRewriteHTTPToHTTPS(true),
+				)
+			}
+			routeList.Register(routeHackMetadata,
+				middleware.WithLogLevel(middleware.LogLevelAlways, h.Config.HackMetadataHandler()),
+				"Hack metadata handler",
+				httpserver.WithHTTPSEnabled(true),
+				httpserver.WithRewriteHTTPToHTTPS(true),
+			)
 		}
-		return nil
+
+		// UI HTTP handler
+		if globals.EnableUI {
+			ll := ternary((uic.LogLevel != 0), uic.LogLevel, globals.LogLevel)
+			uiLog := getLogger(ll).WithName("ui")
+
+			uiHandler, err := uic.Config.Handler(uiLog)
+			if err != nil {
+				return fmt.Errorf("failed to create ui handler: %w", err)
+			}
+			if uiHandler != nil {
+				uiLog.Info("UI handler enabled", "urlPrefix", uic.Config.URLPrefix)
+				routeUI := normalizeURLPrefix(uic.Config.URLPrefix)
+				routeList.Register(routeUI,
+					middleware.WithLogLevel(middleware.LogLevelDebug, uiHandler),
+					"UI handler",
+					httpserver.WithHTTPSEnabled(true),
+					httpserver.WithRewriteHTTPToHTTPS(true),
+				)
+			}
+		}
+
+		// Shared metrics and healthcheck.
+		// Use the default Prometheus registry so that Smee's promauto-registered
+		// metrics (DHCP counters, discover/job histograms, etc.) and the HTTP
+		// middleware metrics all appear on the same /metrics endpoint.
+		// The default registry already includes GoCollector and ProcessCollector.
+		routeList.Register(routeMetrics, middleware.WithLogLevel(middleware.LogLevelNever, promhttp.Handler()), "Prometheus metrics handler")
+		routeList.Register(routeHealthcheck, middleware.WithLogLevel(middleware.LogLevelNever, handler.HealthCheck(httpLog, startTime)), "Healthcheck handler")
+
+		httpMux, httpsMux := routeList.Muxes(httpLog, globals.HTTPSPort, len(s.Config.TLS.Certs) > 0)
+
+		httpHandler, httpsHandler, err := addMiddleware(httpLog, globals.TrustedProxies, httpMux, httpsMux)
+		if err != nil {
+			return fmt.Errorf("failed to add middleware: %w", err)
+		}
+
+		opts := []httpserver.Option{
+			func(c *httpserver.Config) {
+				c.BindAddr = globals.BindAddr.String()
+				c.BindPort = globals.HTTPPort
+				c.HTTPSPort = globals.HTTPSPort
+				c.TLSCerts = s.Config.TLS.Certs
+			},
+		}
+		srv := httpserver.NewConfig(opts...)
+
+		kvs := []any{
+			"addr", fmt.Sprintf("%s:%d", globals.BindAddr.String(), globals.HTTPPort),
+			"schemes", func() []string {
+				schemes := []string{"http"}
+				if httpsHandler != nil {
+					schemes = append(schemes, "https")
+				}
+				return schemes
+			}(),
+			"registeredRoutes", routeList,
+		}
+		httpLog.Info("starting HTTP server", kvs...)
+		return srv.Serve(ctx, httpLog, httpHandler, httpsHandler)
 	})
 
 	// Tink Server
@@ -431,19 +579,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		ll := ternary((ssc.LogLevel != 0), ssc.LogLevel, globals.LogLevel)
 		if err := ssc.Config.Start(ctx, getLogger(ll).WithName("secondstar")); err != nil {
 			return fmt.Errorf("failed to start secondstar service: %w", err)
-		}
-		return nil
-	})
-
-	// UI
-	g.Go(func() error {
-		if !globals.EnableUI {
-			cliLog.Info("ui service is disabled")
-			return nil
-		}
-		ll := ternary((uic.LogLevel != 0), uic.LogLevel, globals.LogLevel)
-		if err := uic.Config.Start(ctx, getLogger(ll).WithName("ui")); err != nil {
-			return fmt.Errorf("failed to start ui service: %w", err)
 		}
 		return nil
 	})
@@ -513,77 +648,20 @@ func enabledIndexes(smeeEnabled, tootlesEnabled, tinkServerEnabled, secondStarEn
 	return idxs
 }
 
-// getLogger returns a logger based on the configuration.
-// If level is negative, returns a logger that discards all output.
-func getLogger(level int) logr.Logger {
-	if level < 0 {
-		return logr.Discard()
+// normalizeURLPrefix ensures a URL prefix is valid for use with http.ServeMux.
+// It trims whitespace, ensures a leading "/", cleans the path (collapsing repeated
+// slashes, resolving ".." etc.), and ensures a trailing "/" so the mux matches all
+// sub-paths.
+func normalizeURLPrefix(prefix string) string {
+	pattern := strings.TrimSpace(prefix)
+	if !strings.HasPrefix(pattern, "/") {
+		pattern = "/" + pattern
 	}
-	return defaultLogger(level)
-}
-
-// defaultLogger uses the slog logr implementation.
-func defaultLogger(level int) logr.Logger {
-	// source file and function can be long. This makes the logs less readable.
-	// for improved readability, truncate source file to last 3 parts and remove the function entirely.
-	customAttr := func(_ []string, a slog.Attr) slog.Attr {
-		if a.Key == slog.SourceKey {
-			ss, ok := a.Value.Any().(*slog.Source)
-			if !ok || ss == nil {
-				return a
-			}
-
-			p := strings.Split(ss.File, "/")
-			// log the file path from tinkerbell/tinkerbell to the end.
-			var idx int
-
-			for i, v := range p {
-				if v == "tinkerbell" {
-					if i+2 < len(p) {
-						idx = i + 2
-						break
-					}
-				}
-				// This trims the source file for 3rd party packages to include
-				// just enough information to identify the package. Without this,
-				// the source file can be long and make the log line more cluttered
-				// and hard to read.
-				if v == "mod" {
-					if i+1 < len(p) {
-						idx = i + 1
-						break
-					}
-				}
-			}
-			ss.File = filepath.Join(p[idx:]...)
-			ss.File = fmt.Sprintf("%s:%d", ss.File, ss.Line)
-			a.Value = slog.StringValue(ss.File)
-			a.Key = "caller"
-
-			return a
-		}
-
-		// This changes the slog.Level string representation to an integer.
-		// This makes it so that the V-levels passed in to the CLI show up as is in the logs.
-		if a.Key == slog.LevelKey {
-			b, ok := a.Value.Any().(slog.Level)
-			if !ok {
-				return a
-			}
-			a.Value = slog.StringValue(strconv.Itoa(int(b)))
-			return a
-		}
-
-		return a
+	pattern = path.Clean(pattern)
+	if !strings.HasSuffix(pattern, "/") {
+		pattern += "/"
 	}
-	opts := &slog.HandlerOptions{
-		AddSource:   true,
-		Level:       slog.Level(-level),
-		ReplaceAttr: customAttr,
-	}
-	log := slog.New(slog.NewJSONHandler(os.Stdout, opts))
-
-	return logr.FromSlogHandler(log.Handler())
+	return pattern
 }
 
 // inCluster checks if we are running in cluster.
@@ -592,4 +670,48 @@ func inCluster() bool {
 		return true
 	}
 	return false
+}
+
+// addMiddleware is a helper to apply a middleware functions to http.Handlers.
+func addMiddleware(log logr.Logger, trustedProxies []netip.Prefix, httpHandler, httpsHandler http.Handler) (http.Handler, http.Handler, error) {
+	// Apply middleware chain. Each wrap adds an outer layer, so the last
+	// applied middleware runs first on the request path and last on the
+	// response path:
+	//   Request  → SourceIP → XFF → RequestMetrics → Recovery → Logging → OTel → mux
+	//   Response ← SourceIP ← XFF ← RequestMetrics ← Recovery ← Logging ← OTel ← mux
+	httpHandler = middleware.OTel("tinkerbell-http")(httpHandler)
+	httpHandler = middleware.Logging(log)(httpHandler)
+	httpHandler = middleware.Recovery(log)(httpHandler)
+	httpHandler = middleware.RequestMetrics()(httpHandler)
+	if len(trustedProxies) > 0 {
+		proxies := make([]string, 0, len(trustedProxies))
+		for _, p := range trustedProxies {
+			proxies = append(proxies, p.String())
+		}
+		h, err := middleware.XFF(proxies)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create XFF middleware: %w", err)
+		}
+		httpHandler = h(httpHandler)
+	}
+	httpHandler = middleware.SourceIP()(httpHandler)
+
+	httpsHandler = middleware.OTel("tinkerbell-https")(httpsHandler)
+	httpsHandler = middleware.Logging(log)(httpsHandler)
+	httpsHandler = middleware.Recovery(log)(httpsHandler)
+	httpsHandler = middleware.RequestMetrics()(httpsHandler)
+	if len(trustedProxies) > 0 {
+		proxies := make([]string, 0, len(trustedProxies))
+		for _, p := range trustedProxies {
+			proxies = append(proxies, p.String())
+		}
+		h, err := middleware.XFF(proxies)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create XFF middleware: %w", err)
+		}
+		httpsHandler = h(httpsHandler)
+	}
+	httpsHandler = middleware.SourceIP()(httpsHandler)
+
+	return httpHandler, httpsHandler, nil
 }
