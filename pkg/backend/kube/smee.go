@@ -59,7 +59,7 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (data.Hard
 		return data.Hardware{}, err
 	}
 
-	result := data.Hardware{DHCP: d, Netboot: n}
+	result := data.Hardware{DHCP: d, Netboot: n, AgentID: hardwareList.Items[0].Spec.AgentID}
 
 	if i.Isoboot != nil && i.Isoboot.SourceISO != "" {
 		si, err := url.Parse(i.Isoboot.SourceISO)
@@ -131,7 +131,7 @@ func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (data.Hardware, error)
 	span.SetAttributes(n.EncodeToAttributes()...)
 	span.SetStatus(codes.Ok, "")
 
-	return data.Hardware{DHCP: d, Netboot: n}, nil
+	return data.Hardware{DHCP: d, Netboot: n, AgentID: hardwareList.Items[0].Spec.AgentID}, nil
 }
 
 // toDHCPData converts a v1alpha1.DHCP to a data.DHCP data structure.
