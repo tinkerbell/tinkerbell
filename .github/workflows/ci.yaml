@@ -152,7 +152,7 @@ jobs:
         run: make ${{ matrix.make-target }}
       
       - name: Upload binaries
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact-name }}
           path: |
