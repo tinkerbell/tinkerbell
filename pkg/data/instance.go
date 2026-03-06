@@ -26,6 +26,15 @@ type Metadata struct {
 	PublicIPv6      string
 	LocalIPv4       string
 	OperatingSystem OperatingSystem
+	Interfaces      []NetworkInterface
+}
+
+// NetworkInterface represents a single network interface from the hardware spec.
+type NetworkInterface struct {
+	MAC     string
+	IP      string
+	Netmask string
+	Gateway string
 }
 
 // OperatingSystem is part of Metadata.

@@ -106,6 +106,22 @@ func toEC2Instance(hw v1alpha1.Hardware) data.Ec2Instance {
 		}
 	}
 
+	// Populate network interfaces from the hardware spec.
+	for _, iface := range hw.Spec.Interfaces {
+		if iface.DHCP == nil || iface.DHCP.MAC == "" {
+			continue
+		}
+		ni := data.NetworkInterface{
+			MAC: iface.DHCP.MAC,
+		}
+		if iface.DHCP.IP != nil {
+			ni.IP = iface.DHCP.IP.Address
+			ni.Netmask = iface.DHCP.IP.Netmask
+			ni.Gateway = iface.DHCP.IP.Gateway
+		}
+		i.Metadata.Interfaces = append(i.Metadata.Interfaces, ni)
+	}
+
 	if hw.Spec.Metadata != nil && hw.Spec.Metadata.Facility != nil {
 		i.Metadata.Plan = hw.Spec.Metadata.Facility.PlanSlug
 		i.Metadata.Facility = hw.Spec.Metadata.Facility.FacilityCode

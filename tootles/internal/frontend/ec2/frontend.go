@@ -75,18 +75,119 @@ func (f Frontend) Configure(router gin.IRouter) {
 		staticRoutes.FromEndpoint(r.Endpoint)
 	}
 
+	// Network interface attribute names exposed per MAC address.
+	networkInterfaceAttributes := []string{"gateway", "local-ipv4", "mac", "netmask"}
+
 	staticEndpointBinder := func(router ginutil.TrailingSlashRouteHelper, endpoint string, childEndpoints []string) {
 		router.GET(endpoint, func(ctx *gin.Context) {
 			ctx.String(http.StatusOK, join(childEndpoints))
 		})
 	}
 
+	// Add network interface paths to the static route builder so parent listings include
+	// "network/", "interfaces/", and "macs/" with trailing slashes indicating navigability.
+	// We use a placeholder child under macs so the builder recognizes macs as a parent.
+	// The generated static route for /meta-data/network/interfaces/macs is skipped below
+	// because the MAC listing is handled by a dynamic handler.
+	for _, attr := range networkInterfaceAttributes {
+		staticRoutes.FromEndpoint("/meta-data/network/interfaces/macs/_/" + attr)
+	}
+
 	for _, r := range staticRoutes.Build() {
+		// Skip the placeholder route - the MAC listing is dynamic (per-instance).
+		if r.Endpoint == "/meta-data/network/interfaces/macs/_" || r.Endpoint == "/meta-data/network/interfaces/macs" {
+			continue
+		}
 		staticEndpointBinder(v20090404, r.Endpoint, r.Children)
 		if f.instanceEndpoint {
 			staticEndpointBinder(v20090404viaInstanceID, r.Endpoint, r.Children)
 		}
 	}
+
+	// Network interface dynamic routes.
+	// These follow the EC2 convention: /meta-data/network/interfaces/macs/<mac>/<attribute>
+
+	// List all MAC addresses.
+	macListHandler := func(getInstance func(*gin.Context) (data.Ec2Instance, error)) gin.HandlerFunc {
+		return func(ctx *gin.Context) {
+			instance, err := getInstance(ctx)
+			if err != nil {
+				f.writeInstanceDataOrErrToHTTP(ctx, err, "")
+				return
+			}
+			var macs []string
+			for _, iface := range instance.Metadata.Interfaces {
+				macs = append(macs, iface.MAC+"/")
+			}
+			ctx.String(http.StatusOK, join(macs))
+		}
+	}
+
+	// List available attributes for a MAC.
+	macAttrListHandler := func(ctx *gin.Context) {
+		ctx.String(http.StatusOK, join(networkInterfaceAttributes))
+	}
+
+	// Return a specific attribute for a MAC.
+	macAttrHandler := func(getInstance func(*gin.Context) (data.Ec2Instance, error), attr string) gin.HandlerFunc {
+		return func(ctx *gin.Context) {
+			instance, err := getInstance(ctx)
+			if err != nil {
+				f.writeInstanceDataOrErrToHTTP(ctx, err, "")
+				return
+			}
+			mac := ctx.Param("mac")
+			iface, found := findInterface(instance.Metadata.Interfaces, mac)
+			if !found {
+				ctx.String(http.StatusNotFound, "interface not found")
+				return
+			}
+			var value string
+			switch attr {
+			case "mac":
+				value = iface.MAC
+			case "local-ipv4":
+				value = iface.IP
+			case "netmask":
+				value = iface.Netmask
+			case "gateway":
+				value = iface.Gateway
+			}
+			ctx.String(http.StatusOK, value)
+		}
+	}
+
+	getInstanceViaIPFunc := func(ctx *gin.Context) (data.Ec2Instance, error) {
+		return f.getInstanceViaIP(ctx, ctx.Request)
+	}
+	getInstanceViaInstanceIDFunc := func(ctx *gin.Context) (data.Ec2Instance, error) {
+		return f.getInstanceViaInstanceID(ctx)
+	}
+
+	// Register network interface routes for IP-based access.
+	v20090404.GET("/meta-data/network/interfaces/macs", macListHandler(getInstanceViaIPFunc))
+	v20090404.GET("/meta-data/network/interfaces/macs/:mac", macAttrListHandler)
+	for _, attr := range networkInterfaceAttributes {
+		v20090404.GET("/meta-data/network/interfaces/macs/:mac/"+attr, macAttrHandler(getInstanceViaIPFunc, attr))
+	}
+
+	// Register network interface routes for instance ID-based access.
+	if f.instanceEndpoint {
+		v20090404viaInstanceID.GET("/meta-data/network/interfaces/macs", macListHandler(getInstanceViaInstanceIDFunc))
+		v20090404viaInstanceID.GET("/meta-data/network/interfaces/macs/:mac", macAttrListHandler)
+		for _, attr := range networkInterfaceAttributes {
+			v20090404viaInstanceID.GET("/meta-data/network/interfaces/macs/:mac/"+attr, macAttrHandler(getInstanceViaInstanceIDFunc, attr))
+		}
+	}
+}
+
+func findInterface(interfaces []data.NetworkInterface, mac string) (data.NetworkInterface, bool) {
+	for _, iface := range interfaces {
+		if iface.MAC == mac {
+			return iface, true
+		}
+	}
+	return data.NetworkInterface{}, false
 }
 
 // Shared across IP and instanceID-based routes.

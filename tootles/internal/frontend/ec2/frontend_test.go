@@ -351,12 +351,23 @@ instance-id
 iqn
 local-hostname
 local-ipv4
+network/
 operating-system/
 plan
 public-ipv4
 public-ipv6
 public-keys
 tags`,
+		},
+		{
+			Name:     "MetadataNetwork",
+			Endpoint: "/2009-04-04/meta-data/network",
+			Expect:   `interfaces/`,
+		},
+		{
+			Name:     "MetadataNetworkInterfaces",
+			Endpoint: "/2009-04-04/meta-data/network/interfaces",
+			Expect:   `macs/`,
 		},
 		{
 			Name:     "MetadataOperatingSystem",
@@ -414,6 +425,117 @@ func validate(t *testing.T, router *gin.Engine, endpoint string, expect string) 
 
 	if w.Body.String() != expect {
 		t.Fatalf("\nExpected: %s;\nReceived: %s;\n(Endpoint=%s)", expect, w.Body.String(), endpoint)
+	}
+}
+
+func TestFrontendNetworkInterfaceEndpoints(t *testing.T) {
+	testInstance := data.Ec2Instance{
+		Metadata: data.Metadata{
+			Interfaces: []data.NetworkInterface{
+				{
+					MAC:     "aa:bb:cc:dd:ee:f0",
+					IP:      "10.0.0.1",
+					Netmask: "255.255.255.0",
+					Gateway: "10.0.0.254",
+				},
+				{
+					MAC:     "aa:bb:cc:dd:ee:f1",
+					IP:      "192.168.1.1",
+					Netmask: "255.255.255.0",
+					Gateway: "192.168.1.254",
+				},
+			},
+		},
+	}
+
+	cases := []struct {
+		Name     string
+		Endpoint string
+		Expect   string
+	}{
+		{
+			Name:     "ListMACs",
+			Endpoint: "/2009-04-04/meta-data/network/interfaces/macs",
+			Expect:   "aa:bb:cc:dd:ee:f0/\naa:bb:cc:dd:ee:f1/",
+		},
+		{
+			Name:     "ListAttrsForMAC",
+			Endpoint: "/2009-04-04/meta-data/network/interfaces/macs/aa:bb:cc:dd:ee:f0",
+			Expect:   "gateway\nlocal-ipv4\nmac\nnetmask",
+		},
+		{
+			Name:     "MACAttribute",
+			Endpoint: "/2009-04-04/meta-data/network/interfaces/macs/aa:bb:cc:dd:ee:f0/mac",
+			Expect:   "aa:bb:cc:dd:ee:f0",
+		},
+		{
+			Name:     "LocalIPv4Attribute",
+			Endpoint: "/2009-04-04/meta-data/network/interfaces/macs/aa:bb:cc:dd:ee:f0/local-ipv4",
+			Expect:   "10.0.0.1",
+		},
+		{
+			Name:     "NetmaskAttribute",
+			Endpoint: "/2009-04-04/meta-data/network/interfaces/macs/aa:bb:cc:dd:ee:f0/netmask",
+			Expect:   "255.255.255.0",
+		},
+		{
+			Name:     "GatewayAttribute",
+			Endpoint: "/2009-04-04/meta-data/network/interfaces/macs/aa:bb:cc:dd:ee:f0/gateway",
+			Expect:   "10.0.0.254",
+		},
+		{
+			Name:     "SecondInterfaceIP",
+			Endpoint: "/2009-04-04/meta-data/network/interfaces/macs/aa:bb:cc:dd:ee:f1/local-ipv4",
+			Expect:   "192.168.1.1",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			client := ec2.NewMockClient(ctrl)
+			client.EXPECT().
+				GetEC2Instance(gomock.Any(), gomock.Any()).
+				Return(testInstance, nil).
+				AnyTimes()
+
+			router := gin.New()
+
+			fe := ec2.New(client, false)
+			fe.Configure(router)
+
+			validate(t, router, tc.Endpoint, tc.Expect)
+			validate(t, router, tc.Endpoint+"/", tc.Expect)
+		})
+	}
+}
+
+func TestFrontendNetworkInterfaceNotFound(t *testing.T) {
+	testInstance := data.Ec2Instance{
+		Metadata: data.Metadata{
+			Interfaces: []data.NetworkInterface{
+				{MAC: "aa:bb:cc:dd:ee:f0"},
+			},
+		},
+	}
+
+	ctrl := gomock.NewController(t)
+	client := ec2.NewMockClient(ctrl)
+	client.EXPECT().
+		GetEC2Instance(gomock.Any(), gomock.Any()).
+		Return(testInstance, nil)
+
+	router := gin.New()
+	fe := ec2.New(client, false)
+	fe.Configure(router)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/2009-04-04/meta-data/network/interfaces/macs/ff:ff:ff:ff:ff:ff/mac", nil)
+	r.RemoteAddr = "10.10.10.10:0"
+	router.ServeHTTP(w, r)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("Expected: 404; Received: %d", w.Code)
 	}
 }
 
