@@ -19,8 +19,11 @@ const tracerName = "github.com/tinkerbell/tinkerbell"
 
 func ConvertByMac(ctx context.Context, mac net.HardwareAddr, hw *v1alpha1.Hardware) (Hardware, error) {
 	tracer := otel.Tracer(tracerName)
-	_, span := tracer.Start(ctx, "backend.kube.ConvertHardware")
+	_, span := tracer.Start(ctx, "smee.internal.data.ConvertByMac")
 	defer span.End()
+	if hw == nil {
+		return Hardware{}, errors.New("hardware is nil")
+	}
 	i := v1alpha1.Interface{}
 	for _, iface := range hw.Spec.Interfaces {
 		if iface.DHCP != nil && iface.DHCP.MAC == mac.String() {
@@ -57,8 +60,11 @@ func ConvertByMac(ctx context.Context, mac net.HardwareAddr, hw *v1alpha1.Hardwa
 
 func ConvertByIP(ctx context.Context, ip net.IP, hw *v1alpha1.Hardware) (Hardware, error) {
 	tracer := otel.Tracer(tracerName)
-	_, span := tracer.Start(ctx, "backend.kube.ConvertHardware")
+	_, span := tracer.Start(ctx, "smee.internal.data.ConvertByIP")
 	defer span.End()
+	if hw == nil {
+		return Hardware{}, errors.New("hardware is nil")
+	}
 	i := v1alpha1.Interface{}
 	for _, iface := range hw.Spec.Interfaces {
 		if iface.DHCP != nil && iface.DHCP.IP != nil && iface.DHCP.IP.Address == ip.String() {

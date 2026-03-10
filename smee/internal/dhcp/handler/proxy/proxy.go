@@ -208,7 +208,7 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 		return
 	}
 	hw, err := data.ConvertByMac(ctx, dp.Pkt.ClientHWAddr, spec)
-	if err != nil {
+	if err != nil && !h.AutoProxyEnabled {
 		log.Info("Ignoring packet", "error", err.Error())
 		span.SetStatus(codes.Error, err.Error())
 		return
