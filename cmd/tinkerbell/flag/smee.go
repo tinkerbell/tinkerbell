@@ -105,6 +105,8 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(IPXEHTTPScriptBindAddr, &ntip.Addr{Addr: &sc.Config.IPXE.HTTPScriptServer.BindAddr})
 	fs.Register(IPXEHTTPScriptBindPort, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.BindPort, sc.Config.IPXE.HTTPScriptServer.BindPort))
 	fs.Register(IPXEHTTPScriptExtraKernelArgs, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.ExtraKernelArgs))
+	fs.Register(IPXEHTTPScriptKernelName, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.KernelName, sc.Config.IPXE.HTTPScriptServer.KernelName))
+	fs.Register(IPXEHTTPScriptInitrdName, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.InitrdName, sc.Config.IPXE.HTTPScriptServer.InitrdName))
 	fs.Register(IPXEHTTPScriptTrustedProxies, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.TrustedProxies))
 	fs.Register(IPXEHTTPScriptRetries, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Retries, sc.Config.IPXE.HTTPScriptServer.Retries))
 	fs.Register(IPXEHTTPScriptRetryDelay, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.RetryDelay, sc.Config.IPXE.HTTPScriptServer.RetryDelay))
@@ -343,6 +345,16 @@ var IPXEHTTPScriptBindPort = Config{
 var IPXEHTTPScriptExtraKernelArgs = Config{
 	Name:  "ipxe-http-script-extra-kernel-args",
 	Usage: "[ipxe] extra set of kernel args (k=v k=v) that are appended to the kernel cmdline iPXE script",
+}
+
+var IPXEHTTPScriptKernelName = Config{
+	Name:  "ipxe-http-script-kernel-name",
+	Usage: "[ipxe] name of the kernel file to fetch in the iPXE script, defaults to vmlinuz, which becomes vmlinuz-<arch> in the script",
+}
+
+var IPXEHTTPScriptInitrdName = Config{
+	Name:  "ipxe-http-script-initrd-name",
+	Usage: "[ipxe] name of the initrd file to fetch in the iPXE script, defaults to initramfs, which becomes initramfs-<arch> in the script",
 }
 
 var IPXEHTTPScriptTrustedProxies = Config{

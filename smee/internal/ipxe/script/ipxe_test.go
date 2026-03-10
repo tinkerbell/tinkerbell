@@ -52,8 +52,8 @@ echo Loading the Tinkerbell Hook iPXE script...
 
 set arch x86_64
 set download-url http://127.1.1.1
-set kernel vmlinuz-${arch}
-set initrd initramfs-${arch}
+set kernel vmlinuz-x86_64
+set initrd initramfs-x86_64
 set retries:int32 10
 set retry_delay:int32 3
 
@@ -61,7 +61,7 @@ set idx:int32 0
 :retry_kernel
 kernel ${download-url}/${kernel} vlan_id=1234 \
 facility=onprem syslog_host= grpc_authority=127.0.0.1:42113 tinkerbell_tls=false tinkerbell_insecure_tls=false worker_id=00:01:02:03:04:05 hw_addr=00:01:02:03:04:05 \
-modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=initramfs-${arch} console=tty0 console=ttyS1,115200 && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
+modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=${initrd} console=tty0 console=ttyS1,115200 && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
 
 :download_initrd
 set idx:int32 0
@@ -95,8 +95,8 @@ echo Loading the Tinkerbell Hook iPXE script...
 
 set arch x86_64
 set download-url http://127.1.1.1
-set kernel vmlinuz-${arch}
-set initrd initramfs-${arch}
+set kernel vmlinuz-x86_64
+set initrd initramfs-x86_64
 set retries:int32 10
 set retry_delay:int32 3
 
@@ -104,7 +104,7 @@ set idx:int32 0
 :retry_kernel
 kernel ${download-url}/${kernel} vlan_id=1234 \
 facility=onprem syslog_host= grpc_authority=127.0.0.1:42113 tinkerbell_tls=false tinkerbell_insecure_tls=false worker_id=worker1 hw_addr=00:01:02:03:04:05 \
-modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=initramfs-${arch} console=tty0 console=ttyS1,115200 && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
+modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=${initrd} console=tty0 console=ttyS1,115200 && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
 
 :download_initrd
 set idx:int32 0
@@ -153,13 +153,15 @@ exit
 				TinkServerTLS:         false,
 				TinkServerInsecureTLS: false,
 				TinkServerGRPCAddr:    "127.0.0.1:42113",
+				KernelName:            "vmlinuz",
+				InitrdName:            "initramfs",
 			}
 			sp := trace.SpanFromContext(context.Background())
 			got, err := h.defaultScript(sp, tt.d)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if diff := cmp.Diff(got, tt.want); diff != "" {
+			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Log(got)
 				t.Fatal(diff)
 			}
@@ -174,12 +176,15 @@ set syslog 127.1.1.1
 echo Loading the static Tinkerbell iPXE script...
 
 set arch ${buildarch}
-# Tinkerbell only supports 64 bit archectures.
+# Tinkerbell only supports 64 bit architectures.
 # The build architecture does not necessarily represent the architecture of the machine on which iPXE is running.
 # https://ipxe.org/cfg/buildarch
 iseq ${arch} i386 && set arch x86_64 ||
 iseq ${arch} arm32 && set arch aarch64 ||
 iseq ${arch} arm64 && set arch aarch64 ||
+
+set kernel vmlinuz-${arch}
+set initrd initramfs-${arch}
 set download-url http://127.0.0.1
 set retries:int32 0
 set retry_delay:int32 0
@@ -196,15 +201,15 @@ echo tinkerbell_tls=false
 
 set idx:int32 0
 :retry_kernel
-kernel ${download-url}/vmlinuz-${arch} \
+kernel ${download-url}/${kernel} \
 syslog_host=${syslog_host} grpc_authority=${grpc_authority} tinkerbell_tls=${tinkerbell_tls} worker_id=${worker_id} hw_addr=${mac} \
 console=tty1 console=tty2 console=ttyAMA0,115200 console=ttyAMA1,115200 console=ttyS0,115200 console=ttyS1,115200 \
-intel_iommu=on iommu=pt k=v k2=v2 initrd=initramfs-${arch} && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
+intel_iommu=on iommu=pt k=v k2=v2 initrd=${initrd} && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
 
 :download_initrd
 set idx:int32 0
 :retry_initrd
-initrd ${download-url}/initramfs-${arch} && goto boot || iseq ${idx} ${retries} && goto initrd-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_initrd
+initrd ${download-url}/${initrd} && goto boot || iseq ${idx} ${retries} && goto initrd-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_initrd
 
 :boot
 set idx:int32 0
@@ -234,6 +239,8 @@ exit
 		TinkServerTLS:      false,
 		TinkServerGRPCAddr: "127.0.0.1:42113",
 		StaticIPXEEnabled:  true,
+		KernelName:         "vmlinuz",
+		InitrdName:         "initramfs",
 	}
 	hf := h.HandlerFunc()
 	writer := httptest.NewRecorder()
