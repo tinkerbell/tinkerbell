@@ -284,7 +284,7 @@ func (h *Handler) serveBootScript(ctx context.Context, w http.ResponseWriter, na
 	}
 	span.SetAttributes(attribute.String("ipxe-script", string(script)))
 
-	if _, err := w.Write(script); err != nil {
+	if _, err := w.Write(script); err != nil { //nolint:gosec // G705: script content is server-generated iPXE boot scripts, not user-supplied
 		h.Logger.Error(err, "unable to write boot script", "script", name)
 		span.SetStatus(codes.Error, err.Error())
 

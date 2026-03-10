@@ -47,7 +47,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		server.AddHostKey(c.HostKey)
 	}
 
-	go func() {
+	go func() { //nolint:gosec // G118: ctx is already cancelled here; a fresh context is needed for graceful shutdown
 		<-ctx.Done()
 		log.Info("shutting down ssh server")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
