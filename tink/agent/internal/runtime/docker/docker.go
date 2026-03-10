@@ -31,7 +31,7 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 		// Check if authentication should be used for this image
 		// Only apply auth to images from the exact registry that is configured for authentication
 		if c.RegistryAuth != nil && useAuth(a.Image, c.RegistryAuth.ServerAddress) {
-			encodedJSON, err := json.Marshal(c.RegistryAuth)
+			encodedJSON, err := json.Marshal(c.RegistryAuth) //nolint:gosec // G117: intentionally marshaling auth config to pass to Docker API
 			if err != nil {
 				return fmt.Errorf("unable to encode auth config: %w", err)
 			}
