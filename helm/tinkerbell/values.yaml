@@ -306,7 +306,7 @@ optional:
         size: 2Gi
         storageClassName: local-storage
     scriptImage: bash:5.2.37
-    # the follow are deprecated under optional.hookos. Set these values via optional.osie.
+    # the following are deprecated under optional.hookos. Set these values via optional.osie.
     deployment:
       strategy:
         type:

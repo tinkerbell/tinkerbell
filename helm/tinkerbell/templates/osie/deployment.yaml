@@ -2,15 +2,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "osie.name" . }}
+  name: {{ include "tinkerbell.osie.name" . }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
   selector:
     matchLabels:
-      {{- include "osie.selector" . | nindent 6 }}
+      {{- include "tinkerbell.osie.selector" . | nindent 6 }}
   replicas: 1
   strategy:
-    type: {{ include "osie.deploymentStrategy" . }}
+    type: {{ include "tinkerbell.osie.deploymentStrategy" . }}
   template:
     metadata:
       annotations:
@@ -19,13 +19,13 @@ spec:
         checksum/download-hook: {{ include (print $.Template.BasePath "/osie/hookos/download-configmap.yaml") . | sha256sum }}
         {{- end }}
       labels:
-        {{- include "osie.selector" . | nindent 8 }}
+        {{- include "tinkerbell.osie.selector" . | nindent 8 }}
     spec:
       containers:
-      - name: {{ include "osie.name" . }}
-        image: {{ include "osie.image" . }}
+      - name: {{ include "tinkerbell.osie.name" . }}
+        image: {{ include "tinkerbell.osie.image" . }}
         ports:
-        - containerPort: {{ include "osie.port" . }}
+        - containerPort: {{ include "tinkerbell.osie.port" . }}
           protocol: TCP
           name: hook-http
         resources:
@@ -77,18 +77,18 @@ spec:
           reference: {{ .Values.optional.captainos.image }}
           pullPolicy: {{ .Values.optional.captainos.pullPolicy }}
       {{- end }}
-      hostNetwork: {{ include "osie.hostNetwork" . }}
-      {{- $ns := include "osie.nodeSelector" . }}
+      hostNetwork: {{ include "tinkerbell.osie.hostNetwork" . }}
+      {{- $ns := include "tinkerbell.osie.nodeSelector" . }}
       {{- if $ns }}
       nodeSelector:
         {{- $ns | nindent 8 }}
       {{- end }}
-      {{- $tol := include "osie.tolerations" . }}
+      {{- $tol := include "tinkerbell.osie.tolerations" . }}
       {{- if $tol }}
       tolerations:
         {{- $tol | nindent 8 }}
       {{- end }}
-      {{- $aff := include "osie.affinity" . }}
+      {{- $aff := include "tinkerbell.osie.affinity" . }}
       {{- if $aff }}
       affinity:
         {{- $aff | nindent 8 }}

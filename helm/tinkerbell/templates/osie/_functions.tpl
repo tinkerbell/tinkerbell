@@ -1,8 +1,8 @@
 {{/*
 Test if the given value is an IP address
-{{ include "isIpAddress" "1.2.3.4" }}
+{{ include "tinkerbell.isIpAddress" "1.2.3.4" }}
 */}}
-{{- define "isIpAddress" -}}
+{{- define "tinkerbell.isIpAddress" -}}
 {{- $rc := . -}}
 {{- $parts := splitList "." . -}}
 {{- if eq (len $parts) 4 -}}
@@ -27,7 +27,7 @@ hookos placeholders like "image:") while preserving explicitly set values includ
 */}}
 
 {{/* Scalar: returns hookos value if non-nil, else osie */}}
-{{- define "osie.name" -}}
+{{- define "tinkerbell.osie.name" -}}
 {{- if not (kindIs "invalid" .Values.optional.hookos.name) -}}
 {{- .Values.optional.hookos.name -}}
 {{- else -}}
@@ -35,7 +35,7 @@ hookos placeholders like "image:") while preserving explicitly set values includ
 {{- end -}}
 {{- end -}}
 
-{{- define "osie.image" -}}
+{{- define "tinkerbell.osie.image" -}}
 {{- if not (kindIs "invalid" .Values.optional.hookos.image) -}}
 {{- .Values.optional.hookos.image -}}
 {{- else -}}
@@ -43,7 +43,7 @@ hookos placeholders like "image:") while preserving explicitly set values includ
 {{- end -}}
 {{- end -}}
 
-{{- define "osie.port" -}}
+{{- define "tinkerbell.osie.port" -}}
 {{- if not (kindIs "invalid" .Values.optional.hookos.port) -}}
 {{- .Values.optional.hookos.port -}}
 {{- else -}}
@@ -52,7 +52,7 @@ hookos placeholders like "image:") while preserving explicitly set values includ
 {{- end -}}
 
 {{/* Bool: kindIs "invalid" distinguishes nil from false */}}
-{{- define "osie.hostNetwork" -}}
+{{- define "tinkerbell.osie.hostNetwork" -}}
 {{- if not (kindIs "invalid" .Values.optional.hookos.hostNetwork) -}}
 {{- .Values.optional.hookos.hostNetwork -}}
 {{- else -}}
@@ -61,7 +61,7 @@ hookos placeholders like "image:") while preserving explicitly set values includ
 {{- end -}}
 
 {{/* Nested scalar: use dig with nil default */}}
-{{- define "osie.deploymentStrategy" -}}
+{{- define "tinkerbell.osie.deploymentStrategy" -}}
 {{- $val := dig "hookos" "deployment" "strategy" "type" nil .Values.optional -}}
 {{- if not (kindIs "invalid" $val) -}}
 {{- $val -}}
@@ -70,7 +70,7 @@ hookos placeholders like "image:") while preserving explicitly set values includ
 {{- end -}}
 {{- end -}}
 
-{{- define "osie.service.type" -}}
+{{- define "tinkerbell.osie.service.type" -}}
 {{- $val := dig "hookos" "service" "type" nil .Values.optional -}}
 {{- if not (kindIs "invalid" $val) -}}
 {{- $val -}}
@@ -79,7 +79,7 @@ hookos placeholders like "image:") while preserving explicitly set values includ
 {{- end -}}
 {{- end -}}
 
-{{- define "osie.service.lbClass" -}}
+{{- define "tinkerbell.osie.service.lbClass" -}}
 {{- $val := dig "hookos" "service" "lbClass" nil .Values.optional -}}
 {{- if not (kindIs "invalid" $val) -}}
 {{- $val -}}
@@ -88,7 +88,7 @@ hookos placeholders like "image:") while preserving explicitly set values includ
 {{- end -}}
 {{- end -}}
 
-{{- define "osie.service.loadBalancerIP" -}}
+{{- define "tinkerbell.osie.service.loadBalancerIP" -}}
 {{- $val := dig "hookos" "service" "loadBalancerIP" nil .Values.optional -}}
 {{- if not (kindIs "invalid" $val) -}}
 {{- $val -}}
@@ -102,7 +102,7 @@ Collection helpers return YAML text. Returns empty string when both hookos and o
 Selector requires special handling: deprecated hookos.selector is {app: null}, so we check
 if at least one map value is non-nil before using it.
 */}}
-{{- define "osie.selector" -}}
+{{- define "tinkerbell.osie.selector" -}}
 {{- $use := false -}}
 {{- if not (kindIs "invalid" .Values.optional.hookos.selector) -}}
   {{- range $_, $v := .Values.optional.hookos.selector -}}
@@ -118,7 +118,7 @@ if at least one map value is non-nil before using it.
 {{- end -}}
 {{- end -}}
 
-{{- define "osie.nodeSelector" -}}
+{{- define "tinkerbell.osie.nodeSelector" -}}
 {{- if and (not (kindIs "invalid" .Values.optional.hookos.nodeSelector)) (gt (len .Values.optional.hookos.nodeSelector) 0) -}}
 {{- .Values.optional.hookos.nodeSelector | toYaml -}}
 {{- else if gt (len .Values.optional.osie.nodeSelector) 0 -}}
@@ -126,7 +126,7 @@ if at least one map value is non-nil before using it.
 {{- end -}}
 {{- end -}}
 
-{{- define "osie.tolerations" -}}
+{{- define "tinkerbell.osie.tolerations" -}}
 {{- if and (not (kindIs "invalid" .Values.optional.hookos.tolerations)) (gt (len .Values.optional.hookos.tolerations) 0) -}}
 {{- .Values.optional.hookos.tolerations | toYaml -}}
 {{- else if gt (len .Values.optional.osie.tolerations) 0 -}}
@@ -134,7 +134,7 @@ if at least one map value is non-nil before using it.
 {{- end -}}
 {{- end -}}
 
-{{- define "osie.affinity" -}}
+{{- define "tinkerbell.osie.affinity" -}}
 {{- if and (not (kindIs "invalid" .Values.optional.hookos.affinity)) (gt (len .Values.optional.hookos.affinity) 0) -}}
 {{- .Values.optional.hookos.affinity | toYaml -}}
 {{- else if gt (len .Values.optional.osie.affinity) 0 -}}
@@ -142,7 +142,7 @@ if at least one map value is non-nil before using it.
 {{- end -}}
 {{- end -}}
 
-{{- define "osie.service.annotations" -}}
+{{- define "tinkerbell.osie.service.annotations" -}}
 {{- $hookAnn := dig "hookos" "service" "annotations" nil .Values.optional -}}
 {{- if and (not (kindIs "invalid" $hookAnn)) (gt (len $hookAnn) 0) -}}
 {{- $hookAnn | toYaml -}}

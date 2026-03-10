@@ -15,7 +15,7 @@ data:
     user root;
     http {
       server {
-        listen {{ include "osie.port" . }};
+        listen {{ include "tinkerbell.osie.port" . }};
         location / {
           sendfile           on;
           sendfile_max_chunk 1m;

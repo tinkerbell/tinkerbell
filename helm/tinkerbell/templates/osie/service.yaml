@@ -2,39 +2,39 @@
 {{- if not .Values.artifactsFileServer }}
   {{- fail "artifactsFileServer must be set when an OSIE is enabled" }}
 {{- else }}
-{{- if ne (include "osie.hostNetwork" .) "true" }}
+{{- if ne (include "tinkerbell.osie.hostNetwork" .) "true" }}
 {{- $artifactsURL := urlParse .Values.artifactsFileServer }}
 {{- $artifactsHost :=  split ":" $artifactsURL.host }}
-{{- $artifactsIP := include "isIpAddress" $artifactsHost._0 }}
+{{- $artifactsIP := include "tinkerbell.isIpAddress" $artifactsHost._0 }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: {{ include "osie.name" . }}
-  name: {{ include "osie.name" . }}
+    app: {{ include "tinkerbell.osie.name" . }}
+  name: {{ include "tinkerbell.osie.name" . }}
   namespace: {{ .Release.Namespace | quote }}
   annotations:
-    {{- $annotations := include "osie.service.annotations" . }}
+    {{- $annotations := include "tinkerbell.osie.service.annotations" . }}
     {{- if $annotations }}
     {{- $annotations | nindent 4 }}
     {{- end }}
 spec:
-  type: {{ include "osie.service.type" . }}
-  {{- if eq (include "osie.service.type" .) "LoadBalancer" }}
-  {{- $lbClass := include "osie.service.lbClass" . }}
+  type: {{ include "tinkerbell.osie.service.type" . }}
+  {{- if eq (include "tinkerbell.osie.service.type" .) "LoadBalancer" }}
+  {{- $lbClass := include "tinkerbell.osie.service.lbClass" . }}
   {{- if $lbClass }}
   loadBalancerClass: {{ $lbClass }}
   {{- end }}
-  loadBalancerIP: {{ coalesce $artifactsIP (include "osie.service.loadBalancerIP" .) | required "no load balancer IP specified, please specify a load balancer IP" }}
+  loadBalancerIP: {{ coalesce $artifactsIP (include "tinkerbell.osie.service.loadBalancerIP" .) | required "no load balancer IP specified, please specify a load balancer IP" }}
   externalTrafficPolicy: Local
   {{- end }}
   ports:
-  - name: {{ include "osie.name" . }}
-    port: {{ include "osie.port" . }}
+  - name: {{ include "tinkerbell.osie.name" . }}
+    port: {{ include "tinkerbell.osie.port" . }}
     protocol: TCP
   selector:
-    {{- include "osie.selector" . | nindent 4 }}
+    {{- include "tinkerbell.osie.selector" . | nindent 4 }}
 {{- end }}
 {{- end }}
 {{- end }}
