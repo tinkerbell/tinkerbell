@@ -1,7 +1,6 @@
 package kube
 
 import (
-	"net"
 	"net/http"
 	"testing"
 
@@ -17,15 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 )
-
-// mustParseCIDR is a helper function for tests to parse CIDR strings
-func mustParseCIDR(cidr string) *net.IPNet {
-	_, ipnet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		panic(err)
-	}
-	return ipnet
-}
 
 func TestNewBackend(t *testing.T) {
 	tests := map[string]struct {

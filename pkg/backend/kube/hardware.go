@@ -75,6 +75,9 @@ func (b *Backend) ReadHardware(ctx context.Context, id, namespace string, opts d
 
 func (b *Backend) ListHardware(ctx context.Context, namespace string, opts data.ReadListOptions) ([]v1alpha1.Hardware, error) {
 	list := &v1alpha1.HardwareList{}
+	if namespace != "" && opts.InNamespace == "" {
+		opts.InNamespace = namespace
+	}
 	err := b.cluster.GetClient().List(ctx, list, hardwareListOptions(opts)...)
 	if err != nil {
 		return nil, err
@@ -121,6 +124,6 @@ func (b *Backend) UpdateHardware(ctx context.Context, hw *v1alpha1.Hardware, opt
 	return nil
 }
 
-func (b *Backend) DeleteHardware(ctx context.Context, id, namespace string) error {
+func (b *Backend) DeleteHardware(_ context.Context, _, _ string) error {
 	return nil
 }

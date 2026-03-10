@@ -19,7 +19,7 @@ const tracerName = "github.com/tinkerbell/tinkerbell"
 
 func ConvertByMac(ctx context.Context, mac net.HardwareAddr, hw *v1alpha1.Hardware) (Hardware, error) {
 	tracer := otel.Tracer(tracerName)
-	ctx, span := tracer.Start(ctx, "backend.kube.ConvertHardware")
+	_, span := tracer.Start(ctx, "backend.kube.ConvertHardware")
 	defer span.End()
 	i := v1alpha1.Interface{}
 	for _, iface := range hw.Spec.Interfaces {
@@ -57,7 +57,7 @@ func ConvertByMac(ctx context.Context, mac net.HardwareAddr, hw *v1alpha1.Hardwa
 
 func ConvertByIP(ctx context.Context, ip net.IP, hw *v1alpha1.Hardware) (Hardware, error) {
 	tracer := otel.Tracer(tracerName)
-	ctx, span := tracer.Start(ctx, "backend.kube.ConvertHardware")
+	_, span := tracer.Start(ctx, "backend.kube.ConvertHardware")
 	defer span.End()
 	i := v1alpha1.Interface{}
 	for _, iface := range hw.Spec.Interfaces {

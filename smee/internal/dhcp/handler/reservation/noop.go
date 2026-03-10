@@ -13,6 +13,6 @@ import (
 type noop struct{}
 
 // GetByMac returns an error.
-func (h noop) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
+func (h noop) ReadHardware(_ context.Context, _, _ string, _ data.ReadListOptions) (*tinkerbell.Hardware, error) {
 	return nil, errors.New("no backend specified, please specify a backend")
 }

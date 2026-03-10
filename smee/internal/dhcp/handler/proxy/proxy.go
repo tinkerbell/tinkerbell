@@ -26,8 +26,8 @@ import (
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
-	"github.com/tinkerbell/tinkerbell/pkg/data"
-	d2 "github.com/tinkerbell/tinkerbell/smee/internal/data"
+	option "github.com/tinkerbell/tinkerbell/pkg/data"
+	"github.com/tinkerbell/tinkerbell/smee/internal/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	oteldhcp "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 	"go.opentelemetry.io/otel"
@@ -37,11 +37,11 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
-const tracerName = "github.com/tinkerbell/tinkerbell/smee/dhcp/handler/proxy"
+const tracerName = "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 
 // BackendReader is the interface for getting data from a backend.
 type BackendReader interface {
-	ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error)
+	ReadHardware(ctx context.Context, id, namespace string, opts option.ReadListOptions) (*tinkerbell.Hardware, error)
 }
 
 // Handler holds the configuration details for the running the DHCP server.
@@ -201,13 +201,13 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	// setSNAME(reply, dp.Pkt.GetOneOption(dhcpv4.OptionClassIdentifier), h.Netboot.IPXEBinServerTFTP.Addr().AsSlice(), net.ParseIP(h.Netboot.IPXEBinServerHTTP.Hostname()))
 
 	// check the backend, if PXE is NOT allowed, set the boot file name to "/<mac address>/not-allowed"
-	spec, err := h.Backend.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: dp.Pkt.ClientHWAddr.String()}})
+	spec, err := h.Backend.ReadHardware(ctx, "", "", option.ReadListOptions{Hardware: option.HardwareReadOptions{ByMACAddress: dp.Pkt.ClientHWAddr.String()}})
 	if err != nil && !h.AutoProxyEnabled {
 		log.Info("Ignoring packet", "error", err.Error())
 		span.SetStatus(codes.Error, err.Error())
 		return
 	}
-	hw, err := d2.ConvertByMac(ctx, dp.Pkt.ClientHWAddr, spec)
+	hw, err := data.ConvertByMac(ctx, dp.Pkt.ClientHWAddr, spec)
 	if err != nil {
 		log.Info("Ignoring packet", "error", err.Error())
 		span.SetStatus(codes.Error, err.Error())

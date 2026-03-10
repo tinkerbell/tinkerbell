@@ -58,7 +58,7 @@ type hwNotFoundError struct{}
 func (hwNotFoundError) NotFound() bool { return true }
 func (hwNotFoundError) Error() string  { return "not found" }
 
-func (m *mockBackend) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
+func (m *mockBackend) ReadHardware(_ context.Context, _, _ string, _ data.ReadListOptions) (*tinkerbell.Hardware, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -98,7 +98,7 @@ func (m *mockBackend) ReadHardware(ctx context.Context, id, namespace string, op
 							for _, r := range m.classlessStaticRoutes {
 								routes = append(routes, tinkerbell.ClasslessStaticRoute{
 									DestinationDescriptor: r.Dest.String(),
-									Router:                net.IP(r.Router).String(),
+									Router:                r.Router.String(),
 								})
 							}
 							return routes

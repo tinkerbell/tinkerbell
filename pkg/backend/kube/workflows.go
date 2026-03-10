@@ -19,7 +19,7 @@ func (b *Backend) CreateWorkflow(ctx context.Context, w *v1alpha1.Workflow) erro
 	return nil
 }
 
-func (b *Backend) ReadWorkflow(ctx context.Context, name, namespace string, opts data.ReadListOptions) (*v1alpha1.Workflow, error) {
+func (b *Backend) ReadWorkflow(ctx context.Context, name, namespace string, _ data.ReadListOptions) (*v1alpha1.Workflow, error) {
 	workflowNamespace, workflowName, found := strings.Cut(name, "/")
 	if !found {
 		workflowName = name
@@ -65,6 +65,6 @@ func (b *Backend) UpdateWorkflow(ctx context.Context, wf *v1alpha1.Workflow, opt
 	return nil
 }
 
-func (b *Backend) DeleteWorkflow(ctx context.Context, name, namespace string) error {
+func (b *Backend) DeleteWorkflow(_ context.Context, _, _ string) error {
 	return nil
 }

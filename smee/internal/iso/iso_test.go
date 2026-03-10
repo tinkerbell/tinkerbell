@@ -327,7 +327,7 @@ func TestMultipleRedirects(t *testing.T) {
 
 type mockBackend struct{}
 
-func (m *mockBackend) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
+func (m *mockBackend) ReadHardware(_ context.Context, _, _ string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
 	if opts.Hardware.ByMACAddress != "" {
 		return &tinkerbell.Hardware{
 			Spec: tinkerbell.HardwareSpec{

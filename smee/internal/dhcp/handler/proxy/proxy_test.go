@@ -32,7 +32,7 @@ type mockBackend struct {
 	err          error
 }
 
-func (m *mockBackend) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
+func (m *mockBackend) ReadHardware(_ context.Context, _, _ string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

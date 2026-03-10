@@ -9,8 +9,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/insomniacslk/dhcp/dhcpv4"
-	"go.opentelemetry.io/otel/attribute"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // mustParseCIDR is a helper function for tests to parse CIDR strings

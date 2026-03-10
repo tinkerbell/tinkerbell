@@ -1,17 +1,17 @@
 package backend
 
 import (
-"context"
-"errors"
-"fmt"
-"net/http"
-"testing"
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"testing"
 
-"github.com/google/go-cmp/cmp"
-v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-"github.com/tinkerbell/tinkerbell/pkg/data"
-"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2"
-metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/google/go-cmp/cmp"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type mockReader struct {
@@ -122,8 +122,8 @@ func TestGetEC2Instance(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-b := New(tt.reader)
-got, err := b.GetEC2Instance(context.Background(), tt.ip)
+			b := New(tt.reader)
+			got, err := b.GetEC2Instance(context.Background(), tt.ip)
 
 			if tt.wantErr != nil {
 				if err == nil {
@@ -185,8 +185,8 @@ func TestGetEC2InstanceByInstanceID(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-b := New(tt.reader)
-got, err := b.GetEC2InstanceByInstanceID(context.Background(), "inst-456")
+			b := New(tt.reader)
+			got, err := b.GetEC2InstanceByInstanceID(context.Background(), "inst-456")
 
 			if tt.wantErr != nil {
 				if err == nil {
@@ -248,8 +248,8 @@ func TestGetHackInstance(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-b := New(tt.reader)
-_, err := b.GetHackInstance(context.Background(), "10.0.0.1")
+			b := New(tt.reader)
+			_, err := b.GetHackInstance(context.Background(), "10.0.0.1")
 
 			if tt.wantErr {
 				if err == nil {
@@ -339,8 +339,8 @@ func TestToEC2Instance(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-got := toEC2Instance(tt.hw)
-if diff := cmp.Diff(tt.want, got); diff != "" {
+			got := toEC2Instance(tt.hw)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Fatalf("(-want +got):\n%s", diff)
 			}
 		})
@@ -366,7 +366,7 @@ func TestIsNotFound(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-if got := isNotFound(tt.err); got != tt.want {
+			if got := isNotFound(tt.err); got != tt.want {
 				t.Fatalf("isNotFound() = %v, want %v", got, tt.want)
 			}
 		})
