@@ -87,6 +87,9 @@ func (w *Watcher) ReadHardware(ctx context.Context, id, namespace string, opts d
 		return nil, err
 	}
 
+	if namespace != "" && opts.InNamespace == "" {
+		opts.InNamespace = namespace
+	}
 	for i := range hwList {
 		hw := &hwList[i]
 		if matchHardware(hw, id, opts) {
@@ -100,8 +103,16 @@ func (w *Watcher) ReadHardware(ctx context.Context, id, namespace string, opts d
 	return nil, err
 }
 
+// UpdateHardware is not supported by the file backend as it is read-only.
+func (w *Watcher) UpdateHardware(_ context.Context, _ *tinkerbell.Hardware, _ data.UpdateOptions) error {
+	return fmt.Errorf("file backend does not support hardware updates")
+}
+
 // matchHardware checks if a Hardware object matches the given search criteria.
 func matchHardware(hw *tinkerbell.Hardware, id string, opts data.ReadListOptions) bool {
+	if id != "" && id == hw.Name {
+		return true
+	}
 	if opts.ByName != "" && hw.Name == opts.ByName {
 		return true
 	}

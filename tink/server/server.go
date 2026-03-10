@@ -31,13 +31,17 @@ type AutoCapabilities struct {
 }
 
 type Enrollment struct {
-	Enabled bool
+	Enabled               bool
+	WorkflowRuleSetLister grpcinternal.WorkflowRuleSetLister
+	WorkflowCreator       grpcinternal.WorkflowCreator
 }
 
 type Discovery struct {
 	Enabled           bool
 	Namespace         string
 	EnrollmentEnabled bool
+	HardwareCreator   grpcinternal.HardwareCreator
+	HardwareReader    grpcinternal.HardwareReader
 }
 
 type TLS struct {
@@ -104,12 +108,16 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		NowFunc: time.Now,
 		AutoCapabilities: grpcinternal.AutoCapabilities{
 			Enrollment: grpcinternal.AutoEnrollment{
-				Enabled: c.Auto.Enrollment.Enabled,
+				Enabled:               c.Auto.Enrollment.Enabled,
+				WorkflowRuleSetLister: c.Auto.Enrollment.WorkflowRuleSetLister,
+				WorkflowCreator:       c.Auto.Enrollment.WorkflowCreator,
 			},
 			Discovery: grpcinternal.AutoDiscovery{
 				Enabled:           c.Auto.Discovery.Enabled,
 				Namespace:         c.Auto.Discovery.Namespace,
 				EnrollmentEnabled: c.Auto.Discovery.EnrollmentEnabled,
+				HardwareCreator:   c.Auto.Discovery.HardwareCreator,
+				HardwareReader:    c.Auto.Discovery.HardwareReader,
 			},
 		},
 	}

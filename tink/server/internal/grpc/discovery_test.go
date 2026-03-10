@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/api"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,7 +69,7 @@ func TestHandlerDiscover(t *testing.T) {
 					Namespace: "test-namespace",
 					Labels:    map[string]string{"tinkerbell.org/auto-discovered": "true"},
 					Annotations: map[string]string{
-						"tinkerbell.org/agent-attributes": `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
+						constant.AttributesAnnotation: `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
 					},
 					ResourceVersion: "1",
 				},
@@ -176,7 +177,7 @@ func TestHandlerDiscover(t *testing.T) {
 					Namespace: "test-namespace",
 					Labels:    map[string]string{"tinkerbell.org/auto-discovered": "true"},
 					Annotations: map[string]string{
-						"tinkerbell.org/agent-attributes": `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"},{"name":"tunl0","mac":"00:00:00:00"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
+						constant.AttributesAnnotation: `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"},{"name":"tunl0","mac":"00:00:00:00"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
 					},
 					ResourceVersion: "1",
 				},
@@ -316,7 +317,7 @@ type mockAutoDiscoveryClient struct {
 	client client.Client
 }
 
-func (m *mockAutoDiscoveryClient) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
+func (m *mockAutoDiscoveryClient) ReadHardware(ctx context.Context, id, namespace string, _ data.ReadListOptions) (*tinkerbell.Hardware, error) {
 	hw := &tinkerbell.Hardware{}
 	err := m.client.Get(ctx, types.NamespacedName{
 		Name:      id,

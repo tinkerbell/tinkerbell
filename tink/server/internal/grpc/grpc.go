@@ -13,6 +13,7 @@ import (
 	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
@@ -25,7 +26,6 @@ const (
 	errInvalidWorkflowID = "invalid workflow id"
 	errInvalidTaskName   = "invalid task name"
 	errInvalidActionName = "invalid action name"
-	errWritingToBackend  = "error writing to backend"
 )
 
 var (
@@ -140,6 +140,8 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		return nil, status.Errorf(codes.InvalidArgument, "invalid Agent ID")
 	}
 
+	attrs := convert(req.GetAgentAttributes())
+
 	// hwRef is used in auto discovery and enrollment to avoid multiple lookups of the Hardware object.
 	var hwRef *tinkerbell.Hardware
 	// handle auto discovery
@@ -147,7 +149,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		journal.Log(ctx, "auto discovery triggered")
 		// Check if there is an existing Hardware Object.
 		// If not, Discovery creates one.
-		hw, err := h.Discover(ctx, req.GetAgentId(), convert(req.GetAgentAttributes()))
+		hw, err := h.Discover(ctx, req.GetAgentId(), attrs)
 		if err != nil {
 			journal.Log(ctx, "error auto discovering Hardware", "error", err)
 			log.Error(err, "error auto discovering Hardware")
@@ -174,7 +176,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 					hwRef = hw
 				}
 			}
-			return h.enroll(ctx, req.GetAgentId(), convert(req.GetAgentAttributes()), hwRef)
+			return h.enroll(ctx, req.GetAgentId(), attrs, hwRef)
 		}
 		journal.Log(ctx, "no Workflow found")
 		return nil, status.Error(codes.NotFound, "no Workflows found")
@@ -209,22 +211,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	if isFirstAction(wf.Status.Tasks[0]) {
 		task = &wf.Status.Tasks[0]
 		journal.Log(ctx, "first Task, first Action")
-
-		// If the Workflow has a Hardware reference update the Attributes annotation.
-		if hwRef == nil {
-			log.Info("looking up Hardware for attributes annotation update", "hardwareRef", wf.Spec.HardwareRef, "namespace", wf.Namespace)
-			existing, err := h.Backend.ReadHardware(ctx, wf.Spec.HardwareRef, wf.Namespace, data.ReadListOptions{ByName: wf.Spec.HardwareRef})
-			if err == nil {
-				log.Info("found Hardware")
-				journal.Log(ctx, "found Hardware for attributes annotation update", "hardware", existing.Name)
-
-				h.updateHardwareWithAttributes(ctx, log, existing, convert(req.GetAgentAttributes()))
-			} else {
-				log.Error(err, "error looking up Hardware for attributes annotation update")
-				journal.Log(ctx, "error looking up Hardware for attributes annotation update", "error", err)
-			}
-		}
-
+		h.resolveAndAnnotateHardware(ctx, log, hwRef, wf.Spec.HardwareRef, wf.Namespace, attrs)
 	} else {
 		for _, t := range wf.Status.Tasks {
 			// check if all actions have been run successfully in this task.
@@ -430,30 +417,47 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 	return &proto.ActionStatusResponse{}, status.Error(codes.NotFound, "action not found")
 }
 
-func (h *Handler) updateHardwareWithAttributes(ctx context.Context, log logr.Logger, hw *tinkerbell.Hardware, attrs *data.AgentAttributes) {
-	// check if the hardware has the attributes annotations, if not add them.
-	if hw != nil && hw.Annotations[attributesAnnotation] == "" {
-		if hw.Annotations == nil {
-			hw.Annotations = make(map[string]string)
+// resolveAndAnnotateHardware resolves the Hardware object for a Workflow and persists agent attributes
+// as an annotation. This is only called on the very first action to avoid unnecessary backend reads.
+func (h *Handler) resolveAndAnnotateHardware(ctx context.Context, log logr.Logger, hwRef *tinkerbell.Hardware, hardwareRef, namespace string, attrs *data.AgentAttributes) {
+	if hwRef == nil && hardwareRef != "" {
+		hw, err := h.Backend.ReadHardware(ctx, hardwareRef, namespace, data.ReadListOptions{})
+		if err != nil {
+			return
 		}
-		if a, err := json.Marshal(attrs); err == nil {
-			hw.Annotations[attributesAnnotation] = string(a)
-			if h.Backend != nil {
-				if err := h.Backend.UpdateHardware(ctx, hw, data.UpdateOptions{}); err != nil {
-					journal.Log(ctx, "error updating Hardware with attributes annotation", "error", err)
-					log.Error(err, "error updating Hardware with attributes annotation")
-				}
-			} else {
-				journal.Log(ctx, "BackendUpdater not configured, cannot update Hardware with attributes annotation")
-				log.Error(errors.New("BackendUpdater not configured"), "BackendUpdater not configured, cannot update Hardware with attributes annotation")
-			}
-			journal.Log(ctx, "updated Hardware with attributes annotation", "hardware", hw)
-			log.Info("updated Hardware with attributes annotation", "hardware", hw)
-		} else {
-			journal.Log(ctx, "error marshaling attributes for annotation", "error", err)
-			log.Error(err, "error marshaling attributes for annotation")
-		}
+		hwRef = hw
 	}
+	if hwRef == nil {
+		return
+	}
+	if err := h.updateHardwareWithAttributes(ctx, log, hwRef, attrs); err != nil {
+		journal.Log(ctx, "error updating Hardware with attributes", "error", err)
+		log.Error(err, "error updating Hardware with attributes")
+	}
+}
+
+// updateHardwareWithAttributes updates the Hardware with the given attributes annotation if it doesn't already have it.
+func (h *Handler) updateHardwareWithAttributes(ctx context.Context, log logr.Logger, hw *tinkerbell.Hardware, attrs *data.AgentAttributes) error {
+	if hw == nil || hw.Annotations[constant.AttributesAnnotation] != "" {
+		return nil
+	}
+	if hw.Annotations == nil {
+		hw.Annotations = make(map[string]string)
+	}
+
+	a, err := json.Marshal(attrs)
+	if err != nil {
+		return fmt.Errorf("error marshaling attributes for annotation: %w", err)
+	}
+
+	hw.Annotations[constant.AttributesAnnotation] = string(a)
+	if err := h.Backend.UpdateHardware(ctx, hw, data.UpdateOptions{}); err != nil {
+		return fmt.Errorf("error updating Hardware with attributes annotation: %w", err)
+	}
+
+	journal.Log(ctx, "updated Hardware with attributes annotation", "hardware", hw.Name)
+	log.Info("updated Hardware with attributes annotation", "hardware", hw.Name)
+	return nil
 }
 
 func toPtr[T any](v T) *T {

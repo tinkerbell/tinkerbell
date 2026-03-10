@@ -9,6 +9,7 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
@@ -20,8 +21,7 @@ import (
 )
 
 const (
-	workflowPrefix       = "enrollment-"
-	attributesAnnotation = "tinkerbell.org/agent-attributes"
+	workflowPrefix = "enrollment-"
 )
 
 type match struct {
@@ -100,7 +100,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 				awf.Annotations = make(map[string]string)
 			}
 			if a, err := json.Marshal(attr); err == nil {
-				awf.Annotations[attributesAnnotation] = string(a)
+				awf.Annotations[constant.AttributesAnnotation] = string(a)
 			} else {
 				journal.Log(ctx, "error marshalling attributes to json", "error", err)
 			}

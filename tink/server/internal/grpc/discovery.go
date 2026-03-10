@@ -7,6 +7,7 @@ import (
 	"net"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -69,7 +70,7 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 	}
 
 	if a, err := json.Marshal(attrs); err == nil && attrs != nil {
-		hw.Annotations[attributesAnnotation] = string(a)
+		hw.Annotations[constant.AttributesAnnotation] = string(a)
 	}
 
 	// Populate Hardware object with discovered attributes
