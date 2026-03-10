@@ -277,6 +277,7 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 	cases := map[string]struct {
 		workflow       *tinkerbell.Workflow
 		hardware       *tinkerbell.Hardware
+		request        *proto.ActionRequest
 		wantAnnotation bool
 		wantNoHWUpdate bool
 	}{
@@ -288,7 +289,24 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 					Namespace: "default",
 				},
 			},
+			request: &proto.ActionRequest{
+				AgentId:         toPtr("machine-mac-1"),
+				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
+			},
 			wantAnnotation: true,
+		},
+		"first action with nil attributes does not update hardware": {
+			workflow: baseWorkflow("my-hw"),
+			hardware: &tinkerbell.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-hw",
+					Namespace: "default",
+				},
+			},
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			wantNoHWUpdate: true,
 		},
 		"first action with HardwareRef and existing annotation": {
 			workflow: baseWorkflow("my-hw"),
@@ -301,14 +319,24 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 					},
 				},
 			},
+			request: &proto.ActionRequest{
+				AgentId:         toPtr("machine-mac-1"),
+				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
+			},
 			wantNoHWUpdate: true,
 		},
 		"first action with no HardwareRef": {
-			workflow:       baseWorkflow(""),
+			workflow: baseWorkflow(""),
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
 			wantNoHWUpdate: true,
 		},
 		"first action with HardwareRef but hardware not found": {
-			workflow:       baseWorkflow("missing-hw"),
+			workflow: baseWorkflow("missing-hw"),
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
 			wantNoHWUpdate: true,
 		},
 		"non-first action does not update hardware": {
@@ -357,6 +385,10 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 					Namespace: "default",
 				},
 			},
+			request: &proto.ActionRequest{
+				AgentId:         toPtr("machine-mac-1"),
+				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
+			},
 			wantNoHWUpdate: true,
 		},
 	}
@@ -374,9 +406,7 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
 			}
 
-			_, _ = server.GetAction(context.Background(), &proto.ActionRequest{
-				AgentId: toPtr("machine-mac-1"),
-			})
+			_, _ = server.GetAction(context.Background(), tc.request)
 
 			if tc.wantAnnotation {
 				if mock.updatedHardware == nil {

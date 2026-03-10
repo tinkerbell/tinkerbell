@@ -23,15 +23,15 @@ func (b *Backend) CreateHardware(ctx context.Context, hw *v1alpha1.Hardware) err
 
 // ReadHardware looks up a Hardware object by name or agent ID depending on the provided LookupOptions.
 // If the LookupOptions does not specify a lookup method, it will default to looking up by agent ID for backwards compatibility.
-func (b *Backend) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*v1alpha1.Hardware, error) {
+func (b *Backend) ReadHardware(ctx context.Context, name, namespace string, opts data.ReadListOptions) (*v1alpha1.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "backend.kube.ReadHardware")
 	defer span.End()
 	// If an id is in the format of namespace/name, we should split it and use the namespace and name to look up the hardware object.
 	// This allows support for namespaces outside of where the tinkerbell controller/server live.
-	hwNamespace, hwName, found := strings.Cut(id, "/")
+	hwNamespace, hwName, found := strings.Cut(name, "/")
 	if !found {
-		hwName = id
+		hwName = name
 		hwNamespace = namespace
 	}
 

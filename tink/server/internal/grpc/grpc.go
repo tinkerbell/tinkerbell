@@ -440,7 +440,7 @@ func (h *Handler) resolveAndAnnotateHardware(ctx context.Context, log logr.Logge
 // It uses a merge-patch (rather than a full update) to avoid conflicts with other controllers that may be
 // modifying the same Hardware object concurrently (e.g. the workflow controller toggling allowPXE).
 func (h *Handler) updateHardwareWithAttributes(ctx context.Context, log logr.Logger, hw *tinkerbell.Hardware, attrs *data.AgentAttributes) error {
-	if hw == nil || hw.Annotations[constant.AttributesAnnotation] != "" {
+	if hw == nil || attrs == nil || hw.Annotations[constant.AttributesAnnotation] != "" {
 		return nil
 	}
 
