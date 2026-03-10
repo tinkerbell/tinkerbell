@@ -14,8 +14,8 @@ echo Debug TraceID: {{ .TraceID }}
 
 set arch {{ .Arch }}
 set download-url {{ .DownloadURL }}
-set kernel {{ if .Kernel }}{{ .Kernel }}{{ else }}vmlinuz-${arch}{{ end }}
-set initrd {{ if .Initrd }}{{ .Initrd }}{{ else }}initramfs-${arch}{{ end }}
+set kernel {{ if .KernelName }}{{ .KernelName }}{{ else }}vmlinuz-${arch}{{ end }}
+set initrd {{ if .InitrdName }}{{ .InitrdName }}{{ else }}initramfs-${arch}{{ end }}
 set retries:int32 {{ .Retries }}
 set retry_delay:int32 {{ .RetryDelay }}
 
@@ -23,7 +23,7 @@ set idx:int32 0
 :retry_kernel
 kernel ${download-url}/${kernel} {{- if ne .VLANID "" }} vlan_id={{ .VLANID }} {{- end }} \
 facility={{ .Facility }} syslog_host={{ .SyslogHost }} grpc_authority={{ .TinkGRPCAuthority }} tinkerbell_tls={{ .TinkerbellTLS }} tinkerbell_insecure_tls={{ .TinkerbellInsecureTLS }} worker_id={{ .WorkerID }} hw_addr={{ .HWAddr }} \
-modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=initramfs-${arch} console=tty0 console=ttyS1,115200 {{- range .ExtraKernelParams}} {{.}} {{- end}} && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
+modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=${initrd} console=tty0 console=ttyS1,115200 {{- range .ExtraKernelParams}} {{.}} {{- end}} && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
 
 :download_initrd
 set idx:int32 0
@@ -68,6 +68,6 @@ type Hook struct {
 	WorkerID              string // example 3c:ec:ef:4c:4f:54 or worker1
 	Retries               int    // number of retries to attempt when fetching kernel and initrd files
 	RetryDelay            int    // number of seconds to wait between retries
-	Kernel                string // name of the kernel file
-	Initrd                string // name of the initrd file
+	KernelName            string // name of the kernel file
+	InitrdName            string // name of the initrd file
 }

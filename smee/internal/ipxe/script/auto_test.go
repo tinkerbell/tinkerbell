@@ -26,6 +26,8 @@ func TestGenerateTemplate(t *testing.T) {
 				HWAddr:            "3c:ec:ef:4c:4f:54",
 				Retries:           10,
 				RetryDelay:        3,
+				KernelName:        "vmlinuz-x86_64",
+				InitrdName:        "initramfs-x86_64",
 			},
 			script: HookScript,
 			want: `#!ipxe
@@ -35,8 +37,8 @@ echo Loading the Tinkerbell Hook iPXE script...
 
 set arch x86_64
 set download-url http://location:8080/to/kernel/and/initrd
-set kernel vmlinuz-${arch}
-set initrd initramfs-${arch}
+set kernel vmlinuz-x86_64
+set initrd initramfs-x86_64
 set retries:int32 10
 set retry_delay:int32 3
 
@@ -44,7 +46,7 @@ set idx:int32 0
 :retry_kernel
 kernel ${download-url}/${kernel} \
 facility=onprem syslog_host=1.2.3.4 grpc_authority=1.2.3.4:42113 tinkerbell_tls=false tinkerbell_insecure_tls=false worker_id=3c:ec:ef:4c:4f:54 hw_addr=3c:ec:ef:4c:4f:54 \
-modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=initramfs-${arch} console=tty0 console=ttyS1,115200 tink_worker_image=quay.io/tinkerbell/tink-worker:v0.8.0 tinkerbell=packet && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
+modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=${initrd} console=tty0 console=ttyS1,115200 tink_worker_image=quay.io/tinkerbell/tink-worker:v0.8.0 tinkerbell=packet && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
 
 :download_initrd
 set idx:int32 0
@@ -86,6 +88,8 @@ exit
 				VLANID:            "16",
 				Retries:           10,
 				RetryDelay:        3,
+				KernelName:        "vmlinuz-x86_64",
+				InitrdName:        "initramfs-x86_64",
 			},
 			script: HookScript,
 			want: `#!ipxe
@@ -95,8 +99,8 @@ echo Loading the Tinkerbell Hook iPXE script...
 
 set arch x86_64
 set download-url http://location:8080/to/kernel/and/initrd
-set kernel vmlinuz-${arch}
-set initrd initramfs-${arch}
+set kernel vmlinuz-x86_64
+set initrd initramfs-x86_64
 set retries:int32 10
 set retry_delay:int32 3
 
@@ -104,7 +108,7 @@ set idx:int32 0
 :retry_kernel
 kernel ${download-url}/${kernel} vlan_id=16 \
 facility=onprem syslog_host=1.2.3.4 grpc_authority=1.2.3.4:42113 tinkerbell_tls=false tinkerbell_insecure_tls=false worker_id=3c:ec:ef:4c:4f:54 hw_addr=3c:ec:ef:4c:4f:54 \
-modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=initramfs-${arch} console=tty0 console=ttyS1,115200 tink_worker_image=quay.io/tinkerbell/tink-worker:v0.8.0 tinkerbell=packet && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
+modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=${initrd} console=tty0 console=ttyS1,115200 tink_worker_image=quay.io/tinkerbell/tink-worker:v0.8.0 tinkerbell=packet && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
 
 :download_initrd
 set idx:int32 0

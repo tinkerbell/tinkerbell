@@ -2,7 +2,7 @@ name: For each commit and PR
 on:
   push:
     branches:
-      - "**"
+      - "main"
     tags:
       - "v**"
   pull_request:

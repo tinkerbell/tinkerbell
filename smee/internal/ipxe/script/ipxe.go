@@ -40,6 +40,8 @@ type Handler struct {
 	IPXEScriptRetries     int
 	IPXEScriptRetryDelay  int
 	StaticIPXEEnabled     bool
+	KernelName            string // name of the kernel file
+	InitrdName            string // name of the initrd file
 }
 
 type info struct {
@@ -207,6 +209,8 @@ func (h *Handler) serveStaticIPXEScript(w http.ResponseWriter) {
 		TinkGRPCAuthority: h.TinkServerGRPCAddr,
 		Retries:           h.IPXEScriptRetries,
 		RetryDelay:        h.IPXEScriptRetryDelay,
+		KernelName:        h.KernelName,
+		InitrdName:        h.InitrdName,
 	}
 	script, err := GenerateTemplate(auto, StaticScript)
 	if err != nil {
@@ -316,14 +320,20 @@ func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
 		Retries:               h.IPXEScriptRetries,
 		RetryDelay:            h.IPXEScriptRetryDelay,
 	}
+	if h.KernelName != "" {
+		auto.KernelName = h.KernelName + "-" + arch
+	}
+	if h.InitrdName != "" {
+		auto.InitrdName = h.InitrdName + "-" + arch
+	}
 	if hw.OSIE.BaseURL != nil && hw.OSIE.BaseURL.String() != "" {
 		auto.DownloadURL = hw.OSIE.BaseURL.String()
 	}
 	if hw.OSIE.Kernel != "" {
-		auto.Kernel = hw.OSIE.Kernel
+		auto.KernelName = hw.OSIE.Kernel
 	}
 	if hw.OSIE.Initrd != "" {
-		auto.Initrd = hw.OSIE.Initrd
+		auto.InitrdName = hw.OSIE.Initrd
 	}
 	if span.SpanContext().IsSampled() {
 		auto.TraceID = span.SpanContext().TraceID().String()

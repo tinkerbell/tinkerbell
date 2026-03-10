@@ -174,18 +174,31 @@ service:
 trustedProxies: {{ .Values.global.trustedProxies | toYaml | nindent 2 }}
 
 optional:
-  hookos:
-    arch: {{ .Values.stack.hook.arch }}
+  osie:
     deployment:
       strategy:
         type: {{ .Values.stack.deployment.strategy.type }}
+    hostNetwork: {{ .Values.optional.osie.hostNetwork }}
+    image: {{ .Values.stack.image }}
+    name: {{ .Values.optional.osie.name }}
+    nodeSelector: {{ .Values.optional.osie.nodeSelector | toYaml | nindent 6 }}
+    tolerations: {{ .Values.optional.osie.tolerations | toYaml | nindent 6 }}
+    port: {{ .Values.optional.osie.port }}
+    selector:
+      app: {{ .Values.optional.osie.selector.app }}
+    service:
+      annotations: {{ .Values.optional.osie.service.annotations | toYaml | nindent 8 }}
+      lbClass: {{ .Values.optional.osie.service.lbClass }}
+      loadBalancerIP: {{ .Values.optional.osie.service.loadBalancerIP }}
+      type: {{ .Values.optional.osie.service.type }}
+    affinity: {{ .Values.optional.osie.affinity | toYaml | nindent 6 }}
+
+  hookos:
+    arch: {{ .Values.stack.hook.arch }}
     downloadURL: {{ .Values.stack.hook.downloadURL }}
     enabled: {{ .Values.stack.hook.enabled }}
-    extension: {{ .Values.stack.hook.extension }} # iso, tar.gz, both
-    image: {{ .Values.stack.image }}
-    kernelVersion: {{ .Values.stack.hook.kernelVersion }} # 5.10, 6.6, both
-    name: {{ .Values.optional.hookos.name }}
-    nodeSelector: {{ .Values.optional.hookos.nodeSelector | toYaml | nindent 6 }}
+    extension: {{ .Values.stack.hook.extension }}
+    kernelVersion: {{ .Values.stack.hook.kernelVersion }}
     persistence:
       existingClaim: {{ .Values.stack.hook.persistence.existingClaim }}
       localPersistentVolume:
@@ -195,18 +208,7 @@ optional:
         path: {{ .Values.stack.hook.persistence.localPersistentVolume.path }}
         size: {{ .Values.stack.hook.persistence.localPersistentVolume.size }}
         storageClassName: {{ .Values.stack.hook.persistence.localPersistentVolume.storageClassName }}
-    port: {{ .Values.optional.hookos.port }}
     scriptImage: {{ .Values.optional.hookos.scriptImage }}
-    selector:
-      app: {{ .Values.optional.hookos.selector.app }}
-    service:
-      annotations: {{ .Values.optional.hookos.service.annotations | toYaml | nindent 8 }}
-      lbClass: {{ .Values.optional.hookos.service.lbClass }}
-      loadBalancerIP: {{ .Values.optional.hookos.service.loadBalancerIP }}
-      type: {{ .Values.optional.hookos.service.type }}
-    singleNodeClusterConfig:
-      controlPlaneTolerationsEnabled: {{ .Values.optional.hookos.singleNodeClusterConfig.controlPlaneTolerationsEnabled }}
-      nodeAffinityWeight: {{ .Values.optional.hookos.singleNodeClusterConfig.nodeAffinityWeight }}
   
   kubevip:
     additionalEnv: {{ .Values.optional.kubevip.additionalEnv | toYaml | nindent 6 }}

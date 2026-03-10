@@ -164,6 +164,8 @@ type IPXEHTTPScriptServer struct {
 	OSIEURL         *url.URL
 	TrustedProxies  []string
 	ExtraKernelArgs []string
+	KernelName      string
+	InitrdName      string
 }
 
 type DHCP struct {
@@ -398,6 +400,8 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			IPXEScriptRetries:     c.IPXE.HTTPScriptServer.Retries,
 			IPXEScriptRetryDelay:  c.IPXE.HTTPScriptServer.RetryDelay,
 			StaticIPXEEnabled:     (c.DHCP.Mode == DHCPModeAutoProxy),
+			KernelName:            c.IPXE.HTTPScriptServer.KernelName,
+			InitrdName:            c.IPXE.HTTPScriptServer.InitrdName,
 		}
 
 		// serve ipxe script from the "/" URI.
