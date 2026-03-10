@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -164,6 +165,98 @@ exit
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Log(got)
 				t.Fatal(diff)
+			}
+		})
+	}
+}
+
+func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
+	tests := map[string]struct {
+		handler    Handler
+		d          info
+		wantKernel string
+		wantInitrd string
+	}{
+		"custom kernel and initrd names": {
+			handler: Handler{
+				OSIEURL:              "http://127.1.1.1",
+				IPXEScriptRetries:    10,
+				IPXEScriptRetryDelay: 3,
+				TinkServerGRPCAddr:   "127.0.0.1:42113",
+				KernelName:           "captain-kernel",
+				InitrdName:           "captain-rootfs",
+			},
+			d:          info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, Facility: "onprem", Arch: "x86_64"},
+			wantKernel: "captain-kernel-x86_64",
+			wantInitrd: "captain-rootfs-x86_64",
+		},
+		"custom names with aarch64": {
+			handler: Handler{
+				OSIEURL:              "http://127.1.1.1",
+				IPXEScriptRetries:    10,
+				IPXEScriptRetryDelay: 3,
+				TinkServerGRPCAddr:   "127.0.0.1:42113",
+				KernelName:           "captain-kernel",
+				InitrdName:           "captain-rootfs",
+			},
+			d:          info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, Facility: "onprem", Arch: "aarch64"},
+			wantKernel: "captain-kernel-aarch64",
+			wantInitrd: "captain-rootfs-aarch64",
+		},
+		"hw OSIE kernel/initrd overrides handler names": {
+			handler: Handler{
+				OSIEURL:              "http://127.1.1.1",
+				IPXEScriptRetries:    10,
+				IPXEScriptRetryDelay: 3,
+				TinkServerGRPCAddr:   "127.0.0.1:42113",
+				KernelName:           "captain-kernel",
+				InitrdName:           "captain-rootfs",
+			},
+			d: info{
+				MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
+				Facility:   "onprem",
+				Arch:       "x86_64",
+				OSIE: OSIE{
+					Kernel: "hw-specific-kernel",
+					Initrd: "hw-specific-initrd",
+				},
+			},
+			wantKernel: "hw-specific-kernel",
+			wantInitrd: "hw-specific-initrd",
+		},
+		"hw OSIE kernel overrides but initrd uses handler": {
+			handler: Handler{
+				OSIEURL:              "http://127.1.1.1",
+				IPXEScriptRetries:    10,
+				IPXEScriptRetryDelay: 3,
+				TinkServerGRPCAddr:   "127.0.0.1:42113",
+				KernelName:           "captain-kernel",
+				InitrdName:           "captain-rootfs",
+			},
+			d: info{
+				MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
+				Facility:   "onprem",
+				Arch:       "x86_64",
+				OSIE: OSIE{
+					Kernel: "hw-specific-kernel",
+				},
+			},
+			wantKernel: "hw-specific-kernel",
+			wantInitrd: "captain-rootfs-x86_64",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			sp := trace.SpanFromContext(context.Background())
+			got, err := tt.handler.defaultScript(sp, tt.d)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(got, "set kernel "+tt.wantKernel) {
+				t.Errorf("expected kernel %q in script, got:\n%s", tt.wantKernel, got)
+			}
+			if !strings.Contains(got, "set initrd "+tt.wantInitrd) {
+				t.Errorf("expected initrd %q in script, got:\n%s", tt.wantInitrd, got)
 			}
 		})
 	}
