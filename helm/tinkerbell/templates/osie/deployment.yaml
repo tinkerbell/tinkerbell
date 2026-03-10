@@ -1,33 +1,31 @@
-{{- if .Values.optional.hookos.enabled }}
+{{- if or .Values.optional.hookos.enabled .Values.optional.captainos.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.optional.hookos.name}}
+  name: {{ include "osie.name" . }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
   selector:
     matchLabels:
-      {{- with .Values.optional.hookos.selector }}
-      {{- toYaml . | nindent 6 }}
-      {{- end }}
+      {{- include "osie.selector" . | nindent 6 }}
   replicas: 1
   strategy:
-    type: {{ .Values.optional.hookos.deployment.strategy.type }}
+    type: {{ include "osie.deploymentStrategy" . }}
   template:
     metadata:
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/hookos/nginx-configmap.yaml") . | sha256sum }}
-        checksum/download-hook: {{ include (print $.Template.BasePath "/hookos/download-configmap.yaml") . | sha256sum }}
-      labels:
-        {{- with .Values.optional.hookos.selector }}
-        {{- toYaml . | nindent 8 }}
+        checksum/config: {{ include (print $.Template.BasePath "/osie/nginx-configmap.yaml") . | sha256sum }}
+        {{- if .Values.optional.hookos.enabled }}
+        checksum/download-hook: {{ include (print $.Template.BasePath "/osie/hookos/download-configmap.yaml") . | sha256sum }}
         {{- end }}
+      labels:
+        {{- include "osie.selector" . | nindent 8 }}
     spec:
       containers:
-      - name: {{ .Values.optional.hookos.name }}
-        image: {{ .Values.optional.hookos.image }}
+      - name: {{ include "osie.name" . }}
+        image: {{ include "osie.image" . }}
         ports:
-        - containerPort: {{ .Values.optional.hookos.port }}
+        - containerPort: {{ include "osie.port" . }}
           protocol: TCP
           name: hook-http
         resources:
@@ -41,8 +39,15 @@ spec:
         - mountPath: /etc/nginx
           readOnly: true
           name: nginx-conf
+        {{- if .Values.optional.hookos.enabled }}
         - mountPath: /usr/share/nginx/html
           name: hook-artifacts
+        {{- end }}
+        {{- if .Values.optional.captainos.enabled }}
+        - mountPath: /captain
+          name: captain-artifacts
+        {{- end }}
+      {{- if .Values.optional.hookos.enabled }}
       - name: download-hook
         image: {{ .Values.optional.hookos.scriptImage }}
         command: ["/script/entrypoint.sh"]
@@ -52,10 +57,12 @@ spec:
             name: hook-artifacts
           - mountPath: /script
             name: configmap-volume
+      {{- end }}
       volumes:
       - name: nginx-conf
         configMap:
           name: nginx-conf
+      {{- if .Values.optional.hookos.enabled }}
       - name: hook-artifacts
         persistentVolumeClaim:
           claimName: {{ coalesce .Values.optional.hookos.persistence.existingClaim .Values.optional.hookos.persistence.localPersistentVolume.name }}
@@ -63,17 +70,27 @@ spec:
         configMap:
           defaultMode: 0700
           name: download-hook
-      hostNetwork: {{ .Values.optional.hookos.hostNetwork }}
-      {{- with .Values.optional.hookos.nodeSelector }}
+      {{- end }}
+      {{- if .Values.optional.captainos.enabled }}
+      - name: captain-artifacts
+        image:
+          reference: {{ .Values.optional.captainos.image }}
+          pullPolicy: {{ .Values.optional.captainos.pullPolicy }}
+      {{- end }}
+      hostNetwork: {{ include "osie.hostNetwork" . }}
+      {{- $ns := include "osie.nodeSelector" . }}
+      {{- if $ns }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+        {{- $ns | nindent 8 }}
       {{- end }}
-      {{- with .Values.optional.hookos.tolerations }}
+      {{- $tol := include "osie.tolerations" . }}
+      {{- if $tol }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+        {{- $tol | nindent 8 }}
       {{- end }}
-      {{- with .Values.optional.hookos.affinity }}
+      {{- $aff := include "osie.affinity" . }}
+      {{- if $aff }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- $aff | nindent 8 }}
       {{- end }}
 {{- end }}
