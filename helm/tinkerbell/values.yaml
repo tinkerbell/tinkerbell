@@ -83,6 +83,8 @@ deployment:
       ipxeHttpScriptBindPort: 7171
       ipxeHttpScriptEnabled: true
       ipxeHttpScriptExtraKernelArgs: [] # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
+      ipxeHttpScriptKernelName: "vmlinuz" # name of the kernel file to fetch in the iPXE script, defaults to vmlinuz, which becomes vmlinuz-<arch> in the script
+      ipxeHttpScriptInitrdName: "initramfs" # name of the initrd file to fetch in the iPXE script, defaults to initramfs, which becomes initramfs-<arch> in the script
       ipxeHttpScriptTrustedProxies: ""
       ipxeHttpScriptOsieURL: ""
       ipxeHttpScriptRetries: 1
@@ -250,24 +252,45 @@ optional:
   migration:
     enabled: false
 
+  # osie (Operating System Installation Environment) objects are shared across HookOS and CaptainOS.
+  # They handle the file server for serving Artifacts.
+  osie:
+    deployment:
+      strategy:
+        type: RollingUpdate
+    hostNetwork: false
+    image: nginx:1.29.5
+    name: hookos # this value is deprecated and will be updated to "osie" in a future release.
+    nodeSelector: {}
+    tolerations: []
+    port: 7173
+    selector:
+      app: hookos # this value is deprecated and will be updated to "osie" in a future release.
+    service:
+      annotations: {}
+      lbClass: "kube-vip.io/kube-vip-class"
+      loadBalancerIP: ""
+      type: LoadBalancer
+    affinity: {}
+
+  # captainos objects enable downloading and serving CaptainOS artifacts.
+  # Optional, disabled by default.
+  # Can be enabled together with hookos.
+  captainos:
+    enabled: false
+    image: ghcr.io/tinkerbell/captain/artifacts:v0.1.0
+    pullPolicy: IfNotPresent
+
   # hookos objects enable downloading and serving HookOS artifacts.
   # Optional, enabled by default.
   hookos:
     arch: both # x86_64, aarch64, both
-    deployment:
-      strategy:
-        type: RollingUpdate
     # downloadURL only works with the > 0.8.1 Hook release because
     # previous Hook versions didn't provide a checksum file.
     downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.11.1
     enabled: true
     extension: tar.gz # iso, tar.gz, both
-    hostNetwork: false
-    image: nginx:1.27.2
     kernelVersion: both # 5.10, 6.6, both
-    name: hookos
-    nodeSelector: {}
-    tolerations: []
     persistence:
       # If existingClaim is set, the local persistence volume (localPersistentVolume) objects will NOT be created.
       # Use this to point to an existing production grade storage class.
@@ -282,15 +305,24 @@ optional:
         path: /tmp
         size: 2Gi
         storageClassName: local-storage
-    port: 7173
     scriptImage: bash:5.2.37
+    # the following are deprecated under optional.hookos. Set these values via optional.osie.
+    deployment:
+      strategy:
+        type:
+    hostNetwork:
+    image:
+    name:
+    nodeSelector: {}
+    tolerations: []
+    port:
     selector:
-      app: hookos
+      app:
     service:
       annotations: {}
-      lbClass: "kube-vip.io/kube-vip-class"
-      loadBalancerIP: ""
-      type: LoadBalancer
+      lbClass:
+      loadBalancerIP: 
+      type:
     affinity: {}
 
   # kubevip objects are used to provide a LoadBalancer IP for the Tinkerbell services.

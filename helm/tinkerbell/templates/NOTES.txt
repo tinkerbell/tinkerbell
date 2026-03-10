@@ -1,0 +1,20 @@
+{{- if .Values.optional.captainos.enabled }}
+⚠️  WARNING: CaptainOS uses an image volume (volumes.image) which requires the
+ImageVolume feature gate to be enabled on your Kubernetes cluster.
+
+  Kubernetes Version  | ImageVolume | Default
+  --------------------|-------------|--------
+  1.31 - 1.32         | Alpha       | false
+  1.33 - 1.34         | Beta        | false
+  1.35+               | Beta        | true
+
+  Your cluster version: {{ .Capabilities.KubeVersion.Version }}
+
+If ImageVolume is not enabled, pods using CaptainOS image volumes will fail
+to be created by the API server.
+
+For versions where the default is "false", you must explicitly enable the
+feature gate on the kubelet and API server.
+
+Reference: https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/
+{{- end }}

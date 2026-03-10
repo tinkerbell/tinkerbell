@@ -1,0 +1,96 @@
+{{- if or .Values.optional.hookos.enabled .Values.optional.captainos.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tinkerbell.osie.name" . }}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "tinkerbell.osie.selector" . | nindent 6 }}
+  replicas: 1
+  strategy:
+    type: {{ include "tinkerbell.osie.deploymentStrategy" . }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/osie/nginx-configmap.yaml") . | sha256sum }}
+        {{- if .Values.optional.hookos.enabled }}
+        checksum/download-hook: {{ include (print $.Template.BasePath "/osie/hookos/download-configmap.yaml") . | sha256sum }}
+        {{- end }}
+      labels:
+        {{- include "tinkerbell.osie.selector" . | nindent 8 }}
+    spec:
+      containers:
+      - name: {{ include "tinkerbell.osie.name" . }}
+        image: {{ include "tinkerbell.osie.image" . }}
+        ports:
+        - containerPort: {{ include "tinkerbell.osie.port" . }}
+          protocol: TCP
+          name: hook-http
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        volumeMounts:
+        - mountPath: /etc/nginx
+          readOnly: true
+          name: nginx-conf
+        {{- if .Values.optional.hookos.enabled }}
+        - mountPath: /usr/share/nginx/html
+          name: hook-artifacts
+        {{- end }}
+        {{- if .Values.optional.captainos.enabled }}
+        - mountPath: /captain
+          name: captain-artifacts
+        {{- end }}
+      {{- if .Values.optional.hookos.enabled }}
+      - name: download-hook
+        image: {{ .Values.optional.hookos.scriptImage }}
+        command: ["/script/entrypoint.sh"]
+        args: ["--url", "{{ .Values.optional.hookos.downloadURL }}", "--output-dir", "/output", "--arch", "{{ .Values.optional.hookos.arch }}", "--version", "{{ .Values.optional.hookos.kernelVersion }}", "--ext", "{{ .Values.optional.hookos.extension }}"]
+        volumeMounts:
+          - mountPath: /output
+            name: hook-artifacts
+          - mountPath: /script
+            name: configmap-volume
+      {{- end }}
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: nginx-conf
+      {{- if .Values.optional.hookos.enabled }}
+      - name: hook-artifacts
+        persistentVolumeClaim:
+          claimName: {{ coalesce .Values.optional.hookos.persistence.existingClaim .Values.optional.hookos.persistence.localPersistentVolume.name }}
+      - name: configmap-volume
+        configMap:
+          defaultMode: 0700
+          name: download-hook
+      {{- end }}
+      {{- if .Values.optional.captainos.enabled }}
+      - name: captain-artifacts
+        image:
+          reference: {{ .Values.optional.captainos.image }}
+          pullPolicy: {{ .Values.optional.captainos.pullPolicy }}
+      {{- end }}
+      hostNetwork: {{ include "tinkerbell.osie.hostNetwork" . }}
+      {{- $ns := include "tinkerbell.osie.nodeSelector" . }}
+      {{- if $ns }}
+      nodeSelector:
+        {{- $ns | nindent 8 }}
+      {{- end }}
+      {{- $tol := include "tinkerbell.osie.tolerations" . }}
+      {{- if $tol }}
+      tolerations:
+        {{- $tol | nindent 8 }}
+      {{- end }}
+      {{- $aff := include "tinkerbell.osie.affinity" . }}
+      {{- if $aff }}
+      affinity:
+        {{- $aff | nindent 8 }}
+      {{- end }}
+{{- end }}
