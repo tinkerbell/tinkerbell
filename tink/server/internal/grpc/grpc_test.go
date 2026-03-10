@@ -206,6 +206,7 @@ type mockBackendReadWriter struct {
 	hardwareErr error
 
 	updatedHardware *tinkerbell.Hardware // captures the hardware passed to UpdateHardware
+	updateOpts      data.UpdateOptions   // captures the options passed to UpdateHardware
 }
 
 func (m *mockBackendReadWriter) ReadWorkflow(_ context.Context, _ string, _ string, _ data.ReadListOptions) (*tinkerbell.Workflow, error) {
@@ -236,8 +237,9 @@ func (m *mockBackendReadWriter) ReadHardware(_ context.Context, _ string, _ stri
 	return nil, errors.New("hardware not found")
 }
 
-func (m *mockBackendReadWriter) UpdateHardware(_ context.Context, hw *tinkerbell.Hardware, _ data.UpdateOptions) error {
+func (m *mockBackendReadWriter) UpdateHardware(_ context.Context, hw *tinkerbell.Hardware, opts data.UpdateOptions) error {
 	m.updatedHardware = hw
+	m.updateOpts = opts
 	return nil
 }
 
@@ -382,6 +384,9 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 				}
 				if mock.updatedHardware.Annotations[constant.AttributesAnnotation] == "" {
 					t.Fatal("expected attributes annotation to be set, but it was empty")
+				}
+				if mock.updateOpts.PatchFrom == nil {
+					t.Fatal("expected PatchFrom to be set in UpdateOptions for merge-patch, but it was nil")
 				}
 			}
 			if tc.wantNoHWUpdate {

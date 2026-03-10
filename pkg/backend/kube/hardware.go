@@ -39,7 +39,7 @@ func (b *Backend) ReadHardware(ctx context.Context, id, namespace string, opts d
 	// If the list option, byAgentID is provided, then we must also do a list operation,
 	// regardless of whether a namespace is provided or not, as we cannot do a get by agent ID.
 
-	if hwNamespace == "" || opts.ByName == "" {
+	if hwNamespace == "" || opts.ByAgentID != "" {
 		hwList := &v1alpha1.HardwareList{}
 
 		if hwNamespace != opts.InNamespace {
@@ -111,13 +111,30 @@ func hardwareListOptions(opts data.ReadListOptions) []client.ListOption {
 }
 
 func (b *Backend) UpdateHardware(ctx context.Context, hw *v1alpha1.Hardware, opts data.UpdateOptions) error {
+	cc := b.cluster.GetClient()
+
+	if p, err := patchFromOpts(opts); err != nil {
+		return fmt.Errorf("invalid patch options for hardware %s/%s: %w", hw.Namespace, hw.Name, err)
+	} else if p != nil {
+		if opts.StatusOnly {
+			if err := cc.Status().Patch(ctx, hw, p); err != nil {
+				return fmt.Errorf("failed to patch hardware status %s/%s: %w", hw.Namespace, hw.Name, err)
+			}
+			return nil
+		}
+		if err := cc.Patch(ctx, hw, p); err != nil {
+			return fmt.Errorf("failed to patch hardware %s/%s: %w", hw.Namespace, hw.Name, err)
+		}
+		return nil
+	}
+
 	if opts.StatusOnly {
-		if err := b.cluster.GetClient().Status().Update(ctx, hw); err != nil {
+		if err := cc.Status().Update(ctx, hw); err != nil {
 			return fmt.Errorf("failed to update hardware status %s/%s: %w", hw.Namespace, hw.Name, err)
 		}
 		return nil
 	}
-	if err := b.cluster.GetClient().Update(ctx, hw); err != nil {
+	if err := cc.Update(ctx, hw); err != nil {
 		return fmt.Errorf("failed to update hardware %s/%s: %w", hw.Namespace, hw.Name, err)
 	}
 

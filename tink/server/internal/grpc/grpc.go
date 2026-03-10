@@ -437,10 +437,16 @@ func (h *Handler) resolveAndAnnotateHardware(ctx context.Context, log logr.Logge
 }
 
 // updateHardwareWithAttributes updates the Hardware with the given attributes annotation if it doesn't already have it.
+// It uses a merge-patch (rather than a full update) to avoid conflicts with other controllers that may be
+// modifying the same Hardware object concurrently (e.g. the workflow controller toggling allowPXE).
 func (h *Handler) updateHardwareWithAttributes(ctx context.Context, log logr.Logger, hw *tinkerbell.Hardware, attrs *data.AgentAttributes) error {
 	if hw == nil || hw.Annotations[constant.AttributesAnnotation] != "" {
 		return nil
 	}
+
+	// Take a snapshot before mutation so the backend can compute a minimal merge-patch.
+	original := hw.DeepCopy()
+
 	if hw.Annotations == nil {
 		hw.Annotations = make(map[string]string)
 	}
@@ -451,7 +457,7 @@ func (h *Handler) updateHardwareWithAttributes(ctx context.Context, log logr.Log
 	}
 
 	hw.Annotations[constant.AttributesAnnotation] = string(a)
-	if err := h.Backend.UpdateHardware(ctx, hw, data.UpdateOptions{}); err != nil {
+	if err := h.Backend.UpdateHardware(ctx, hw, data.UpdateOptions{PatchFrom: original}); err != nil {
 		return fmt.Errorf("error updating Hardware with attributes annotation: %w", err)
 	}
 

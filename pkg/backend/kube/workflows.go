@@ -51,14 +51,31 @@ func (b *Backend) ListWorkflows(ctx context.Context, namespace string, opts data
 }
 
 func (b *Backend) UpdateWorkflow(ctx context.Context, wf *v1alpha1.Workflow, opts data.UpdateOptions) error {
+	cc := b.cluster.GetClient()
+
+	if p, err := patchFromOpts(opts); err != nil {
+		return fmt.Errorf("invalid patch options for workflow %s: %w", wf.Name, err)
+	} else if p != nil {
+		if opts.StatusOnly {
+			if err := cc.Status().Patch(ctx, wf, p); err != nil {
+				return fmt.Errorf("failed to patch workflow status %s: %w", wf.Name, err)
+			}
+			return nil
+		}
+		if err := cc.Patch(ctx, wf, p); err != nil {
+			return fmt.Errorf("failed to patch workflow %s: %w", wf.Name, err)
+		}
+		return nil
+	}
+
 	if opts.StatusOnly {
 		// Only update the status subresource of the workflow. This is used by the tinkerbell server to update the workflow status without having to worry about conflicts with the controller which may be updating the workflow spec at the same time.
-		if err := b.cluster.GetClient().Status().Update(ctx, wf); err != nil {
+		if err := cc.Status().Update(ctx, wf); err != nil {
 			return fmt.Errorf("failed to update workflow status %s: %w", wf.Name, err)
 		}
 		return nil
 	}
-	if err := b.cluster.GetClient().Update(ctx, wf); err != nil {
+	if err := cc.Update(ctx, wf); err != nil {
 		return fmt.Errorf("failed to update workflow %s: %w", wf.Name, err)
 	}
 
