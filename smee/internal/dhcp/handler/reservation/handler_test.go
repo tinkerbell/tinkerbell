@@ -23,7 +23,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
-	d2 "github.com/tinkerbell/tinkerbell/smee/internal/data"
+	idata "github.com/tinkerbell/tinkerbell/smee/internal/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -801,8 +801,8 @@ func client(pc net.PacketConn) (*dhcpv4.DHCPv4, error) {
 func TestUpdateMsg(t *testing.T) {
 	type args struct {
 		m       *dhcpv4.DHCPv4
-		data    *d2.DHCP
-		netboot *d2.Netboot
+		data    *idata.DHCP
+		netboot *idata.Netboot
 		msg     dhcpv4.MessageType
 	}
 	tests := map[string]struct {
@@ -824,8 +824,8 @@ func TestUpdateMsg(t *testing.T) {
 						dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
 					),
 				},
-				data:    &d2.DHCP{IPAddress: netip.MustParseAddr("192.168.1.100"), SubnetMask: net.IPMask(net.IP{255, 255, 255, 0}.To4())},
-				netboot: &d2.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "auto.ipxe"}},
+				data:    &idata.DHCP{IPAddress: netip.MustParseAddr("192.168.1.100"), SubnetMask: net.IPMask(net.IP{255, 255, 255, 0}.To4())},
+				netboot: &idata.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "auto.ipxe"}},
 				msg:     dhcpv4.MessageTypeDiscover,
 			},
 			want: &dhcpv4.DHCPv4{
@@ -881,8 +881,8 @@ func TestOne(t *testing.T) {
 func TestReadBackend(t *testing.T) {
 	tests := map[string]struct {
 		input       *dhcpv4.DHCPv4
-		wantDHCP    *d2.DHCP
-		wantNetboot *d2.Netboot
+		wantDHCP    *idata.DHCP
+		wantNetboot *idata.Netboot
 		wantErr     error
 	}{
 		"success": {
@@ -898,7 +898,7 @@ func TestReadBackend(t *testing.T) {
 					dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
 				),
 			},
-			wantDHCP: &d2.DHCP{
+			wantDHCP: &idata.DHCP{
 				MACAddress:       []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 				IPAddress:        netip.MustParseAddr("192.168.1.100"),
 				SubnetMask:       []byte{255, 255, 255, 0},
@@ -911,7 +911,7 @@ func TestReadBackend(t *testing.T) {
 				LeaseTime:        60,
 				DomainSearch:     []string{"mydomain.com"},
 			},
-			wantNetboot: &d2.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "/auto.ipxe"}},
+			wantNetboot: &idata.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "/auto.ipxe"}},
 			wantErr:     nil,
 		},
 		"failure": {
@@ -1069,7 +1069,7 @@ func TestDHCPOnlyModeReflection(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to get backend data: %v", err)
 			}
-			hw, err := d2.ConvertByMac(ctx, pkt.ClientHWAddr, spec)
+			hw, err := idata.ConvertByMac(ctx, pkt.ClientHWAddr, spec)
 			if err != nil {
 				t.Fatalf("Failed to convert backend data: %v", err)
 			}
