@@ -27,6 +27,16 @@ var (
 	errRecordNotFound = fmt.Errorf("record not found")
 )
 
+type foundMultipleHardwareError struct {
+	count int
+}
+
+func (f foundMultipleHardwareError) MultipleFound() bool { return true }
+
+func (f foundMultipleHardwareError) Error() string {
+	return fmt.Sprintf("found %d hardware objects matching filter, expected 1", f.count)
+}
+
 // Watcher represents the backend for watching a file for changes and updating the in memory DHCP data.
 type Watcher struct {
 	fileMu sync.RWMutex // protects FilePath for reads
@@ -137,7 +147,7 @@ func (w *Watcher) FilterHardware(ctx context.Context, opts data.HardwareFilter) 
 		span.SetStatus(codes.Ok, "")
 		return matches[0], nil
 	default:
-		err := fmt.Errorf("found %d hardware objects matching filter, expected 1", len(matches))
+		err := foundMultipleHardwareError{count: len(matches)}
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}

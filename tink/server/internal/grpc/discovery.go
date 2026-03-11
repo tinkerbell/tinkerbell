@@ -40,6 +40,11 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 		return existing, nil
 	}
 
+	if foundMultipleHardware(err) {
+		journal.Log(ctx, "Multiple hardware objects found for the same agent ID", "error", err)
+		return nil, fmt.Errorf("multiple hardware objects found for agent ID %s: %w", agentID, err)
+	}
+
 	if !apierrors.IsNotFound(err) {
 		// Unexpected error occurred while checking for existing hardware
 		journal.Log(ctx, "Error checking for existing hardware object", "error", err)
