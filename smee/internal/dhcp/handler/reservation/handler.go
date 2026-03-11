@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
-	idata "github.com/tinkerbell/tinkerbell/smee/internal/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	oteldhcp "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 	"go.opentelemetry.io/otel"
@@ -170,7 +169,7 @@ func replyDestination(directPeer net.Addr, giaddr net.IP) net.Addr {
 }
 
 // readBackend encapsulates the backend read and opentelemetry handling.
-func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*idata.DHCP, *idata.Netboot, error) {
+func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*dhcp.DHCP, *dhcp.Netboot, error) {
 	h.setDefaults()
 
 	tracer := otel.Tracer(tracerName)
@@ -183,7 +182,7 @@ func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*idata
 
 		return nil, nil, err
 	}
-	hw, err := idata.ConvertByMac(ctx, mac, spec)
+	hw, err := dhcp.ConvertByMac(ctx, mac, spec)
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 
@@ -198,7 +197,7 @@ func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*idata
 }
 
 // updateMsg handles updating DHCP packets with the data from the backend.
-func (h *Handler) updateMsg(ctx context.Context, pkt *dhcpv4.DHCPv4, d *idata.DHCP, n *idata.Netboot, msgType dhcpv4.MessageType) *dhcpv4.DHCPv4 {
+func (h *Handler) updateMsg(ctx context.Context, pkt *dhcpv4.DHCPv4, d *dhcp.DHCP, n *dhcp.Netboot, msgType dhcpv4.MessageType) *dhcpv4.DHCPv4 {
 	h.setDefaults()
 	mods := []dhcpv4.Modifier{
 		dhcpv4.WithMessageType(msgType),

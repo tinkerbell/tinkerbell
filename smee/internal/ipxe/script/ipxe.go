@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
-	idata "github.com/tinkerbell/tinkerbell/smee/internal/data"
+	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -74,7 +74,7 @@ func getByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (info
 	if err != nil {
 		return info{}, err
 	}
-	hw, err := idata.ConvertByMac(ctx, mac, spec)
+	hw, err := dhcp.ConvertByMac(ctx, mac, spec)
 	if err != nil {
 		return info{}, fmt.Errorf("failed to convert hardware data: %w", err)
 	}
@@ -110,7 +110,7 @@ func getByIP(ctx context.Context, ip net.IP, br BackendReader) (info, error) {
 	if err != nil {
 		return info{}, err
 	}
-	hw, err := idata.ConvertByIP(ctx, ip, spec)
+	hw, err := dhcp.ConvertByIP(ctx, ip, spec)
 	if err != nil {
 		return info{}, fmt.Errorf("failed to convert hardware data: %w", err)
 	}

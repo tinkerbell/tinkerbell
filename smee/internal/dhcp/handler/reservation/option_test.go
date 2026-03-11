@@ -17,7 +17,6 @@ import (
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/insomniacslk/dhcp/rfc1035label"
 	dhcpotel "github.com/tinkerbell/tinkerbell/pkg/otel"
-	"github.com/tinkerbell/tinkerbell/smee/internal/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	oteldhcp "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 	"go.opentelemetry.io/otel"
@@ -32,7 +31,7 @@ func TestSetDHCPOpts(t *testing.T) {
 	type args struct {
 		in0 context.Context
 		m   *dhcpv4.DHCPv4
-		d   *data.DHCP
+		d   *dhcp.DHCP
 	}
 	tests := map[string]struct {
 		server Handler
@@ -44,7 +43,7 @@ func TestSetDHCPOpts(t *testing.T) {
 			args: args{
 				in0: context.Background(),
 				m:   &dhcpv4.DHCPv4{Options: dhcpv4.OptionsFromList(dhcpv4.OptParameterRequestList(dhcpv4.OptionSubnetMask))},
-				d: &data.DHCP{
+				d: &dhcp.DHCP{
 					MACAddress:     net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 					IPAddress:      netip.MustParseAddr("192.168.4.4"),
 					SubnetMask:     []byte{255, 255, 255, 0},
@@ -101,7 +100,7 @@ func TestSetDHCPOpts(t *testing.T) {
 			args: args{
 				in0: context.Background(),
 				m:   &dhcpv4.DHCPv4{Options: dhcpv4.OptionsFromList(dhcpv4.OptParameterRequestList(dhcpv4.OptionSubnetMask))},
-				d: &data.DHCP{
+				d: &dhcp.DHCP{
 					MACAddress:     net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 					IPAddress:      netip.MustParseAddr("192.168.4.4"),
 					SubnetMask:     []byte{255, 255, 255, 0},
@@ -148,7 +147,7 @@ func TestSetDHCPOpts(t *testing.T) {
 			args: args{
 				in0: context.Background(),
 				m:   &dhcpv4.DHCPv4{Options: dhcpv4.OptionsFromList(dhcpv4.OptParameterRequestList(dhcpv4.OptionSubnetMask))},
-				d: &data.DHCP{
+				d: &dhcp.DHCP{
 					MACAddress:     net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 					IPAddress:      netip.MustParseAddr("192.168.4.4"),
 					SubnetMask:     []byte{255, 255, 255, 0},
@@ -336,7 +335,7 @@ func TestSetNetworkBootOpts(t *testing.T) {
 	type args struct {
 		in0 context.Context
 		m   *dhcpv4.DHCPv4
-		n   *data.Netboot
+		n   *dhcp.Netboot
 	}
 	tests := map[string]struct {
 		server *Handler
@@ -348,7 +347,7 @@ func TestSetNetworkBootOpts(t *testing.T) {
 			args: args{
 				in0: context.Background(),
 				m:   &dhcpv4.DHCPv4{},
-				n:   &data.Netboot{AllowNetboot: false},
+				n:   &dhcp.Netboot{AllowNetboot: false},
 			},
 			want: &dhcpv4.DHCPv4{ServerIPAddr: net.IPv4(0, 0, 0, 0), BootFileName: "/netboot-not-allowed"},
 		},
@@ -366,7 +365,7 @@ func TestSetNetworkBootOpts(t *testing.T) {
 						dhcpv4.OptClientArch(iana.EFI_X86_64_HTTP),
 					),
 				},
-				n: &data.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "/01:02:03:04:05:06/auto.ipxe"}},
+				n: &dhcp.Netboot{AllowNetboot: true, IPXEScriptURL: &url.URL{Scheme: "http", Host: "localhost:8181", Path: "/01:02:03:04:05:06/auto.ipxe"}},
 			},
 			want: &dhcpv4.DHCPv4{BootFileName: "http://localhost:8181/01:02:03:04:05:06/auto.ipxe", Options: dhcpv4.OptionsFromList(
 				dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{
@@ -393,7 +392,7 @@ func TestSetNetworkBootOpts(t *testing.T) {
 						dhcpv4.OptClientArch(iana.EFI_X86_64_HTTP),
 					),
 				},
-				n: &data.Netboot{AllowNetboot: true, IPXEBinary: "snp-x86_64.efi"},
+				n: &dhcp.Netboot{AllowNetboot: true, IPXEBinary: "snp-x86_64.efi"},
 			},
 			want: &dhcpv4.DHCPv4{BootFileName: "http://localhost:8181/ipxe/01:02:03:04:05:06/snp-x86_64.efi", Options: dhcpv4.OptionsFromList(
 				dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{
@@ -416,7 +415,7 @@ func TestSetNetworkBootOpts(t *testing.T) {
 						dhcpv4.OptClientArch(iana.UBOOT_ARM64),
 					),
 				},
-				n: &data.Netboot{AllowNetboot: true},
+				n: &dhcp.Netboot{AllowNetboot: true},
 			},
 			want: &dhcpv4.DHCPv4{ServerIPAddr: net.IPv4(0, 0, 0, 0), BootFileName: "/netboot-not-allowed"},
 		},

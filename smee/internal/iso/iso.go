@@ -21,7 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
-	idata "github.com/tinkerbell/tinkerbell/smee/internal/data"
+	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso/internal"
 )
 
@@ -372,7 +372,7 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 	return resp, nil
 }
 
-func (h *Handler) constructPatch(console, mac string, d *idata.DHCP) string {
+func (h *Handler) constructPatch(console, mac string, d *dhcp.DHCP) string {
 	syslogHost := fmt.Sprintf("syslog_host=%s", h.Patch.KernelParams.Syslog)
 	grpcAuthority := fmt.Sprintf("grpc_authority=%s", h.Patch.KernelParams.TinkServerGRPCAddr)
 	tinkerbellTLS := fmt.Sprintf("tinkerbell_tls=%v", h.Patch.KernelParams.TinkServerTLS)
@@ -401,21 +401,21 @@ func getMAC(urlPath string) (net.HardwareAddr, error) {
 	return hw, nil
 }
 
-func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br BackendReader) (string, idata.Hardware, error) {
+func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br BackendReader) (string, dhcp.Hardware, error) {
 	if br == nil {
-		return "", idata.Hardware{}, errors.New("backend is nil")
+		return "", dhcp.Hardware{}, errors.New("backend is nil")
 	}
 
 	spec, err := br.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: mac.String()})
 	if err != nil {
-		return "", idata.Hardware{}, err
+		return "", dhcp.Hardware{}, err
 	}
-	hw, err := idata.ConvertByMac(ctx, mac, spec)
+	hw, err := dhcp.ConvertByMac(ctx, mac, spec)
 	if err != nil {
-		return "", idata.Hardware{}, fmt.Errorf("failed to convert hardware data: %w", err)
+		return "", dhcp.Hardware{}, fmt.Errorf("failed to convert hardware data: %w", err)
 	}
 
-	return hw.Netboot.Facility, idata.Hardware{DHCP: hw.DHCP, Isoboot: hw.Isoboot}, nil
+	return hw.Netboot.Facility, dhcp.Hardware{DHCP: hw.DHCP, Isoboot: hw.Isoboot}, nil
 }
 
 func randomPercentage(precision int64) float64 {

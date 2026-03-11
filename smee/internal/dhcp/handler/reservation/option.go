@@ -10,7 +10,6 @@ import (
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
-	"github.com/tinkerbell/tinkerbell/smee/internal/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	dhcpotel "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 )
@@ -18,7 +17,7 @@ import (
 // setDHCPOpts takes a client dhcp packet and data (typically from a backend) and creates a slice of DHCP packet modifiers.
 // m is the DHCP request from a client. d is the data to use to create the DHCP packet modifiers.
 // This is most likely the place where we would have any business logic for determining DHCP option setting.
-func (h *Handler) setDHCPOpts(_ context.Context, _ *dhcpv4.DHCPv4, d *data.DHCP) []dhcpv4.Modifier {
+func (h *Handler) setDHCPOpts(_ context.Context, _ *dhcpv4.DHCPv4, d *dhcp.DHCP) []dhcpv4.Modifier {
 	mods := []dhcpv4.Modifier{
 		dhcpv4.WithLeaseTime(d.LeaseTime),
 		dhcpv4.WithYourIP(d.IPAddress.AsSlice()),
@@ -79,7 +78,7 @@ func (h *Handler) setDHCPOpts(_ context.Context, _ *dhcpv4.DHCPv4, d *data.DHCP)
 // DHCP option
 // option 60: Class Identifier. https://www.rfc-editor.org/rfc/rfc2132.html#section-9.13
 // option 60 is set if the client's option 60 (Class Identifier) starts with HTTPClient.
-func (h *Handler) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n *data.Netboot) dhcpv4.Modifier {
+func (h *Handler) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n *dhcp.Netboot) dhcpv4.Modifier {
 	// m is a received DHCPv4 packet.
 	// d is the reply packet we are building.
 	withNetboot := func(d *dhcpv4.DHCPv4) {

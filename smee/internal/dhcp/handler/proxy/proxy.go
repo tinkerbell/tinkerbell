@@ -26,8 +26,7 @@ import (
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
-	option "github.com/tinkerbell/tinkerbell/pkg/data"
-	"github.com/tinkerbell/tinkerbell/smee/internal/data"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	oteldhcp "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 	"go.opentelemetry.io/otel"
@@ -41,7 +40,7 @@ const tracerName = "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/
 
 // BackendReader is the interface for getting data from a backend.
 type BackendReader interface {
-	FilterHardware(ctx context.Context, opts option.HardwareFilter) (*tinkerbell.Hardware, error)
+	FilterHardware(ctx context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error)
 }
 
 // Handler holds the configuration details for the running the DHCP server.
@@ -201,8 +200,8 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	// setSNAME(reply, dp.Pkt.GetOneOption(dhcpv4.OptionClassIdentifier), h.Netboot.IPXEBinServerTFTP.Addr().AsSlice(), net.ParseIP(h.Netboot.IPXEBinServerHTTP.Hostname()))
 
 	// check the backend, if PXE is NOT allowed, set the boot file name to "/<mac address>/not-allowed"
-	var hw data.Hardware
-	spec, err := h.Backend.FilterHardware(ctx, option.HardwareFilter{ByMACAddress: dp.Pkt.ClientHWAddr.String()})
+	var hw dhcp.Hardware
+	spec, err := h.Backend.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: dp.Pkt.ClientHWAddr.String()})
 	switch {
 	case err != nil && !h.AutoProxyEnabled:
 		log.Info("Ignoring packet", "error", err.Error())
@@ -211,7 +210,7 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	case err != nil:
 		log.Info("No hardware found, proceeding with defaults", "error", err.Error())
 	default:
-		hw, err = data.ConvertByMac(ctx, dp.Pkt.ClientHWAddr, spec)
+		hw, err = dhcp.ConvertByMac(ctx, dp.Pkt.ClientHWAddr, spec)
 		if err != nil && !h.AutoProxyEnabled {
 			log.Info("Ignoring packet", "error", err.Error())
 			span.SetStatus(codes.Error, err.Error())
@@ -219,7 +218,7 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 		}
 		if err != nil {
 			log.Info("Failed to convert hardware data, proceeding with defaults", "error", err.Error())
-			hw = data.Hardware{}
+			hw = dhcp.Hardware{}
 		}
 	}
 	// If we have a Hardware object, check if there is a custom iPXE binary defined.

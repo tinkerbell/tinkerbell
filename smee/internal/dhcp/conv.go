@@ -1,4 +1,4 @@
-package data
+package dhcp
 
 import (
 	"context"
@@ -120,12 +120,20 @@ func toDHCPData(h *v1alpha1.DHCP) (*DHCP, error) {
 		if d.IPAddress, err = netip.ParseAddr(h.IP.Address); err != nil {
 			return nil, err
 		}
-		// A valid Netmask is required
-		sm := net.ParseIP(h.IP.Netmask)
-		if sm == nil {
-			return nil, errors.New("no netmask")
+		if d.IPAddress.Is4() || d.IPAddress.Is4In6() {
+			// SubnetMask is required for IPv4 addresses
+			sm := net.ParseIP(h.IP.Netmask)
+			if sm == nil {
+				return nil, errors.New("no netmask")
+			}
+			sm4 := sm.To4()
+			if sm4 == nil {
+				return nil, errors.New("netmask must be an IPv4 address")
+			}
+			d.SubnetMask = net.IPMask(sm4)
+		} else if h.IP.Netmask != "" {
+			return nil, errors.New("netmask is not applicable for IPv6 addresses")
 		}
-		d.SubnetMask = net.IPMask(sm.To4())
 	}
 
 	// Gateway is optional, but should be a valid IP address if present
@@ -139,7 +147,7 @@ func toDHCPData(h *v1alpha1.DHCP) (*DHCP, error) {
 	for _, s := range h.NameServers {
 		ip := net.ParseIP(s)
 		if ip == nil {
-			break
+			continue
 		}
 		d.NameServers = append(d.NameServers, ip)
 	}
@@ -148,7 +156,7 @@ func toDHCPData(h *v1alpha1.DHCP) (*DHCP, error) {
 	for _, s := range h.TimeServers {
 		ip := net.ParseIP(s)
 		if ip == nil {
-			break
+			continue
 		}
 		d.NTPServers = append(d.NTPServers, ip)
 	}
@@ -168,6 +176,8 @@ func toDHCPData(h *v1alpha1.DHCP) (*DHCP, error) {
 	if h.IP != nil && d.IPAddress.Is4() && d.SubnetMask != nil {
 		ip4 := d.IPAddress.As4()
 		var broadcast [4]byte
+		// Compute the broadcast address by ORing the IP with the inverted subnet mask,
+		// which sets all host bits to 1.
 		for i := range 4 {
 			broadcast[i] = ip4[i] | ^d.SubnetMask[i]
 		}
@@ -176,7 +186,8 @@ func toDHCPData(h *v1alpha1.DHCP) (*DHCP, error) {
 
 	// lease time required
 	// Default to one week
-	d.LeaseTime = 604800
+	const defaultLeaseTime uint32 = 604800 // 1 week in seconds
+	d.LeaseTime = defaultLeaseTime
 	if v, err := safecast.Convert[uint32](h.LeaseTime); err == nil {
 		d.LeaseTime = v
 	}

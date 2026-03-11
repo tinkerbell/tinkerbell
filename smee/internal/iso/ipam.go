@@ -6,10 +6,10 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/tinkerbell/tinkerbell/smee/internal/data"
+	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 )
 
-func parseIPAM(d *data.DHCP) string {
+func parseIPAM(d *dhcp.DHCP) string {
 	if d == nil {
 		return ""
 	}

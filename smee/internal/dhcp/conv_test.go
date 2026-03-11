@@ -1,4 +1,4 @@
-package data
+package dhcp
 
 import (
 	"context"
@@ -243,6 +243,141 @@ func TestConvertByMac(t *testing.T) {
 					AllowNetboot: true,
 				},
 			},
+		},
+		"ipv6 address no netmask": {
+			mac: net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+			hw: &tinkerbell.Hardware{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
+						{
+							DHCP: &tinkerbell.DHCP{
+								MAC:      "aa:bb:cc:dd:ee:ff",
+								Hostname: "ipv6-host",
+								IP: &tinkerbell.IP{
+									Address: "2001:db8::1",
+								},
+							},
+							Netboot: &tinkerbell.Netboot{AllowPXE: boolPtr(true)},
+						},
+					},
+				},
+			},
+			want: Hardware{
+				DHCP: &DHCP{
+					MACAddress: net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+					IPAddress:  netip.MustParseAddr("2001:db8::1"),
+					Hostname:   "ipv6-host",
+					LeaseTime:  0,
+				},
+				Netboot: &Netboot{
+					AllowNetboot: true,
+				},
+			},
+		},
+		"ipv6 address with netmask errors": {
+			mac: net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+			hw: &tinkerbell.Hardware{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
+						{
+							DHCP: &tinkerbell.DHCP{
+								MAC: "aa:bb:cc:dd:ee:ff",
+								IP: &tinkerbell.IP{
+									Address: "2001:db8::1",
+									Netmask: "255.255.255.0",
+								},
+							},
+							Netboot: &tinkerbell.Netboot{AllowPXE: boolPtr(true)},
+						},
+					},
+				},
+			},
+			shouldErr: true,
+		},
+		"ipv6 gateway with ipv6 ip": {
+			mac: net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+			hw: &tinkerbell.Hardware{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
+						{
+							DHCP: &tinkerbell.DHCP{
+								MAC:      "aa:bb:cc:dd:ee:ff",
+								Hostname: "ipv6-gw",
+								IP: &tinkerbell.IP{
+									Address: "2001:db8::1",
+									Gateway: "2001:db8::fffe",
+								},
+							},
+							Netboot: &tinkerbell.Netboot{AllowPXE: boolPtr(true)},
+						},
+					},
+				},
+			},
+			want: Hardware{
+				DHCP: &DHCP{
+					MACAddress:     net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+					IPAddress:      netip.MustParseAddr("2001:db8::1"),
+					DefaultGateway: netip.MustParseAddr("2001:db8::fffe"),
+					Hostname:       "ipv6-gw",
+					LeaseTime:      0,
+				},
+				Netboot: &Netboot{
+					AllowNetboot: true,
+				},
+			},
+		},
+		"nameservers with invalid in middle preserved": {
+			mac: net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+			hw: &tinkerbell.Hardware{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
+						{
+							DHCP: &tinkerbell.DHCP{
+								MAC: "aa:bb:cc:dd:ee:ff",
+								IP: &tinkerbell.IP{
+									Address: "10.0.0.1",
+									Netmask: "255.255.255.0",
+								},
+								NameServers: []string{"8.8.8.8", "not-an-ip", "8.8.4.4"},
+							},
+							Netboot: &tinkerbell.Netboot{AllowPXE: boolPtr(true)},
+						},
+					},
+				},
+			},
+			want: Hardware{
+				DHCP: &DHCP{
+					MACAddress:       net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+					IPAddress:        netip.MustParseAddr("10.0.0.1"),
+					SubnetMask:       net.IPv4Mask(255, 255, 255, 0),
+					BroadcastAddress: netip.MustParseAddr("10.0.0.255"),
+					NameServers:      []net.IP{net.ParseIP("8.8.8.8"), net.ParseIP("8.8.4.4")},
+					LeaseTime:        0,
+				},
+				Netboot: &Netboot{
+					AllowNetboot: true,
+				},
+			},
+		},
+		"ipv4 netmask as ipv6 errors": {
+			mac: net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+			hw: &tinkerbell.Hardware{
+				Spec: tinkerbell.HardwareSpec{
+					Interfaces: []tinkerbell.Interface{
+						{
+							DHCP: &tinkerbell.DHCP{
+								MAC: "aa:bb:cc:dd:ee:ff",
+								IP: &tinkerbell.IP{
+									Address: "10.0.0.1",
+									Netmask: "2001:db8::1",
+								},
+							},
+							Netboot: &tinkerbell.Netboot{AllowPXE: boolPtr(true)},
+						},
+					},
+				},
+			},
+			shouldErr: true,
 		},
 	}
 	for name, tt := range tests {
