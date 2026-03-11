@@ -81,7 +81,7 @@ func (w *Watcher) ReadHardware(ctx context.Context, id, namespace string, opts d
 
 	var hwList []tinkerbell.Hardware
 	if err := yaml.Unmarshal(d, &hwList); err != nil {
-		err := fmt.Errorf("%w: %w", err, errFileFormat)
+		err := fmt.Errorf("%w: %v", errFileFormat, err)
 		w.Log.Error(err, "failed to unmarshal file data")
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err

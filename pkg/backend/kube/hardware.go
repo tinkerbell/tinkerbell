@@ -39,6 +39,12 @@ func (b *Backend) ReadHardware(ctx context.Context, name, namespace string, opts
 	// If the list option, byAgentID is provided, then we must also do a list operation,
 	// regardless of whether a namespace is provided or not, as we cannot do a get by agent ID.
 
+	// When no namespace is provided but a name is, and no explicit query options are set,
+	// default to filtering by name to avoid an unfiltered list across all hardware.
+	if hwNamespace == "" && opts.ByAgentID == "" && opts.ByName == "" && hwName != "" {
+		opts.ByName = hwName
+	}
+
 	if hwNamespace == "" || opts.ByAgentID != "" {
 		hwList := &v1alpha1.HardwareList{}
 
