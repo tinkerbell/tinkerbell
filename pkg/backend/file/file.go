@@ -110,6 +110,9 @@ func (w *Watcher) UpdateHardware(_ context.Context, _ *tinkerbell.Hardware, _ da
 
 // matchHardware checks if a Hardware object matches the given search criteria.
 func matchHardware(hw *tinkerbell.Hardware, id string, opts data.ReadListOptions) bool {
+	if opts.InNamespace != "" && hw.Namespace != opts.InNamespace {
+		return false
+	}
 	if id != "" && id == hw.Name {
 		return true
 	}

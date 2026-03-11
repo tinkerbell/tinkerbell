@@ -21,8 +21,8 @@ func (b *Backend) CreateHardware(ctx context.Context, hw *v1alpha1.Hardware) err
 	return nil
 }
 
-// ReadHardware looks up a Hardware object by name or agent ID depending on the provided LookupOptions.
-// If the LookupOptions does not specify a lookup method, it will default to looking up by agent ID for backwards compatibility.
+// ReadHardware looks up a Hardware object using Kubernetes name/namespace or according to the provided ReadListOptions.
+// When opts.ByAgentID is set, it performs a list-based lookup filtered by agent ID; otherwise it defaults to a name/namespace-based Get (or a List when no namespace is provided).
 func (b *Backend) ReadHardware(ctx context.Context, name, namespace string, opts data.ReadListOptions) (*v1alpha1.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "backend.kube.ReadHardware")
