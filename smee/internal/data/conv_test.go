@@ -209,6 +209,41 @@ func TestConvertByMac(t *testing.T) {
 				},
 			},
 		},
+		"with agent id": {
+			mac: net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+			hw: &tinkerbell.Hardware{
+				Spec: tinkerbell.HardwareSpec{
+					AgentID: "custom-worker-1",
+					Interfaces: []tinkerbell.Interface{
+						{
+							DHCP: &tinkerbell.DHCP{
+								MAC:      "aa:bb:cc:dd:ee:ff",
+								Hostname: "agent-host",
+								IP: &tinkerbell.IP{
+									Address: "10.0.0.5",
+									Netmask: "255.255.255.0",
+								},
+							},
+							Netboot: &tinkerbell.Netboot{AllowPXE: boolPtr(true)},
+						},
+					},
+				},
+			},
+			want: Hardware{
+				AgentID: "custom-worker-1",
+				DHCP: &DHCP{
+					MACAddress:       net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+					IPAddress:        netip.MustParseAddr("10.0.0.5"),
+					SubnetMask:       net.IPv4Mask(255, 255, 255, 0),
+					BroadcastAddress: netip.MustParseAddr("10.0.0.255"),
+					Hostname:         "agent-host",
+					LeaseTime:        0,
+				},
+				Netboot: &Netboot{
+					AllowNetboot: true,
+				},
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -295,6 +330,43 @@ func TestConvertByIP(t *testing.T) {
 					DefaultGateway:   netip.MustParseAddr("192.168.1.1"),
 					Hostname:         "by-ip",
 					BroadcastAddress: netip.MustParseAddr("192.168.1.255"),
+					LeaseTime:        0,
+				},
+				Netboot: &Netboot{
+					AllowNetboot: true,
+				},
+			},
+		},
+		"with agent id": {
+			ip: net.ParseIP("192.168.1.10"),
+			hw: &tinkerbell.Hardware{
+				Spec: tinkerbell.HardwareSpec{
+					AgentID: "custom-worker-2",
+					Interfaces: []tinkerbell.Interface{
+						{
+							DHCP: &tinkerbell.DHCP{
+								MAC:      "aa:bb:cc:dd:ee:ff",
+								Hostname: "agent-host",
+								IP: &tinkerbell.IP{
+									Address: "192.168.1.10",
+									Netmask: "255.255.255.0",
+									Gateway: "192.168.1.1",
+								},
+							},
+							Netboot: &tinkerbell.Netboot{AllowPXE: boolPtr(true)},
+						},
+					},
+				},
+			},
+			want: Hardware{
+				AgentID: "custom-worker-2",
+				DHCP: &DHCP{
+					MACAddress:       net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+					IPAddress:        netip.MustParseAddr("192.168.1.10"),
+					SubnetMask:       net.IPv4Mask(255, 255, 255, 0),
+					DefaultGateway:   netip.MustParseAddr("192.168.1.1"),
+					BroadcastAddress: netip.MustParseAddr("192.168.1.255"),
+					Hostname:         "agent-host",
 					LeaseTime:        0,
 				},
 				Netboot: &Netboot{

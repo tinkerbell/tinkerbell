@@ -39,7 +39,7 @@ func ConvertByMac(ctx context.Context, mac net.HardwareAddr, hw *v1alpha1.Hardwa
 		return Hardware{}, err
 	}
 
-	result := Hardware{DHCP: d, Netboot: n}
+	result := Hardware{DHCP: d, Netboot: n, AgentID: hw.Spec.AgentID}
 
 	if i.Isoboot != nil && i.Isoboot.SourceISO != "" {
 		si, err := url.Parse(i.Isoboot.SourceISO)
@@ -80,7 +80,7 @@ func ConvertByIP(ctx context.Context, ip net.IP, hw *v1alpha1.Hardware) (Hardwar
 		return Hardware{}, err
 	}
 
-	result := Hardware{DHCP: d, Netboot: n}
+	result := Hardware{DHCP: d, Netboot: n, AgentID: hw.Spec.AgentID}
 
 	if i.Isoboot != nil && i.Isoboot.SourceISO != "" {
 		si, err := url.Parse(i.Isoboot.SourceISO)
