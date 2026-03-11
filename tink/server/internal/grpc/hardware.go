@@ -11,8 +11,10 @@ import (
 
 // hardware returns the Hardware object for the given agentID.
 func (h *Handler) hardware(ctx context.Context, agentID string) (*v1alpha1.Hardware, error) {
-	// Check if Hardware object already exists
-	existing, err := h.Backend.ReadHardware(ctx, agentID, h.AutoCapabilities.Discovery.Namespace, data.ReadListOptions{ByAgentID: agentID})
+	// Check if Hardware object already exists.
+	// Pass an empty name so backends use ByAgentID as the sole selector,
+	// avoiding accidental matches by object name.
+	existing, err := h.Backend.ReadHardware(ctx, "", h.AutoCapabilities.Discovery.Namespace, data.ReadListOptions{ByAgentID: agentID})
 	if err == nil {
 		journal.Log(ctx, "Hardware object exists")
 		return existing, nil

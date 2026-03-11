@@ -53,7 +53,7 @@ func (b *Backend) ReadHardware(ctx context.Context, name, namespace string, opts
 		}
 
 		if err := b.cluster.GetClient().List(ctx, hwList, hardwareListOptions(opts)...); err != nil {
-			return nil, fmt.Errorf("failed to list hardware with name %s across all namespaces: %w", hwName, err)
+			return nil, fmt.Errorf("failed to list hardware %s: %w", listQueryDesc(opts, hwName), err)
 		}
 		if len(hwList.Items) == 0 {
 			err := hardwareNotFoundError{name: hwName, namespace: ternary(hwNamespace == "", "all namespaces", hwNamespace)}
@@ -77,6 +77,24 @@ func (b *Backend) ReadHardware(ctx context.Context, name, namespace string, opts
 	}
 
 	return hw, nil
+}
+
+// listQueryDesc builds a human-readable description of a hardware list query for error messages.
+func listQueryDesc(opts data.ReadListOptions, hwName string) string {
+	nsDesc := opts.InNamespace
+	if nsDesc == "" {
+		nsDesc = "all namespaces"
+	}
+	desc := fmt.Sprintf("in %s", nsDesc)
+	if opts.ByName != "" {
+		desc = fmt.Sprintf("%s with name %q", desc, opts.ByName)
+	} else if hwName != "" {
+		desc = fmt.Sprintf("%s with name %q", desc, hwName)
+	}
+	if opts.ByAgentID != "" {
+		desc = fmt.Sprintf("%s with agentID %q", desc, opts.ByAgentID)
+	}
+	return desc
 }
 
 func (b *Backend) ListHardware(ctx context.Context, namespace string, opts data.ReadListOptions) ([]v1alpha1.Hardware, error) {

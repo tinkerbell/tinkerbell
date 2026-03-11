@@ -109,13 +109,20 @@ func (w *Watcher) UpdateHardware(_ context.Context, _ *tinkerbell.Hardware, _ da
 }
 
 // matchHardware checks if a Hardware object matches the given search criteria.
+// When explicit selectors are provided in opts, they take priority over the id parameter
+// to avoid false-positive matches by object name when callers intend to filter by other fields.
 func matchHardware(hw *tinkerbell.Hardware, id string, opts data.ReadListOptions) bool {
 	if opts.InNamespace != "" && hw.Namespace != opts.InNamespace {
 		return false
 	}
-	if id != "" && id == hw.Name {
-		return true
+
+	// When explicit selectors are set, use them instead of the id parameter.
+	hasSelectors := opts.ByName != "" || opts.ByAgentID != "" || opts.Hardware.ByMACAddress != "" || opts.Hardware.ByIPAddress != ""
+
+	if !hasSelectors && id != "" {
+		return id == hw.Name
 	}
+
 	if opts.ByName != "" && hw.Name == opts.ByName {
 		return true
 	}
