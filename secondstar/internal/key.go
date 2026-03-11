@@ -10,7 +10,7 @@ import (
 )
 
 type Reader interface {
-	ReadBMCMachine(ctx context.Context, name string) (*data.BMCMachine, error)
+	FilterBMCMachine(ctx context.Context, opts data.HardwareFilter) (*data.BMCMachine, error)
 }
 
 type contextKey string
@@ -24,7 +24,7 @@ const (
 // The session handler must check the context for the error value and close the session if it is set.
 func PubkeyAuth(r Reader, log logr.Logger) func(ssh.Context, ssh.PublicKey) bool {
 	return func(ctx ssh.Context, key ssh.PublicKey) bool {
-		hw, err := r.ReadBMCMachine(ctx, ctx.User())
+		hw, err := r.FilterBMCMachine(ctx, data.HardwareFilter{ByName: ctx.User()})
 		if err != nil {
 			log.Info("error reading bmc machine", "error", err)
 			return false

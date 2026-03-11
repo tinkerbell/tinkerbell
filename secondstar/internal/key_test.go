@@ -15,11 +15,11 @@ import (
 
 // mockReader implements the Reader interface for testing.
 type mockReader struct {
-	readBMCMachineFunc func(ctx context.Context, name string) (*data.BMCMachine, error)
+	filterBMCMachineFunc func(ctx context.Context, opts data.HardwareFilter) (*data.BMCMachine, error)
 }
 
-func (m *mockReader) ReadBMCMachine(ctx context.Context, name string) (*data.BMCMachine, error) {
-	return m.readBMCMachineFunc(ctx, name)
+func (m *mockReader) FilterBMCMachine(ctx context.Context, opts data.HardwareFilter) (*data.BMCMachine, error) {
+	return m.filterBMCMachineFunc(ctx, opts)
 }
 
 // mockContext implements gliderlabs.Context interface.
@@ -144,7 +144,7 @@ func TestPubkeyAuth(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			reader := &mockReader{
-				readBMCMachineFunc: func(context.Context, string) (*data.BMCMachine, error) {
+				filterBMCMachineFunc: func(context.Context, data.HardwareFilter) (*data.BMCMachine, error) {
 					return tt.machine, tt.readMachineError
 				},
 			}

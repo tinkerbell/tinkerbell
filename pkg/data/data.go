@@ -1,7 +1,8 @@
 package data
 
 // HardwareFilter holds selectors for finding Hardware objects.
-// Exactly one selector should be set. InNamespace optionally scopes any selector.
+// Multiple selectors can be set and are AND-ed.
+// InNamespace optionally scopes any selector.
 type HardwareFilter struct {
 	InNamespace  string
 	ByName       string

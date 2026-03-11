@@ -102,6 +102,7 @@ func (w *Watcher) ReadHardware(ctx context.Context, name, namespace string) (*ti
 }
 
 // FilterHardware looks up a single Hardware object from the in-memory data using selector-based filtering.
+// Exactly one result is expected; zero results returns a not-found error and multiple results returns a multiple-found error.
 func (w *Watcher) FilterHardware(ctx context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	_, span := tracer.Start(ctx, "backend.file.FilterHardware")
@@ -119,17 +120,27 @@ func (w *Watcher) FilterHardware(ctx context.Context, opts data.HardwareFilter) 
 		return nil, err
 	}
 
+	var matches []*tinkerbell.Hardware
 	for i := range hwList {
 		hw := &hwList[i]
 		if matchHardware(hw, opts) {
-			span.SetStatus(codes.Ok, "")
-			return hw, nil
+			matches = append(matches, hw)
 		}
 	}
 
-	err := fmt.Errorf("%w: no matching hardware found", errRecordNotFound)
-	span.SetStatus(codes.Error, err.Error())
-	return nil, err
+	switch len(matches) {
+	case 0:
+		err := fmt.Errorf("%w: no matching hardware found", errRecordNotFound)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
+	case 1:
+		span.SetStatus(codes.Ok, "")
+		return matches[0], nil
+	default:
+		err := fmt.Errorf("found %d hardware objects matching filter, expected 1", len(matches))
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
+	}
 }
 
 // UpdateHardware is not supported by the file backend as it is read-only.
@@ -137,34 +148,44 @@ func (w *Watcher) UpdateHardware(_ context.Context, _ *tinkerbell.Hardware, _ da
 	return fmt.Errorf("file backend does not support hardware updates")
 }
 
-// matchHardware checks if a Hardware object matches the given filter selectors.
+// matchHardware checks if a Hardware object matches all the given filter selectors (AND logic).
 func matchHardware(hw *tinkerbell.Hardware, opts data.HardwareFilter) bool {
 	if opts.InNamespace != "" && hw.Namespace != opts.InNamespace {
 		return false
 	}
+	if opts.ByName != "" && hw.Name != opts.ByName {
+		return false
+	}
+	if opts.ByAgentID != "" && hw.Spec.AgentID != opts.ByAgentID {
+		return false
+	}
+	if opts.ByMACAddress != "" && !hardwareHasMAC(hw, opts.ByMACAddress) {
+		return false
+	}
+	if opts.ByIPAddress != "" && !hardwareHasIP(hw, opts.ByIPAddress) {
+		return false
+	}
+	if opts.ByInstanceID != "" && (hw.Spec.Metadata == nil || hw.Spec.Metadata.Instance == nil || hw.Spec.Metadata.Instance.ID != opts.ByInstanceID) {
+		return false
+	}
+	// At least one selector must be set for a match.
+	return opts.ByName != "" || opts.ByAgentID != "" || opts.ByMACAddress != "" || opts.ByIPAddress != "" || opts.ByInstanceID != ""
+}
 
-	if opts.ByName != "" && hw.Name == opts.ByName {
-		return true
-	}
-	if opts.ByAgentID != "" && hw.Spec.AgentID == opts.ByAgentID {
-		return true
-	}
-	if opts.ByMACAddress != "" {
-		for _, iface := range hw.Spec.Interfaces {
-			if iface.DHCP != nil && strings.EqualFold(iface.DHCP.MAC, opts.ByMACAddress) {
-				return true
-			}
+func hardwareHasMAC(hw *tinkerbell.Hardware, mac string) bool {
+	for _, iface := range hw.Spec.Interfaces {
+		if iface.DHCP != nil && strings.EqualFold(iface.DHCP.MAC, mac) {
+			return true
 		}
 	}
-	if opts.ByIPAddress != "" {
-		for _, iface := range hw.Spec.Interfaces {
-			if iface.DHCP != nil && iface.DHCP.IP != nil && iface.DHCP.IP.Address == opts.ByIPAddress {
-				return true
-			}
+	return false
+}
+
+func hardwareHasIP(hw *tinkerbell.Hardware, ip string) bool {
+	for _, iface := range hw.Spec.Interfaces {
+		if iface.DHCP != nil && iface.DHCP.IP != nil && iface.DHCP.IP.Address == ip {
+			return true
 		}
-	}
-	if opts.ByInstanceID != "" && hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil && hw.Spec.Metadata.Instance.ID == opts.ByInstanceID {
-		return true
 	}
 	return false
 }
