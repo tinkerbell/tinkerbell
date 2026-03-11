@@ -26,6 +26,9 @@ const (
 	errInvalidWorkflowID = "invalid workflow id"
 	errInvalidTaskName   = "invalid task name"
 	errInvalidActionName = "invalid action name"
+
+	// maxAnnotationSize is the maximum allowed size for agent attributes annotations.
+	maxAnnotationSize = 64 * 1024 // 64KB
 )
 
 var (
@@ -459,6 +462,9 @@ func (h *Handler) updateHardwareWithAttributes(ctx context.Context, log logr.Log
 	a, err := json.Marshal(attrs)
 	if err != nil {
 		return fmt.Errorf("error marshaling attributes for annotation: %w", err)
+	}
+	if len(a) > maxAnnotationSize {
+		return fmt.Errorf("agent attributes annotation exceeds %dKB limit (%d bytes)", maxAnnotationSize/1024, len(a))
 	}
 
 	hw.Annotations[constant.AttributesAnnotation] = string(a)

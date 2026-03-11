@@ -74,8 +74,15 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 		hw.Annotations = make(map[string]string)
 	}
 
-	if a, err := json.Marshal(attrs); err == nil && attrs != nil {
-		hw.Annotations[constant.AttributesAnnotation] = string(a)
+	if attrs != nil {
+		if a, err := json.Marshal(attrs); err == nil {
+			if len(a) > maxAnnotationSize {
+				journal.Log(ctx, "agent attributes annotation exceeds size limit", "size", len(a), "limit", maxAnnotationSize)
+				h.Logger.Info("Agent attributes annotation exceeds size limit, skipping annotation", "size", len(a), "limit", maxAnnotationSize, "agentID", agentID, "hardwareName", hwName, "namespace", ns)
+			} else {
+				hw.Annotations[constant.AttributesAnnotation] = string(a)
+			}
+		}
 	}
 
 	// Populate Hardware object with discovered attributes
