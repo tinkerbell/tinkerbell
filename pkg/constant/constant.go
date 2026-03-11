@@ -25,6 +25,9 @@ const (
 	IPXEBinaryISOEFIAMD64 IPXEBinary = "ipxe.iso"
 	// IPXEBinaryIMGEFIAMD64 is the Tinkerbell built and embedded iPXE binary for UEFI x86_64 architectures in IMG format.
 	IPXEBinaryIMGEFIAMD64 IPXEBinary = "ipxe-efi.img"
+
+	// AttributesAnnotation is the annotation key used to store agent attributes on any object.
+	AttributesAnnotation = "tinkerbell.org/agent-attributes"
 )
 
 // MACFormat is a format for a MAC address.

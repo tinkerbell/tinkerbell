@@ -161,7 +161,7 @@ func TestWorkflowByAgentIDFunc(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotStateAddrs := WorkflowByAgentIDFunc(tc.input)
+			gotStateAddrs := WorkflowAgentID(tc.input)
 			if !reflect.DeepEqual(tc.wantStateAddrs, gotStateAddrs) {
 				t.Errorf("Unexpected WorkflowByAgentIDFunc workflow response: wanted %#v, got %#v", tc.wantStateAddrs, gotStateAddrs)
 			}

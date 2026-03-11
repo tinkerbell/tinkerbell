@@ -104,8 +104,8 @@ coverage: test ## Show test coverage
 	mv coverage.out coverage.txt
 
 .PHONY: ci-checks
-ci-checks: .github/workflows/ci-checks.sh ## Run the ci-checks.sh script
-	./.github/workflows/ci-checks.sh
+ci-checks: $(GOIMPORTS_FQP) ./script/ci-checks.sh ## Run the ci-checks.sh script
+	GOIMPORTS=$(GOIMPORTS_FQP) ./script/ci-checks.sh
 
 .PHONY: ci
 ci: ci-checks coverage lint vet ## Runs all the same validations and tests that run in CI

@@ -3,7 +3,6 @@ package kube
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/tinkerbell/tinkerbell/pkg/api"
@@ -22,11 +21,6 @@ import (
 // let the consumers of this package convert them to the data objects.
 
 const tracerName = "github.com/tinkerbell/tinkerbell"
-
-var errNotFound = errors.New("no hardware found")
-
-// ErrInstanceNotFound indicates an instance could not be found for the given identifier.
-var ErrInstanceNotFound = errors.New("instance not found")
 
 // Backend is a backend implementation that uses the Tinkerbell CRDs to get DHCP data.
 type Backend struct {
@@ -83,10 +77,6 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 	}
 
 	if err := api.AddToSchemeBMC(rs); err != nil {
-		return nil, err
-	}
-
-	if err := scheme.AddToScheme(rs); err != nil {
 		return nil, err
 	}
 
@@ -175,4 +165,11 @@ func NewFileRestConfig(kubeconfigPath, namespace string) (*rest.Config, error) {
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
 
 	return loader.ClientConfig()
+}
+
+func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {
+	if condition {
+		return valueIfTrue
+	}
+	return valueIfFalse
 }

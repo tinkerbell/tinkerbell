@@ -13,6 +13,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -162,10 +164,10 @@ func TestGetAction(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			server := &Handler{
-				Logger:            logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
-				BackendReadWriter: &mockBackendReadWriter{workflow: tc.workflow},
-				NowFunc:           func() time.Time { return time.Time{} },
-				RetryOptions:      []backoff.RetryOption{backoff.WithMaxTries(1)},
+				Logger:       logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
+				Backend:      &mockBackendReadWriter{workflow: tc.workflow},
+				NowFunc:      func() time.Time { return time.Time{} },
+				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
 			}
 
 			resp, gotErr := server.GetAction(context.Background(), tc.request)
@@ -198,42 +200,242 @@ func compareErrors(t *testing.T, got, want error) {
 }
 
 type mockBackendReadWriter struct {
-	workflow *tinkerbell.Workflow
+	workflow    *tinkerbell.Workflow
+	writeErr    error
+	hardware    *tinkerbell.Hardware
+	hardwareErr error
+
+	updatedHardware *tinkerbell.Hardware // captures the hardware passed to UpdateHardware
+	updateOpts      data.UpdateOptions   // captures the options passed to UpdateHardware
 }
 
-func (m *mockBackendReadWriter) Read(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
-	return m.workflow, nil
-}
-
-func (m *mockBackendReadWriter) ReadAll(_ context.Context, _ string) ([]tinkerbell.Workflow, error) {
-	if m.workflow != nil {
-		return []tinkerbell.Workflow{*m.workflow}, nil
-	}
-	return []tinkerbell.Workflow{}, nil
-}
-
-func (m *mockBackendReadWriter) Update(_ context.Context, _ *tinkerbell.Workflow) error {
-	return nil
-}
-
-type mockBackendReadWriterForReport struct {
-	workflow *tinkerbell.Workflow
-	writeErr error
-}
-
-func (m *mockBackendReadWriterForReport) Read(_ context.Context, _, _ string) (*tinkerbell.Workflow, error) {
+func (m *mockBackendReadWriter) ReadWorkflow(_ context.Context, _ string, _ string) (*tinkerbell.Workflow, error) {
 	if m.workflow == nil {
 		return nil, errors.New("workflow not found")
 	}
 	return m.workflow, nil
 }
 
-func (m *mockBackendReadWriterForReport) ReadAll(_ context.Context, _ string) ([]tinkerbell.Workflow, error) {
-	return nil, nil
+func (m *mockBackendReadWriter) ListWorkflows(_ context.Context, _ data.WorkflowFilter) ([]tinkerbell.Workflow, error) {
+	if m.workflow != nil {
+		return []tinkerbell.Workflow{*m.workflow}, nil
+	}
+	return []tinkerbell.Workflow{}, nil
 }
 
-func (m *mockBackendReadWriterForReport) Update(_ context.Context, _ *tinkerbell.Workflow) error {
+func (m *mockBackendReadWriter) UpdateWorkflow(_ context.Context, _ *tinkerbell.Workflow, _ data.UpdateOptions) error {
 	return m.writeErr
+}
+
+func (m *mockBackendReadWriter) ReadHardware(_ context.Context, _ string, _ string) (*tinkerbell.Hardware, error) {
+	if m.hardware != nil {
+		return m.hardware, nil
+	}
+	if m.hardwareErr != nil {
+		return nil, m.hardwareErr
+	}
+	return nil, errors.New("hardware not found")
+}
+
+func (m *mockBackendReadWriter) FilterHardware(_ context.Context, _ data.HardwareFilter) (*tinkerbell.Hardware, error) {
+	if m.hardware != nil {
+		return m.hardware, nil
+	}
+	if m.hardwareErr != nil {
+		return nil, m.hardwareErr
+	}
+	return nil, errors.New("hardware not found")
+}
+
+func (m *mockBackendReadWriter) UpdateHardware(_ context.Context, hw *tinkerbell.Hardware, opts data.UpdateOptions) error {
+	m.updatedHardware = hw
+	m.updateOpts = opts
+	return nil
+}
+
+func TestGetActionHardwareAttributes(t *testing.T) {
+	baseWorkflow := func(hardwareRef string) *tinkerbell.Workflow {
+		return &tinkerbell.Workflow{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "machine1",
+				Namespace: "default",
+			},
+			Spec: tinkerbell.WorkflowSpec{
+				HardwareRef: hardwareRef,
+			},
+			Status: tinkerbell.WorkflowStatus{
+				State:         tinkerbell.WorkflowStatePending,
+				GlobalTimeout: 600,
+				Tasks: []tinkerbell.Task{
+					{
+						Name:    "provision",
+						AgentID: "machine-mac-1",
+						Actions: []tinkerbell.Action{
+							{
+								Name:    "stream",
+								Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+								Timeout: 300,
+								State:   tinkerbell.WorkflowStatePending,
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	cases := map[string]struct {
+		workflow       *tinkerbell.Workflow
+		hardware       *tinkerbell.Hardware
+		request        *proto.ActionRequest
+		wantAnnotation bool
+		wantNoHWUpdate bool
+	}{
+		"first action with HardwareRef and no existing annotation": {
+			workflow: baseWorkflow("my-hw"),
+			hardware: &tinkerbell.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-hw",
+					Namespace: "default",
+				},
+			},
+			request: &proto.ActionRequest{
+				AgentId:         toPtr("machine-mac-1"),
+				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
+			},
+			wantAnnotation: true,
+		},
+		"first action with nil attributes does not update hardware": {
+			workflow: baseWorkflow("my-hw"),
+			hardware: &tinkerbell.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-hw",
+					Namespace: "default",
+				},
+			},
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			wantNoHWUpdate: true,
+		},
+		"first action with HardwareRef and existing annotation": {
+			workflow: baseWorkflow("my-hw"),
+			hardware: &tinkerbell.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-hw",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constant.AttributesAnnotation: `{"cpu":{}}`,
+					},
+				},
+			},
+			request: &proto.ActionRequest{
+				AgentId:         toPtr("machine-mac-1"),
+				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
+			},
+			wantNoHWUpdate: true,
+		},
+		"first action with no HardwareRef": {
+			workflow: baseWorkflow(""),
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			wantNoHWUpdate: true,
+		},
+		"first action with HardwareRef but hardware not found": {
+			workflow: baseWorkflow("missing-hw"),
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			wantNoHWUpdate: true,
+		},
+		"non-first action does not update hardware": {
+			workflow: &tinkerbell.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
+				Spec: tinkerbell.WorkflowSpec{
+					HardwareRef: "my-hw",
+				},
+				Status: tinkerbell.WorkflowStatus{
+					State: tinkerbell.WorkflowStateRunning,
+					CurrentState: &tinkerbell.CurrentState{
+						AgentID:  "machine-mac-1",
+						TaskID:   "provision",
+						ActionID: "stream",
+						State:    tinkerbell.WorkflowStateSuccess,
+					},
+					Tasks: []tinkerbell.Task{
+						{
+							Name:    "provision",
+							AgentID: "machine-mac-1",
+							ID:      "provision",
+							Actions: []tinkerbell.Action{
+								{
+									Name:  "stream",
+									Image: "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									State: tinkerbell.WorkflowStateSuccess,
+									ID:    "stream",
+								},
+								{
+									Name:  "kexec",
+									Image: "quay.io/tinkerbell-actions/kexec:v1.0.0",
+									State: tinkerbell.WorkflowStatePending,
+									ID:    "kexec",
+								},
+							},
+						},
+					},
+				},
+			},
+			hardware: &tinkerbell.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-hw",
+					Namespace: "default",
+				},
+			},
+			request: &proto.ActionRequest{
+				AgentId:         toPtr("machine-mac-1"),
+				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
+			},
+			wantNoHWUpdate: true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mock := &mockBackendReadWriter{
+				workflow: tc.workflow,
+				hardware: tc.hardware,
+			}
+			server := &Handler{
+				Logger:       logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
+				Backend:      mock,
+				NowFunc:      func() time.Time { return time.Time{} },
+				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
+			}
+
+			_, _ = server.GetAction(context.Background(), tc.request)
+
+			if tc.wantAnnotation {
+				if mock.updatedHardware == nil {
+					t.Fatal("expected Hardware to be updated with attributes annotation, but UpdateHardware was not called")
+				}
+				if mock.updatedHardware.Annotations[constant.AttributesAnnotation] == "" {
+					t.Fatal("expected attributes annotation to be set, but it was empty")
+				}
+				if mock.updateOpts.PatchFrom == nil {
+					t.Fatal("expected PatchFrom to be set in UpdateOptions for merge-patch, but it was nil")
+				}
+			}
+			if tc.wantNoHWUpdate {
+				if mock.updatedHardware != nil {
+					t.Fatalf("expected no Hardware update, but UpdateHardware was called with %v", mock.updatedHardware.Name)
+				}
+			}
+		})
+	}
 }
 
 func TestReportActionStatus(t *testing.T) {
@@ -318,7 +520,7 @@ func TestReportActionStatus(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			handler := &Handler{
-				BackendReadWriter: &mockBackendReadWriterForReport{
+				Backend: &mockBackendReadWriter{
 					workflow: tc.workflow,
 					writeErr: tc.writeErr,
 				},

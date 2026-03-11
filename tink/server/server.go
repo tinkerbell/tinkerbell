@@ -18,8 +18,7 @@ import (
 )
 
 type Config struct {
-	Backend grpcinternal.BackendReadWriter
-
+	Backend      grpcinternal.Backend
 	BindAddrPort netip.AddrPort
 	Logger       logr.Logger
 	Auto         AutoCapabilities
@@ -32,15 +31,17 @@ type AutoCapabilities struct {
 }
 
 type Enrollment struct {
-	Enabled bool
-	Backend grpcinternal.AutoEnrollmentReadCreator
+	Enabled               bool
+	WorkflowRuleSetLister grpcinternal.WorkflowRuleSetLister
+	WorkflowCreator       grpcinternal.WorkflowCreator
 }
 
 type Discovery struct {
 	Enabled           bool
 	Namespace         string
 	EnrollmentEnabled bool
-	Backend           grpcinternal.AutoDiscoveryReadCreator
+	HardwareCreator   grpcinternal.HardwareCreator
+	HardwareFilterer  grpcinternal.HardwareFilterer
 }
 
 type TLS struct {
@@ -65,7 +66,7 @@ func WithAutoDiscoveryAutoEnrollmentEnabled(enabled bool) Option {
 }
 
 // WithBackend sets the backend for the server.
-func WithBackend(b grpcinternal.BackendReadWriter) Option {
+func WithBackend(b grpcinternal.Backend) Option {
 	return func(c *Config) {
 		c.Backend = b
 	}
@@ -102,19 +103,21 @@ func NewConfig(opts ...Option) *Config {
 
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	s := &grpcinternal.Handler{
-		BackendReadWriter: c.Backend,
-		Logger:            log,
-		NowFunc:           time.Now,
+		Backend: c.Backend,
+		Logger:  log,
+		NowFunc: time.Now,
 		AutoCapabilities: grpcinternal.AutoCapabilities{
 			Enrollment: grpcinternal.AutoEnrollment{
-				Enabled:     c.Auto.Enrollment.Enabled,
-				ReadCreator: c.Auto.Enrollment.Backend,
+				Enabled:               c.Auto.Enrollment.Enabled,
+				WorkflowRuleSetLister: c.Auto.Enrollment.WorkflowRuleSetLister,
+				WorkflowCreator:       c.Auto.Enrollment.WorkflowCreator,
 			},
 			Discovery: grpcinternal.AutoDiscovery{
-				Enabled:                  c.Auto.Discovery.Enabled,
-				Namespace:                c.Auto.Discovery.Namespace,
-				EnrollmentEnabled:        c.Auto.Discovery.EnrollmentEnabled,
-				AutoDiscoveryReadCreator: c.Auto.Discovery.Backend,
+				Enabled:           c.Auto.Discovery.Enabled,
+				Namespace:         c.Auto.Discovery.Namespace,
+				EnrollmentEnabled: c.Auto.Discovery.EnrollmentEnabled,
+				HardwareCreator:   c.Auto.Discovery.HardwareCreator,
+				HardwareFilterer:  c.Auto.Discovery.HardwareFilterer,
 			},
 		},
 	}
@@ -160,4 +163,22 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	}
 
 	return nil
+}
+
+type allInterfaces interface {
+	grpcinternal.Backend
+	grpcinternal.HardwareCreator
+	grpcinternal.HardwareFilterer
+	grpcinternal.WorkflowRuleSetLister
+	grpcinternal.WorkflowCreator
+}
+
+// SetBackends is a helper function to set a single backend implementation for all backend interfaces.
+// This is useful for backends that implement multiple interfaces, such as the kube backend.
+func (c *Config) SetBackends(b allInterfaces) {
+	c.Backend = b
+	c.Auto.Discovery.HardwareCreator = b
+	c.Auto.Discovery.HardwareFilterer = b
+	c.Auto.Enrollment.WorkflowRuleSetLister = b
+	c.Auto.Enrollment.WorkflowCreator = b
 }
