@@ -42,8 +42,8 @@ jobs:
 
       - name: Fix no space errors and Fetch Deps
         run: |
-          # fixes "write /run/user/1001/355792648: no space left on device" error
-          sudo mount -o remount,size=3G /run/user/1001 || true
+          # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
+          sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
           go mod download
 
       - name: Generate UI assets
@@ -111,10 +111,6 @@ jobs:
           - name: tink-agent
             make-target: cross-compile-agent
             artifact-name: tink-agent-binaries
-          - name: tinkerbell-embedded-linux
-            make-target: checksums-embedded
-            artifact-name: tinkerbell-embedded-binaries
-            extra-paths: out/checksums-embedded.txt
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -141,8 +137,8 @@ jobs:
 
       - name: Fix no space errors and Fetch Deps
         run: |
-          # fixes "write /run/user/1001/355792648: no space left on device" error
-          sudo mount -o remount,size=3G /run/user/1001 || true
+          # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
+          sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
           go mod download
 
       - name: Generate UI assets
@@ -150,15 +146,98 @@ jobs:
 
       - name: Compile binaries for ${{ matrix.name }}
         run: make ${{ matrix.make-target }}
-      
+
       - name: Upload binaries
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact-name }}
           path: |
             out/${{ matrix.name }}-*
-            ${{ matrix.extra-paths }}
           if-no-files-found: error
+
+  build-embedded-binaries:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - make-target: cross-compile-embedded-amd64
+            artifact-name: tinkerbell-embedded-linux-amd64
+            goarch: amd64
+          - make-target: cross-compile-embedded-arm64
+            artifact-name: tinkerbell-embedded-linux-arm64
+            goarch: arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+          cache: false
+
+      - name: Restore Go module cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-gomod-
+
+      - name: Restore Go build cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-
+
+      - name: Fix no space errors and Fetch Deps
+        run: |
+          # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
+          sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
+          go mod download
+
+      - name: Generate UI assets
+        run: make ui-generate
+
+      - name: Compile embedded binary (${{ matrix.goarch }})
+        run: make ${{ matrix.make-target }}
+
+      - name: Trim Go cache
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: find ~/.cache/go-build -type f -mmin +90 -delete
+
+      - name: Set Go cache date
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: Save Go module cache
+        if: ${{ github.ref == 'refs/heads/main' && matrix.goarch == 'amd64' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}
+
+      - name: Save Go build cache
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: out/tinkerbell-embedded-linux-*
+          if-no-files-found: error
+          retention-days: 1
 
   build-publish-container-images:
     runs-on: ubuntu-latest
@@ -210,7 +289,7 @@ jobs:
 
       - name: Prepare build environment
         run: make prepare-buildx
-      
+
       - name: Build and publish container images
         run: make ${{ matrix.make-target }}
         env:
@@ -269,8 +348,8 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
-      - build-publish-container-images
       - package-publish-helm-chart
+      - build-embedded-binaries
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -278,15 +357,26 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Download embedded binaries
+      - name: Download embedded amd64 binary
         uses: actions/download-artifact@v8
         with:
-          name: tinkerbell-embedded-binaries
+          name: tinkerbell-embedded-linux-amd64
           path: ./out
           merge-multiple: true
+
+      - name: Download embedded arm64 binary
+        uses: actions/download-artifact@v8
+        with:
+          name: tinkerbell-embedded-linux-arm64
+          path: ./out
+          merge-multiple: true
+
       # Artifact upload doesn't preserve permissions so we need to fix them.
       - name: Fix permissions
         run: chmod +x out/tinkerbell-*
+
+      - name: Generate checksums
+        run: cd out && sha256sum tinkerbell-embedded-linux-amd64 tinkerbell-embedded-linux-arm64 > checksums-embedded.txt
 
       - name: Publish Changelog to GitHub
         uses: ncipollo/release-action@v1
