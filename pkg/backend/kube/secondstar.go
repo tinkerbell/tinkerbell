@@ -26,7 +26,7 @@ func (b *Backend) ReadBMCMachine(ctx context.Context, hardwareName string) (*dat
 	ctx, span := tracer.Start(ctx, "backend.kube.ReadBMCMachine")
 	defer span.End()
 
-	hw, err := b.ReadHardware(ctx, hardwareName, "", data.ReadListOptions{ByName: hardwareName})
+	hw, err := b.ReadHardware(ctx, hardwareName, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read hardware for (%v): %w", hardwareName, err)
 	}

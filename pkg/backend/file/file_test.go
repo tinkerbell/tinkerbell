@@ -258,9 +258,9 @@ func TestReadHardwareByMac(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			hw, err := w.ReadHardware(context.Background(), "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: tt.mac}})
+			hw, err := w.FilterHardware(context.Background(), data.HardwareFilter{ByMACAddress: tt.mac})
 			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("ReadHardware() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("FilterHardware() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.wantErr == nil && hw == nil {
 				t.Fatal("expected hardware, got nil")
@@ -295,9 +295,9 @@ func TestReadHardwareByIP(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			hw, err := w.ReadHardware(context.Background(), "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByIPAddress: tt.ip}})
+			hw, err := w.FilterHardware(context.Background(), data.HardwareFilter{ByIPAddress: tt.ip})
 			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("ReadHardware() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("FilterHardware() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.wantErr == nil && hw == nil {
 				t.Fatal("expected hardware, got nil")
@@ -321,7 +321,7 @@ func TestReadHardwareByName(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			hw, err := w.ReadHardware(context.Background(), "", "", data.ReadListOptions{ByName: tt.name})
+			hw, err := w.ReadHardware(context.Background(), tt.name, "")
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("ReadHardware() error = %v, wantErr %v", err, tt.wantErr)
 			}

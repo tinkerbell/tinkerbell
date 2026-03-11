@@ -33,7 +33,7 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 
 	// Check if Hardware object already exists
 	// name and namespace are empty because we want to check for existing Hardware objects with the agent ID across all namespaces.
-	existing, err := h.AutoCapabilities.Discovery.ReadHardware(ctx, "", "", data.ReadListOptions{ByAgentID: agentID})
+	existing, err := h.AutoCapabilities.Discovery.FilterHardware(ctx, data.HardwareFilter{ByAgentID: agentID})
 	if err == nil {
 		// Hardware object already exists, do not modify
 		journal.Log(ctx, "Hardware object already exists, skipping creation")

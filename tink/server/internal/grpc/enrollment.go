@@ -42,7 +42,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 	// Get all WorkflowRuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
 	// using github.com/timbray/quamina
 	// If there is a match, create a Workflow for the AgentID.
-	wrs, err := h.AutoCapabilities.Enrollment.ListWorkflowRuleSets(ctx, data.ReadListOptions{})
+	wrs, err := h.AutoCapabilities.Enrollment.ListWorkflowRuleSets(ctx, data.WorkflowFilter{})
 	if err != nil {
 		journal.Log(ctx, "error getting workflow rules", "error", err)
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))

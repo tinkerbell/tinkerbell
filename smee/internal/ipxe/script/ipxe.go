@@ -22,7 +22,7 @@ import (
 
 // BackendReader is the interface for getting data from a backend.
 type BackendReader interface {
-	ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error)
+	FilterHardware(ctx context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error)
 }
 
 type Handler struct {
@@ -70,7 +70,7 @@ func getByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (info
 	if br == nil {
 		return info{}, errors.New("backend is nil")
 	}
-	spec, err := br.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: mac.String()}})
+	spec, err := br.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: mac.String()})
 	if err != nil {
 		return info{}, err
 	}
@@ -106,7 +106,7 @@ func getByIP(ctx context.Context, ip net.IP, br BackendReader) (info, error) {
 	if br == nil {
 		return info{}, errors.New("backend is nil")
 	}
-	spec, err := br.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByIPAddress: ip.String()}})
+	spec, err := br.FilterHardware(ctx, data.HardwareFilter{ByIPAddress: ip.String()})
 	if err != nil {
 		return info{}, err
 	}

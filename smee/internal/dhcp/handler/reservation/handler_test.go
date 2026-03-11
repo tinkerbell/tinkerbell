@@ -58,7 +58,7 @@ type hwNotFoundError struct{}
 func (hwNotFoundError) NotFound() bool { return true }
 func (hwNotFoundError) Error() string  { return "not found" }
 
-func (m *mockBackend) ReadHardware(_ context.Context, _, _ string, _ data.ReadListOptions) (*tinkerbell.Hardware, error) {
+func (m *mockBackend) FilterHardware(_ context.Context, _ data.HardwareFilter) (*tinkerbell.Hardware, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -1065,7 +1065,7 @@ func TestDHCPOnlyModeReflection(t *testing.T) {
 
 			// Get DHCP and Netboot data from backend
 			ctx := context.Background()
-			spec, err := handler.Backend.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: pkt.ClientHWAddr.String()}})
+			spec, err := handler.Backend.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: pkt.ClientHWAddr.String()})
 			if err != nil {
 				t.Fatalf("Failed to get backend data: %v", err)
 			}

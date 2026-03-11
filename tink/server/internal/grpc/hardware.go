@@ -14,7 +14,7 @@ func (h *Handler) hardware(ctx context.Context, agentID string) (*v1alpha1.Hardw
 	// Check if Hardware object already exists.
 	// Pass an empty name so backends use ByAgentID as the sole selector,
 	// avoiding accidental matches by object name.
-	existing, err := h.Backend.ReadHardware(ctx, "", h.AutoCapabilities.Discovery.Namespace, data.ReadListOptions{ByAgentID: agentID})
+	existing, err := h.Backend.FilterHardware(ctx, data.HardwareFilter{ByAgentID: agentID, InNamespace: h.AutoCapabilities.Discovery.Namespace})
 	if err == nil {
 		journal.Log(ctx, "Hardware object exists")
 		return existing, nil

@@ -26,7 +26,7 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.ReadListOptions) ([]tinkerbell.WorkflowRuleSet, error) {
+				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error) {
 					return []tinkerbell.WorkflowRuleSet{
 						{
 							Spec: tinkerbell.WorkflowRuleSetSpec{
@@ -51,7 +51,7 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.ReadListOptions) ([]tinkerbell.WorkflowRuleSet, error) {
+				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error) {
 					return nil, nil
 				},
 			},
@@ -63,7 +63,7 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.ReadListOptions) ([]tinkerbell.WorkflowRuleSet, error) {
+				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error) {
 					return nil, errors.New("failed to read workflow rule sets")
 				},
 			},
@@ -75,7 +75,7 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.ReadListOptions) ([]tinkerbell.WorkflowRuleSet, error) {
+				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error) {
 					return []tinkerbell.WorkflowRuleSet{
 						{
 							Spec: tinkerbell.WorkflowRuleSetSpec{
@@ -93,7 +93,7 @@ func TestEnroll(t *testing.T) {
 				Chassis: &proto.Chassis{Serial: toPtr("12345")},
 			},
 			mockCapabilities: &mockAutoCapabilities{
-				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.ReadListOptions) ([]tinkerbell.WorkflowRuleSet, error) {
+				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error) {
 					return []tinkerbell.WorkflowRuleSet{
 						{
 							Spec: tinkerbell.WorkflowRuleSetSpec{
@@ -141,11 +141,11 @@ func TestEnroll(t *testing.T) {
 }
 
 type mockAutoCapabilities struct {
-	ListWorkflowRuleSetsFunc func(ctx context.Context, opts data.ReadListOptions) ([]tinkerbell.WorkflowRuleSet, error)
+	ListWorkflowRuleSetsFunc func(ctx context.Context, opts data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error)
 	CreateWorkflowFunc       func(ctx context.Context, wf *tinkerbell.Workflow) error
 }
 
-func (m *mockAutoCapabilities) ListWorkflowRuleSets(ctx context.Context, opts data.ReadListOptions) ([]tinkerbell.WorkflowRuleSet, error) {
+func (m *mockAutoCapabilities) ListWorkflowRuleSets(ctx context.Context, opts data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error) {
 	return m.ListWorkflowRuleSetsFunc(ctx, opts)
 }
 

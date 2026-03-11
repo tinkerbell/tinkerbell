@@ -41,7 +41,7 @@ type Discovery struct {
 	Namespace         string
 	EnrollmentEnabled bool
 	HardwareCreator   grpcinternal.HardwareCreator
-	HardwareReader    grpcinternal.HardwareReader
+	HardwareFilterer  grpcinternal.HardwareFilterer
 }
 
 type TLS struct {
@@ -117,7 +117,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 				Namespace:         c.Auto.Discovery.Namespace,
 				EnrollmentEnabled: c.Auto.Discovery.EnrollmentEnabled,
 				HardwareCreator:   c.Auto.Discovery.HardwareCreator,
-				HardwareReader:    c.Auto.Discovery.HardwareReader,
+				HardwareFilterer:  c.Auto.Discovery.HardwareFilterer,
 			},
 		},
 	}

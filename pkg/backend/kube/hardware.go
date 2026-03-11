@@ -21,56 +21,19 @@ func (b *Backend) CreateHardware(ctx context.Context, hw *v1alpha1.Hardware) err
 	return nil
 }
 
-// ReadHardware looks up a Hardware object using Kubernetes name/namespace or according to the provided ReadListOptions.
-// When opts.ByAgentID is set, it performs a list-based lookup filtered by agent ID; otherwise it defaults to a name/namespace-based Get (or a List when no namespace is provided).
-func (b *Backend) ReadHardware(ctx context.Context, name, namespace string, opts data.ReadListOptions) (*v1alpha1.Hardware, error) {
+// ReadHardware looks up a Hardware object by name and namespace using a direct Get.
+// When name is in the format "namespace/name", it is split accordingly.
+func (b *Backend) ReadHardware(ctx context.Context, name, namespace string) (*v1alpha1.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "backend.kube.ReadHardware")
 	defer span.End()
-	// If an id is in the format of namespace/name, we should split it and use the namespace and name to look up the hardware object.
-	// This allows support for namespaces outside of where the tinkerbell controller/server live.
+
 	hwNamespace, hwName, found := strings.Cut(name, "/")
 	if !found {
 		hwName = name
 		hwNamespace = namespace
 	}
 
-	// If no namespace is provided we must do a list operation.
-	// If the list option, byAgentID is provided, then we must also do a list operation,
-	// regardless of whether a namespace is provided or not, as we cannot do a get by agent ID.
-
-	// When no namespace is provided but a name is, and no explicit query options are set,
-	// default to filtering by name to avoid an unfiltered list across all hardware.
-	if hwNamespace == "" && opts.ByAgentID == "" && opts.ByName == "" && hwName != "" {
-		opts.ByName = hwName
-	}
-
-	if hwNamespace == "" || opts.ByAgentID != "" {
-		hwList := &v1alpha1.HardwareList{}
-
-		if hwNamespace != opts.InNamespace {
-			opts.InNamespace = hwNamespace
-		}
-
-		if err := b.cluster.GetClient().List(ctx, hwList, hardwareListOptions(opts)...); err != nil {
-			return nil, fmt.Errorf("failed to list hardware %s: %w", listQueryDesc(opts, hwName), err)
-		}
-		if len(hwList.Items) == 0 {
-			err := hardwareNotFoundError{name: hwName, namespace: ternary(hwNamespace == "", "all namespaces", hwNamespace)}
-			span.SetStatus(codes.Error, err.Error())
-
-			return nil, err
-		}
-
-		if len(hwList.Items) > 1 {
-			// This is unexpected, as we should not have multiple hardware objects with the same name.
-			err := &foundMultipleHardwareError{id: hwName, namespace: ternary(hwNamespace == "", "all namespaces", hwNamespace), count: len(hwList.Items)}
-			span.SetStatus(codes.Error, err.Error())
-			return nil, err
-		}
-		return &hwList.Items[0], nil
-	}
-	// We only get here if a namespace is provided and we are not looking up by agent ID, so we can do a get by name and namespace.
 	hw := &v1alpha1.Hardware{}
 	if err := b.cluster.GetClient().Get(ctx, types.NamespacedName{Name: hwName, Namespace: hwNamespace}, hw); err != nil {
 		return nil, fmt.Errorf("failed to get hardware %s/%s: %w", hwNamespace, hwName, err)
@@ -79,8 +42,37 @@ func (b *Backend) ReadHardware(ctx context.Context, name, namespace string, opts
 	return hw, nil
 }
 
-// listQueryDesc builds a human-readable description of a hardware list query for error messages.
-func listQueryDesc(opts data.ReadListOptions, hwName string) string {
+// FilterHardware looks up a single Hardware object using selector-based list filtering.
+// Exactly one result is expected; zero results returns a not-found error and multiple results returns a multiple-found error.
+func (b *Backend) FilterHardware(ctx context.Context, opts data.HardwareFilter) (*v1alpha1.Hardware, error) {
+	tracer := otel.Tracer(tracerName)
+	ctx, span := tracer.Start(ctx, "backend.kube.FilterHardware")
+	defer span.End()
+
+	hwList := &v1alpha1.HardwareList{}
+	if err := b.cluster.GetClient().List(ctx, hwList, hardwareListOptions(opts)...); err != nil {
+		return nil, fmt.Errorf("failed to list hardware %s: %w", filterQueryDesc(opts), err)
+	}
+
+	nsDesc := ternary(opts.InNamespace == "", "all namespaces", opts.InNamespace)
+
+	if len(hwList.Items) == 0 {
+		err := hardwareNotFoundError{name: filterQueryDesc(opts), namespace: nsDesc}
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
+	}
+
+	if len(hwList.Items) > 1 {
+		err := &foundMultipleHardwareError{id: filterQueryDesc(opts), namespace: nsDesc, count: len(hwList.Items)}
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
+	}
+
+	return &hwList.Items[0], nil
+}
+
+// filterQueryDesc builds a human-readable description of a hardware filter for error messages.
+func filterQueryDesc(opts data.HardwareFilter) string {
 	nsDesc := opts.InNamespace
 	if nsDesc == "" {
 		nsDesc = "all namespaces"
@@ -88,20 +80,24 @@ func listQueryDesc(opts data.ReadListOptions, hwName string) string {
 	desc := fmt.Sprintf("in %s", nsDesc)
 	if opts.ByName != "" {
 		desc = fmt.Sprintf("%s with name %q", desc, opts.ByName)
-	} else if hwName != "" {
-		desc = fmt.Sprintf("%s with name %q", desc, hwName)
 	}
 	if opts.ByAgentID != "" {
 		desc = fmt.Sprintf("%s with agentID %q", desc, opts.ByAgentID)
 	}
+	if opts.ByMACAddress != "" {
+		desc = fmt.Sprintf("%s with MAC %q", desc, opts.ByMACAddress)
+	}
+	if opts.ByIPAddress != "" {
+		desc = fmt.Sprintf("%s with IP %q", desc, opts.ByIPAddress)
+	}
+	if opts.ByInstanceID != "" {
+		desc = fmt.Sprintf("%s with instanceID %q", desc, opts.ByInstanceID)
+	}
 	return desc
 }
 
-func (b *Backend) ListHardware(ctx context.Context, namespace string, opts data.ReadListOptions) ([]v1alpha1.Hardware, error) {
+func (b *Backend) ListHardware(ctx context.Context, opts data.HardwareFilter) ([]v1alpha1.Hardware, error) {
 	list := &v1alpha1.HardwareList{}
-	if namespace != "" && opts.InNamespace == "" {
-		opts.InNamespace = namespace
-	}
 	err := b.cluster.GetClient().List(ctx, list, hardwareListOptions(opts)...)
 	if err != nil {
 		return nil, err
@@ -110,7 +106,7 @@ func (b *Backend) ListHardware(ctx context.Context, namespace string, opts data.
 	return list.Items, nil
 }
 
-func hardwareListOptions(opts data.ReadListOptions) []client.ListOption {
+func hardwareListOptions(opts data.HardwareFilter) []client.ListOption {
 	los := []client.ListOption{}
 	if opts.InNamespace != "" {
 		los = append(los, client.InNamespace(opts.InNamespace))
@@ -121,14 +117,14 @@ func hardwareListOptions(opts data.ReadListOptions) []client.ListOption {
 	if opts.ByName != "" {
 		los = append(los, client.MatchingFields{NameIndex: opts.ByName})
 	}
-	if opts.Hardware.ByIPAddress != "" {
-		los = append(los, client.MatchingFields{IPAddrIndex: opts.Hardware.ByIPAddress})
+	if opts.ByIPAddress != "" {
+		los = append(los, client.MatchingFields{IPAddrIndex: opts.ByIPAddress})
 	}
-	if opts.Hardware.ByMACAddress != "" {
-		los = append(los, client.MatchingFields{MACAddrIndex: opts.Hardware.ByMACAddress})
+	if opts.ByMACAddress != "" {
+		los = append(los, client.MatchingFields{MACAddrIndex: opts.ByMACAddress})
 	}
-	if opts.Hardware.ByInstanceID != "" {
-		los = append(los, client.MatchingFields{InstanceIDIndex: opts.Hardware.ByInstanceID})
+	if opts.ByInstanceID != "" {
+		los = append(los, client.MatchingFields{InstanceIDIndex: opts.ByInstanceID})
 	}
 
 	return los

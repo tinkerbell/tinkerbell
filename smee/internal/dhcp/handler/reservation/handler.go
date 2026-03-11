@@ -177,7 +177,7 @@ func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*d2.DH
 	ctx, span := tracer.Start(ctx, "Hardware data get")
 	defer span.End()
 
-	spec, err := h.Backend.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: mac.String()}})
+	spec, err := h.Backend.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: mac.String()})
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 

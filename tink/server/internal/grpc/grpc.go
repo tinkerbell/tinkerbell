@@ -38,6 +38,7 @@ type Backend interface {
 	WorkflowUpdater
 	WorkflowLister
 	HardwareReader
+	HardwareFilterer
 	HardwareUpdater
 }
 
@@ -46,11 +47,11 @@ type WorkflowCreator interface {
 }
 
 type WorkflowReader interface {
-	ReadWorkflow(ctx context.Context, name, namespace string, opts data.ReadListOptions) (*tinkerbell.Workflow, error)
+	ReadWorkflow(ctx context.Context, name, namespace string) (*tinkerbell.Workflow, error)
 }
 
 type WorkflowLister interface {
-	ListWorkflows(ctx context.Context, namespace string, opts data.ReadListOptions) ([]tinkerbell.Workflow, error)
+	ListWorkflows(ctx context.Context, opts data.WorkflowFilter) ([]tinkerbell.Workflow, error)
 }
 
 type WorkflowUpdater interface {
@@ -58,11 +59,15 @@ type WorkflowUpdater interface {
 }
 
 type WorkflowRuleSetLister interface {
-	ListWorkflowRuleSets(ctx context.Context, opts data.ReadListOptions) ([]tinkerbell.WorkflowRuleSet, error)
+	ListWorkflowRuleSets(ctx context.Context, opts data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error)
 }
 
 type HardwareReader interface {
-	ReadHardware(ctx context.Context, name, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error)
+	ReadHardware(ctx context.Context, name, namespace string) (*tinkerbell.Hardware, error)
+}
+
+type HardwareFilterer interface {
+	FilterHardware(ctx context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error)
 }
 
 type HardwareUpdater interface {
@@ -159,7 +164,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		hwRef = hw
 	}
 
-	wfs, err := h.Backend.ListWorkflows(ctx, "", data.ReadListOptions{ByAgentID: req.GetAgentId()})
+	wfs, err := h.Backend.ListWorkflows(ctx, data.WorkflowFilter{ByAgentID: req.GetAgentId()})
 	if err != nil {
 		// TODO: This is where we handle auto capabilities
 		journal.Log(ctx, "error getting Workflows", "error", err)
@@ -373,7 +378,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 	}
 	// 2. Get the workflow
 	namespace, name, _ := strings.Cut(req.GetWorkflowId(), "/")
-	wf, err := h.Backend.ReadWorkflow(ctx, name, namespace, data.ReadListOptions{})
+	wf, err := h.Backend.ReadWorkflow(ctx, name, namespace)
 	if err != nil {
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow: %v", err))
 	}
@@ -421,7 +426,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 // as an annotation. This is only called on the very first action to avoid unnecessary backend reads.
 func (h *Handler) resolveAndAnnotateHardware(ctx context.Context, log logr.Logger, hwRef *tinkerbell.Hardware, hardwareRef, namespace string, attrs *data.AgentAttributes) {
 	if hwRef == nil && hardwareRef != "" {
-		hw, err := h.Backend.ReadHardware(ctx, hardwareRef, namespace, data.ReadListOptions{})
+		hw, err := h.Backend.ReadHardware(ctx, hardwareRef, namespace)
 		if err != nil {
 			return
 		}

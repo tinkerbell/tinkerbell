@@ -209,14 +209,14 @@ type mockBackendReadWriter struct {
 	updateOpts      data.UpdateOptions   // captures the options passed to UpdateHardware
 }
 
-func (m *mockBackendReadWriter) ReadWorkflow(_ context.Context, _ string, _ string, _ data.ReadListOptions) (*tinkerbell.Workflow, error) {
+func (m *mockBackendReadWriter) ReadWorkflow(_ context.Context, _ string, _ string) (*tinkerbell.Workflow, error) {
 	if m.workflow == nil {
 		return nil, errors.New("workflow not found")
 	}
 	return m.workflow, nil
 }
 
-func (m *mockBackendReadWriter) ListWorkflows(_ context.Context, _ string, _ data.ReadListOptions) ([]tinkerbell.Workflow, error) {
+func (m *mockBackendReadWriter) ListWorkflows(_ context.Context, _ data.WorkflowFilter) ([]tinkerbell.Workflow, error) {
 	if m.workflow != nil {
 		return []tinkerbell.Workflow{*m.workflow}, nil
 	}
@@ -227,7 +227,17 @@ func (m *mockBackendReadWriter) UpdateWorkflow(_ context.Context, _ *tinkerbell.
 	return m.writeErr
 }
 
-func (m *mockBackendReadWriter) ReadHardware(_ context.Context, _ string, _ string, _ data.ReadListOptions) (*tinkerbell.Hardware, error) {
+func (m *mockBackendReadWriter) ReadHardware(_ context.Context, _ string, _ string) (*tinkerbell.Hardware, error) {
+	if m.hardware != nil {
+		return m.hardware, nil
+	}
+	if m.hardwareErr != nil {
+		return nil, m.hardwareErr
+	}
+	return nil, errors.New("hardware not found")
+}
+
+func (m *mockBackendReadWriter) FilterHardware(_ context.Context, _ data.HardwareFilter) (*tinkerbell.Hardware, error) {
 	if m.hardware != nil {
 		return m.hardware, nil
 	}

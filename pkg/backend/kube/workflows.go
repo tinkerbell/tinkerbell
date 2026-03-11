@@ -19,7 +19,7 @@ func (b *Backend) CreateWorkflow(ctx context.Context, w *v1alpha1.Workflow) erro
 	return nil
 }
 
-func (b *Backend) ReadWorkflow(ctx context.Context, name, namespace string, _ data.ReadListOptions) (*v1alpha1.Workflow, error) {
+func (b *Backend) ReadWorkflow(ctx context.Context, name, namespace string) (*v1alpha1.Workflow, error) {
 	workflowNamespace, workflowName, found := strings.Cut(name, "/")
 	if !found {
 		workflowName = name
@@ -34,17 +34,17 @@ func (b *Backend) ReadWorkflow(ctx context.Context, name, namespace string, _ da
 	return wflw, nil
 }
 
-func (b *Backend) ListWorkflows(ctx context.Context, namespace string, opts data.ReadListOptions) ([]v1alpha1.Workflow, error) {
+func (b *Backend) ListWorkflows(ctx context.Context, opts data.WorkflowFilter) ([]v1alpha1.Workflow, error) {
 	stored := &v1alpha1.WorkflowList{}
 	los := []client.ListOption{}
-	if namespace != "" {
-		los = append(los, client.InNamespace(namespace))
+	if opts.InNamespace != "" {
+		los = append(los, client.InNamespace(opts.InNamespace))
 	}
 	if opts.ByAgentID != "" {
 		los = append(los, client.MatchingFields{WorkflowAgentIDIndex: opts.ByAgentID})
 	}
 	if err := b.cluster.GetClient().List(ctx, stored, los...); err != nil {
-		return nil, fmt.Errorf("failed to list workflows in namespace %s: %w", namespace, err)
+		return nil, fmt.Errorf("failed to list workflows in namespace %s: %w", opts.InNamespace, err)
 	}
 
 	return stored.Items, nil

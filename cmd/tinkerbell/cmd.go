@@ -316,10 +316,10 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return fmt.Errorf("failed to create kube backend: %w", err)
 		}
 		s.Config.Backend = b
-		h.Config.SetBackendFromReader(b)
+		h.Config.SetBackendFromFilterer(b)
 		ts.Config.Backend = b
 		ts.Config.Auto.Discovery.HardwareCreator = b
-		ts.Config.Auto.Discovery.HardwareReader = b
+		ts.Config.Auto.Discovery.HardwareFilterer = b
 		ts.Config.Auto.Enrollment.WorkflowRuleSetLister = b
 		ts.Config.Auto.Enrollment.WorkflowCreator = b
 		tc.Config.Client = b.ClientConfig
@@ -339,7 +339,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	case "none":
 		b := newNoopBackend()
 		s.Config.Backend = b
-		h.Config.SetBackendFromReader(b)
+		h.Config.SetBackendFromFilterer(b)
 	case "pass":
 	default:
 		return fmt.Errorf("unknown backend %q", globals.Backend)

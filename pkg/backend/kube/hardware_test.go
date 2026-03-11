@@ -82,7 +82,7 @@ func TestReadHardwareByIP(t *testing.T) {
 			}
 
 			go b.Start(context.Background())
-			got, err := b.ReadHardware(context.Background(), "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByIPAddress: "172.16.10.100"}})
+			got, err := b.FilterHardware(context.Background(), data.HardwareFilter{ByIPAddress: "172.16.10.100"})
 			if tc.shouldErr {
 				if err == nil {
 					t.Fatal("expected error")
@@ -161,7 +161,7 @@ func TestReadHardwareByMac(t *testing.T) {
 			}
 
 			go b.Start(context.Background())
-			got, err := b.ReadHardware(context.Background(), "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: "3c:ec:ef:4c:4f:54"}})
+			got, err := b.FilterHardware(context.Background(), data.HardwareFilter{ByMACAddress: "3c:ec:ef:4c:4f:54"})
 			if tc.shouldErr {
 				if err == nil {
 					t.Fatal("expected error")

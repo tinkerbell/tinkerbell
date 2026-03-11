@@ -32,5 +32,5 @@ type AutoDiscovery struct {
 	EnrollmentEnabled bool
 
 	HardwareCreator
-	HardwareReader
+	HardwareFilterer
 }

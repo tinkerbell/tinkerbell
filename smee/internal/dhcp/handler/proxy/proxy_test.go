@@ -32,7 +32,7 @@ type mockBackend struct {
 	err          error
 }
 
-func (m *mockBackend) ReadHardware(_ context.Context, _, _ string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
+func (m *mockBackend) FilterHardware(_ context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -41,7 +41,7 @@ func (m *mockBackend) ReadHardware(_ context.Context, _, _ string, opts data.Rea
 			Interfaces: []tinkerbell.Interface{
 				{
 					DHCP: &tinkerbell.DHCP{
-						MAC: opts.Hardware.ByMACAddress,
+						MAC: opts.ByMACAddress,
 					},
 					Netboot: &tinkerbell.Netboot{
 						AllowPXE: &m.allowNetboot,

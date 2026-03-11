@@ -19,7 +19,7 @@ type mockReader struct {
 	err error
 }
 
-func (m *mockReader) ReadHardware(_ context.Context, _, _ string, _ data.ReadListOptions) (*v1alpha1.Hardware, error) {
+func (m *mockReader) FilterHardware(_ context.Context, _ data.HardwareFilter) (*v1alpha1.Hardware, error) {
 	return m.hw, m.err
 }
 

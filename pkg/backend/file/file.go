@@ -67,10 +67,8 @@ func NewWatcher(l logr.Logger, f string) (*Watcher, error) {
 	return w, nil
 }
 
-// ReadHardware is the implementation of the Backend interface.
-// It reads hardware data from the in memory data (w.data) and searches for a match
-// based on the provided ReadListOptions.
-func (w *Watcher) ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
+// ReadHardware looks up a Hardware object by name from the in-memory data.
+func (w *Watcher) ReadHardware(ctx context.Context, name, namespace string) (*tinkerbell.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	_, span := tracer.Start(ctx, "backend.file.ReadHardware")
 	defer span.End()
@@ -87,12 +85,43 @@ func (w *Watcher) ReadHardware(ctx context.Context, id, namespace string, opts d
 		return nil, err
 	}
 
-	if namespace != "" && opts.InNamespace == "" {
-		opts.InNamespace = namespace
-	}
 	for i := range hwList {
 		hw := &hwList[i]
-		if matchHardware(hw, id, opts) {
+		if namespace != "" && hw.Namespace != namespace {
+			continue
+		}
+		if hw.Name == name {
+			span.SetStatus(codes.Ok, "")
+			return hw, nil
+		}
+	}
+
+	err := fmt.Errorf("%w: no matching hardware found", errRecordNotFound)
+	span.SetStatus(codes.Error, err.Error())
+	return nil, err
+}
+
+// FilterHardware looks up a single Hardware object from the in-memory data using selector-based filtering.
+func (w *Watcher) FilterHardware(ctx context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error) {
+	tracer := otel.Tracer(tracerName)
+	_, span := tracer.Start(ctx, "backend.file.FilterHardware")
+	defer span.End()
+
+	w.dataMu.RLock()
+	d := w.data
+	w.dataMu.RUnlock()
+
+	var hwList []tinkerbell.Hardware
+	if err := yaml.Unmarshal(d, &hwList); err != nil {
+		err := fmt.Errorf("%w: %v", errFileFormat, err)
+		w.Log.Error(err, "failed to unmarshal file data")
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
+	}
+
+	for i := range hwList {
+		hw := &hwList[i]
+		if matchHardware(hw, opts) {
 			span.SetStatus(codes.Ok, "")
 			return hw, nil
 		}
@@ -108,19 +137,10 @@ func (w *Watcher) UpdateHardware(_ context.Context, _ *tinkerbell.Hardware, _ da
 	return fmt.Errorf("file backend does not support hardware updates")
 }
 
-// matchHardware checks if a Hardware object matches the given search criteria.
-// When explicit selectors are provided in opts, they take priority over the id parameter
-// to avoid false-positive matches by object name when callers intend to filter by other fields.
-func matchHardware(hw *tinkerbell.Hardware, id string, opts data.ReadListOptions) bool {
+// matchHardware checks if a Hardware object matches the given filter selectors.
+func matchHardware(hw *tinkerbell.Hardware, opts data.HardwareFilter) bool {
 	if opts.InNamespace != "" && hw.Namespace != opts.InNamespace {
 		return false
-	}
-
-	// When explicit selectors are set, use them instead of the id parameter.
-	hasSelectors := opts.ByName != "" || opts.ByAgentID != "" || opts.Hardware.ByMACAddress != "" || opts.Hardware.ByIPAddress != ""
-
-	if !hasSelectors && id != "" {
-		return id == hw.Name
 	}
 
 	if opts.ByName != "" && hw.Name == opts.ByName {
@@ -129,19 +149,22 @@ func matchHardware(hw *tinkerbell.Hardware, id string, opts data.ReadListOptions
 	if opts.ByAgentID != "" && hw.Spec.AgentID == opts.ByAgentID {
 		return true
 	}
-	if opts.Hardware.ByMACAddress != "" {
+	if opts.ByMACAddress != "" {
 		for _, iface := range hw.Spec.Interfaces {
-			if iface.DHCP != nil && strings.EqualFold(iface.DHCP.MAC, opts.Hardware.ByMACAddress) {
+			if iface.DHCP != nil && strings.EqualFold(iface.DHCP.MAC, opts.ByMACAddress) {
 				return true
 			}
 		}
 	}
-	if opts.Hardware.ByIPAddress != "" {
+	if opts.ByIPAddress != "" {
 		for _, iface := range hw.Spec.Interfaces {
-			if iface.DHCP != nil && iface.DHCP.IP != nil && iface.DHCP.IP.Address == opts.Hardware.ByIPAddress {
+			if iface.DHCP != nil && iface.DHCP.IP != nil && iface.DHCP.IP.Address == opts.ByIPAddress {
 				return true
 			}
 		}
+	}
+	if opts.ByInstanceID != "" && hw.Spec.Metadata != nil && hw.Spec.Metadata.Instance != nil && hw.Spec.Metadata.Instance.ID == opts.ByInstanceID {
+		return true
 	}
 	return false
 }

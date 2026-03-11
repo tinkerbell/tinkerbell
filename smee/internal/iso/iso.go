@@ -34,7 +34,7 @@ const (
 
 // BackendReader is the interface for getting data from a backend.
 type BackendReader interface {
-	ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*tinkerbell.Hardware, error)
+	FilterHardware(ctx context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error)
 }
 
 // Handler is a struct that contains the necessary fields to patch an ISO file with
@@ -406,7 +406,7 @@ func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br Back
 		return "", d2.Hardware{}, errors.New("backend is nil")
 	}
 
-	spec, err := br.ReadHardware(ctx, "", "", data.ReadListOptions{Hardware: data.HardwareReadOptions{ByMACAddress: mac.String()}})
+	spec, err := br.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: mac.String()})
 	if err != nil {
 		return "", d2.Hardware{}, err
 	}

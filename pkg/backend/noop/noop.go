@@ -12,7 +12,11 @@ var errAlways = errors.New("noop backend always returns an error")
 
 type Backend struct{}
 
-func (n Backend) ReadHardware(_ context.Context, _, _ string, _ data.ReadListOptions) (*tinkerbell.Hardware, error) {
+func (n Backend) ReadHardware(_ context.Context, _, _ string) (*tinkerbell.Hardware, error) {
+	return nil, errAlways
+}
+
+func (n Backend) FilterHardware(_ context.Context, _ data.HardwareFilter) (*tinkerbell.Hardware, error) {
 	return nil, errAlways
 }
 

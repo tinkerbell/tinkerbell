@@ -17,19 +17,19 @@ import (
 
 const tracerName = "github.com/tinkerbell/tinkerbell"
 
-// HardwareReader is the interface required to read Hardware objects.
-type HardwareReader interface {
-	ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*v1alpha1.Hardware, error)
+// HardwareFilterer is the interface required to filter Hardware objects.
+type HardwareFilterer interface {
+	FilterHardware(ctx context.Context, opts data.HardwareFilter) (*v1alpha1.Hardware, error)
 }
 
-// Backend provides tootles instance metadata by reading Hardware via a HardwareReader.
+// Backend provides tootles instance metadata by filtering Hardware via a HardwareFilterer.
 type Backend struct {
-	reader HardwareReader
+	filterer HardwareFilterer
 }
 
-// New creates a new Backend wrapping the given HardwareReader.
-func New(reader HardwareReader) *Backend {
-	return &Backend{reader: reader}
+// New creates a new Backend wrapping the given HardwareFilterer.
+func New(filterer HardwareFilterer) *Backend {
+	return &Backend{filterer: filterer}
 }
 
 // GetHackInstance returns a HackInstance for the hardware associated with the given IP.
@@ -38,9 +38,7 @@ func (b *Backend) GetHackInstance(ctx context.Context, ip string) (data.HackInst
 	ctx, span := tracer.Start(ctx, "tootles.backend.GetHackInstance")
 	defer span.End()
 
-	hw, err := b.reader.ReadHardware(ctx, "", "", data.ReadListOptions{
-		Hardware: data.HardwareReadOptions{ByIPAddress: ip},
-	})
+	hw, err := b.filterer.FilterHardware(ctx, data.HardwareFilter{ByIPAddress: ip})
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 		return data.HackInstance{}, err
@@ -57,9 +55,7 @@ func (b *Backend) GetEC2Instance(ctx context.Context, ip string) (data.Ec2Instan
 	ctx, span := tracer.Start(ctx, "tootles.backend.GetEC2Instance")
 	defer span.End()
 
-	hw, err := b.reader.ReadHardware(ctx, "", "", data.ReadListOptions{
-		Hardware: data.HardwareReadOptions{ByIPAddress: ip},
-	})
+	hw, err := b.filterer.FilterHardware(ctx, data.HardwareFilter{ByIPAddress: ip})
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 		return data.Ec2Instance{}, toInstanceNotFoundErr(err)
@@ -76,9 +72,7 @@ func (b *Backend) GetEC2InstanceByInstanceID(ctx context.Context, instanceID str
 	ctx, span := tracer.Start(ctx, "tootles.backend.GetEC2InstanceByInstanceID")
 	defer span.End()
 
-	hw, err := b.reader.ReadHardware(ctx, "", "", data.ReadListOptions{
-		Hardware: data.HardwareReadOptions{ByInstanceID: instanceID},
-	})
+	hw, err := b.filterer.FilterHardware(ctx, data.HardwareFilter{ByInstanceID: instanceID})
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 		return data.Ec2Instance{}, toInstanceNotFoundErr(err)

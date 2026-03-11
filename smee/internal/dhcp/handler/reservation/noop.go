@@ -12,7 +12,7 @@ import (
 // Handler is a noop backend.
 type noop struct{}
 
-// GetByMac returns an error.
-func (h noop) ReadHardware(_ context.Context, _, _ string, _ data.ReadListOptions) (*tinkerbell.Hardware, error) {
+// FilterHardware returns an error.
+func (h noop) FilterHardware(_ context.Context, _ data.HardwareFilter) (*tinkerbell.Hardware, error) {
 	return nil, errors.New("no backend specified, please specify a backend")
 }

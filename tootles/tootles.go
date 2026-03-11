@@ -30,16 +30,16 @@ type Config struct {
 	InstanceEndpoint bool
 }
 
-// HardwareReader is the interface required to read Hardware objects.
+// HardwareFilterer is the interface required to filter Hardware objects.
 // It is implemented by the kube and noop backends.
-type HardwareReader interface {
-	ReadHardware(ctx context.Context, id, namespace string, opts data.ReadListOptions) (*v1alpha1.Hardware, error)
+type HardwareFilterer interface {
+	FilterHardware(ctx context.Context, opts data.HardwareFilter) (*v1alpha1.Hardware, error)
 }
 
-// SetBackendFromReader configures BackendEc2 and BackendHack from a HardwareReader.
+// SetBackendFromFilterer configures BackendEc2 and BackendHack from a HardwareFilterer.
 // This allows callers to wire a backend without importing tootles internal packages.
-func (c *Config) SetBackendFromReader(reader HardwareReader) {
-	b := backend.New(reader)
+func (c *Config) SetBackendFromFilterer(filterer HardwareFilterer) {
+	b := backend.New(filterer)
 	c.BackendEc2 = b
 	c.BackendHack = b
 }

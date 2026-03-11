@@ -327,13 +327,13 @@ func TestMultipleRedirects(t *testing.T) {
 
 type mockBackend struct{}
 
-func (m *mockBackend) ReadHardware(_ context.Context, _, _ string, opts data.ReadListOptions) (*tinkerbell.Hardware, error) {
-	if opts.Hardware.ByMACAddress != "" {
+func (m *mockBackend) FilterHardware(_ context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error) {
+	if opts.ByMACAddress != "" {
 		return &tinkerbell.Hardware{
 			Spec: tinkerbell.HardwareSpec{
 				Interfaces: []tinkerbell.Interface{{
 					DHCP: &tinkerbell.DHCP{
-						MAC:    opts.Hardware.ByMACAddress,
+						MAC:    opts.ByMACAddress,
 						VLANID: "400",
 					},
 					Netboot: &tinkerbell.Netboot{
@@ -348,13 +348,13 @@ func (m *mockBackend) ReadHardware(_ context.Context, _, _ string, opts data.Rea
 			},
 		}, nil
 	}
-	if opts.Hardware.ByIPAddress != "" {
+	if opts.ByIPAddress != "" {
 		return &tinkerbell.Hardware{
 			Spec: tinkerbell.HardwareSpec{
 				Interfaces: []tinkerbell.Interface{{
 					DHCP: &tinkerbell.DHCP{
 						IP: &tinkerbell.IP{
-							Address: opts.Hardware.ByIPAddress,
+							Address: opts.ByIPAddress,
 						},
 					},
 					Netboot: &tinkerbell.Netboot{

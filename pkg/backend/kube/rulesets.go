@@ -8,7 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (b *Backend) ListWorkflowRuleSets(ctx context.Context, opts data.ReadListOptions) ([]v1alpha1.WorkflowRuleSet, error) {
+func (b *Backend) ListWorkflowRuleSets(ctx context.Context, opts data.WorkflowFilter) ([]v1alpha1.WorkflowRuleSet, error) {
 	list := &v1alpha1.WorkflowRuleSetList{}
 	lo := []client.ListOption{}
 	if opts.InNamespace != "" {

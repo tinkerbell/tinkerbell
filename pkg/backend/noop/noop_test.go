@@ -11,7 +11,7 @@ import (
 func TestBackend(t *testing.T) {
 	b := Backend{}
 	ctx := context.Background()
-	_, err := b.ReadHardware(ctx, "", "", data.ReadListOptions{})
+	_, err := b.FilterHardware(ctx, data.HardwareFilter{})
 	if err == nil {
 		t.Error("expected error")
 	}
