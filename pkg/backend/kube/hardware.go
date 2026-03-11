@@ -3,7 +3,6 @@ package kube
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -22,21 +21,14 @@ func (b *Backend) CreateHardware(ctx context.Context, hw *v1alpha1.Hardware) err
 }
 
 // ReadHardware looks up a Hardware object by name and namespace using a direct Get.
-// When name is in the format "namespace/name", it is split accordingly.
 func (b *Backend) ReadHardware(ctx context.Context, name, namespace string) (*v1alpha1.Hardware, error) {
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "backend.kube.ReadHardware")
 	defer span.End()
 
-	hwNamespace, hwName, found := strings.Cut(name, "/")
-	if !found {
-		hwName = name
-		hwNamespace = namespace
-	}
-
 	hw := &v1alpha1.Hardware{}
-	if err := b.cluster.GetClient().Get(ctx, types.NamespacedName{Name: hwName, Namespace: hwNamespace}, hw); err != nil {
-		return nil, fmt.Errorf("failed to get hardware %s/%s: %w", hwNamespace, hwName, err)
+	if err := b.cluster.GetClient().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, hw); err != nil {
+		return nil, fmt.Errorf("failed to get hardware %s/%s: %w", namespace, name, err)
 	}
 
 	return hw, nil

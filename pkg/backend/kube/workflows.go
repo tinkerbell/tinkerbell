@@ -3,7 +3,6 @@ package kube
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -20,16 +19,9 @@ func (b *Backend) CreateWorkflow(ctx context.Context, w *v1alpha1.Workflow) erro
 }
 
 func (b *Backend) ReadWorkflow(ctx context.Context, name, namespace string) (*v1alpha1.Workflow, error) {
-	workflowNamespace, workflowName, found := strings.Cut(name, "/")
-	if !found {
-		workflowName = name
-		workflowNamespace = namespace
-	}
-
 	wflw := &v1alpha1.Workflow{}
-	err := b.cluster.GetClient().Get(ctx, types.NamespacedName{Name: workflowName, Namespace: workflowNamespace}, wflw)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workflow. id: %s, name: %s, namespace: %s, err: %w", name, workflowName, workflowNamespace, err)
+	if err := b.cluster.GetClient().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, wflw); err != nil {
+		return nil, fmt.Errorf("failed to get workflow %s/%s: %w", namespace, name, err)
 	}
 	return wflw, nil
 }
