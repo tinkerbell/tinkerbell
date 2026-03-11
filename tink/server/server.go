@@ -173,7 +173,7 @@ type allInterfaces interface {
 	grpcinternal.WorkflowCreator
 }
 
-// SetBackends is a helper function to set a single backend implmentation for all backend interfaces.
+// SetBackends is a helper function to set a single backend implementation for all backend interfaces.
 // This is useful for backends that implement multiple interfaces, such as the kube backend.
 func (c *Config) SetBackends(b allInterfaces) {
 	c.Backend = b

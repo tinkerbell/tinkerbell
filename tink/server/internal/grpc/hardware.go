@@ -7,6 +7,7 @@ import (
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // hardware returns the Hardware object for the given agentID.
@@ -35,4 +36,15 @@ func foundMultipleHardware(e error) bool {
 	}
 	fn, ok := e.(foundMultiple)
 	return ok && fn.MultipleFound()
+}
+
+func hardwareNotFound(e error) bool {
+	type notFound interface {
+		NotFound() bool
+	}
+	fn, ok := e.(notFound)
+	if ok && fn.NotFound() {
+		return true
+	}
+	return apierrors.IsNotFound(e)
 }

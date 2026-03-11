@@ -27,6 +27,14 @@ var (
 	errRecordNotFound = fmt.Errorf("record not found")
 )
 
+type hardwareNotFoundError struct{}
+
+func (hardwareNotFoundError) NotFound() bool { return true }
+
+func (hardwareNotFoundError) Error() string {
+	return "no matching hardware found"
+}
+
 type foundMultipleHardwareError struct {
 	count int
 }
@@ -140,7 +148,7 @@ func (w *Watcher) FilterHardware(ctx context.Context, opts data.HardwareFilter) 
 
 	switch len(matches) {
 	case 0:
-		err := fmt.Errorf("%w: no matching hardware found", errRecordNotFound)
+		err := hardwareNotFoundError{}
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	case 1:

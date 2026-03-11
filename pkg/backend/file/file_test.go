@@ -234,12 +234,13 @@ func (tt *testData) helper(t *testing.T, l logr.Logger) (*Watcher, string) {
 
 func TestReadHardwareByMac(t *testing.T) {
 	tests := map[string]struct {
-		mac     string
-		badData bool
-		wantErr error
+		mac          string
+		badData      bool
+		wantErr      error
+		wantNotFound bool
 	}{
-		"no record found":   {mac: "00:01:02:03:04:05", wantErr: errRecordNotFound},
-		"record found":      {mac: "08:00:27:29:4e:67", wantErr: nil},
+		"no record found":   {mac: "00:01:02:03:04:05", wantNotFound: true},
+		"record found":      {mac: "08:00:27:29:4e:67"},
 		"fail parsing file": {badData: true, wantErr: errFileFormat},
 	}
 
@@ -259,10 +260,15 @@ func TestReadHardwareByMac(t *testing.T) {
 				t.Fatal(err)
 			}
 			hw, err := w.FilterHardware(context.Background(), data.HardwareFilter{ByMACAddress: tt.mac})
-			if !errors.Is(err, tt.wantErr) {
+			if tt.wantNotFound {
+				var nf hardwareNotFoundError
+				if !errors.As(err, &nf) {
+					t.Fatalf("FilterHardware() error = %v, want NotFound error", err)
+				}
+			} else if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("FilterHardware() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if tt.wantErr == nil && hw == nil {
+			if tt.wantErr == nil && !tt.wantNotFound && hw == nil {
 				t.Fatal("expected hardware, got nil")
 			}
 		})
@@ -271,12 +277,13 @@ func TestReadHardwareByMac(t *testing.T) {
 
 func TestReadHardwareByIP(t *testing.T) {
 	tests := map[string]struct {
-		ip      string
-		badData bool
-		wantErr error
+		ip           string
+		badData      bool
+		wantErr      error
+		wantNotFound bool
 	}{
-		"no record found":   {ip: "172.168.2.1", wantErr: errRecordNotFound},
-		"record found":      {ip: "192.168.2.153", wantErr: nil},
+		"no record found":   {ip: "172.168.2.1", wantNotFound: true},
+		"record found":      {ip: "192.168.2.153"},
 		"fail parsing file": {badData: true, wantErr: errFileFormat},
 	}
 
@@ -296,10 +303,15 @@ func TestReadHardwareByIP(t *testing.T) {
 				t.Fatal(err)
 			}
 			hw, err := w.FilterHardware(context.Background(), data.HardwareFilter{ByIPAddress: tt.ip})
-			if !errors.Is(err, tt.wantErr) {
+			if tt.wantNotFound {
+				var nf hardwareNotFoundError
+				if !errors.As(err, &nf) {
+					t.Fatalf("FilterHardware() error = %v, want NotFound error", err)
+				}
+			} else if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("FilterHardware() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if tt.wantErr == nil && hw == nil {
+			if tt.wantErr == nil && !tt.wantNotFound && hw == nil {
 				t.Fatal("expected hardware, got nil")
 			}
 		})

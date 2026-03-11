@@ -10,7 +10,6 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,7 +44,7 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 		return nil, fmt.Errorf("multiple hardware objects found for agent ID %s: %w", agentID, err)
 	}
 
-	if !apierrors.IsNotFound(err) {
+	if !hardwareNotFound(err) {
 		// Unexpected error occurred while checking for existing hardware
 		journal.Log(ctx, "Error checking for existing hardware object", "error", err)
 		return nil, fmt.Errorf("failed to check for existing hardware object %s/%s: %w", ns, hwName, err)
