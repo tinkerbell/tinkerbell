@@ -317,11 +317,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		}
 		s.Config.Backend = b
 		h.Config.SetBackendFromFilterer(b)
-		ts.Config.Backend = b
-		ts.Config.Auto.Discovery.HardwareCreator = b
-		ts.Config.Auto.Discovery.HardwareFilterer = b
-		ts.Config.Auto.Enrollment.WorkflowRuleSetLister = b
-		ts.Config.Auto.Enrollment.WorkflowCreator = b
+		ts.Config.SetBackends(b)
 		tc.Config.Client = b.ClientConfig
 		tc.Config.DynamicClient = b
 		rc.Config.Client = b.ClientConfig

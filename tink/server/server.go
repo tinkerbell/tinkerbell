@@ -164,3 +164,21 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 	return nil
 }
+
+type allInterfaces interface {
+	grpcinternal.Backend
+	grpcinternal.HardwareCreator
+	grpcinternal.HardwareFilterer
+	grpcinternal.WorkflowRuleSetLister
+	grpcinternal.WorkflowCreator
+}
+
+// SetBackends is a helper function to set a single backend implmentation for all backend interfaces.
+// This is useful for backends that implement multiple interfaces, such as the kube backend.
+func (c *Config) SetBackends(b allInterfaces) {
+	c.Backend = b
+	c.Auto.Discovery.HardwareCreator = b
+	c.Auto.Discovery.HardwareFilterer = b
+	c.Auto.Enrollment.WorkflowRuleSetLister = b
+	c.Auto.Enrollment.WorkflowCreator = b
+}
