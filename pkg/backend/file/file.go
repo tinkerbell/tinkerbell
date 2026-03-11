@@ -23,8 +23,7 @@ const tracerName = "github.com/tinkerbell/tinkerbell"
 // Errors used by the file watcher.
 var (
 	// errFileFormat is returned when the file is not in the correct format, e.g. not valid YAML.
-	errFileFormat     = fmt.Errorf("invalid file format")
-	errRecordNotFound = fmt.Errorf("record not found")
+	errFileFormat = fmt.Errorf("invalid file format")
 )
 
 type hardwareNotFoundError struct{}
@@ -114,7 +113,7 @@ func (w *Watcher) ReadHardware(ctx context.Context, name, namespace string) (*ti
 		}
 	}
 
-	err := fmt.Errorf("%w: no matching hardware found", errRecordNotFound)
+	err := hardwareNotFoundError{}
 	span.SetStatus(codes.Error, err.Error())
 	return nil, err
 }

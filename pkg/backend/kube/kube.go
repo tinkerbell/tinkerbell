@@ -80,10 +80,6 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 		return nil, err
 	}
 
-	if err := scheme.AddToScheme(rs); err != nil {
-		return nil, err
-	}
-
 	conf := func(o *cluster.Options) {
 		o.Scheme = rs
 		if cfg.Namespace != "" {

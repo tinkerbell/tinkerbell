@@ -152,7 +152,3 @@ func (b *Backend) UpdateHardware(ctx context.Context, hw *v1alpha1.Hardware, opt
 
 	return nil
 }
-
-func (b *Backend) DeleteHardware(_ context.Context, _, _ string) error {
-	return nil
-}

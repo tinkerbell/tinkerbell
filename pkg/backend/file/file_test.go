@@ -320,11 +320,12 @@ func TestReadHardwareByIP(t *testing.T) {
 
 func TestReadHardwareByName(t *testing.T) {
 	tests := map[string]struct {
-		name    string
-		wantErr error
+		name     string
+		wantErr  bool
+		notFound bool
 	}{
-		"no record found": {name: "nonexistent", wantErr: errRecordNotFound},
-		"record found":    {name: "pxe-virtualbox", wantErr: nil},
+		"no record found": {name: "nonexistent", wantErr: true, notFound: true},
+		"record found":    {name: "pxe-virtualbox", wantErr: false},
 	}
 
 	for name, tt := range tests {
@@ -334,10 +335,23 @@ func TestReadHardwareByName(t *testing.T) {
 				t.Fatal(err)
 			}
 			hw, err := w.ReadHardware(context.Background(), tt.name, "")
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("ReadHardware() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if tt.notFound {
+					type nf interface{ NotFound() bool }
+					var nfe nf
+					if !errors.As(err, &nfe) || !nfe.NotFound() {
+						t.Fatalf("expected NotFound error, got %v", err)
+					}
+				}
+				return
 			}
-			if tt.wantErr == nil && hw == nil {
+			if err != nil {
+				t.Fatalf("ReadHardware() unexpected error = %v", err)
+			}
+			if hw == nil {
 				t.Fatal("expected hardware, got nil")
 			}
 		})

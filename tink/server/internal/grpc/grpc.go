@@ -428,6 +428,9 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 // resolveAndAnnotateHardware resolves the Hardware object for a Workflow and persists agent attributes
 // as an annotation. This is only called on the very first action to avoid unnecessary backend reads.
 func (h *Handler) resolveAndAnnotateHardware(ctx context.Context, log logr.Logger, hwRef *tinkerbell.Hardware, hardwareRef, namespace string, attrs *data.AgentAttributes) {
+	if attrs == nil {
+		return
+	}
 	if hwRef == nil && hardwareRef != "" {
 		hw, err := h.Backend.ReadHardware(ctx, hardwareRef, namespace)
 		if err != nil {

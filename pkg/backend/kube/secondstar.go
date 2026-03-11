@@ -13,6 +13,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	defaultIPMIPort        = 623
+	defaultIPMICipherSuite = "17"
+)
+
 // FilterBMCMachine looks up a machine.bmc.tinkerbell.org object based on the bmcRef in the hardware object matching the given filter.
 func (b *Backend) FilterBMCMachine(ctx context.Context, opts data.HardwareFilter) (*data.BMCMachine, error) {
 	tracer := otel.Tracer(tracerName)
@@ -35,8 +40,8 @@ func (b *Backend) FilterBMCMachine(ctx context.Context, opts data.HardwareFilter
 
 	response.Host = bmcMachine.Spec.Connection.Host
 	if bmcMachine.Spec.Connection.ProviderOptions != nil && bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL != nil {
-		response.Port = ternary(bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.Port == 0, 623, bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.Port)
-		response.CipherSuite = ternary(bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.CipherSuite == "", "17", bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.CipherSuite)
+		response.Port = ternary(bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.Port == 0, defaultIPMIPort, bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.Port)
+		response.CipherSuite = ternary(bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.CipherSuite == "", defaultIPMICipherSuite, bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.CipherSuite)
 	}
 
 	username, password, err := b.ReadAuthSecret(ctx, bmcMachine.Spec.Connection.AuthSecretRef.Name, bmcMachine.Spec.Connection.AuthSecretRef.Namespace)

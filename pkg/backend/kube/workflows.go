@@ -73,7 +73,3 @@ func (b *Backend) UpdateWorkflow(ctx context.Context, wf *v1alpha1.Workflow, opt
 
 	return nil
 }
-
-func (b *Backend) DeleteWorkflow(_ context.Context, _, _ string) error {
-	return nil
-}

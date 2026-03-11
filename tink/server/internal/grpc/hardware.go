@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
@@ -34,16 +35,16 @@ func foundMultipleHardware(e error) bool {
 	type foundMultiple interface {
 		MultipleFound() bool
 	}
-	fn, ok := e.(foundMultiple)
-	return ok && fn.MultipleFound()
+	var fn foundMultiple
+	return errors.As(e, &fn) && fn.MultipleFound()
 }
 
 func hardwareNotFound(e error) bool {
 	type notFound interface {
 		NotFound() bool
 	}
-	fn, ok := e.(notFound)
-	if ok && fn.NotFound() {
+	var fn notFound
+	if errors.As(e, &fn) && fn.NotFound() {
 		return true
 	}
 	return apierrors.IsNotFound(e)

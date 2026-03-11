@@ -117,6 +117,7 @@ func GetIPs(h *tinkerbell.Hardware) []string {
 	return ips
 }
 
+// HardwareName extracts the name of a Hardware object for field indexing.
 func HardwareName(obj client.Object) []string {
 	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {
@@ -125,6 +126,7 @@ func HardwareName(obj client.Object) []string {
 	return []string{hw.Name}
 }
 
+// MachineName extracts the name of a BMC Machine object for field indexing.
 func MachineName(obj client.Object) []string {
 	m, ok := obj.(*bmc.Machine)
 	if !ok {
@@ -133,6 +135,7 @@ func MachineName(obj client.Object) []string {
 	return []string{m.Name}
 }
 
+// WorkflowAgentID extracts the agent ID from a Workflow's status for field indexing.
 func WorkflowAgentID(obj client.Object) []string {
 	wf, ok := obj.(*tinkerbell.Workflow)
 	if !ok {
@@ -144,6 +147,7 @@ func WorkflowAgentID(obj client.Object) []string {
 	return []string{wf.Status.AgentID}
 }
 
+// HardwareAgentID extracts the agent ID from a Hardware's spec for field indexing.
 func HardwareAgentID(obj client.Object) []string {
 	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {
@@ -155,6 +159,7 @@ func HardwareAgentID(obj client.Object) []string {
 	return []string{hw.Spec.AgentID}
 }
 
+// InstanceID extracts the instance ID from a Hardware's metadata for field indexing.
 func InstanceID(obj client.Object) []string {
 	hw, ok := obj.(*tinkerbell.Hardware)
 	if !ok {

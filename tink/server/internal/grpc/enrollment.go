@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"time"
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
@@ -187,6 +188,7 @@ func (h *Handler) getActionNoAuto(ctx context.Context, req *proto.ActionRequest)
 			// This needs to be sufficiently long to allow for the Tink Controller to reconcile the Workflow and any server side caches to pick up
 			// the updated Workflow.
 			backoff.WithMaxTries(10),
+			backoff.WithMaxElapsedTime(30 * time.Second),
 			backoff.WithBackOff(backoff.NewExponentialBackOff()),
 		}
 	}
