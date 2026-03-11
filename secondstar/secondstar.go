@@ -16,7 +16,7 @@ import (
 )
 
 type Reader interface {
-	ReadBMCMachine(ctx context.Context, name string) (*data.BMCMachine, error)
+	FilterBMCMachine(ctx context.Context, opts data.HardwareFilter) (*data.BMCMachine, error)
 }
 
 type Config struct {

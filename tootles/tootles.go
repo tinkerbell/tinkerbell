@@ -10,6 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
+	"github.com/tinkerbell/tinkerbell/tootles/internal/backend"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/ec2"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/frontend/hack"
 	"github.com/tinkerbell/tinkerbell/tootles/internal/http"
@@ -25,6 +28,20 @@ type Config struct {
 	DebugMode        bool
 	BindAddrPort     string
 	InstanceEndpoint bool
+}
+
+// HardwareFilterer is the interface required to filter Hardware objects.
+// It is implemented by the kube and noop backends.
+type HardwareFilterer interface {
+	FilterHardware(ctx context.Context, opts data.HardwareFilter) (*v1alpha1.Hardware, error)
+}
+
+// SetBackendFromFilterer configures BackendEc2 and BackendHack from a HardwareFilterer.
+// This allows callers to wire a backend without importing tootles internal packages.
+func (c *Config) SetBackendFromFilterer(filterer HardwareFilterer) {
+	b := backend.New(filterer)
+	c.BackendEc2 = b
+	c.BackendHack = b
 }
 
 func NewConfig(c Config, addrPort string) *Config {

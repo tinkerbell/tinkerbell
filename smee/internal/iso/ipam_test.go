@@ -6,21 +6,21 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tinkerbell/tinkerbell/pkg/data"
+	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 )
 
 func TestParseIPAM(t *testing.T) {
 	tests := map[string]struct {
-		input *data.DHCP
+		input *dhcp.DHCP
 		want  string
 	}{
 		"empty": {},
 		"only MAC": {
-			input: &data.DHCP{MACAddress: net.HardwareAddr{0xde, 0xed, 0xbe, 0xef, 0xfe, 0xed}},
+			input: &dhcp.DHCP{MACAddress: net.HardwareAddr{0xde, 0xed, 0xbe, 0xef, 0xfe, 0xed}},
 			want:  "ipam=de-ed-be-ef-fe-ed::::::::",
 		},
 		"everything": {
-			input: &data.DHCP{
+			input: &dhcp.DHCP{
 				MACAddress:     net.HardwareAddr{0xde, 0xed, 0xbe, 0xef, 0xfe, 0xed},
 				IPAddress:      netip.AddrFrom4([4]byte{127, 0, 0, 1}),
 				SubnetMask:     net.IPv4Mask(255, 255, 255, 0),

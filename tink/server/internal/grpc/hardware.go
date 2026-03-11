@@ -2,16 +2,21 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // hardware returns the Hardware object for the given agentID.
 func (h *Handler) hardware(ctx context.Context, agentID string) (*v1alpha1.Hardware, error) {
-	// Check if Hardware object already exists
-	existing, err := h.AutoCapabilities.Discovery.ReadHardware(ctx, agentID, h.AutoCapabilities.Discovery.Namespace)
+	// Check if Hardware object already exists.
+	// Pass an empty name so backends use ByAgentID as the sole selector,
+	// avoiding accidental matches by object name.
+	existing, err := h.Backend.FilterHardware(ctx, data.HardwareFilter{ByAgentID: agentID, InNamespace: h.AutoCapabilities.Discovery.Namespace})
 	if err == nil {
 		journal.Log(ctx, "Hardware object exists")
 		return existing, nil
@@ -30,6 +35,17 @@ func foundMultipleHardware(e error) bool {
 	type foundMultiple interface {
 		MultipleFound() bool
 	}
-	fn, ok := e.(foundMultiple)
-	return ok && fn.MultipleFound()
+	var fn foundMultiple
+	return errors.As(e, &fn) && fn.MultipleFound()
+}
+
+func hardwareNotFound(e error) bool {
+	type notFound interface {
+		NotFound() bool
+	}
+	var fn notFound
+	if errors.As(e, &fn) && fn.NotFound() {
+		return true
+	}
+	return apierrors.IsNotFound(e)
 }

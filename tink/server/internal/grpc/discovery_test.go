@@ -9,10 +9,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/api"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -68,7 +70,7 @@ func TestHandlerDiscover(t *testing.T) {
 					Namespace: "test-namespace",
 					Labels:    map[string]string{"tinkerbell.org/auto-discovered": "true"},
 					Annotations: map[string]string{
-						"tinkerbell.org/agent-attributes": `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
+						constant.AttributesAnnotation: `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
 					},
 					ResourceVersion: "1",
 				},
@@ -94,6 +96,9 @@ func TestHandlerDiscover(t *testing.T) {
 					Name:      "existing-id",
 					Namespace: "test-namespace",
 				},
+				Spec: tinkerbell.HardwareSpec{
+					AgentID: "existing-id",
+				},
 			},
 			wantErr:     false,
 			wantCreated: false,
@@ -107,7 +112,7 @@ func TestHandlerDiscover(t *testing.T) {
 				},
 			},
 			clientErrors: map[string]error{
-				"get": errors.New("error getting hardware"),
+				"list": errors.New("error getting hardware"),
 			},
 			wantErr:     true,
 			wantCreated: false,
@@ -176,7 +181,7 @@ func TestHandlerDiscover(t *testing.T) {
 					Namespace: "test-namespace",
 					Labels:    map[string]string{"tinkerbell.org/auto-discovered": "true"},
 					Annotations: map[string]string{
-						"tinkerbell.org/agent-attributes": `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"},{"name":"tunl0","mac":"00:00:00:00"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
+						constant.AttributesAnnotation: `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"},{"name":"tunl0","mac":"00:00:00:00"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
 					},
 					ResourceVersion: "1",
 				},
@@ -218,16 +223,18 @@ func TestHandlerDiscover(t *testing.T) {
 			}
 
 			// Create the handler with the fake client
-			handler := &Handler{
-				Logger: logr.Discard(),
-				AutoCapabilities: AutoCapabilities{
+			opts := func(h *Handler) {
+				h.Logger = logr.Discard()
+				h.AutoCapabilities = AutoCapabilities{
 					Discovery: AutoDiscovery{
-						Enabled:                  true,
-						Namespace:                "test-namespace",
-						AutoDiscoveryReadCreator: mockDiscoveryClient,
+						Enabled:          true,
+						Namespace:        "test-namespace",
+						HardwareCreator:  mockDiscoveryClient,
+						HardwareFilterer: mockDiscoveryClient,
 					},
-				},
+				}
 			}
+			handler := NewHandler(opts)
 
 			// Call Discover method
 			hw, err := handler.Discover(context.Background(), tc.id, tc.attrs)
@@ -295,6 +302,14 @@ func (m *mockClient) Get(ctx context.Context, key client.ObjectKey, obj client.O
 	return nil
 }
 
+func (m *mockClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if err, ok := m.errorMap["list"]; ok {
+		return err
+	}
+
+	return m.Client.List(ctx, list, opts...)
+}
+
 func (m *mockClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
 	if err, ok := m.errorMap["create"]; ok {
 		return err
@@ -314,13 +329,17 @@ type mockAutoDiscoveryClient struct {
 	client client.Client
 }
 
-func (m *mockAutoDiscoveryClient) ReadHardware(ctx context.Context, id, namespace string) (*tinkerbell.Hardware, error) {
-	hw := &tinkerbell.Hardware{}
-	err := m.client.Get(ctx, types.NamespacedName{
-		Name:      id,
-		Namespace: namespace,
-	}, hw)
-	return hw, err
+func (m *mockAutoDiscoveryClient) FilterHardware(ctx context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error) {
+	hwList := &tinkerbell.HardwareList{}
+	if err := m.client.List(ctx, hwList); err != nil {
+		return nil, err
+	}
+	for i := range hwList.Items {
+		if hwList.Items[i].Spec.AgentID == opts.ByAgentID {
+			return &hwList.Items[i], nil
+		}
+	}
+	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "tinkerbell.org", Resource: "hardware"}, opts.ByAgentID)
 }
 
 func (m *mockAutoDiscoveryClient) CreateHardware(ctx context.Context, hw *tinkerbell.Hardware) error {

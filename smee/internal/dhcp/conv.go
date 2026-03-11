@@ -1,4 +1,4 @@
-package kube
+package dhcp
 
 import (
 	"context"
@@ -11,64 +11,44 @@ import (
 	"github.com/ccoveille/go-safecast/v2"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// GetByMac implements the handler.BackendReader interface and returns DHCP and netboot data based on a mac address.
-func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (data.Hardware, error) {
+const tracerName = "github.com/tinkerbell/tinkerbell"
+
+func ConvertByMac(ctx context.Context, mac net.HardwareAddr, hw *v1alpha1.Hardware) (Hardware, error) {
 	tracer := otel.Tracer(tracerName)
-	ctx, span := tracer.Start(ctx, "backend.kube.GetByMac")
+	_, span := tracer.Start(ctx, "smee.internal.data.ConvertByMac")
 	defer span.End()
-	hardwareList := &v1alpha1.HardwareList{}
-
-	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{MACAddrIndex: mac.String()}); err != nil {
-		span.SetStatus(codes.Error, err.Error())
-
-		return data.Hardware{}, fmt.Errorf("failed listing hardware for (%v): %w", mac, err)
+	if hw == nil {
+		return Hardware{}, errors.New("hardware is nil")
 	}
-
-	if len(hardwareList.Items) == 0 {
-		err := hardwareNotFoundError{name: mac.String(), namespace: ternary(b.Namespace == "", "all namespaces", b.Namespace)}
-		span.SetStatus(codes.Error, err.Error())
-
-		return data.Hardware{}, err
-	}
-
-	if len(hardwareList.Items) > 1 {
-		err := fmt.Errorf("got %d hardware objects for mac %s, expected only 1", len(hardwareList.Items), mac)
-		span.SetStatus(codes.Error, err.Error())
-
-		return data.Hardware{}, err
-	}
-
 	i := v1alpha1.Interface{}
-	for _, iface := range hardwareList.Items[0].Spec.Interfaces {
-		if iface.DHCP.MAC == mac.String() {
+	for _, iface := range hw.Spec.Interfaces {
+		if iface.DHCP != nil && iface.DHCP.MAC == mac.String() {
 			i = iface
 			break
 		}
 	}
 
-	d, n, err := transform(i, hardwareList.Items[0].Spec.Metadata)
+	d, n, err := transform(i, hw.Spec.Metadata)
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 
-		return data.Hardware{}, err
+		return Hardware{}, err
 	}
 
-	result := data.Hardware{DHCP: d, Netboot: n, AgentID: hardwareList.Items[0].Spec.AgentID}
+	result := Hardware{DHCP: d, Netboot: n, AgentID: hw.Spec.AgentID}
 
 	if i.Isoboot != nil && i.Isoboot.SourceISO != "" {
 		si, err := url.Parse(i.Isoboot.SourceISO)
 		if err != nil {
 			span.SetStatus(codes.Error, err.Error())
 
-			return data.Hardware{}, fmt.Errorf("failed to parse source ISO as a URL %q: %w", i.Isoboot.SourceISO, err)
+			return Hardware{}, fmt.Errorf("failed to parse source ISO as a URL %q: %w", i.Isoboot.SourceISO, err)
 		}
-		result.Isoboot = &data.Isoboot{SourceISO: si}
+		result.Isoboot = &Isoboot{SourceISO: si}
 	}
 
 	span.SetAttributes(d.EncodeToAttributes()...)
@@ -78,69 +58,54 @@ func (b *Backend) GetByMac(ctx context.Context, mac net.HardwareAddr) (data.Hard
 	return result, nil
 }
 
-func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {
-	if condition {
-		return valueIfTrue
-	}
-	return valueIfFalse
-}
-
-// GetByIP implements the handler.BackendReader interface and returns DHCP and netboot data based on an IP address.
-func (b *Backend) GetByIP(ctx context.Context, ip net.IP) (data.Hardware, error) {
+func ConvertByIP(ctx context.Context, ip net.IP, hw *v1alpha1.Hardware) (Hardware, error) {
 	tracer := otel.Tracer(tracerName)
-	ctx, span := tracer.Start(ctx, "backend.kube.GetByIP")
+	_, span := tracer.Start(ctx, "smee.internal.data.ConvertByIP")
 	defer span.End()
-	hardwareList := &v1alpha1.HardwareList{}
-
-	if err := b.cluster.GetClient().List(ctx, hardwareList, &client.MatchingFields{IPAddrIndex: ip.String()}); err != nil {
-		span.SetStatus(codes.Error, err.Error())
-
-		return data.Hardware{}, fmt.Errorf("failed listing hardware for (%v): %w", ip, err)
+	if hw == nil {
+		return Hardware{}, errors.New("hardware is nil")
 	}
-
-	if len(hardwareList.Items) == 0 {
-		err := hardwareNotFoundError{name: ip.String(), namespace: ternary(b.Namespace == "", "all namespaces", b.Namespace)}
-		span.SetStatus(codes.Error, err.Error())
-
-		return data.Hardware{}, err
-	}
-
-	if len(hardwareList.Items) > 1 {
-		err := fmt.Errorf("got %d hardware objects for ip: %s, expected only 1", len(hardwareList.Items), ip)
-		span.SetStatus(codes.Error, err.Error())
-
-		return data.Hardware{}, err
-	}
-
 	i := v1alpha1.Interface{}
-	for _, iface := range hardwareList.Items[0].Spec.Interfaces {
-		if iface.DHCP.IP.Address == ip.String() {
+	for _, iface := range hw.Spec.Interfaces {
+		if iface.DHCP != nil && iface.DHCP.IP != nil && iface.DHCP.IP.Address == ip.String() {
 			i = iface
 			break
 		}
 	}
 
-	d, n, err := transform(i, hardwareList.Items[0].Spec.Metadata)
+	d, n, err := transform(i, hw.Spec.Metadata)
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 
-		return data.Hardware{}, err
+		return Hardware{}, err
+	}
+
+	result := Hardware{DHCP: d, Netboot: n, AgentID: hw.Spec.AgentID}
+
+	if i.Isoboot != nil && i.Isoboot.SourceISO != "" {
+		si, err := url.Parse(i.Isoboot.SourceISO)
+		if err != nil {
+			span.SetStatus(codes.Error, err.Error())
+
+			return Hardware{}, fmt.Errorf("failed to parse source ISO as a URL %q: %w", i.Isoboot.SourceISO, err)
+		}
+		result.Isoboot = &Isoboot{SourceISO: si}
 	}
 
 	span.SetAttributes(d.EncodeToAttributes()...)
 	span.SetAttributes(n.EncodeToAttributes()...)
 	span.SetStatus(codes.Ok, "")
 
-	return data.Hardware{DHCP: d, Netboot: n, AgentID: hardwareList.Items[0].Spec.AgentID}, nil
+	return result, nil
 }
 
-// toDHCPData converts a v1alpha1.DHCP to a data.DHCP data structure.
+// toDHCPData converts a v1alpha1.DHCP to a DHCP data structure.
 // Fields that are set are checked for correctness of their types.
-func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
+func toDHCPData(h *v1alpha1.DHCP) (*DHCP, error) {
 	if h == nil {
 		return nil, errors.New("no DHCP data")
 	}
-	d := new(data.DHCP)
+	d := new(DHCP)
 
 	var err error
 	if h.MAC != "" {
@@ -155,12 +120,20 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 		if d.IPAddress, err = netip.ParseAddr(h.IP.Address); err != nil {
 			return nil, err
 		}
-		// A valid Netmask is required
-		sm := net.ParseIP(h.IP.Netmask)
-		if sm == nil {
-			return nil, errors.New("no netmask")
+		if d.IPAddress.Is4() || d.IPAddress.Is4In6() {
+			// SubnetMask is required for IPv4 addresses
+			sm := net.ParseIP(h.IP.Netmask)
+			if sm == nil {
+				return nil, errors.New("no netmask")
+			}
+			sm4 := sm.To4()
+			if sm4 == nil {
+				return nil, errors.New("netmask must be an IPv4 address")
+			}
+			d.SubnetMask = net.IPMask(sm4)
+		} else if h.IP.Netmask != "" {
+			return nil, errors.New("netmask is not applicable for IPv6 addresses")
 		}
-		d.SubnetMask = net.IPMask(sm.To4())
 	}
 
 	// Gateway is optional, but should be a valid IP address if present
@@ -174,7 +147,7 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 	for _, s := range h.NameServers {
 		ip := net.ParseIP(s)
 		if ip == nil {
-			break
+			continue
 		}
 		d.NameServers = append(d.NameServers, ip)
 	}
@@ -183,7 +156,7 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 	for _, s := range h.TimeServers {
 		ip := net.ParseIP(s)
 		if ip == nil {
-			break
+			continue
 		}
 		d.NTPServers = append(d.NTPServers, ip)
 	}
@@ -194,9 +167,27 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 	// domain name, optional
 	d.DomainName = h.DomainName
 
+	// domain search, derived from domain name
+	if h.DomainName != "" {
+		d.DomainSearch = []string{h.DomainName}
+	}
+
+	// broadcast address, computed from IP and netmask
+	if h.IP != nil && d.IPAddress.Is4() && d.SubnetMask != nil {
+		ip4 := d.IPAddress.As4()
+		var broadcast [4]byte
+		// Compute the broadcast address by ORing the IP with the inverted subnet mask,
+		// which sets all host bits to 1.
+		for i := range 4 {
+			broadcast[i] = ip4[i] | ^d.SubnetMask[i]
+		}
+		d.BroadcastAddress = netip.AddrFrom4(broadcast)
+	}
+
 	// lease time required
 	// Default to one week
-	d.LeaseTime = 604800
+	const defaultLeaseTime uint32 = 604800 // 1 week in seconds
+	d.LeaseTime = defaultLeaseTime
 	if v, err := safecast.Convert[uint32](h.LeaseTime); err == nil {
 		d.LeaseTime = v
 	}
@@ -232,12 +223,12 @@ func toDHCPData(h *v1alpha1.DHCP) (*data.DHCP, error) {
 	return d, nil
 }
 
-// toNetbootData converts a hardware interface to a data.Netboot data structure.
-func toNetbootData(i *v1alpha1.Netboot, facility string) (*data.Netboot, error) {
+// toNetbootData converts a hardware interface to a Netboot data structure.
+func toNetbootData(i *v1alpha1.Netboot, facility string) (*Netboot, error) {
 	if i == nil {
 		return nil, errors.New("no netboot data")
 	}
-	n := new(data.Netboot)
+	n := new(Netboot)
 
 	// allow machine to netboot
 	if i.AllowPXE != nil {
@@ -272,7 +263,7 @@ func toNetbootData(i *v1alpha1.Netboot, facility string) (*data.Netboot, error) 
 	n.Facility = facility
 
 	// OSIE data
-	n.OSIE = data.OSIE{}
+	n.OSIE = OSIE{}
 	if i.OSIE != nil {
 		if b, err := url.Parse(i.OSIE.BaseURL); err == nil {
 			n.OSIE.BaseURL = b
@@ -284,8 +275,8 @@ func toNetbootData(i *v1alpha1.Netboot, facility string) (*data.Netboot, error) 
 	return n, nil
 }
 
-// transform returns data.DHCP and data.Netboot from part a v1alpha1.Interface and *v1alpha1.HardwareMetadata.
-func transform(i v1alpha1.Interface, m *v1alpha1.HardwareMetadata) (*data.DHCP, *data.Netboot, error) {
+// transform returns DHCP and Netboot from part a v1alpha1.Interface and *v1alpha1.HardwareMeta
+func transform(i v1alpha1.Interface, m *v1alpha1.HardwareMetadata) (*DHCP, *Netboot, error) {
 	d, err := toDHCPData(i.DHCP)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to convert hardware to DHCP data: %w", err)

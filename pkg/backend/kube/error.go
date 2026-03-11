@@ -36,5 +36,5 @@ type foundMultipleHardwareError struct {
 func (f foundMultipleHardwareError) MultipleFound() bool { return true }
 
 func (f foundMultipleHardwareError) Error() string {
-	return fmt.Sprintf("found %d hardware objects for agentID: %s, namespace: %s", f.count, f.id, f.namespace)
+	return fmt.Sprintf("found %d hardware objects for %s, namespace: %s", f.count, f.id, f.namespace)
 }

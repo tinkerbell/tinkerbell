@@ -4,8 +4,10 @@ set -eux
 
 failed=0
 
-if [[ -n $(go run golang.org/x/tools/cmd/goimports@latest -d -e -l .) ]]; then
-	go run golang.org/x/tools/cmd/goimports@latest -w .
+GOIMPORTS="${GOIMPORTS:-goimports}"
+
+if [[ -n $("$GOIMPORTS" -d -e -l .) ]]; then
+	"$GOIMPORTS" -w .
 	failed=1
 fi
 

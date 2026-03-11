@@ -7,9 +7,9 @@ import (
 	"net"
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,14 +31,20 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 	journal.Log(ctx, "Discovering hardware", "agentID", agentID, "hardwareName", hwName, "namespace", ns)
 
 	// Check if Hardware object already exists
-	existing, err := h.hardware(ctx, agentID)
+	// name and namespace are empty because we want to check for existing Hardware objects with the agent ID across all namespaces.
+	existing, err := h.AutoCapabilities.Discovery.FilterHardware(ctx, data.HardwareFilter{ByAgentID: agentID})
 	if err == nil {
 		// Hardware object already exists, do not modify
 		journal.Log(ctx, "Hardware object already exists, skipping creation")
 		return existing, nil
 	}
 
-	if !apierrors.IsNotFound(err) {
+	if foundMultipleHardware(err) {
+		journal.Log(ctx, "Multiple hardware objects found for the same agent ID", "error", err)
+		return nil, fmt.Errorf("multiple hardware objects found for agent ID %s: %w", agentID, err)
+	}
+
+	if !hardwareNotFound(err) {
 		// Unexpected error occurred while checking for existing hardware
 		journal.Log(ctx, "Error checking for existing hardware object", "error", err)
 		return nil, fmt.Errorf("failed to check for existing hardware object %s/%s: %w", ns, hwName, err)
@@ -68,8 +74,15 @@ func (h *Handler) Discover(ctx context.Context, agentID string, attrs *data.Agen
 		hw.Annotations = make(map[string]string)
 	}
 
-	if a, err := json.Marshal(attrs); err == nil && attrs != nil {
-		hw.Annotations[attributesAnnotation] = string(a)
+	if attrs != nil {
+		if a, err := json.Marshal(attrs); err == nil {
+			if len(a) > maxAnnotationSize {
+				journal.Log(ctx, "agent attributes annotation exceeds size limit", "size", len(a), "limit", maxAnnotationSize)
+				h.Logger.Info("Agent attributes annotation exceeds size limit, skipping annotation", "size", len(a), "limit", maxAnnotationSize, "agentID", agentID, "hardwareName", hwName, "namespace", ns)
+			} else {
+				hw.Annotations[constant.AttributesAnnotation] = string(a)
+			}
+		}
 	}
 
 	// Populate Hardware object with discovered attributes

@@ -11,6 +11,8 @@ import (
 
 // DynamicRead reads any Kubernetes resource, defined via gvr, name, and namespace, and returns the spec field
 // as a map[string]interface{}. It uses the Kubernetes dynamic client to perform the read operation.
+//
+// This is most useful for look ups of References in Tinkerbell CRDs.
 func (b *Backend) DynamicRead(ctx context.Context, gvr schema.GroupVersionResource, name, namespace string) (map[string]interface{}, error) {
 	// Here's the spec (https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources):
 	// Resource collections should be all lowercase and plural, [...], Group names must be lower case and be valid DNS subdomains.
