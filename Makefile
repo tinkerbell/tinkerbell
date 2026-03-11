@@ -149,6 +149,8 @@ out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64: $(gener
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
 cross-compile-embedded: $(embeddedbinaries) ## Compile Tinkerbell for all architectures with embedded tags
+cross-compile-embedded-amd64: out/tinkerbell-embedded-linux-amd64 ## Compile embedded Tinkerbell for amd64
+cross-compile-embedded-arm64: out/tinkerbell-embedded-linux-arm64 ## Compile embedded Tinkerbell for arm64
 
 checksums-embedded: out/checksums-embedded.txt ## Generate checksums for the cross-compiled binaries
 out/checksums-embedded.txt: out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64
