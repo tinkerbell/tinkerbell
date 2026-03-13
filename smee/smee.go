@@ -19,6 +19,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -33,6 +34,12 @@ import (
 	"github.com/tinkerbell/tinkerbell/smee/internal/syslog"
 	"golang.org/x/sync/errgroup"
 )
+
+// MetricsRegistry returns the Prometheus registry that contains all Smee metrics.
+// It can be used to serve Smee metrics on a dedicated endpoint (e.g. /smee/metrics).
+func MetricsRegistry() *prometheus.Registry {
+	return metric.Registry
+}
 
 // BackendReader is the interface for getting data from a backend.
 type BackendReader interface {

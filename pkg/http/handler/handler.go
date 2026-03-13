@@ -40,6 +40,34 @@ func HealthCheck(log logr.Logger, startTime time.Time) http.Handler {
 	})
 }
 
+// Healthz returns an http.Handler that always responds with 200 OK and the
+// body "ok". This is functionally equivalent to the controller-runtime
+// healthz.Ping checker that was previously registered with each controller
+// manager — those checkers were also unconditional (always healthy). The
+// consolidated HTTP server now serves this endpoint in place of the
+// per-controller health probe ports.
+func Healthz() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
+	})
+}
+
+// Readyz returns an http.Handler that always responds with 200 OK and the
+// body "ok". This is functionally equivalent to the controller-runtime
+// healthz.Ping checker that was previously registered with each controller
+// manager — those checkers were also unconditional (always ready). The
+// consolidated HTTP server now serves this endpoint in place of the
+// per-controller health probe ports.
+func Readyz() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
+	})
+}
+
 // RedirectToHTTPS returns an http.Handler that redirects incoming HTTP requests to the corresponding HTTPS URL on the specified port.
 func RedirectToHTTPS(log logr.Logger, port int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

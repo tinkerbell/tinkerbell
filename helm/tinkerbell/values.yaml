@@ -35,8 +35,8 @@ deployment:
       enableTinkServer: true
       enableTinkController: true
       enableUI: true
-      httpPort: 7171
-      httpsPort: 7272
+      httpPort: 7080
+      httpsPort: 7443
       logLevel: 0
       otelEndpoint: ""
       otelInsecure: false
@@ -66,11 +66,11 @@ deployment:
       dhcpIPForPacket: ""
       dhcpIpxeHttpBinaryHost: ""
       dhcpIpxeHttpBinaryPath: "/ipxe/binary"
-      dhcpIpxeHttpBinaryPort: 7171
+      dhcpIpxeHttpBinaryPort: 7080
       dhcpIpxeHttpBinaryScheme: "http"
       dhcpIpxeHttpScriptHost: ""
       dhcpIpxeHttpScriptPath: "/ipxe/script/auto.ipxe"
-      dhcpIpxeHttpScriptPort: 7171
+      dhcpIpxeHttpScriptPort: 7080
       dhcpIpxeHttpScriptPrependMac: true
       dhcpIpxeHttpScriptScheme: "http"
       dhcpMode: "reservation" # reservation, proxy, auto-proxy
@@ -209,7 +209,7 @@ service:
       protocol: TCP
     http:
       name: http
-      port: 7171
+      port: 7080
       protocol: TCP
     ssh:
       name: ssh
@@ -225,7 +225,7 @@ service:
       protocol: UDP
     https:
       name: https
-      port: 7272
+      port: 7443
       protocol: TCP
   selector:
     app: tinkerbell

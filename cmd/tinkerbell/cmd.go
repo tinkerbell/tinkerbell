@@ -16,7 +16,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/crd"
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
@@ -35,25 +37,28 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/client-go/rest"
+	crmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 const (
-	defaultRufioMetricsPort          = 8082
-	defaultRufioProbePort            = 8083
-	defaultSecondStarPort            = 2222
-	defaultHTTPPort                  = 7171
-	defaultHTTPSPort                 = 7272
-	defaultTinkControllerMetricsPort = 8080
-	defaultTinkControllerProbePort   = 8081
-	defaultTinkServerPort            = 42113
-	routeMetrics                     = "/metrics"
-	routeHealthcheck                 = "/healthcheck"
-	routeEC2Metadata                 = "/2009-04-04/"
-	routeTootles                     = "/tootles/"
-	routeHackMetadata                = "/metadata"
-	routeISO                         = smee.ISOURI
-	routeIPXEBinary                  = smee.IPXEBinaryURI
-	routeIPXEScript                  = smee.IPXEScriptURI
+	defaultSecondStarPort  = 2222
+	defaultHTTPPort        = 7080
+	defaultHTTPSPort       = 7443
+	defaultTinkServerPort  = 42113
+	routeMetrics           = "/metrics"
+	routeHealthcheck       = "/healthcheck"
+	routeHealthz           = "/healthz"
+	routeReadyz            = "/readyz"
+	routeSmeeMetrics       = "/smee/metrics"
+	routeTinkServerMetrics = "/tink-server/metrics"
+	routeControllerMetrics = "/controllers/metrics"
+	routeHTTPMetrics       = "/http/metrics"
+	routeEC2Metadata       = "/2009-04-04/"
+	routeTootles           = "/tootles/"
+	routeHackMetadata      = "/metadata"
+	routeISO               = smee.ISOURI
+	routeIPXEBinary        = smee.IPXEBinaryURI
+	routeIPXEScript        = smee.IPXEScriptURI
 )
 
 var (
@@ -102,8 +107,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		BindPort: defaultTinkServerPort,
 	}
 	controllerOpts := []controller.Option{
-		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTinkControllerMetricsPort))),
-		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTinkControllerProbePort))),
 		controller.WithEnableLeaderElection(false),
 	}
 	tc := &flag.TinkControllerConfig{
@@ -111,8 +114,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	rufioOpts := []rufio.Option{
-		rufio.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultRufioMetricsPort))),
-		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultRufioProbePort))),
 		rufio.WithBmcConnectTimeout(2 * time.Minute),
 		rufio.WithPowerCheckInterval(30 * time.Minute),
 		rufio.WithEnableLeaderElection(false),
@@ -247,17 +248,9 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	// Tink Controller
 	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace)
-	if globals.BindAddr.IsValid() {
-		tc.Config.MetricsAddr = netip.AddrPortFrom(globals.BindAddr, tc.Config.MetricsAddr.Port())
-		tc.Config.ProbeAddr = netip.AddrPortFrom(globals.BindAddr, tc.Config.ProbeAddr.Port())
-	}
 
 	// Rufio Controller
 	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace)
-	if globals.BindAddr.IsValid() {
-		rc.Config.MetricsAddr = netip.AddrPortFrom(globals.BindAddr, rc.Config.MetricsAddr.Port())
-		rc.Config.ProbeAddr = netip.AddrPortFrom(globals.BindAddr, rc.Config.ProbeAddr.Port())
-	}
 
 	// Second star
 	if err := ssc.Convert(); err != nil {
@@ -487,13 +480,54 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			}
 		}
 
-		// Shared metrics and healthcheck.
-		// Use the default Prometheus registry so that Smee's promauto-registered
-		// metrics (DHCP counters, discover/job histograms, etc.) and the HTTP
-		// middleware metrics all appear on the same /metrics endpoint.
-		// The default registry already includes GoCollector and ProcessCollector.
-		routeList.Register(routeMetrics, middleware.WithLogLevel(middleware.LogLevelNever, promhttp.Handler()), "Prometheus metrics handler")
+		// Per-service and combined metrics endpoints.
+		// Each service registers metrics on its own Prometheus registry so they
+		// can be scraped individually at /&lt;service&gt;/metrics. A combined
+		// /metrics endpoint gathers from all registries plus the default
+		// (which includes GoCollector and ProcessCollector).
+		gatherers := prometheus.Gatherers{prometheus.DefaultGatherer}
+
+		if globals.EnableSmee {
+			gatherers = append(gatherers, smee.MetricsRegistry())
+			routeList.Register(routeSmeeMetrics,
+				middleware.WithLogLevel(middleware.LogLevelNever, promhttp.HandlerFor(smee.MetricsRegistry(), promhttp.HandlerOpts{})),
+				"Smee metrics handler",
+			)
+		}
+		if globals.EnableTinkServer {
+			gatherers = append(gatherers, server.Registry)
+			routeList.Register(routeTinkServerMetrics,
+				middleware.WithLogLevel(middleware.LogLevelNever, promhttp.HandlerFor(server.Registry, promhttp.HandlerOpts{})),
+				"Tink server metrics handler",
+			)
+		}
+		if globals.EnableTinkController || globals.EnableRufio {
+			// controller-runtime's registry registers its own GoCollector and
+			// ProcessCollector. Those duplicate the collectors already present
+			// in prometheus.DefaultGatherer, so strip them for the combined
+			// endpoint to avoid "collected before with the same name" errors.
+			gatherers = append(gatherers, filteredGatherer{
+				gatherer: crmetrics.Registry,
+				excluded: []string{"go_", "process_"},
+			})
+			routeList.Register(routeControllerMetrics,
+				middleware.WithLogLevel(middleware.LogLevelNever, promhttp.HandlerFor(crmetrics.Registry, promhttp.HandlerOpts{})),
+				"Controller-runtime metrics handler (tink-controller + rufio)",
+			)
+		}
+		gatherers = append(gatherers, middleware.Registry)
+		routeList.Register(routeHTTPMetrics,
+			middleware.WithLogLevel(middleware.LogLevelNever, promhttp.HandlerFor(middleware.Registry, promhttp.HandlerOpts{})),
+			"HTTP middleware metrics handler",
+		)
+
+		routeList.Register(routeMetrics,
+			middleware.WithLogLevel(middleware.LogLevelNever, promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{})),
+			"Combined Prometheus metrics handler",
+		)
 		routeList.Register(routeHealthcheck, middleware.WithLogLevel(middleware.LogLevelNever, handler.HealthCheck(httpLog, startTime)), "Healthcheck handler")
+		routeList.Register(routeHealthz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Healthz()), "Liveness probe handler")
+		routeList.Register(routeReadyz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Readyz()), "Readiness probe handler")
 
 		httpMux, httpsMux := routeList.Muxes(httpLog, globals.HTTPSPort, len(s.Config.TLS.Certs) > 0)
 
@@ -710,4 +744,29 @@ func addMiddleware(log logr.Logger, trustedProxies []netip.Prefix, httpHandler, 
 	httpsHandler = middleware.SourceIP()(httpsHandler)
 
 	return httpHandler, httpsHandler, nil
+}
+
+// filteredGatherer wraps a prometheus.Gatherer and drops any MetricFamily
+// whose name starts with one of the excluded prefixes.
+type filteredGatherer struct {
+	gatherer prometheus.Gatherer
+	excluded []string
+}
+
+func (f filteredGatherer) Gather() ([]*dto.MetricFamily, error) {
+	mfs, err := f.gatherer.Gather()
+	filtered := mfs[:0]
+	for _, mf := range mfs {
+		skip := false
+		for _, prefix := range f.excluded {
+			if strings.HasPrefix(mf.GetName(), prefix) {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			filtered = append(filtered, mf)
+		}
+	}
+	return filtered, err
 }

@@ -162,13 +162,20 @@ func OTel(operationName string) func(http.Handler) http.Handler {
 	}
 }
 
+// Registry is the Prometheus registry for HTTP middleware metrics.
+// It is separate from the default registry so that HTTP metrics can be
+// served on a dedicated /http/metrics endpoint.
+var Registry = prometheus.NewRegistry()
+
+var factory = promauto.With(Registry)
+
 // RequestMetrics returns middleware that instruments HTTP requests with Prometheus metrics.
-// Metrics are registered on the default Prometheus registry so they appear alongside
-// application metrics (e.g. Smee DHCP counters) on the /metrics endpoint.
+// Metrics are registered on [Registry] so they can be served on a dedicated endpoint
+// as well as aggregated on the combined /metrics endpoint.
 // It is safe to call more than once; metrics are registered exactly once.
 func RequestMetrics() func(http.Handler) http.Handler {
 	requestMetricsOnce.Do(func() {
-		requestCount = promauto.NewCounterVec(
+		requestCount = factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "http_server_requests_total",
 				Help: "Count of HTTP requests",
@@ -176,7 +183,7 @@ func RequestMetrics() func(http.Handler) http.Handler {
 			[]string{"method", "status_code"},
 		)
 
-		requestDuration = promauto.NewHistogramVec(
+		requestDuration = factory.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "http_server_request_duration_seconds",
 				Help:    "Histogram of response time for HTTP requests in seconds",

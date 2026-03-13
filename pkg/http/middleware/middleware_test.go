@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestLogging_CapturesStatusCode(t *testing.T) {
@@ -254,8 +253,8 @@ func TestRequestMetrics_RecordsMetrics(t *testing.T) {
 		t.Errorf("got status %d, want %d", rec.Code, http.StatusAccepted)
 	}
 
-	// Metrics are registered on the default Prometheus registry via promauto.
-	families, err := prometheus.DefaultGatherer.Gather()
+	// Metrics are registered on the middleware's dedicated Registry.
+	families, err := Registry.Gather()
 	if err != nil {
 		t.Fatalf("failed to gather metrics: %v", err)
 	}

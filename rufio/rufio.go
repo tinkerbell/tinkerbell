@@ -18,7 +18,6 @@ package rufio
 
 import (
 	"context"
-	"net/netip"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -36,8 +35,6 @@ type Config struct {
 	Client                  *rest.Config
 	EnableLeaderElection    bool
 	LeaderElectionNamespace string
-	MetricsAddr             netip.AddrPort
-	ProbeAddr               netip.AddrPort
 	BMCConnectTimeout       time.Duration
 	PowerCheckInterval      time.Duration
 	MaxConcurrentReconciles int
@@ -60,18 +57,6 @@ func WithClient(client *rest.Config) Option {
 func WithEnableLeaderElection(enableLeaderElection bool) Option {
 	return func(c *Config) {
 		c.EnableLeaderElection = enableLeaderElection
-	}
-}
-
-func WithMetricsAddr(addrPort netip.AddrPort) Option {
-	return func(c *Config) {
-		c.MetricsAddr = addrPort
-	}
-}
-
-func WithProbeAddr(addrPort netip.AddrPort) Option {
-	return func(c *Config) {
-		c.ProbeAddr = addrPort
 	}
 }
 
@@ -113,9 +98,9 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		LeaderElectionID:        "e74dec1a.bmc.tinkerbell.org",
 		LeaderElectionNamespace: c.LeaderElectionNamespace,
 		Metrics: server.Options{
-			BindAddress: c.MetricsAddr.String(),
+			BindAddress: "0",
 		},
-		HealthProbeBindAddress: c.ProbeAddr.String(),
+		HealthProbeBindAddress: "0",
 	}
 	if c.Namespace != "" {
 		options.Cache = cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}

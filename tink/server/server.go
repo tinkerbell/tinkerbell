@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	grpcinternal "github.com/tinkerbell/tinkerbell/tink/server/internal/grpc"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -16,6 +17,19 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 )
+
+// Registry is the Prometheus registry for all Tink server gRPC metrics.
+// It is separate from the default registry so that gRPC metrics can be
+// served on a dedicated /tink-server/metrics endpoint.
+var Registry = prometheus.NewRegistry()
+
+// grpcServerMetrics is an isolated set of gRPC server metrics registered
+// on [Registry] instead of the global default.
+var grpcServerMetrics = grpcprometheus.NewServerMetrics()
+
+func init() {
+	Registry.MustRegister(grpcServerMetrics)
+}
 
 type Config struct {
 	Backend      grpcinternal.Backend
@@ -124,8 +138,8 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 	params := []grpc.ServerOption{
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		grpc.UnaryInterceptor(grpcprometheus.UnaryServerInterceptor),
-		grpc.StreamInterceptor(grpcprometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpcServerMetrics.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(grpcServerMetrics.StreamServerInterceptor()),
 	}
 	if c.TLS.Cert != nil {
 		params = append(params, grpc.Creds(c.TLS.Cert))
@@ -135,7 +149,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	gs := grpc.NewServer(params...)
 	proto.RegisterWorkflowServiceServer(gs, s)
 	reflection.Register(gs)
-	grpcprometheus.Register(gs)
+	grpcServerMetrics.InitializeMetrics(gs)
 
 	n := net.ListenConfig{}
 	lis, err := n.Listen(ctx, "tcp", c.BindAddrPort.String())
