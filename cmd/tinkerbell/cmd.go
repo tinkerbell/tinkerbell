@@ -529,7 +529,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		routeList.Register(routeHealthz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Healthz()), "Liveness probe handler")
 		routeList.Register(routeReadyz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Readyz()), "Readiness probe handler")
 
-		httpMux, httpsMux := routeList.Muxes(httpLog, globals.HTTPSPort, len(s.Config.TLS.Certs) > 0)
+		httpMux, httpsMux := routeList.Muxes(httpLog, globals.HTTPSPort, !globals.TLS.DisableHTTPToHTTPSRedirect && len(s.Config.TLS.Certs) > 0)
 
 		httpHandler, httpsHandler, err := addMiddleware(httpLog, globals.TrustedProxies, httpMux, httpsMux)
 		if err != nil {

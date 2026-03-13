@@ -44,8 +44,9 @@ type BackendKubeOptions struct {
 }
 
 type TLSConfig struct {
-	CertFile string
-	KeyFile  string
+	CertFile                   string
+	KeyFile                    string
+	DisableHTTPToHTTPSRedirect bool
 }
 
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
@@ -72,6 +73,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
 	fs.Register(TLSCertFile, ffval.NewValueDefault(&gc.TLS.CertFile, gc.TLS.CertFile))
 	fs.Register(TLSKeyFile, ffval.NewValueDefault(&gc.TLS.KeyFile, gc.TLS.KeyFile))
+	fs.Register(DisableHTTPToHTTPSRedirect, ffval.NewValueDefault(&gc.TLS.DisableHTTPToHTTPSRedirect, gc.TLS.DisableHTTPToHTTPSRedirect))
 	fs.Register(TrustedProxies, &ntip.PrefixList{PrefixList: &gc.TrustedProxies})
 }
 
@@ -205,6 +207,11 @@ var TLSCertFile = Config{
 var TLSKeyFile = Config{
 	Name:  "tls-key-file",
 	Usage: "[tls] path to the TLS key file",
+}
+
+var DisableHTTPToHTTPSRedirect = Config{
+	Name:  "disable-http-to-https-redirect",
+	Usage: "[tls] disable HTTP to HTTPS redirects even when TLS is configured",
 }
 
 var HTTPPort = Config{

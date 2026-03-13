@@ -31,7 +31,8 @@ When TLS is configured, a subset of routes is also served on HTTPS (`:7443`);
 these are marked with ✅ in the **HTTPS** column below.
 
 Some HTTPS-enabled routes automatically redirect HTTP requests to HTTPS; these
-are marked with ✅ in the **Redirect** column.
+are marked with ✅ in the **Redirect** column. These redirects can be disabled
+with `--disable-http-to-https-redirect`.
 
 ### Health & Probes
 
@@ -175,9 +176,16 @@ When `--tls-cert-file` and `--tls-key-file` are provided:
 
 1. The HTTPS server starts on port **7443** alongside HTTP on **7080**.
 2. Select routes (metadata, UI, ISO) are served on both HTTP and HTTPS.
-3. Some routes redirect HTTP → HTTPS automatically.
+3. Some routes redirect HTTP → HTTPS automatically (308 Permanent Redirect).
 4. The gRPC server (port 42113) also uses TLS.
 5. Tink agents are informed of TLS via the iPXE kernel argument `tinkerbell_tls=true`.
+
+### Disabling HTTP → HTTPS redirects
+
+Pass `--disable-http-to-https-redirect` to keep all HTTP routes serving their
+actual handlers instead of returning 308 redirects, even when TLS is configured.
+This is useful when a load balancer or reverse proxy in front of Tinkerbell
+terminates TLS and forwards plain HTTP to the server.
 
 > **iPXE limitation:** iPXE only supports RSA TLS certificates. ECDSA
 > certificates will cause iPXE binary/script downloads to fail over HTTPS.
