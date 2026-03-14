@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net/netip"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -49,7 +50,12 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		EnableCRDMigrations:  true,
 		HTTPPort:             defaultHTTPPort,
 		HTTPSPort:            defaultHTTPSPort,
-		BindAddr:             detectPublicIPv4(),
+		BindAddr: func() netip.Addr {
+			if addr := detectPublicIPv4(); addr.IsValid() {
+				return addr
+			}
+			return netip.MustParseAddr("0.0.0.0")
+		}(),
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
@@ -334,6 +340,13 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return nil
 	})
 
+	// Initialize Smee metrics before starting goroutines so that metric
+	// globals (JobsTotal, JobsInProgress, etc.) are ready before the HTTP
+	// server can receive iPXE script requests that reference them.
+	if globals.EnableSmee {
+		s.Config.InitMetrics()
+	}
+
 	// Smee (non-HTTP services: DHCP, TFTP, syslog)
 	g.Go(func() error {
 		if !globals.EnableSmee {
@@ -342,11 +355,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		}
 		ll := ternary((s.LogLevel != 0), s.LogLevel, globals.LogLevel)
 		smeeLog := getLogger(ll).WithName("smee")
-
-		// Register Smee-specific Prometheus metrics (DHCP counters, etc.).
-		// OTel is already initialized globally above, so we only init metrics
-		// here to avoid overwriting the global tracer provider.
-		s.Config.InitMetrics()
 
 		if err := s.Config.Start(ctx, smeeLog); err != nil {
 			return fmt.Errorf("failed to start smee service: %w", err)
