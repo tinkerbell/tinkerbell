@@ -62,16 +62,14 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 				"smee iPXE script handler",
 			)
 		}
-		isoH, err := s.Config.ISOHandler(smeeLog)
-		if err != nil {
-			return fmt.Errorf("failed to create smee iso handler: %w", err)
-		}
-		if isoH != nil {
+		if isoH, err := s.Config.ISOHandler(smeeLog); err == nil && isoH != nil {
 			routeList.Register(routeISO,
 				middleware.WithLogLevel(middleware.LogLevelNever, isoH),
 				"smee ISO handler",
 				httpserver.WithHTTPSEnabled(tlsEnabled),
 			)
+		} else if err != nil {
+			return fmt.Errorf("failed to create smee iso handler: %w", err)
 		}
 	}
 
@@ -162,6 +160,7 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 		middleware.WithLogLevel(middleware.LogLevelNever, promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{})),
 		"Combined Prometheus metrics handler",
 	)
+
 	routeList.Register(routeHealthcheck, middleware.WithLogLevel(middleware.LogLevelNever, handler.HealthCheck(httpLog, startTime)), "Healthcheck handler")
 	routeList.Register(routeHealthz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Healthz()), "Liveness probe handler")
 	routeList.Register(routeReadyz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Readyz()), "Readiness probe handler")

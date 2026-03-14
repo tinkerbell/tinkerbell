@@ -165,9 +165,12 @@ func (c *Config) doServe(ctx context.Context, log logr.Logger, addr string, hand
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), c.ShutdownTimeout)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			server.Close()
+			_ = server.Close()
 			if errors.Is(err, context.DeadlineExceeded) {
 				return fmt.Errorf("timed out waiting for graceful shutdown: %w", err)
+			}
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
 			}
 			return fmt.Errorf("server shutdown error: %w", err)
 		}
