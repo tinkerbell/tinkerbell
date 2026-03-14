@@ -139,8 +139,26 @@ func TestStartFileUpdate(t *testing.T) {
 		f.Write([]byte(tt.after))
 		f.Close()
 		got.fileMu.Unlock()
-		time.Sleep(time.Millisecond)
-		cancel()
+		// Poll until the watcher has processed the file update instead of
+		// using a fixed sleep, which is racy on slow CI machines.
+		deadline := time.After(5 * time.Second)
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-deadline:
+				cancel()
+				return
+			case <-ticker.C:
+				got.dataMu.RLock()
+				d := string(got.data)
+				got.dataMu.RUnlock()
+				if d == tt.expectedOut {
+					cancel()
+					return
+				}
+			}
+		}
 	}()
 	got.Start(ctx)
 	got.dataMu.RLock()

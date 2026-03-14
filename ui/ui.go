@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -95,14 +96,9 @@ func (c *Config) Handler(log logr.Logger) (http.Handler, error) {
 	r.Use(securityHeadersMiddleware())
 	base := r.Group(c.URLPrefix)
 
-	// Normalize URLPrefix for template URL generation.
-	// When URLPrefix is "/", we store empty string to avoid double-slash issues
-	// in URL concatenation (e.g., "/" + "/css/output.css" = "//css/output.css"
-	// would be interpreted as a protocol-relative URL).
-	templateBaseURL := c.URLPrefix
-	if templateBaseURL == "/" {
-		templateBaseURL = ""
-	}
+	// Strip trailing slashes from URLPrefix for template URL generation to
+	// avoid double slashes (e.g. "/ui/" + "/css/output.css" = "/ui//css/output.css").
+	templateBaseURL := strings.TrimRight(c.URLPrefix, "/")
 
 	// Set baseURL in context for all routes under base
 	base.Use(func(gc *gin.Context) {

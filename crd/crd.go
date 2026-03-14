@@ -105,26 +105,30 @@ func (h logrWarningHandler) HandleWarningHeader(code int, agent string, text str
 // NewTinkerbell returns a struct with a CRD client and the CRDs.
 // If no CRDs are provided, it will use the default (TinkerbellDefaults) CRDs.
 func NewTinkerbell(opts ...ConfigOption) (Tinkerbell, error) {
-	defaultMapper := Tinkerbell{
+	tbell := Tinkerbell{
 		CRDs: TinkerbellDefaults,
 	}
 	for _, opt := range opts {
-		opt(&defaultMapper)
+		opt(&tbell)
 	}
 
-	if defaultMapper.restConfig != nil {
-		cfg := rest.CopyConfig(defaultMapper.restConfig)
-		if defaultMapper.Logger.GetSink() != nil {
-			cfg.WarningHandler = logrWarningHandler{logger: defaultMapper.Logger}
+	if tbell.restConfig != nil {
+		cfg := rest.CopyConfig(tbell.restConfig)
+		if tbell.Logger.GetSink() != nil {
+			cfg.WarningHandler = logrWarningHandler{logger: tbell.Logger}
 		}
 		client, err := clientset.NewForConfig(cfg)
 		if err != nil {
 			return Tinkerbell{}, fmt.Errorf("failed to create CRD client: %w", err)
 		}
-		defaultMapper.Client = client
+		tbell.Client = client
 	}
 
-	return defaultMapper, nil
+	if tbell.Client == nil {
+		return Tinkerbell{}, fmt.Errorf("no Kubernetes client configured: provide a rest.Config (e.g. WithRestConfig) or set Client directly via a ConfigOption")
+	}
+
+	return tbell, nil
 }
 
 func (t Tinkerbell) MigrateAndReady(ctx context.Context) error {
