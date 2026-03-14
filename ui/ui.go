@@ -25,12 +25,8 @@ const (
 
 // Config holds the configuration for the web UI service.
 type Config struct {
-	BindAddr    string
-	BindPort    int
-	DebugMode   bool
-	TLSCertFile string
-	TLSKeyFile  string
-	URLPrefix   string
+	DebugMode bool
+	URLPrefix string
 	// EnableAutoLogin bypasses the login page and uses AutoLoginRestConfig for all requests.
 	EnableAutoLogin bool
 	// AutoLoginRestConfig is the Kubernetes REST config used when EnableAutoLogin is true.

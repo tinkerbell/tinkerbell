@@ -31,9 +31,7 @@ deployment:
       enableLeaderElection: {{ .Values.deployment.envs.rufio.enableLeaderElection }}
       leaderElectionNamespace: {{ .Values.deployment.envs.rufio.leaderElectionNamespace }}
       logLevel: {{ .Values.deployment.envs.rufio.logLevel }}
-      metricsAddr: {{ .Values.deployment.envs.rufio.metricsAddr }}
       powerCheckInterval: {{ .Values.deployment.envs.rufio.powerCheckInterval }}
-      probeAddr: {{ .Values.deployment.envs.rufio.probeAddr }}
     secondstar:
       bindPort: {{ .Values.deployment.envs.secondstar.bindPort }}
       hostKeyPath: {{ .Values.deployment.envs.secondstar.hostKeyPath }}
@@ -60,8 +58,6 @@ deployment:
       dhcpTftpPort: {{ .Values.deployment.envs.smee.dhcpTftpPort }}
       ipxeEmbeddedScriptPatch: {{ .Values.deployment.envs.smee.ipxeEmbeddedScriptPatch }}
       ipxeHttpBinaryEnabled: {{ .Values.deployment.envs.smee.ipxeHttpBinaryEnabled }}
-      ipxeHttpScriptBindAddr: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindAddr }}
-      ipxeHttpScriptBindPort: {{ .Values.deployment.envs.smee.ipxeHttpScriptBindPort }}
       ipxeHttpScriptEnabled: {{ .Values.deployment.envs.smee.ipxeHttpScriptEnabled }}
       ipxeHttpScriptExtraKernelArgs: {{ .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs | toYaml | nindent 8 }}
       ipxeHttpScriptTrustedProxies: {{ .Values.deployment.envs.smee.ipxeHttpScriptTrustedProxies }}
@@ -88,8 +84,6 @@ deployment:
       enableLeaderElection: {{ .Values.deployment.envs.tinkController.enableLeaderElection }}
       leaderElectionNamespace: {{ .Values.deployment.envs.tinkController.leaderElectionNamespace }}
       logLevel: {{ .Values.deployment.envs.tinkController.logLevel }}
-      metricsAddr: {{ .Values.deployment.envs.tinkController.metricsAddr }}
-      probeAddr: {{ .Values.deployment.envs.tinkController.probeAddr }}
     tinkServer:
       autoDiscoveryAutoEnrollmentEnabled: {{ .Values.deployment.envs.tinkServer.autoDiscoveryAutoEnrollmentEnabled }}
       autoDiscoveryEnabled: {{ .Values.deployment.envs.tinkServer.autoDiscoveryEnabled }}

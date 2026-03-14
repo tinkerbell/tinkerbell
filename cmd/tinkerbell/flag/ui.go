@@ -1,8 +1,6 @@
 package flag
 
 import (
-	"net/netip"
-
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/ui"
 )
@@ -39,15 +37,4 @@ var UIURLPrefix = Config{
 var UIEnableAutoLogin = Config{
 	Name:  "ui-enable-auto-login",
 	Usage: "use the backend kubeconfig for UI authentication, bypassing the login page",
-}
-
-// Convert converts UIConfig data types to ui.Config data types.
-func (u *UIConfig) Convert(bindAddr netip.Addr, tlsCertFile, tlsKeyFile string) {
-	// Use BindAddr if specified, otherwise use the default
-	if bindAddr.IsValid() {
-		u.Config.BindAddr = bindAddr.String()
-	}
-
-	u.Config.TLSCertFile = tlsCertFile
-	u.Config.TLSKeyFile = tlsKeyFile
 }
