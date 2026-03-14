@@ -232,18 +232,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		ts.Config.TLS.Cert = creds
 		// When using TLS with the Tink Server, the Agent needs to know that TLS is enabled.
 		// This is done in the Smee config.
-		// First check if the extra kernel parameter already exists.
-		updated := false
-		for i, arg := range s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs {
-			if strings.HasPrefix(arg, "tinkerbell_tls") {
-				s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs[i] = "tinkerbell_tls=true"
-				updated = true
-				break
-			}
-		}
-		if !updated {
-			s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs = append(s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs, "tinkerbell_tls=true")
-		}
+		s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs = ensureKernelArg(s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs, "tinkerbell_tls", "tinkerbell_tls=true")
 	}
 
 	// Tink Controller
@@ -403,6 +392,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	g.Go(func() error {
 		httpLog := getLogger(globals.LogLevel).WithName("http")
 		routeList := &httpserver.Routes{}
+		tlsEnabled := len(s.Config.TLS.Certs) > 0
 
 		// Smee HTTP handlers
 		if globals.EnableSmee {
@@ -429,7 +419,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				routeList.Register(routeISO,
 					middleware.WithLogLevel(middleware.LogLevelNever, isoH),
 					"smee ISO handler",
-					httpserver.WithHTTPSEnabled(true),
+					httpserver.WithHTTPSEnabled(tlsEnabled),
 				)
 			}
 		}
@@ -440,22 +430,22 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			routeList.Register(routeEC2Metadata,
 				ec2H,
 				"EC2 metadata handler",
-				httpserver.WithHTTPSEnabled(true),
-				httpserver.WithRewriteHTTPToHTTPS(true),
+				httpserver.WithHTTPSEnabled(tlsEnabled),
+				httpserver.WithRewriteHTTPToHTTPS(tlsEnabled),
 			)
 			if h.Config.InstanceEndpoint {
 				routeList.Register(routeTootles,
 					ec2H,
 					"EC2 instance endpoint handler",
-					httpserver.WithHTTPSEnabled(true),
-					httpserver.WithRewriteHTTPToHTTPS(true),
+					httpserver.WithHTTPSEnabled(tlsEnabled),
+					httpserver.WithRewriteHTTPToHTTPS(tlsEnabled),
 				)
 			}
 			routeList.Register(routeHackMetadata,
 				middleware.WithLogLevel(middleware.LogLevelAlways, h.Config.HackMetadataHandler()),
 				"Hack metadata handler",
-				httpserver.WithHTTPSEnabled(true),
-				httpserver.WithRewriteHTTPToHTTPS(true),
+				httpserver.WithHTTPSEnabled(tlsEnabled),
+				httpserver.WithRewriteHTTPToHTTPS(tlsEnabled),
 			)
 		}
 
@@ -474,8 +464,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				routeList.Register(routeUI,
 					middleware.WithLogLevel(middleware.LogLevelDebug, uiHandler),
 					"UI handler",
-					httpserver.WithHTTPSEnabled(true),
-					httpserver.WithRewriteHTTPToHTTPS(true),
+					httpserver.WithHTTPSEnabled(tlsEnabled),
+					httpserver.WithRewriteHTTPToHTTPS(tlsEnabled),
 				)
 			}
 		}
@@ -529,9 +519,16 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		routeList.Register(routeHealthz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Healthz()), "Liveness probe handler")
 		routeList.Register(routeReadyz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Readyz()), "Readiness probe handler")
 
-		httpMux, httpsMux := routeList.Muxes(httpLog, globals.HTTPSPort, !globals.TLS.DisableHTTPToHTTPSRedirect && len(s.Config.TLS.Certs) > 0)
+		httpMux, httpsMux := routeList.Muxes(httpLog, globals.HTTPSPort, !globals.TLS.DisableHTTPToHTTPSRedirect && tlsEnabled)
 
-		httpHandler, httpsHandler, err := addMiddleware(httpLog, globals.TrustedProxies, httpMux, httpsMux)
+		// Only wrap and pass the HTTPS handler when there are HTTPS routes
+		// (which implies TLS is configured) — otherwise skip the HTTPS server.
+		var httpsArg http.Handler
+		if routeList.HasHTTPSRoutes() {
+			httpsArg = httpsMux
+		}
+
+		httpHandler, httpsHandler, err := addMiddleware(httpLog, globals.TrustedProxies, httpMux, httpsArg)
 		if err != nil {
 			return fmt.Errorf("failed to add middleware: %w", err)
 		}
@@ -548,7 +545,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 		kvs := []any{
 			"addr", fmt.Sprintf("%s:%d", globals.BindAddr.String(), globals.HTTPPort),
-			"schemes", func() []string {
+			"enabledSchemes", func() []string {
 				schemes := []string{"http"}
 				if httpsHandler != nil {
 					schemes = append(schemes, "https")
@@ -702,46 +699,63 @@ func inCluster() bool {
 	return false
 }
 
-// addMiddleware is a helper to apply a middleware functions to http.Handlers.
-func addMiddleware(log logr.Logger, trustedProxies []netip.Prefix, httpHandler, httpsHandler http.Handler) (http.Handler, http.Handler, error) {
-	// Apply middleware chain. Each wrap adds an outer layer, so the last
-	// applied middleware runs first on the request path and last on the
-	// response path:
-	//   Request  → SourceIP → XFF → RequestMetrics → Recovery → Logging → OTel → mux
-	//   Response ← SourceIP ← XFF ← RequestMetrics ← Recovery ← Logging ← OTel ← mux
-	httpHandler = middleware.OTel("tinkerbell-http")(httpHandler)
-	httpHandler = middleware.Logging(log)(httpHandler)
-	httpHandler = middleware.Recovery(log)(httpHandler)
-	httpHandler = middleware.RequestMetrics()(httpHandler)
-	if len(trustedProxies) > 0 {
-		proxies := make([]string, 0, len(trustedProxies))
-		for _, p := range trustedProxies {
-			proxies = append(proxies, p.String())
+// ensureKernelArg updates args in-place if an entry with the given prefix
+// already exists, or appends value otherwise. It returns the (possibly
+// grown) slice.
+func ensureKernelArg(args []string, prefix, value string) []string {
+	for i, arg := range args {
+		if strings.HasPrefix(arg, prefix) {
+			args[i] = value
+			return args
 		}
-		h, err := middleware.XFF(proxies)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create XFF middleware: %w", err)
-		}
-		httpHandler = h(httpHandler)
 	}
-	httpHandler = middleware.SourceIP()(httpHandler)
+	return append(args, value)
+}
 
-	httpsHandler = middleware.OTel("tinkerbell-https")(httpsHandler)
-	httpsHandler = middleware.Logging(log)(httpsHandler)
-	httpsHandler = middleware.Recovery(log)(httpsHandler)
-	httpsHandler = middleware.RequestMetrics()(httpsHandler)
-	if len(trustedProxies) > 0 {
-		proxies := make([]string, 0, len(trustedProxies))
-		for _, p := range trustedProxies {
-			proxies = append(proxies, p.String())
-		}
-		h, err := middleware.XFF(proxies)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create XFF middleware: %w", err)
-		}
-		httpsHandler = h(httpsHandler)
+// addMiddleware applies the shared middleware stack to both the HTTP and
+// HTTPS handlers. The middleware executes in the following order on the
+// request path:
+//
+//	Request  → SourceIP → XFF → RequestMetrics → Recovery → Logging → OTel → mux
+//	Response ← SourceIP ← XFF ← RequestMetrics ← Recovery ← Logging ← OTel ← mux
+func addMiddleware(log logr.Logger, trustedProxies []netip.Prefix, httpHandler, httpsHandler http.Handler) (http.Handler, http.Handler, error) {
+	// Convert trusted proxies once for both handlers.
+	var proxies []string
+	for _, p := range trustedProxies {
+		proxies = append(proxies, p.String())
 	}
-	httpsHandler = middleware.SourceIP()(httpsHandler)
+
+	// RequestMetrics uses sync.Once internally, so calling it twice is
+	// safe — metrics are registered only on the first call.
+	metrics := middleware.RequestMetrics()
+
+	wrap := func(h http.Handler, otelName string) (http.Handler, error) {
+		h = middleware.OTel(otelName)(h)
+		h = middleware.Logging(log)(h)
+		h = middleware.Recovery(log)(h)
+		h = metrics(h)
+		if len(proxies) > 0 {
+			xff, err := middleware.XFF(proxies)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create XFF middleware: %w", err)
+			}
+			h = xff(h)
+		}
+		h = middleware.SourceIP()(h)
+		return h, nil
+	}
+
+	var err error
+	httpHandler, err = wrap(httpHandler, "tinkerbell-http")
+	if err != nil {
+		return nil, nil, err
+	}
+	if httpsHandler != nil {
+		httpsHandler, err = wrap(httpsHandler, "tinkerbell-https")
+		if err != nil {
+			return nil, nil, err
+		}
+	}
 
 	return httpHandler, httpsHandler, nil
 }

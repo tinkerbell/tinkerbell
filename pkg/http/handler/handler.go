@@ -83,12 +83,16 @@ func RedirectToHTTPS(log logr.Logger, port int) http.Handler {
 
 // parseHost splits out the host from the input.
 // The input is typically from url.URL.Host or http.Request.Host,
-// which can be in the form of "host:port", "ip:port", "host", or "ip".
+// which can be in the form of "host:port", "[ip6]:port", "host", "ip", or "[ip6]".
 func parseHost(input string) string {
 	host, _, err := net.SplitHostPort(input)
 	if err != nil {
 		// If SplitHostPort fails, it's usually because the port is missing.
-		// In this case, the entire input is treated as the host.
+		// Strip surrounding brackets from IPv6 literals like "[::1]" so that
+		// net.JoinHostPort does not double-bracket the address.
+		if len(input) >= 2 && input[0] == '[' && input[len(input)-1] == ']' {
+			return input[1 : len(input)-1]
+		}
 		return input
 	}
 	return host

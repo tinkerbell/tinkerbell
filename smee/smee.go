@@ -23,7 +23,6 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
-	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/server"
@@ -315,23 +314,6 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 	}
 
 	return defaults
-}
-
-// Init initializes OpenTelemetry and Prometheus metrics for Smee.
-// It should be called before constructing HTTP handlers.
-func (c *Config) Init(ctx context.Context, log logr.Logger) (context.Context, func(), error) {
-	oCfg := otel.Config{
-		Servicename: "smee",
-		Endpoint:    c.OTEL.Endpoint,
-		Insecure:    c.OTEL.InsecureEndpoint,
-		Logger:      log,
-	}
-	ctx, otelShutdown, err := otel.Init(ctx, oCfg)
-	if err != nil {
-		return ctx, nil, fmt.Errorf("failed to initialize OpenTelemetry: %w", err)
-	}
-	metric.Init()
-	return ctx, otelShutdown, nil
 }
 
 // InitMetrics initializes only Smee's Prometheus metrics (DHCP counters,

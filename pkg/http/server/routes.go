@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -20,18 +21,22 @@ type Route struct {
 // Routes is a collection of Route objects that can be registered with an HTTP server.
 type Routes []Route
 
+// WithHTTPEnabled controls whether the route is registered on the HTTP mux.
 func WithHTTPEnabled(enable bool) func(*Route) {
 	return func(r *Route) {
 		r.HTTPEnabled = enable
 	}
 }
 
+// WithHTTPSEnabled controls whether the route is registered on the HTTPS mux.
 func WithHTTPSEnabled(enable bool) func(*Route) {
 	return func(r *Route) {
 		r.HTTPSEnabled = enable
 	}
 }
 
+// WithRewriteHTTPToHTTPS causes the HTTP mux to serve a redirect to the
+// HTTPS equivalent instead of the handler itself (only when TLS is enabled).
 func WithRewriteHTTPToHTTPS(enable bool) func(*Route) {
 	return func(r *Route) {
 		r.RewriteHTTPToHTTPS = enable
@@ -58,6 +63,31 @@ func (rs *Routes) Register(pattern string, hh http.Handler, desc string, options
 	}
 
 	*rs = append(*rs, rt)
+}
+
+// HasHTTPSRoutes reports whether any registered route has HTTPS enabled.
+func (rs Routes) HasHTTPSRoutes() bool {
+	for _, r := range rs {
+		if r.HTTPSEnabled {
+			return true
+		}
+	}
+	return false
+}
+
+// LogValue implements [slog.LogValuer] so that logging a Routes value emits
+// all route metadata without the Handler field.
+func (rs Routes) LogValue() slog.Value {
+	groups := make([]slog.Attr, 0, len(rs))
+	for _, r := range rs {
+		groups = append(groups, slog.Group(r.Pattern,
+			slog.String("description", r.Description),
+			slog.Bool("httpEnabled", r.HTTPEnabled),
+			slog.Bool("httpsEnabled", r.HTTPSEnabled),
+			slog.Bool("rewriteHTTPToHTTPS", r.RewriteHTTPToHTTPS),
+		))
+	}
+	return slog.GroupValue(groups...)
 }
 
 // Muxes builds and returns separate HTTP and HTTPS [http.ServeMux] instances

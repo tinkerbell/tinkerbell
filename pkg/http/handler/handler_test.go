@@ -59,3 +59,40 @@ func TestHealthCheck(t *testing.T) {
 		}
 	})
 }
+
+func TestRedirectToHTTPS(t *testing.T) {
+	h := RedirectToHTTPS(logr.Discard(), 7443)
+
+	tests := []struct {
+		name     string
+		host     string
+		wantHost string
+	}{
+		{name: "hostname without port", host: "example.com", wantHost: "example.com:7443"},
+		{name: "hostname with port", host: "example.com:8080", wantHost: "example.com:7443"},
+		{name: "IPv4 without port", host: "10.0.0.1", wantHost: "10.0.0.1:7443"},
+		{name: "IPv4 with port", host: "10.0.0.1:8080", wantHost: "10.0.0.1:7443"},
+		{name: "bracketed IPv6 without port", host: "[::1]", wantHost: "[::1]:7443"},
+		{name: "bracketed IPv6 with port", host: "[::1]:8080", wantHost: "[::1]:7443"},
+		{name: "bracketed IPv6 full without port", host: "[2001:db8::1]", wantHost: "[2001:db8::1]:7443"},
+		{name: "bracketed IPv6 full with port", host: "[2001:db8::1]:8080", wantHost: "[2001:db8::1]:7443"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "http://"+tt.host+"/path", nil)
+			req.Host = tt.host
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusPermanentRedirect {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusPermanentRedirect)
+			}
+			loc := rec.Header().Get("Location")
+			want := "https://" + tt.wantHost + "/path"
+			if loc != want {
+				t.Fatalf("Location = %q, want %q", loc, want)
+			}
+		})
+	}
+}
