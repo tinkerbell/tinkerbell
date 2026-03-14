@@ -12,7 +12,7 @@ The following services support TLS termination:
 
 1. **Smee HTTP/HTTPS Server**
    - Serves iPXE binaries, scripts, and ISO files over both HTTP and HTTPS
-   - Default ports: HTTP (7171), HTTPS (7272)
+   - Default ports: HTTP (7080), HTTPS (7443)
 
 1. **Tink gRPC Server**
    - Secure gRPC API communications
@@ -30,7 +30,7 @@ When enabling TLS for Smee's iPXE services, note that iPXE only supports RSA cer
 |------|-------------|---------|
 | `--tls-cert-file` | Path to the TLS certificate file | "" |
 | `--tls-key-file` | Path to the TLS key file | "" |
-| `--https-bind-port` | Port for HTTPS server | 7272 |
+| `--https-bind-port` | Port for HTTPS server | 7443 |
 | `--dhcp-ipxe-http-script-scheme` | Protocol scheme for iPXE scripts (http or https) | "http" |
 | `--ipxe-script-tink-server-use-tls` | Use TLS to connect to the Tink server | false |
 | `--ipxe-script-tink-server-insecure-tls` | Skip TLS verification when connecting to the Tink server | false |
@@ -57,7 +57,7 @@ deployment:
       tlsCertFile: "/path/to/cert.crt"
       tlsKeyFile: "/path/to/cert.key"
     smee:
-      httpsBindPort: 7272
+      httpsBindPort: 7443
       dhcpIpxeHttpScriptScheme: "https"  # Use HTTPS for iPXE scripts
       ipxeScriptTinkServerUseTLS: true
       ipxeScriptTinkServerInsecureTLS: false
@@ -116,8 +116,8 @@ When TLS is enabled, the following endpoints are available over HTTPS (in additi
 
 Tinkerbell implements dual HTTP/HTTPS servers when TLS is enabled:
 
-1. The HTTP server continues to serve on the default port (7171)
-2. An HTTPS server is started on the HTTPS port (7272 by default)
+1. The HTTP server continues to serve on the default port (7080)
+2. An HTTPS server is started on the HTTPS port (7443 by default)
 3. Both servers share the same handlers and routes
 
 The TLS configuration uses TLS 1.2 as the minimum version to ensure security while maintaining compatibility with older clients.

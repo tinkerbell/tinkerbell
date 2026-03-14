@@ -49,10 +49,8 @@ deployment:
       enableLeaderElection: true
       leaderElectionNamespace: ""
       logLevel: 0
-      metricsAddr: ""
       maxConcurrentReconciles: 1
       powerCheckInterval: "30m0s"
-      probeAddr: ""
     secondstar:
       bindPort: 2222
       hostKeyPath: ""
@@ -110,9 +108,7 @@ deployment:
       enableLeaderElection: true
       leaderElectionNamespace: ""
       logLevel: 0
-      metricsAddr: ""
       maxConcurrentReconciles: 1
-      probeAddr: ""
       referenceAllowListRules: {}
       referenceDenyListRules: {}
     tinkServer:
