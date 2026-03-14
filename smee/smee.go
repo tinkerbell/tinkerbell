@@ -334,6 +334,8 @@ func (c *Config) ScriptHandler(log logr.Logger) http.Handler {
 		IPXEScriptRetries:     c.IPXE.HTTPScriptServer.Retries,
 		IPXEScriptRetryDelay:  c.IPXE.HTTPScriptServer.RetryDelay,
 		StaticIPXEEnabled:     (c.DHCP.Mode == DHCPModeAutoProxy),
+		KernelName:            c.IPXE.HTTPScriptServer.KernelName,
+		InitrdName:            c.IPXE.HTTPScriptServer.InitrdName,
 	}
 	return jh.HandlerFunc()
 }

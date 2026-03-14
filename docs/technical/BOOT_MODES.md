@@ -41,7 +41,7 @@ spec:
 ## isoboot
 
 The following is an example Workflow with the boot mode set to `isoboot`. When `isoboot` is specified, the `spec.bootMode.isoURL` is required.
-This URL should point to the Tinkerbell IP and the port defined in the Helm chart values. The port is defined at `service.ports.httpSmee.port`, which defaults to 7080.
+This URL should point to the Tinkerbell IP and the port defined in the Helm chart values. The port is defined at `service.ports.http.port`, which defaults to 7080.
 The MAC Address in the `spec.bootMode.isoURL` should match the Hardware that this Workflow references (`spec.hardwareRef`). Also, the MAC Address should be `-` (minus sign) delimited.
 This is a limitation observed in most BMCs. Experiment with your Hardware to find exceptions.
 

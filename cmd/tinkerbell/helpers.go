@@ -90,16 +90,3 @@ func inCluster() bool {
 	}
 	return false
 }
-
-// ensureKernelArg updates args in-place if an entry with the given prefix
-// already exists, or appends value otherwise. It returns the (possibly
-// grown) slice.
-func ensureKernelArg(args []string, prefix, value string) []string {
-	for i, arg := range args {
-		if strings.HasPrefix(arg, prefix) {
-			args[i] = value
-			return args
-		}
-	}
-	return append(args, value)
-}

@@ -197,8 +197,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		}
 		ts.Config.TLS.Cert = creds
 		// When using TLS with the Tink Server, the Agent needs to know that TLS is enabled.
-		// This is done in the Smee config.
-		s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs = ensureKernelArg(s.Config.IPXE.HTTPScriptServer.ExtraKernelArgs, "tinkerbell_tls", "tinkerbell_tls=true")
+		// Set UseTLS so the iPXE script template emits tinkerbell_tls=true in kernel args.
+		s.Config.TinkServer.UseTLS = true
 	}
 
 	// Tink Controller
