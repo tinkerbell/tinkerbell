@@ -290,7 +290,11 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				return fmt.Errorf("failed to wait for API server health: %w", err)
 			}
 
-			if err := crd.NewTinkerbell(crd.WithRestConfig(backendNoIndexes.ClientConfig)).MigrateAndReady(ctx); err != nil {
+			tb, err := crd.NewTinkerbell(crd.WithLogger(cliLog), crd.WithRestConfig(backendNoIndexes.ClientConfig))
+			if err != nil {
+				return fmt.Errorf("failed to create CRD migrator: %w", err)
+			}
+			if err := tb.MigrateAndReady(ctx); err != nil {
 				cancel()
 				gerr := g.Wait()
 				return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
