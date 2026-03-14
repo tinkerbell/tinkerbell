@@ -112,11 +112,7 @@ func (c *Config) Serve(ctx context.Context, log logr.Logger, httpHandler http.Ha
 	})
 
 	// HTTPS server (optional)
-	if len(c.TLSCerts) > 0 {
-		if httpsHandler == nil {
-			log.Info("no HTTPS handler, skipping HTTPS server")
-			return nil
-		}
+	if len(c.TLSCerts) > 0 && httpsHandler != nil {
 		httpsAddr := fmt.Sprintf("%s:%d", c.BindAddr, c.HTTPSPort)
 		tlsCfg := &tls.Config{
 			MinVersion:   tls.VersionTLS12,
@@ -143,7 +139,7 @@ func (c *Config) doServe(ctx context.Context, log logr.Logger, addr string, hand
 		WriteTimeout:      c.WriteTimeout,
 		IdleTimeout:       c.IdleTimeout,
 		MaxHeaderBytes:    c.MaxHeaderBytes,
-		ErrorLog:          slog.NewLogLogger(logr.ToSlogHandler(log), slog.Level(log.GetV())),
+		ErrorLog:          slog.NewLogLogger(logr.ToSlogHandler(log), slog.Level(-log.GetV())),
 		TLSConfig:         tlsCfg,
 	}
 
