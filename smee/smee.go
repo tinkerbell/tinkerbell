@@ -60,15 +60,11 @@ const (
 	DefaultTFFTPTimeout    = 10 * time.Second
 	DefaultDHCPPort        = 67
 	DefaultSyslogPort      = 514
-	DefaultHTTPPort        = 7171
-	DefaultHTTPSPort       = 7272
 	DefaultTinkServerPort  = 42113
 
-	IPXEBinaryURI  = "/ipxe/binary/"
-	IPXEScriptURI  = "/ipxe/script/"
-	ISOURI         = "/iso/"
-	HealthCheckURI = "/healthcheck"
-	MetricsURI     = "/metrics"
+	IPXEBinaryURI = "/ipxe/binary/"
+	IPXEScriptURI = "/ipxe/script/"
+	ISOURI        = "/iso/"
 )
 
 type DHCPMode string
@@ -109,15 +105,8 @@ type Config struct {
 	TFTP TFTP
 	// TinkServer is the configuration for the Tinkerbell server.
 	TinkServer TinkServer
-	// HTTP is the configuration for the HTTP service.
-	HTTP HTTP
 	// TLS is the configuration for TLS.
 	TLS TLS
-}
-
-type HTTP struct {
-	// BindHTTPSPort is the local port to listen on for the HTTPS server.
-	BindHTTPSPort uint16
 }
 
 type Syslog struct {
@@ -159,8 +148,6 @@ type IPXEHTTPBinaryServer struct {
 
 type IPXEHTTPScriptServer struct {
 	Enabled         bool
-	BindAddr        netip.Addr
-	BindPort        uint16
 	Retries         int
 	RetryDelay      int
 	OSIEURL         *url.URL
@@ -267,8 +254,6 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			},
 			HTTPScriptServer: IPXEHTTPScriptServer{
 				Enabled:         true,
-				BindAddr:        publicIP,
-				BindPort:        DefaultHTTPPort,
 				Retries:         1,
 				RetryDelay:      1,
 				OSIEURL:         &url.URL{},
@@ -304,9 +289,6 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			Enabled:    true,
 		},
 		TinkServer: TinkServer{},
-		HTTP: HTTP{
-			BindHTTPSPort: DefaultHTTPSPort,
-		},
 	}
 
 	if err := mergo.Merge(defaults, &c, mergo.WithTransformers(&c)); err != nil {
@@ -395,6 +377,9 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	if c.Backend == nil {
 		return errors.New("no backend provided")
 	}
+	if c.noServicesEnabled() {
+		return errors.New("all Smee services are disabled (DHCP, TFTP, syslog, iPXE binary, iPXE script, ISO)")
+	}
 
 	g, ctx := errgroup.WithContext(ctx)
 	// syslog
@@ -461,9 +446,6 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return fmt.Errorf("failed running all Smee services: %w", err)
-	}
-	if c.noServicesEnabled() {
-		return errors.New("no services enabled")
 	}
 	log.Info("smee is shutting down", "reason", ctx.Err())
 	return nil
@@ -629,5 +611,5 @@ func (c *Config) Transformer(typ reflect.Type) func(dst, src reflect.Value) erro
 }
 
 func (c *Config) noServicesEnabled() bool {
-	return !c.DHCP.Enabled && !c.TFTP.Enabled && !c.ISO.Enabled && !c.Syslog.Enabled && !c.IPXE.HTTPBinaryServer.Enabled && !c.IPXE.HTTPScriptServer.Enabled
+	return !c.DHCP.Enabled && !c.TFTP.Enabled && !c.Syslog.Enabled && !c.ISO.Enabled && !c.IPXE.HTTPBinaryServer.Enabled && !c.IPXE.HTTPScriptServer.Enabled
 }
