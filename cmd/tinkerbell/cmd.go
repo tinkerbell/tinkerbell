@@ -6,12 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/netip"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -20,8 +15,8 @@ import (
 	"github.com/peterbourgon/ff/v4/ffhelp"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/crd"
-	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
 	"github.com/tinkerbell/tinkerbell/pkg/build"
+	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/rufio"
 	"github.com/tinkerbell/tinkerbell/secondstar"
 	"github.com/tinkerbell/tinkerbell/smee"
@@ -31,20 +26,6 @@ import (
 	"github.com/tinkerbell/tinkerbell/ui"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
-	"k8s.io/client-go/rest"
-)
-
-const (
-	defaultRufioMetricsPort          = 8082
-	defaultRufioProbePort            = 8083
-	defaultSecondStarPort            = 2222
-	defaultSmeeHTTPPort              = 7171
-	defaultSmeeHTTPSPort             = 7272
-	defaultTinkControllerMetricsPort = 8080
-	defaultTinkControllerProbePort   = 8081
-	defaultTinkServerPort            = 42113
-	defaultTootlesPort               = 50061
-	defaultUIPort                    = 8085
 )
 
 var (
@@ -55,6 +36,7 @@ var (
 )
 
 func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop // Will need to look into reducing the cyclomatic complexity.
+	startTime := time.Now() // used in the HTTP healthcheck handler to report uptime.
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig:    kubeConfig(),
 		PublicIP:             detectPublicIPv4(),
@@ -66,6 +48,14 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		EnableSecondStar:     true,
 		EnableUI:             true,
 		EnableCRDMigrations:  true,
+		HTTPPort:             defaultHTTPPort,
+		HTTPSPort:            defaultHTTPSPort,
+		BindAddr: func() netip.Addr {
+			if addr := detectPublicIPv4(); addr.IsValid() {
+				return addr
+			}
+			return netip.MustParseAddr("0.0.0.0")
+		}(),
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
@@ -78,18 +68,10 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	s := &flag.SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
-		DHCPIPXEBinary: flag.URLBuilder{
-			Port: defaultSmeeHTTPPort,
-		},
-		DHCPIPXEScript: flag.URLBuilder{
-			Port: defaultSmeeHTTPPort,
-		},
 	}
 
 	h := &flag.TootlesConfig{
-		Config:   tootles.NewConfig(tootles.Config{}, fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTootlesPort)),
-		BindAddr: detectPublicIPv4(),
-		BindPort: defaultTootlesPort,
+		Config: tootles.NewConfig(tootles.Config{}),
 	}
 	ts := &flag.TinkServerConfig{
 		Config:   server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
@@ -97,8 +79,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		BindPort: defaultTinkServerPort,
 	}
 	controllerOpts := []controller.Option{
-		controller.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTinkControllerMetricsPort))),
-		controller.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultTinkControllerProbePort))),
 		controller.WithEnableLeaderElection(false),
 	}
 	tc := &flag.TinkControllerConfig{
@@ -106,8 +86,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	rufioOpts := []rufio.Option{
-		rufio.WithMetricsAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultRufioMetricsPort))),
-		rufio.WithProbeAddr(netip.MustParseAddrPort(fmt.Sprintf("%s:%d", detectPublicIPv4().String(), defaultRufioProbePort))),
 		rufio.WithBmcConnectTimeout(2 * time.Minute),
 		rufio.WithPowerCheckInterval(30 * time.Minute),
 		rufio.WithEnableLeaderElection(false),
@@ -126,7 +104,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 	uiOpts := []ui.Option{
 		ui.WithURLPrefix("/"),
-		ui.WithBindPort(defaultUIPort),
 	}
 	uic := &flag.UIConfig{
 		Config: ui.NewConfig(uiOpts...),
@@ -192,7 +169,13 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	)
 
 	// Smee
-	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr)
+	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr, globals.HTTPPort)
+	if s.DHCPIPXEBinary.Port == 0 {
+		s.DHCPIPXEBinary.Port = globals.HTTPPort
+	}
+	if s.DHCPIPXEScript.Port == 0 {
+		s.DHCPIPXEScript.Port = globals.HTTPPort
+	}
 	s.Config.OTEL.Endpoint = globals.OTELEndpoint
 	s.Config.OTEL.InsecureEndpoint = globals.OTELInsecure
 	// Configure TLS if cert and key files are provided
@@ -210,9 +193,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		s.Config.TLS.Certs = []tls.Certificate{cert}
 	}
 
-	// Tootles
-	h.Convert(&globals.TrustedProxies, globals.BindAddr)
-
 	// Tink Server
 	ts.Convert(globals.BindAddr)
 	// Configure TLS if cert and key files are provided
@@ -222,21 +202,16 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 			return fmt.Errorf("failed to load TLS credentials for Tink Server gRPC: %w", err)
 		}
 		ts.Config.TLS.Cert = creds
+		// When using TLS with the Tink Server, the Agent needs to know that TLS is enabled.
+		// Set UseTLS so the iPXE script template emits tinkerbell_tls=true in kernel args.
+		s.Config.TinkServer.UseTLS = true
 	}
 
 	// Tink Controller
 	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace)
-	if globals.BindAddr.IsValid() {
-		tc.Config.MetricsAddr = netip.AddrPortFrom(globals.BindAddr, tc.Config.MetricsAddr.Port())
-		tc.Config.ProbeAddr = netip.AddrPortFrom(globals.BindAddr, tc.Config.ProbeAddr.Port())
-	}
 
 	// Rufio Controller
 	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace)
-	if globals.BindAddr.IsValid() {
-		rc.Config.MetricsAddr = netip.AddrPortFrom(globals.BindAddr, rc.Config.MetricsAddr.Port())
-		rc.Config.ProbeAddr = netip.AddrPortFrom(globals.BindAddr, rc.Config.ProbeAddr.Port())
-	}
 
 	// Second star
 	if err := ssc.Convert(); err != nil {
@@ -246,8 +221,20 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		ssc.Config.BindAddr = globals.BindAddr
 	}
 
-	// UI
-	uic.Convert(globals.BindAddr, globals.TLS.CertFile, globals.TLS.KeyFile)
+	// Initialize OTel before starting goroutines so the provider outlives
+	// all goroutines (Smee non-HTTP, consolidated HTTP server, etc.).
+	// otel.Init is a no-op when globals.OTELEndpoint is empty.
+	otelCtx, otelShutdown, err := otel.Init(ctx, otel.Config{
+		Servicename: "tinkerbell",
+		Endpoint:    globals.OTELEndpoint,
+		Insecure:    globals.OTELInsecure,
+		Logger:      log.WithName("otel"),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize OpenTelemetry: %w", err)
+	}
+	ctx = otelCtx
+	defer otelShutdown()
 
 	g, ctx := errgroup.WithContext(ctx)
 	// Etcd server
@@ -303,7 +290,11 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 				return fmt.Errorf("failed to wait for API server health: %w", err)
 			}
 
-			if err := crd.NewTinkerbell(crd.WithRestConfig(backendNoIndexes.ClientConfig)).MigrateAndReady(ctx); err != nil {
+			tb, err := crd.NewTinkerbell(crd.WithLogger(cliLog), crd.WithRestConfig(backendNoIndexes.ClientConfig))
+			if err != nil {
+				return fmt.Errorf("failed to create CRD migrator: %w", err)
+			}
+			if err := tb.MigrateAndReady(ctx); err != nil {
 				cancel()
 				gerr := g.Wait()
 				return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
@@ -353,30 +344,31 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return nil
 	})
 
-	// Smee
+	// Initialize Smee metrics before starting goroutines so that metric
+	// globals (JobsTotal, JobsInProgress, etc.) are ready before the HTTP
+	// server can receive iPXE script requests that reference them.
+	if globals.EnableSmee {
+		s.Config.InitMetrics()
+	}
+
+	// Smee (non-HTTP services: DHCP, TFTP, syslog)
 	g.Go(func() error {
 		if !globals.EnableSmee {
 			cliLog.Info("smee service is disabled")
 			return nil
 		}
 		ll := ternary((s.LogLevel != 0), s.LogLevel, globals.LogLevel)
-		if err := s.Config.Start(ctx, getLogger(ll).WithName("smee")); err != nil {
+		smeeLog := getLogger(ll).WithName("smee")
+
+		if err := s.Config.Start(ctx, smeeLog); err != nil {
 			return fmt.Errorf("failed to start smee service: %w", err)
 		}
 		return nil
 	})
 
-	// Tootles
+	// HTTP server
 	g.Go(func() error {
-		if !globals.EnableTootles {
-			cliLog.Info("tootles service is disabled")
-			return nil
-		}
-		ll := ternary((h.LogLevel != 0), h.LogLevel, globals.LogLevel)
-		if err := h.Config.Start(ctx, getLogger(ll).WithName("tootles")); err != nil {
-			return fmt.Errorf("failed to start tootles service: %w", err)
-		}
-		return nil
+		return startHTTPServer(ctx, globals, s, h, uic, startTime)
 	})
 
 	// Tink Server
@@ -431,161 +423,9 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		return nil
 	})
 
-	// UI
-	g.Go(func() error {
-		if !globals.EnableUI {
-			cliLog.Info("ui service is disabled")
-			return nil
-		}
-		ll := ternary((uic.LogLevel != 0), uic.LogLevel, globals.LogLevel)
-		if err := uic.Config.Start(ctx, getLogger(ll).WithName("ui")); err != nil {
-			return fmt.Errorf("failed to start ui service: %w", err)
-		}
-		return nil
-	})
-
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
 
 	return nil
-}
-
-func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {
-	if condition {
-		return valueIfTrue
-	}
-	return valueIfFalse
-}
-
-func numEnabled(globals *flag.GlobalConfig) int {
-	n := 0
-	if globals.EnableSmee {
-		n++
-	}
-	if globals.EnableTootles {
-		n++
-	}
-	if globals.EnableTinkServer {
-		n++
-	}
-	if globals.EnableTinkController {
-		n++
-	}
-	if globals.EnableRufio {
-		n++
-	}
-	if globals.EnableSecondStar {
-		n++
-	}
-	if globals.EnableUI {
-		n++
-	}
-	return n
-}
-
-func enabledIndexes(smeeEnabled, tootlesEnabled, tinkServerEnabled, secondStarEnabled bool) map[kube.IndexType]kube.Index {
-	idxs := make(map[kube.IndexType]kube.Index, 0)
-
-	if smeeEnabled {
-		idxs = flag.KubeIndexesSmee
-	}
-	if tootlesEnabled {
-		for k, v := range flag.KubeIndexesTootles {
-			idxs[k] = v
-		}
-	}
-	if tinkServerEnabled {
-		for k, v := range flag.KubeIndexesTinkServer {
-			idxs[k] = v
-		}
-	}
-	if secondStarEnabled {
-		for k, v := range flag.KubeIndexesSecondStar {
-			idxs[k] = v
-		}
-	}
-
-	return idxs
-}
-
-// getLogger returns a logger based on the configuration.
-// If level is negative, returns a logger that discards all output.
-func getLogger(level int) logr.Logger {
-	if level < 0 {
-		return logr.Discard()
-	}
-	return defaultLogger(level)
-}
-
-// defaultLogger uses the slog logr implementation.
-func defaultLogger(level int) logr.Logger {
-	// source file and function can be long. This makes the logs less readable.
-	// for improved readability, truncate source file to last 3 parts and remove the function entirely.
-	customAttr := func(_ []string, a slog.Attr) slog.Attr {
-		if a.Key == slog.SourceKey {
-			ss, ok := a.Value.Any().(*slog.Source)
-			if !ok || ss == nil {
-				return a
-			}
-
-			p := strings.Split(ss.File, "/")
-			// log the file path from tinkerbell/tinkerbell to the end.
-			var idx int
-
-			for i, v := range p {
-				if v == "tinkerbell" {
-					if i+2 < len(p) {
-						idx = i + 2
-						break
-					}
-				}
-				// This trims the source file for 3rd party packages to include
-				// just enough information to identify the package. Without this,
-				// the source file can be long and make the log line more cluttered
-				// and hard to read.
-				if v == "mod" {
-					if i+1 < len(p) {
-						idx = i + 1
-						break
-					}
-				}
-			}
-			ss.File = filepath.Join(p[idx:]...)
-			ss.File = fmt.Sprintf("%s:%d", ss.File, ss.Line)
-			a.Value = slog.StringValue(ss.File)
-			a.Key = "caller"
-
-			return a
-		}
-
-		// This changes the slog.Level string representation to an integer.
-		// This makes it so that the V-levels passed in to the CLI show up as is in the logs.
-		if a.Key == slog.LevelKey {
-			b, ok := a.Value.Any().(slog.Level)
-			if !ok {
-				return a
-			}
-			a.Value = slog.StringValue(strconv.Itoa(int(b)))
-			return a
-		}
-
-		return a
-	}
-	opts := &slog.HandlerOptions{
-		AddSource:   true,
-		Level:       slog.Level(-level),
-		ReplaceAttr: customAttr,
-	}
-	log := slog.New(slog.NewJSONHandler(os.Stdout, opts))
-
-	return logr.FromSlogHandler(log.Handler())
-}
-
-// inCluster checks if we are running in cluster.
-func inCluster() bool {
-	if _, err := rest.InClusterConfig(); err == nil {
-		return true
-	}
-	return false
 }

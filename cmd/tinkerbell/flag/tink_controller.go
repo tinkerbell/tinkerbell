@@ -3,7 +3,6 @@ package flag
 import (
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/flag/delimitedlist"
-	"github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 	"github.com/tinkerbell/tinkerbell/tink/controller"
 )
 
@@ -15,8 +14,6 @@ type TinkControllerConfig struct {
 func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
 	fs.Register(TinkControllerEnableLeaderElection, ffval.NewValueDefault(&t.Config.EnableLeaderElection, t.Config.EnableLeaderElection))
 	fs.Register(TinkControllerLeaderElectionNamespace, ffval.NewValueDefault(&t.Config.LeaderElectionNamespace, t.Config.LeaderElectionNamespace))
-	fs.Register(TinkControllerMetricsAddr, &netip.AddrPort{AddrPort: &t.Config.MetricsAddr})
-	fs.Register(TinkControllerProbeAddr, &netip.AddrPort{AddrPort: &t.Config.ProbeAddr})
 	fs.Register(TinkControllerMaxConcurrentReconciles, ffval.NewValueDefault(&t.Config.MaxConcurrentReconciles, t.Config.MaxConcurrentReconciles))
 	fs.Register(TinkControllerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
 	fs.Register(TinkControllerReferenceAllowListRules, delimitedlist.New(&t.Config.ReferenceAllowListRules, '|'))
@@ -26,16 +23,6 @@ func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
 var TinkControllerEnableLeaderElection = Config{
 	Name:  "tink-controller-enable-leader-election",
 	Usage: "enable leader election for controller manager",
-}
-
-var TinkControllerMetricsAddr = Config{
-	Name:  "tink-controller-metrics-addr",
-	Usage: "address on which to expose metrics",
-}
-
-var TinkControllerProbeAddr = Config{
-	Name:  "tink-controller-probe-addr",
-	Usage: "address on which to expose health probes",
 }
 
 var TinkControllerLeaderElectionNamespace = Config{

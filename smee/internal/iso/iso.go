@@ -350,10 +350,6 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 		}
 	}
 
-	// by setting this header we are telling the logging middleware to not log its default log message.
-	// we do this because there are a lot of partial content requests and it allow this handler to take care of logging.
-	resp.Header.Set("X-Global-Logging", "false")
-
 	tu := req.URL.String()
 	if resp.StatusCode == http.StatusPartialContent {
 		// 0.002% of the time we log a 206 request message.

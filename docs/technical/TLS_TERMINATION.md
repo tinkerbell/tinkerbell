@@ -10,9 +10,9 @@ Tinkerbell supports TLS termination for HTTP and gRPC services. This allows secu
 
 The following services support TLS termination:
 
-1. **Smee HTTP/HTTPS Server**
-   - Serves iPXE binaries, scripts, and ISO files over both HTTP and HTTPS
-   - Default ports: HTTP (7171), HTTPS (7272)
+1. **Consolidated HTTP/HTTPS Server**
+   - Serves iPXE binaries, scripts, ISO files, Tootles metadata, and the UI over both HTTP and HTTPS
+   - Default ports: HTTP (7080), HTTPS (7443)
 
 1. **Tink gRPC Server**
    - Secure gRPC API communications
@@ -30,7 +30,8 @@ When enabling TLS for Smee's iPXE services, note that iPXE only supports RSA cer
 |------|-------------|---------|
 | `--tls-cert-file` | Path to the TLS certificate file | "" |
 | `--tls-key-file` | Path to the TLS key file | "" |
-| `--https-bind-port` | Port for HTTPS server | 7272 |
+| `--https-port` | Port for HTTPS server | 7443 |
+| `--http-port` | Port for HTTP server | 7080 |
 | `--dhcp-ipxe-http-script-scheme` | Protocol scheme for iPXE scripts (http or https) | "http" |
 | `--ipxe-script-tink-server-use-tls` | Use TLS to connect to the Tink server | false |
 | `--ipxe-script-tink-server-insecure-tls` | Skip TLS verification when connecting to the Tink server | false |
@@ -41,7 +42,8 @@ When enabling TLS for Smee's iPXE services, note that iPXE only supports RSA cer
 |---------------------|-------------|----------------|
 | `TINKERBELL_TLS_CERT_FILE` | Path to the TLS certificate file | `--tls-cert-file` |
 | `TINKERBELL_TLS_KEY_FILE` | Path to the TLS key file | `--tls-key-file` |
-| `TINKERBELL_HTTPS_BIND_PORT` | Port for HTTPS server | `--https-bind-port` |
+| `TINKERBELL_HTTPS_PORT` | Port for HTTPS server | `--https-port` |
+| `TINKERBELL_HTTP_PORT` | Port for HTTP server | `--http-port` |
 | `TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_SCHEME` | Protocol scheme for iPXE scripts | `--dhcp-ipxe-http-script-scheme` |
 | `TINKERBELL_IPXE_SCRIPT_TINK_SERVER_USE_TLS` | Use TLS to connect to Tink server | `--ipxe-script-tink-server-use-tls` |
 | `TINKERBELL_IPXE_SCRIPT_TINK_SERVER_INSECURE_TLS` | Skip TLS verification | `--ipxe-script-tink-server-insecure-tls` |
@@ -56,8 +58,8 @@ deployment:
     globals:
       tlsCertFile: "/path/to/cert.crt"
       tlsKeyFile: "/path/to/cert.key"
+      httpsPort: 7443
     smee:
-      httpsBindPort: 7272
       dhcpIpxeHttpScriptScheme: "https"  # Use HTTPS for iPXE scripts
       ipxeScriptTinkServerUseTLS: true
       ipxeScriptTinkServerInsecureTLS: false
@@ -94,6 +96,7 @@ helm upgrade --install tinkerbell helm/tinkerbell \
   --set-json 'deployment.volumeMounts=[{"name":"tinkerbell-tls","mountPath":"/tmp/certs","readOnly":true}]' \
   --set "deployment.envs.globals.tlsCertFile=/tmp/certs/tls.crt" \
   --set "deployment.envs.globals.tlsKeyFile=/tmp/certs/tls.key" \
+  --set "deployment.envs.globals.httpsPort=7443" \
   --set "deployment.envs.smee.dhcpIpxeHttpScriptScheme=https" \
   --set "deployment.envs.smee.ipxeScriptTinkServerUseTLS=true"
 ```
@@ -116,8 +119,8 @@ When TLS is enabled, the following endpoints are available over HTTPS (in additi
 
 Tinkerbell implements dual HTTP/HTTPS servers when TLS is enabled:
 
-1. The HTTP server continues to serve on the default port (7171)
-2. An HTTPS server is started on the HTTPS port (7272 by default)
+1. The HTTP server continues to serve on the default port (7080, configured via `--http-port`)
+2. An HTTPS server is started on the HTTPS port (7443 by default, configured via `--https-port`)
 3. Both servers share the same handlers and routes
 
 The TLS configuration uses TLS 1.2 as the minimum version to ensure security while maintaining compatibility with older clients.

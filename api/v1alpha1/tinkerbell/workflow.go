@@ -104,7 +104,7 @@ type BootOptions struct {
 	// A HardwareRef that contains a spec.BmcRef must be provided.
 	// BootMode must be set to "isoboot".
 	// +optional
-	// +kubebuilder:validation:Format=url
+	// +kubebuilder:validation:Format=uri
 	ISOURL string `json:"isoURL,omitempty"`
 
 	// BootMode is the type of booting that will be done. One of "netboot", "isoboot", or "customboot".

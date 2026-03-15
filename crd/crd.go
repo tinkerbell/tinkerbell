@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/go-logr/logr"
 	apiv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1 "k8s.io/apiextensions-apiserver/pkg/client/applyconfiguration/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -42,8 +43,10 @@ var TaskCRD []byte
 // Tinkerbell is the struct that holds the raw custom resource definitions
 // and a CRD client for operations.
 type Tinkerbell struct {
-	CRDs   map[string][]byte
-	Client clientset.Interface
+	CRDs       map[string][]byte
+	Client     clientset.Interface
+	Logger     logr.Logger
+	restConfig *rest.Config
 }
 
 const (
@@ -79,24 +82,53 @@ type ConfigOption func(*Tinkerbell)
 
 func WithRestConfig(config *rest.Config) ConfigOption {
 	return func(t *Tinkerbell) {
-		client, err := clientset.NewForConfig(config)
-		if err != nil {
-			panic(err)
-		}
-		t.Client = client
+		t.restConfig = config
 	}
+}
+
+// WithLogger sets a structured logger for Kubernetes API server warnings.
+func WithLogger(logger logr.Logger) ConfigOption {
+	return func(t *Tinkerbell) {
+		t.Logger = logger
+	}
+}
+
+// logrWarningHandler adapts a logr.Logger to the rest.WarningHandler interface.
+type logrWarningHandler struct {
+	logger logr.Logger
+}
+
+func (h logrWarningHandler) HandleWarningHeader(code int, agent string, text string) {
+	h.logger.Info("Kubernetes API warning", "code", code, "agent", agent, "text", text)
 }
 
 // NewTinkerbell returns a struct with a CRD client and the CRDs.
 // If no CRDs are provided, it will use the default (TinkerbellDefaults) CRDs.
-func NewTinkerbell(opts ...ConfigOption) Tinkerbell {
-	defaultMapper := Tinkerbell{
+func NewTinkerbell(opts ...ConfigOption) (Tinkerbell, error) {
+	tbell := Tinkerbell{
 		CRDs: TinkerbellDefaults,
 	}
 	for _, opt := range opts {
-		opt(&defaultMapper)
+		opt(&tbell)
 	}
-	return defaultMapper
+
+	if tbell.restConfig != nil {
+		cfg := rest.CopyConfig(tbell.restConfig)
+		if tbell.Logger.GetSink() != nil {
+			cfg.WarningHandler = logrWarningHandler{logger: tbell.Logger}
+		}
+		client, err := clientset.NewForConfig(cfg)
+		if err != nil {
+			return Tinkerbell{}, fmt.Errorf("failed to create CRD client: %w", err)
+		}
+		tbell.Client = client
+	}
+
+	if tbell.Client == nil {
+		return Tinkerbell{}, fmt.Errorf("no Kubernetes client configured: provide a rest.Config (e.g. WithRestConfig) or set Client directly via a ConfigOption")
+	}
+
+	return tbell, nil
 }
 
 func (t Tinkerbell) MigrateAndReady(ctx context.Context) error {
