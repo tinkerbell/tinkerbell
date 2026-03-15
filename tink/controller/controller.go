@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"net/netip"
 
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/pkg/api"
@@ -16,7 +15,6 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
@@ -32,8 +30,6 @@ type Config struct {
 	Client                  *rest.Config
 	EnableLeaderElection    bool
 	LeaderElectionNamespace string
-	MetricsAddr             netip.AddrPort
-	ProbeAddr               netip.AddrPort
 	DynamicClient           dynamicClient
 	ReferenceAllowListRules []string
 	ReferenceDenyListRules  []string
@@ -67,18 +63,6 @@ func WithDynamicClient(dynamicClient dynamicClient) Option {
 func WithEnableLeaderElection(enableLeaderElection bool) Option {
 	return func(c *Config) {
 		c.EnableLeaderElection = enableLeaderElection
-	}
-}
-
-func WithMetricsAddr(addrPort netip.AddrPort) Option {
-	return func(c *Config) {
-		c.MetricsAddr = addrPort
-	}
-}
-
-func WithProbeAddr(addrPort netip.AddrPort) Option {
-	return func(c *Config) {
-		c.ProbeAddr = addrPort
 	}
 }
 
@@ -120,9 +104,9 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		LeaderElectionID:        "tink-controller.tinkerbell.org",
 		LeaderElectionNamespace: c.LeaderElectionNamespace,
 		Metrics: server.Options{
-			BindAddress: c.MetricsAddr.String(),
+			BindAddress: "0",
 		},
-		HealthProbeBindAddress: c.ProbeAddr.String(),
+		HealthProbeBindAddress: "0",
 	}
 	if c.Namespace != "" {
 		options.Cache = cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}
@@ -160,14 +144,6 @@ func newManager(cfg *rest.Config, dc dynamicClient, opts controllerruntime.Optio
 	mgr, err := controllerruntime.NewManager(cfg, opts)
 	if err != nil {
 		return nil, fmt.Errorf("controller manager: %w", err)
-	}
-
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		return nil, fmt.Errorf("set up health check: %w", err)
-	}
-
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		return nil, fmt.Errorf("set up ready check: %w", err)
 	}
 
 	if err = workflow.NewReconciler(mgr.GetClient(), dc, wfOpts...).SetupWithManager(mgr, ctrlcontroller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}); err != nil {

@@ -2,7 +2,6 @@ package flag
 
 import (
 	"github.com/peterbourgon/ff/v4/ffval"
-	"github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 	"github.com/tinkerbell/tinkerbell/rufio"
 )
 
@@ -14,8 +13,6 @@ type RufioConfig struct {
 func RegisterRufioFlags(fs *Set, t *RufioConfig) {
 	fs.Register(RufioControllerEnableLeaderElection, ffval.NewValueDefault(&t.Config.EnableLeaderElection, t.Config.EnableLeaderElection))
 	fs.Register(RufioControllerLeaderElectionNamespace, ffval.NewValueDefault(&t.Config.LeaderElectionNamespace, t.Config.LeaderElectionNamespace))
-	fs.Register(RufioControllerMetricsAddr, &netip.AddrPort{AddrPort: &t.Config.MetricsAddr})
-	fs.Register(RufioControllerProbeAddr, &netip.AddrPort{AddrPort: &t.Config.ProbeAddr})
 	fs.Register(RufioBMCConnectTimeout, ffval.NewValueDefault(&t.Config.BMCConnectTimeout, t.Config.BMCConnectTimeout))
 	fs.Register(RufioPowerCheckInterval, ffval.NewValueDefault(&t.Config.PowerCheckInterval, t.Config.PowerCheckInterval))
 	fs.Register(RufioMaxConcurrentReconciles, ffval.NewValueDefault(&t.Config.MaxConcurrentReconciles, t.Config.MaxConcurrentReconciles))
@@ -25,16 +22,6 @@ func RegisterRufioFlags(fs *Set, t *RufioConfig) {
 var RufioControllerEnableLeaderElection = Config{
 	Name:  "rufio-controller-enable-leader-election",
 	Usage: "enable leader election for controller manager",
-}
-
-var RufioControllerMetricsAddr = Config{
-	Name:  "rufio-controller-metrics-addr",
-	Usage: "address on which to expose metrics",
-}
-
-var RufioControllerProbeAddr = Config{
-	Name:  "rufio-controller-probe-addr",
-	Usage: "address on which to expose health probes",
 }
 
 var RufioControllerLeaderElectionNamespace = Config{

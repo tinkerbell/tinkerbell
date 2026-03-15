@@ -62,9 +62,6 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(DHCPIPXEHTTPScriptPort, ffval.NewValueDefault(&sc.DHCPIPXEScript.Port, sc.DHCPIPXEScript.Port))
 	fs.Register(DHCPIPXEHTTPScriptPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Path, sc.Config.DHCP.IPXEHTTPScript.URL.Path))
 
-	// HTTPS flags
-	fs.Register(HTTPSBindPort, ffval.NewValueDefault(&sc.Config.HTTP.BindHTTPSPort, sc.Config.HTTP.BindHTTPSPort))
-
 	// IPXE flags
 	fs.Register(IPXEArchMapping, &ffval.Value[map[iana.Arch]constant.IPXEBinary]{
 		ParseFunc: func(s string) (map[iana.Arch]constant.IPXEBinary, error) {
@@ -102,8 +99,6 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(IPXEEmbeddedScriptPatch, ffval.NewValueDefault(&sc.Config.IPXE.EmbeddedScriptPatch, sc.Config.IPXE.EmbeddedScriptPatch))
 	fs.Register(IPXEHTTPBinaryEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPBinaryServer.Enabled, sc.Config.IPXE.HTTPBinaryServer.Enabled))
 	fs.Register(IPXEHTTPScriptEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Enabled, sc.Config.IPXE.HTTPScriptServer.Enabled))
-	fs.Register(IPXEHTTPScriptBindAddr, &ntip.Addr{Addr: &sc.Config.IPXE.HTTPScriptServer.BindAddr})
-	fs.Register(IPXEHTTPScriptBindPort, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.BindPort, sc.Config.IPXE.HTTPScriptServer.BindPort))
 	fs.Register(IPXEHTTPScriptExtraKernelArgs, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.ExtraKernelArgs))
 	fs.Register(IPXEHTTPScriptKernelName, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.KernelName, sc.Config.IPXE.HTTPScriptServer.KernelName))
 	fs.Register(IPXEHTTPScriptInitrdName, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.InitrdName, sc.Config.IPXE.HTTPScriptServer.InitrdName))
@@ -147,11 +142,11 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 }
 
 // Convert CLI specific fields to smee.Config fields.
-func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr, bindAddr netip.Addr) {
+func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr, bindAddr netip.Addr, defaultPort int) {
 	s.Config.IPXE.HTTPScriptServer.TrustedProxies = ntip.ToPrefixList(trustedProxies).Slice()
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = func() string {
-		var addr string                                 // Defaults
-		port := fmt.Sprintf("%d", smee.DefaultHTTPPort) // Defaults
+		var addr string                        // Defaults
+		port := fmt.Sprintf("%d", defaultPort) // Defaults
 		if !publicIP.IsUnspecified() && publicIP.IsValid() {
 			addr = publicIP.String()
 		}
@@ -170,8 +165,8 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 	}()
 
 	s.Config.DHCP.IPXEHTTPBinaryURL.Host = func() string {
-		var addr string                                 // Defaults
-		port := fmt.Sprintf("%d", smee.DefaultHTTPPort) // Defaults
+		var addr string                        // Defaults
+		port := fmt.Sprintf("%d", defaultPort) // Defaults
 		if !publicIP.IsUnspecified() && publicIP.IsValid() {
 			addr = publicIP.String()
 		}
@@ -214,8 +209,6 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 
 	// Set bind addresses if bindAddr is specified.
 	if bindAddr.IsValid() {
-		// iPXE HTTP Script Server
-		s.Config.IPXE.HTTPScriptServer.BindAddr = bindAddr
 		// syslog server
 		s.Config.Syslog.BindAddr = bindAddr
 		// TFTP server
@@ -330,16 +323,6 @@ var DHCPIPXEHTTPScriptInjectMac = Config{
 var IPXEHTTPScriptEnabled = Config{
 	Name:  "ipxe-http-script-enabled",
 	Usage: "[ipxe] enable iPXE HTTP script serving",
-}
-
-var IPXEHTTPScriptBindAddr = Config{
-	Name:  "ipxe-http-script-bind-addr",
-	Usage: "[ipxe] local IP to listen on for iPXE HTTP script requests",
-}
-
-var IPXEHTTPScriptBindPort = Config{
-	Name:  "ipxe-http-script-bind-port",
-	Usage: "[ipxe] local port to listen on for iPXE HTTP script requests",
 }
 
 var IPXEHTTPScriptExtraKernelArgs = Config{
@@ -491,9 +474,4 @@ var SmeeLogLevel = Config{
 var DHCPEnableNetbootOptions = Config{
 	Name:  "dhcp-enable-netboot-options",
 	Usage: "[dhcp] enable sending netboot DHCP options",
-}
-
-var HTTPSBindPort = Config{
-	Name:  "https-bind-port",
-	Usage: "[https] local port to listen on for HTTPS requests",
 }

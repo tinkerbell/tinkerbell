@@ -35,16 +35,6 @@ spec:
     targetPort: {{ .Values.service.ports.syslog.name }}
     protocol: {{ .Values.service.ports.syslog.protocol }}
     name: {{ .Values.service.ports.syslog.name }}
-  - port: {{ .Values.service.ports.httpSmee.port }}
-    targetPort: {{ .Values.service.ports.httpSmee.name }}
-    protocol: {{ .Values.service.ports.httpSmee.protocol }}
-    name: {{ .Values.service.ports.httpSmee.name }}
-  {{- end }}
-  {{- if .Values.deployment.envs.globals.enableTootles }}
-  - port: {{ .Values.service.ports.httpTootles.port }}
-    targetPort: {{ .Values.service.ports.httpTootles.name }}
-    protocol: {{ .Values.service.ports.httpTootles.protocol }}
-    name: {{ .Values.service.ports.httpTootles.name }}
   {{- end }}
   {{- if .Values.deployment.envs.globals.enableTinkServer }}
   - port: {{ .Values.service.ports.grpc.port }}
@@ -58,12 +48,10 @@ spec:
     protocol: {{ .Values.service.ports.ssh.protocol }}
     name: {{ .Values.service.ports.ssh.name }}
   {{- end }}
-  {{- if .Values.deployment.envs.globals.enableUI }}
-  - port: {{ .Values.service.ports.ui.port }}
-    targetPort: {{ .Values.service.ports.ui.name }}
-    protocol: {{ .Values.service.ports.ui.protocol }}
-    name: {{ .Values.service.ports.ui.name }}
-  {{- end }}
+  - port: {{ .Values.service.ports.http.port }} # This is always enabled because /metrics and /healthcheck are always enabled.
+    targetPort: {{ .Values.service.ports.http.name }}
+    protocol: {{ .Values.service.ports.http.protocol }}
+    name: {{ .Values.service.ports.http.name }}
   {{- if and .Values.deployment.envs.globals.tlsCertFile .Values.deployment.envs.globals.tlsKeyFile }}
   - port: {{ .Values.service.ports.https.port }}
     targetPort: {{ .Values.service.ports.https.name }}

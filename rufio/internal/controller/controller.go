@@ -13,7 +13,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 )
 
 var schemeBuilder = runtime.NewSchemeBuilder(
@@ -43,14 +42,6 @@ func NewManager(cfg *rest.Config, opts ctrl.Options, powerCheckInterval time.Dur
 	mgr, err := ctrl.NewManager(cfg, opts)
 	if err != nil {
 		return nil, fmt.Errorf("controller manager: %w", err)
-	}
-
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		return nil, fmt.Errorf("set up health check: %w", err)
-	}
-
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		return nil, fmt.Errorf("set up ready check: %w", err)
 	}
 
 	ctrlOpts := ctrlcontroller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}

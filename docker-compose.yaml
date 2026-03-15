@@ -78,11 +78,11 @@ services:
     restart: on-failure
     ports:
       - 42113:42113
-      - 50061:50061
       - 514:514/udp
       - 69:69/udp
       - 67:67/udp
-      - 7171:7171
+      - 7080:7080
+      - 7443:7443
       - 2222:2222
     depends_on:
       kubeconfig:

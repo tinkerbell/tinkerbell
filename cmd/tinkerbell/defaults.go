@@ -13,8 +13,12 @@ import (
 )
 
 const (
-	smeePublicIPInterface          = "SMEE_PUBLIC_IP_INTERFACE"
+	smeePublicIPInterface          = "TINKERBELL_PUBLIC_IP_INTERFACE"
 	defaultLeaderElectionNamespace = "default"
+	defaultSecondStarPort          = 2222
+	defaultHTTPPort                = 7080
+	defaultHTTPSPort               = 7443
+	defaultTinkServerPort          = 42113
 )
 
 func detectPublicIPv4() netip.Addr {

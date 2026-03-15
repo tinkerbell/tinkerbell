@@ -26,6 +26,7 @@ go.work.sum
 
 # local binaries
 out/
+/tinkerbell
 
 # Go coverage profile
 coverage.txt

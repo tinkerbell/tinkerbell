@@ -62,7 +62,10 @@ func TestMigrateAndReady(t *testing.T) {
 		}
 		return false, nil, nil
 	})
-	m := NewTinkerbell(func(t *Tinkerbell) { t.Client = client })
+	m, err := NewTinkerbell(func(t *Tinkerbell) { t.Client = client })
+	if err != nil {
+		t.Fatalf("failed to create Tinkerbell: %v", err)
+	}
 	if err := m.MigrateAndReady(context.Background()); err != nil {
 		t.Errorf("failed to migrate CRDs: %v", err)
 	}

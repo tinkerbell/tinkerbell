@@ -35,6 +35,8 @@ deployment:
       enableTinkServer: true
       enableTinkController: true
       enableUI: true
+      httpPort: 7080
+      httpsPort: 7443
       logLevel: 0
       otelEndpoint: ""
       otelInsecure: false
@@ -47,10 +49,8 @@ deployment:
       enableLeaderElection: true
       leaderElectionNamespace: ""
       logLevel: 0
-      metricsAddr: ""
       maxConcurrentReconciles: 1
       powerCheckInterval: "30m0s"
-      probeAddr: ""
     secondstar:
       bindPort: 2222
       hostKeyPath: ""
@@ -64,23 +64,20 @@ deployment:
       dhcpIPForPacket: ""
       dhcpIpxeHttpBinaryHost: ""
       dhcpIpxeHttpBinaryPath: "/ipxe/binary"
-      dhcpIpxeHttpBinaryPort: 7171
+      dhcpIpxeHttpBinaryPort: 7080
       dhcpIpxeHttpBinaryScheme: "http"
       dhcpIpxeHttpScriptHost: ""
       dhcpIpxeHttpScriptPath: "/ipxe/script/auto.ipxe"
-      dhcpIpxeHttpScriptPort: 7171
+      dhcpIpxeHttpScriptPort: 7080
       dhcpIpxeHttpScriptPrependMac: true
       dhcpIpxeHttpScriptScheme: "http"
       dhcpMode: "reservation" # reservation, proxy, auto-proxy
       dhcpSyslogIP: ""
       dhcpTftpIP: ""
       dhcpTftpPort: 69
-      httpsBindPort: 7272
       ipxeBinaryInjectMacAddrFormat: "" # one of colon, dot, dash, no-delimiter, empty. defaults to colon when empty.
       ipxeEmbeddedScriptPatch: ""
       ipxeHttpBinaryEnabled: true
-      ipxeHttpScriptBindAddr: ""
-      ipxeHttpScriptBindPort: 7171
       ipxeHttpScriptEnabled: true
       ipxeHttpScriptExtraKernelArgs: [] # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
       ipxeHttpScriptKernelName: "vmlinuz" # name of the kernel file to fetch in the iPXE script, defaults to vmlinuz, which becomes vmlinuz-<arch> in the script
@@ -111,9 +108,7 @@ deployment:
       enableLeaderElection: true
       leaderElectionNamespace: ""
       logLevel: 0
-      metricsAddr: ""
       maxConcurrentReconciles: 1
-      probeAddr: ""
       referenceAllowListRules: {}
       referenceDenyListRules: {}
     tinkServer:
@@ -125,14 +120,10 @@ deployment:
       bindPort: 42113
       logLevel: 0
     tootles:
-      bindAddr: ""
-      bindPort: 7172
       debugMode: false
       logLevel: 0
       instanceEndpoint: false # if true, Tootles will serve metadata at /tootles/instanceID/<instanceID> to _any_ client
     ui:
-      bindAddr: ""
-      bindPort: 8085
       debugMode: false
       enableAutoLogin: false
       logLevel: 0
@@ -212,13 +203,9 @@ service:
       name: grpc
       port: 42113
       protocol: TCP
-    httpSmee:
-      name: http-smee
-      port: 7171
-      protocol: TCP
-    httpTootles:
-      name: http-tootles
-      port: 7172
+    http:
+      name: http
+      port: 7080
       protocol: TCP
     ssh:
       name: ssh
@@ -234,11 +221,7 @@ service:
       protocol: UDP
     https:
       name: https
-      port: 7272
-      protocol: TCP
-    ui:
-      name: ui
-      port: 8085
+      port: 7443
       protocol: TCP
   selector:
     app: tinkerbell

@@ -41,7 +41,7 @@ spec:
 ## isoboot
 
 The following is an example Workflow with the boot mode set to `isoboot`. When `isoboot` is specified, the `spec.bootMode.isoURL` is required.
-This URL should point to the Tinkerbell IP and the port defined in the Helm chart values. The port is defined at `service.ports.httpSmee.port`, which defaults to 7171.
+This URL should point to the Tinkerbell IP and the port defined in the Helm chart values. The port is defined at `service.ports.http.port`, which defaults to 7080.
 The MAC Address in the `spec.bootMode.isoURL` should match the Hardware that this Workflow references (`spec.hardwareRef`). Also, the MAC Address should be `-` (minus sign) delimited.
 This is a limitation observed in most BMCs. Experiment with your Hardware to find exceptions.
 
@@ -53,7 +53,7 @@ metadata:
 spec:
   bootOptions:
     bootMode: isoboot
-    isoURL: http://<tinkerbell VIP>:7171/iso/02-7f-92-bd-2d-57/hook.iso
+    isoURL: http://<tinkerbell VIP>:7080/iso/02-7f-92-bd-2d-57/hook.iso
 ```
 
 The `isoboot` mode gets a Machine booted into HookOS by mounting the HookOS ISO, served by the Smee service, as a virtual CD-ROM and then ejecting the virtual CD-ROM after the Workflow. This is accomplished by the Tink Controller by automatically creating a `job.bmc.tinkerbell.org` during the `PREPARING` and `POST` Workflow states. During the `PREPARING` Workflow state the following `job.bmc.tinkerbell.org` to mount the HookOS ISO is created:
@@ -70,7 +70,7 @@ spec:
   tasks:
     - powerAction: "off"
     - virtualMediaAction:
-        mediaURL: "http://tinkerbell-ip:7171/iso/:macAddress/hook.iso"
+        mediaURL: "http://tinkerbell-ip:7080/iso/:macAddress/hook.iso"
         kind: "CD"
     - oneTimeBootDeviceAction:
         device:
@@ -211,7 +211,7 @@ spec:
       - powerAction: "off"
       - virtualMediaAction:
           # Template the MAC address in dash-separated format for ISO URL
-          mediaURL: 'http://172.17.1.1:7171/iso/{{ (index .Hardware.Interfaces 0).DHCP.MAC | replace ":" "-" }}/hook.iso'
+          mediaURL: 'http://172.17.1.1:7080/iso/{{ (index .Hardware.Interfaces 0).DHCP.MAC | replace ":" "-" }}/hook.iso'
           kind: "CD"
       - bootDevice:
           device: "cdrom"
@@ -232,7 +232,7 @@ spec:
 For a Hardware resource with MAC address `aa:bb:cc:dd:ee:ff`, the template would expand to:
 
 ```
-http://172.17.1.1:7171/iso/aa-bb-cc-dd-ee-ff/hook.iso
+http://172.17.1.1:7080/iso/aa-bb-cc-dd-ee-ff/hook.iso
 ```
 
 #### Template Error Handling

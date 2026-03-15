@@ -1,0 +1,99 @@
+package handler
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net"
+	"net/http"
+	"runtime"
+	"time"
+
+	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/pkg/build"
+)
+
+// HealthCheck returns an http.Handler that responds with JSON containing
+// the git revision, uptime, and goroutine count. It encodes into a buffer first
+// so that encoding errors can be reported with a proper 500 status.
+func HealthCheck(log logr.Logger, startTime time.Time) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		res := struct {
+			GitRev        string `json:"git_rev"`
+			UptimeSeconds string `json:"uptime_seconds"`
+			Goroutines    int    `json:"goroutines"`
+		}{
+			GitRev:        build.GitRevision(),
+			UptimeSeconds: fmt.Sprintf("%.2f", time.Since(startTime).Seconds()),
+			Goroutines:    runtime.NumGoroutine(),
+		}
+		var buf bytes.Buffer
+		if err := json.NewEncoder(&buf).Encode(&res); err != nil {
+			log.Error(err, "failed to encode healthcheck response")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := buf.WriteTo(w); err != nil {
+			log.Error(err, "failed to write healthcheck response")
+		}
+	})
+}
+
+// Healthz returns an http.Handler that always responds with 200 OK and the
+// body "ok". This is functionally equivalent to the controller-runtime
+// healthz.Ping checker that was previously registered with each controller
+// manager — those checkers were also unconditional (always healthy). The
+// consolidated HTTP server now serves this endpoint in place of the
+// per-controller health probe ports.
+func Healthz() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
+	})
+}
+
+// Readyz returns an http.Handler that always responds with 200 OK and the
+// body "ok". This is functionally equivalent to the controller-runtime
+// healthz.Ping checker that was previously registered with each controller
+// manager — those checkers were also unconditional (always ready). The
+// consolidated HTTP server now serves this endpoint in place of the
+// per-controller health probe ports.
+func Readyz() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
+	})
+}
+
+// RedirectToHTTPS returns an http.Handler that redirects incoming HTTP requests to the corresponding HTTPS URL on the specified port.
+func RedirectToHTTPS(log logr.Logger, port int) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u := *r.URL
+		u.Scheme = "https"
+
+		u.Host = net.JoinHostPort(parseHost(r.Host), fmt.Sprintf("%d", port))
+
+		log.V(2).Info("redirecting to HTTPS", "host", r.Host, "httpsURL", u.String(), "httpURL", r.URL.String())
+		http.Redirect(w, r, u.String(), http.StatusPermanentRedirect)
+	})
+}
+
+// parseHost splits out the host from the input.
+// The input is typically from url.URL.Host or http.Request.Host,
+// which can be in the form of "host:port", "[ip6]:port", "host", "ip", or "[ip6]".
+func parseHost(input string) string {
+	host, _, err := net.SplitHostPort(input)
+	if err != nil {
+		// If SplitHostPort fails, it's usually because the port is missing.
+		// Strip surrounding brackets from IPv6 literals like "[::1]" so that
+		// net.JoinHostPort does not double-bracket the address.
+		if len(input) >= 2 && input[0] == '[' && input[len(input)-1] == ']' {
+			return input[1 : len(input)-1]
+		}
+		return input
+	}
+	return host
+}

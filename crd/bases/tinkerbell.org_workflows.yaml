@@ -255,7 +255,7 @@ spec:
                       for getting the associated hardware into a CDROM booting state.
                       A HardwareRef that contains a spec.BmcRef must be provided.
                       BootMode must be set to "isoboot".
-                    format: url
+                    format: uri
                     type: string
                   toggleAllowNetboot:
                     description: |-
