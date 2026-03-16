@@ -304,8 +304,9 @@ optional:
     service:
       annotations: {}
       lbClass:
-      loadBalancerIP: 
+      loadBalancerIP:
       type:
+      labels: {}
     affinity: {}
 
   # kubevip objects are used to provide a LoadBalancer IP for the Tinkerbell services.
