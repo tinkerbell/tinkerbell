@@ -321,6 +321,16 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		}(),
 		Pid: toPtr(action.Pid),
 	}
+	if action.Namespaces != nil {
+		// Pass the network namespace value through as-is (e.g. "host").
+		if action.Namespaces.Network != "" {
+			ar.Network = toPtr(action.Namespaces.Network)
+		}
+		// Prefer namespaces.pid over the top-level pid field when both are set.
+		if action.Namespaces.PID != "" {
+			ar.Pid = toPtr(action.Namespaces.PID)
+		}
+	}
 
 	log.Info("sending action", "action", ar, "actionID", action.ID)
 	journal.Log(ctx, "sending Action", "action", ar)

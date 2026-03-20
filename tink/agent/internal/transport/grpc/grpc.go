@@ -100,6 +100,7 @@ func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 		as.Env = append(as.Env, env)
 	}
 	as.Namespaces.PID = response.GetPid()
+	as.Namespaces.Network = response.GetNetwork()
 
 	return as, nil
 }

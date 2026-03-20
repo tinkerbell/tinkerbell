@@ -159,6 +159,98 @@ func TestGetAction(t *testing.T) {
 			request: &proto.ActionRequest{},
 			wantErr: status.Errorf(codes.InvalidArgument, "invalid Agent ID"),
 		},
+		"action with namespaces network host": {
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			workflow: &tinkerbell.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStateRunning,
+					GlobalTimeout: 600,
+					Tasks: []tinkerbell.Task{
+						{
+							Name:    "inventory",
+							AgentID: "machine-mac-1",
+							Actions: []tinkerbell.Action{
+								{
+									Name:    "run-inventory",
+									Image:   "example/inventory:latest",
+									Timeout: 120,
+									State:   tinkerbell.WorkflowStatePending,
+									Namespaces: &tinkerbell.ActionNamespace{
+										Network: "host",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &proto.ActionResponse{
+				WorkflowId:  toPtr("default/machine1"),
+				AgentId:     toPtr("machine-mac-1"),
+				TaskId:      new(string),
+				ActionId:    new(string),
+				Name:        toPtr("run-inventory"),
+				Image:       toPtr("example/inventory:latest"),
+				Timeout:     toPtr(int64(120)),
+				Environment: []string{},
+				Pid:         new(string),
+				Network:     toPtr("host"),
+			},
+			wantErr: nil,
+		},
+		"action with namespaces pid preferred over top-level pid": {
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			workflow: &tinkerbell.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStateRunning,
+					GlobalTimeout: 600,
+					Tasks: []tinkerbell.Task{
+						{
+							Name:    "inventory",
+							AgentID: "machine-mac-1",
+							Actions: []tinkerbell.Action{
+								{
+									Name:    "run-inventory",
+									Image:   "example/inventory:latest",
+									Timeout: 120,
+									State:   tinkerbell.WorkflowStatePending,
+									Pid:     "legacy-value",
+									Namespaces: &tinkerbell.ActionNamespace{
+										Network: "host",
+										PID:     "host",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &proto.ActionResponse{
+				WorkflowId:  toPtr("default/machine1"),
+				AgentId:     toPtr("machine-mac-1"),
+				TaskId:      new(string),
+				ActionId:    new(string),
+				Name:        toPtr("run-inventory"),
+				Image:       toPtr("example/inventory:latest"),
+				Timeout:     toPtr(int64(120)),
+				Environment: []string{},
+				Pid:         toPtr("host"),
+				Network:     toPtr("host"),
+			},
+			wantErr: nil,
+		},
 	}
 
 	for name, tc := range cases {
