@@ -1,0 +1,62 @@
+name: Publish Helm chart
+description: >-
+  Package and publish the Tinkerbell Helm chart to an OCI registry. Assumes
+  the repository has already been checked out by the caller.
+
+inputs:
+  go-version:
+    description: Go version used to resolve VERSION from the Makefile.
+    required: true
+  registry:
+    description: OCI registry to log in to and publish the chart to.
+    required: false
+    default: ghcr.io
+  registry-username:
+    description: Username for the OCI registry.
+    required: true
+  github-token:
+    description: >-
+      Token used to authenticate to the OCI registry. Composite actions
+      cannot read the `secrets` context, so the caller must pass it in.
+    required: true
+  helm-version:
+    description: Version of Helm to install.
+    required: false
+    default: v3.17.0
+
+runs:
+  using: composite
+  steps:
+    # Go is needed to get the VERSION in the Makefile which is used in the Helm packaging.
+    - name: Setup Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: false
+
+    - name: Restore Go cache
+      uses: actions/cache/restore@v5
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          ${{ runner.os }}-go-
+
+    - name: Login to ${{ inputs.registry }}
+      uses: docker/login-action@v4
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.registry-username }}
+        password: ${{ inputs.github-token }}
+
+    - name: Install helm
+      uses: Azure/setup-helm@v5
+      with:
+        version: ${{ inputs.helm-version }}
+
+    - name: Package and publish the Helm chart
+      shell: bash
+      run: make helm-publish
