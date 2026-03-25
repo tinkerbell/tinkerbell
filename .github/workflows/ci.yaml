@@ -93,7 +93,7 @@ jobs:
           fetch-tags: true
 
       - name: install helm
-        uses: Azure/setup-helm@v4
+        uses: Azure/setup-helm@v5
         with:
           version: v3.17.0
 
@@ -337,7 +337,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: install helm
-        uses: Azure/setup-helm@v4
+        uses: Azure/setup-helm@v5
         with:
           version: v3.17.0
 
