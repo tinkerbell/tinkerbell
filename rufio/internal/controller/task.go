@@ -286,6 +286,9 @@ func (r *TaskReconciler) checkTaskStatus(ctx context.Context, log logr.Logger, t
 // patchStatus patches the specified patch on the Task.
 func (r *TaskReconciler) patchStatus(ctx context.Context, task *bmc.Task, patch client.Patch) error {
 	err := r.client.Status().Patch(ctx, task, patch)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("failed to patch Task %s/%s status: %w", task.Namespace, task.Name, err)
 	}
