@@ -41,7 +41,7 @@ type Handler struct {
 	InitrdName            string // name of the initrd file
 }
 
-type info struct {
+type Info struct {
 	AllowNetboot  bool // If true, the client will be provided netboot options in the DHCP offer/ack.
 	Console       string
 	MACAddress    net.HardwareAddr
@@ -64,31 +64,31 @@ type OSIE struct {
 	Initrd string
 }
 
-// getByMac uses the BackendReader to get the (hardware) data and then
+// GetByMac uses the BackendReader to get the (hardware) data and then
 // translates it to the script.Data struct.
-func getByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (info, error) {
+func GetByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (Info, error) {
 	if br == nil {
-		return info{}, errors.New("backend is nil")
+		return Info{}, errors.New("backend is nil")
 	}
 	spec, err := br.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: mac.String()})
 	if err != nil {
-		return info{}, err
+		return Info{}, err
 	}
 	hw, err := dhcp.ConvertByMac(ctx, mac, spec)
 	if err != nil {
-		return info{}, fmt.Errorf("failed to convert hardware data: %w", err)
+		return Info{}, fmt.Errorf("failed to convert hardware data: %w", err)
 	}
 
 	if hw.DHCP == nil {
-		return info{}, errors.New("no dhcp data")
+		return Info{}, errors.New("no dhcp data")
 	}
 	if hw.Netboot == nil {
-		return info{}, errors.New("no netboot data")
+		return Info{}, errors.New("no netboot data")
 	}
 	d := hw.DHCP
 	n := hw.Netboot
 
-	return info{
+	return Info{
 		AllowNetboot:  n.AllowNetboot,
 		Console:       "",
 		MACAddress:    d.MACAddress,
@@ -102,28 +102,28 @@ func getByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (info
 	}, nil
 }
 
-func getByIP(ctx context.Context, ip net.IP, br BackendReader) (info, error) {
+func GetByIP(ctx context.Context, ip net.IP, br BackendReader) (Info, error) {
 	if br == nil {
-		return info{}, errors.New("backend is nil")
+		return Info{}, errors.New("backend is nil")
 	}
 	spec, err := br.FilterHardware(ctx, data.HardwareFilter{ByIPAddress: ip.String()})
 	if err != nil {
-		return info{}, err
+		return Info{}, err
 	}
 	hw, err := dhcp.ConvertByIP(ctx, ip, spec)
 	if err != nil {
-		return info{}, fmt.Errorf("failed to convert hardware data: %w", err)
+		return Info{}, fmt.Errorf("failed to convert hardware data: %w", err)
 	}
 	if hw.DHCP == nil {
-		return info{}, errors.New("no dhcp data")
+		return Info{}, errors.New("no dhcp data")
 	}
 	if hw.Netboot == nil {
-		return info{}, errors.New("no netboot data")
+		return Info{}, errors.New("no netboot data")
 	}
 	d := hw.DHCP
 	n := hw.Netboot
 
-	return info{
+	return Info{
 		AllowNetboot:  n.AllowNetboot,
 		Console:       "",
 		MACAddress:    d.MACAddress,
@@ -166,7 +166,7 @@ func (h *Handler) HandlerFunc() http.HandlerFunc {
 
 		// Try to get the MAC address from the URL path, if not available get the source IP address.
 		if ha, err := getMAC(r.URL.Path); err == nil {
-			hw, err := getByMac(ctx, ha, h.Backend)
+			hw, err := GetByMac(ctx, ha, h.Backend)
 			if err != nil && h.StaticIPXEEnabled {
 				h.Logger.Info("serving static ipxe script", "mac", ha.String(), "reasonForStaticScript", err)
 				h.serveStaticIPXEScript(w)
@@ -182,7 +182,7 @@ func (h *Handler) HandlerFunc() http.HandlerFunc {
 			return
 		}
 		if ip, err := getIP(r.RemoteAddr); err == nil {
-			hw, err := getByIP(ctx, ip, h.Backend)
+			hw, err := GetByIP(ctx, ip, h.Backend)
 			if err != nil && h.StaticIPXEEnabled {
 				h.Logger.Info("serving static ipxe script", "client", r.RemoteAddr, "error", err)
 				h.serveStaticIPXEScript(w)
@@ -250,7 +250,7 @@ func getMAC(urlPath string) (net.HardwareAddr, error) {
 	return ha, nil
 }
 
-func (h *Handler) serveBootScript(ctx context.Context, w http.ResponseWriter, name string, hw info) {
+func (h *Handler) serveBootScript(ctx context.Context, w http.ResponseWriter, name string, hw Info) {
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.String("smee.script_name", name))
 	var script []byte
@@ -297,7 +297,7 @@ func (h *Handler) serveBootScript(ctx context.Context, w http.ResponseWriter, na
 	}
 }
 
-func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
+func (h *Handler) defaultScript(span trace.Span, hw Info) (string, error) {
 	mac := hw.MACAddress
 	arch := hw.Arch
 	if arch == "" {
@@ -348,7 +348,7 @@ func (h *Handler) defaultScript(span trace.Span, hw info) (string, error) {
 }
 
 // customScript returns the custom script or chain URL if defined in the hardware data otherwise an error.
-func (h *Handler) customScript(hw info) (string, error) {
+func (h *Handler) customScript(hw Info) (string, error) {
 	if hw.IPXEScriptURL != nil && hw.IPXEScriptURL.String() != "" {
 		if hw.IPXEScriptURL.Scheme != "http" && hw.IPXEScriptURL.Scheme != "https" {
 			return "", fmt.Errorf("invalid URL scheme: %v", hw.IPXEScriptURL.Scheme)
