@@ -15,7 +15,7 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 	for _, task := range wf.Tasks {
 		actions := []v1alpha1.Action{}
 		for _, action := range task.Actions {
-			actions = append(actions, v1alpha1.Action{
+			a := v1alpha1.Action{
 				ID:          ulid.Make().String(),
 				Name:        action.Name,
 				Image:       action.Image,
@@ -25,7 +25,14 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 				State:       v1alpha1.WorkflowState(proto.ActionStatusRequest_PENDING.String()),
 				Environment: action.Environment,
 				Pid:         action.Pid,
-			})
+			}
+			if action.Namespaces.Network != "" || action.Namespaces.PID != "" {
+				a.Namespaces = &v1alpha1.ActionNamespace{
+					Network: action.Namespaces.Network,
+					PID:     action.Namespaces.PID,
+				}
+			}
+			actions = append(actions, a)
 		}
 		tasks = append(tasks, v1alpha1.Task{
 			Name:        task.Name,

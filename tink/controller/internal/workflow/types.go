@@ -29,4 +29,12 @@ type Action struct {
 	Volumes     []string          `yaml:"volumes,omitempty"`
 	Environment map[string]string `yaml:"environment,omitempty"`
 	Pid         string            `yaml:"pid,omitempty"`
+	Namespaces  ActionNamespace   `yaml:"namespaces,omitempty"`
+}
+
+// ActionNamespace defines Linux namespaces for an action container.
+// This mirrors the v1alpha2 API spec.
+type ActionNamespace struct {
+	Network string `yaml:"network,omitempty"`
+	PID     string `yaml:"pid,omitempty"`
 }

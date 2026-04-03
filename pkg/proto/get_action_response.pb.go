@@ -94,7 +94,10 @@ type ActionResponse struct {
 	// Set environment variables usable from the action itself.
 	Environment []string `protobuf:"bytes,10,rep,name=environment" json:"environment,omitempty"`
 	// Set the namespace that the process IDs will be in.
-	Pid           *string `protobuf:"bytes,11,opt,name=pid" json:"pid,omitempty"`
+	Pid *string `protobuf:"bytes,11,opt,name=pid" json:"pid,omitempty"`
+	// The network namespace for the action container.
+	// When set to "host", the container shares the host's network namespace.
+	Network       *string `protobuf:"bytes,12,opt,name=network" json:"network,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -206,11 +209,18 @@ func (x *ActionResponse) GetPid() string {
 	return ""
 }
 
+func (x *ActionResponse) GetNetwork() string {
+	if x != nil && x.Network != nil {
+		return *x.Network
+	}
+	return ""
+}
+
 var File_get_action_response_proto protoreflect.FileDescriptor
 
 const file_get_action_response_proto_rawDesc = "" +
 	"\n" +
-	"\x19get_action_response.proto\x12\x05proto\"\xae\x02\n" +
+	"\x19get_action_response.proto\x12\x05proto\"\xc8\x02\n" +
 	"\x0eActionResponse\x12\x1f\n" +
 	"\vworkflow_id\x18\x01 \x01(\tR\n" +
 	"workflowId\x12\x17\n" +
@@ -224,7 +234,8 @@ const file_get_action_response_proto_rawDesc = "" +
 	"\avolumes\x18\t \x03(\tR\avolumes\x12 \n" +
 	"\venvironment\x18\n" +
 	" \x03(\tR\venvironment\x12\x10\n" +
-	"\x03pid\x18\v \x01(\tR\x03pid*\x86\x01\n" +
+	"\x03pid\x18\v \x01(\tR\x03pid\x12\x18\n" +
+	"\anetwork\x18\f \x01(\tR\anetwork*\x86\x01\n" +
 	"\x1cPreconditionFailureViolation\x12.\n" +
 	"*PRECONDITION_FAILURE_VIOLATION_UNSPECIFIED\x10\x00\x126\n" +
 	"2PRECONDITION_FAILURE_VIOLATION_NO_ACTION_AVAILABLE\x10\x01B\x83\x01\n" +

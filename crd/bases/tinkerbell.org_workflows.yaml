@@ -419,6 +419,18 @@ spec:
                             type: string
                           name:
                             type: string
+                          namespaces:
+                            description: |-
+                              ActionNamespace defines Linux namespaces for an action container.
+                              This mirrors the v1alpha2 API spec.
+                            properties:
+                              network:
+                                description: Network defines the network namespace.
+                                type: string
+                              pid:
+                                description: PID defines the PID namespace.
+                                type: string
+                            type: object
                           pid:
                             type: string
                           state:
