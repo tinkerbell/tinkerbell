@@ -11,9 +11,59 @@ env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/${{ github.repository }}
   CGO_ENABLED: 0
-  GO_VERSION: "1.26"
+  GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          args: --timeout=10m
+          version: v2.11.2
+
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          install-only: true
+          version: v2.11.2
+
+      - name: Run go mod tidy
+        run: go mod tidy
+
+      - name: Generate code and format
+        run: make generate
+
+      - name: Check for changes
+        run: git diff --compact-summary --exit-code
+
+      - name: Check for new files
+        run: |
+          if git status --porcelain | grep -qE '^(\?\?|A )'; then
+            echo "Error: new files present (untracked or staged)" >&2
+            exit 1
+          fi
+
   validation:
     runs-on: ubuntu-latest
     steps:
@@ -26,71 +76,44 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "${{ env.GO_VERSION }}"
-          cache: false
+          go-version-file: 'go.mod'
 
-      - name: Restore Go cache
-        uses: actions/cache/restore@v5
+      - name: Run Tests
+        if: always()
+        run: go tool gotestsum --junitfile junit.xml -- -coverprofile=coverage.txt -covermode=atomic -race -count=1 -v ./...
+        env:
+          CGO_ENABLED: 1
+
+      - name: Generate HTML coverage report
+        if: always()
+        run: go tool cover -html=coverage.txt -o coverage.html
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
+          name: coverage-report
           path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-            ${{ runner.os }}-go-
+            coverage.txt
+            coverage.html
+            junit.xml
 
-      - name: Fix no space errors and Fetch Deps
-        run: |
-          # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
-          sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
-          go mod download
-
-      - name: Generate UI assets
-        run: make ui-generate
-
-      - name: Run all CI checks, linting, tests, etc
-        run: make ci TEST_ARGS="-count=1"
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: upload to codecov
-        uses: codecov/codecov-action@v6
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Trim Go cache
-        if: ${{ github.ref == 'refs/heads/main' }}
-        shell: bash
-        # As the go command works, it either creates build cache files or touches
-        # ones it uses at most once an hour. When it trims the cache, it trims
-        # files that have not been modified/touched in 5+ days.
-        # To keep our saved cache lean, trim all files except ones that were just
-        # created/touched as part of this run.
-        run: |
-          find ~/.cache/go-build -type f -mmin +90 -delete
-
-      - name: Set Go cache date
-        shell: bash
-        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
-
-      - name: Save Go cache
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v5
+        uses: codecov/codecov-action@v5
         with:
-          # Caches both the downloaded modules and the compiled build cache.
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          # Save to eg Linux-go-$hash-YYYY-MM-DD to keep the cache fresh
-          key: "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}"
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   validate-helm-chart:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          fetch-tags: true
+        uses: actions/checkout@v5
 
       - name: install helm
         uses: Azure/setup-helm@v5
@@ -100,162 +123,16 @@ jobs:
       - name: Lint and Template Helm chart
         run: make helm-lint helm-template
 
-  build-binaries:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - name: tinkerbell
-            make-target: cross-compile
-            artifact-name: tinkerbell-binaries
-          - name: tink-agent
-            make-target: cross-compile-agent
-            artifact-name: tink-agent-binaries
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "${{ env.GO_VERSION }}"
-          cache: false
-
-      - name: Restore Go cache
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-            ${{ runner.os }}-go-
-
-      - name: Fix no space errors and Fetch Deps
-        run: |
-          # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
-          sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
-          go mod download
-
-      - name: Generate UI assets
-        run: make ui-generate
-
-      - name: Compile binaries for ${{ matrix.name }}
-        run: make ${{ matrix.make-target }}
-
-      - name: Upload binaries
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ matrix.artifact-name }}
-          path: |
-            out/${{ matrix.name }}-*
-          if-no-files-found: error
-
-  build-embedded-binaries:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - make-target: cross-compile-embedded-amd64
-            artifact-name: tinkerbell-embedded-linux-amd64
-            goarch: amd64
-          - make-target: cross-compile-embedded-arm64
-            artifact-name: tinkerbell-embedded-linux-arm64
-            goarch: arm64
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "${{ env.GO_VERSION }}"
-          cache: false
-
-      - name: Restore Go module cache
-        uses: actions/cache/restore@v5
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-gomod-
-
-      - name: Restore Go build cache
-        uses: actions/cache/restore@v5
-        with:
-          path: ~/.cache/go-build
-          key: ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-
-
-      - name: Fix no space errors and Fetch Deps
-        run: |
-          # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
-          sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
-          go mod download
-
-      - name: Generate UI assets
-        run: make ui-generate
-
-      - name: Compile embedded binary (${{ matrix.goarch }})
-        run: make ${{ matrix.make-target }}
-
-      - name: Trim Go cache
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: find ~/.cache/go-build -type f -mmin +90 -delete
-
-      - name: Set Go cache date
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
-
-      - name: Save Go module cache
-        if: ${{ github.ref == 'refs/heads/main' && matrix.goarch == 'amd64' }}
-        uses: actions/cache/save@v5
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}
-
-      - name: Save Go build cache
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v5
-        with:
-          path: ~/.cache/go-build
-          key: ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}
-
-      - name: Upload binary
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ matrix.artifact-name }}
-          path: out/tinkerbell-embedded-linux-*
-          if-no-files-found: error
-          retention-days: 1
-
   build-publish-container-images:
     runs-on: ubuntu-latest
-    if: |
-      github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/tags/v')
     needs:
+      - lint
+      - generate
       - validation
-      - build-binaries
-    strategy:
-      matrix:
-        include:
-          - artifact_name: tinkerbell-binaries
-            image_name: ghcr.io/tinkerbell/tinkerbell
-            make-target: build-push-image
-          - artifact_name: tink-agent-binaries
-            image_name: ghcr.io/tinkerbell/tink-agent
-            make-target: build-push-image-agent
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -263,38 +140,66 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      # Add support for more platforms with QEMU (optional)
-      # https://github.com/docker/setup-qemu-action
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@v3
+        if: |
+          github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/tags/v')
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
+        if: |
+          github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/tags/v')
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
 
       - name: Login to ghcr.io
         uses: docker/login-action@v4
+        if: |
+          github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/tags/v')
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download binaries
-        uses: actions/download-artifact@v8
+      - name: Install Cosign
+        if: |
+          github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/tags/v')
+        uses: sigstore/cosign-installer@v4.0.0
+
+      - name: Set up GoReleaser environment variables
+        id: goreleaser-env
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "args=release --clean" >> "$GITHUB_OUTPUT"
+            echo "IS_RELEASE=true" >> "$GITHUB_ENV"
+          elif [[ "$GITHUB_REF" == refs/heads/main ]]; then
+            echo "args=release --clean --skip=validate" >> "$GITHUB_OUTPUT"
+            echo "IS_RELEASE=false" >> "$GITHUB_ENV"
+          else
+            echo "args=build --clean --skip=validate" >> "$GITHUB_OUTPUT"
+            echo "IS_RELEASE=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
         with:
-          name: ${{ matrix.artifact_name }}
-          path: ./out
-          merge-multiple: true
-      # Artifact upload doesn't preserve permissions so we need to fix them.
-      - name: Fix permissions
-        run: chmod +x out/*
-
-      - name: Prepare build environment
-        run: make prepare-buildx
-
-      - name: Build and publish container images
-        run: make ${{ matrix.make-target }}
+          version: latest
+          args: "${{ steps.goreleaser-env.outputs.args }}"
         env:
-          IMAGE_NAME: ${{ matrix.image_name }}
-          IMAGE_NAME_AGENT: ${{ matrix.image_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: tinkerbell
+          path: dist/*
 
   package-publish-helm-chart:
     runs-on: ubuntu-latest
@@ -304,6 +209,10 @@ jobs:
     needs:
       - validate-helm-chart
       - build-publish-container-images
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -311,23 +220,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      # Go is needed to get the VERSION in the Makefile which is used in the Helm packaging
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "${{ env.GO_VERSION }}"
-          cache: false
-
-      - name: Restore Go cache
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-            ${{ runner.os }}-go-
+          go-version-file: 'go.mod'
 
       - name: Login to ghcr.io
         uses: docker/login-action@v4
@@ -343,47 +239,3 @@ jobs:
 
       - name: Package and publish the Helm chart
         run: make helm-publish
-
-  release-notes:
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - package-publish-helm-chart
-      - build-embedded-binaries
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Download embedded amd64 binary
-        uses: actions/download-artifact@v8
-        with:
-          name: tinkerbell-embedded-linux-amd64
-          path: ./out
-          merge-multiple: true
-
-      - name: Download embedded arm64 binary
-        uses: actions/download-artifact@v8
-        with:
-          name: tinkerbell-embedded-linux-arm64
-          path: ./out
-          merge-multiple: true
-
-      # Artifact upload doesn't preserve permissions so we need to fix them.
-      - name: Fix permissions
-        run: chmod +x out/tinkerbell-*
-
-      - name: Generate checksums
-        run: cd out && sha256sum tinkerbell-embedded-linux-amd64 tinkerbell-embedded-linux-arm64 > checksums-embedded.txt
-
-      - name: Publish Changelog to GitHub
-        uses: ncipollo/release-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          artifactErrorsFailBuild: true
-          generateReleaseNotes: true
-          draft: true
-          prerelease: true
-          artifacts: "out/tinkerbell-embedded-linux-*,out/checksums-embedded.txt"

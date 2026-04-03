@@ -35,7 +35,8 @@ ifeq ($(LOCAL_ARCH),x86_64)
 else ifeq ($(LOCAL_ARCH),aarch64)
 	LOCAL_ARCH_ALT := arm64
 endif
-HELM_REPO_NAME ?= ghcr.io/tinkerbell/charts
+GITHUB_REPOSITORY_OWNER ?= tinkerbell
+HELM_REPO_NAME ?= ghcr.io/${GITHUB_REPOSITORY_OWNER}/charts
 
 ########### Tools variables ###########
 # Tool versions
@@ -47,6 +48,15 @@ PROTOC_GEN_GO_VER      := v1.36.7 # must be in sync with the version in buf.gen.
 UPX_VER 			   := 4.2.4
 GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
 GOLANGCI_LINT_VERSION  := v2.11.2
+
+GORELEASER_VER := v2.12.2
+GORELEASER_BIN := goreleaser
+
+# Directories.
+TOOLS_BIN_DIR := $(abspath bin)
+
+# goreleaser binary (versioned)
+GORELEASER := $(TOOLS_BIN_DIR)/$(GORELEASER_BIN)-$(GORELEASER_VER)
 
 
 # Tool fully qualified paths (FQP)
@@ -70,8 +80,14 @@ all: help
 help: ## Print this help
 	@grep --no-filename -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sed 's/:.*##/·/' | sort | column -ts '·' -c 120
 
-build: out/tinkerbell ## Build the Tinkerbell binary
+build: $(GORELEASER) ## Build the Tinkerbell and Tink Agent binaries using GoReleaser
+	$(GORELEASER) build --clean --auto-snapshot
+
 build-agent: out/tink-agent ## Build the Tink Agent binary
+
+.PHONY: cross-compile
+cross-compile: $(GORELEASER) ## Compile for all architectures via GoReleaser
+	$(GORELEASER) build --clean --auto-snapshot
 
 TEST_PKG ?=
 TEST_PKGS :=
@@ -223,7 +239,7 @@ prepare-buildx: ## Prepare the buildx environment.
 	docker buildx create --name tinkerbell-multiarch --use --driver docker-container || true
 
 .PHONY: image
-image: cross-compile ## Build the Tinkerbell container image
+image: cross-compile ## Build the Tinkerbell container image (local)
 	docker build -t $(IMAGE_NAME) -f Dockerfile.tinkerbell .
 
 .PHONY: build-push-image
@@ -231,18 +247,27 @@ build-push-image: ## Build and push the container image for both Amd64 and Arm64
 	docker buildx build --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
 
 .PHONY: image-agent
-image-agent: cross-compile-agent ## Build the Tink Agent container image
+image-agent: cross-compile-agent ## Build the Tink Agent container image (local)
 	docker build -t $(IMAGE_NAME_AGENT) -f Dockerfile.agent .
 
 .PHONY: build-push-image-agent
 build-push-image-agent: ## Build and push the container image for both Amd64 and Arm64 architectures.
 	docker buildx build --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME_AGENT):$(VERSION) -t $(IMAGE_NAME_AGENT):latest -f Dockerfile.agent .
 
+.PHONY: build-image
+build-image: $(GORELEASER) ## Build container images using GoReleaser (requires Docker daemon)
+	$(GORELEASER) release --clean --skip=validate --skip=sign --auto-snapshot
+
+.PHONY: build-image-push
+build-image-push: $(GORELEASER) ## Build and push container images using GoReleaser
+	$(GORELEASER) release --clean --skip=validate --skip=sign ${GORELEASER_EXTRA_FLAGS}
+
 ######### Build container images - end   #########
 
 .PHONY: clean
 clean: ## Remove all cross compiled Tinkerbell binaries
 	rm -f out/tinkerbell out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64
+	rm -rf dist
 
 .PHONY: clean-agent
 clean-agent: ## Remove all cross compiled Tink Agent binaries
@@ -288,7 +313,12 @@ $(GODEPGRAPH_FQP):
 	@mv $(TOOLS_DIR)/godepgraph $(GODEPGRAPH_FQP)
 
 .PHONY: tools
-tools: $(GOIMPORTS_FQP) $(CONTROLLER_GEN_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) $(BUF_FQP) $(UPX_FQP) $(GODEPGRAPH_FQP) ## Install all tools
+tools: $(GOIMPORTS_FQP) $(CONTROLLER_GEN_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) $(BUF_FQP) $(UPX_FQP) $(GODEPGRAPH_FQP) $(GORELEASER) ## Install all tools
+
+$(GORELEASER):
+	mkdir -p $(TOOLS_BIN_DIR)
+	GOBIN=$(TOOLS_BIN_DIR) go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VER)
+	@mv $(TOOLS_BIN_DIR)/goreleaser $(GORELEASER)
 
 ############## Linting ##############
 .PHONY: lint

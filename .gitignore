@@ -13,6 +13,7 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+junit.xml
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
@@ -26,6 +27,8 @@ go.work.sum
 
 # local binaries
 out/
+bin/
+dist/
 /tinkerbell
 
 # Go coverage profile
@@ -49,3 +52,6 @@ ui/node_modules/
 ui/out/
 .DS_Store
 Thumbs.db
+
+# Github
+.github/instructions/*.md
