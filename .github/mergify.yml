@@ -2,8 +2,10 @@ merge_queue:
   max_parallel_checks: 1
 queue_rules:
   - name: default
+    autoqueue: true
     batch_size: 1
     queue_conditions:
+      - -draft
       - base=main
       - or:
           - "#approved-reviews-by>=1"
@@ -36,9 +38,3 @@ queue_rules:
 
       {{ body }}
 
-pull_request_rules:
-  - name: refactored queue action rule
-    conditions:
-      - -draft
-    actions:
-      queue:
