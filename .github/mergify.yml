@@ -38,6 +38,7 @@ queue_rules:
 
 pull_request_rules:
   - name: refactored queue action rule
-    conditions: []
+    conditions:
+      - -draft
     actions:
       queue:
