@@ -13,7 +13,7 @@ require (
 	github.com/containerd/containerd/v2 v2.2.2
 	github.com/containerd/go-cni v1.1.13
 	github.com/containers/image/v5 v5.36.2
-	github.com/diskfs/go-diskfs v1.8.0
+	github.com/diskfs/go-diskfs v1.9.1
 	github.com/distribution/reference v0.6.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/felixge/httpsnoop v1.0.4
