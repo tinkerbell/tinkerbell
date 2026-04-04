@@ -20,10 +20,10 @@ function build_ipxe() {
     local extra_version="+ (${tinkerbell_ipxe_commit})"
     local version_override="VERSION_MAJOR=1 VERSION_MINOR=21 VERSION_PATCH=1"
 
-    if [ -z "${env_opts}" ]; then
-        make -C "${ipxe_dir}"/src ${version_override} EXTRAVERSION="${extra_version}" EMBED="${embed_path}" "${ipxe_bin}"
+    if [[ -z "${env_opts}" ]]; then
+        make -C "${ipxe_dir}"/src "${version_override}" EXTRAVERSION="${extra_version}" EMBED="${embed_path}" "${ipxe_bin}"
     else
-        make -C "${ipxe_dir}"/src "${env_opts}" ${version_override} EXTRAVERSION="${extra_version}" EMBED="${embed_path}" "${ipxe_bin}"
+        make -C "${ipxe_dir}"/src "${env_opts}" "${version_override}" EXTRAVERSION="${extra_version}" EMBED="${embed_path}" "${ipxe_bin}"
     fi
 }
 
@@ -39,14 +39,14 @@ function mv_embed_into_build() {
 # make_local_empty will delete any custom ipxe header files,
 # putting the ipxe src back to a known good/clean state.
 function make_local_empty() {
-    local ipxe_dir="$1" 
+    local ipxe_dir="$1"
 
     rm -rf "${ipxe_dir}"/src/config/local/*
 }
 
 # copy_common_files will copy common custom header files into the ipxe src path.
 function copy_common_files() {
-    local ipxe_dir="$1" 
+    local ipxe_dir="$1"
     cp -a script/ipxe-customizations/colour.h "${ipxe_dir}"/src/config/local/
     cp -a script/ipxe-customizations/common.h "${ipxe_dir}"/src/config/local/
     cp -a script/ipxe-customizations/console.h "${ipxe_dir}"/src/config/local/
@@ -113,21 +113,21 @@ function customize() {
 }
 
 function hasType() {
-    if [ -z "$(type type)" ]; then
+    if [[ -z "$(type type)" ]]; then
         echo "type command not found"
         return 1
     fi
 }
 
 function hasUname() {
-    if [ -z "$(type uname)" ]; then
+    if [[ -z "$(type uname)" ]]; then
         echo "uname command not found"
         return 1
     fi
 }
 
 function hasNixShell() {
-    if [ -z "$(type nix-shell)" ]; then
+    if [[ -z "$(type nix-shell)" ]]; then
         echo "nix-shell command not found"
         return 1
     fi
