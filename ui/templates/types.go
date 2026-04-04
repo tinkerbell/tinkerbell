@@ -1,5 +1,7 @@
 package templates
 
+//go:generate go tool templ generate
+
 // PageConfig holds common page configuration.
 type PageConfig struct {
 	BaseURL    string   // URL prefix for all routes (e.g., "/ui")

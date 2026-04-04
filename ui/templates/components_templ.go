@@ -1524,7 +1524,7 @@ func SchemaFieldList(fields []SchemaField, depth int) templ.Component {
 			templ_7745c5c3_Var58 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var59 = []any{"space-y-1", templ.KV("pl-4 border-l border-gray-200 dark:border-darkBorder ml-2", depth > 0)}
+		templ_7745c5c3_Var59 := []any{"space-y-1", templ.KV("pl-4 border-l border-gray-200 dark:border-darkBorder ml-2", depth > 0)}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var59...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err

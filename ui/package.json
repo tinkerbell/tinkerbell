@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "@tailwindcss/cli": "4.2.0",
-    "tailwindcss": "4.2.0"
-  }
-}

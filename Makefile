@@ -39,25 +39,17 @@ HELM_REPO_NAME ?= ghcr.io/tinkerbell/charts
 
 ########### Tools variables ###########
 # Tool versions
-GOIMPORT_VER           := latest
-CONTROLLER_GEN_VERSION := v0.20.0
-BUF_VERSION            := v1.56.0
-PROTOC_GEN_GO_GRPC_VER := v1.5.1  # must be in sync with the version in buf.gen.yaml
-PROTOC_GEN_GO_VER      := v1.36.7 # must be in sync with the version in buf.gen.yaml
-UPX_VER 			   := 4.2.4
-GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
 GOLANGCI_LINT_VERSION  := v2.11.2
+UPX_VER                := 4.2.4
 
+# controller-gen, buf, and godepgraph are managed via go.mod tool directives (Go 1.24+).
+# Use 'go tool <name>' to invoke them; versions are pinned in go.mod.
 
-# Tool fully qualified paths (FQP)
-TOOLS_DIR := $(PWD)/out/tools
-GOIMPORTS_FQP := $(TOOLS_DIR)/goimports-$(GOIMPORT_VER)
-CONTROLLER_GEN_FQP := $(TOOLS_DIR)/controller-gen-$(CONTROLLER_GEN_VERSION)
-BUF_FQP := $(TOOLS_DIR)/buf-$(BUF_VERSION)
-PROTOC_GEN_GO_GRPC_FQP := $(TOOLS_DIR)/protoc-gen-go-grpc-$(PROTOC_GEN_GO_GRPC_VER)
-PROTOC_GEN_GO_FQP := $(TOOLS_DIR)/protoc-gen-go-$(PROTOC_GEN_GO_VER)
-UPX_FQP := $(TOOLS_DIR)/upx-$(UPX_VER)-$(LOCAL_ARCH)
-GODEPGRAPH_FQP := $(TOOLS_DIR)/godepgraph-$(GODEPGRAPH_VER)
+# Tool paths
+TOOLS_DIR     := $(PWD)/out/tools
+TOOLS_BIN_DIR := $(abspath bin)
+UPX_FQP       := $(TOOLS_DIR)/upx-$(UPX_VER)-$(LOCAL_ARCH)
+GOLANGCI_LINT := $(TOOLS_BIN_DIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 #######################################
 ######### Container images variable #########
 # `?=` will only set the variable if it is not already set by the environment
@@ -90,9 +82,8 @@ vet: ## Run go vet
 	go vet ./...
 
 .PHONY: fmt
-fmt: $(GOIMPORTS_FQP) ## Run go fmt
-	go fmt ./...
-	$(GOIMPORTS_FQP) -w .
+fmt: $(GOLANGCI_LINT) ## Format Go source files using golangci-lint
+	$(GOLANGCI_LINT) fmt ./...
 
 FILE_TO_NOT_INCLUDE_IN_COVERAGE := script/version/main.go|*.pb.go|zz_generated.deepcopy.go|facility_string.go|severity_string.go|*_templ.go
 
@@ -103,15 +94,8 @@ coverage: test ## Show test coverage
 	go tool cover -func=coverage.out
 	mv coverage.out coverage.txt
 
-.PHONY: ci-checks
-ci-checks: $(GOIMPORTS_FQP) ./script/ci-checks.sh ## Run the ci-checks.sh script
-	GOIMPORTS=$(GOIMPORTS_FQP) ./script/ci-checks.sh
-
 .PHONY: ci
-ci: ci-checks coverage lint vet ## Runs all the same validations and tests that run in CI
-
-# Include UI Makefile
-include ui/Makefile
+ci: coverage lint vet ## Runs all the same validations and tests that run in CI
 
 # Run go generate
 generated_go_files := \
@@ -122,7 +106,7 @@ generate-go: $(generated_go_files) ## Run Go's generate command
 smee/internal/syslog/facility_string.go: smee/internal/syslog/message.go
 smee/internal/syslog/severity_string.go: smee/internal/syslog/message.go
 	go generate -run=".*_string.go" ./...
-	$(GOIMPORTS_FQP) -w .
+	$(MAKE) fmt
 
 TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
 
@@ -172,28 +156,28 @@ out/tink-agent: $(AGENT_SOURCES) ## Compile Tink Agent for the current architect
 cross-compile-agent: $(crossbinaries-agent) ## Compile Tink Agent for all architectures
 
 .PHONY: generate-proto
-generate-proto: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) ## Generate code from proto files.
-	$(BUF_FQP) generate
+generate-proto: ## Generate code from proto files.
+	go tool buf generate
 	$(MAKE) fmt
 
 # Kubernetes CRD generation
 .PHONY: manifests
-manifests: $(CONTROLLER_GEN_FQP) ## Generate WebhookConfiguration and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=crd/bases
+manifests: ## Generate WebhookConfiguration and CustomResourceDefinition objects.
+	go tool controller-gen crd webhook paths="./..." output:crd:artifacts:config=crd/bases
 	$(MAKE) fmt
 
 .PHONY: generate
-generate: $(CONTROLLER_GEN_FQP) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN_FQP) object:headerFile="script/boilerplate.go.txt" paths="./..."
+generate: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	go tool controller-gen object:headerFile="script/boilerplate.go.txt" paths="./..."
 	$(MAKE) fmt
 
 .PHONY: generate-all
-generate-all: generate generate-proto generate-go ui-generate manifests ## Run all code generation steps
+generate-all: generate generate-proto generate-go manifests ## Run all code generation steps
 
 .PHONY: dep-graph
-dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
+dep-graph: ## Generate a dependency graph
 	rm -rf out/dep-graph.txt out/dep-graph.png
-	$(GODEPGRAPH_FQP) -s -novendor -onlyprefixes "github.com/tinkerbell/tinkerbell,./cmd/agent,./cmd/tinkerbell" ./cmd/agent ./cmd/tinkerbell > out/dep-graph.txt
+	go tool godepgraph -s -novendor -onlyprefixes "github.com/tinkerbell/tinkerbell,./cmd/agent,./cmd/tinkerbell" ./cmd/agent ./cmd/tinkerbell > out/dep-graph.txt
 	cat out/dep-graph.txt | dot -Txdot -o out/dep-graph.dot
 
 ######### Helm charts - start #########
@@ -250,32 +234,12 @@ clean-agent: ## Remove all cross compiled Tink Agent binaries
 
 .PHONY: clean-tools
 clean-tools: ## Remove all tools
-	rm -rf $(TOOLS_DIR)
+	rm -rf $(TOOLS_DIR) $(TOOLS_BIN_DIR)
 
 .PHONY: clean-all
 clean-all: clean clean-agent clean-tools ## Remove all binaries and tools
 
 ############## Tools ##############
-$(GOIMPORTS_FQP):
-	GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@$(GOIMPORT_VER)
-	@mv $(TOOLS_DIR)/goimports $(GOIMPORTS_FQP)
-
-$(CONTROLLER_GEN_FQP):
-	GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
-	@mv $(TOOLS_DIR)/controller-gen $(CONTROLLER_GEN_FQP)
-
-$(PROTOC_GEN_GO_GRPC_FQP):
-	GOBIN=$(TOOLS_DIR) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VER)
-	@mv $(TOOLS_DIR)/protoc-gen-go-grpc $(PROTOC_GEN_GO_GRPC_FQP)
-
-$(PROTOC_GEN_GO_FQP):
-	GOBIN=$(TOOLS_DIR) go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VER)
-	@mv $(TOOLS_DIR)/protoc-gen-go $(PROTOC_GEN_GO_FQP)
-
-$(BUF_FQP):
-	GOBIN=$(TOOLS_DIR) go install github.com/bufbuild/buf/cmd/buf@$(BUF_VERSION)
-	@mv $(TOOLS_DIR)/buf $(BUF_FQP)
-
 $(UPX_FQP):
 	mkdir -p $(TOOLS_DIR)
 	(cd $(TOOLS_DIR); curl -sSfLO https://github.com/upx/upx/releases/download/v$(UPX_VER)/upx-$(UPX_VER)-$(LOCAL_ARCH_ALT)_linux.tar.xz)
@@ -283,47 +247,30 @@ $(UPX_FQP):
 	@mv $(TOOLS_DIR)/upx-$(UPX_VER)-$(LOCAL_ARCH_ALT)_linux/upx $(UPX_FQP)
 	@rm -rf $(TOOLS_DIR)/upx-$(UPX_VER)-$(LOCAL_ARCH_ALT)_linux*
 
-$(GODEPGRAPH_FQP):
-	GOBIN=$(TOOLS_DIR) go install github.com/kisielk/godepgraph@$(GODEPGRAPH_VER)
-	@mv $(TOOLS_DIR)/godepgraph $(GODEPGRAPH_FQP)
+$(GOLANGCI_LINT):
+	mkdir -p $(TOOLS_BIN_DIR)
+	GOBIN=$(TOOLS_BIN_DIR) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	@mv $(TOOLS_BIN_DIR)/golangci-lint $(GOLANGCI_LINT)
 
 .PHONY: tools
-tools: $(GOIMPORTS_FQP) $(CONTROLLER_GEN_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) $(BUF_FQP) $(UPX_FQP) $(GODEPGRAPH_FQP) ## Install all tools
+tools: $(GOLANGCI_LINT) ## Install linting tools (code-gen tools are managed via go.mod tool directives)
 
 ############## Linting ##############
 .PHONY: lint
 lint: _lint  ## Run linting
 
-LINT_ARCH := $(shell uname -m)
-LINT_OS := $(shell uname)
-LINT_OS_LOWER := $(shell echo $(LINT_OS) | tr '[:upper:]' '[:lower:]')
-LINT_ROOT := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-
-# shellcheck and hadolint lack arm64 native binaries: rely on x86-64 emulation
-ifeq ($(LINT_OS),Darwin)
-	ifeq ($(LINT_ARCH),arm64)
-		LINT_ARCH=x86_64
-	endif
-endif
-
 LINTERS :=
 FIXERS :=
 
-GOLANGCI_LINT_CONFIG := $(LINT_ROOT)/.golangci.yml
-GOLANGCI_LINT_BIN := $(LINT_ROOT)/out/linters/golangci-lint-$(GOLANGCI_LINT_VERSION)-$(LINT_ARCH)
-$(GOLANGCI_LINT_BIN):
-	mkdir -p $(LINT_ROOT)/out/linters
-	rm -rf $(LINT_ROOT)/out/linters/golangci-lint-*
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LINT_ROOT)/out/linters $(GOLANGCI_LINT_VERSION)
-	mv $(LINT_ROOT)/out/linters/golangci-lint $@
+GOLANGCI_LINT_CONFIG := .golangci.yml
 
 LINTERS += golangci-lint-lint
-golangci-lint-lint: $(GOLANGCI_LINT_BIN)
-	find . -name go.mod -not -path "./out/*" -execdir sh -c '"$(GOLANGCI_LINT_BIN)" run --timeout 10m -c "$(GOLANGCI_LINT_CONFIG)"' '{}' '+'
+golangci-lint-lint: $(GOLANGCI_LINT)
+	find $(PWD) -name go.mod -not -path "./out/*" -execdir sh -c '"$(GOLANGCI_LINT)" run --timeout 10m -c "$(GOLANGCI_LINT_CONFIG)"' '{}' '+'
 
 FIXERS += golangci-lint-fix
-golangci-lint-fix: $(GOLANGCI_LINT_BIN)
-	find . -name go.mod -not -path "./out/*" -execdir "$(GOLANGCI_LINT_BIN)" run -c "$(GOLANGCI_LINT_CONFIG)" --fix \;
+golangci-lint-fix: $(GOLANGCI_LINT)
+	find $(PWD) -name go.mod -not -path "./out/*" -execdir "$(GOLANGCI_LINT)" run -c "$(GOLANGCI_LINT_CONFIG)" --fix \;
 
 .PHONY: _lint $(LINTERS)
 _lint: $(LINTERS)
