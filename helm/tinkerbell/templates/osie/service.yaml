@@ -12,6 +12,9 @@ kind: Service
 metadata:
   labels:
     app: {{ include "tinkerbell.osie.name" . }}
+    {{- with .Values.optional.osie.service.labels }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
   name: {{ include "tinkerbell.osie.name" . }}
   namespace: {{ .Release.Namespace | quote }}
   annotations:
