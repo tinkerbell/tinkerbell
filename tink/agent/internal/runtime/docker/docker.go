@@ -78,6 +78,9 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	if a.Namespaces.PID != "" {
 		hostCfg.PidMode = container.PidMode(a.Namespaces.PID)
 	}
+	if a.Namespaces.Network != "" {
+		hostCfg.NetworkMode = container.NetworkMode(a.Namespaces.Network)
+	}
 	for _, v := range a.Volumes {
 		hostCfg.Binds = append(hostCfg.Binds, string(v))
 	}

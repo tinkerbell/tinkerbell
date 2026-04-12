@@ -248,12 +248,24 @@ type Action struct {
 	Command           []string          `json:"command,omitempty"`
 	Volumes           []string          `json:"volumes,omitempty"`
 	Pid               string            `json:"pid,omitempty"`
+	Namespaces        *ActionNamespace  `json:"namespaces,omitempty"`
 	Environment       map[string]string `json:"environment,omitempty"`
 	State             WorkflowState     `json:"state,omitempty"`
 	ExecutionStart    *metav1.Time      `json:"executionStart,omitempty"`
 	ExecutionStop     *metav1.Time      `json:"executionStop,omitempty"`
 	ExecutionDuration string            `json:"executionDuration,omitempty"`
 	Message           string            `json:"message,omitempty"`
+}
+
+// ActionNamespace defines Linux namespaces for an action container.
+// This mirrors the v1alpha2 API spec.
+type ActionNamespace struct {
+	// Network defines the network namespace.
+	// +optional
+	Network string `json:"network,omitempty"`
+	// PID defines the PID namespace.
+	// +optional
+	PID string `json:"pid,omitempty"`
 }
 
 // HasCondition checks if the cType condition is present with status cStatus on a bmj.
