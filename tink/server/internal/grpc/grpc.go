@@ -301,27 +301,29 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 func resolveAction(ctx context.Context, task *tinkerbell.Task, currentState *tinkerbell.CurrentState) (*tinkerbell.Action, error) {
 	switch {
 	case isFirstAction(*task):
-		if task.Actions[0].State != tinkerbell.WorkflowStatePending {
-			journal.Log(ctx, "first Action not in pending state")
-			return nil, status.Error(codes.FailedPrecondition, "first Action not in pending state")
-		}
 		journal.Log(ctx, "first Action")
 		return &task.Actions[0], nil
 
-	case currentState != nil && currentState.State == tinkerbell.WorkflowStateRunning:
-		// Re-serve the current running action. This handles agent reconnection after a server
-		// restart where the agent completed an action but couldn't report the result.
+	case currentState != nil && (currentState.State == tinkerbell.WorkflowStateRunning || currentState.State == tinkerbell.WorkflowStatePending):
+		// Re-serve the current action. This handles two restart scenarios:
+		// 1. Server restarts after serving an action but before the agent reports RUNNING
+		//    (currentState persisted as PENDING by GetAction).
+		// 2. Server restarts while the agent is executing (currentState is RUNNING).
 		for idx := range task.Actions {
 			if task.Actions[idx].ID == currentState.ActionID {
-				journal.Log(ctx, "re-serving running Action", "actionID", task.Actions[idx].ID)
+				journal.Log(ctx, "re-serving in-progress Action", "actionID", task.Actions[idx].ID, "state", currentState.State)
 				return &task.Actions[idx], nil
 			}
 		}
-		journal.Log(ctx, "running Action not found in task")
-		return nil, status.Error(codes.NotFound, "running Action not found in task")
+		journal.Log(ctx, "in-progress Action not found in task")
+		return nil, status.Error(codes.NotFound, "in-progress Action not found in task")
 
 	default:
 		// Get the next Action after the one defined in the current state.
+		if currentState == nil {
+			journal.Log(ctx, "no current state available")
+			return nil, status.Error(codes.FailedPrecondition, "no current state available")
+		}
 		if currentState.State != tinkerbell.WorkflowStateSuccess {
 			journal.Log(ctx, "current Action not in success state")
 			return nil, status.Error(codes.FailedPrecondition, "current Action not in success state")
