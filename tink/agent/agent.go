@@ -145,10 +145,30 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 		responseEvent.Message = "action completed"
 		responseEvent.State = state
 
-		if err := c.TransportWriter.Write(ctx, responseEvent); err != nil {
-			log.Info("error writing event", "error", err)
-			doBackoff <- true
-			continue
+		// Retry reporting the action completion with backoff. The agent must persist in
+		// reporting the result because the server will not re-serve the action once the agent
+		// has moved past execution. Giving up here would leave the workflow permanently stuck.
+		reportBackoff := &backoff.ExponentialBackOff{
+			InitialInterval:     c.Backoff.InitialInterval,
+			RandomizationFactor: c.Backoff.RandomizationFactor,
+			Multiplier:          c.Backoff.Multiplier,
+			MaxInterval:         c.Backoff.MaxInterval,
+		}
+		writeOp := func() (any, error) {
+			return nil, c.TransportWriter.Write(ctx, responseEvent)
+		}
+		if _, err := backoff.Retry(ctx, writeOp,
+			backoff.WithBackOff(reportBackoff),
+			backoff.WithMaxElapsedTime(0), // Retry indefinitely; giving up leaves the workflow stuck.
+			backoff.WithNotify(func(err error, next time.Duration) {
+				log.Info("error reporting action, retrying", "error", err, "retryIn", next.String())
+			}),
+		); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			log.Info("permanent error reporting action", "error", err)
+			return
 		}
 		log.Info("reported action status", "action", action, "state", state)
 

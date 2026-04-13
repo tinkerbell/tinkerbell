@@ -122,7 +122,10 @@ func (c *Config) doWrite(ctx context.Context, event spec.Event) error {
 		Message:           &proto.ActionMessage{Message: toPtr(event.Message)},
 	}
 	_, err := c.TinkServerClient.ReportActionStatus(ctx, ar)
-	if status.Code(err) == codes.Internal {
+	switch status.Code(err) { //nolint:exhaustive // we want to retry on any error that is not explicitly marked as permanent
+	case codes.OK:
+		return nil
+	case codes.NotFound, codes.InvalidArgument, codes.FailedPrecondition:
 		return backoff.Permanent(err)
 	}
 	if err != nil {
