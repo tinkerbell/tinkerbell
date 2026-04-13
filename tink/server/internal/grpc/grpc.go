@@ -242,39 +242,9 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		return nil, status.Error(codes.NotFound, "no Actions found")
 	}
 
-	var action *tinkerbell.Action
-	if isFirstAction(*task) {
-		if task.Actions[0].State != tinkerbell.WorkflowStatePending {
-			journal.Log(ctx, "first Action not in pending state")
-			return nil, status.Error(codes.FailedPrecondition, "first Action not in pending state")
-		}
-		journal.Log(ctx, "first Action")
-		action = &task.Actions[0]
-	} else {
-		// This handles Actions after the first one
-		// Get the current Action. If it is not in a success state, return error.
-		if wf.Status.CurrentState.State != tinkerbell.WorkflowStateSuccess {
-			journal.Log(ctx, "current Action not in success state")
-			return nil, status.Error(codes.FailedPrecondition, "current Action not in success state")
-		}
-		// Get the next Action after the one defined in the current state.
-		for idx, act := range task.Actions {
-			if act.ID == wf.Status.CurrentState.ActionID {
-				// if the action is the last one in the task, return error
-				if idx == len(task.Actions)-1 {
-					journal.Log(ctx, "last Action in task")
-					// if the workflow has another task, then return the next action in that task.
-					return nil, status.Error(codes.NotFound, "last Action in task")
-				}
-				action = &task.Actions[idx+1]
-				journal.Log(ctx, "found Action", "actionID", action.ID)
-				break
-			}
-		}
-		if action == nil {
-			journal.Log(ctx, "no Action found")
-			return nil, status.Error(codes.NotFound, "no Action found")
-		}
+	action, err := resolveAction(ctx, task, wf.Status.CurrentState)
+	if err != nil {
+		return nil, err
 	}
 	// This check goes after the action is found, so that multi task Workflows can be handled.
 	if task.AgentID != req.GetAgentId() {
@@ -325,6 +295,50 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	log.Info("sending action", "action", ar, "actionID", action.ID)
 	journal.Log(ctx, "sending Action", "action", ar)
 	return ar, nil
+}
+
+// resolveAction determines which action to serve for the given task based on the workflow's current state.
+func resolveAction(ctx context.Context, task *tinkerbell.Task, currentState *tinkerbell.CurrentState) (*tinkerbell.Action, error) {
+	switch {
+	case isFirstAction(*task):
+		if task.Actions[0].State != tinkerbell.WorkflowStatePending {
+			journal.Log(ctx, "first Action not in pending state")
+			return nil, status.Error(codes.FailedPrecondition, "first Action not in pending state")
+		}
+		journal.Log(ctx, "first Action")
+		return &task.Actions[0], nil
+
+	case currentState != nil && currentState.State == tinkerbell.WorkflowStateRunning:
+		// Re-serve the current running action. This handles agent reconnection after a server
+		// restart where the agent completed an action but couldn't report the result.
+		for idx := range task.Actions {
+			if task.Actions[idx].ID == currentState.ActionID {
+				journal.Log(ctx, "re-serving running Action", "actionID", task.Actions[idx].ID)
+				return &task.Actions[idx], nil
+			}
+		}
+		journal.Log(ctx, "running Action not found in task")
+		return nil, status.Error(codes.NotFound, "running Action not found in task")
+
+	default:
+		// Get the next Action after the one defined in the current state.
+		if currentState.State != tinkerbell.WorkflowStateSuccess {
+			journal.Log(ctx, "current Action not in success state")
+			return nil, status.Error(codes.FailedPrecondition, "current Action not in success state")
+		}
+		for idx, act := range task.Actions {
+			if act.ID == currentState.ActionID {
+				if idx == len(task.Actions)-1 {
+					journal.Log(ctx, "last Action in task")
+					return nil, status.Error(codes.NotFound, "last Action in task")
+				}
+				journal.Log(ctx, "found Action", "actionID", task.Actions[idx+1].ID)
+				return &task.Actions[idx+1], nil
+			}
+		}
+		journal.Log(ctx, "no Action found")
+		return nil, status.Error(codes.NotFound, "no Action found")
+	}
 }
 
 // isFirstAction checks if the Task is at the first Action.

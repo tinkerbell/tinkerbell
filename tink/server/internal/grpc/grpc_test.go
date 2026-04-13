@@ -159,6 +159,120 @@ func TestGetAction(t *testing.T) {
 			request: &proto.ActionRequest{},
 			wantErr: status.Errorf(codes.InvalidArgument, "invalid Agent ID"),
 		},
+		"re-serve running first Action after server restart": {
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			workflow: &tinkerbell.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
+				Status: tinkerbell.WorkflowStatus{
+					State: tinkerbell.WorkflowStateRunning,
+					CurrentState: &tinkerbell.CurrentState{
+						AgentID:    "machine-mac-1",
+						TaskID:     "provision",
+						ActionID:   "stream",
+						State:      tinkerbell.WorkflowStateRunning,
+						ActionName: "stream",
+					},
+					GlobalTimeout: 600,
+					Tasks: []tinkerbell.Task{
+						{
+							Name:    "provision",
+							AgentID: "machine-mac-1",
+							ID:      "provision",
+							Actions: []tinkerbell.Action{
+								{
+									Name:    "stream",
+									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout: 300,
+									State:   tinkerbell.WorkflowStateRunning,
+									ID:      "stream",
+								},
+								{
+									Name:    "kexec",
+									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
+									Timeout: 5,
+									State:   tinkerbell.WorkflowStatePending,
+									ID:      "kexec",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &proto.ActionResponse{
+				WorkflowId:  toPtr("default/machine1"),
+				AgentId:     toPtr("machine-mac-1"),
+				TaskId:      toPtr("provision"),
+				ActionId:    toPtr("stream"),
+				Name:        toPtr("stream"),
+				Image:       toPtr("quay.io/tinkerbell-actions/image2disk:v1.0.0"),
+				Timeout:     toPtr(int64(300)),
+				Environment: []string{},
+				Pid:         new(string),
+			},
+			wantErr: nil,
+		},
+		"re-serve running non-first Action after server restart": {
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			workflow: &tinkerbell.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
+				Status: tinkerbell.WorkflowStatus{
+					State: tinkerbell.WorkflowStateRunning,
+					CurrentState: &tinkerbell.CurrentState{
+						AgentID:    "machine-mac-1",
+						TaskID:     "provision",
+						ActionID:   "kexec",
+						State:      tinkerbell.WorkflowStateRunning,
+						ActionName: "kexec",
+					},
+					GlobalTimeout: 600,
+					Tasks: []tinkerbell.Task{
+						{
+							Name:    "provision",
+							AgentID: "machine-mac-1",
+							ID:      "provision",
+							Actions: []tinkerbell.Action{
+								{
+									Name:    "stream",
+									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+									Timeout: 300,
+									State:   tinkerbell.WorkflowStateSuccess,
+									ID:      "stream",
+								},
+								{
+									Name:    "kexec",
+									Image:   "quay.io/tinkerbell-actions/kexec:v1.0.0",
+									Timeout: 5,
+									State:   tinkerbell.WorkflowStateRunning,
+									ID:      "kexec",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &proto.ActionResponse{
+				WorkflowId:  toPtr("default/machine1"),
+				AgentId:     toPtr("machine-mac-1"),
+				TaskId:      toPtr("provision"),
+				ActionId:    toPtr("kexec"),
+				Name:        toPtr("kexec"),
+				Image:       toPtr("quay.io/tinkerbell-actions/kexec:v1.0.0"),
+				Timeout:     toPtr(int64(5)),
+				Environment: []string{},
+				Pid:         new(string),
+			},
+			wantErr: nil,
+		},
 	}
 
 	for name, tc := range cases {
