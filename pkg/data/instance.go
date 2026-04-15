@@ -57,6 +57,12 @@ type HackInstance struct {
 					} `json:"partitions"`
 					WipeTable bool `json:"wipe_table"`
 				} `json:"disks"`
+				Raid []struct {
+					Name    string   `json:"name"`
+					Level   string   `json:"level"`
+					Devices []string `json:"devices"`
+					Spare   []string `json:"spare,omitempty"`
+				} `json:"raid"`
 				Filesystems []struct {
 					Mount struct {
 						Create struct {

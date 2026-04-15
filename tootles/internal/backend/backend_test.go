@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -370,5 +371,77 @@ func TestIsNotFound(t *testing.T) {
 				t.Fatalf("isNotFound() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestGetHackInstance_PassesThroughRAID verifies that storage.raid entries on
+// a Hardware resource survive the toHackInstance JSON round-trip and appear
+// in the rendered /metadata response. Without the Raid field on
+// HackInstance.Storage, any raid arrays authored on the Hardware CR are
+// silently dropped, breaking rootio workflows that assemble md devices.
+func TestGetHackInstance_PassesThroughRAID(t *testing.T) {
+	hw := &v1alpha1.Hardware{
+		Spec: v1alpha1.HardwareSpec{
+			Metadata: &v1alpha1.HardwareMetadata{
+				Instance: &v1alpha1.MetadataInstance{
+					Storage: &v1alpha1.MetadataInstanceStorage{
+						Disks: []*v1alpha1.MetadataInstanceStorageDisk{
+							{Device: "/dev/sda", WipeTable: true},
+						},
+						Raid: []*v1alpha1.MetadataInstanceStorageRAID{
+							{
+								Name:    "/dev/md0",
+								Level:   "1",
+								Devices: []string{"/dev/sda2", "/dev/sdb2"},
+							},
+						},
+						Filesystems: []*v1alpha1.MetadataInstanceStorageFilesystem{
+							{Mount: &v1alpha1.MetadataInstanceStorageMount{
+								Device: "/dev/md0", Format: "ext4", Point: "/",
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	b := New(&mockReader{hw: hw})
+	hi, err := b.GetHackInstance(context.Background(), "1.2.3.4")
+	if err != nil {
+		t.Fatalf("GetHackInstance: %v", err)
+	}
+
+	out, err := json.Marshal(hi)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var parsed struct {
+		Metadata struct {
+			Instance struct {
+				Storage struct {
+					Raid []struct {
+						Name    string   `json:"name"`
+						Level   string   `json:"level"`
+						Devices []string `json:"devices"`
+					} `json:"raid"`
+				} `json:"storage"`
+			} `json:"instance"`
+		} `json:"metadata"`
+	}
+	if err := json.Unmarshal(out, &parsed); err != nil {
+		t.Fatalf("reparse: %v", err)
+	}
+
+	got := parsed.Metadata.Instance.Storage.Raid
+	if len(got) != 1 {
+		t.Fatalf("want 1 raid entry in HackInstance JSON, got %d; JSON=%s", len(got), out)
+	}
+	if got[0].Name != "/dev/md0" || got[0].Level != "1" {
+		t.Errorf("raid[0] = %+v, want name=/dev/md0 level=1", got[0])
+	}
+	if diff := cmp.Diff([]string{"/dev/sda2", "/dev/sdb2"}, got[0].Devices); diff != "" {
+		t.Errorf("raid[0].devices mismatch (-want +got):\n%s", diff)
 	}
 }
