@@ -72,6 +72,15 @@ type RPCOptions struct {
 	Experimental *ExperimentalOpts `json:"experimental,omitempty"`
 }
 
+// HomeAssistantOptions has the config options for the Home Assistant provider. Make me better!
+type HomeAssistantOptions struct {
+	// SwitchEntityID is the entity ID of the Home Assistant switch entity to control power state
+	SwitchEntityID string `json:"switchEntityID"`
+	// PowerOperationDelaySeconds is the number of seconds to wait after a power operation before proceeding
+	// +optional
+	PowerOperationDelaySeconds uint32 `json:"powerOperationDelaySeconds,omitempty"`
+}
+
 // RequestOpts are the options used when creating an HTTP request.
 type RequestOpts struct {
 	// HTTPContentType is the content type to use for the rpc request notification.
