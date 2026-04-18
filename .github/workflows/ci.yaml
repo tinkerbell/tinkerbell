@@ -247,17 +247,23 @@ jobs:
       - build-binaries
     strategy:
       matrix:
-        runs-on:
-          - ubuntu-latest
-          - ubuntu-24.04-arm
-        artifact_name:
-          - tinkerbell-binaries
-          - tink-agent-binaries
         include:
-          - artifact_name: tinkerbell-binaries
+          - runs-on: ubuntu-latest
+            artifact_name: tinkerbell-binaries
             make-target: image
-          - artifact_name: tink-agent-binaries
+            cache_image: ghcr.io/tinkerbell/tinkerbell:latest
+          - runs-on: ubuntu-latest
+            artifact_name: tink-agent-binaries
             make-target: image-agent
+            cache_image: ghcr.io/tinkerbell/tink-agent:latest
+          - runs-on: ubuntu-24.04-arm
+            artifact_name: tinkerbell-binaries
+            make-target: image
+            cache_image: ghcr.io/tinkerbell/tinkerbell:latest
+          - runs-on: ubuntu-24.04-arm
+            artifact_name: tink-agent-binaries
+            make-target: image-agent
+            cache_image: ghcr.io/tinkerbell/tink-agent:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -275,8 +281,13 @@ jobs:
       - name: Fix permissions
         run: chmod +x out/*
 
+      - name: Pull cache image
+        run: docker pull ${{ matrix.cache_image }} || true
+
       - name: Build container image
         run: make ${{ matrix.make-target }}
+        env:
+          DOCKER_CACHE_FROM: ${{ matrix.cache_image }}
 
   build-publish-container-images:
     runs-on: ubuntu-latest

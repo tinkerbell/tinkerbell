@@ -63,6 +63,7 @@ GODEPGRAPH_FQP := $(TOOLS_DIR)/godepgraph-$(GODEPGRAPH_VER)
 # `?=` will only set the variable if it is not already set by the environment
 IMAGE_NAME       ?= tinkerbell/tinkerbell:latest
 IMAGE_NAME_AGENT ?= tinkerbell/tink-agent:latest
+DOCKER_CACHE_FROM ?=
 #############################################
 
 all: help
@@ -224,7 +225,7 @@ prepare-buildx: ## Prepare the buildx environment.
 
 .PHONY: image
 image: cross-compile ## Build the Tinkerbell container image
-	docker build -t $(IMAGE_NAME) -f Dockerfile.tinkerbell .
+	docker build $(if $(DOCKER_CACHE_FROM),--cache-from $(DOCKER_CACHE_FROM)) -t $(IMAGE_NAME) -f Dockerfile.tinkerbell .
 
 .PHONY: build-push-image
 build-push-image: ## Build and push the container image for both Amd64 and Arm64 architectures.
@@ -232,7 +233,7 @@ build-push-image: ## Build and push the container image for both Amd64 and Arm64
 
 .PHONY: image-agent
 image-agent: cross-compile-agent ## Build the Tink Agent container image
-	docker build -t $(IMAGE_NAME_AGENT) -f Dockerfile.agent .
+	docker build $(if $(DOCKER_CACHE_FROM),--cache-from $(DOCKER_CACHE_FROM)) -t $(IMAGE_NAME_AGENT) -f Dockerfile.agent .
 
 .PHONY: build-push-image-agent
 build-push-image-agent: ## Build and push the container image for both Amd64 and Arm64 architectures.
