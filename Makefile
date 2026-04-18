@@ -229,7 +229,7 @@ image: cross-compile ## Build the Tinkerbell container image
 
 .PHONY: build-push-image
 build-push-image: ## Build and push the container image for both Amd64 and Arm64 architectures.
-	docker buildx build --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
+	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
 
 .PHONY: image-agent
 image-agent: cross-compile-agent ## Build the Tink Agent container image
@@ -237,7 +237,7 @@ image-agent: cross-compile-agent ## Build the Tink Agent container image
 
 .PHONY: build-push-image-agent
 build-push-image-agent: ## Build and push the container image for both Amd64 and Arm64 architectures.
-	docker buildx build --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME_AGENT):$(VERSION) -t $(IMAGE_NAME_AGENT):latest -f Dockerfile.agent .
+	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME_AGENT):$(VERSION) -t $(IMAGE_NAME_AGENT):latest -f Dockerfile.agent .
 
 ######### Build container images - end   #########
 
