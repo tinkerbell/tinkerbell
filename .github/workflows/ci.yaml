@@ -239,6 +239,45 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  build-container-images:
+    runs-on: ${{ matrix.runs-on }}
+    if: github.event_name == 'pull_request'
+    needs:
+      - validation
+      - build-binaries
+    strategy:
+      matrix:
+        runs-on:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+        artifact_name:
+          - tinkerbell-binaries
+          - tink-agent-binaries
+        include:
+          - artifact_name: tinkerbell-binaries
+            make-target: image
+          - artifact_name: tink-agent-binaries
+            make-target: image-agent
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Download binaries
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ./out
+          merge-multiple: true
+      # Artifact upload doesn't preserve permissions so we need to fix them.
+      - name: Fix permissions
+        run: chmod +x out/*
+
+      - name: Build container image
+        run: make ${{ matrix.make-target }}
+
   build-publish-container-images:
     runs-on: ubuntu-latest
     if: |
