@@ -39,8 +39,9 @@ const _facility_name = "kernusermaildaemonauthsysloglprnewsuucpclockauthprivftpn
 var _facility_index = [...]uint8{0, 4, 8, 12, 18, 22, 28, 31, 35, 39, 44, 52, 55, 58, 63, 68, 72, 78, 84, 90, 96, 102, 108, 114, 120}
 
 func (i facility) String() string {
-	if i >= facility(len(_facility_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_facility_index)-1 {
 		return "facility(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _facility_name[_facility_index[i]:_facility_index[i+1]]
+	return _facility_name[_facility_index[idx]:_facility_index[idx+1]]
 }
