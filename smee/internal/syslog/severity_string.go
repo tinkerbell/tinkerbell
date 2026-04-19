@@ -23,8 +23,9 @@ const _severity_name = "EMERGALERTCRITERRWARNINGNOTICEINFODEBUG"
 var _severity_index = [...]uint8{0, 5, 10, 14, 17, 24, 30, 34, 39}
 
 func (i severity) String() string {
-	if i >= severity(len(_severity_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_severity_index)-1 {
 		return "severity(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _severity_name[_severity_index[i]:_severity_index[i+1]]
+	return _severity_name[_severity_index[idx]:_severity_index[idx+1]]
 }
