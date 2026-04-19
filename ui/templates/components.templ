@@ -306,29 +306,57 @@ templ DashboardMainContent(data DashboardData, baseURL string) {
 		<div class="flex-1 overflow-y-auto overflow-x-hidden">
 			<div class="p-6 bg-gray-50 dark:bg-darkBg">
 				<!-- Hero section -->
-				<div class="mb-8">
-					<h1 class="text-3xl font-light text-gray-900 dark:text-white mb-2">Tinkerbell Resources</h1>
-					<p class="text-gray-600 dark:text-gray-400">Browse the Tinkerbell Custom Resource Definitions</p>
+				<div class="mb-8 flex items-start justify-between">
+					<div>
+						<h1 class="text-3xl font-light text-gray-900 dark:text-white mb-2">Tinkerbell Resources</h1>
+						<p class="text-gray-600 dark:text-gray-400">Browse the Tinkerbell Custom Resource Definitions</p>
+					</div>
+					<!-- API Version Selector -->
+					if len(data.AvailableVersions) > 1 {
+						<div class="flex items-center space-x-2">
+							<label for="api-version-select" class="text-sm font-medium text-gray-700 dark:text-gray-300">API Version</label>
+							<select
+								id="api-version-select"
+								name="version"
+								hx-get={ data.BaseURL + "/dashboard-data" }
+								hx-target="#crd-content"
+								hx-swap="innerHTML"
+								hx-trigger="change"
+								class="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-darkBg border border-gray-300 dark:border-darkBorder rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-darkBorder focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-700 focus:ring-tink-teal-500 dark:focus:ring-tink-teal-400 cursor-pointer"
+							>
+								for _, version := range data.AvailableVersions {
+									<option value={ version } selected?={ version == data.SelectedVersion }>{ version }</option>
+								}
+							</select>
+						</div>
+					}
 				</div>
 				<!-- CRD Groups -->
-				for _, group := range data.Groups {
-					<div class="mb-8">
-						<h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-							<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-tink-teal-100 dark:bg-tink-teal-900/40 mr-3">
-								@CubeIcon()
-							</span>
-							{ group.Name }
-						</h2>
-						<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-							for _, crdInfo := range group.CRDs {
-								@CRDCard(crdInfo)
-							}
-						</div>
-					</div>
-				}
+				<div id="crd-content">
+					@DashboardCRDContent(data)
+				</div>
 			</div>
 		</div>
 	</div>
+}
+
+// DashboardCRDContent renders the CRD groups content area (used for HTMX partial updates).
+templ DashboardCRDContent(data DashboardData) {
+	for _, group := range data.Groups {
+		<div class="mb-8">
+			<h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+				<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-tink-teal-100 dark:bg-tink-teal-900/40 mr-3">
+					@CubeIcon()
+				</span>
+				{ group.Name }
+			</h2>
+			<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+				for _, crdInfo := range group.CRDs {
+					@CRDCard(crdInfo)
+				}
+			</div>
+		</div>
+	}
 }
 
 // CRDCard renders a single CRD as a collapsible card.
@@ -454,9 +482,9 @@ templ SchemaFieldList(fields []SchemaField, depth int) {
 // SchemaFieldView renders a single schema field with optional nested children.
 templ SchemaFieldView(field SchemaField, depth int) {
 	if len(field.Children) > 0 {
-		<details class="group/field">
+		<details ontoggle="this.querySelector('summary > svg').style.rotate = this.open ? '90deg' : '0deg'">
 			<summary class="flex items-start py-1.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-darkBorder rounded px-2 -mx-2">
-				<svg class="w-4 h-4 text-gray-400 mt-0.5 mr-1 flex-shrink-0 transition-transform duration-200 group-open/field:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<svg class="w-4 h-4 text-gray-400 mt-0.5 mr-1 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
 				</svg>
 				<div class="flex-1 min-w-0">
