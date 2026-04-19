@@ -103,6 +103,8 @@ type WorkflowConfig struct {
 // AccessRule represents a Quamina pattern for matching reference access events.
 // Multiple fields within a single rule are combined with AND logic.
 // Use an array of AccessRule to combine multiple rules with OR logic.
+//
+// +kubebuilder:validation:XValidation:rule="has(self.source) || has(self.reference)",message="at least one of source or reference must be specified"
 type AccessRule struct {
 	// Source matches the object making the reference.
 	// +optional
@@ -114,6 +116,8 @@ type AccessRule struct {
 }
 
 // SourcePattern matches attributes of the source Hardware object.
+//
+// +kubebuilder:validation:MinProperties=1
 type SourcePattern struct {
 	// Name matches the name of the Hardware object.
 	// Multiple values are combined with OR logic.
@@ -127,6 +131,8 @@ type SourcePattern struct {
 }
 
 // ReferencePattern matches attributes of the referenced Kubernetes object.
+//
+// +kubebuilder:validation:MinProperties=1
 type ReferencePattern struct {
 	// Name matches the name of the referenced object.
 	// Multiple values are combined with OR logic.
