@@ -1,0 +1,15 @@
+---
+apiVersion: tinkerbell.org/v1alpha2
+kind: BMC
+metadata:
+  name: example
+  namespace: tinkerbell
+  annotations:
+    tinkerbell.org/disabled: "machine is under maintenance"
+spec:
+  connection:
+    host: 0.0.0.0
+    authRef:
+      name: bm-auth
+      namespace: tinkerbell
+    insecureTLS: false

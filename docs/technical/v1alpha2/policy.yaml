@@ -1,0 +1,93 @@
+---
+apiVersion: tinkerbell.org/v1alpha2
+kind: Policy
+metadata:
+  name: example
+  namespace: tinkerbell
+spec:
+  rules:
+    #hardwareAutoSelection:
+    #  - {}
+    workflowAutoCreation:
+      - rules:
+          - networkInterfaces:
+              mac: [ { "wildcard": "*" } ]
+        config:
+          namespace: tinkerbell
+          addAttributes: true
+          disabled: false
+          extra:
+            envVars:
+              - key: EXAMPLE_ENV
+                value: example_value
+            templateMap:
+              "exampleKey": value
+            volumes:
+              - "/etc/data2:/data2:ro"
+          timeoutSeconds: 600
+          taskRef:
+            name: example-workflow
+            namespace: tinkerbell
+    referenceAccess:
+      hardware:
+        # Exact match — hardware named exactly "node-01" in any namespace
+        - source:
+            name: [ "node-01" ]
+          reference:
+            name: [ "my-secret" ]
+            resource: [ "secrets" ]
+
+        # Multiple exact matches (OR) — "node-01" or "node-02" or "node-03" in any namespace
+        - source:
+            name: [ "node-01", "node-02", "node-03" ]
+          reference:
+            name: [ "cluster-config" ]
+            resource: [ "configmaps" ]
+
+        # Wildcard — any hardware whose name starts with "worker-" in any namespace
+        - source:
+            name: [ { "wildcard": "worker-*" } ]
+          reference:
+            name: [ "worker-credentials" ]
+            resource: [ "secrets" ]
+
+        # Prefix — any hardware in namespaces starting with "prod"
+        - source:
+            namespace: [ { "prefix": "prod" } ]
+          reference:
+            resource: [ "secrets" ]
+
+        # Anything-but — any hardware NOT named "control-plane-01" in any namespace
+        - source:
+            name: [ { "anything-but": [ "control-plane-01" ] } ]
+          reference:
+            name: [ "shared-config" ]
+            resource: [ "configmaps" ]
+
+        # Equals-ignore-case — case-insensitive resource match for hardware named "node-01" in any namespace
+        - source:
+            name: [ "node-01" ]
+          reference:
+            resource: [ { "equals-ignore-case": "Secrets" } ]
+
+        # Exists — match any hardware that has a namespace set
+        - source:
+            namespace: [ { "exists": true } ]
+          reference:
+            name: [ "global-config" ]
+            resource: [ "configmaps" ]
+
+        # Mixed — exact values and extended patterns in same array (OR) in any namespace
+        - source:
+            name: [ "node-special", { "wildcard": "gpu-*" }, { "prefix": "edge-" } ]
+          reference:
+            name: [ "gpu-license" ]
+            resource: [ "secrets" ]
+      task:
+        - source:
+            name: [ "example-workflow" ]
+            namespace: [ "tinkerbell" ]
+          reference:
+            name: [ "my-secret" ]
+            namespace: [ "tinkerbell" ]
+            resource: [ "secrets" ]
