@@ -2,7 +2,6 @@ merge_queue:
   max_parallel_checks: 1
 queue_rules:
   - name: default
-    autoqueue: true
     batch_size: 1
     queue_conditions:
       - -draft
@@ -38,3 +37,6 @@ queue_rules:
 
       {{ body }}
 
+merge_protections_settings:
+  auto_merge: true
+  reporting_method: check-runs
