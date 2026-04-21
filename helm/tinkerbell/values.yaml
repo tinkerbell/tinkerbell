@@ -251,6 +251,7 @@ optional:
       app: hookos # this value is deprecated and will be updated to "osie" in a future release.
     service:
       annotations: {}
+      labels: {}
       lbClass: "kube-vip.io/kube-vip-class"
       loadBalancerIP: ""
       type: LoadBalancer
@@ -306,6 +307,7 @@ optional:
       lbClass:
       loadBalancerIP: 
       type:
+      labels: {}
     affinity: {}
 
   # kubevip objects are used to provide a LoadBalancer IP for the Tinkerbell services.
