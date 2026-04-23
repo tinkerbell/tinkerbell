@@ -13,3 +13,19 @@ spec:
       name: bm-auth
       namespace: tinkerbell
     insecureTLS: false
+    #providerOptions:
+    #  preferredOrder:
+    #    - "redfish"
+    #    - "ipmitool"
+    #  redfish:
+    #    port: 443
+    #    useBasicAuth: false
+    #    systemName: "System.Embedded.1"
+    #  ipmitool:
+    #    port: 623
+    #    cipherSuite: "3"
+    #  intelAMT:
+    #    port: 16992
+    #    hostScheme: "http"
+    #  rpc:
+    #    consumerURL: "https://rpc-consumer.example.com"

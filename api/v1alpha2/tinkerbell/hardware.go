@@ -102,7 +102,7 @@ type Instance struct {
 	// or
 	//
 	// Reference the IPv4 address of a network interface:
-	// {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").dhcp.ipam.ipv4.address }}
+	// {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}
 	// +optional
 	Metadata *string `json:"metadata,omitempty"`
 
@@ -123,7 +123,7 @@ type Instance struct {
 	// or
 	//
 	// Reference the IPv4 address of a network interface:
-	// {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").dhcp.ipam.ipv4.address }}
+	// {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}
 	// +optional
 	NetworkConfig *string `json:"networkConfig,omitempty"`
 
@@ -151,7 +151,7 @@ type Instance struct {
 	// or
 	//
 	// Reference the IPv4 address of a network interface:
-	// {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").dhcp.ipam.ipv4.address }}
+	// {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}
 	// +optional
 	Userdata *string `json:"userdata,omitempty"`
 
@@ -186,7 +186,7 @@ type MAC string
 
 // NetworkInterface is the desired configuration for a particular network interface.
 type NetworkInterface struct {
-	// DHCP is the options for serving DHCP requests.
+	// DHCP is the DHCP configuration for this interface.
 	// +optional
 	DHCP *DHCP `json:"dhcp,omitempty"`
 
@@ -203,11 +203,22 @@ type NetworkInterface struct {
 	Netboot *Netboot `json:"netboot,omitempty"`
 }
 
-// DHCP describes basic network configuration to be served in DHCP responses.
-// +kubebuilder:validation:XValidation:rule=(has(self.tftpServerName) && self.tftpServerName != "") == (has(self.bootFileName) && self.bootFileName != ""),message="TFTPServerName and BootFileName must both be specified or both be empty"
+// DHCP is the DHCP configuration for a network interface.
 type DHCP struct {
-	// Disabled indicates that DHCP should not be served for this interface.
-	// When true, no DHCP offer or ack will be sent for this MAC address.
+	// V4 is the options for serving DHCPv4 requests.
+	// +optional
+	V4 *DHCPv4 `json:"v4,omitempty"`
+
+	// V6 is the options for serving DHCPv6 requests.
+	// +optional
+	V6 *DHCPv6 `json:"v6,omitempty"`
+}
+
+// DHCPv4 describes basic network configuration to be served in DHCPv4 responses.
+// +kubebuilder:validation:XValidation:rule=(has(self.tftpServerName) && self.tftpServerName != "") == (has(self.bootFileName) && self.bootFileName != ""),message="TFTPServerName and BootFileName must both be specified or both be empty"
+type DHCPv4 struct {
+	// Disabled indicates that DHCPv4 should not be served for this interface.
+	// When true, no DHCPv4 offer or ack will be sent for this MAC address.
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`
 
@@ -226,6 +237,11 @@ type DHCP struct {
 	// +optional
 	DomainName string `json:"domainName,omitempty"`
 
+	// DomainSearchList defines DNS search suffixes via DHCP option 119 (RFC 3397).
+	// +optional
+	// +kubebuilder:validation:MaxItems=32
+	DomainSearchList []string `json:"domainSearchList,omitempty"`
+
 	// Hostname is DHCP option 12.
 	// +kubebuilder:validation:Pattern=`^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])$`
 	// +optional
@@ -239,8 +255,9 @@ type DHCP struct {
 	// +optional
 	LeaseTimeSeconds *int64 `json:"leaseTimeSeconds,omitempty"`
 
-	// Nameservers corresponding to DHCP option 6.
+	// Nameservers corresponding to DHCPv4 option 6.
 	// +optional
+	// +kubebuilder:validation:MaxItems=10
 	Nameservers []Nameserver `json:"nameservers,omitempty"`
 
 	// TFTPServerName is the TFTP server name or IP address. DHCP option 66.
@@ -250,9 +267,10 @@ type DHCP struct {
 	// +optional
 	TFTPServerName string `json:"tftpServerName,omitempty"`
 
-	// Timeservers corresponding to DHCP option 42.
+	// NTPServers corresponding to DHCPv4 option 42 (RFC 2132 §8.3).
 	// +optional
-	Timeservers []Timeserver `json:"timeservers,omitempty"`
+	// +kubebuilder:validation:MaxItems=10
+	NTPServers []Timeserver `json:"ntpServers,omitempty"`
 
 	// VLANID is a VLAN ID between 0 and 4096. DHCP option 43 suboption 116.
 	// +kubebuilder:validation:Pattern=`^(([0-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))(,[1-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))*)$`
@@ -271,13 +289,69 @@ type ClasslessStaticRoute struct {
 	Router string `json:"router"`
 }
 
-// Nameserver is an IP or hostname.
-// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$|^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`
+// Nameserver is an IPv4 address, IPv6 address, or hostname.
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$|^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$|^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$`
 type Nameserver string
 
-// Timeserver is an IP or hostname.
-// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$|^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`
+// Timeserver is an IPv4 address, IPv6 address, or hostname.
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$|^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$|^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$`
 type Timeserver string
+
+// DHCPv6 describes network configuration to be served in DHCPv6 responses.
+// The DHCPv6 protocol is client-driven: the client sends either an Information-Request
+// (stateless, configuration only) or a Solicit (stateful, address assignment + configuration).
+// The server responds to both message types using the fields configured here.
+type DHCPv6 struct {
+	// Disabled indicates that DHCPv6 should not be served for this interface.
+	// When true, no DHCPv6 responses will be sent for this MAC address.
+	// +optional
+	Disabled bool `json:"disabled,omitempty"`
+
+	// Nameservers to serve via DHCPv6 option 23 (RFC 3646). Must be valid IPv6 addresses.
+	// +optional
+	// +kubebuilder:validation:MaxItems=10
+	Nameservers []Nameserver `json:"nameservers,omitempty"`
+
+	// DomainSearchList to serve via DHCPv6 option 24 (RFC 3646).
+	// +optional
+	// +kubebuilder:validation:MaxItems=32
+	DomainSearchList []string `json:"domainSearchList,omitempty"`
+
+	// NTPServers to serve via DHCPv6 option 56 (RFC 5908). Must be valid IPv6 addresses.
+	// +optional
+	// +kubebuilder:validation:MaxItems=10
+	NTPServers []Timeserver `json:"ntpServers,omitempty"`
+
+	// InformationRefreshTime is the upper bound in seconds for how long a client should wait
+	// before refreshing information retrieved from DHCPv6. DHCPv6 option 32 (RFC 8415 §21.23).
+	// Included in replies to Information-Request messages.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	InformationRefreshTime *int64 `json:"informationRefreshTime,omitempty"`
+
+	// PreferredLifetime is the preferred lifetime in seconds for IPv6 addresses
+	// assigned via IA_NA. Included in replies to Solicit/Request messages.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	PreferredLifetime *int64 `json:"preferredLifetime,omitempty"`
+
+	// ValidLifetime is the valid lifetime in seconds for IPv6 addresses
+	// assigned via IA_NA. Included in replies to Solicit/Request messages.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	ValidLifetime *int64 `json:"validLifetime,omitempty"`
+
+	// BootFileURL is the URL for the boot file. DHCPv6 option 59 (RFC 5970).
+	// For example, "tftp://[2001:db8::1]/bootx64.efi".
+	// +optional
+	BootFileURL string `json:"bootFileURL,omitempty"`
+
+	// BootFileParams are parameters for the boot file. DHCPv6 option 60 (RFC 5970).
+	// +optional
+	BootFileParams []string `json:"bootFileParams,omitempty"`
+}
 
 // IPAM IP address management info.
 type IPAM struct {
@@ -291,12 +365,15 @@ type IPAM struct {
 // IP configuration.
 type IP struct {
 	// Address is the unique network address.
+	// +kubebuilder:validation:MaxLength=45
 	Address string `json:"address,omitempty"`
 
 	// Gateway is the default gateway address to serve.
+	// +kubebuilder:validation:MaxLength=45
 	Gateway string `json:"gateway,omitempty"`
 
 	// Prefix is the subnet length.
+	// +kubebuilder:validation:MaxLength=3
 	Prefix string `json:"prefix,omitempty"`
 }
 

@@ -12,8 +12,12 @@ spec:
       args:
         - "1"
       envVars:
-        - key: "key"
-          value: "value"
+        # Reference templating: access a referenced ConfigMap's data
+        - key: "REGISTRY_URL"
+          value: "{{ .references.clusterConfig.data.registryURL }}"
+        # Hardware templating: access fields from the Hardware object
+        - key: "DEVICE_ARCH"
+          value: "{{ .hardware.spec.attributes.arch }}"
       volumes:
         - "/var/data:/var-data:ro"
       namespaces:
@@ -25,5 +29,11 @@ spec:
     - key: "one"
       value: "1"
   name: example
+  references:
+    "clusterConfig":
+      name: "cluster-settings"
+      namespace: "tinkerbell"
+      resource: "configmaps"
+      version: "v1"
   volumes:
     - "/etc/data1:/data1:ro"
