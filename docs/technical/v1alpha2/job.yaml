@@ -22,3 +22,6 @@ spec:
         persistent: false
         efiBoot: true
     - powerAction: "on"
+    #- virtualMediaAction:
+    #    mediaURL: "https://example.com/firmware.iso"
+    #    kind: "CD"

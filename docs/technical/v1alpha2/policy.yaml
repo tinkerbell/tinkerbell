@@ -6,8 +6,6 @@ metadata:
   namespace: tinkerbell
 spec:
   rules:
-    #hardwareAutoSelection:
-    #  - {}
     workflowAutoCreation:
       - rules:
           - networkInterfaces:
@@ -34,6 +32,8 @@ spec:
         - source:
             name: [ "node-01" ]
           reference:
+            group: [ "" ]
+            version: [ "v1" ]
             name: [ "my-secret" ]
             resource: [ "secrets" ]
 

@@ -26,7 +26,9 @@ spec:
           eth0:
             addresses:
               - {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}/{{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.prefix }}
-            gateway4: {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.gateway }}
+            routes:
+              - to: default
+                via: {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.gateway }}
             nameservers:
               addresses:
                 - 8.8.8.8
@@ -47,6 +49,11 @@ spec:
           ssh_authorized_keys:
             - {{ .hardware.instance.sshKeys[0] }}
       
+      write_files:
+        - path: /etc/docker/certs.d/registry.example.com/ca.crt
+          permissions: '0644'
+          content: |
+            {{ .references.registryCert.data.ca\.crt | b64dec | nindent 12 }}
       runcmd:
         - echo "Hello from cloud-init!" > /home/clouduser/greeting.txt
         - apt update
@@ -70,21 +77,40 @@ spec:
   networkInterfaces:
     "52:54:00:41:05:c6":
       dhcp:
-        bootFileName: "ztp.json"
-        classlessStaticRoutes:
-          - destinationDescriptor: "192.168.1.0/24"
-            router: "192.168.1.254"
-        domainName: "tinkerbell.org"
-        disabled: false
-        hostname: "example"
-        leaseTimeSeconds: 86400
-        nameservers:
-          - "1.1.1.1"
-        tftpServerName: "192.168.2.2"
-        timeservers:
-          - "pool.ntp.org"
-          - "204.197.163.71"
-        vlanID: "110"
+        v4:
+          disabled: false
+          bootFileName: "ztp.json"
+          classlessStaticRoutes:
+            - destinationDescriptor: "192.168.1.0/24"
+              router: "192.168.1.254"
+          domainName: "tinkerbell.org"
+          domainSearchList:
+            - "tinkerbell.org"
+            - "example.com"
+          hostname: "example"
+          leaseTimeSeconds: 86400
+          nameservers:
+            - "1.1.1.1"
+          ntpServers:
+            - "pool.ntp.org"
+            - "204.197.163.71"
+          tftpServerName: "192.168.2.2"
+          vlanID: "110"
+        v6:
+          disabled: false
+          nameservers:
+            - "2001:4860:4860::8888"
+            - "2001:4860:4860::8844"
+          domainSearchList:
+            - "tinkerbell.org"
+          ntpServers:
+            - "2001:db8::123"
+          informationRefreshTime: 86400
+          preferredLifetime: 3600
+          validLifetime: 7200
+          bootFileURL: "tftp://[2001:db8::1]/bootx64.efi"
+          bootFileParams:
+            - "root=/dev/sda1"
       ipam:
         ipv4:
           address: "192.168.1.100"
@@ -107,11 +133,10 @@ spec:
           url: "https://boot.netboot.xyz"
   references:
     additional:
-      "lvm":
-        group: "example.org"
-        name: "example"
+      "registryCert":
+        name: "registry-ca-cert"
         namespace: "tinkerbell"
-        resource: "lvms"
+        resource: "secrets"
         version: "v1"
     builtin:
       bmc:
