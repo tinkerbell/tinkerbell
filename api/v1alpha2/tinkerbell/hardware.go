@@ -85,6 +85,23 @@ type AutoCapabilities struct {
 
 // Instance describes data that is less permanent than any physical attributes of the Hardware.
 type Instance struct {
+	// LookupID is an identifier used by the metadata service (Tootles) to route incoming requests
+	// to this Hardware object. This is the value that must appear in the NoCloud seedfrom URL path
+	// or the EC2 metadata endpoint path for Tootles to match the request to this Hardware.
+	//
+	// This field is required when using bring-your-own DHCP (BYO DHCP), where IP-based lookup is
+	// not available. The value must match whatever identifier will appear in the request URL.
+	// For example, if cloud-init is configured with:
+	//
+	//   ds=nocloud;s=http://tootles:8080/nocloud/<lookupID>/
+	//
+	// then this field must be set to the same <lookupID> value. When using DMI variable expansion
+	// (e.g., __dmi.chassis-serial-number__), this field must match the machine's actual DMI value.
+	//
+	// This field does not support templating. The value is stored and indexed as-is.
+	// +optional
+	LookupID string `json:"lookupID,omitempty"`
+
 	// Metadata is data following the cloud-init NoCloud datasource for meta-data.
 	//
 	// https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#meta-data

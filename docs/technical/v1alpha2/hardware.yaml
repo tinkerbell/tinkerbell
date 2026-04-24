@@ -14,6 +14,7 @@ spec:
     arch: "x86_64"
     uefi: true
   instance:
+    lookupID: "a8f3e2b1-9c4d-4e5f-b6a7-8d9e0f1a2b3c"
     metadata: |
       instance-id: iid-local01
       local-hostname: my-nocloud-vm
