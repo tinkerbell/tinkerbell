@@ -1,0 +1,31 @@
+---
+apiVersion: tinkerbell.org/v1alpha2
+kind: BMC
+metadata:
+  name: example
+  namespace: tinkerbell
+  annotations:
+    tinkerbell.org/disabled: "machine is under maintenance"
+spec:
+  connection:
+    host: 0.0.0.0
+    authRef:
+      name: bm-auth
+      namespace: tinkerbell
+    insecureTLS: false
+    #providerOptions:
+    #  preferredOrder:
+    #    - "redfish"
+    #    - "ipmitool"
+    #  redfish:
+    #    port: 443
+    #    useBasicAuth: false
+    #    systemName: "System.Embedded.1"
+    #  ipmitool:
+    #    port: 623
+    #    cipherSuite: "3"
+    #  intelAMT:
+    #    port: 16992
+    #    hostScheme: "http"
+    #  rpc:
+    #    consumerURL: "https://rpc-consumer.example.com"

@@ -86,6 +86,10 @@ endif
 test: ## Run go test
 	CGO_ENABLED=1 go test -race -coverprofile=coverage.txt -covermode=atomic -v ${TEST_ARGS} ${TEST_PKGS}
 
+.PHONY: test-api
+test-api: ## Run go test for API
+	(cd api; CGO_ENABLED=1 go test -race -coverprofile=coverage-api.txt -covermode=atomic -v ${TEST_ARGS} ${TEST_PKGS})
+
 .PHONY: vet
 vet: ## Run go vet
 	go vet ./...
@@ -99,10 +103,16 @@ FILE_TO_NOT_INCLUDE_IN_COVERAGE := script/version/main.go|*.pb.go|zz_generated.d
 
 .PHONY: coverage
 coverage: test ## Show test coverage
-## Filter out generated files
+	## Filter out generated files
 	cat coverage.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > coverage.out
 	go tool cover -func=coverage.out
 	mv coverage.out coverage.txt
+
+.PHONY: coverage-api
+coverage-api: test-api ## Show API test coverage
+	## Filter out generated files
+	cat api/coverage-api.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > api/coverage-api.out
+	go tool cover -func=api/coverage-api.out
 
 .PHONY: ci-checks
 ci-checks: $(GOIMPORTS_FQP) ./script/ci-checks.sh ## Run the ci-checks.sh script
@@ -119,11 +129,12 @@ generated_go_files := \
 		smee/internal/syslog/facility_string.go \
 		smee/internal/syslog/severity_string.go \
 
-generate-go: $(generated_go_files) ## Run Go's generate command
-smee/internal/syslog/facility_string.go: smee/internal/syslog/message.go
-smee/internal/syslog/severity_string.go: smee/internal/syslog/message.go
+generate-go: out/.generate-go.stamp ## Run Go's generate command
+$(generated_go_files): out/.generate-go.stamp
+out/.generate-go.stamp: $(GOIMPORTS_FQP) smee/internal/syslog/message.go
 	go generate -run=".*_string.go" ./...
 	$(GOIMPORTS_FQP) -w .
+	@touch $@
 
 TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
 
@@ -172,24 +183,39 @@ out/tink-agent: $(AGENT_SOURCES) ## Compile Tink Agent for the current architect
 
 cross-compile-agent: $(crossbinaries-agent) ## Compile Tink Agent for all architectures
 
-.PHONY: generate-proto
-generate-proto: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) ## Generate code from proto files.
+PROTO_SOURCES := $(shell find pkg/proto -name '*.proto')
+
+generate-proto: out/.generate-proto.stamp ## Generate code from proto files.
+out/.generate-proto.stamp: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) $(PROTO_SOURCES) buf.gen.yaml buf.yaml
 	$(BUF_FQP) generate
 	$(MAKE) fmt
+	@touch $@
 
 # Kubernetes CRD generation
-.PHONY: manifests
-manifests: $(CONTROLLER_GEN_FQP) ## Generate WebhookConfiguration and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=crd/bases
-	$(MAKE) fmt
+V1ALPHA1_API_SOURCES := $(shell find api/v1alpha1 -name '*.go' -not -name 'zz_generated*')
+V1ALPHA2_API_SOURCES := $(shell find api/v1alpha2 -name '*.go' -not -name 'zz_generated*')
 
-.PHONY: generate
-generate: $(CONTROLLER_GEN_FQP) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+manifests-v1alpha1: out/.manifests-v1alpha1.stamp ## Generate v1alpha1 CRDs
+out/.manifests-v1alpha1.stamp: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES)
+	(cd api/v1alpha1; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha1)
+	@touch $@
+
+manifests-v1alpha2: out/.manifests-v1alpha2.stamp ## Generate v1alpha2 CRDs
+out/.manifests-v1alpha2.stamp: $(CONTROLLER_GEN_FQP) $(V1ALPHA2_API_SOURCES)
+	(cd api/v1alpha2; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha2)
+	@touch $@
+
+manifests: manifests-v1alpha1 manifests-v1alpha2 ## Generate all CRDs
+
+generate-deepcopy: out/.generate-deepcopy.stamp ## Generate DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+out/.generate-deepcopy.stamp: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES) $(V1ALPHA2_API_SOURCES) script/boilerplate.go.txt
 	$(CONTROLLER_GEN_FQP) object:headerFile="script/boilerplate.go.txt" paths="./..."
 	$(MAKE) fmt
+	@touch $@
 
-.PHONY: generate-all
-generate-all: generate generate-proto generate-go ui-generate manifests ## Run all code generation steps
+generate: out/.generate.stamp ## Run all code generation steps
+out/.generate.stamp: out/.generate-deepcopy.stamp out/.generate-proto.stamp out/.generate-go.stamp out/.ui-generate.stamp out/.manifests-v1alpha1.stamp out/.manifests-v1alpha2.stamp
+	@touch $@
 
 .PHONY: dep-graph
 dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
@@ -255,6 +281,9 @@ clean-tools: ## Remove all tools
 
 .PHONY: clean-all
 clean-all: clean clean-agent clean-tools ## Remove all binaries and tools
+	rm -f out/.manifests-v1alpha1.stamp out/.manifests-v1alpha2.stamp
+	rm -f out/.generate-deepcopy.stamp out/.generate-proto.stamp out/.generate-go.stamp
+	rm -f out/.ui-install-deps.stamp out/.ui-templ.stamp out/.ui-css.stamp out/.ui-generate.stamp out/.generate.stamp
 
 ############## Tools ##############
 $(GOIMPORTS_FQP):

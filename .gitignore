@@ -30,7 +30,7 @@ out/
 
 # Go coverage profile
 coverage.txt
-
+coverage-api.txt
 
 # iPXE build directories
 upstream-*
@@ -39,6 +39,7 @@ ipxe-*.tar.gz
 kubeconfig
 
 certs/
+tmp/
 # helm chart files and directories
 *.tgz
 Chart.lock

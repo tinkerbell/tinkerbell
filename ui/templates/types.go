@@ -413,5 +413,8 @@ type CRDGroup struct {
 
 // DashboardData is the data for the landing page/dashboard.
 type DashboardData struct {
-	Groups []CRDGroup // CRDs grouped by API group
+	Groups            []CRDGroup // CRDs grouped by API group
+	SelectedVersion   string     // Currently selected API version (e.g., "v1alpha1")
+	AvailableVersions []string   // All available API versions (e.g., ["v1alpha1", "v1alpha2"])
+	BaseURL           string     // URL prefix for HTMX requests
 }

@@ -1,0 +1,38 @@
+---
+apiVersion: tinkerbell.org/v1alpha2
+kind: Task
+metadata:
+  name: example
+  namespace: tinkerbell
+spec:
+  actions:
+    - name: "action 1"
+      image: "alpine"
+      command: "/bin/sleep"
+      args:
+        - "1"
+      envVars:
+        # Reference templating: access a referenced ConfigMap's data
+        - key: "REGISTRY_URL"
+          value: "{{ .references.clusterConfig.data.registryURL }}"
+        # Hardware templating: access fields from the Hardware object
+        - key: "DEVICE_ARCH"
+          value: "{{ .hardware.spec.attributes.arch }}"
+      volumes:
+        - "/var/data:/var-data:ro"
+      namespaces:
+        network: "host"
+        pid: "1"
+      retries: 4
+      timeoutSeconds: 120
+  envVars:
+    - key: "one"
+      value: "1"
+  references:
+    "clusterConfig":
+      name: "cluster-settings"
+      namespace: "tinkerbell"
+      resource: "configmaps"
+      version: "v1"
+  volumes:
+    - "/etc/data1:/data1:ro"

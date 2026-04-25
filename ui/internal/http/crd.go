@@ -12,10 +12,8 @@ import (
 )
 
 var (
-	cachedDashboardData *templates.DashboardData
+	cachedDashboardData map[string]*templates.DashboardData
 	crdParseOnce        sync.Once
-	groupTinkerbell     = "tinkerbell.org"
-	groupBMC            = "bmc.tinkerbell.org"
 )
 
 // kindToRoute maps CRD kinds to their web UI routes.
@@ -29,42 +27,63 @@ var kindToRoute = map[string]string{
 	"Task":            "/bmc/tasks",
 }
 
-// kindDescriptions provides meaningful descriptions for each CRD kind.
+// kindDescriptions provides meaningful descriptions for each CRD kind, keyed by "version/kind".
 var kindDescriptions = map[string]string{
-	"Hardware":        "Machines in your infrastructure, with details about network interfaces, disks, and BMC connections.",
-	"Workflow":        "A provisioning workflow that executes a sequence of Actions on Hardware using a referenced Template.",
-	"Template":        "Reusable workflow definitions with templated Actions that can be applied to multiple Hardware resources.",
-	"WorkflowRuleSet": "Rules for automatic Workflow creation when Hardware matches specific criteria during discovery.",
-	"Machine":         "A BMC (Baseboard Management Controller) connection for out-of-band Hardware management.",
-	"Job":             "A BMC operation request containing one or more Tasks to execute on a target Machine.",
-	"Task":            "An individual BMC operation within a Job, such as power control or boot device configuration.",
+	// v1alpha1
+	"v1alpha1/Hardware":        "Machines in your infrastructure, with details about network interfaces, disks, and BMC connections.",
+	"v1alpha1/Workflow":        "A provisioning workflow that executes a sequence of Actions on Hardware using a referenced Template.",
+	"v1alpha1/Template":        "Reusable workflow definitions with templated Actions that can be applied to multiple Hardware resources.",
+	"v1alpha1/WorkflowRuleSet": "Rules for automatic Workflow creation when Hardware matches specific criteria during discovery.",
+	"v1alpha1/Machine":         "A BMC (Baseboard Management Controller) connection for out-of-band Hardware management.",
+	"v1alpha1/Job":             "A BMC operation request containing one or more Tasks to execute on a target Machine.",
+	"v1alpha1/Task":            "An individual BMC operation within a Job, such as power control or boot device configuration.",
+
+	// v1alpha2
+	"v1alpha2/Hardware": "Machines in your infrastructure, with details about network interfaces, disks, BMC connections, and auto-discovery capabilities.",
+	"v1alpha2/Task":     "A reusable definition of Actions that can be referenced by Workflows for execution on Hardware.",
+	"v1alpha2/BMC":      "BMCs (Baseboard Management Controller) for out-of-band hardware management operations.",
+	"v1alpha2/Workflow": "An ordered sequence of Tasks with boot options, hardware references, and templating for provisioning Hardware.",
+	"v1alpha2/Policy":   "Controls Workflow auto-creation rules based on agent attributes and reference access policies for Hardware and Tasks.",
+	"v1alpha2/Job":      "A BMC operation request containing one or more operations to execute on a target BMC.",
 }
 
-// GetDashboardData returns the parsed CRD data for the dashboard.
-// Data is cached after first parse.
-func GetDashboardData() templates.DashboardData {
+// GetDashboardDataForVersion returns the parsed CRD data for a specific API version.
+// Data is cached after first parse. Falls back to v1alpha1 for unknown versions.
+func GetDashboardDataForVersion(version string) templates.DashboardData {
 	crdParseOnce.Do(func() {
-		cachedDashboardData = parseCRDs()
+		cachedDashboardData = make(map[string]*templates.DashboardData, len(crd.CRDsByVersion))
+		for v, crds := range crd.CRDsByVersion {
+			cachedDashboardData[v] = parseCRDsFromSource(crds)
+		}
 	})
-	return *cachedDashboardData
+	data, ok := cachedDashboardData[version]
+	if !ok {
+		data = cachedDashboardData["v1alpha1"]
+	}
+	return *data
 }
 
-// parseCRDs parses all embedded CRD YAMLs and returns dashboard data.
-func parseCRDs() *templates.DashboardData {
+// GetDashboardData returns the parsed v1alpha1 CRD data for the dashboard.
+func GetDashboardData() templates.DashboardData {
+	return GetDashboardDataForVersion("v1alpha1")
+}
+
+// parseCRDsFromSource parses all CRD YAMLs from a source map and returns dashboard data.
+func parseCRDsFromSource(crds map[string][]byte) *templates.DashboardData {
 	tinkerbellCRDs := []templates.CRDInfo{}
 	bmcCRDs := []templates.CRDInfo{}
 
-	for _, rawYAML := range crd.TinkerbellDefaults {
+	for _, rawYAML := range crds {
 		crdInfo := parseSingleCRD(rawYAML)
 		if crdInfo == nil {
 			continue
 		}
 
 		switch crdInfo.Group {
-		case groupTinkerbell:
-			tinkerbellCRDs = append(tinkerbellCRDs, *crdInfo)
-		case groupBMC:
+		case crd.GroupBMC:
 			bmcCRDs = append(bmcCRDs, *crdInfo)
+		default:
+			tinkerbellCRDs = append(tinkerbellCRDs, *crdInfo)
 		}
 	}
 
@@ -76,17 +95,21 @@ func parseCRDs() *templates.DashboardData {
 		return bmcCRDs[i].Kind < bmcCRDs[j].Kind
 	})
 
-	return &templates.DashboardData{
-		Groups: []templates.CRDGroup{
-			{
-				Name: groupTinkerbell,
-				CRDs: tinkerbellCRDs,
-			},
-			{
-				Name: groupBMC,
-				CRDs: bmcCRDs,
-			},
+	groups := []templates.CRDGroup{
+		{
+			Name: crd.GroupTinkerbell,
+			CRDs: tinkerbellCRDs,
 		},
+	}
+	if len(bmcCRDs) > 0 {
+		groups = append(groups, templates.CRDGroup{
+			Name: crd.GroupBMC,
+			CRDs: bmcCRDs,
+		})
+	}
+
+	return &templates.DashboardData{
+		Groups: groups,
 	}
 }
 
@@ -112,7 +135,7 @@ func parseSingleCRD(rawYAML []byte) *templates.CRDInfo {
 
 	// Use custom description if available, otherwise fall back to CRD description
 	kind := crdDef.Spec.Names.Kind
-	description := kindDescriptions[kind]
+	description := kindDescriptions[version.Name+"/"+kind]
 	if description == "" && rootSchema.Description != "" {
 		description = rootSchema.Description
 	}
