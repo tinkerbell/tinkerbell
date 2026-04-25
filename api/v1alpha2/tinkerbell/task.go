@@ -39,9 +39,6 @@ type TaskSpec struct {
 	// +optional
 	EnvVars []EnvVar `json:"envVars,omitempty"`
 
-	// Name is a human readable name for the Task.
-	Name string `json:"name"`
-
 	// References are dynamic and defined by the user.
 	// These will be available to use in Actions as template dot notation.
 	//
@@ -78,7 +75,7 @@ type Action struct {
 	// Command defines the command to use when launching the image. It overrides the default command
 	// of the Action image. It must be a unix path to an executable program. When omitted, the image's
 	// default command/entrypoint is used.
-	// +kubebuilder:validation:Pattern=`^(/[^/ ]*)+/?$`
+	// +kubebuilder:validation:Pattern=`^(/[^/ ]*)+$`
 	// +optional
 	Command string `json:"command,omitempty,omitzero" yaml:"command,omitempty,omitzero"`
 
@@ -99,6 +96,7 @@ type Action struct {
 	Namespaces Namespaces `json:"namespaces,omitempty,omitzero" yaml:"namespaces,omitempty,omitzero"`
 
 	// Retries is the number of times the Action should be run until completed successfully.
+	// +kubebuilder:validation:Minimum=0
 	Retries int `json:"retries,omitempty,omitzero" yaml:"retries,omitempty,omitzero"`
 
 	// TimeoutSeconds is the total number of seconds the Action is allowed to run without completing

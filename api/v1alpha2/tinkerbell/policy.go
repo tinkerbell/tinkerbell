@@ -90,13 +90,29 @@ type WorkflowConfig struct {
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
 
-	// Extra holds any additional configuration values that will be added to all Tasks in the created Workflow.
-	Extra *Extra `json:"extra,omitempty"`
+	// Globals holds any additional configuration values that will be applied to all Tasks in the created Workflow.
+	// This maps to WorkflowSpec.Globals.
+	Globals *Extra `json:"globals,omitempty"`
 
 	// TimeoutSeconds is the duration in seconds before the Workflow times out.
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
-	// TaskRef is the Task to use for the Workflow.
+	// Tasks defines the Tasks created in the Workflow.
+	Tasks []PolicyWorkflowTask `json:"tasks,omitempty"`
+}
+
+// PolicyWorkflowTask defines a Task entry for auto-created Workflows.
+type PolicyWorkflowTask struct {
+	// Extra configuration that is applied to this specific Task.
+	// +optional
+	Extra *Extra `json:"extra,omitempty"`
+
+	// TimeoutSeconds is the duration before a Task time out is reached.
+	// A zero or nil value means no timeout.
+	// +optional
+	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+
+	// TaskRef is the Task to run.
 	TaskRef SimpleReference `json:"taskRef,omitempty"`
 }
 

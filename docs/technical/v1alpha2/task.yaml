@@ -28,7 +28,6 @@ spec:
   envVars:
     - key: "one"
       value: "1"
-  name: example
   references:
     "clusterConfig":
       name: "cluster-settings"
