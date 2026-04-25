@@ -270,7 +270,6 @@ spec:
                     type: object
                 required:
                 - host
-                - insecureTLS
                 type: object
             required:
             - connection

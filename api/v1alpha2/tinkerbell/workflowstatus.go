@@ -66,8 +66,9 @@ type ActionWithMetadata struct {
 
 // BootOptionsStatus holds the state of any boot options.
 type BootOptionsStatus struct {
-	// AllowNetboot holds the state of the the controller's interactions with the allowPXE field in a Hardware object.
+	// AllowNetboot holds the state of the controller's interactions with the netboot disabled field in a Hardware object.
 	AllowNetboot AllowNetbootStatus `json:"allowNetboot,omitempty"`
+
 	// Jobs holds the state of any job.bmc.tinkerbell.org objects created.
 	Jobs map[string]JobStatus `json:"jobs,omitempty"`
 }

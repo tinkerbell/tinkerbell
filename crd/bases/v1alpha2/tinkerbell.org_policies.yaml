@@ -355,10 +355,10 @@ spec:
                               description: Disabled indicates whether the Workflow
                                 will be enabled or not when created.
                               type: boolean
-                            extra:
-                              description: Extra holds any additional configuration
-                                values that will be added to all Tasks in the created
-                                Workflow.
+                            globals:
+                              description: |-
+                                Globals holds any additional configuration values that will be applied to all Tasks in the created Workflow.
+                                This maps to WorkflowSpec.Globals.
                               properties:
                                 envVars:
                                   description: EnvVars defined here are additive to
@@ -406,21 +406,84 @@ spec:
                               description: Namespace is the namespace in which the
                                 Workflow will be created.
                               type: string
-                            taskRef:
-                              description: TaskRef is the Task to use for the Workflow.
-                              properties:
-                                name:
-                                  description: Name of the object.
-                                  type: string
-                                namespace:
-                                  description: Namespace where the object resides.
-                                  type: string
-                              type: object
-                              x-kubernetes-validations:
-                              - message: name and namespace must both be specified
-                                  or both be empty
-                                rule: (has(self.name) && self.name != "") == (has(self.namespace)
-                                  && self.namespace != "")
+                            tasks:
+                              description: Tasks defines the Tasks created in the
+                                Workflow.
+                              items:
+                                description: PolicyWorkflowTask defines a Task entry
+                                  for auto-created Workflows.
+                                properties:
+                                  extra:
+                                    description: Extra configuration that is applied
+                                      to this specific Task.
+                                    properties:
+                                      envVars:
+                                        description: EnvVars defined here are additive
+                                          to any existing environment variables.
+                                        items:
+                                          description: EnvVar defines a single environment
+                                            variable.
+                                          properties:
+                                            key:
+                                              description: Key is the name of the
+                                                environment variable.
+                                              type: string
+                                            value:
+                                              description: Value is the value of the
+                                                environment variable.
+                                              type: string
+                                          required:
+                                          - key
+                                          - value
+                                          type: object
+                                        type: array
+                                      templateMap:
+                                        additionalProperties:
+                                          type: string
+                                        description: TemplateMap is a mapping of key/values
+                                          that will be used when templating a Task.
+                                        type: object
+                                      volumes:
+                                        description: Volumes defined here are additive
+                                          to any existing volumes.
+                                        items:
+                                          description: "Volume is a specification
+                                            for mounting a location on a Host into
+                                            an Action container.\nVolumes take the
+                                            form {SRC-VOLUME-NAME | SRC-HOST-DIR}:TGT-CONTAINER-DIR:OPTIONS.\nWhen
+                                            specifying a VOLUME-NAME that does not
+                                            exist it will be created for you.\nExamples:\n\nRead-only
+                                            bind mount bound to /data\n\n\t/etc/data:/data:ro\n\nWritable
+                                            volume name bound to /data\n\n\tshared_volume:/data\n\nSee
+                                            https://docs.docker.com/storage/volumes/
+                                            for additional details."
+                                          type: string
+                                        type: array
+                                    type: object
+                                  taskRef:
+                                    description: TaskRef is the Task to run.
+                                    properties:
+                                      name:
+                                        description: Name of the object.
+                                        type: string
+                                      namespace:
+                                        description: Namespace where the object resides.
+                                        type: string
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: name and namespace must both be specified
+                                        or both be empty
+                                      rule: (has(self.name) && self.name != "") ==
+                                        (has(self.namespace) && self.namespace !=
+                                        "")
+                                  timeoutSeconds:
+                                    description: |-
+                                      TimeoutSeconds is the duration before a Task time out is reached.
+                                      A zero or nil value means no timeout.
+                                    format: int64
+                                    type: integer
+                                type: object
+                              type: array
                             timeoutSeconds:
                               description: TimeoutSeconds is the duration in seconds
                                 before the Workflow times out.

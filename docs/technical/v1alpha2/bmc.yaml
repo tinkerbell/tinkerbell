@@ -29,3 +29,26 @@ spec:
     #    hostScheme: "http"
     #  rpc:
     #    consumerURL: "https://rpc-consumer.example.com"
+    #    logNotificationsDisabled: false
+    #    request:
+    #      httpContentType: "application/json"
+    #      httpMethod: "POST"
+    #      staticHeaders:
+    #        X-Custom-Header:
+    #          - "custom-value"
+    #      timestampFormat: "2006-01-02T15:04:05Z07:00"
+    #      timestampHeader: "X-BMCLIB-Timestamp"
+    #    signature:
+    #      headerName: "X-BMCLIB-Signature"
+    #      appendAlgoToHeaderDisabled: false
+    #      includedPayloadHeaders:
+    #        - "X-BMCLIB-Timestamp"
+    #    hmac:
+    #      prefixSigDisabled: false
+    #      secrets:
+    #        sha256:
+    #          - name: "hmac-secret"
+    #            namespace: "tinkerbell"
+    #    experimental:
+    #      customRequestPayload: '{"custom": "payload"}'
+    #      dotPath: "object.data.body"

@@ -131,10 +131,11 @@ spec:
             #!ipxe
             dhcp
             chain --autofree https://boot.netboot.xyz
-          url: "https://boot.netboot.xyz"
+          # url: "https://boot.netboot.xyz"
   references:
     additional:
       "registryCert":
+        group: ""
         name: "registry-ca-cert"
         namespace: "tinkerbell"
         resource: "secrets"

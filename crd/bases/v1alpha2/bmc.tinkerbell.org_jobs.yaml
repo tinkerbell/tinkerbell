@@ -272,7 +272,6 @@ spec:
                     type: object
                 required:
                 - host
-                - insecureTLS
                 type: object
               operations:
                 description: |-

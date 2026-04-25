@@ -477,6 +477,10 @@ spec:
                                 to download and run the script at the defined URL.
                               type: string
                           type: object
+                          x-kubernetes-validations:
+                          - message: script and url are mutually exclusive
+                            rule: '!(has(self.script) && self.script != "" && has(self.url)
+                              && self.url != "")'
                       type: object
                   type: object
                 description: NetworkInterfaces defines the desired DHCP and netboot

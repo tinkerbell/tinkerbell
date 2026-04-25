@@ -60,12 +60,19 @@ spec:
                       items:
                         type: string
                       type: array
+                    background:
+                      description: |-
+                        Background or Detach indicates that the Action should be run in the background and not block the execution of other Actions.
+                        The Action will report back as successful before the Action is executed in the background.
+                        Then the Action will be run in the background and move on to the next Action immediately without waiting for completion.
+                        This is useful for Actions that do things like kexec, reboot, or power off a machine.
+                      type: boolean
                     command:
                       description: |-
                         Command defines the command to use when launching the image. It overrides the default command
                         of the Action image. It must be a unix path to an executable program. When omitted, the image's
                         default command/entrypoint is used.
-                      pattern: ^(/[^/ ]*)+/?$
+                      pattern: ^(/[^/ ]*)+$
                       type: string
                     envVars:
                       description: EnvVars defines environment variables that will
@@ -106,6 +113,7 @@ spec:
                     retries:
                       description: Retries is the number of times the Action should
                         be run until completed successfully.
+                      minimum: 0
                       type: integer
                     timeoutSeconds:
                       description: |-
@@ -149,9 +157,6 @@ spec:
                   - value
                   type: object
                 type: array
-              name:
-                description: Name is a human readable name for the Task.
-                type: string
               references:
                 additionalProperties:
                   properties:
@@ -213,7 +218,6 @@ spec:
                 type: array
             required:
             - actions
-            - name
             type: object
         type: object
     served: true

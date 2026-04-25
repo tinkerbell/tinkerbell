@@ -25,10 +25,10 @@ spec:
         pid: "1"
       retries: 4
       timeoutSeconds: 120
+      background: false
   envVars:
     - key: "one"
       value: "1"
-  name: example
   references:
     "clusterConfig":
       name: "cluster-settings"

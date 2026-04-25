@@ -50,14 +50,15 @@ type Connection struct {
 	// The Secret must contain username and password keys. This is optional as it is not required when using
 	// the RPC provider.
 	// +optional
-	AuthRef SimpleReference `json:"authRef"`
+	AuthRef SimpleReference `json:"authRef,omitempty"`
 
 	// Host is the host IP address or hostname of the Machine.
 	// +kubebuilder:validation:MinLength=1
 	Host string `json:"host"`
 
 	// InsecureTLS specifies trusted TLS connections.
-	InsecureTLS bool `json:"insecureTLS"`
+	// +optional
+	InsecureTLS bool `json:"insecureTLS,omitempty"`
 
 	// ProviderOptions contains provider specific options.
 	// +optional

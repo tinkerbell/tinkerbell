@@ -416,6 +416,7 @@ type Netboot struct {
 }
 
 // IPXE configuration.
+// +kubebuilder:validation:XValidation:rule="!(has(self.script) && self.script != \"\" && has(self.url) && self.url != \"\")",message="script and url are mutually exclusive"
 type IPXE struct {
 	// Binary, when defined, overrides Smee's default mapping of architecture to iPXE binary.
 	// The following binary names are supported:

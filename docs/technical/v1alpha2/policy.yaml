@@ -14,7 +14,7 @@ spec:
           namespace: tinkerbell
           addAttributes: true
           disabled: false
-          extra:
+          globals:
             envVars:
               - key: EXAMPLE_ENV
                 value: example_value
@@ -23,9 +23,19 @@ spec:
             volumes:
               - "/etc/data2:/data2:ro"
           timeoutSeconds: 600
-          taskRef:
-            name: example-workflow
-            namespace: tinkerbell
+          tasks:
+            - extra:
+                envVars:
+                  - key: TASK_ENV
+                    value: task_value
+                templateMap:
+                  "taskKey": value
+                volumes:
+                  - "/etc/task-data:/data:ro"
+              timeoutSeconds: 300
+              taskRef:
+                name: example-workflow
+                namespace: tinkerbell
     referenceAccess:
       hardware:
         # Exact match — hardware named exactly "node-01" in any namespace

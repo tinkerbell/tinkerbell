@@ -39,9 +39,6 @@ type TaskSpec struct {
 	// +optional
 	EnvVars []EnvVar `json:"envVars,omitempty"`
 
-	// Name is a human readable name for the Task.
-	Name string `json:"name"`
-
 	// References are dynamic and defined by the user.
 	// These will be available to use in Actions as template dot notation.
 	//
@@ -78,7 +75,7 @@ type Action struct {
 	// Command defines the command to use when launching the image. It overrides the default command
 	// of the Action image. It must be a unix path to an executable program. When omitted, the image's
 	// default command/entrypoint is used.
-	// +kubebuilder:validation:Pattern=`^(/[^/ ]*)+/?$`
+	// +kubebuilder:validation:Pattern=`^(/[^/ ]*)+$`
 	// +optional
 	Command string `json:"command,omitempty,omitzero" yaml:"command,omitempty,omitzero"`
 
@@ -87,7 +84,7 @@ type Action struct {
 	Args []string `json:"args,omitempty,omitzero" yaml:"args,omitempty,omitzero"`
 
 	// EnvVars defines environment variables that will be available inside a container.
-	//+optional
+	// +optional
 	EnvVars []EnvVar `json:"envVars,omitempty,omitzero" yaml:"envVars,omitempty,omitzero"`
 
 	// Volumes defines the volumes that will be mounted into the container.
@@ -99,11 +96,19 @@ type Action struct {
 	Namespaces Namespaces `json:"namespaces,omitempty,omitzero" yaml:"namespaces,omitempty,omitzero"`
 
 	// Retries is the number of times the Action should be run until completed successfully.
+	// +kubebuilder:validation:Minimum=0
 	Retries int `json:"retries,omitempty,omitzero" yaml:"retries,omitempty,omitzero"`
 
 	// TimeoutSeconds is the total number of seconds the Action is allowed to run without completing
 	// before marking it as timed out.
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty,omitzero" yaml:"timeoutSeconds,omitempty,omitzero"`
+
+	// Background or Detach indicates that the Action should be run in the background and not block the execution of other Actions.
+	// The Action will report back as successful before the Action is executed in the background.
+	// Then the Action will be run in the background and move on to the next Action immediately without waiting for completion.
+	// This is useful for Actions that do things like kexec, reboot, or power off a machine.
+	// +optional
+	Background bool `json:"background,omitempty,omitzero" yaml:"background,omitempty,omitzero"`
 }
 
 // EnvVar defines a single environment variable.

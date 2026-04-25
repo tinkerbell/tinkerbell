@@ -90,6 +90,7 @@ type WorkflowTask struct {
 }
 
 // +kubebuilder:validation:XValidation:rule="!(has(self.hardwareRef) && has(self.bmcRef))",message="hardwareRef and bmcRef are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="has(self.hardwareRef) || has(self.bmcRef)",message="at least one of hardwareRef or bmcRef must be specified"
 type WorkflowHardware struct {
 	// BootOptions are options that control the booting of Hardware.
 	// These are only applicable when a HardwareRef or a BMCRef is provided.
@@ -148,7 +149,7 @@ type Customboot struct {
 }
 
 func (b BootOptions) IsZero() bool {
-	return b.ISOURL == "" && !b.ToggleNetboot && b.BootMode == ""
+	return b.ISOURL == "" && !b.ToggleNetboot && b.BootMode == "" && (b.Customboot == nil || b.Customboot.IsZero())
 }
 
 func (c Customboot) IsZero() bool {

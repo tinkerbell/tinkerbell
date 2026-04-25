@@ -32,21 +32,31 @@ spec:
         #  namespace: "tinkerbell"
         bootOptions:
           toggleNetboot: true
-          #isoURL: "https://tinkerbell.org/iso/00-01-02-03-04-05/hook.iso"
+          #isoURL: "https://tinkerbell.org/iso/00-01-02-03-04-05/captain.iso"
           bootMode: customboot
           customboot:
             preOperations:
               - powerAction: "off"
+                timeoutSeconds: 30
+              - virtualMediaAction:
+                  mediaURL: "https://example.com/captain.iso"
+                  kind: "CD"
+                timeoutSeconds: 60
               - bootDevice:
-                  device: "pxe"
+                  device: "cdrom" # pxe, disk, bios, cdrom, safe
+                  persistent: false
                   efiBoot: true
-              - powerAction: "on"
+              - powerAction: "on" # on, off, soft, status, cycle, reset
             postOperations:
+              - powerAction: "off"
+              - virtualMediaAction:
+                  mediaURL: "" # empty to eject media
+                  kind: "CD"
               - bootDevice:
                   device: "disk"
                   persistent: true
                   efiBoot: true
-              - powerAction: "reset"
+              - powerAction: "cycle" # on, off, soft, status, cycle, reset
         hardwareRef:
           name: "example"
           namespace: "tinkerbell"
