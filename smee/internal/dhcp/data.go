@@ -55,6 +55,7 @@ type Netboot struct {
 	Facility      string
 	OSIE          OSIE
 	PXELINUX      PXELINUX
+	RPiNetboot    RPiNetboot
 }
 
 // Isoboot holds info used in booting a client using an ISO image.
@@ -68,6 +69,14 @@ type Isoboot struct {
 // PXELINUX represents PXELinux template, for u-boot "pxelinux.cfg" booting
 type PXELINUX struct {
 	Template string `json:"template,omitempty"`
+}
+
+// RPiNetboot represents the data needed to support RPi-Netboot (Pi-specific EEPROM firmware netbooting)
+type RPiNetboot struct {
+	PiSerialNum        string `json:"piSerialNum"`
+	AssetRewrite       string `json:"assetRewrite"`
+	ConfigTxtTemplate  string `json:"configTxtTemplate,omitempty"`
+	CmdlineTxtTemplate string `json:"cmdlineTxtTemplate,omitempty"`
 }
 
 // OSIE or OS Installation Environment is the data about where the OSIE parts are located.

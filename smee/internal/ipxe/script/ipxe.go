@@ -53,6 +53,7 @@ type Info struct {
 	IPXEScriptURL *url.URL
 	OSIE          OSIE
 	PXELINUX      PXELINUX
+	RPiNetboot    RPiNetboot
 }
 
 // OSIE or OS Installation Environment is the data about where the OSIE parts are located.
@@ -68,6 +69,14 @@ type OSIE struct {
 // PXELINUX represents PXELinux template, for u-boot "pxelinux.cfg" booting
 type PXELINUX struct {
 	Template string `json:"template,omitempty"`
+}
+
+// RPiNetboot represents the data needed to support RPi-Netboot (Pi-specific EEPROM firmware netbooting)
+type RPiNetboot struct {
+	PiSerialNum        string `json:"piSerialNum"`
+	AssetRewrite       string `json:"assetRewrite"`
+	ConfigTxtTemplate  string `json:"configTxtTemplate,omitempty"`
+	CmdlineTxtTemplate string `json:"cmdlineTxtTemplate,omitempty"`
 }
 
 // GetByMac uses the BackendReader to get the (hardware) data and then
@@ -106,6 +115,7 @@ func GetByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (Info
 		IPXEScriptURL: n.IPXEScriptURL,
 		OSIE:          OSIE(n.OSIE),
 		PXELINUX:      PXELINUX(n.PXELINUX),
+		RPiNetboot:    RPiNetboot(n.RPiNetboot),
 	}, nil
 }
 
@@ -142,6 +152,7 @@ func GetByIP(ctx context.Context, ip net.IP, br BackendReader) (Info, error) {
 		IPXEScriptURL: n.IPXEScriptURL,
 		OSIE:          OSIE(n.OSIE),
 		PXELINUX:      PXELINUX(n.PXELINUX),
+		RPiNetboot:    RPiNetboot(n.RPiNetboot),
 	}, nil
 }
 

@@ -149,6 +149,29 @@ type PXELINUX struct {
 	Template string `json:"template,omitempty"`
 }
 
+// RPiNetboot represents Raspberry Pi network boot configuration.
+// The RaspberryPi's EEPROM firmware can do its own network booting, without u-boot (PXELinux) or iPXE involved.
+// It does so by prefixing requests to certain filenames with the Pi's serial number.
+// Such serial number is NOT related to the MAC address, and is unique to each Pi.
+// The firmware will send requests to "<PiSerialNum>/start4.elf" to get 2nd-stage fw, then for
+// "<PiSerialNum>/config.txt", and "<PiSerialNum>/cmdline.txt" when doing network booting.
+// The idea here is that config.txt and cmdline.txt will come directly from the Hardware data,
+// while everything else (eg all binaries) will be served after a PiSerialNum -> AssetRewrite mapping.
+// All this depends on being able to find the Hardware via an IP-address lookup; no lookups are done vs the PiSerialNum.
+type RPiNetboot struct {
+	//+required
+	PiSerialNum string `json:"piSerialNum"`
+
+	//+required
+	AssetRewrite string `json:"assetRewrite"`
+
+	//+optional
+	ConfigTxtTemplate string `json:"configTxtTemplate,omitempty"`
+
+	//+optional
+	CmdlineTxtTemplate string `json:"cmdlineTxtTemplate,omitempty"`
+}
+
 // Netboot configuration.
 type Netboot struct {
 	//+optional
@@ -165,6 +188,9 @@ type Netboot struct {
 
 	//+optional
 	PXELINUX *PXELINUX `json:"pxelinux,omitempty"`
+
+	//+optional
+	RPiNetboot *RPiNetboot `json:"rpiNetboot,omitempty"`
 }
 
 // Isoboot configuration for booting a client using an ISO image.

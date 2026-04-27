@@ -107,7 +107,7 @@ func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
 
 	content, handledByBinary := binary.Files[filepath.Base(shortfile)]
 	if !handledByBinary {
-		servedByHardware, errHw := tryServeAssetFromHardware(filename, client, rf, log, full, span, h.Backend)
+		servedByHardware, errHw := tryServeAssetFromHardware(filename, client, rf, log, full, span, h)
 		if servedByHardware {
 			return errHw
 		}
@@ -148,7 +148,7 @@ func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
 	return nil
 }
 
-func tryServeAssetFromHardware(filename string, client net.UDPAddr, rf io.ReaderFrom, log logr.Logger, full string, span trace.Span, backend ipxe.BackendReader) (bool, error) {
+func tryServeAssetFromHardware(filename string, client net.UDPAddr, rf io.ReaderFrom, log logr.Logger, full string, span trace.Span, tftpServer TFTP) (bool, error) {
 	// pxelinux has a "tell"; it will by default hit the tftp server for "pxelinux.cfg/01-<MAC-ADDRESS-DASHED-UPPER>"
 
 	const pxelinuxFullMACPrefix = "pxelinux.cfg/01-"
@@ -158,40 +158,50 @@ func tryServeAssetFromHardware(filename string, client net.UDPAddr, rf io.Reader
 	const pxeLinuxFullLen = pxelinuxFullMACPrefixLen + pxeLinuxMacSuffixLen
 
 	inputFnLength := len(full)
-	if inputFnLength < pxelinuxFullMACPrefixLen || full[0:pxelinuxFullMACPrefixLen] != pxelinuxFullMACPrefix {
-		log.Info("pxelinux.cfg request does not match prefix", "full", full)
-
-		// detour, again; if it's not a pxelinux.cfg request, it might be a RaspberryPi doing it's EEPROM "netboot" requests
-		// eg full = "196f8c53/start4.elf" where 196f8c53 the Broadcom serial# - NOT the MAC address
-		// example from rpi docs:                9ffefdef so 8 bytes
-		// the idea is to have the Hardware PXELinux have a field for the rpi serial#, plus a target prefix that
-		// would serve assets from disk. Eg map "196f8c53" to prefix "rpi/rpi4b/" and serve "rpi/rpi4b/start4.elf" from disk
-		// Templating/having 196f8c53/config.txt in the Hardware might be convenient as well.
-		// All this is on-hold pending mainline kernel/u-boot support for the RPi5's new Cadence MACB Ethernet to land. (it's already in kernel)
-
-		return false, nil // didn't try to serve, "next!"
-	}
 
 	// Check if we can parse the MAC out of the rest of the string if it's exactly the expected size
-	if inputFnLength == pxeLinuxFullLen {
+	if inputFnLength == pxeLinuxFullLen && full[0:pxelinuxFullMACPrefixLen] == pxelinuxFullMACPrefix {
 		log.Info("pxelinux.cfg request matches exact expected format", "full", full)
 		macStr := full[pxelinuxFullMACPrefixLen:]
-		didServe, errHwServe := tryServeAssetFromPXEMacFilename(filename, client, rf, log, full, span, backend, macStr)
+		didServe, errHwServe := tryServeAssetFromPXEMacFilename(filename, client, rf, log, full, span, tftpServer.Backend, macStr)
 		if didServe {
 			return didServe, errHwServe
 		}
 	}
 
-	// If for any reason we couldn't do it by MAC, try by IP
-	hardware, errHwLookupByIP := ipxe.GetByIP(context.Background(), client.IP, backend)
+	// If not a "pxelinux.cfg/01-<MAC-ADDRESS-DASHED-UPPER>" request, try and get HW by IP.
+	// If a HW found, it might have either RPi-Netboot templates (xxxx/config.txt, xxxx/cmdline.txt), or
+	// a generic path-rewrite eg 'xxxxx/' ->  'captain-armbian-rpi/'.
+	hardware, errHwLookupByIP := ipxe.GetByIP(context.Background(), client.IP, tftpServer.Backend)
 	if errHwLookupByIP != nil {
 		log.Error(errHwLookupByIP, "failed to get hardware by IP", "client", client)
-	} else {
-		log.Info("got tftp request for hardware", "full", full, "hardware", hardware)
-		didServe, errHwServe := serveFromHardware(filename, log, full, hardware, rf, span)
-		if didServe {
-			return didServe, errHwServe
-		}
+		return false, nil
+	}
+	log.Info("got tftp request for hardware via IP", "full", full, "hardware", hardware)
+
+	// RPiNetboot
+	if hardware.RPiNetboot.PiSerialNum == "" || hardware.RPiNetboot.AssetRewrite == "" || tftpServer.AssetDir == "" {
+		log.Info("hardware does not have RPiNetboot data; skipping RPiNetboot checks", "full", full, "hardware", hardware)
+		return false, nil
+	}
+
+	log.Info("hardware has RPiNetboot data; checking if request is for config.txt or cmdline.txt", "full", full)
+	switch full {
+	case hardware.RPiNetboot.PiSerialNum + "/config.txt":
+		log.Info("request is for config.txt; serving RPiNetboot ConfigTxtTemplate", "full", full)
+		return serveFromHardware(filename, log, full, hardware, rf, span, hardware.RPiNetboot.ConfigTxtTemplate)
+	case hardware.RPiNetboot.PiSerialNum + "/cmdline.txt":
+		log.Info("request is for cmdline.txt; serving RPiNetboot CmdlineTxtTemplate", "full", full)
+		return serveFromHardware(filename, log, full, hardware, rf, span, hardware.RPiNetboot.CmdlineTxtTemplate)
+	}
+	log.Info("request is not for a known RPiNetboot file (config.txt or cmdline.txt); will try generic serve and asset dir next", "full", full)
+
+	// rewrite the "full uri" by replacing the PiSerialNum prefix with the AssetRewrite value
+	rewrittenFull := hardware.RPiNetboot.AssetRewrite + full[len(hardware.RPiNetboot.PiSerialNum):]
+	log.Info("rewritten filename for asset dir lookup", "full", full, "rewrittenFull", rewrittenFull)
+	servedFromDisk, errDsk := tryServeAssetFromDisk(filename, rf, tftpServer, rewrittenFull, log, span)
+	if servedFromDisk {
+		return true, errDsk
 	}
 
 	return false, nil
@@ -208,7 +218,7 @@ func tryServeAssetFromPXEMacFilename(filename string, client net.UDPAddr, rf io.
 		if errHwLookupByMac != nil {
 			log.Error(errHwLookupByMac, "failed to get hardware by MAC", "client", client, "full", full, "macStr", macStr, "hardwareAddr", hardwareAddr)
 		} else {
-			didServe, errHwServe := serveFromHardware(filename, log, full, hardware, rf, span)
+			didServe, errHwServe := serveFromHardware(filename, log, full, hardware, rf, span, hardware.PXELINUX.Template)
 			if didServe {
 				return didServe, errHwServe
 			}
@@ -217,18 +227,17 @@ func tryServeAssetFromPXEMacFilename(filename string, client net.UDPAddr, rf io.
 	return false, nil
 }
 
-func serveFromHardware(filename string, log logr.Logger, full string, hardware ipxe.Info, rf io.ReaderFrom, span trace.Span) (bool, error) {
+func serveFromHardware(filename string, log logr.Logger, full string, hardware ipxe.Info, rf io.ReaderFrom, span trace.Span, template string) (bool, error) {
 	// got a hardware, serve it  from there
 	log.Info("got tftp request for hardware", "full", full, "hardware", hardware)
-	template := hardware.PXELINUX.Template
 	if template == "" {
-		log.Info("no PXELINUX template found in hardware; cannot serve", "full", full, "hardware", hardware)
+		log.Info("no template found in hardware; cannot serve", "full", full, "hardware", hardware)
 		return false, nil // Not served, empty template, "next!"
 	}
 	// do actual templating here one day
 	bytesSent, err := rf.ReadFrom(bytes.NewReader([]byte(template)))
 	if err != nil {
-		log.Error(err, "serving from PXELinux in hardware failed", "bytesSent", bytesSent, "contentSize", len([]byte(template)))
+		log.Error(err, "serving from template in hardware failed", "bytesSent", bytesSent, "contentSize", len([]byte(template)))
 		return true, err // tried & failed to serve
 	}
 	log.Info("file served from hardware", "bytesSent", bytesSent)
