@@ -38,5 +38,5 @@ queue_rules:
       {{ body }}
 
 merge_protections_settings:
-  auto_merge: true
   reporting_method: check-runs
+  auto_merge_conditions: true
