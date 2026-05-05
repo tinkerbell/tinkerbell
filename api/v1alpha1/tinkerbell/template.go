@@ -19,6 +19,23 @@ const (
 type TemplateSpec struct {
 	// +optional
 	Data *string `json:"data,omitempty"`
+
+	// SecretRef is an optional reference to a Kubernetes Secret whose data
+	// will be available in the template as `.secret.<key>`.
+	// All keys from the referenced secret will be exposed to the template.
+	// The secret must exist in the same namespace as the Template.
+	// +optional
+	SecretRef *TemplateSecretReference `json:"secretRef,omitempty"`
+}
+
+// TemplateSecretReference defines a reference to a Kubernetes Secret for use in Templates.
+// The secret must exist in the same namespace as the Template.
+type TemplateSecretReference struct {
+	// Name is the name of the secret in the same namespace as the Template.
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // TemplateStatus defines the observed state of Template.
