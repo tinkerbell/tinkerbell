@@ -211,10 +211,6 @@ type NetworkInterface struct {
 	// +optional
 	IPAM *IPAM `json:"ipam,omitempty"`
 
-	// Isoboot configuration.
-	// +optional
-	Isoboot *Isoboot `json:"isoboot,omitempty"`
-
 	// Netboot configuration.
 	// +optional
 	Netboot *Netboot `json:"netboot,omitempty"`
@@ -222,13 +218,13 @@ type NetworkInterface struct {
 
 // DHCP is the DHCP configuration for a network interface.
 type DHCP struct {
-	// V4 is the options for serving DHCPv4 requests.
+	// IPv4 is the options for serving dhcpv4 requests.
 	// +optional
-	V4 *DHCPv4 `json:"v4,omitempty"`
+	IPv4 *DHCPv4 `json:"ipv4,omitempty"`
 
-	// V6 is the options for serving DHCPv6 requests.
+	// IPv6 is the options for serving dhcpv6 requests.
 	// +optional
-	V6 *DHCPv6 `json:"v6,omitempty"`
+	IPv6 *DHCPv6 `json:"ipv6,omitempty"`
 }
 
 // DHCPv4 describes basic network configuration to be served in DHCPv4 responses.
@@ -372,10 +368,10 @@ type DHCPv6 struct {
 
 // IPAM IP address management info.
 type IPAM struct {
-	// IPv4 is the IPv4 address and associated network data.
+	// IPv4 is the IPv4 address and associated network info.
 	IPv4 *IP `json:"ipv4,omitempty"`
 
-	// IPv6 is the IPv6 address and associated network data.
+	// IPv6 is the IPv6 address and associated network info.
 	IPv6 *IP `json:"ipv6,omitempty"`
 }
 
@@ -394,15 +390,6 @@ type IP struct {
 	Prefix string `json:"prefix,omitempty"`
 }
 
-// Isoboot configuration for booting a client using an ISO image.
-type Isoboot struct {
-	// SourceISO is the source url where HookOS, an Operating System Installation Environment (OSIE), ISO lives.
-	// It must be a valid url.URL{} object and must have a url.URL{}.Scheme of HTTP or HTTPS.
-	// +optional
-	// +kubebuilder:validation:Format=uri
-	SourceISO string `json:"sourceISO,omitempty"`
-}
-
 // Netboot configuration.
 type Netboot struct {
 	// Disabled indicates that netbooting should not be enabled for this interface.
@@ -413,12 +400,20 @@ type Netboot struct {
 	// IPXE configuration.
 	// +optional
 	IPXE *IPXE `json:"ipxe,omitempty"`
+
+	// PXELINUX configuration.
+	// +optional
+	PXELINUX *PXELINUX `json:"pxelinux,omitempty"`
+
+	// RPI (Raspberry Pi) configuration.
+	// +optional
+	RPI *RPI `json:"rpi,omitempty"`
 }
 
 // IPXE configuration.
 // +kubebuilder:validation:XValidation:rule="!(has(self.script) && self.script != \"\" && has(self.url) && self.url != \"\")",message="script and url are mutually exclusive"
 type IPXE struct {
-	// Binary, when defined, overrides Smee's default mapping of architecture to iPXE binary.
+	// Binary, when defined, overrides the default mapping of architecture to iPXE binary.
 	// The following binary names are supported:
 	// - undionly.kpxe
 	// - ipxe.efi
@@ -431,6 +426,7 @@ type IPXE struct {
 	// Script, when defined, overrides the Tinkerbell iPXE script.
 	// Must start with: #!ipxe
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == '' || self.startsWith('#!ipxe')",message="script must start with '#!ipxe'"
 	Script string `json:"script,omitempty"`
 
 	// URL, when defined, overrides the Tinkerbell iPXE script and uses iPXE's chainloading capabilities
@@ -441,19 +437,73 @@ type IPXE struct {
 
 // OSIE (Operating System Installation Environment) configuration.
 type OSIE struct {
-	// InitrdURL is a URL to an initrd image.
+	// InitrdURL, when defined, overrides the default initrd URL.
 	// +optional
 	InitrdURL string `json:"initrdURL,omitempty"`
 
-	// KernelParams passed to the kernel command line when launching the OSIE.
+	// ISOURL, when defined, overrides is the default source URL where the Operating System Installation Environment (OSIE) ISO lives.
+	// It must be a valid URL and must have a Scheme of HTTP or HTTPS.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == '' || (isURL(self) && url(self).getScheme() in ['http','https'])",message="isoURL must be a valid http or https URL"
+	ISOURL string `json:"isoURL,omitempty"`
+
+	// KernelParams, when defined, overrides the default kernel parameters passed to the kernel command line when launching the OSIE.
 	// Typically they will be in the format "key=value" and align with the Linux Kernel
 	// and OSIE documentation, but they can be any string.
 	// +optional
 	KernelParams []string `json:"kernelParams,omitempty"`
 
-	// KernelURL is a URL to a kernel image.
+	// KernelURL, when defined, overrides the default URL to a kernel image.
 	// +optional
 	KernelURL string `json:"kernelURL,omitempty"`
+}
+
+// PXELINUX represents PXELinux configuration, for u-boot "pxelinux.cfg" booting.
+// This is used to instruct Tinkerbell's TFTP serve to serve out certain files for PXELinux booting.
+// The main pxelinux.cfg asset (in "extlinux" format; see u-boot's distroboot and bootstd docs) is
+// generated on the fly from a template defined in PXELINUX struct.
+// Other assets (eg, vmlinuz, initramfs, dtb) are served from a filesystem path defined in Tinkerbell configuration,
+type PXELINUX struct {
+	// Config, when defined, overrides the default PXELinux config to use for generating the pxelinux.cfg file.
+	// It should be in "extlinux" format, as per u-boot's distroboot and bootstd documentation.
+	Config string `json:"config,omitempty"`
+}
+
+// RPI represents Raspberry Pi network boot configuration.
+// The RaspberryPi's EEPROM firmware can do its own network booting, without u-boot (PXELinux) or iPXE involved.
+// It does so by prefixing requests to certain filenames with the Pi's serial number.
+// Such serial number is NOT related to the MAC address, and is unique to each Pi.
+// The firmware will send requests to "<PiSerialNum>/start4.elf" to get 2nd-stage firmware, then for
+// "<PiSerialNum>/config.txt", and "<PiSerialNum>/cmdline.txt" when doing network booting.
+// config.txt and cmdline.txt will come directly from the Hardware data,
+// while everything else (eg all binaries) will be served after a PiSerialNum -> FirmwareURIPath mapping.
+// All this depends on being able to find the Hardware via an IP-address lookup; no lookups are done vs the PiSerialNum.
+// https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#TFTP_PREFIX
+type RPI struct {
+	// ConfigTxt, when defined, overrides the default Raspberry Pi config.txt file content.
+	// When not specified, a default config.txt will be used.
+	// +optional
+	ConfigTxt string `json:"configTxt,omitempty"`
+
+	// FirmwarePath, when defined, overrides the default path to firmware files.
+	// This must be coordinated with where Tinkerbell serves Raspberry Pi firmware files. See the Tinkerbell docs for details.
+	//
+	// This is an internal URI rewrite. The Raspberry Pi will always request files from the TFTPPrefix.
+	// This field defines a common backend location for the generic firmware files, which will be used for all other files and binaries.
+	// A Raspberry Pi will still request all files from the TFTPPrefix, but Tinkerbell will serve files from FirmwarePath when the request path starts with the Pi's serial number.
+	// For example, if FirmwarePath is set to "captainos/rpi-firmware", then a request for "<PiSerialNum>/start4.elf" will be served from "rpi-firmware/start4.elf" in Tinkerbell's filesystem.
+	// There are 3 main purposes for this:
+	// 1. avoid having to duplicate firmware files for each Raspberry Pi.
+	// 2. allow each Hardware object to specify a different set of firmware files if needed.
+	// 3. decouple generic firmware files from the, optionally defined, hardware specific config.txt and cmdline.txt files.
+	// +optional
+	FirmwarePath string `json:"firmwarePath,omitempty"`
+
+	// SerialNum is the Raspberry Pi's serial number.
+	// This can be the full serial number or just the last 8 characters.
+	// To use any of the fields in the RPI struct, SerialNum must be specified to allow Tinkerbell to associate this configuration with the correct Raspberry Pi.
+	// +required
+	SerialNum string `json:"serialNum"`
 }
 
 // References represents builtin and additional reference maps.

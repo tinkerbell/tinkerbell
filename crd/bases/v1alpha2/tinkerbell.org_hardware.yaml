@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.0
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     clusterctl.cluster.x-k8s.io: ""
     clusterctl.cluster.x-k8s.io/move: ""
@@ -150,18 +150,29 @@ spec:
                       configuration.
                     properties:
                       initrdURL:
-                        description: InitrdURL is a URL to an initrd image.
+                        description: InitrdURL, when defined, overrides the default
+                          initrd URL.
                         type: string
+                      isoURL:
+                        description: |-
+                          ISOURL, when defined, overrides is the default source URL where the Operating System Installation Environment (OSIE) ISO lives.
+                          It must be a valid URL and must have a Scheme of HTTP or HTTPS.
+                        type: string
+                        x-kubernetes-validations:
+                        - message: isoURL must be a valid http or https URL
+                          rule: self == '' || (isURL(self) && url(self).getScheme()
+                            in ['http','https'])
                       kernelParams:
                         description: |-
-                          KernelParams passed to the kernel command line when launching the OSIE.
+                          KernelParams, when defined, overrides the default kernel parameters passed to the kernel command line when launching the OSIE.
                           Typically they will be in the format "key=value" and align with the Linux Kernel
                           and OSIE documentation, but they can be any string.
                         items:
                           type: string
                         type: array
                       kernelURL:
-                        description: KernelURL is a URL to a kernel image.
+                        description: KernelURL, when defined, overrides the default
+                          URL to a kernel image.
                         type: string
                     type: object
                   sshKeys:
@@ -221,8 +232,8 @@ spec:
                     dhcp:
                       description: DHCP is the DHCP configuration for this interface.
                       properties:
-                        v4:
-                          description: V4 is the options for serving DHCPv4 requests.
+                        ipv4:
+                          description: IPv4 is the options for serving dhcpv4 requests.
                           properties:
                             bootFileName:
                               description: |-
@@ -323,8 +334,8 @@ spec:
                             rule: (has(self.tftpServerName) && self.tftpServerName
                               != "") == (has(self.bootFileName) && self.bootFileName
                               != "")
-                        v6:
-                          description: V6 is the options for serving DHCPv6 requests.
+                        ipv6:
+                          description: IPv6 is the options for serving dhcpv6 requests.
                           properties:
                             bootFileParams:
                               description: BootFileParams are parameters for the boot
@@ -400,7 +411,7 @@ spec:
                       properties:
                         ipv4:
                           description: IPv4 is the IPv4 address and associated network
-                            data.
+                            info.
                           properties:
                             address:
                               description: Address is the unique network address.
@@ -418,7 +429,7 @@ spec:
                           type: object
                         ipv6:
                           description: IPv6 is the IPv6 address and associated network
-                            data.
+                            info.
                           properties:
                             address:
                               description: Address is the unique network address.
@@ -435,16 +446,6 @@ spec:
                               type: string
                           type: object
                       type: object
-                    isoboot:
-                      description: Isoboot configuration.
-                      properties:
-                        sourceISO:
-                          description: |-
-                            SourceISO is the source url where HookOS, an Operating System Installation Environment (OSIE), ISO lives.
-                            It must be a valid url.URL{} object and must have a url.URL{}.Scheme of HTTP or HTTPS.
-                          format: uri
-                          type: string
-                      type: object
                     netboot:
                       description: Netboot configuration.
                       properties:
@@ -458,7 +459,7 @@ spec:
                           properties:
                             binary:
                               description: |-
-                                Binary, when defined, overrides Smee's default mapping of architecture to iPXE binary.
+                                Binary, when defined, overrides the default mapping of architecture to iPXE binary.
                                 The following binary names are supported:
                                 - undionly.kpxe
                                 - ipxe.efi
@@ -471,6 +472,9 @@ spec:
                                 Script, when defined, overrides the Tinkerbell iPXE script.
                                 Must start with: #!ipxe
                               type: string
+                              x-kubernetes-validations:
+                              - message: script must start with '#!ipxe'
+                                rule: self == '' || self.startsWith('#!ipxe')
                             url:
                               description: |-
                                 URL, when defined, overrides the Tinkerbell iPXE script and uses iPXE's chainloading capabilities
@@ -481,6 +485,46 @@ spec:
                           - message: script and url are mutually exclusive
                             rule: '!(has(self.script) && self.script != "" && has(self.url)
                               && self.url != "")'
+                        pxelinux:
+                          description: PXELINUX configuration.
+                          properties:
+                            config:
+                              description: |-
+                                Config, when defined, overrides the default PXELinux config to use for generating the pxelinux.cfg file.
+                                It should be in "extlinux" format, as per u-boot's distroboot and bootstd documentation.
+                              type: string
+                          type: object
+                        rpi:
+                          description: RPI (Raspberry Pi) configuration.
+                          properties:
+                            configTxt:
+                              description: |-
+                                ConfigTxt, when defined, overrides the default Raspberry Pi config.txt file content.
+                                When not specified, a default config.txt will be used.
+                              type: string
+                            firmwarePath:
+                              description: |-
+                                FirmwarePath, when defined, overrides the default path to firmware files.
+                                This must be coordinated with where Tinkerbell serves Raspberry Pi firmware files. See the Tinkerbell docs for details.
+
+                                This is an internal URI rewrite. The Raspberry Pi will always request files from the TFTPPrefix.
+                                This field defines a common backend location for the generic firmware files, which will be used for all other files and binaries.
+                                A Raspberry Pi will still request all files from the TFTPPrefix, but Tinkerbell will serve files from FirmwarePath when the request path starts with the Pi's serial number.
+                                For example, if FirmwarePath is set to "captainos/rpi-firmware", then a request for "<PiSerialNum>/start4.elf" will be served from "rpi-firmware/start4.elf" in Tinkerbell's filesystem.
+                                There are 3 main purposes for this:
+                                1. avoid having to duplicate firmware files for each Raspberry Pi.
+                                2. allow each Hardware object to specify a different set of firmware files if needed.
+                                3. decouple generic firmware files from the, optionally defined, hardware specific config.txt and cmdline.txt files.
+                              type: string
+                            serialNum:
+                              description: |-
+                                SerialNum is the Raspberry Pi's serial number.
+                                This can be the full serial number or just the last 8 characters.
+                                To use any of the fields in the RPI struct, SerialNum must be specified to allow Tinkerbell to associate this configuration with the correct Raspberry Pi.
+                              type: string
+                          required:
+                          - serialNum
+                          type: object
                       type: object
                   type: object
                 description: NetworkInterfaces defines the desired DHCP and netboot

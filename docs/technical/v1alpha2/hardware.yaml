@@ -37,6 +37,7 @@ spec:
             dhcp4: false
     osie:
       initrdURL: "http://192.168.3.4:8080/my-custominitrd"
+      isoURL: "https://github.com/tinkerbell/hook/releases/download/v0.11.1/hook-latest-lts-x86_64-efi-initrd.iso"
       kernelParams:
         - "console=ttyS2"
       kernelURL: "http://192.168.3.4:8080/my-custom-vmlinuz"
@@ -78,7 +79,7 @@ spec:
   networkInterfaces:
     "52:54:00:41:05:c6":
       dhcp:
-        v4:
+        ipv4:
           disabled: false
           bootFileName: "ztp.json"
           classlessStaticRoutes:
@@ -97,7 +98,7 @@ spec:
             - "204.197.163.71"
           tftpServerName: "192.168.2.2"
           vlanID: "110"
-        v6:
+        ipv6:
           disabled: false
           nameservers:
             - "2001:4860:4860::8888"
@@ -121,8 +122,6 @@ spec:
           address: "2001:db8:1:1::"
           gateway: "fe80::1"
           prefix: "64"
-      isoboot:
-        sourceISO: "https://github.com/tinkerbell/hook/releases/download/v0.11.1/hook-latest-lts-x86_64-efi-initrd.iso"
       netboot:
         disabled: false
         ipxe:
@@ -132,6 +131,38 @@ spec:
             dhcp
             chain --autofree https://boot.netboot.xyz
           # url: "https://boot.netboot.xyz"
+        pxelinux:
+          config: |
+            DEFAULT linux
+            LABEL linux
+              KERNEL http://example.com/vmlinuz
+              APPEND initrd=http://example.com/initrd.img console=ttyS2
+        rpi:
+          serialNum: "9ffefdef"
+          configTxt: |
+            sha256=0
+            uart_2ndstage=1
+            gpu_mem=16
+            kernel=kernel8.img
+            initramfs initramfs8 followkernel
+            cmdline=cmdline.txt
+            arm_64bit=1
+            arm_boost=1
+            enable_uart=1
+            dtoverlay=disable-bt
+            dtoverlay=disable-wifi
+            avoid_warnings=2
+            dtoverlay=vc4-kms-v3d,noaudio
+            [pi4]
+            gpu_mem=64
+            dtoverlay=vc4-kms-v3d-pi4,noaudio
+            [pi5]
+            dtoverlay=vc4-kms-v3d-pi5,noaudio
+            [all]
+            hdmi_safe=1
+          firmwarePath: "captain-armbian-rpi/firmware-rpi"
+          tftpPrefix: custom
+          tftpPrefixCustom: "my-custom-prefix/"
   references:
     additional:
       "registryCert":
