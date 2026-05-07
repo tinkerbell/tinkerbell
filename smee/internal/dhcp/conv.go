@@ -272,6 +272,21 @@ func toNetbootData(i *v1alpha1.Netboot, facility string) (*Netboot, error) {
 		n.OSIE.Initrd = i.OSIE.Initrd
 	}
 
+	// PXELINUX data
+	n.PXELINUX = PXELINUX{}
+	if i.PXELINUX != nil {
+		n.PXELINUX.Template = i.PXELINUX.Template
+	}
+
+	// RPi-Netboot data
+	n.RPiNetboot = RPiNetboot{}
+	if i.RPiNetboot != nil {
+		n.RPiNetboot.PiSerialNum = i.RPiNetboot.PiSerialNum
+		n.RPiNetboot.AssetRewrite = i.RPiNetboot.AssetRewrite
+		n.RPiNetboot.ConfigTxtTemplate = i.RPiNetboot.ConfigTxtTemplate
+		n.RPiNetboot.CmdlineTxtTemplate = i.RPiNetboot.CmdlineTxtTemplate
+	}
+
 	return n, nil
 }
 

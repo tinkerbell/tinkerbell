@@ -240,6 +240,44 @@ spec:
                             kernel:
                               type: string
                           type: object
+                        pxelinux:
+                          description: |-
+                            PXELINUX represents PXELinux configuration, for u-boot "pxelinux.cfg" booting.
+                            This is used to instruct Smee's TFTP serve to serve out certain files for PXELinux booting.
+                            The main pxelinux.cfg asset (in "extlinux" format; see u-boot's distroboot and bootstd docs) is
+                            generated on the fly from a template defined in PXELINUX struct.
+                            Other assets (eg, vmlinuz, initramfs, dtb) are served from a filesystem path defined in Smee's configuration,
+                          properties:
+                            template:
+                              description: |-
+                                Template is the PXELinux template to use for generating the pxelinux.cfg file.
+                                It should be in "extlinux" format, as per u-boot's distroboot and bootstd documentation.
+                              type: string
+                          type: object
+                        rpiNetboot:
+                          description: |-
+                            RPiNetboot represents Raspberry Pi network boot configuration.
+                            The RaspberryPi's EEPROM firmware can do its own network booting, without u-boot (PXELinux) or iPXE involved.
+                            It does so by prefixing requests to certain filenames with the Pi's serial number.
+                            Such serial number is NOT related to the MAC address, and is unique to each Pi.
+                            The firmware will send requests to "<PiSerialNum>/start4.elf" to get 2nd-stage fw, then for
+                            "<PiSerialNum>/config.txt", and "<PiSerialNum>/cmdline.txt" when doing network booting.
+                            The idea here is that config.txt and cmdline.txt will come directly from the Hardware data,
+                            while everything else (eg all binaries) will be served after a PiSerialNum -> AssetRewrite mapping.
+                            All this depends on being able to find the Hardware via an IP-address lookup; no lookups are done vs the PiSerialNum.
+                          properties:
+                            assetRewrite:
+                              type: string
+                            cmdlineTxtTemplate:
+                              type: string
+                            configTxtTemplate:
+                              type: string
+                            piSerialNum:
+                              type: string
+                          required:
+                          - assetRewrite
+                          - piSerialNum
+                          type: object
                       type: object
                   type: object
                 type: array
