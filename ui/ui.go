@@ -240,6 +240,9 @@ func (c *Config) Handler(log logr.Logger) (http.Handler, error) {
 		protected.GET("/", func(c *gin.Context) {
 			webhttp.HandleDashboard(c, log)
 		})
+		protected.GET("/dashboard-data", func(c *gin.Context) {
+			webhttp.HandleDashboardData(c, log)
+		})
 
 		// Hardware routes
 		protected.GET("/hardware", func(c *gin.Context) {

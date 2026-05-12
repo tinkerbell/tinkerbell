@@ -1,0 +1,54 @@
+---
+apiVersion: tinkerbell.org/v1alpha2
+kind: BMC
+metadata:
+  name: example
+  namespace: tinkerbell
+  annotations:
+    tinkerbell.org/disabled: "machine is under maintenance"
+spec:
+  connection:
+    host: 0.0.0.0
+    authRef:
+      name: bm-auth
+      namespace: tinkerbell
+    insecureTLS: false
+    #providerOptions:
+    #  preferredOrder:
+    #    - "redfish"
+    #    - "ipmitool"
+    #  redfish:
+    #    port: 443
+    #    useBasicAuth: false
+    #    systemName: "System.Embedded.1"
+    #  ipmitool:
+    #    port: 623
+    #    cipherSuite: "3"
+    #  intelAMT:
+    #    port: 16992
+    #    hostScheme: "http"
+    #  rpc:
+    #    consumerURL: "https://rpc-consumer.example.com"
+    #    logNotificationsDisabled: false
+    #    request:
+    #      httpContentType: "application/json"
+    #      httpMethod: "POST"
+    #      staticHeaders:
+    #        X-Custom-Header:
+    #          - "custom-value"
+    #      timestampFormat: "2006-01-02T15:04:05Z07:00"
+    #      timestampHeader: "X-BMCLIB-Timestamp"
+    #    signature:
+    #      headerName: "X-BMCLIB-Signature"
+    #      appendAlgoToHeaderDisabled: false
+    #      includedPayloadHeaders:
+    #        - "X-BMCLIB-Timestamp"
+    #    hmac:
+    #      prefixSigDisabled: false
+    #      secrets:
+    #        sha256:
+    #          - name: "hmac-secret"
+    #            namespace: "tinkerbell"
+    #    experimental:
+    #      customRequestPayload: '{"custom": "payload"}'
+    #      dotPath: "object.data.body"
