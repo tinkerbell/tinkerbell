@@ -12,6 +12,7 @@ env:
   IMAGE: ghcr.io/${{ github.repository }}
   CGO_ENABLED: 0
   GO_VERSION: "1.26"
+  GOLANGCI_LINT_VERSION: "v2.11.2"
 
 jobs:
   validation:
@@ -39,6 +40,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
             ${{ runner.os }}-go-
+
+      - name: Restore golangci-lint cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/golangci-lint
+          key: ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GO_VERSION }}-${{ hashFiles('.golangci.yml', '**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GO_VERSION }}-${{ hashFiles('.golangci.yml', '**/go.sum') }}
+            ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GO_VERSION }}-${{ hashFiles('.golangci.yml') }}
+            ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GO_VERSION }}-
+            ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-
 
       - name: Fix no space errors and Fetch Deps
         run: |
@@ -68,6 +80,14 @@ jobs:
         run: |
           find ~/.cache/go-build -type f -mmin +90 -delete
 
+      - name: Trim golangci-lint cache
+        if: ${{ github.ref == 'refs/heads/main' }}
+        shell: bash
+        # Mirror the Go cache trim: drop entries not touched during this run
+        # to keep the saved cache from growing unbounded across merges.
+        run: |
+          find ~/.cache/golangci-lint -type f -mmin +90 -delete || true
+
       - name: Set Go cache date
         shell: bash
         run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
@@ -82,6 +102,14 @@ jobs:
             ~/.cache/go-build
           # Save to eg Linux-go-$hash-YYYY-MM-DD to keep the cache fresh
           key: "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}"
+
+      - name: Save golangci-lint cache
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.cache/golangci-lint
+          # Date suffix mirrors the Go cache strategy so the entry rolls daily.
+          key: ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GO_VERSION }}-${{ hashFiles('.golangci.yml', '**/go.sum') }}-${{ env.GO_CACHE_DATE }}
 
   validate-helm-chart:
     runs-on: ubuntu-latest
