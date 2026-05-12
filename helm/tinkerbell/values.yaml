@@ -251,6 +251,7 @@ optional:
       app: hookos # this value is deprecated and will be updated to "osie" in a future release.
     service:
       annotations: {}
+      labels: {}
       lbClass: "kube-vip.io/kube-vip-class"
       loadBalancerIP: ""
       type: LoadBalancer
