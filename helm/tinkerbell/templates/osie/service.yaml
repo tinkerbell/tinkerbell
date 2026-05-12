@@ -12,6 +12,10 @@ kind: Service
 metadata:
   labels:
     app: {{ include "tinkerbell.osie.name" . }}
+    {{- $labels := include "tinkerbell.osie.service.labels" . }}
+    {{- if $labels }}
+    {{- $labels | nindent 4 }}
+    {{- end }}
   name: {{ include "tinkerbell.osie.name" . }}
   namespace: {{ .Release.Namespace | quote }}
   annotations:

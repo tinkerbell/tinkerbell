@@ -150,3 +150,12 @@ if at least one map value is non-nil before using it.
 {{- .Values.optional.osie.service.annotations | toYaml -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "tinkerbell.osie.service.labels" -}}
+{{- $hookLabels := dig "hookos" "service" "labels" nil .Values.optional -}}
+{{- if and (not (kindIs "invalid" $hookLabels)) (gt (len $hookLabels) 0) -}}
+{{- $hookLabels | toYaml -}}
+{{- else if gt (len .Values.optional.osie.service.labels) 0 -}}
+{{- .Values.optional.osie.service.labels | toYaml -}}
+{{- end -}}
+{{- end -}}
