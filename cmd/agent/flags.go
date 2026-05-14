@@ -137,4 +137,5 @@ func RegisterDockerRuntimeFlags(c *config, fs *flag.FlagSet) {
 func RegisterContainerdRuntimeFlags(c *config, fs *flag.FlagSet) {
 	fs.StringVar(&c.Options.Runtime.Containerd.Namespace, "containerd-namespace", "tinkerbell", "Containerd namespace")
 	fs.StringVar(&c.Options.Runtime.Containerd.SocketPath, "containerd-socket", "/run/containerd/containerd.sock", "Containerd socket path")
+	fs.StringVar(&c.Options.Runtime.Containerd.DataRoot, "containerd-data-root", "/var/lib/nerdctl", "Root directory for nerdctl-compatible per-container state (json-file logs read by `nerdctl logs`)")
 }
