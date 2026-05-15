@@ -299,6 +299,16 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      # `make image` / `make image-agent` depend on `third-party-licenses`,
+      # which invokes `go-licenses` (and transitively `go list`). Go must be
+      # at least the version declared in go.mod (>= 1.25.7) or `go list`
+      # rejects the module.
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+          cache: false
+
       - name: Download binaries
         uses: actions/download-artifact@v8
         with:
@@ -354,6 +364,16 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `make build-push-image{,-agent}` depend on `third-party-licenses`,
+      # which invokes `go-licenses` (and transitively `go list`). Go must be
+      # at least the version declared in go.mod (>= 1.25.7) or `go list`
+      # rejects the module.
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+          cache: false
 
       - name: Download binaries
         uses: actions/download-artifact@v8
