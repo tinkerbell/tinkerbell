@@ -1,0 +1,19 @@
+# FOSSA CLI v3 configuration.
+# Schema: https://github.com/fossas/fossa-cli/blob/master/docs/references/files/fossa-yml.md
+#
+# Per-issue license ignores, denied/flagged license categorization, and
+# CVE suppressions are managed in the FOSSA web UI under Project Settings
+# (Ignore Rules) and Policies. This file only narrows which manifests in
+# the repository are analyzed so that out-of-scope or duplicate dependency
+# graphs do not surface as noise in this project's scan.
+
+version: 3
+
+paths:
+  exclude:
+    # Build and tooling scratch directories. Nothing here is shipped, and
+    # the contents (downloaded binaries, generated bundles such as
+    # out/THIRD_PARTY_LICENSES-linux-*) are not manifests we want FOSSA to
+    # interpret as projects.
+    - out
+    - tmp
