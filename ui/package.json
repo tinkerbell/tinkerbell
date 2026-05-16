@@ -1,7 +1,7 @@
 {
   "dependencies": {
-    "@tailwindcss/cli": "4.2.0",
-    "tailwindcss": "4.2.0"
+    "@tailwindcss/cli": "4.3.0",
+    "tailwindcss": "4.3.0"
   },
   "overrides": {
     "picomatch": "^4.0.4"
