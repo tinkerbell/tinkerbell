@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -14,6 +15,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 )
+
+var errNoCompatibleDrivers = errors.New("no compatible BMC providers found")
 
 // ClientFunc defines a func that returns a bmclib.Client.
 type ClientFunc func(ctx context.Context, log logr.Logger, hostIP, username, password string, opts *BMCOptions) (*bmclib.Client, error)
@@ -36,8 +39,9 @@ func NewClientFunc(timeout time.Duration) ClientFunc {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 
-		if opts != nil && opts.ProviderOptions != nil && len(opts.PreferredOrder) > 0 {
-			client.Registry.Drivers = client.Registry.PreferDriver(toStringSlice(opts.PreferredOrder)...)
+		if err := prepareClientForOpen(ctx, client, opts); err != nil {
+			log.Info("Failed to prepare BMC client", "error", err)
+			return nil, err
 		}
 		if err := client.Open(ctx); err != nil {
 			md := client.GetMetadata()
@@ -50,6 +54,19 @@ func NewClientFunc(timeout time.Duration) ClientFunc {
 
 		return client, nil
 	}
+}
+
+func prepareClientForOpen(ctx context.Context, client *bmclib.Client, opts *BMCOptions) error {
+	if opts != nil && opts.ProviderOptions != nil && len(opts.PreferredOrder) > 0 {
+		client.Registry.Drivers = client.Registry.PreferDriver(toStringSlice(opts.PreferredOrder)...)
+	}
+
+	client.FilterForCompatible(ctx)
+	if len(client.Registry.Drivers) == 0 {
+		return errNoCompatibleDrivers
+	}
+
+	return nil
 }
 
 type BMCOptions struct {
