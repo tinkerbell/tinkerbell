@@ -13,7 +13,7 @@ require (
 	github.com/containerd/containerd/v2 v2.2.3
 	github.com/containerd/go-cni v1.1.13
 	github.com/containers/image/v5 v5.36.2
-	github.com/diskfs/go-diskfs v1.9.2
+	github.com/diskfs/go-diskfs v1.9.3
 	github.com/distribution/reference v0.6.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/felixge/httpsnoop v1.0.4
@@ -54,7 +54,7 @@ require (
 	golang.org/x/sys v0.44.0
 	golang.org/x/text v0.37.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260406210006-6f92a3bedf2d
-	google.golang.org/grpc v1.81.0
+	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.34.3
