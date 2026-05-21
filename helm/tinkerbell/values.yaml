@@ -188,6 +188,7 @@ rbac:
   secrets:
     enabled: true
 service:
+  enabled: true
   annotations: {}
   labels:
     app: tinkerbell
