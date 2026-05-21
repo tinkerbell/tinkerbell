@@ -10,7 +10,7 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5
 	github.com/ccoveille/go-safecast/v2 v2.0.0
 	github.com/cenkalti/backoff/v5 v5.0.3
-	github.com/containerd/containerd/v2 v2.2.3
+	github.com/containerd/containerd/v2 v2.2.4
 	github.com/containerd/go-cni v1.1.13
 	github.com/containers/image/v5 v5.36.2
 	github.com/diskfs/go-diskfs v1.9.3
