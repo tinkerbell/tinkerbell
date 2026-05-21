@@ -139,6 +139,7 @@ func TestParseVolume(t *testing.T) {
 			}
 			if got == nil {
 				t.Fatalf("parseVolume(%q) = nil, want %+v", tt.volume, tt.want)
+				return
 			}
 			if got.Type != tt.want.Type {
 				t.Errorf("Type = %q, want %q", got.Type, tt.want.Type)
