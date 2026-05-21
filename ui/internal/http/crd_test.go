@@ -43,6 +43,7 @@ func TestGetDashboardData_TinkerbellCRDs(t *testing.T) {
 
 	if tinkerbellGroup == nil {
 		t.Fatal("tinkerbell.org group not found")
+		return
 	}
 
 	// Check expected CRD kinds exist
@@ -73,6 +74,7 @@ func TestGetDashboardData_BMCCRDs(t *testing.T) {
 
 	if bmcGroup == nil {
 		t.Fatal("bmc.tinkerbell.org group not found")
+		return
 	}
 
 	// Check expected CRD kinds exist
@@ -484,6 +486,7 @@ func TestGetWorkflowSchemaFields_TasksHaveActions(t *testing.T) {
 
 	if tasksField == nil {
 		t.Fatal("tasks field not found")
+		return
 	}
 
 	// Look for actions field in task children
@@ -497,6 +500,7 @@ func TestGetWorkflowSchemaFields_TasksHaveActions(t *testing.T) {
 
 	if actionsField == nil {
 		t.Fatal("actions field not found in task schema")
+		return
 	}
 
 	if !actionsField.Required {
