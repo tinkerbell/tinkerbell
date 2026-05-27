@@ -1,6 +1,7 @@
 /*
-https://github.com/equinix-labs/otel-init-go
-Copyright [yyyy] [name of copyright owner]
+Adapted from https://github.com/equinix-labs/otel-init-go
+Copyright 2021 Equinix, Inc.
+Copyright The Tinkerbell Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

@@ -1,3 +1,23 @@
+/*
+Copyright The containerd Authors.
+Copyright The Tinkerbell Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Portions of this file are adapted from github.com/containerd/nerdctl,
+which is licensed under the Apache License, Version 2.0.
+*/
+
 package containerd
 
 import (
@@ -6,6 +26,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"syscall"
 	"time"
@@ -95,6 +116,9 @@ type Config struct {
 	Log        logr.Logger
 	SocketPath string
 	CNI        gocni.CNI
+	// DataRoot is the on-disk root used for nerdctl-compatible per-container
+	// state (the json-file logs that `nerdctl logs` reads).
+	DataRoot string
 }
 
 type Opt func(*Config)
@@ -117,11 +141,18 @@ func WithSocketPath(socketPath string) Opt {
 	}
 }
 
+func WithDataRoot(dataRoot string) Opt {
+	return func(c *Config) {
+		c.DataRoot = dataRoot
+	}
+}
+
 func NewConfig(log logr.Logger, opts ...Opt) (*Config, error) {
 	c := &Config{
 		Log:        log,
 		Namespace:  defaultNamespace,
 		SocketPath: defaultSocketPath,
+		DataRoot:   defaultDataRoot,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -229,12 +260,34 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 		}
 	}()
 
+	// Compute the per-container log directory and json-file path. nerdctl
+	// reads these locations directly (it does NOT consult the
+	// nerdctl/log-uri label), so they must match its conventions exactly
+	// for `nerdctl logs <id>` to work.
+	dataStore, err := dataStoreDir(c.DataRoot, c.SocketPath)
+	if err != nil {
+		return fmt.Errorf("failed to compute data store: %w", err)
+	}
+
 	// create a container
-	tainer, hostname, err := c.createContainer(ctx, image, a, useHostNetwork, df)
+	tainer, hostname, err := c.createContainer(ctx, image, a, useHostNetwork, df, dataStore)
 	if err != nil {
 		return fmt.Errorf("error creating container: %w", err)
 	}
+	// success is flipped to true at the single happy-path return below.
+	// The deferred cleanups below key off it: on failure we retain the
+	// container (and its rootfs snapshot + on-disk log directory) so an
+	// operator can run `nerdctl --namespace tinkerbell ps -a / inspect /
+	// logs <id>` and then `nerdctl rm <id>` to reclaim everything. CNI and
+	// DNS scratch state are always cleaned up because they leak host
+	// resources rather than debug value.
+	success := false
 	defer func() {
+		if !success {
+			c.Log.Info("action failed, retaining container for debugging (clean up with `nerdctl rm`)",
+				"container", tainer.ID(), "namespace", c.Namespace)
+			return
+		}
 		dctx, cancel := context.WithTimeout(namespaces.WithNamespace(context.Background(), c.Namespace), 10*time.Second)
 		if err := tainer.Delete(dctx, containerd.WithSnapshotCleanup); err != nil {
 			c.Log.Info("failed to delete container", "container", tainer.ID(), "error", err)
@@ -249,9 +302,45 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 		c.Log.Error(err, "failed to set container hostname in DNS files")
 	}
 
-	// create the task
-	task, err := tainer.NewTask(ctx, cio.NewCreator(cio.WithStdio))
+	containerID := tainer.ID()
+
+	// Write log-config.json so `nerdctl logs` selects the json-file driver.
+	logDir := containerLogDir(dataStore, c.Namespace, containerID)
+	if err := writeLogConfig(logDir, c.SocketPath); err != nil {
+		return fmt.Errorf("failed to write log-config.json: %w", err)
+	}
+
+	// Open the json-file log writer pair and tee container stdout/stderr
+	// into both the json-file (for `nerdctl logs`) and tink-agent's own
+	// stdout/stderr (which are forwarded via syslog to tink-server).
+	logPair, err := newJSONLogPair(containerLogFile(dataStore, c.Namespace, containerID))
 	if err != nil {
+		return fmt.Errorf("failed to open container log file: %w", err)
+	}
+	// Closed below, after task.Delete, so io copy goroutines drain first.
+
+	// On success, remove the per-container log directory so we don't
+	// accumulate state on long-lived hosts. On failure (or context
+	// cancellation) we deliberately keep the directory so operators can run
+	// `nerdctl logs <id>` for post-mortem. Registered BEFORE the task defer
+	// so it runs AFTER it (LIFO): the log file must be closed and flushed
+	// before the directory is removed.
+	defer func() {
+		if success {
+			if err := os.RemoveAll(logDir); err != nil {
+				c.Log.Info("failed to remove container log directory", "dir", logDir, "error", err)
+			}
+		}
+	}()
+
+	// create the task
+	task, err := tainer.NewTask(ctx, cio.NewCreator(cio.WithStreams(
+		nil,
+		io.MultiWriter(os.Stdout, logPair.Stdout),
+		io.MultiWriter(os.Stderr, logPair.Stderr),
+	)))
+	if err != nil {
+		_ = logPair.Close()
 		return fmt.Errorf("error creating task: %w", err)
 	}
 	defer func() {
@@ -263,10 +352,14 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 			c.Log.V(1).Info("task deleted", "task", task.ID(), "status", status)
 		}
 		cancel()
+		// Flush + close the log file AFTER task.Delete so the cio copy
+		// goroutines have finished writing.
+		if err := logPair.Close(); err != nil {
+			c.Log.Info("failed to close container log file", "error", err)
+		}
 	}()
 
 	// Setup CNI networking if not using host network
-	containerID := tainer.ID()
 	c.Log.V(1).Info("network configuration", "useHostNetwork", useHostNetwork, "cniAvailable", c.CNI != nil, "networkNamespace", a.Namespaces.Network)
 	if !useHostNetwork && c.CNI != nil {
 		netns := fmt.Sprintf("/proc/%d/ns/net", task.Pid())
@@ -308,6 +401,7 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 		if exitStatus.ExitCode() != 0 {
 			return fmt.Errorf("task exited with non-zero code: %d, error: %w", exitStatus.ExitCode(), exitStatus.Error())
 		}
+		success = true
 		return nil
 	case <-ctx.Done():
 		// Context was cancelled; kill the task and wait for it to exit.
@@ -322,7 +416,7 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	}
 }
 
-func (c *Config) createContainer(ctx context.Context, image containerd.Image, action spec.Action, useHostNetwork bool, df *dnsFiles) (containerd.Container, string, error) {
+func (c *Config) createContainer(ctx context.Context, image containerd.Image, action spec.Action, useHostNetwork bool, df *dnsFiles, dataStore string) (containerd.Container, string, error) {
 	newOpts := []containerd.NewContainerOpts{}
 	specOpts := []oci.SpecOpts{
 		oci.WithImageConfig(image), // Loads ENTRYPOINT and CMD from image
@@ -382,8 +476,16 @@ func (c *Config) createContainer(ctx context.Context, image containerd.Image, ac
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate container ID: %w", err)
 	}
-	snapshotName := conv.ParseName(action.ID, action.Name)
-	newOpts = append(newOpts, containerd.WithNewSnapshot(snapshotName, image))
+	// displayName is the human-readable name surfaced to operators (NAMES
+	// column in `nerdctl ps`, .Name in `nerdctl inspect`). snapshotID is
+	// the on-disk snapshot identifier, suffixed with the first 8 chars of
+	// the container ID so retried actions (which reuse action.ID) don't
+	// collide on the snapshot name when an earlier failed attempt's
+	// container has been retained for debugging. Keeping these distinct
+	// preserves a stable display name across retries.
+	displayName := conv.ParseName(action.ID, action.Name)
+	snapshotID := displayName + "-" + containerID[:8]
+	newOpts = append(newOpts, containerd.WithNewSnapshot(snapshotID, image))
 
 	// Compute the container hostname. For host-network containers, use the
 	// host's real hostname; for isolated-network containers, use the first
@@ -402,16 +504,36 @@ func (c *Config) createContainer(ctx context.Context, image containerd.Image, ac
 	specOpts = append(specOpts, oci.WithHostname(hostname))
 	newOpts = append(newOpts, containerd.WithNewSpec(specOpts...))
 
-	// Set container labels so nerdctl can display container metadata correctly.
-	// - nerdctl/name: human-readable name shown in the NAMES column of nerdctl ps.
-	// - nerdctl/extraHosts: custom host-to-IP mappings (--add-host); empty for
-	//   tink-agent containers but must be set to "[]" so nerdctl inspect shows
-	//   an empty array instead of null.
-	// - nerdctl/hostname: the container hostname, used by nerdctl inspect.
+	// Container labels. Verified against nerdctl main: pkg/cmd/container/
+	// {logs,remove,inspect}.go, pkg/logging/log_viewer.go, pkg/ocihook/
+	// ocihook.go, pkg/containerutil/container_network_manager.go.
+	//
+	// Required for `nerdctl logs`:
+	//   - nerdctl/namespace: read into LogViewOptions.Namespace; an empty
+	//     namespace fails Validate() with "log viewing options require a
+	//     ContainerID and Namespace". The log driver itself is selected
+	//     from log-config.json on disk (see writeLogConfig), NOT a label.
+	//
+	// Required for `nerdctl rm` to clean up our per-container log dir:
+	//   - nerdctl/state-dir: nerdctl rm does os.RemoveAll(labels[state-dir]).
+	//
+	// Required because nerdctl json.Unmarshals it unconditionally:
+	//   - nerdctl/extraHosts: ocihook and container_network_manager parse
+	//     this as JSON; missing/empty would trip the OCI hook with a json
+	//     error. "[]" is the safe minimum.
+	//
+	// Cosmetic (surfaced by `nerdctl ps` / `nerdctl inspect` only):
+	//   - nerdctl/name:     NAMES column in `ps`; Name in `inspect`.
+	//   - nerdctl/hostname: Config.Hostname in `inspect`.
+	//   - nerdctl/log-uri:  HostConfig.LogConfig.LogURI in `inspect`. NOT
+	//     read by `nerdctl logs` (driver comes from log-config.json).
 	labels := map[string]string{
-		"nerdctl/name":       snapshotName,
+		"nerdctl/namespace":  c.Namespace,
+		"nerdctl/name":       displayName,
 		"nerdctl/extraHosts": "[]",
 		"nerdctl/hostname":   hostname,
+		"nerdctl/log-uri":    "json-file://" + containerLogFile(dataStore, c.Namespace, containerID),
+		"nerdctl/state-dir":  containerLogDir(dataStore, c.Namespace, containerID),
 	}
 	newOpts = append(newOpts, containerd.WithContainerLabels(labels))
 

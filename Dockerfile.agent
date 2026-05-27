@@ -9,4 +9,9 @@ ARG TARGETARCH
 
 COPY out/tink-agent-${TARGETOS}-${TARGETARCH} /tink-agent
 COPY --from=ca-certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# Apache 2.0 section 4(d) attribution: ship the project LICENSE and the
+# generated third-party license bundle for compiled-in Go modules. Generate
+# the bundle with `make third-party-licenses` before building the image.
+COPY LICENSE /usr/share/doc/tinkerbell/LICENSE
+COPY out/THIRD_PARTY_LICENSES-${TARGETOS}-${TARGETARCH} /usr/share/doc/tinkerbell/THIRD_PARTY_LICENSES
 ENTRYPOINT [ "/tink-agent" ]

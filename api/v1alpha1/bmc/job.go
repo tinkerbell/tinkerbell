@@ -140,9 +140,10 @@ func FormatTaskName(job Job, n int) string {
 	return fmt.Sprintf("%s-task-%d", job.Name, n)
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=jobs,scope=Namespaced,categories=tinkerbell,singular=job,shortName=j
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:resource:path=jobs,scope=Namespaced,categories=tinkerbell,singular=job,shortName=j
 
 // Job is the Schema for the bmcjobs API.
 type Job struct {

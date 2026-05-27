@@ -40,13 +40,14 @@ HELM_REPO_NAME ?= ghcr.io/tinkerbell/charts
 ########### Tools variables ###########
 # Tool versions
 GOIMPORT_VER           := latest
-CONTROLLER_GEN_VERSION := v0.20.0
+CONTROLLER_GEN_VERSION := v0.21.0
 BUF_VERSION            := v1.56.0
 PROTOC_GEN_GO_GRPC_VER := v1.5.1  # must be in sync with the version in buf.gen.yaml
 PROTOC_GEN_GO_VER      := v1.36.7 # must be in sync with the version in buf.gen.yaml
 UPX_VER 			   := 4.2.4
 GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
 GOLANGCI_LINT_VERSION  := v2.11.2
+GO_LICENSES_VER        := v2.0.1
 
 
 # Tool fully qualified paths (FQP)
@@ -58,11 +59,13 @@ PROTOC_GEN_GO_GRPC_FQP := $(TOOLS_DIR)/protoc-gen-go-grpc-$(PROTOC_GEN_GO_GRPC_V
 PROTOC_GEN_GO_FQP := $(TOOLS_DIR)/protoc-gen-go-$(PROTOC_GEN_GO_VER)
 UPX_FQP := $(TOOLS_DIR)/upx-$(UPX_VER)-$(LOCAL_ARCH)
 GODEPGRAPH_FQP := $(TOOLS_DIR)/godepgraph-$(GODEPGRAPH_VER)
+GO_LICENSES_FQP := $(TOOLS_DIR)/go-licenses-$(GO_LICENSES_VER)
 #######################################
 ######### Container images variable #########
 # `?=` will only set the variable if it is not already set by the environment
 IMAGE_NAME       ?= tinkerbell/tinkerbell:latest
 IMAGE_NAME_AGENT ?= tinkerbell/tink-agent:latest
+DOCKER_CACHE_FROM ?=
 #############################################
 
 all: help
@@ -85,6 +88,10 @@ endif
 test: ## Run go test
 	CGO_ENABLED=1 go test -race -coverprofile=coverage.txt -covermode=atomic -v ${TEST_ARGS} ${TEST_PKGS}
 
+.PHONY: test-api
+test-api: ## Run go test for API
+	(cd api; CGO_ENABLED=1 go test -race -coverprofile=coverage-api.txt -covermode=atomic -v ${TEST_ARGS} ${TEST_PKGS})
+
 .PHONY: vet
 vet: ## Run go vet
 	go vet ./...
@@ -98,10 +105,16 @@ FILE_TO_NOT_INCLUDE_IN_COVERAGE := script/version/main.go|*.pb.go|zz_generated.d
 
 .PHONY: coverage
 coverage: test ## Show test coverage
-## Filter out generated files
+	## Filter out generated files
 	cat coverage.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > coverage.out
 	go tool cover -func=coverage.out
 	mv coverage.out coverage.txt
+
+.PHONY: coverage-api
+coverage-api: test-api ## Show API test coverage
+	## Filter out generated files
+	cat api/coverage-api.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > api/coverage-api.out
+	go tool cover -func=api/coverage-api.out
 
 .PHONY: ci-checks
 ci-checks: $(GOIMPORTS_FQP) ./script/ci-checks.sh ## Run the ci-checks.sh script
@@ -118,11 +131,12 @@ generated_go_files := \
 		smee/internal/syslog/facility_string.go \
 		smee/internal/syslog/severity_string.go \
 
-generate-go: $(generated_go_files) ## Run Go's generate command
-smee/internal/syslog/facility_string.go: smee/internal/syslog/message.go
-smee/internal/syslog/severity_string.go: smee/internal/syslog/message.go
+generate-go: out/.generate-go.stamp ## Run Go's generate command
+$(generated_go_files): out/.generate-go.stamp
+out/.generate-go.stamp: $(GOIMPORTS_FQP) smee/internal/syslog/message.go
 	go generate -run=".*_string.go" ./...
 	$(GOIMPORTS_FQP) -w .
+	@touch $@
 
 TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
 
@@ -171,24 +185,39 @@ out/tink-agent: $(AGENT_SOURCES) ## Compile Tink Agent for the current architect
 
 cross-compile-agent: $(crossbinaries-agent) ## Compile Tink Agent for all architectures
 
-.PHONY: generate-proto
-generate-proto: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) ## Generate code from proto files.
+PROTO_SOURCES := $(shell find pkg/proto -name '*.proto')
+
+generate-proto: out/.generate-proto.stamp ## Generate code from proto files.
+out/.generate-proto.stamp: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) $(PROTO_SOURCES) buf.gen.yaml buf.yaml
 	$(BUF_FQP) generate
 	$(MAKE) fmt
+	@touch $@
 
 # Kubernetes CRD generation
-.PHONY: manifests
-manifests: $(CONTROLLER_GEN_FQP) ## Generate WebhookConfiguration and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=crd/bases
-	$(MAKE) fmt
+V1ALPHA1_API_SOURCES := $(shell find api/v1alpha1 -name '*.go' -not -name 'zz_generated*')
+V1ALPHA2_API_SOURCES := $(shell find api/v1alpha2 -name '*.go' -not -name 'zz_generated*')
 
-.PHONY: generate
-generate: $(CONTROLLER_GEN_FQP) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+manifests-v1alpha1: out/.manifests-v1alpha1.stamp ## Generate v1alpha1 CRDs
+out/.manifests-v1alpha1.stamp: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES)
+	(cd api/v1alpha1; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha1)
+	@touch $@
+
+manifests-v1alpha2: out/.manifests-v1alpha2.stamp ## Generate v1alpha2 CRDs
+out/.manifests-v1alpha2.stamp: $(CONTROLLER_GEN_FQP) $(V1ALPHA2_API_SOURCES)
+	(cd api/v1alpha2; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha2)
+	@touch $@
+
+manifests: manifests-v1alpha1 manifests-v1alpha2 ## Generate all CRDs
+
+generate-deepcopy: out/.generate-deepcopy.stamp ## Generate DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+out/.generate-deepcopy.stamp: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES) $(V1ALPHA2_API_SOURCES) script/boilerplate.go.txt
 	$(CONTROLLER_GEN_FQP) object:headerFile="script/boilerplate.go.txt" paths="./..."
 	$(MAKE) fmt
+	@touch $@
 
-.PHONY: generate-all
-generate-all: generate generate-proto generate-go ui-generate manifests ## Run all code generation steps
+generate: out/.generate.stamp ## Run all code generation steps
+out/.generate.stamp: out/.generate-deepcopy.stamp out/.generate-proto.stamp out/.generate-go.stamp out/.ui-generate.stamp out/.manifests-v1alpha1.stamp out/.manifests-v1alpha2.stamp
+	@touch $@
 
 .PHONY: dep-graph
 dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
@@ -223,20 +252,20 @@ prepare-buildx: ## Prepare the buildx environment.
 	docker buildx create --name tinkerbell-multiarch --use --driver docker-container || true
 
 .PHONY: image
-image: cross-compile ## Build the Tinkerbell container image
-	docker build -t $(IMAGE_NAME) -f Dockerfile.tinkerbell .
+image: cross-compile third-party-licenses ## Build the Tinkerbell container image
+	docker build $(if $(DOCKER_CACHE_FROM),--cache-from $(DOCKER_CACHE_FROM)) -t $(IMAGE_NAME) -f Dockerfile.tinkerbell .
 
 .PHONY: build-push-image
-build-push-image: ## Build and push the container image for both Amd64 and Arm64 architectures.
-	docker buildx build --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
+build-push-image: third-party-licenses ## Build and push the container image for both Amd64 and Arm64 architectures.
+	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
 
 .PHONY: image-agent
-image-agent: cross-compile-agent ## Build the Tink Agent container image
-	docker build -t $(IMAGE_NAME_AGENT) -f Dockerfile.agent .
+image-agent: cross-compile-agent third-party-licenses ## Build the Tink Agent container image
+	docker build $(if $(DOCKER_CACHE_FROM),--cache-from $(DOCKER_CACHE_FROM)) -t $(IMAGE_NAME_AGENT) -f Dockerfile.agent .
 
 .PHONY: build-push-image-agent
-build-push-image-agent: ## Build and push the container image for both Amd64 and Arm64 architectures.
-	docker buildx build --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME_AGENT):$(VERSION) -t $(IMAGE_NAME_AGENT):latest -f Dockerfile.agent .
+build-push-image-agent: third-party-licenses ## Build and push the container image for both Amd64 and Arm64 architectures.
+	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME_AGENT):$(VERSION) -t $(IMAGE_NAME_AGENT):latest -f Dockerfile.agent .
 
 ######### Build container images - end   #########
 
@@ -254,6 +283,9 @@ clean-tools: ## Remove all tools
 
 .PHONY: clean-all
 clean-all: clean clean-agent clean-tools ## Remove all binaries and tools
+	rm -f out/.manifests-v1alpha1.stamp out/.manifests-v1alpha2.stamp
+	rm -f out/.generate-deepcopy.stamp out/.generate-proto.stamp out/.generate-go.stamp
+	rm -f out/.ui-install-deps.stamp out/.ui-templ.stamp out/.ui-css.stamp out/.ui-generate.stamp out/.generate.stamp
 
 ############## Tools ##############
 $(GOIMPORTS_FQP):
@@ -287,8 +319,55 @@ $(GODEPGRAPH_FQP):
 	GOBIN=$(TOOLS_DIR) go install github.com/kisielk/godepgraph@$(GODEPGRAPH_VER)
 	@mv $(TOOLS_DIR)/godepgraph $(GODEPGRAPH_FQP)
 
+$(GO_LICENSES_FQP):
+	GOBIN=$(TOOLS_DIR) go install github.com/google/go-licenses/v2@$(GO_LICENSES_VER)
+	@mv $(TOOLS_DIR)/go-licenses $(GO_LICENSES_FQP)
+
 .PHONY: tools
-tools: $(GOIMPORTS_FQP) $(CONTROLLER_GEN_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) $(BUF_FQP) $(UPX_FQP) $(GODEPGRAPH_FQP) ## Install all tools
+tools: $(GOIMPORTS_FQP) $(CONTROLLER_GEN_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) $(BUF_FQP) $(UPX_FQP) $(GODEPGRAPH_FQP) $(GO_LICENSES_FQP) ## Install all tools
+
+############## Third-party license bundle ##############
+# Collect LICENSE and NOTICE files for every Go module compiled into the
+# tinkerbell and tink-agent binaries, and concatenate them into a per-arch
+# THIRD_PARTY_LICENSES-linux-<arch> file. Apache 2.0 section 4(d) requires
+# that upstream NOTICE files travel with anything we distribute (container
+# images, release archives); other licenses (BSD, MIT, MPL, etc.) similarly
+# require that the license text and copyright notices be reproduced. The
+# Dockerfiles select the per-arch file matching ${TARGETARCH}, mirroring the
+# per-arch binary pattern in cross-compile / cross-compile-agent above, so
+# each shipped image carries exactly the licenses for the binary it contains.
+THIRD_PARTY_STAGE_DIR := out/third_party
+third_party_licenses := out/THIRD_PARTY_LICENSES-linux-amd64 out/THIRD_PARTY_LICENSES-linux-arm64
+
+.PHONY: third-party-licenses
+third-party-licenses: $(third_party_licenses) ## Generate per-arch third-party license bundles for compiled-in deps
+
+# Static pattern rule: one recipe builds out/THIRD_PARTY_LICENSES-linux-<arch>
+# for each arch listed above. $* is the arch (amd64|arm64). The bundle
+# generation logic lives in script/third_party_licenses.sh so it is
+# shellcheck-able and runnable standalone.
+#
+# Prereqs include $(LICENSE_BUNDLE_GO_SOURCES) (not just go.mod/go.sum)
+# because adding/removing imports or flipping `//go:build` tags can change
+# the set of modules compiled in without touching go.mod, which would
+# otherwise leave Make thinking a stale bundle is up to date.
+#
+# We use `git ls-files` instead of `find` because Make expands this at
+# parse time on every invocation (including unrelated targets), and the
+# git index lookup is effectively free (~ms) versus a full filesystem
+# walk. `git ls-files` also inherently honors .gitignore, so the staged
+# third-party sources this rule writes under out/ are excluded without
+# needing manual -not -path rules (which would otherwise cause a
+# self-triggering rebuild loop, since those files are newer than the
+# bundle on every subsequent run).
+LICENSE_BUNDLE_GO_SOURCES := $(shell git ls-files -- '*.go')
+$(third_party_licenses): out/THIRD_PARTY_LICENSES-linux-%: $(GO_LICENSES_FQP) go.mod go.sum script/third_party_licenses_header.txt script/third_party_licenses.sh $(LICENSE_BUNDLE_GO_SOURCES)
+	GO_TAGS="$(GO_TAGS)" script/third_party_licenses.sh \
+		$* $@ $(THIRD_PARTY_STAGE_DIR)/$* $(GO_LICENSES_FQP) script/third_party_licenses_header.txt
+
+.PHONY: clean-third-party-licenses
+clean-third-party-licenses: ## Remove the generated third-party license bundles
+	rm -rf $(THIRD_PARTY_STAGE_DIR) $(third_party_licenses)
 
 ############## Linting ##############
 .PHONY: lint

@@ -83,6 +83,10 @@ type ProviderOptions struct {
 	// RPC contains the options to customize the RPC provider.
 	// +optional
 	RPC *RPCOptions `json:"rpc,omitempty"`
+
+	// HomeAssistant contains the options to customize the HomeAssistant provider.
+	// +optional
+	HomeAssistant *HomeAssistantOptions `json:"homeassistant,omitempty"`
 }
 
 // Connection contains connection data for a Baseboard Management Controller.
@@ -179,9 +183,10 @@ func WithMachineConditionMessage(m string) MachineSetConditionOption {
 	}
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=machines,scope=Namespaced,categories=tinkerbell,singular=machine
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:resource:path=machines,scope=Namespaced,categories=tinkerbell,singular=machine
 // +kubebuilder:metadata:labels=clusterctl.cluster.x-k8s.io=
 // +kubebuilder:metadata:labels=clusterctl.cluster.x-k8s.io/move=
 

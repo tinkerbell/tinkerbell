@@ -2,7 +2,7 @@ package crd
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"errors"
 	"fmt"
 	"time"
@@ -19,26 +19,16 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-//go:embed bases/tinkerbell.org_hardware.yaml
-var HardwareCRD []byte
+//go:embed bases
+var crdFS embed.FS
 
-//go:embed bases/tinkerbell.org_templates.yaml
-var TemplateCRD []byte
-
-//go:embed bases/tinkerbell.org_workflows.yaml
-var WorkflowCRD []byte
-
-//go:embed bases/tinkerbell.org_workflowrulesets.yaml
-var WorkflowRuleSetCRD []byte
-
-//go:embed bases/bmc.tinkerbell.org_jobs.yaml
-var JobCRD []byte
-
-//go:embed bases/bmc.tinkerbell.org_machines.yaml
-var MachineCRD []byte
-
-//go:embed bases/bmc.tinkerbell.org_tasks.yaml
-var TaskCRD []byte
+func mustReadCRD(path string) []byte {
+	data, err := crdFS.ReadFile(path)
+	if err != nil {
+		panic(fmt.Sprintf("reading embedded CRD %s: %v", path, err))
+	}
+	return data
+}
 
 // Tinkerbell is the struct that holds the raw custom resource definitions
 // and a CRD client for operations.
@@ -50,31 +40,40 @@ type Tinkerbell struct {
 }
 
 const (
-	// HardwareCRDName is the name of the Hardware CRD.
-	HardwareCRDName = "hardware.tinkerbell.org"
-	// TemplateCRDName is the name of the Template CRD.
-	TemplateCRDName = "templates.tinkerbell.org"
-	// WorkflowCRDName is the name of the Workflow CRD.
-	WorkflowCRDName = "workflows.tinkerbell.org"
-	// WorkflowRuleSetCRDName is the name of the WorkflowRuleSet CRD.
-	WorkflowRuleSetCRDName = "workflowrulesets.tinkerbell.org"
-	// JobCRDName is the name of the Job CRD.
-	JobCRDName = "jobs.bmc.tinkerbell.org"
-	// MachineCRDName is the name of the Machine CRD.
-	MachineCRDName = "machines.bmc.tinkerbell.org"
-	// TaskCRDName is the name of the Task CRD.
-	TaskCRDName = "tasks.bmc.tinkerbell.org"
+	// GroupTinkerbell is the API group for core Tinkerbell resources.
+	GroupTinkerbell = "tinkerbell.org"
+	// GroupBMC is the API group for BMC resources.
+	GroupBMC = "bmc.tinkerbell.org"
 )
 
-// TinkerbellDefaults contains all the Tinkerbell CRDs.
+// AvailableVersions lists all supported CRD API versions.
+var AvailableVersions = []string{"v1alpha1", "v1alpha2"}
+
+// TinkerbellDefaults contains all the v1alpha1 Tinkerbell CRDs.
 var TinkerbellDefaults = map[string][]byte{
-	HardwareCRDName:        HardwareCRD,
-	TemplateCRDName:        TemplateCRD,
-	WorkflowCRDName:        WorkflowCRD,
-	WorkflowRuleSetCRDName: WorkflowRuleSetCRD,
-	JobCRDName:             JobCRD,
-	MachineCRDName:         MachineCRD,
-	TaskCRDName:            TaskCRD,
+	"hardware.tinkerbell.org":         mustReadCRD("bases/v1alpha1/tinkerbell.org_hardware.yaml"),
+	"templates.tinkerbell.org":        mustReadCRD("bases/v1alpha1/tinkerbell.org_templates.yaml"),
+	"workflows.tinkerbell.org":        mustReadCRD("bases/v1alpha1/tinkerbell.org_workflows.yaml"),
+	"workflowrulesets.tinkerbell.org": mustReadCRD("bases/v1alpha1/tinkerbell.org_workflowrulesets.yaml"),
+	"jobs.bmc.tinkerbell.org":         mustReadCRD("bases/v1alpha1/bmc.tinkerbell.org_jobs.yaml"),
+	"machines.bmc.tinkerbell.org":     mustReadCRD("bases/v1alpha1/bmc.tinkerbell.org_machines.yaml"),
+	"tasks.bmc.tinkerbell.org":        mustReadCRD("bases/v1alpha1/bmc.tinkerbell.org_tasks.yaml"),
+}
+
+// TinkerbellV1Alpha2 contains all the v1alpha2 Tinkerbell CRDs.
+var TinkerbellV1Alpha2 = map[string][]byte{
+	"hardware.tinkerbell.org":  mustReadCRD("bases/v1alpha2/tinkerbell.org_hardware.yaml"),
+	"tasks.tinkerbell.org":     mustReadCRD("bases/v1alpha2/tinkerbell.org_tasks.yaml"),
+	"bmcs.tinkerbell.org":      mustReadCRD("bases/v1alpha2/tinkerbell.org_bmcs.yaml"),
+	"workflows.tinkerbell.org": mustReadCRD("bases/v1alpha2/tinkerbell.org_workflows.yaml"),
+	"policies.tinkerbell.org":  mustReadCRD("bases/v1alpha2/tinkerbell.org_policies.yaml"),
+	"jobs.bmc.tinkerbell.org":  mustReadCRD("bases/v1alpha2/bmc.tinkerbell.org_jobs.yaml"),
+}
+
+// CRDsByVersion maps API version strings to their CRD source maps.
+var CRDsByVersion = map[string]map[string][]byte{
+	"v1alpha1": TinkerbellDefaults,
+	"v1alpha2": TinkerbellV1Alpha2,
 }
 
 // ConfigOption is a function that sets a configuration option.

@@ -28,6 +28,14 @@ const (
 
 	// AttributesAnnotation is the annotation key used to store agent attributes on any object.
 	AttributesAnnotation = "tinkerbell.org/agent-attributes"
+
+	// DisabledAnnotation is the annotation key used to indicate a resource is disabled.
+	// This is a master switch that works on Tinkerbell CRs; Hardware, Workflow, and BMC.
+	// The value is the reason for disabling.
+	// For Hardware, disabled means that the hardware is not available for provisioning, and will be ignored by auto-enrollment and any Workflow that references it.
+	// For Workflows, disabled means that the Workflow will not be executed.
+	// For BMCs, disabled means that no operations against the BMC will be attempted.
+	DisabledAnnotation = "tinkerbell.org/disabled"
 )
 
 // MACFormat is a format for a MAC address.

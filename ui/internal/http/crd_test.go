@@ -43,6 +43,7 @@ func TestGetDashboardData_TinkerbellCRDs(t *testing.T) {
 
 	if tinkerbellGroup == nil {
 		t.Fatal("tinkerbell.org group not found")
+		return
 	}
 
 	// Check expected CRD kinds exist
@@ -73,6 +74,7 @@ func TestGetDashboardData_BMCCRDs(t *testing.T) {
 
 	if bmcGroup == nil {
 		t.Fatal("bmc.tinkerbell.org group not found")
+		return
 	}
 
 	// Check expected CRD kinds exist
@@ -117,27 +119,36 @@ func TestKindToRoute(t *testing.T) {
 
 func TestKindDescriptions(t *testing.T) {
 	tests := []struct {
-		kind         string
+		key          string
 		wantNonEmpty bool
 	}{
-		{kind: "Hardware", wantNonEmpty: true},
-		{kind: "Workflow", wantNonEmpty: true},
-		{kind: "Template", wantNonEmpty: true},
-		{kind: "WorkflowRuleSet", wantNonEmpty: true},
-		{kind: "Job", wantNonEmpty: true},
-		{kind: "Machine", wantNonEmpty: true},
-		{kind: "Task", wantNonEmpty: true},
-		{kind: "Unknown", wantNonEmpty: false},
+		// v1alpha1
+		{key: "v1alpha1/Hardware", wantNonEmpty: true},
+		{key: "v1alpha1/Workflow", wantNonEmpty: true},
+		{key: "v1alpha1/Template", wantNonEmpty: true},
+		{key: "v1alpha1/WorkflowRuleSet", wantNonEmpty: true},
+		{key: "v1alpha1/Job", wantNonEmpty: true},
+		{key: "v1alpha1/Machine", wantNonEmpty: true},
+		{key: "v1alpha1/Task", wantNonEmpty: true},
+		// v1alpha2
+		{key: "v1alpha2/Hardware", wantNonEmpty: true},
+		{key: "v1alpha2/Task", wantNonEmpty: true},
+		{key: "v1alpha2/BMC", wantNonEmpty: true},
+		{key: "v1alpha2/Workflow", wantNonEmpty: true},
+		{key: "v1alpha2/Policy", wantNonEmpty: true},
+		{key: "v1alpha2/Job", wantNonEmpty: true},
+		// Unknown
+		{key: "v1alpha1/Unknown", wantNonEmpty: false},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.kind, func(t *testing.T) {
-			got := kindDescriptions[tt.kind]
+		t.Run(tt.key, func(t *testing.T) {
+			got := kindDescriptions[tt.key]
 			if tt.wantNonEmpty && got == "" {
-				t.Errorf("kindDescriptions[%q] is empty, want non-empty", tt.kind)
+				t.Errorf("kindDescriptions[%q] is empty, want non-empty", tt.key)
 			}
 			if !tt.wantNonEmpty && got != "" {
-				t.Errorf("kindDescriptions[%q] = %q, want empty", tt.kind, got)
+				t.Errorf("kindDescriptions[%q] = %q, want empty", tt.key, got)
 			}
 		})
 	}
@@ -475,6 +486,7 @@ func TestGetWorkflowSchemaFields_TasksHaveActions(t *testing.T) {
 
 	if tasksField == nil {
 		t.Fatal("tasks field not found")
+		return
 	}
 
 	// Look for actions field in task children
@@ -488,6 +500,7 @@ func TestGetWorkflowSchemaFields_TasksHaveActions(t *testing.T) {
 
 	if actionsField == nil {
 		t.Fatal("actions field not found in task schema")
+		return
 	}
 
 	if !actionsField.Required {

@@ -12,6 +12,7 @@ env:
   IMAGE: ghcr.io/${{ github.repository }}
   CGO_ENABLED: 0
   GO_VERSION: "1.26"
+  GOLANGCI_LINT_VERSION: "v2.11.2"
 
 jobs:
   validation:
@@ -39,6 +40,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
             ${{ runner.os }}-go-
+
+      - name: Restore golangci-lint cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/golangci-lint
+          key: ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GO_VERSION }}-${{ hashFiles('.golangci.yml', '**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GO_VERSION }}-${{ hashFiles('.golangci.yml', '**/go.sum') }}
+            ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GO_VERSION }}-${{ hashFiles('.golangci.yml') }}
+            ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GO_VERSION }}-
+            ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-
 
       - name: Fix no space errors and Fetch Deps
         run: |
@@ -68,6 +80,14 @@ jobs:
         run: |
           find ~/.cache/go-build -type f -mmin +90 -delete
 
+      - name: Trim golangci-lint cache
+        if: ${{ github.ref == 'refs/heads/main' }}
+        shell: bash
+        # Mirror the Go cache trim: drop entries not touched during this run
+        # to keep the saved cache from growing unbounded across merges.
+        run: |
+          find ~/.cache/golangci-lint -type f -mmin +90 -delete || true
+
       - name: Set Go cache date
         shell: bash
         run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
@@ -82,6 +102,14 @@ jobs:
             ~/.cache/go-build
           # Save to eg Linux-go-$hash-YYYY-MM-DD to keep the cache fresh
           key: "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}"
+
+      - name: Save golangci-lint cache
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.cache/golangci-lint
+          # Date suffix mirrors the Go cache strategy so the entry rolls daily.
+          key: ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GO_VERSION }}-${{ hashFiles('.golangci.yml', '**/go.sum') }}-${{ env.GO_CACHE_DATE }}
 
   validate-helm-chart:
     runs-on: ubuntu-latest
@@ -239,6 +267,66 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  build-container-images:
+    runs-on: ${{ matrix.runs-on }}
+    if: github.event_name == 'pull_request'
+    needs:
+      - validation
+      - build-binaries
+    strategy:
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            artifact_name: tinkerbell-binaries
+            make-target: image
+            cache_image: ghcr.io/tinkerbell/tinkerbell:latest
+          - runs-on: ubuntu-latest
+            artifact_name: tink-agent-binaries
+            make-target: image-agent
+            cache_image: ghcr.io/tinkerbell/tink-agent:latest
+          - runs-on: ubuntu-24.04-arm
+            artifact_name: tinkerbell-binaries
+            make-target: image
+            cache_image: ghcr.io/tinkerbell/tinkerbell:latest
+          - runs-on: ubuntu-24.04-arm
+            artifact_name: tink-agent-binaries
+            make-target: image-agent
+            cache_image: ghcr.io/tinkerbell/tink-agent:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # `make image` / `make image-agent` depend on `third-party-licenses`,
+      # which invokes `go-licenses` (and transitively `go list`). Go must be
+      # at least the version declared in go.mod (>= 1.25.7) or `go list`
+      # rejects the module.
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+          cache: false
+
+      - name: Download binaries
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ./out
+          merge-multiple: true
+      # Artifact upload doesn't preserve permissions so we need to fix them.
+      - name: Fix permissions
+        run: chmod +x out/*
+
+      - name: Pull cache image
+        run: docker pull ${{ matrix.cache_image }} || true
+
+      - name: Build container image
+        run: make ${{ matrix.make-target }}
+        env:
+          DOCKER_CACHE_FROM: ${{ matrix.cache_image }}
+
   build-publish-container-images:
     runs-on: ubuntu-latest
     if: |
@@ -276,6 +364,16 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `make build-push-image{,-agent}` depend on `third-party-licenses`,
+      # which invokes `go-licenses` (and transitively `go list`). Go must be
+      # at least the version declared in go.mod (>= 1.25.7) or `go list`
+      # rejects the module.
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+          cache: false
 
       - name: Download binaries
         uses: actions/download-artifact@v8

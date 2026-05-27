@@ -252,6 +252,7 @@ type DockerRuntime struct {
 type ContainerdRuntime struct {
 	Namespace  string
 	SocketPath string
+	DataRoot   string
 }
 
 // BackoffOptions holds the configuration for the backoff strategy.
@@ -325,6 +326,9 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 		}
 		if o.Runtime.Containerd.SocketPath != "" {
 			opts = append(opts, containerd.WithSocketPath(o.Runtime.Containerd.SocketPath))
+		}
+		if o.Runtime.Containerd.DataRoot != "" {
+			opts = append(opts, containerd.WithDataRoot(o.Runtime.Containerd.DataRoot))
 		}
 		cd, err := containerd.NewConfig(log, opts...)
 		if err != nil {
