@@ -15,7 +15,6 @@ require (
 	github.com/containers/image/v5 v5.36.2
 	github.com/diskfs/go-diskfs v1.9.3
 	github.com/distribution/reference v0.6.0
-	github.com/docker/docker v28.5.2+incompatible
 	github.com/felixge/httpsnoop v1.0.4
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-gonic/gin v1.12.0
@@ -28,6 +27,8 @@ require (
 	github.com/insomniacslk/dhcp v0.0.0-20260407060928-11b94ed970f2
 	github.com/jacobweinstock/registrar v0.4.7
 	github.com/jaypipes/ghw v0.24.0
+	github.com/moby/moby/api v1.54.2
+	github.com/moby/moby/client v0.4.1
 	github.com/nats-io/nats.go v1.52.0
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/opencontainers/image-spec v1.1.1
@@ -115,7 +116,8 @@ require (
 	github.com/cyphar/filepath-securejoin v0.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/djherbis/times v1.6.0 // indirect
-	github.com/docker/go-connections v0.5.0 // indirect
+	github.com/docker/docker v28.5.2+incompatible // indirect
+	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/elliotwutingfeng/asciiset v0.0.0-20260129054604-cfde2086bc57 // indirect
