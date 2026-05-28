@@ -65,7 +65,7 @@ func NewReconciler(c client.Client) *Reconciler {
 }
 
 func (r *Reconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, bmcClient ClientFunc, powerCheckInterval time.Duration, opts ctrlcontroller.Options) error {
-	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("machine-controller"), bmcClient, powerCheckInterval).SetupWithManager(mgr, opts); err != nil {
+	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorder("machine-controller"), bmcClient, powerCheckInterval).SetupWithManager(mgr, opts); err != nil {
 		return fmt.Errorf("unable to create Machines controller: %w", err)
 	}
 
