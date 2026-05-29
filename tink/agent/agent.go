@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
-	"github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/client"
 	"github.com/go-logr/logr"
+	"github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/client"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/attribute"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/containerd"
@@ -339,12 +339,11 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 	default:
 		opts := []client.Opt{
 			client.FromEnv,
-			client.WithAPIVersionNegotiation(),
 		}
 		if o.Runtime.Docker.SocketPath != "" {
 			opts = append(opts, client.WithHost(fmt.Sprintf("unix://%s", o.Runtime.Docker.SocketPath)))
 		}
-		dclient, err := client.NewClientWithOpts(opts...)
+		dclient, err := client.New(opts...)
 		if err != nil {
 			return fmt.Errorf("unable to create Docker client: %w", err)
 		}
