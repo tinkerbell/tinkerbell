@@ -29,7 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
@@ -38,7 +38,7 @@ import (
 // MachineReconciler reconciles a Machine object.
 type MachineReconciler struct {
 	client             client.Client
-	recorder           record.EventRecorder
+	recorder           events.EventRecorder
 	bmcClient          ClientFunc
 	powerCheckInterval time.Duration
 }
@@ -50,7 +50,7 @@ const (
 )
 
 // NewMachineReconciler returns a new MachineReconciler.
-func NewMachineReconciler(c client.Client, recorder record.EventRecorder, bmcClient ClientFunc, powerCheckInterval time.Duration) *MachineReconciler {
+func NewMachineReconciler(c client.Client, recorder events.EventRecorder, bmcClient ClientFunc, powerCheckInterval time.Duration) *MachineReconciler {
 	return &MachineReconciler{
 		client:             c,
 		recorder:           recorder,
@@ -178,7 +178,7 @@ func (r *MachineReconciler) updatePowerState(ctx context.Context, bm *bmc.Machin
 	rawState, err := bmcClient.GetPowerState(ctx)
 	if err != nil {
 		bm.Status.Power = bmc.Unknown
-		r.recorder.Eventf(bm, corev1.EventTypeWarning, "GetPowerStateFailed", "get power state: %v", err)
+		r.recorder.Eventf(bm, nil, corev1.EventTypeWarning, "GetPowerStateFailed", "GetPowerState", "get power state: %v", err)
 		return fmt.Errorf("get power state: %w", err)
 	}
 

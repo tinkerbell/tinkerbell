@@ -9,11 +9,10 @@ import (
 	"time"
 
 	retry "github.com/avast/retry-go/v4"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/client"
 	"github.com/go-logr/logr"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/client"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/pkg/conv"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 )
@@ -26,7 +25,7 @@ type Config struct {
 
 func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	pullImage := func() error {
-		pullOpts := image.PullOptions{}
+		pullOpts := client.ImagePullOptions{}
 
 		// Check if authentication should be used for this image
 		// Only apply auth to images from the exact registry that is configured for authentication
@@ -96,7 +95,11 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 
 	// TODO: Figure out container logging. We probably want to save it somewhere for debug-ability.
 
-	create, err := c.Client.ContainerCreate(ctx, &cfg, &hostCfg, nil, nil, containerName)
+	create, err := c.Client.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config:     &cfg,
+		HostConfig: &hostCfg,
+		Name:       containerName,
+	})
 	if err != nil {
 		return fmt.Errorf("error creating container: %w", err)
 	}
@@ -105,14 +108,14 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	defer func() {
 		// Force remove containers in an attempt to preserve space in memory constraints environments.
 		// In rare cases this may create orphaned volumes that the Docker CLI won't clean up.
-		opts := container.RemoveOptions{Force: true}
+		opts := client.ContainerRemoveOptions{Force: true}
 
 		// We can't use the context passed to Run() as it may have been cancelled so we use Background()
 		// instead.
 		// give the context 10 seconds to remove the container
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		err := c.Client.ContainerRemove(ctx, create.ID, opts)
+		_, err := c.Client.ContainerRemove(ctx, create.ID, opts)
 		if err != nil {
 			c.Log.Info("Couldn't remove container", "container_name", containerName, "error", err)
 		}
@@ -120,14 +123,14 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 
 	// Issue the wait with a 'next-exit' condition so we can await a response originating from
 	// ContainerStart().
-	waitBody, waitErr := c.Client.ContainerWait(ctx, create.ID, container.WaitConditionNextExit)
+	waitResult := c.Client.ContainerWait(ctx, create.ID, client.ContainerWaitOptions{Condition: container.WaitConditionNextExit})
 
-	if err := c.Client.ContainerStart(ctx, create.ID, container.StartOptions{}); err != nil {
+	if _, err := c.Client.ContainerStart(ctx, create.ID, client.ContainerStartOptions{}); err != nil {
 		return fmt.Errorf("error starting container: %w", err)
 	}
 
 	// Attach to the container's stdout and stderr streams and log them
-	attachResp, err := c.Client.ContainerAttach(ctx, create.ID, container.AttachOptions{
+	attachResp, err := c.Client.ContainerAttach(ctx, create.ID, client.ContainerAttachOptions{
 		Stream: true,
 		Stdout: true,
 		Stderr: true,
@@ -156,18 +159,18 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	}()
 
 	select {
-	case result := <-waitBody:
+	case result := <-waitResult.Result:
 		if result.StatusCode == 0 {
 			return nil
 		}
 		return fmt.Errorf("got non 0 exit status, see the logs for more information")
 
-	case err := <-waitErr:
+	case err := <-waitResult.Error:
 		return fmt.Errorf("error while waiting for container: %w", err)
 
 	case <-ctx.Done():
 		// We can't use the context passed to Run() as its been cancelled.
-		err := c.Client.ContainerStop(context.Background(), create.ID, container.StopOptions{
+		_, err := c.Client.ContainerStop(context.Background(), create.ID, client.ContainerStopOptions{
 			Timeout: toPtr(5),
 		})
 		if err != nil {
