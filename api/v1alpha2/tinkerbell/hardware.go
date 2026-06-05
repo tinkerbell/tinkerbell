@@ -194,6 +194,29 @@ type Instance struct {
 	Vendordata *string `json:"vendordata,omitempty"`
 }
 
+// OSIE (Operating System Installation Environment) configuration.
+type OSIE struct {
+	// InitrdURL, when defined, overrides the default initrd URL.
+	// +optional
+	InitrdURL string `json:"initrdURL,omitempty"`
+
+	// ISOURL, when defined, overrides is the default source URL where the Operating System Installation Environment (OSIE) ISO lives.
+	// It must be a valid URL and must have a Scheme of HTTP or HTTPS.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == '' || (isURL(self) && url(self).getScheme() in ['http','https'])",message="isoURL must be a valid http or https URL"
+	ISOURL string `json:"isoURL,omitempty"`
+
+	// KernelParams, when defined, overrides the default kernel parameters passed to the kernel command line when launching the OSIE.
+	// Typically they will be in the format "key=value" and align with the Linux Kernel
+	// and OSIE documentation, but they can be any string.
+	// +optional
+	KernelParams []string `json:"kernelParams,omitempty"`
+
+	// KernelURL, when defined, overrides the default URL to a kernel image.
+	// +optional
+	KernelURL string `json:"kernelURL,omitempty"`
+}
+
 // NetworkInterfaces maps a MAC address to a NetworkInterface.
 type NetworkInterfaces map[MAC]NetworkInterface
 
@@ -235,31 +258,6 @@ type DHCPv4 struct {
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`
 
-	// BootFileName is the boot file name. DHCP option 67.
-	// Used for explicit boot file configuration, required by some network boot clients
-	// like NVIDIA NVOS switches.
-	// If specified, TFTPServerName must also be specified.
-	// +optional
-	BootFileName string `json:"bootFileName,omitempty"`
-
-	// ClasslessStaticRoutes defines static routes to be sent via DHCP option 121 (RFC 3442).
-	// +optional
-	ClasslessStaticRoutes []ClasslessStaticRoute `json:"classlessStaticRoutes,omitempty"`
-
-	// DomainName to be written. DHCP option 15.
-	// +optional
-	DomainName string `json:"domainName,omitempty"`
-
-	// DomainSearchList defines DNS search suffixes via DHCP option 119 (RFC 3397).
-	// +optional
-	// +kubebuilder:validation:MaxItems=32
-	DomainSearchList []string `json:"domainSearchList,omitempty"`
-
-	// Hostname is DHCP option 12.
-	// +kubebuilder:validation:Pattern=`^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])$`
-	// +optional
-	Hostname *string `json:"hostname,omitempty"`
-
 	// LeaseTimeSeconds to serve. 24h default. Maximum equates to max uint32 as defined by RFC 2132
 	// § 9.2 (https://www.rfc-editor.org/rfc/rfc2132.html#section-9.2). DHCP option 51.
 	// +kubebuilder:default=86400
@@ -267,50 +265,7 @@ type DHCPv4 struct {
 	// +kubebuilder:validation:Maximum=4294967295
 	// +optional
 	LeaseTimeSeconds *int64 `json:"leaseTimeSeconds,omitempty"`
-
-	// Nameservers corresponding to DHCPv4 option 6.
-	// +optional
-	// +kubebuilder:validation:MaxItems=10
-	Nameservers []Nameserver `json:"nameservers,omitempty"`
-
-	// TFTPServerName is the TFTP server name or IP address. DHCP option 66.
-	// Used for explicit TFTP server configuration, required by some network boot clients
-	// like NVIDIA NVOS switches.
-	// If specified, BootFileName must also be specified.
-	// +optional
-	TFTPServerName string `json:"tftpServerName,omitempty"`
-
-	// NTPServers corresponding to DHCPv4 option 42 (RFC 2132 §8.3).
-	// +optional
-	// +kubebuilder:validation:MaxItems=10
-	NTPServers []Timeserver `json:"ntpServers,omitempty"`
-
-	// VLANID is a VLAN ID between 0 and 4096. DHCP option 43 suboption 116.
-	// +kubebuilder:validation:Pattern=`^(([0-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))(,[1-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))*)$`
-	// +optional
-	VLANID *string `json:"vlanID,omitempty"`
 }
-
-// ClasslessStaticRoute represents a classless static route for DHCP option 121 (RFC 3442).
-type ClasslessStaticRoute struct {
-	// DestinationDescriptor is the network address and prefix length.
-	// The format is "network/prefixlength", e.g., "192.168.1.0/24" or "10.0.0.0/8".
-	// +kubebuilder:validation:Pattern=`^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/(3[0-2]|[12]?[0-9])$`
-	DestinationDescriptor string `json:"destinationDescriptor"`
-	// Router is the IP address of the router for this route.
-	// +kubebuilder:validation:Pattern=`^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$`
-	Router string `json:"router"`
-}
-
-// Nameserver is an IPv4 address, IPv6 address, or hostname.
-// +kubebuilder:validation:MaxLength=253
-// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$|^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$|^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$`
-type Nameserver string
-
-// Timeserver is an IPv4 address, IPv6 address, or hostname.
-// +kubebuilder:validation:MaxLength=253
-// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$|^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$|^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$`
-type Timeserver string
 
 // DHCPv6 describes network configuration to be served in DHCPv6 responses.
 // The DHCPv6 protocol is client-driven: the client sends either an Information-Request
@@ -321,21 +276,6 @@ type DHCPv6 struct {
 	// When true, no DHCPv6 responses will be sent for this MAC address.
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`
-
-	// Nameservers to serve via DHCPv6 option 23 (RFC 3646). Must be valid IPv6 addresses.
-	// +optional
-	// +kubebuilder:validation:MaxItems=10
-	Nameservers []Nameserver `json:"nameservers,omitempty"`
-
-	// DomainSearchList to serve via DHCPv6 option 24 (RFC 3646).
-	// +optional
-	// +kubebuilder:validation:MaxItems=32
-	DomainSearchList []string `json:"domainSearchList,omitempty"`
-
-	// NTPServers to serve via DHCPv6 option 56 (RFC 5908). Must be valid IPv6 addresses.
-	// +optional
-	// +kubebuilder:validation:MaxItems=10
-	NTPServers []Timeserver `json:"ntpServers,omitempty"`
 
 	// InformationRefreshTime is the upper bound in seconds for how long a client should wait
 	// before refreshing information retrieved from DHCPv6. DHCPv6 option 32 (RFC 8415 §21.23).
@@ -355,18 +295,11 @@ type DHCPv6 struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	ValidLifetime *int64 `json:"validLifetime,omitempty"`
-
-	// BootFileURL is the URL for the boot file. DHCPv6 option 59 (RFC 5970).
-	// For example, "tftp://[2001:db8::1]/bootx64.efi".
-	// +optional
-	BootFileURL string `json:"bootFileURL,omitempty"`
-
-	// BootFileParams are parameters for the boot file. DHCPv6 option 60 (RFC 5970).
-	// +optional
-	BootFileParams []string `json:"bootFileParams,omitempty"`
 }
 
 // IPAM IP address management info.
+// +kubebuilder:validation:XValidation:rule="!has(self.ipv4) || !has(self.ipv4.classlessStaticRoutes) || self.ipv4.classlessStaticRoutes.all(r, isCIDR(r.destinationDescriptor) && cidr(r.destinationDescriptor).ip().family() == 4 && isIP(r.router) && ip(r.router).family() == 4)",message="ipv4.classlessStaticRoutes entries must use IPv4 addresses for both destinationDescriptor and router"
+// +kubebuilder:validation:XValidation:rule="!has(self.ipv6) || !has(self.ipv6.classlessStaticRoutes) || self.ipv6.classlessStaticRoutes.all(r, isCIDR(r.destinationDescriptor) && cidr(r.destinationDescriptor).ip().family() == 6 && isIP(r.router) && ip(r.router).family() == 6)",message="ipv6.classlessStaticRoutes entries must use IPv6 addresses for both destinationDescriptor and router"
 type IPAM struct {
 	// IPv4 is the IPv4 address and associated network info.
 	IPv4 *IP `json:"ipv4,omitempty"`
@@ -381,14 +314,67 @@ type IP struct {
 	// +kubebuilder:validation:MaxLength=45
 	Address string `json:"address,omitempty"`
 
+	// ClasslessStaticRoutes defines static routes to be sent via DHCP option 121 (RFC 3442) or for DHCPv6 these will be available for statically being configured.
+	// +optional
+	ClasslessStaticRoutes []ClasslessStaticRoute `json:"classlessStaticRoutes,omitempty"`
+
+	// DomainSearchList to serve via DHCPv6 option 24 (RFC 3646) and DHCPv4 option 15 (or 119) (RFC 3397). They must be listed in order of priority.
+	// +optional
+	// +kubebuilder:validation:MaxItems=32
+	DomainSearchList []string `json:"domainSearchList,omitempty"`
+
 	// Gateway is the default gateway address to serve.
 	// +kubebuilder:validation:MaxLength=45
 	Gateway string `json:"gateway,omitempty"`
 
+	// Hostname is DHCPv4 option 12 and DHCPv6 option 39. Must be a valid hostname as defined by RFC 952 and RFC 1123.
+	// +kubebuilder:validation:Pattern=`^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])$`
+	// +optional
+	Hostname *string `json:"hostname,omitempty"`
+
+	// Nameservers to serve for both DHCPv6 option 23 (RFC 3646) and DHCPv4 option 6 (RFC 2132). Must be valid IPv6 or IPv4 addresses.
+	// +optional
+	// +kubebuilder:validation:MaxItems=10
+	Nameservers []Nameserver `json:"nameservers,omitempty"`
+
+	// NTPServers corresponding to DHCPv4 option 42 (RFC 2132 §8.3) or DHCPv6 option 56 (RFC 5908). Must be valid IPv6 or IPv4 addresses.
+	// +optional
+	// +kubebuilder:validation:MaxItems=10
+	NTPServers []Timeserver `json:"ntpServers,omitempty"`
+
 	// Prefix is the subnet length.
 	// +kubebuilder:validation:MaxLength=3
 	Prefix string `json:"prefix,omitempty"`
+
+	// VLANID is a VLAN ID between 0 and 4096. DHCP option 43 suboption 116.
+	// +kubebuilder:validation:Pattern=`^(([0-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))(,[1-9][0-9]{0,2}|[1-3][0-9][0-9][0-9]|40([0-8][0-9]|9[0-6]))*)$`
+	// +optional
+	VLANID *string `json:"vlanID,omitempty"`
 }
+
+// ClasslessStaticRoute represents a classless static route for DHCP option 121 (RFC 3442) (IPv4)
+// or a static route exposed alongside DHCPv6 configuration for client-side configuration (IPv6).
+// The IP family of DestinationDescriptor and Router must match the parent IPAM field
+// (ipv4 or ipv6) they are nested under. This is enforced by CEL validation on the IPAM struct.
+type ClasslessStaticRoute struct {
+	// DestinationDescriptor is the network address and prefix length in CIDR form,
+	// e.g., "192.168.1.0/24" or "2001:db8::/64". Must be a valid IPv4 or IPv6 CIDR;
+	// the family must match the enclosing IPAM field (ipv4 or ipv6).
+	DestinationDescriptor string `json:"destinationDescriptor"`
+	// Router is the IP address of the router for this route. Must be a valid IPv4 or IPv6
+	// address; the family must match the enclosing IPAM field (ipv4 or ipv6).
+	Router string `json:"router"`
+}
+
+// Nameserver is an IPv4 address, IPv6 address, or hostname.
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$|^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$|^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$`
+type Nameserver string
+
+// Timeserver is an IPv4 address, IPv6 address, or hostname.
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$|^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$|^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$`
+type Timeserver string
 
 // Netboot configuration.
 type Netboot struct {
@@ -396,6 +382,14 @@ type Netboot struct {
 	// When true, no netboot options will be provided in DHCP and iPXE script requests will return 404.
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`
+
+	// IPv4 is the options specific for network booting via IPv4.
+	// +optional
+	IPv4 *Netbootv4 `json:"ipv4,omitempty"`
+
+	// IPv6 is the options specific for network booting via IPv6.
+	// +optional
+	IPv6 *Netbootv6 `json:"ipv6,omitempty"`
 
 	// IPXE configuration.
 	// +optional
@@ -408,6 +402,32 @@ type Netboot struct {
 	// RPI (Raspberry Pi) configuration.
 	// +optional
 	RPI *RPI `json:"rpi,omitempty"`
+}
+
+type Netbootv4 struct {
+	// BootFileName is the boot file name. DHCP option 67.
+	// Used for explicit boot file configuration, required by some network boot clients
+	// like NVIDIA NVOS switches.
+	// If specified, TFTPServerName must also be specified.
+	// +optional
+	BootFileName string `json:"bootFileName,omitempty"`
+
+	// TFTPServerName is the TFTP server name or IP address. DHCP option 66.
+	// Used for explicit TFTP server configuration, required by some network boot clients
+	// like NVIDIA NVOS switches.
+	// If specified, BootFileName must also be specified.
+	// +optional
+	TFTPServerName string `json:"tftpServerName,omitempty"`
+}
+type Netbootv6 struct {
+	// BootFileParams are parameters for the boot file. DHCPv6 option 60 (RFC 5970).
+	// +optional
+	BootFileParams []string `json:"bootFileParams,omitempty"`
+
+	// BootFileURL is the URL for the boot file. DHCPv6 option 59 (RFC 5970).
+	// For example, "tftp://[2001:db8::1]/bootx64.efi".
+	// +optional
+	BootFileURL string `json:"bootFileURL,omitempty"`
 }
 
 // IPXE configuration.
@@ -433,29 +453,6 @@ type IPXE struct {
 	// to download and run the script at the defined URL.
 	// +optional
 	URL string `json:"url,omitempty"`
-}
-
-// OSIE (Operating System Installation Environment) configuration.
-type OSIE struct {
-	// InitrdURL, when defined, overrides the default initrd URL.
-	// +optional
-	InitrdURL string `json:"initrdURL,omitempty"`
-
-	// ISOURL, when defined, overrides is the default source URL where the Operating System Installation Environment (OSIE) ISO lives.
-	// It must be a valid URL and must have a Scheme of HTTP or HTTPS.
-	// +optional
-	// +kubebuilder:validation:XValidation:rule="self == '' || (isURL(self) && url(self).getScheme() in ['http','https'])",message="isoURL must be a valid http or https URL"
-	ISOURL string `json:"isoURL,omitempty"`
-
-	// KernelParams, when defined, overrides the default kernel parameters passed to the kernel command line when launching the OSIE.
-	// Typically they will be in the format "key=value" and align with the Linux Kernel
-	// and OSIE documentation, but they can be any string.
-	// +optional
-	KernelParams []string `json:"kernelParams,omitempty"`
-
-	// KernelURL, when defined, overrides the default URL to a kernel image.
-	// +optional
-	KernelURL string `json:"kernelURL,omitempty"`
 }
 
 // PXELINUX represents PXELinux configuration, for u-boot "pxelinux.cfg" booting.
