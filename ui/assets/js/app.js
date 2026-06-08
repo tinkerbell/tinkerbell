@@ -472,41 +472,46 @@ document.addEventListener('DOMContentLoaded', () => {
 	updatePaginationURLs();
 
 	// Check all functionality
+	function updateSelectAllState() {
+		const selectAllMain = document.getElementById('selectAll');
+		const selectAllContent = document.getElementById('selectAllContent');
+		const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+		const allRowCheckboxes = document.querySelectorAll('.row-checkbox');
+
+		if (allRowCheckboxes.length === 0) return;
+
+		const allChecked = checkedBoxes.length === allRowCheckboxes.length;
+		const someChecked = checkedBoxes.length > 0;
+		
+		// Update both select all checkboxes
+		[selectAllMain, selectAllContent].forEach(selectAll => {
+			if (selectAll) {
+				selectAll.checked = allChecked;
+				selectAll.indeterminate = someChecked && !allChecked;
+			}
+		});
+	}
+	
+	function handleSelectAll(e) {
+		const isChecked = e.target.checked;
+		document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+			checkbox.checked = isChecked;
+		});
+		updateSelectAllState();
+	}
+
 	function setupCheckAllFunctionality() {
 		const selectAllMain = document.getElementById('selectAll');
 		const selectAllContent = document.getElementById('selectAllContent');
 		const rowCheckboxes = document.querySelectorAll('.row-checkbox');
 
-		function updateSelectAllState() {
-			const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
-			const allRowCheckboxes = document.querySelectorAll('.row-checkbox');
-			
-			if (allRowCheckboxes.length === 0) return;
-			
-			const allChecked = checkedBoxes.length === allRowCheckboxes.length;
-			const someChecked = checkedBoxes.length > 0;
-			
-			// Update both select all checkboxes
-			[selectAllMain, selectAllContent].forEach(selectAll => {
-				if (selectAll) {
-					selectAll.checked = allChecked;
-					selectAll.indeterminate = someChecked && !allChecked;
-				}
-			});
-		}
-
-		function handleSelectAll(e) {
-			const isChecked = e.target.checked;
-			document.querySelectorAll('.row-checkbox').forEach(checkbox => {
-				checkbox.checked = isChecked;
-			});
-		}
-
 		// Attach event listeners to select all checkboxes
 		if (selectAllMain) {
+			selectAllMain.removeEventListener('change', handleSelectAll);
 			selectAllMain.addEventListener('change', handleSelectAll);
 		}
 		if (selectAllContent) {
+			selectAllContent.removeEventListener('change', handleSelectAll);
 			selectAllContent.addEventListener('change', handleSelectAll);
 		}
 
