@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -146,4 +147,55 @@ func TestEmbeddedIPXERoute(t *testing.T) {
 			t.Fatal("expected nothing written")
 		}
 	})
+}
+
+// ---------- DiskAssetRoute ----------
+
+func TestDiskAssetRoute(t *testing.T) {
+	dir := t.TempDir()
+	body := "disk contents"
+	if err := os.WriteFile(filepath.Join(dir, "snp.efi"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := map[string]struct {
+		dir         string
+		filename    string
+		wantHandled bool
+		wantBody    string
+	}{
+		"empty dir passes through": {
+			dir:         "",
+			filename:    "snp.efi",
+			wantHandled: false,
+		},
+		"existing file served": {
+			dir:         dir,
+			filename:    "snp.efi",
+			wantHandled: true,
+			wantBody:    body,
+		},
+		"missing file passes through": {
+			dir:         dir,
+			filename:    "missing.bin",
+			wantHandled: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			r := DiskAssetRoute{Log: logr.Discard(), Dir: tt.dir}
+			w := &captureWriter{}
+			handled, err := r.TryServe(context.Background(), Request{Filename: tt.filename}, w)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if handled != tt.wantHandled {
+				t.Fatalf("handled=%v want=%v", handled, tt.wantHandled)
+			}
+			if tt.wantBody != "" && w.buf.String() != tt.wantBody {
+				t.Fatalf("body=%q want=%q", w.buf.String(), tt.wantBody)
+			}
+		})
+	}
 }
