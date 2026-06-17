@@ -1,7 +1,6 @@
 package binary
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pin/tftp/v3"
-	binary "github.com/tinkerbell/tinkerbell/smee/internal/ipxe/binary/file"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -27,8 +25,11 @@ type TFTP struct {
 	EnableTFTPSinglePort bool
 	Addr                 netip.AddrPort
 	Timeout              time.Duration
-	Patch                []byte
 	BlockSize            int
+	// Router dispatches each TFTP read request through its configured
+	// Routes in order. The caller is responsible for constructing the
+	// Router with the routes it wants to enable.
+	Router Router
 }
 
 // ListenAndServe will listen and serve iPXE binaries over TFTP.
@@ -55,7 +56,9 @@ func (h *TFTP) ListenAndServe(ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			h.Log.Error(err, "failed to close connection")
+		}
 		ts.Shutdown()
 	}()
 
@@ -100,33 +103,14 @@ func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
 	)
 	defer span.End()
 
-	content, ok := binary.Files[filepath.Base(shortfile)]
-	if !ok {
-		err := fmt.Errorf("file [%v] unknown: %w", filepath.Base(shortfile), os.ErrNotExist)
-		log.Error(err, "file unknown")
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
+	req := Request{Filename: full, Base: filepath.Base(shortfile), Client: client}
 
-	content, err = binary.Patch(content, h.Patch)
+	err = h.Router.Handle(ctx, req, rf)
 	if err != nil {
-		log.Error(err, "failed to patch binary")
+		log.Error(err, "request not handled")
 		span.SetStatus(codes.Error, err.Error())
-		return err
 	}
-
-	ct := bytes.NewReader(content)
-	b, err := rf.ReadFrom(ct)
-	if err != nil {
-		log.Error(err, "file serve failed", "b", b, "contentSize", len(content))
-		span.SetStatus(codes.Error, err.Error())
-
-		return err
-	}
-	log.Info("file served", "bytesSent", b, "contentSize", len(content))
-	span.SetStatus(codes.Ok, filename)
-
-	return nil
+	return err
 }
 
 // HandleWrite handles TFTP PUT requests. It will always return an error. This library does not support PUT.
