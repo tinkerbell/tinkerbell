@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/smee/internal/hardware"
 )
 
 // captureWriter is an io.ReaderFrom that buffers what is written to it,
@@ -24,6 +27,35 @@ func (c *captureWriter) ReadFrom(r io.Reader) (int64, error) {
 		return 0, c.err
 	}
 	return c.buf.ReadFrom(r)
+}
+
+// fakeResolver is a minimal hardware.Resolver for tests. ByMAC keys on
+// mac.String(); ByIP keys on ip.String(). If err is set, both methods
+// return it.
+type fakeResolver struct {
+	byMAC map[string]hardware.Info
+	byIP  map[string]hardware.Info
+	err   error
+}
+
+func (f *fakeResolver) ByMAC(_ context.Context, m net.HardwareAddr) (hardware.Info, error) {
+	if f.err != nil {
+		return hardware.Info{}, f.err
+	}
+	if info, ok := f.byMAC[m.String()]; ok {
+		return info, nil
+	}
+	return hardware.Info{}, fmt.Errorf("mac %s not found", m.String())
+}
+
+func (f *fakeResolver) ByIP(_ context.Context, ip net.IP) (hardware.Info, error) {
+	if f.err != nil {
+		return hardware.Info{}, f.err
+	}
+	if info, ok := f.byIP[ip.String()]; ok {
+		return info, nil
+	}
+	return hardware.Info{}, fmt.Errorf("ip %s not found", ip.String())
 }
 
 // stubRoute returns canned (handled, err) and remembers whether it was
@@ -147,6 +179,73 @@ func TestEmbeddedIPXERoute(t *testing.T) {
 			t.Fatal("expected nothing written")
 		}
 	})
+}
+
+// ---------- PXELinuxMACRoute ----------
+
+func TestPXELinuxMACRoute(t *testing.T) {
+	mac := net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+	dashed := "aa-bb-cc-dd-ee-ff"
+
+	tests := map[string]struct {
+		filename       string
+		resolver       hardware.Resolver
+		wantHandled    bool
+		wantBytesMatch string
+	}{
+		"valid path, config served": {
+			filename: "pxelinux.cfg/01-" + dashed,
+			resolver: &fakeResolver{byMAC: map[string]hardware.Info{
+				mac.String(): {PXELINUX: hardware.PXELINUX{Config: "PROMPT 0\nDEFAULT linux"}},
+			}},
+			wantHandled:    true,
+			wantBytesMatch: "PROMPT 0\nDEFAULT linux",
+		},
+		"wrong length passes through": {
+			filename:    "pxelinux.cfg/01-short",
+			resolver:    &fakeResolver{},
+			wantHandled: false,
+		},
+		"different prefix passes through": {
+			filename:    "other.cfg/01-aa-bb-cc-dd-ee-ff-XX",
+			resolver:    &fakeResolver{},
+			wantHandled: false,
+		},
+		"malformed MAC swallowed → not handled": {
+			filename:    "pxelinux.cfg/01-ZZ-ZZ-ZZ-ZZ-ZZ-ZZ",
+			resolver:    &fakeResolver{},
+			wantHandled: false,
+		},
+		"resolver miss swallowed → not handled": {
+			filename:    "pxelinux.cfg/01-" + dashed,
+			resolver:    &fakeResolver{},
+			wantHandled: false,
+		},
+		"empty config passes through": {
+			filename: "pxelinux.cfg/01-" + dashed,
+			resolver: &fakeResolver{byMAC: map[string]hardware.Info{
+				mac.String(): {PXELINUX: hardware.PXELINUX{Config: ""}},
+			}},
+			wantHandled: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			r := PXELinuxMACRoute{Log: logr.Discard(), Resolver: tt.resolver}
+			w := &captureWriter{}
+			handled, err := r.TryServe(context.Background(), Request{Filename: tt.filename}, w)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if handled != tt.wantHandled {
+				t.Fatalf("handled=%v want=%v", handled, tt.wantHandled)
+			}
+			if tt.wantBytesMatch != "" && w.buf.String() != tt.wantBytesMatch {
+				t.Fatalf("body=%q want=%q", w.buf.String(), tt.wantBytesMatch)
+			}
+		})
+	}
 }
 
 // ---------- DiskAssetRoute ----------

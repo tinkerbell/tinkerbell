@@ -54,6 +54,12 @@ type Netboot struct {
 	Console       string
 	Facility      string
 	OSIE          OSIE
+	PXELINUX      PXELINUX
+}
+
+// PXELINUX represents the config, for u-boot "pxelinux.cfg" booting.
+type PXELINUX struct {
+	Config string `json:"config,omitempty"`
 }
 
 // Isoboot holds info used in booting a client using an ISO image.

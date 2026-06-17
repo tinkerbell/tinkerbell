@@ -151,6 +151,21 @@ type Netboot struct {
 
 	//+optional
 	OSIE *OSIE `json:"osie,omitempty"`
+
+	//+optional
+	PXELINUX *PXELINUX `json:"pxelinux,omitempty"`
+}
+
+// PXELINUX represents PXELinux configuration, for u-boot "pxelinux.cfg" booting.
+// This is used to instruct Smee's TFTP serve to serve out certain files for PXELinux booting.
+// The main pxelinux.cfg asset (in "extlinux" format; see u-boot's distroboot and bootstd docs) is
+// generated on the fly from a config defined in PXELINUX struct.
+// Other assets (eg, vmlinuz, initramfs, dtb) are served from a filesystem path defined in Smee's configuration,
+type PXELINUX struct {
+	// Config, when defined, overrides the default PXELinux config to use for generating the pxelinux.cfg file.
+	// It should be in "extlinux" format, as per u-boot's distroboot and bootstd documentation.
+	// +optional
+	Config string `json:"config,omitempty"`
 }
 
 // Isoboot configuration for booting a client using an ISO image.

@@ -21,8 +21,8 @@ func (m *mockBackend) FilterHardware(_ context.Context, _ data.HardwareFilter) (
 }
 
 // validHardware returns a minimal tinkerbell.Hardware with one interface that
-// has both DHCP and Netboot set.
-func validHardware(mac, ip string, allowPXE bool, facility string) *tinkerbell.Hardware {
+// has both DHCP and Netboot set, optionally with a PXELINUX config.
+func validHardware(mac, ip string, allowPXE bool, facility, pxelinuxConfig string) *tinkerbell.Hardware {
 	return &tinkerbell.Hardware{
 		Spec: tinkerbell.HardwareSpec{
 			Metadata: &tinkerbell.HardwareMetadata{
@@ -41,6 +41,7 @@ func validHardware(mac, ip string, allowPXE bool, facility string) *tinkerbell.H
 					},
 					Netboot: &tinkerbell.Netboot{
 						AllowPXE: &allowPXE,
+						PXELINUX: &tinkerbell.PXELINUX{Config: pxelinuxConfig},
 					},
 				},
 			},
@@ -56,6 +57,7 @@ func TestGetByMac(t *testing.T) {
 		backend      BackendReader
 		wantErr      bool
 		wantFacility string
+		wantConfig   string
 	}{
 		"nil backend": {
 			backend: nil,
@@ -67,9 +69,10 @@ func TestGetByMac(t *testing.T) {
 		},
 		"success populates Info": {
 			backend: &mockBackend{
-				hw: validHardware(mac.String(), "192.168.1.100", true, "onprem"),
+				hw: validHardware(mac.String(), "192.168.1.100", true, "onprem", "default linux"),
 			},
 			wantFacility: "onprem",
+			wantConfig:   "default linux",
 		},
 	}
 
@@ -88,6 +91,9 @@ func TestGetByMac(t *testing.T) {
 			if diff := cmp.Diff(info.Facility, tt.wantFacility); diff != "" {
 				t.Fatalf("Facility mismatch: %s", diff)
 			}
+			if diff := cmp.Diff(info.PXELINUX.Config, tt.wantConfig); diff != "" {
+				t.Fatalf("PXELINUX.Config mismatch: %s", diff)
+			}
 		})
 	}
 }
@@ -100,6 +106,7 @@ func TestGetByIP(t *testing.T) {
 		backend      BackendReader
 		wantErr      bool
 		wantFacility string
+		wantConfig   string
 	}{
 		"nil backend": {
 			backend: nil,
@@ -111,9 +118,10 @@ func TestGetByIP(t *testing.T) {
 		},
 		"success populates Info": {
 			backend: &mockBackend{
-				hw: validHardware("01:02:03:04:05:06", ip.String(), true, "remote"),
+				hw: validHardware("01:02:03:04:05:06", ip.String(), true, "remote", "by-ip-cfg"),
 			},
 			wantFacility: "remote",
+			wantConfig:   "by-ip-cfg",
 		},
 	}
 
@@ -132,6 +140,9 @@ func TestGetByIP(t *testing.T) {
 			if diff := cmp.Diff(info.Facility, tt.wantFacility); diff != "" {
 				t.Fatalf("Facility mismatch: %s", diff)
 			}
+			if diff := cmp.Diff(info.PXELINUX.Config, tt.wantConfig); diff != "" {
+				t.Fatalf("PXELINUX.Config mismatch: %s", diff)
+			}
 		})
 	}
 }
@@ -140,7 +151,7 @@ func TestBackendResolver(t *testing.T) {
 	mac := net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
 	ip := net.ParseIP("192.168.1.100")
 	be := &mockBackend{
-		hw: validHardware(mac.String(), ip.String(), true, "lab"),
+		hw: validHardware(mac.String(), ip.String(), true, "lab", "tmpl"),
 	}
 	r := BackendResolver{Backend: be}
 
