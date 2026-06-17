@@ -413,6 +413,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if !addrPort.IsValid() {
 			return fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", addrPort.Addr(), addrPort.Port())
 		}
+		resolver := hardware.BackendResolver{Backend: c.Backend}
 		tftpHandler := binary.TFTP{
 			Log:                  log,
 			EnableTFTPSinglePort: c.TFTP.SinglePort,
@@ -423,7 +424,8 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 				Log: log,
 				Routes: []binary.Route{
 					binary.EmbeddedIPXERoute{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)},
-					binary.PXELinuxMACRoute{Log: log, Resolver: hardware.BackendResolver{Backend: c.Backend}},
+					binary.PXELinuxMACRoute{Log: log, Resolver: resolver},
+					binary.RPiNetbootRoute{Log: log, Resolver: resolver, AssetDir: c.TFTP.AssetDir},
 					binary.DiskAssetRoute{Log: log, Dir: c.TFTP.AssetDir},
 				},
 			},

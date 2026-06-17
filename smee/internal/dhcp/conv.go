@@ -270,12 +270,21 @@ func toNetbootData(i *v1alpha1.Netboot, facility string) (*Netboot, error) {
 		}
 		n.OSIE.Kernel = i.OSIE.Kernel
 		n.OSIE.Initrd = i.OSIE.Initrd
+		n.OSIE.KernelParams = i.OSIE.KernelParams
 	}
 
 	// PXELINUX data
 	n.PXELINUX = PXELINUX{}
 	if i.PXELINUX != nil {
 		n.PXELINUX.Config = i.PXELINUX.Config
+	}
+
+	// RPI (RaspberryPi-Netboot) data
+	n.RPI = RPI{}
+	if i.RPI != nil {
+		n.RPI.SerialNum = i.RPI.SerialNum
+		n.RPI.FirmwarePath = i.RPI.FirmwarePath
+		n.RPI.ConfigTxt = i.RPI.ConfigTxt
 	}
 
 	return n, nil

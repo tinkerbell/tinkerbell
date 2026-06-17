@@ -21,13 +21,11 @@ func (m *mockBackend) FilterHardware(_ context.Context, _ data.HardwareFilter) (
 }
 
 // validHardware returns a minimal tinkerbell.Hardware with one interface that
-// has both DHCP and Netboot set, optionally with a PXELINUX config.
-func validHardware(mac, ip string, allowPXE bool, facility, pxelinuxConfig string) *tinkerbell.Hardware {
+// has both DHCP and Netboot set, optionally with PXELINUX and RPI fields and
+// an OSIE.KernelParams list.
+func validHardware(mac, ip string, allowPXE bool, pxelinuxConfig, rpiSerial string, kernelParams []string) *tinkerbell.Hardware {
 	return &tinkerbell.Hardware{
 		Spec: tinkerbell.HardwareSpec{
-			Metadata: &tinkerbell.HardwareMetadata{
-				Facility: &tinkerbell.MetadataFacility{FacilityCode: facility},
-			},
 			Interfaces: []tinkerbell.Interface{
 				{
 					DHCP: &tinkerbell.DHCP{
@@ -41,7 +39,12 @@ func validHardware(mac, ip string, allowPXE bool, facility, pxelinuxConfig strin
 					},
 					Netboot: &tinkerbell.Netboot{
 						AllowPXE: &allowPXE,
+						OSIE:     &tinkerbell.OSIE{KernelParams: kernelParams},
 						PXELINUX: &tinkerbell.PXELINUX{Config: pxelinuxConfig},
+						RPI: &tinkerbell.RPI{
+							SerialNum:    rpiSerial,
+							FirmwarePath: "rpi4",
+						},
 					},
 				},
 			},
@@ -54,10 +57,11 @@ func TestGetByMac(t *testing.T) {
 	mac := net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
 
 	tests := map[string]struct {
-		backend      BackendReader
-		wantErr      bool
-		wantFacility string
-		wantConfig   string
+		backend          BackendReader
+		wantErr          bool
+		wantConfig       string
+		wantRPiSerial    string
+		wantKernelParams []string
 	}{
 		"nil backend": {
 			backend: nil,
@@ -67,12 +71,13 @@ func TestGetByMac(t *testing.T) {
 			backend: &mockBackend{err: errBackend},
 			wantErr: true,
 		},
-		"success populates Info": {
+		"success populates PXELINUX, RPI and OSIE.KernelParams": {
 			backend: &mockBackend{
-				hw: validHardware(mac.String(), "192.168.1.100", true, "onprem", "default linux"),
+				hw: validHardware(mac.String(), "192.168.1.100", true, "default linux kernel append", "abc123", []string{"console=tty1", "rw"}),
 			},
-			wantFacility: "onprem",
-			wantConfig:   "default linux",
+			wantConfig:       "default linux kernel append",
+			wantRPiSerial:    "abc123",
+			wantKernelParams: []string{"console=tty1", "rw"},
 		},
 	}
 
@@ -88,11 +93,14 @@ func TestGetByMac(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if diff := cmp.Diff(info.Facility, tt.wantFacility); diff != "" {
-				t.Fatalf("Facility mismatch: %s", diff)
-			}
 			if diff := cmp.Diff(info.PXELINUX.Config, tt.wantConfig); diff != "" {
 				t.Fatalf("PXELINUX.Config mismatch: %s", diff)
+			}
+			if diff := cmp.Diff(info.RPI.SerialNum, tt.wantRPiSerial); diff != "" {
+				t.Fatalf("RPI.SerialNum mismatch: %s", diff)
+			}
+			if diff := cmp.Diff(info.OSIE.KernelParams, tt.wantKernelParams); diff != "" {
+				t.Fatalf("OSIE.KernelParams mismatch: %s", diff)
 			}
 		})
 	}
@@ -103,10 +111,11 @@ func TestGetByIP(t *testing.T) {
 	ip := net.ParseIP("192.168.1.100")
 
 	tests := map[string]struct {
-		backend      BackendReader
-		wantErr      bool
-		wantFacility string
-		wantConfig   string
+		backend          BackendReader
+		wantErr          bool
+		wantConfig       string
+		wantRPiSerial    string
+		wantKernelParams []string
 	}{
 		"nil backend": {
 			backend: nil,
@@ -116,12 +125,13 @@ func TestGetByIP(t *testing.T) {
 			backend: &mockBackend{err: errBackend},
 			wantErr: true,
 		},
-		"success populates Info": {
+		"success populates PXELINUX, RPI and OSIE.KernelParams": {
 			backend: &mockBackend{
-				hw: validHardware("01:02:03:04:05:06", ip.String(), true, "remote", "by-ip-cfg"),
+				hw: validHardware("01:02:03:04:05:06", ip.String(), true, "cmdline overrides", "serial42", []string{"quiet"}),
 			},
-			wantFacility: "remote",
-			wantConfig:   "by-ip-cfg",
+			wantConfig:       "cmdline overrides",
+			wantRPiSerial:    "serial42",
+			wantKernelParams: []string{"quiet"},
 		},
 	}
 
@@ -137,11 +147,14 @@ func TestGetByIP(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if diff := cmp.Diff(info.Facility, tt.wantFacility); diff != "" {
-				t.Fatalf("Facility mismatch: %s", diff)
-			}
 			if diff := cmp.Diff(info.PXELINUX.Config, tt.wantConfig); diff != "" {
 				t.Fatalf("PXELINUX.Config mismatch: %s", diff)
+			}
+			if diff := cmp.Diff(info.RPI.SerialNum, tt.wantRPiSerial); diff != "" {
+				t.Fatalf("RPI.SerialNum mismatch: %s", diff)
+			}
+			if diff := cmp.Diff(info.OSIE.KernelParams, tt.wantKernelParams); diff != "" {
+				t.Fatalf("OSIE.KernelParams mismatch: %s", diff)
 			}
 		})
 	}
@@ -151,7 +164,7 @@ func TestBackendResolver(t *testing.T) {
 	mac := net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
 	ip := net.ParseIP("192.168.1.100")
 	be := &mockBackend{
-		hw: validHardware(mac.String(), ip.String(), true, "lab", "tmpl"),
+		hw: validHardware(mac.String(), ip.String(), true, "tmpl", "serial1", nil),
 	}
 	r := BackendResolver{Backend: be}
 
@@ -160,8 +173,8 @@ func TestBackendResolver(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if info.Facility != "lab" {
-			t.Fatalf("unexpected facility: %q", info.Facility)
+		if info.PXELINUX.Config != "tmpl" {
+			t.Fatalf("unexpected config: %q", info.PXELINUX.Config)
 		}
 	})
 
@@ -170,8 +183,8 @@ func TestBackendResolver(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if info.Facility != "lab" {
-			t.Fatalf("unexpected facility: %q", info.Facility)
+		if info.RPI.SerialNum != "serial1" {
+			t.Fatalf("unexpected serial: %q", info.RPI.SerialNum)
 		}
 	})
 }
