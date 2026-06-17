@@ -225,7 +225,7 @@ func TestPXELinuxMACRoute(t *testing.T) {
 		wantHandled    bool
 		wantBytesMatch string
 	}{
-		"valid path, config served": {
+		"valid path, template served": {
 			filename: "pxelinux.cfg/01-" + dashed,
 			resolver: &fakeResolver{byMAC: map[string]hardware.Info{
 				mac.String(): {PXELINUX: hardware.PXELINUX{Config: "PROMPT 0\nDEFAULT linux"}},
@@ -253,7 +253,7 @@ func TestPXELinuxMACRoute(t *testing.T) {
 			resolver:    &fakeResolver{},
 			wantHandled: false,
 		},
-		"empty config passes through": {
+		"empty template passes through": {
 			filename: "pxelinux.cfg/01-" + dashed,
 			resolver: &fakeResolver{byMAC: map[string]hardware.Info{
 				mac.String(): {PXELINUX: hardware.PXELINUX{Config: ""}},
@@ -275,6 +275,131 @@ func TestPXELinuxMACRoute(t *testing.T) {
 			}
 			if tt.wantBytesMatch != "" && w.buf.String() != tt.wantBytesMatch {
 				t.Fatalf("body=%q want=%q", w.buf.String(), tt.wantBytesMatch)
+			}
+		})
+	}
+}
+
+// ---------- RPiNetbootRoute ----------
+
+func TestRPiNetbootRoute(t *testing.T) {
+	clientIP := net.ParseIP("192.168.1.50")
+	clientAddr := net.UDPAddr{IP: clientIP, Port: 12345}
+
+	const serial = "abc123"
+	const rewrite = "rpi4b"
+
+	hwWithRPi := hardware.Info{
+		RPI: hardware.RPI{
+			SerialNum:    serial,
+			FirmwarePath: rewrite,
+			ConfigTxt:    "config-txt-body",
+		},
+		OSIE: hardware.OSIE{
+			KernelParams: []string{"console=tty1", "rw"},
+		},
+	}
+
+	// Set up an asset dir with a known file
+	assetDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(assetDir, rewrite), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const assetBody = "start.elf contents"
+	if err := os.WriteFile(filepath.Join(assetDir, rewrite, "start.elf"), []byte(assetBody), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := map[string]struct {
+		filename    string
+		assetDir    string
+		resolver    hardware.Resolver
+		wantHandled bool
+		wantBody    string
+	}{
+		"empty AssetDir passes through": {
+			filename:    serial + "/config.txt",
+			assetDir:    "",
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: false,
+		},
+		"ByIP miss passes through": {
+			filename:    serial + "/config.txt",
+			assetDir:    assetDir,
+			resolver:    &fakeResolver{},
+			wantHandled: false,
+		},
+		"hardware without RPi config passes through": {
+			filename: serial + "/config.txt",
+			assetDir: assetDir,
+			resolver: &fakeResolver{byIP: map[string]hardware.Info{
+				clientIP.String(): {},
+			}},
+			wantHandled: false,
+		},
+		"non-serial-prefixed path passes through": {
+			filename:    "other-serial/config.txt",
+			assetDir:    assetDir,
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: false,
+		},
+		"config.txt served from ConfigTxt": {
+			filename:    serial + "/config.txt",
+			assetDir:    assetDir,
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: true,
+			wantBody:    "config-txt-body",
+		},
+		"cmdline.txt served from joined OSIE.KernelParams": {
+			filename:    serial + "/cmdline.txt",
+			assetDir:    assetDir,
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: true,
+			wantBody:    "console=tty1 rw",
+		},
+		"empty KernelParams cmdline.txt passes through": {
+			filename: serial + "/cmdline.txt",
+			assetDir: assetDir,
+			resolver: &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): {
+				RPI: hardware.RPI{SerialNum: serial, FirmwarePath: rewrite},
+				// no KernelParams
+			}}},
+			wantHandled: false,
+		},
+		"other file rewritten and served from disk": {
+			filename:    serial + "/start.elf",
+			assetDir:    assetDir,
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: true,
+			wantBody:    assetBody,
+		},
+		"rewritten path miss passes through": {
+			filename:    serial + "/missing.bin",
+			assetDir:    assetDir,
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: false,
+		},
+		"traversal in suffix is rejected": {
+			filename:    serial + "/../../../etc/passwd",
+			assetDir:    assetDir,
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			r := RPiNetbootRoute{Log: logr.Discard(), Resolver: tt.resolver, AssetDir: tt.assetDir}
+			w := &captureWriter{}
+			handled, err := r.TryServe(context.Background(), Request{Filename: tt.filename, Client: clientAddr}, w)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if handled != tt.wantHandled {
+				t.Fatalf("handled=%v want=%v", handled, tt.wantHandled)
+			}
+			if tt.wantBody != "" && w.buf.String() != tt.wantBody {
+				t.Fatalf("body=%q want=%q", w.buf.String(), tt.wantBody)
 			}
 		})
 	}

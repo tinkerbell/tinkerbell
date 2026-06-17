@@ -138,6 +138,57 @@ type Interface struct {
 	DisableDHCP bool `json:"disableDhcp,omitempty"`
 }
 
+// PXELINUX represents PXELinux configuration, for u-boot "pxelinux.cfg" booting.
+// It instructs Smee's TFTP server to serve certain files for PXELinux booting.
+// The main pxelinux.cfg asset (in "extlinux" format; see u-boot's distroboot and bootstd docs) is
+// generated on the fly from a config defined in the PXELINUX struct.
+// Other assets (eg, vmlinuz, initramfs, dtb) are served from Smee's configured TFTP asset directory.
+type PXELINUX struct {
+	// Config, when defined, overrides the default PXELinux config to use for generating the pxelinux.cfg file.
+	// It should be in "extlinux" format, as per u-boot's distroboot and bootstd documentation.
+	// +optional
+	Config string `json:"config,omitempty"`
+}
+
+// RPI represents Raspberry Pi network boot configuration.
+// The RaspberryPi's EEPROM firmware can do its own network booting, without u-boot (PXELinux) or iPXE involved.
+// It does so by prefixing requests to certain filenames with the Pi's serial number.
+// Such serial number is NOT related to the MAC address, and is unique to each Pi.
+// The firmware will send requests to "<SerialNum>/start4.elf" to get 2nd-stage firmware, then for
+// "<SerialNum>/config.txt", and "<SerialNum>/cmdline.txt" when doing network booting.
+// config.txt and cmdline.txt will come directly from the Hardware data (config.txt from ConfigTxt; cmdline.txt
+// from the joined OSIE.KernelParams), while everything else (eg all binaries) will be served after a
+// SerialNum -> FirmwarePath mapping.
+// All this depends on being able to find the Hardware via an IP-address lookup; no lookups are done vs the SerialNum.
+// https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#TFTP_PREFIX
+type RPI struct {
+	// ConfigTxt, when defined, is served as the Raspberry Pi config.txt file content.
+	// When not specified, this route serves no config.txt: the request falls through
+	// to any later route, otherwise resulting in a 404.
+	// +optional
+	ConfigTxt string `json:"configTxt,omitempty"`
+
+	// FirmwarePath, when defined, overrides the default path to firmware files.
+	// This must be coordinated with where Smee serves Raspberry Pi firmware files. See the Smee docs for details.
+	//
+	// This is an internal URI rewrite. The Raspberry Pi will always request files prefixed with its serial number.
+	// This field defines a common backend location for the generic firmware files, which will be used for all other files and binaries.
+	// A Raspberry Pi will still request all files from its serial-number prefix, but Smee will serve files from FirmwarePath when the request path starts with the Pi's serial number.
+	// For example, if FirmwarePath is set to "rpi-firmware", then a request for "<SerialNum>/start4.elf" will be served from "rpi-firmware/start4.elf" in Smee's asset directory.
+	// There are 3 main purposes for this:
+	// 1. avoid having to duplicate firmware files for each Raspberry Pi.
+	// 2. allow each Hardware object to specify a different set of firmware files if needed.
+	// 3. decouple generic firmware files from the, optionally defined, hardware specific config.txt and cmdline.txt files.
+	// +optional
+	FirmwarePath string `json:"firmwarePath,omitempty"`
+
+	// SerialNum is the Raspberry Pi's serial number.
+	// This can be the full serial number or just the last 8 characters.
+	// To use any of the fields in the RPI struct, SerialNum must be specified to allow Smee to associate this configuration with the correct Raspberry Pi.
+	// +required
+	SerialNum string `json:"serialNum"`
+}
+
 // Netboot configuration.
 type Netboot struct {
 	//+optional
@@ -154,18 +205,9 @@ type Netboot struct {
 
 	//+optional
 	PXELINUX *PXELINUX `json:"pxelinux,omitempty"`
-}
 
-// PXELINUX represents PXELinux configuration, for u-boot "pxelinux.cfg" booting.
-// This is used to instruct Smee's TFTP serve to serve out certain files for PXELinux booting.
-// The main pxelinux.cfg asset (in "extlinux" format; see u-boot's distroboot and bootstd docs) is
-// generated on the fly from a config defined in PXELINUX struct.
-// Other assets (eg, vmlinuz, initramfs, dtb) are served from a filesystem path defined in Smee's configuration,
-type PXELINUX struct {
-	// Config, when defined, overrides the default PXELinux config to use for generating the pxelinux.cfg file.
-	// It should be in "extlinux" format, as per u-boot's distroboot and bootstd documentation.
-	// +optional
-	Config string `json:"config,omitempty"`
+	//+optional
+	RPI *RPI `json:"rpi,omitempty"`
 }
 
 // Isoboot configuration for booting a client using an ISO image.
@@ -191,11 +233,18 @@ type IPXE struct {
 	Binary string `json:"binary,omitempty"`
 }
 
-// OSIE configuration.
+// OSIE (Operating System Installation Environment) configuration.
 type OSIE struct {
 	BaseURL string `json:"baseURL,omitempty"`
 	Kernel  string `json:"kernel,omitempty"`
 	Initrd  string `json:"initrd,omitempty"`
+
+	// KernelParams, when defined, overrides the default kernel parameters passed to the kernel
+	// command line when launching the OSIE. Typically they will be in the format "key=value" and
+	// align with the Linux Kernel and OSIE documentation, but they can be any string.
+	// Also used as the source for RaspberryPi-Netboot cmdline.txt (joined with spaces).
+	// +optional
+	KernelParams []string `json:"kernelParams,omitempty"`
 }
 
 // DHCP configuration.
