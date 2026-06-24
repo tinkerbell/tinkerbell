@@ -17,6 +17,8 @@ type GlobalConfig struct {
 	OTELInsecure         bool
 	TrustedProxies       []netip.Prefix
 	PublicIP             netip.Addr
+	PublicIPv6           netip.Addr
+	DualStack            bool
 	BindAddr             netip.Addr
 	HTTPPort             int
 	HTTPSPort            int
@@ -71,6 +73,8 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(OTELEndpoint, ffval.NewValueDefault(&gc.OTELEndpoint, gc.OTELEndpoint))
 	fs.Register(OTELInsecure, ffval.NewValueDefault(&gc.OTELInsecure, gc.OTELInsecure))
 	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
+	fs.Register(PublicIPv6, &ntip.Addr{Addr: &gc.PublicIPv6})
+	fs.Register(DualStack, ffval.NewValueDefault(&gc.DualStack, gc.DualStack))
 	fs.Register(TLSCertFile, ffval.NewValueDefault(&gc.TLS.CertFile, gc.TLS.CertFile))
 	fs.Register(TLSKeyFile, ffval.NewValueDefault(&gc.TLS.KeyFile, gc.TLS.KeyFile))
 	fs.Register(DisableHTTPToHTTPSRedirect, ffval.NewValueDefault(&gc.TLS.DisableHTTPToHTTPSRedirect, gc.TLS.DisableHTTPToHTTPSRedirect))
@@ -141,6 +145,16 @@ var TrustedProxies = Config{
 var PublicIP = Config{
 	Name:  "public-ipv4",
 	Usage: "public IPv4 address to use for all enabled services",
+}
+
+var PublicIPv6 = Config{
+	Name:  "public-ipv6",
+	Usage: "public IPv6 address to use for all enabled services",
+}
+
+var DualStack = Config{
+	Name:  "dual-stack",
+	Usage: "bind shared services to the IPv6 wildcard when both public IPv4 and IPv6 are available",
 }
 
 var EnableSmee = Config{

@@ -173,21 +173,24 @@ func isRaspberryPI(mac net.HardwareAddr) bool {
 
 // Arch returns the Arch of the client pulled from DHCP option 93.
 func Arch(d *dhcpv4.DHCPv4) iana.Arch {
+	// get option 93 ; arch
+	return FirstKnownArch(d.ClientHWAddr, d.ClientArch())
+}
+
+func FirstKnownArch(mac net.HardwareAddr, archs iana.Archs) iana.Arch {
 	// if the mac address is from a Raspberry PI, use the Raspberry PI architecture.
 	// Some Raspberry PI's (Raspberry PI 5) report an option 93 of 0.
 	// This translates to iana.INTEL_X86PC and causes us to map to undionly.kpxe.
-	if isRaspberryPI(d.ClientHWAddr) {
+	if isRaspberryPI(mac) {
 		return iana.Arch(41)
 	}
 
-	// get option 93 ; arch
-	fwt := d.ClientArch()
-	if len(fwt) == 0 {
+	if len(archs) == 0 {
 		return iana.Arch(255) // unknown arch
 	}
 	var archKnown bool
 	var a iana.Arch
-	for _, elem := range fwt {
+	for _, elem := range archs {
 		if !strings.Contains(elem.String(), "unknown") {
 			archKnown = true
 			// Basic architecture identification, based purely on
@@ -205,10 +208,13 @@ func Arch(d *dhcpv4.DHCPv4) iana.Arch {
 }
 
 func (i Info) IPXEBinaryFrom() string {
+	return IPXEBinaryForArch(i.Arch, i.ArchMappingOverride)
+}
+
+func IPXEBinaryForArch(arch iana.Arch, override map[iana.Arch]constant.IPXEBinary) string {
 	dst := ArchToBootFile()
-	src := i.ArchMappingOverride
-	maps.Copy(dst, src)
-	bin, found := dst[i.Arch]
+	maps.Copy(dst, override)
+	bin, found := dst[arch]
 	if !found {
 		return ""
 	}
@@ -325,27 +331,11 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 	// If a machine is in an ipxe boot loop, it is likely to be that we aren't matching on IPXE or Tinkerbell userclass (option 77).
 	switch { // order matters here.
 	case i.UserClass == Tinkerbell, (customUC != "" && i.UserClass == customUC): // this case gets us out of an ipxe boot loop.
-		if ipxeScript != nil {
-			bootfile = ipxeScript.String()
-		}
+		bootfile = ScriptURL(ipxeScript)
 	case i.ClientType == HTTPClient: // Check the client type from option 60.
-		if ipxeHTTPBinServer != nil {
-			paths := []string{i.IPXEBinary}
-			if i.Mac != nil {
-				paths = append([]string{macAddrFormat(i.Mac, i.MacAddrFormat)}, paths...)
-			}
-			bootfile = ipxeHTTPBinServer.JoinPath(paths...).String()
-		}
+		bootfile = HTTPBootURL(ipxeHTTPBinServer, i.Mac, i.MacAddrFormat, i.IPXEBinary)
 	case i.UserClass == IPXE: // if the "iPXE" user class is found it means we aren't in our custom version of ipxe, but because of the option 43 we're setting we need to give a full tftp url from which to boot.
-		t := url.URL{
-			Scheme: "tftp",
-			Host:   ipxeTFTPBinServer.String(),
-		}
-		paths := []string{i.IPXEBinary}
-		if i.Mac != nil {
-			paths = append([]string{macAddrFormat(i.Mac, i.MacAddrFormat)}, paths...)
-		}
-		bootfile = t.JoinPath(paths...).String()
+		bootfile = TFTPBootURL(ipxeTFTPBinServer, i.Mac, i.MacAddrFormat, i.IPXEBinary)
 	default:
 		if i.IPXEBinary != "" {
 			bootfile = i.IPXEBinary
@@ -353,6 +343,44 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 	}
 
 	return bootfile
+}
+
+func ScriptURL(ipxeScript *url.URL) string {
+	if ipxeScript == nil {
+		return "/no-ipxe-script-defined"
+	}
+
+	return ipxeScript.String()
+}
+
+func HTTPBootURL(ipxeHTTPBinServer *url.URL, mac net.HardwareAddr, format constant.MACFormat, binary string) string {
+	if ipxeHTTPBinServer == nil || binary == "" {
+		return ""
+	}
+
+	paths := []string{binary}
+	if mac != nil {
+		paths = append([]string{macAddrFormat(mac, format)}, paths...)
+	}
+
+	return ipxeHTTPBinServer.JoinPath(paths...).String()
+}
+
+func TFTPBootURL(ipxeTFTPBinServer netip.AddrPort, mac net.HardwareAddr, format constant.MACFormat, binary string) string {
+	if !ipxeTFTPBinServer.IsValid() || binary == "" {
+		return ""
+	}
+
+	t := url.URL{
+		Scheme: "tftp",
+		Host:   ipxeTFTPBinServer.String(),
+	}
+	paths := []string{binary}
+	if mac != nil {
+		paths = append([]string{macAddrFormat(mac, format)}, paths...)
+	}
+
+	return t.JoinPath(paths...).String()
 }
 
 func macAddrFormat(mac net.HardwareAddr, f constant.MACFormat) string {

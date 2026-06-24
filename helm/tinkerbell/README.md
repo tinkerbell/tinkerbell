@@ -15,22 +15,31 @@ This Helm chart deploys Tinkerbell, the bare metal provisioning engine that supp
 # Get the pod CIDRs to set as trusted proxies
 TRUSTED_PROXIES=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
 
-# Set the LoadBalancer IP for Tinkerbell services
-LB_IP=192.168.2.116
+# Set the IPv4 LoadBalancer IP for Tinkerbell services
+LB_IPV4=192.168.2.116
+# For IPv6-only services, set publicIPv6 instead of publicIP.
+# LB_IPV6=2001:db8:100::116
 
 # Set the artifacts file server URL for HookOS
 ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
+
+# Set the IPv6 artifacts file server URL for HookOS when needed
+# ARTIFACTS_FILE_SERVER_V6=http://[2001:db8:100::102]:717
 
 helm upgrade --install tinkerbell . \
   --create-namespace \
   --namespace tinkerbell \
   --wait \
   --set "trustedProxies={${TRUSTED_PROXIES}}" \
-  --set "publicIP=$LB_IP" \
+  --set "publicIP=$LB_IPV4" \
   --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" \
+  --set "artifactsFileServerV6=$ARTIFACTS_FILE_SERVER_V6" \
   --set "deployment.agentImageTag=latest" \
   --set "deployment.imageTag=latest"
 ```
+
+For IPv6-only installs, replace `--set "publicIP=$LB_IPV4"` with
+`--set "publicIPv6=$LB_IPV6"`.
 
 > [!NOTE]  
 > The `--set "deployment.agentImageTag=latest"` and `--set "deployment.imageTag=latest"` are only needed when doing a `helm install` from the file location.
@@ -43,11 +52,16 @@ For a production setup, configure the necessary parameters:
 # Get the pod CIDRs to set as trusted proxies
 TRUSTED_PROXIES=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
 
-# Set the LoadBalancer IP for Tinkerbell services
-LB_IP=192.168.2.116
+# Set the IPv4 LoadBalancer IP for Tinkerbell services
+LB_IPV4=192.168.2.116
+# For IPv6-only services, set publicIPv6 instead of publicIP.
+# LB_IPV6=2001:db8:100::116
 
 # Set the artifacts file server URL for HookOS
 ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
+
+# Set the IPv6 artifacts file server URL for HookOS when needed
+# ARTIFACTS_FILE_SERVER_V6=http://[2001:db8:100::102]:717
 
 # Specify the Tinkerbell Helm chart version, here we use the latest release.
 TINKERBELL_CHART_VERSION=$(basename $(curl -Ls -o /dev/null -w %{url_effective} https://github.com/tinkerbell/tinkerbell/releases/latest))
@@ -58,9 +72,13 @@ helm install tinkerbell oci://ghcr.io/tinkerbell/charts/tinkerbell \
   --namespace tinkerbell \
   --wait \
   --set "trustedProxies={${TRUSTED_PROXIES}}" \
-  --set "publicIP=$LB_IP" \
-  --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" 
+  --set "publicIP=$LB_IPV4" \
+  --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" \
+  --set "artifactsFileServerV6=$ARTIFACTS_FILE_SERVER_V6"
 ```
+
+For IPv6-only installs, replace `--set "publicIP=$LB_IPV4"` with
+`--set "publicIPv6=$LB_IPV6"`.
 
 ### Optional Components
 
@@ -88,13 +106,58 @@ optional:
     image: ghcr.io/kube-vip/kube-vip:v0.9.1
 ```
 
+When one or more service IPs are configured, the chart automatically emits the
+`kube-vip.io/loadbalancerIPs` Service annotation for kube-vip. To override the
+generated value, set the annotation explicitly:
+
+```yaml
+service:
+  annotations:
+    kube-vip.io/loadbalancerIPs: "192.0.2.10,2001:db8::10"
+```
+
 ## Required Values
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `publicIP` | Public IP for Tinkerbell services | `""` |
+| `publicIPv6` | Public IPv6 for Tinkerbell services | `""` |
 | `trustedProxies` | List of trusted proxy CIDRs | `[]` |
 | `artifactsFileServer` | URL for the HookOS artifacts server | `""` |
+| `artifactsFileServerV6` | IPv6 URL for the HookOS artifacts server | `""` |
+
+For IPv6 boot flows, set the IPv6-specific values such as `publicIPv6`,
+`artifactsFileServerV6`, and `deployment.envs.smee.ipxeScriptTinkServerAddrPortV6`
+as needed. Do not rely on a dual-stack DNS name in the IPv4/common values to
+make IPv6 clients work; the IPv6 iPXE path uses the IPv6-specific values.
+
+For DHCPv6, `deployment.envs.smee.dhcpv6ServerDUID` can be set to a stable
+server DUID encoded as raw hex bytes with optional `:` or `-` separators. For
+example, a DUID-UUID starts with `00:04` followed by the 16 UUID bytes. When the
+value is empty, Tinkerbell uses its automatic fallback DUID behavior. In
+production Kubernetes deployments, keep this value stable across Pod restarts
+and upgrades, for example by sourcing it from a Secret.
+
+## Bind Address Behavior
+
+When `deployment.envs.globals.bindAddr` is set, the Tinkerbell binary binds
+shared services to that address. When it is not set, the default bind address is
+chosen from the configured or detected public addresses:
+
+| Public IPv4 | Public IPv6 | `deployment.envs.globals.dualStack` | Default bind address |
+|-------------|-------------|--------------------------------------|----------------------|
+| yes | no | either | public IPv4 |
+| no | yes | either | `::` |
+| yes | yes | false | public IPv4 |
+| yes | yes | true | `::` |
+| no | no | either | `0.0.0.0` |
+
+Set `deployment.envs.globals.dualStack=true` only when the Kubernetes and node
+networking environment should use an IPv6 wildcard listener for shared services.
+Whether that listener also accepts IPv4 traffic is platform dependent; on Linux
+it depends on `IPV6_V6ONLY` and `net.ipv6.bindv6only`, and Kubernetes networking
+may add its own behavior. DHCPv6 uses its own bind setting,
+`deployment.envs.smee.dhcpv6BindAddr`, and defaults to `::` independently.
 
 ## Additional RBAC Rules
 
@@ -165,6 +228,34 @@ helm install tinkerbell . \
 helm install tinkerbell . \
   --namespace tinkerbell \
   --set deployment.envs.smee.dhcpMode=auto-proxy
+```
+
+### Configure DHCPv6 Mode
+
+```bash
+helm install tinkerbell . \
+  --namespace tinkerbell \
+  --set deployment.envs.smee.dhcpv6Enabled=true \
+  --set deployment.envs.smee.dhcpv6Mode=reservation
+```
+
+### Configure Derived DHCPv6 Mode
+
+```bash
+helm install tinkerbell . \
+  --namespace tinkerbell \
+  --set deployment.envs.smee.dhcpv6Enabled=true \
+  --set deployment.envs.smee.dhcpv6Mode=derived \
+  --set deployment.envs.smee.dhcpv6DerivedDirectAddressPool=2001:db8:10::/64 \
+  --set deployment.envs.smee.dhcpv6DerivedRelayAddressPrefix=64
+```
+
+### Disable DHCPv6 Netboot Options
+
+```bash
+helm install tinkerbell . \
+  --namespace tinkerbell \
+  --set deployment.envs.smee.dhcpv6EnableNetbootOptions=false
 ```
 
 ## Upgrading from Helm chart version 0.6.2

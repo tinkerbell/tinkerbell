@@ -17,6 +17,8 @@ import (
 	"github.com/go-logr/logr"
 )
 
+const waitForPortTimeout = 3 * time.Second
+
 func TestNewConfig_Defaults(t *testing.T) {
 	cfg := NewConfig()
 
@@ -119,10 +121,22 @@ func freePort(t *testing.T) int {
 	return port
 }
 
-// waitForPort polls until a TCP connection to addr succeeds or the timeout expires.
-func waitForPort(t *testing.T, addr string, timeout time.Duration) {
+// freePortV6 finds an available TCP port on IPv6 localhost.
+func freePortV6(t *testing.T) int {
 	t.Helper()
-	deadline := time.Now().Add(timeout)
+	l, err := net.Listen("tcp", "[::1]:0")
+	if err != nil {
+		t.Skipf("IPv6 localhost is unavailable: %v", err)
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	return port
+}
+
+// waitForPort polls until a TCP connection to addr succeeds or the timeout expires.
+func waitForPort(t *testing.T, addr string) {
+	t.Helper()
+	deadline := time.Now().Add(waitForPortTimeout)
 	for time.Now().Before(deadline) {
 		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
 		if err == nil {
@@ -131,7 +145,7 @@ func waitForPort(t *testing.T, addr string, timeout time.Duration) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("server at %s did not start within %v", addr, timeout)
+	t.Fatalf("server at %s did not start within %v", addr, waitForPortTimeout)
 }
 
 func TestServe_HTTPOnly(t *testing.T) {
@@ -155,7 +169,7 @@ func TestServe_HTTPOnly(t *testing.T) {
 	}()
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	waitForPort(t, addr, 3*time.Second)
+	waitForPort(t, addr)
 
 	resp, err := http.Get(fmt.Sprintf("http://%s/", addr))
 	if err != nil {
@@ -168,6 +182,51 @@ func TestServe_HTTPOnly(t *testing.T) {
 	}
 
 	// Cancel context to initiate graceful shutdown.
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("Serve returned unexpected error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Serve did not return after context cancellation")
+	}
+}
+
+func TestServe_HTTPOnlyIPv6(t *testing.T) {
+	port := freePortV6(t)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "ok")
+	})
+
+	cfg := NewConfig(func(c *Config) {
+		c.BindAddr = "::1"
+		c.BindPort = port
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- cfg.Serve(ctx, logr.Discard(), handler, nil)
+	}()
+
+	addr := fmt.Sprintf("[::1]:%d", port)
+	waitForPort(t, addr)
+
+	resp, err := http.Get(fmt.Sprintf("http://%s/", addr))
+	if err != nil {
+		t.Fatalf("HTTP request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("got status %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
 	cancel()
 
 	select {
@@ -230,7 +289,7 @@ func TestServe_HTTPS(t *testing.T) {
 	}()
 
 	httpsAddr := fmt.Sprintf("127.0.0.1:%d", httpsPort)
-	waitForPort(t, httpsAddr, 3*time.Second)
+	waitForPort(t, httpsAddr)
 
 	// Create a client that skips TLS verification for the self-signed cert.
 	client := &http.Client{
@@ -287,7 +346,7 @@ func TestServe_GracefulShutdownWaitsForInflight(t *testing.T) {
 	}()
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	waitForPort(t, addr, 3*time.Second)
+	waitForPort(t, addr)
 
 	// Start an in-flight request.
 	type result struct {

@@ -31,12 +31,12 @@ func StartReceiver(ctx context.Context, logger logr.Logger, laddr string, parser
 		parsers = 1
 	}
 
-	addr, err := net.ResolveUDPAddr("udp4", laddr)
+	addr, err := net.ResolveUDPAddr("udp", laddr)
 	if err != nil {
 		return fmt.Errorf("resolve syslog udp listen address: %w", err)
 	}
 
-	c, err := net.ListenUDP("udp4", addr)
+	c, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		return fmt.Errorf("listen on syslog udp address: %w", err)
 	}
