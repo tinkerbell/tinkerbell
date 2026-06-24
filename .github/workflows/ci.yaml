@@ -31,7 +31,7 @@ jobs:
           cache: false
 
       - name: Restore Go cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/go/pkg/mod
@@ -75,7 +75,7 @@ jobs:
 
       - name: Save Go cache
         if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           # Caches both the downloaded modules and the compiled build cache.
           path: |
@@ -126,7 +126,7 @@ jobs:
           cache: false
 
       - name: Restore Go cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/go/pkg/mod
@@ -181,7 +181,7 @@ jobs:
           cache: false
 
       - name: Restore Go module cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}
@@ -190,7 +190,7 @@ jobs:
             ${{ runner.os }}-gomod-
 
       - name: Restore Go build cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/go-build
           key: ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}
@@ -220,14 +220,14 @@ jobs:
 
       - name: Save Go module cache
         if: ${{ github.ref == 'refs/heads/main' && matrix.goarch == 'amd64' }}
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}
 
       - name: Save Go build cache
         if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/go-build
           key: ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}
@@ -390,7 +390,7 @@ jobs:
           cache: false
 
       - name: Restore Go cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/go/pkg/mod
