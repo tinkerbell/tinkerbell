@@ -1,6 +1,7 @@
 package delimitedlist
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -90,6 +91,50 @@ func TestSpaceList(t *testing.T) {
 				t.Errorf("String() mismatch (-got +want):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestParsedValue(t *testing.T) {
+	target := []int{9}
+	v := NewParsed(&target, ',', strconv.Atoi)
+
+	if err := v.Set(" 1, , 2 "); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]int{1, 2}, target); diff != "" {
+		t.Fatalf("values mismatch (-want +got):\n%s", diff)
+	}
+	if got, want := v.String(), "1,2"; got != want {
+		t.Fatalf("String() = %q, want %q", got, want)
+	}
+
+	if err := v.Set("3,invalid"); err == nil {
+		t.Fatal("expected parse error")
+	}
+	if diff := cmp.Diff([]int{1, 2}, target); diff != "" {
+		t.Fatalf("parse failure mutated values (-want +got):\n%s", diff)
+	}
+
+	if err := v.Set("4"); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]int{4}, target); diff != "" {
+		t.Fatalf("replacement mismatch (-want +got):\n%s", diff)
+	}
+
+	if err := v.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]int{9}, target); diff != "" {
+		t.Fatalf("Reset() did not restore initial values (-want +got):\n%s", diff)
+	}
+
+	target[0] = 10
+	if err := v.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]int{9}, target); diff != "" {
+		t.Fatalf("Reset() reused a mutated slice (-want +got):\n%s", diff)
 	}
 }
 

@@ -1,13 +1,25 @@
 package script
 
+import (
+	"net"
+	"net/netip"
+)
+
 // HookScript is the default iPXE script for loading Hook.
 var HookScript = `#!ipxe
 
 {{- if .SyslogHost }}
+{{- if eq .SyslogIPXEConfigName "syslog6" }}
+# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog6).
+# If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog6 variable.
+set check:ipv6 {{ .SyslogHost }} && set syslog6 {{ .SyslogHost }} || nslookup syslog6 {{ .SyslogHost }} || echo [WARN] Failed to resolve syslog6 host {{ .SyslogHost }}
+clear check
+{{- else }}
 # iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog).
 # If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog variable.
 set check:ipv4 {{ .SyslogHost }} && set syslog {{ .SyslogHost }} || nslookup syslog {{ .SyslogHost }} || echo [WARN] Failed to resolve syslog host {{ .SyslogHost }}
 clear check
+{{- end }}
 {{- end}}
 
 echo Loading the Tinkerbell Hook iPXE script...
@@ -73,4 +85,47 @@ type Hook struct {
 	RetryDelay            int    // number of seconds to wait between retries
 	KernelName            string // name of the kernel file
 	InitrdName            string // name of the initrd file
+
+	lookupHost func(string) ([]string, error) // for testing only
+}
+
+// SyslogIPXEConfigName returns the iPXE setting that matches the syslog host address family.
+func (h Hook) SyslogIPXEConfigName() string {
+	if addr, err := netip.ParseAddr(h.SyslogHost); err == nil {
+		if addr.Is6() {
+			return "syslog6"
+		}
+		return "syslog"
+	}
+	if addrPort, err := netip.ParseAddrPort(h.SyslogHost); err == nil {
+		if addrPort.Addr().Is6() {
+			return "syslog6"
+		}
+		return "syslog"
+	}
+
+	host := h.SyslogHost
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+		host = parsedHost
+	}
+	if host == "" {
+		return "syslog"
+	}
+
+	lookupHost := h.lookupHost
+	if lookupHost == nil {
+		lookupHost = net.LookupHost
+	}
+	addrs, err := lookupHost(host)
+	if err != nil {
+		return "syslog"
+	}
+	for _, rawAddr := range addrs {
+		addr, err := netip.ParseAddr(rawAddr)
+		if err == nil && addr.Is6() {
+			return "syslog6"
+		}
+	}
+
+	return "syslog"
 }
