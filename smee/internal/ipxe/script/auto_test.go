@@ -1,6 +1,8 @@
 package script
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -226,6 +228,71 @@ exit
 			}
 			if diff := cmp.Diff(got, tt.want); diff != "" {
 				t.Errorf("Auto.autoDotIPXE() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestHookSyslogIPXEConfigName(t *testing.T) {
+	tests := map[string]struct {
+		syslogHost string
+		resolved   []string
+		lookupErr  error
+		wantLookup string
+		want       string
+	}{
+		"ipv4":                       {syslogHost: "192.0.2.10", want: "syslog"},
+		"ipv4 with port":             {syslogHost: "192.0.2.10:514", want: "syslog"},
+		"ipv6":                       {syslogHost: "2001:db8::1", want: "syslog6"},
+		"bracketed ipv6 port":        {syslogHost: "[2001:db8::1]:514", want: "syslog6"},
+		"hostname resolves to ipv4":  {syslogHost: "syslog.example.com", resolved: []string{"192.0.2.10"}, wantLookup: "syslog.example.com", want: "syslog"},
+		"hostname resolves to ipv6":  {syslogHost: "syslog.example.com", resolved: []string{"2001:db8::10"}, wantLookup: "syslog.example.com", want: "syslog6"},
+		"hostname prefers any ipv6":  {syslogHost: "syslog.example.com", resolved: []string{"192.0.2.10", "2001:db8::10"}, wantLookup: "syslog.example.com", want: "syslog6"},
+		"hostname with port":         {syslogHost: "syslog.example.com:514", resolved: []string{"2001:db8::10"}, wantLookup: "syslog.example.com", want: "syslog6"},
+		"hostname lookup failure":    {syslogHost: "syslog.example.com", lookupErr: errors.New("lookup failed"), wantLookup: "syslog.example.com", want: "syslog"},
+		"invalid resolved addresses": {syslogHost: "syslog.example.com", resolved: []string{"not-an-address"}, wantLookup: "syslog.example.com", want: "syslog"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			lookupCalled := false
+			hook := Hook{
+				SyslogHost: tt.syslogHost,
+				lookupHost: func(host string) ([]string, error) {
+					lookupCalled = true
+					if host != tt.wantLookup {
+						t.Fatalf("expected lookup for %q, got %q", tt.wantLookup, host)
+					}
+					return tt.resolved, tt.lookupErr
+				},
+			}
+			if got := hook.SyslogIPXEConfigName(); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+			if lookupCalled != (tt.wantLookup != "") {
+				t.Fatalf("lookup called = %v, want %v", lookupCalled, tt.wantLookup != "")
+			}
+		})
+	}
+}
+
+func TestSyslogIPXEConfigNameInTemplates(t *testing.T) {
+	for name, script := range map[string]string{
+		"hook":   HookScript,
+		"static": StaticScript,
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, err := GenerateTemplate(Hook{
+				SyslogHost: "syslog.example.com",
+				lookupHost: func(string) ([]string, error) {
+					return []string{"2001:db8::1"}, nil
+				},
+			}, script)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "set check:ipv6 syslog.example.com && set syslog6 syslog.example.com || nslookup syslog6 syslog.example.com || echo [WARN] Failed to resolve syslog6 host syslog.example.com"
+			if !strings.Contains(got, want) {
+				t.Fatalf("expected IPv6 syslog resolution in script, got:\n%s", got)
 			}
 		})
 	}

@@ -15,6 +15,7 @@ variables.
 | **7443** | TCP (HTTPS) | Consolidated HTTPS server | Same routes as HTTP; enabled when TLS cert/key are provided | `--tls-cert-file` / `--tls-key-file` |
 | **42113** | TCP (gRPC) | Tink Server | Workflow service for tink-agent | `--enable-tink-server=false` |
 | **67** | UDP | Smee DHCP | PXE boot: offers next-server, iPXE script URL, and IP configuration | `--enable-smee=false` |
+| **547** | UDP | Smee DHCPv6 | IPv6 netboot: DHCPv6 stateless data, boot file URL, reservation, and derived address support | `--dhcpv6-enabled=false` |
 | **69** | UDP | Smee TFTP | Serves iPXE firmware binaries, and (optionally) PXELinux configs, Raspberry Pi netboot firmware, and arbitrary disk assets to PXE-booting machines | `--enable-smee=false` |
 | **514** | UDP | Smee Syslog | Collects boot-time syslog messages from provisioning machines | `--enable-smee=false` |
 | **2222** | TCP (SSH) | SecondStar | SSH-to-serial bridge for out-of-band hardware management via BMC | `--enable-secondstar=false` |
@@ -28,6 +29,44 @@ variables.
 > pxe-over-http/wget clients) by enabling `--pxe-http-enabled`; the URL path
 > prefix it mounts under is set with `--pxe-http-path-prefix` (default
 > `/tftp/`).
+
+Shared listeners support IPv4 and IPv6 bind addresses through
+`--bind-address`. Use `--public-ipv4` and `--public-ipv6` to advertise the
+addresses provisioned machines and agents should call back to.
+
+### Bind Address Selection
+
+When `--bind-address` is set, Tinkerbell uses that address for shared services
+such as HTTP, Tink Server gRPC, TFTP, syslog, and SecondStar. A service-specific
+bind address, where available, takes precedence over the global address.
+
+When `--bind-address` is not set, Tinkerbell chooses an IPv4-compatible default
+from addresses detected on the local host:
+
+| Detected IPv4 | Detected IPv6 | Default bind address |
+|---------------|---------------|----------------------|
+| yes | either | detected IPv4 |
+| no | yes | `::` |
+| no | no | `0.0.0.0` |
+
+The `--public-ipv4` and `--public-ipv6` values are advertised addresses and do
+not change the automatically selected bind address. This allows an external,
+NAT, or load-balancer address to be advertised without requiring that address
+to exist on a local interface. Each setting must contain an address of its
+named family; IPv4-mapped IPv6 values such as `::ffff:192.0.2.10` are IPv4 and
+are rejected by `--public-ipv6`.
+
+Use `--bind-address=::` to explicitly select the IPv6 wildcard for shared
+services. Whether an IPv6 wildcard socket also accepts IPv4 traffic is platform
+dependent; on Linux it depends on `IPV6_V6ONLY` and `net.ipv6.bindv6only`, and
+container or Kubernetes networking may impose additional behavior.
+
+The DHCPv6 listener has its own `--dhcpv6-bind-addr` setting and defaults to
+`::`. The DHCPv4 and DHCPv6 listeners are enabled independently with
+`--dhcp-enabled` and `--dhcpv6-enabled`. `--dhcpv6-bind-interface` can be set
+to one interface or a comma-separated list of interfaces. Changing the DHCPv6
+listener does not change the bind address of HTTP, TFTP, syslog, Tink Server,
+or other shared services referenced by the advertised IPv6 boot configuration.
 
 ---
 
@@ -67,7 +106,7 @@ per-service scraping. A combined endpoint gathers from all registries.
 | Route | Method | HTTPS | Redirect | Description |
 |-------|--------|-------|----------|-------------|
 | `/ipxe/binary/` | GET, HEAD | | | Serves architecture-specific iPXE firmware binaries (e.g. `snp.efi`, `undionly.kpxe`) from the embedded file set. DHCP option 67 points machines here. |
-| `/ipxe/script/` | GET | | | Serves auto-generated iPXE boot scripts. Supports MAC-address injection in the URL path (e.g. `/ipxe/script/aa:bb:cc:dd:ee:ff/auto.ipxe`). |
+| `/ipxe/script/` | GET | | | Serves auto-generated iPXE boot scripts. Supports MAC-address injection in the URL path (e.g. `/ipxe/script/aa:bb:cc:dd:ee:ff/auto.ipxe` for IPv4 and `/ipxe/script/aa:bb:cc:dd:ee:ff/auto6.ipxe` for IPv6). |
 | `/iso/` | GET | ✅ | | Serves dynamically-patched ISO images with per-machine kernel parameters baked in. Enabled via `--smee-iso-enabled`. |
 
 ### PXE over HTTP (Smee)
@@ -264,6 +303,37 @@ Key DHCP options set:
 - **Option 67** (Bootfile Name): iPXE binary filename or HTTP URL
 - **Option 7** (Log Server): Syslog IP for boot logging
 
+### DHCPv6 (UDP :547)
+
+Smee DHCPv6 is disabled by default and can be enabled with
+`--dhcpv6-enabled=true`. It listens on `--dhcpv6-bind-addr` and
+`--dhcpv6-bind-port`, defaulting to `[::]:547`. `--dhcpv6-bind-interface`
+accepts either one interface or a comma-separated list, such as
+`macvlan0,eth0`. When setting this through Helm, escape the comma and prefer
+`--set-string`, for example
+`--set-string deployment.envs.smee.dhcpv6BindInterface=macvlan0\,eth0`.
+
+Smee supports four DHCPv6 modes:
+
+| Mode | Description |
+|------|-------------|
+| `stateless` | Replies to matching Hardware records with stateless DHCPv6 configuration and optional boot data. IPv6 addressing comes from RA/SLAAC. |
+| `auto-stateless` | Like `stateless`, but can answer unknown clients with default netboot data when the client identity can be determined. |
+| `reservation` | Provides reserved IPv6 addresses from Hardware records using IA_NA. |
+| `derived` | Uses Hardware IPv6 reservations when present, otherwise derives temporary boot-time IPv6 addresses from a configured direct pool or relay link-address prefix. |
+
+Key DHCPv6 options set:
+- **Option 2** (Server Identifier): Tinkerbell's DHCPv6 Server DUID
+- **Option 3** (IA_NA): Reserved or derived IPv6 address in stateful modes
+- **Option 23** (DNS Recursive Name Server): IPv6 DNS servers from Hardware DHCP configuration or the DHCPv6 fallback
+- **Option 24** (Domain Search List): Domain search list from Hardware DHCP configuration or the DHCPv6 fallback
+- **Option 32** (Information Refresh Time): Refresh interval for stateless replies
+- **Option 56** (NTP Server): IPv6 NTP servers from Hardware DHCP configuration
+- **Option 59** (Boot File URL): iPXE binary, script, or not-allowed URL, only when requested by the client
+
+See [DHCP Boot Modes](./DHCP_BOOT_MODES.md) for DHCPv6 mode behavior,
+addressing limitations, client identity requirements, and boot URL selection.
+
 ### TFTP (UDP :69)
 
 Serves boot files for initial PXE boot; see the [TFTP Endpoints](#tftp-endpoints)
@@ -336,6 +406,7 @@ When deployed via Helm, the Kubernetes Service exposes:
 | 7443 | 7443 | TCP | TLS configured |
 | 42113 | 42113 | TCP | `enableTinkServer` |
 | 67 | 67 | UDP | `enableSmee` |
+| 547 | 547 | UDP | `enableSmee` and `dhcpv6Enabled` |
 | 69 | 69 | UDP | `enableSmee` |
 | 514 | 514 | UDP | `enableSmee` |
 | 2222 | 2222 | TCP | `enableSecondstar` |
