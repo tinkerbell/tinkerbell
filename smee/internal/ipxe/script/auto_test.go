@@ -1,6 +1,7 @@
 package script
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -156,6 +157,43 @@ exit
 			}
 			if diff := cmp.Diff(got, tt.want); diff != "" {
 				t.Errorf("Auto.autoDotIPXE() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestHookSyslogIPXEConfigName(t *testing.T) {
+	tests := map[string]struct {
+		syslogHost string
+		want       string
+	}{
+		"ipv4":                  {syslogHost: "192.0.2.10", want: "syslog"},
+		"ipv4 with port":        {syslogHost: "192.0.2.10:514", want: "syslog"},
+		"ipv6":                  {syslogHost: "2001:db8::1", want: "syslog6"},
+		"bracketed ipv6 port":   {syslogHost: "[2001:db8::1]:514", want: "syslog6"},
+		"hostname remains ipv4": {syslogHost: "syslog.example.com", want: "syslog"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := (Hook{SyslogHost: tt.syslogHost}).SyslogIPXEConfigName(); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestSyslogIPXEConfigNameInTemplates(t *testing.T) {
+	for name, script := range map[string]string{
+		"hook":   HookScript,
+		"static": StaticScript,
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, err := GenerateTemplate(Hook{SyslogHost: "2001:db8::1"}, script)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(got, "set syslog6 2001:db8::1") {
+				t.Fatalf("expected IPv6 syslog setting in script, got:\n%s", got)
 			}
 		})
 	}

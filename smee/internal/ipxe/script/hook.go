@@ -1,10 +1,12 @@
 package script
 
+import "net/netip"
+
 // HookScript is the default iPXE script for loading Hook.
 var HookScript = `#!ipxe
 
 {{- if .SyslogHost }}
-set syslog {{ .SyslogHost }}
+set {{ .SyslogIPXEConfigName }} {{ .SyslogHost }}
 {{- end}}
 
 echo Loading the Tinkerbell Hook iPXE script...
@@ -70,4 +72,16 @@ type Hook struct {
 	RetryDelay            int    // number of seconds to wait between retries
 	KernelName            string // name of the kernel file
 	InitrdName            string // name of the initrd file
+}
+
+// SyslogIPXEConfigName returns the iPXE setting that matches the syslog host address family.
+func (h Hook) SyslogIPXEConfigName() string {
+	if addr, err := netip.ParseAddr(h.SyslogHost); err == nil && addr.Is6() {
+		return "syslog6"
+	}
+	if addrPort, err := netip.ParseAddrPort(h.SyslogHost); err == nil && addrPort.Addr().Is6() {
+		return "syslog6"
+	}
+
+	return "syslog"
 }

@@ -23,7 +23,7 @@ const (
 
 func detectPublicIPv4() netip.Addr {
 	if netint := os.Getenv(smeePublicIPInterface); netint != "" {
-		if ip := ipByInterface(netint); ip.String() != "" && ip.IsValid() {
+		if ip := ipByInterface(netint, func(ip net.IP) bool { return ip.To4() != nil }); ip.String() != "" && ip.IsValid() {
 			return ip
 		}
 	}
@@ -40,8 +40,8 @@ func detectPublicIPv4() netip.Addr {
 	return ip
 }
 
-// ipByInterface returns the first IPv4 address on the named network interface.
-func ipByInterface(name string) netip.Addr {
+// ipByInterface returns the first address on the named network interface that matches keep.
+func ipByInterface(name string, keep func(net.IP) bool) netip.Addr {
 	iface, err := net.InterfaceByName(name)
 	if err != nil {
 		return netip.Addr{}
@@ -58,8 +58,11 @@ func ipByInterface(name string) netip.Addr {
 			continue
 		}
 
-		if ipNet.IP.To4() != nil {
-			return netip.AddrFrom4([4]byte(ipNet.IP.To4()))
+		if keep(ipNet.IP) {
+			ip, ok := netip.AddrFromSlice(ipNet.IP)
+			if ok {
+				return ip.Unmap()
+			}
 		}
 	}
 
@@ -123,6 +126,112 @@ func autoDetectPublicIpv4WithDefaultGateway() (netip.Addr, error) {
 	}
 
 	return netip.Addr{}, fmt.Errorf("no default gateway found")
+}
+
+func detectPublicIPv6() netip.Addr {
+	if netint := os.Getenv(smeePublicIPInterface); netint != "" {
+		if ip := ipByInterface(netint, isPublicInterfaceIPv6); ip.String() != "" && ip.IsValid() {
+			return ip
+		}
+	}
+	if ip, err := autoDetectPublicIPv6WithDefaultGateway(); err == nil {
+		return ip
+	}
+	if ip, err := autoDetectPublicIPv6(); err == nil {
+		return ip
+	}
+	return netip.Addr{}
+}
+
+func isPublicInterfaceIPv6(ip net.IP) bool {
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok {
+		return false
+	}
+	addr = addr.Unmap()
+	return addr.Is6() && addr.IsGlobalUnicast() && !addr.IsLinkLocalUnicast()
+}
+
+func autoDetectPublicIPv6() (netip.Addr, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("unable to auto-detect public IPv6: %w", err)
+	}
+	for _, addr := range addrs {
+		ip, ok := addr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		a, ok := netip.AddrFromSlice(ip.IP)
+		if !ok || !a.Is6() || !a.IsGlobalUnicast() {
+			continue
+		}
+
+		return a, nil
+	}
+
+	return netip.Addr{}, errors.New("unable to auto-detect public IPv6")
+}
+
+// autoDetectPublicIPv6WithDefaultGateway finds the network interface with an IPv6 default gateway
+// and returns the first global unicast IPv6 address of the first interface that has a default gateway.
+func autoDetectPublicIPv6WithDefaultGateway() (netip.Addr, error) {
+	routes, err := netlink.RouteList(nil, unix.AF_INET6)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("failed to list IPv6 routes: %v", err)
+	}
+
+	for _, route := range routes {
+		if route.Dst != nil || route.Gw == nil {
+			continue
+		}
+
+		iface, err := net.InterfaceByIndex(route.LinkIndex)
+		if err != nil {
+			return netip.Addr{}, fmt.Errorf("failed to get interface by index: %v", err)
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return netip.Addr{}, fmt.Errorf("failed to get addresses for interface %v: %v", iface.Name, err)
+		}
+
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			ip, ok := netip.AddrFromSlice(ipNet.IP)
+			if ok && ip.Is6() && ip.IsGlobalUnicast() {
+				return ip, nil
+			}
+		}
+	}
+
+	return netip.Addr{}, fmt.Errorf("no IPv6 default gateway found")
+}
+
+// defaultBindAddr chooses an IPv4-first bind address from addresses detected
+// on the local host. Configured public addresses are advertised addresses and
+// must not be used here because they may belong to a load balancer.
+func defaultBindAddr(detectedIPv4, detectedIPv6 netip.Addr) netip.Addr {
+	if detectedIPv4.Is4() && !detectedIPv4.IsUnspecified() {
+		return detectedIPv4
+	}
+	if detectedIPv6.Is6() && !detectedIPv6.Is4In6() && !detectedIPv6.IsUnspecified() {
+		return netip.IPv6Unspecified()
+	}
+	return netip.MustParseAddr("0.0.0.0")
+}
+
+func validatePublicAddressFamilies(publicIP, publicIPv6 netip.Addr) error {
+	if publicIP.IsValid() && !publicIP.Is4() {
+		return fmt.Errorf("public IPv4 address %q is not IPv4", publicIP)
+	}
+	if publicIPv6.IsValid() && (!publicIPv6.Is6() || publicIPv6.Is4In6()) {
+		return fmt.Errorf("public IPv6 address %q is not IPv6", publicIPv6)
+	}
+	return nil
 }
 
 func kubeConfig() string {
