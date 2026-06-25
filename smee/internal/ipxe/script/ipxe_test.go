@@ -3,15 +3,27 @@ package script
 import (
 	"context"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
 	"go.opentelemetry.io/otel/trace"
 )
+
+type testBackend struct {
+	hardware map[string]*tinkerbell.Hardware
+}
+
+func (b testBackend) FilterHardware(_ context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error) {
+	return b.hardware[opts.ByMACAddress], nil
+}
 
 func TestCustomScript(t *testing.T) {
 	tests := map[string]struct {
@@ -158,7 +170,7 @@ exit
 				InitrdName:            "initramfs",
 			}
 			sp := trace.SpanFromContext(context.Background())
-			got, err := h.defaultScript(sp, tt.d)
+			got, err := h.defaultScript(sp, tt.d, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -248,7 +260,7 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			sp := trace.SpanFromContext(context.Background())
-			got, err := tt.handler.defaultScript(sp, tt.d)
+			got, err := tt.handler.defaultScript(sp, tt.d, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -344,5 +356,159 @@ exit
 	}
 	if diff := cmp.Diff(writer.Body.String(), want); diff != "" {
 		t.Fatalf("expected custom script, got %s", diff)
+	}
+}
+
+func TestStaticScriptIPv6ScriptRoute(t *testing.T) {
+	metric.JobDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "test_jobs_duration_seconds"}, []string{"from", "op"})
+	metric.JobsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "test_jobs_total"}, []string{"from", "op"})
+	metric.JobsInProgress = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "test_jobs_in_progress"}, []string{"from", "op"})
+	h := &Handler{
+		OSIEURLv6:            "http://[2001:db8::2]",
+		PublicSyslogFQDNv6:   "2001:db8::3",
+		TinkServerGRPCAddrV6: "[2001:db8::4]:42113",
+		StaticIPXEEnabled:    true,
+		KernelName:           "vmlinuz",
+		InitrdName:           "initramfs",
+	}
+	hf := h.HandlerFunc()
+	writer := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/ipxe/script/08:00:27:9e:f5:3a/auto6.ipxe", nil)
+	hf(writer, req)
+	if writer.Code != http.StatusOK {
+		t.Errorf("expected status code %d, got %d", http.StatusOK, writer.Code)
+	}
+	if got := writer.Body.String(); !strings.Contains(got, "set download-url http://[2001:db8::2]") {
+		t.Fatalf("expected IPv6 static script, got:\n%s", got)
+	}
+}
+
+func TestHandlerServesIPv6SettingsForAuto6ScriptRoute(t *testing.T) {
+	metric.JobDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "test_custom_jobs_duration_seconds"}, []string{"from", "op"})
+	metric.JobsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "test_custom_jobs_total"}, []string{"from", "op"})
+	metric.JobsInProgress = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "test_custom_jobs_in_progress"}, []string{"from", "op"})
+	mac := net.HardwareAddr{0x08, 0x00, 0x27, 0x9e, 0xf5, 0x3a}
+	allowNetboot := true
+	h := &Handler{
+		Backend: testBackend{
+			hardware: map[string]*tinkerbell.Hardware{
+				mac.String(): {
+					Spec: tinkerbell.HardwareSpec{
+						Interfaces: []tinkerbell.Interface{
+							{
+								DHCP: &tinkerbell.DHCP{
+									MAC:  mac.String(),
+									Arch: "x86_64",
+								},
+								Netboot: &tinkerbell.Netboot{
+									AllowPXE: &allowNetboot,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		OSIEURL:               "http://192.0.2.2",
+		OSIEURLv6:             "http://[2001:db8::2]",
+		PublicSyslogFQDN:      "192.0.2.3",
+		PublicSyslogFQDNv6:    "2001:db8::3",
+		TinkServerGRPCAddr:    "192.0.2.4:42113",
+		TinkServerGRPCAddrV6:  "[2001:db8::4]:42113",
+		IPXEScriptRetries:     1,
+		IPXEScriptRetryDelay:  1,
+		TinkServerTLS:         true,
+		TinkServerInsecureTLS: true,
+	}
+	hf := h.HandlerFunc()
+	writer := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/custom/"+mac.String()+"/auto6.ipxe", nil)
+
+	hf(writer, req)
+
+	if writer.Code != http.StatusOK {
+		t.Fatalf("expected status code %d, got %d", http.StatusOK, writer.Code)
+	}
+	body := writer.Body.String()
+	for _, want := range []string{
+		"set download-url http://[2001:db8::2]",
+		"set syslog6 2001:db8::3",
+		"grpc_authority=[2001:db8::4]:42113",
+		"tinkerbell_tls=true",
+		"tinkerbell_insecure_tls=true",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected IPv6 setting %q in script, got:\n%s", want, body)
+		}
+	}
+	for _, notWant := range []string{
+		"set download-url http://192.0.2.2",
+		"set syslog 192.0.2.3",
+		"grpc_authority=192.0.2.4:42113",
+	} {
+		if strings.Contains(body, notWant) {
+			t.Fatalf("unexpected IPv4 setting %q in script, got:\n%s", notWant, body)
+		}
+	}
+}
+
+func TestHandlerLeavesCustomScriptsUnchangedForAuto6ScriptRoute(t *testing.T) {
+	metric.JobDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "test_custom_auto6_jobs_duration_seconds"}, []string{"from", "op"})
+	metric.JobsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "test_custom_auto6_jobs_total"}, []string{"from", "op"})
+	metric.JobsInProgress = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "test_custom_auto6_jobs_in_progress"}, []string{"from", "op"})
+	mac := net.HardwareAddr{0x08, 0x00, 0x27, 0x9e, 0xf5, 0x3a}
+	allowNetboot := true
+	tests := map[string]struct {
+		ipxe     *tinkerbell.IPXE
+		contains string
+	}{
+		"custom URL": {
+			ipxe:     &tinkerbell.IPXE{URL: "https://boot.example/custom/auto.ipxe"},
+			contains: "chain --autofree https://boot.example/custom/auto.ipxe",
+		},
+		"inline script": {
+			ipxe:     &tinkerbell.IPXE{Contents: "#!ipxe\necho custom-v6"},
+			contains: "#!ipxe\necho custom-v6",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			h := &Handler{
+				Backend: testBackend{
+					hardware: map[string]*tinkerbell.Hardware{
+						mac.String(): {
+							Spec: tinkerbell.HardwareSpec{
+								Interfaces: []tinkerbell.Interface{
+									{
+										DHCP: &tinkerbell.DHCP{
+											MAC:  mac.String(),
+											Arch: "x86_64",
+										},
+										Netboot: &tinkerbell.Netboot{
+											AllowPXE: &allowNetboot,
+											IPXE:     tt.ipxe,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			writer := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/ipxe/script/"+mac.String()+"/auto6.ipxe", nil)
+
+			h.HandlerFunc()(writer, req)
+
+			if writer.Code != http.StatusOK {
+				t.Fatalf("expected status code %d, got %d", http.StatusOK, writer.Code)
+			}
+			if got := writer.Body.String(); !strings.Contains(got, tt.contains) {
+				t.Fatalf("expected custom script content %q, got:\n%s", tt.contains, got)
+			}
+			if strings.Contains(writer.Body.String(), "auto6.ipxe") {
+				t.Fatalf("custom script should not be rewritten to auto6.ipxe, got:\n%s", writer.Body.String())
+			}
+		})
 	}
 }

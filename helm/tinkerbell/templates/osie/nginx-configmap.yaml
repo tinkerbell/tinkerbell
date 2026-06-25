@@ -16,6 +16,9 @@ data:
     http {
       server {
         listen {{ include "tinkerbell.osie.port" . }};
+        {{ if .Values.artifactsFileServerV6 }}
+        listen [::]:{{ include "tinkerbell.osie.port" . }};
+        {{ end }}
         location / {
           sendfile           on;
           sendfile_max_chunk 1m;

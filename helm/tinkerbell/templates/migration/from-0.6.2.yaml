@@ -1,5 +1,6 @@
 {{- if .Values.optional.migration.enabled -}}
-artifactsFileServer: {{ .Values.artifactsFileServer }}
+artifactsFileServer: {{ .Values.artifactsFileServer | quote }}
+artifactsFileServerV6: {{ .Values.artifactsFileServerV6 | quote }}
 deployment:
   additionalEnvs: {{ .Values.deployment.additionalEnvs | toYaml | nindent 4 }}
   additionalArgs: {{ .Values.deployment.additionalArgs | toYaml | nindent 4 }}
@@ -56,6 +57,27 @@ deployment:
       dhcpSyslogIP: {{ .Values.deployment.envs.smee.dhcpSyslogIP }}
       dhcpTftpIP: {{ .Values.deployment.envs.smee.dhcpTftpIP }}
       dhcpTftpPort: {{ .Values.deployment.envs.smee.dhcpTftpPort }}
+      dhcpv6BindAddr: {{ .Values.deployment.envs.smee.dhcpv6BindAddr }}
+      dhcpv6BindInterface: {{ .Values.deployment.envs.smee.dhcpv6BindInterface }}
+      dhcpv6BindPort: {{ .Values.deployment.envs.smee.dhcpv6BindPort }}
+      dhcpv6Enabled: {{ .Values.deployment.envs.smee.dhcpv6Enabled }}
+      dhcpv6EnableNetbootOptions: {{ .Values.deployment.envs.smee.dhcpv6EnableNetbootOptions }}
+      dhcpv6SyslogIP: {{ .Values.deployment.envs.smee.dhcpv6SyslogIP }}
+      dhcpv6IpxeHttpBinaryHost: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpBinaryHost }}
+      dhcpv6IpxeHttpBinaryPath: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpBinaryPath }}
+      dhcpv6IpxeHttpBinaryPort: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpBinaryPort }}
+      dhcpv6IpxeHttpBinaryScheme: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpBinaryScheme }}
+      dhcpv6IpxeHttpScriptHost: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpScriptHost }}
+      dhcpv6IpxeHttpScriptPath: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpScriptPath }}
+      dhcpv6IpxeHttpScriptPort: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpScriptPort }}
+      dhcpv6IpxeHttpScriptPrependMac: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpScriptPrependMac }}
+      dhcpv6IpxeHttpScriptScheme: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpScriptScheme }}
+      dhcpv6Mode: {{ .Values.deployment.envs.smee.dhcpv6Mode }}
+      dhcpv6ServerDUID: {{ .Values.deployment.envs.smee.dhcpv6ServerDUID }}
+      dhcpv6DerivedDirectAddressPool: {{ .Values.deployment.envs.smee.dhcpv6DerivedDirectAddressPool }}
+      dhcpv6DerivedRelayAddressPrefix: {{ .Values.deployment.envs.smee.dhcpv6DerivedRelayAddressPrefix }}
+      dhcpv6TftpIP: {{ .Values.deployment.envs.smee.dhcpv6TftpIP }}
+      dhcpv6TftpPort: {{ .Values.deployment.envs.smee.dhcpv6TftpPort }}
       ipxeEmbeddedScriptPatch: {{ .Values.deployment.envs.smee.ipxeEmbeddedScriptPatch }}
       ipxeHttpBinaryEnabled: {{ .Values.deployment.envs.smee.ipxeHttpBinaryEnabled }}
       ipxeHttpScriptEnabled: {{ .Values.deployment.envs.smee.ipxeHttpScriptEnabled }}
@@ -138,6 +160,10 @@ service:
       name: {{ .Values.service.ports.dhcp.name }}
       port: {{ .Values.service.ports.dhcp.port }}
       protocol: {{ .Values.service.ports.dhcp.protocol }}
+    dhcpv6:
+      name: {{ .Values.service.ports.dhcpv6.name }}
+      port: {{ .Values.service.ports.dhcpv6.port }}
+      protocol: {{ .Values.service.ports.dhcpv6.protocol }}
     grpc:
       name: {{ .Values.service.ports.grpc.name }}
       port: {{ .Values.service.ports.grpc.port }}

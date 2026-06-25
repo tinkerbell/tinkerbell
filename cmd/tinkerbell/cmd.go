@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"net/netip"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -37,9 +36,13 @@ var (
 
 func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop // Will need to look into reducing the cyclomatic complexity.
 	startTime := time.Now() // used in the HTTP healthcheck handler to report uptime.
+	publicIP := detectPublicIPv4()
+	publicIPv6 := detectPublicIPv6()
 	globals := &flag.GlobalConfig{
-		BackendKubeConfig:    kubeConfig(),
-		PublicIP:             detectPublicIPv4(),
+		BackendKubeConfig: kubeConfig(),
+		PublicIP:          publicIP,
+		PublicIPv6:        publicIPv6,
+
 		EnableSmee:           true,
 		EnableTootles:        true,
 		EnableTinkServer:     true,
@@ -50,12 +53,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		EnableCRDMigrations:  true,
 		HTTPPort:             defaultHTTPPort,
 		HTTPSPort:            defaultHTTPSPort,
-		BindAddr: func() netip.Addr {
-			if addr := detectPublicIPv4(); addr.IsValid() {
-				return addr
-			}
-			return netip.MustParseAddr("0.0.0.0")
-		}(),
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
@@ -67,7 +64,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	s := &flag.SmeeConfig{
-		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
+		Config: smee.NewConfig(smee.Config{}, defaultBindAddr(publicIP, publicIPv6, false)),
 	}
 
 	h := &flag.TootlesConfig{
@@ -75,7 +72,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 	ts := &flag.TinkServerConfig{
 		Config:   server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
-		BindAddr: detectPublicIPv4(),
+		BindAddr: defaultBindAddr(publicIP, publicIPv6, false),
 		BindPort: defaultTinkServerPort,
 	}
 	controllerOpts := []controller.Option{
@@ -150,6 +147,9 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 
 		return e
 	}
+	if !globals.BindAddr.IsValid() {
+		globals.BindAddr = defaultBindAddr(globals.PublicIP, globals.PublicIPv6, globals.DualStack)
+	}
 
 	log := getLogger(globals.LogLevel)
 	cliLog := log.WithName("cli")
@@ -163,13 +163,15 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		"secondStarEnabled", globals.EnableSecondStar,
 		"uiEnabled", globals.EnableUI,
 		"publicIP", globals.PublicIP,
+		"publicIPv6", globals.PublicIPv6,
+		"dualStack", globals.DualStack,
 		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
 		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
 		"globalBindAddress", globals.BindAddr,
 	)
 
 	// Smee
-	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr, globals.HTTPPort)
+	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.PublicIPv6, globals.BindAddr, globals.HTTPPort)
 	if s.DHCPIPXEBinary.Port == 0 {
 		s.DHCPIPXEBinary.Port = globals.HTTPPort
 	}

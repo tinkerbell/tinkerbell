@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 	"time"
 
@@ -190,7 +192,7 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 	srv := httpserver.NewConfig(opts...)
 
 	kvs := []any{
-		"addr", fmt.Sprintf("%s:%d", globals.BindAddr.String(), globals.HTTPPort),
+		"addr", net.JoinHostPort(globals.BindAddr.String(), strconv.Itoa(globals.HTTPPort)),
 		"enabledSchemes", func() []string {
 			schemes := []string{"http"}
 			if httpsHandler != nil {

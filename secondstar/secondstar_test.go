@@ -5,9 +5,46 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net/netip"
 	"os"
 	"testing"
 )
+
+func TestSSHAddrPort(t *testing.T) {
+	tests := map[string]struct {
+		addr netip.Addr
+		port int
+		want string
+	}{
+		"invalid address": {
+			port: 2222,
+			want: ":2222",
+		},
+		"unspecified address": {
+			addr: netip.IPv4Unspecified(),
+			port: 2222,
+			want: ":2222",
+		},
+		"ipv4": {
+			addr: netip.MustParseAddr("10.0.2.15"),
+			port: 2222,
+			want: "10.0.2.15:2222",
+		},
+		"ipv6": {
+			addr: netip.MustParseAddr("2001:db8::15"),
+			port: 2222,
+			want: "[2001:db8::15]:2222",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := sshAddrPort(tt.addr, tt.port); got != tt.want {
+				t.Errorf("sshAddrPort() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestHostKeyFrom(t *testing.T) {
 	tests := []struct {
