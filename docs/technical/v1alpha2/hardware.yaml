@@ -81,49 +81,55 @@ spec:
       dhcp:
         ipv4:
           disabled: false
-          bootFileName: "ztp.json"
-          classlessStaticRoutes:
-            - destinationDescriptor: "192.168.1.0/24"
-              router: "192.168.1.254"
-          domainName: "tinkerbell.org"
-          domainSearchList:
-            - "tinkerbell.org"
-            - "example.com"
-          hostname: "example"
           leaseTimeSeconds: 86400
-          nameservers:
-            - "1.1.1.1"
-          ntpServers:
-            - "pool.ntp.org"
-            - "204.197.163.71"
-          tftpServerName: "192.168.2.2"
-          vlanID: "110"
         ipv6:
           disabled: false
-          nameservers:
-            - "2001:4860:4860::8888"
-            - "2001:4860:4860::8844"
-          domainSearchList:
-            - "tinkerbell.org"
-          ntpServers:
-            - "2001:db8::123"
           informationRefreshTime: 86400
           preferredLifetime: 3600
           validLifetime: 7200
-          bootFileURL: "tftp://[2001:db8::1]/bootx64.efi"
-          bootFileParams:
-            - "root=/dev/sda1"
       ipam:
         ipv4:
           address: "192.168.1.100"
           gateway: "192.168.1.1"
           prefix: "24"
+          hostname: "example"
+          nameservers:
+            - "1.1.1.1"
+          ntpServers:
+            - "pool.ntp.org"
+            - "204.197.163.71"
+          domainSearchList:
+            - "tinkerbell.org"
+            - "example.com"
+          classlessStaticRoutes:
+            - destinationDescriptor: "192.168.1.0/24"
+              router: "192.168.1.254"
+          vlanID: "110"
         ipv6:
           address: "2001:db8:1:1::"
           gateway: "fe80::1"
           prefix: "64"
+          hostname: "example"
+          nameservers:
+            - "2001:4860:4860::8888"
+            - "2001:4860:4860::8844"
+          ntpServers:
+            - "2001:db8::123"
+          domainSearchList:
+            - "tinkerbell.org"
+          classlessStaticRoutes:
+            - destinationDescriptor: "2001:db8:2::/64"
+              router: "2001:db8:1::1"
+          vlanID: "110"
       netboot:
         disabled: false
+        ipv4:
+          bootFileName: "ztp.json"
+          tftpServerName: "192.168.2.2"
+        ipv6:
+          bootFileURL: "tftp://[2001:db8::1]/bootx64.efi"
+          bootFileParams:
+            - "root=/dev/sda1"
         ipxe:
           binary: "snp-x86_64.efi"
           script: |
@@ -161,8 +167,6 @@ spec:
             [all]
             hdmi_safe=1
           firmwarePath: "captain-armbian-rpi/firmware-rpi"
-          tftpPrefix: custom
-          tftpPrefixCustom: "my-custom-prefix/"
   references:
     additional:
       "registryCert":
