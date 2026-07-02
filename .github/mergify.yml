@@ -32,11 +32,9 @@ queue_rules:
       # This extra condition forces draft PR mode (prevents in-place checks)
       - queue-position>=0
     merge_method: merge
-    commit_message_template: |
-      {{ title }} (#{{ number }})
-
-      {{ body }}
-
+    commit_message_format:
+      title: pr-title
+      body: pr-body
 merge_protections_settings:
   reporting_method: check-runs
   auto_merge_conditions: true
