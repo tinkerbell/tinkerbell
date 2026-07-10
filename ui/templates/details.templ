@@ -384,6 +384,555 @@ templ HardwareDetailContent(hw HardwareDetail, baseURL string) {
 		}
 	}
 	
+	if hw.BMCInventory != nil {
+		<!-- BMC Inventory -->
+		@SectionBoxCollapsible("BMC Inventory", true) {
+			<div class="space-y-6">
+				<!-- Product -->
+				if hw.BMCInventory.Product.Vendor != "" || hw.BMCInventory.Product.Model != "" || hw.BMCInventory.Product.ProductName != "" || hw.BMCInventory.Product.SerialNumber != "" {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Product</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<tbody>
+									<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+										<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+											if hw.BMCInventory.Product.Vendor != "" {
+												{ hw.BMCInventory.Product.Vendor }
+											}
+											if hw.BMCInventory.Product.Model != "" {
+												<span> { hw.BMCInventory.Product.Model }</span>
+											} else if hw.BMCInventory.Product.ProductName != "" {
+												<span> { hw.BMCInventory.Product.ProductName }</span>
+											}
+											if hw.BMCInventory.Product.SerialNumber != "" {
+												<span class="text-gray-500 dark:text-gray-400"> (S/N: { hw.BMCInventory.Product.SerialNumber })</span>
+											}
+											if hw.BMCInventory.Product.Status.Health != "" {
+												<span class="ml-2">@StatusBadge(hw.BMCInventory.Product.Status.Health)</span>
+											}
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- Collection Info -->
+				if hw.BMCInventory.CollectionMethod != "" || hw.BMCInventory.LastUpdated != "" {
+					<div>
+						<table class="min-w-full">
+							<tbody>
+								if hw.BMCInventory.CollectionMethod != "" {
+									<tr class="border-b border-gray-100 dark:border-darkBorder">
+										<td class="py-2 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 w-1/4">Collection Method</td>
+										<td class="py-2 text-sm text-gray-900 dark:text-white">{ hw.BMCInventory.CollectionMethod }</td>
+									</tr>
+								}
+								if hw.BMCInventory.LastUpdated != "" {
+									<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+										<td class="py-2 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 w-1/4">Last Updated</td>
+										<td class="py-2 text-sm text-gray-900 dark:text-white">{ hw.BMCInventory.LastUpdated }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+
+				<!-- BIOS -->
+				if hw.BMCInventory.BIOS.Vendor != "" || hw.BMCInventory.BIOS.FirmwareInstalled != "" {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">BIOS</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<tbody>
+									<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+										<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+											if hw.BMCInventory.BIOS.Vendor != "" {
+												{ hw.BMCInventory.BIOS.Vendor }
+											}
+											if hw.BMCInventory.BIOS.FirmwareInstalled != "" {
+												<span class="text-gray-500 dark:text-gray-400"> v{ hw.BMCInventory.BIOS.FirmwareInstalled }</span>
+											}
+											if hw.BMCInventory.BIOS.Status.Health != "" {
+												<span class="ml-2">@StatusBadge(hw.BMCInventory.BIOS.Status.Health)</span>
+											}
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- BMC -->
+				if hw.BMCInventory.BMC.Vendor != "" || hw.BMCInventory.BMC.FirmwareInstalled != "" {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">BMC</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<tbody>
+									<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+										<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+											if hw.BMCInventory.BMC.Vendor != "" {
+												{ hw.BMCInventory.BMC.Vendor }
+											}
+											if hw.BMCInventory.BMC.FirmwareInstalled != "" {
+												<span class="text-gray-500 dark:text-gray-400"> v{ hw.BMCInventory.BMC.FirmwareInstalled }</span>
+											}
+											if hw.BMCInventory.BMC.Status.Health != "" {
+												<span class="ml-2">@StatusBadge(hw.BMCInventory.BMC.Status.Health)</span>
+											}
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- Mainboard -->
+				if hw.BMCInventory.Mainboard.Vendor != "" || hw.BMCInventory.Mainboard.SerialNumber != "" {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Mainboard</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<tbody>
+									<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+										<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+											if hw.BMCInventory.Mainboard.Vendor != "" {
+												{ hw.BMCInventory.Mainboard.Vendor }
+											}
+											if hw.BMCInventory.Mainboard.Model != "" {
+												<span> { hw.BMCInventory.Mainboard.Model }</span>
+											}
+											if hw.BMCInventory.Mainboard.SerialNumber != "" {
+												<span class="text-gray-500 dark:text-gray-400"> (S/N: { hw.BMCInventory.Mainboard.SerialNumber })</span>
+											}
+											if hw.BMCInventory.Mainboard.FirmwareInstalled != "" {
+												<span class="text-gray-500 dark:text-gray-400"> (FW: { hw.BMCInventory.Mainboard.FirmwareInstalled })</span>
+											}
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- CPUs -->
+				if len(hw.BMCInventory.CPUs) > 0 {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">CPUs</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<thead>
+									<tr class="border-b border-gray-200 dark:border-darkBorder">
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Slot</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Model</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Vendor</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Cores</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Threads</th>
+										<th class="py-2 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Clock Speed</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, cpu := range hw.BMCInventory.CPUs {
+										<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+											<td class="py-2 pr-4 text-sm font-mono text-gray-900 dark:text-white">
+												if cpu.Slot != "" {
+													{ cpu.Slot }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if cpu.Model != "" {
+													{ cpu.Model }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if cpu.Vendor != "" {
+													{ cpu.Vendor }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">{ strconv.Itoa(int(cpu.Cores)) }</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">{ strconv.Itoa(int(cpu.Threads)) }</td>
+											<td class="py-2 text-sm text-gray-900 dark:text-white">
+												if cpu.ClockSpeedMHz > 0 {
+													{ strconv.Itoa(int(cpu.ClockSpeedMHz)) } MHz
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- Memory -->
+				if len(hw.BMCInventory.Memory) > 0 {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Memory</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<thead>
+									<tr class="border-b border-gray-200 dark:border-darkBorder">
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Slot</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Vendor</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Size (GB)</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Speed</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Form Factor</th>
+										<th class="py-2 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Part Number</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, mem := range hw.BMCInventory.Memory {
+										<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+											<td class="py-2 pr-4 text-sm font-mono text-gray-900 dark:text-white">
+												if mem.Slot != "" {
+													{ mem.Slot }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if mem.Vendor != "" {
+													{ mem.Vendor }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if mem.SizeBytes > 0 {
+													{ strconv.FormatFloat(float64(mem.SizeBytes)/(1024*1024*1024), 'f', 0, 64) }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if mem.SpeedMHz > 0 {
+													{ strconv.Itoa(int(mem.SpeedMHz)) } MHz
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if mem.FormFactor != "" {
+													{ mem.FormFactor }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 text-sm font-mono text-gray-900 dark:text-white">
+												if mem.PartNumber != "" {
+													{ mem.PartNumber }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- Network Adapters -->
+				if len(hw.BMCInventory.NICs) > 0 {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Network Adapters</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<thead>
+									<tr class="border-b border-gray-200 dark:border-darkBorder">
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Vendor</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Model</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Firmware</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">MAC Address</th>
+										<th class="py-2 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Speed</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, nic := range hw.BMCInventory.NICs {
+										<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if nic.Vendor != "" {
+													{ nic.Vendor }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if nic.Model != "" {
+													{ nic.Model }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if nic.FirmwareInstalled != "" {
+													{ nic.FirmwareInstalled }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm font-mono text-gray-900 dark:text-white">
+												if nic.MACAddresses() != "" {
+													{ nic.MACAddresses() }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 text-sm text-gray-900 dark:text-white">
+												if nic.PortSpeeds() != "" {
+													{ nic.PortSpeeds() }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- Drives -->
+				if len(hw.BMCInventory.Drives) > 0 {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Drives</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<thead>
+									<tr class="border-b border-gray-200 dark:border-darkBorder">
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Vendor</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Model</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Type</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Size (GB)</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Serial</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">WWN</th>
+										<th class="py-2 text-left text-sm font-medium text-gray-500 dark:text-gray-400">SMART</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, drive := range hw.BMCInventory.Drives {
+										<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if drive.Vendor != "" {
+													{ drive.Vendor }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if drive.Model != "" {
+													{ drive.Model }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if drive.Type != "" {
+													{ drive.Type }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if drive.SizeBytes > 0 {
+													{ strconv.FormatFloat(float64(drive.SizeBytes)/1e9, 'f', 0, 64) }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm font-mono text-gray-900 dark:text-white">
+												if drive.SerialNumber != "" {
+													{ drive.SerialNumber }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm font-mono text-gray-900 dark:text-white">
+												if drive.WWN != "" {
+													{ drive.WWN }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 text-sm text-gray-900 dark:text-white">
+												if drive.SmartStatus != "" {
+													{ drive.SmartStatus }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- Storage Controllers -->
+				if len(hw.BMCInventory.StorageControllers) > 0 {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Storage Controllers</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<tbody>
+									for _, sc := range hw.BMCInventory.StorageControllers {
+										<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if sc.Vendor != "" {
+													{ sc.Vendor }
+												}
+												if sc.Model != "" {
+													<span> { sc.Model }</span>
+												}
+												if sc.Vendor == "" && sc.Model == "" {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if sc.FirmwareInstalled != "" {
+													{ sc.FirmwareInstalled }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 text-sm text-gray-900 dark:text-white">
+												if sc.Status.Health != "" {
+													@StatusBadge(sc.Status.Health)
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- Power Supplies -->
+				if len(hw.BMCInventory.PSUs) > 0 {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Power Supplies</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<tbody>
+									for _, psu := range hw.BMCInventory.PSUs {
+										<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if psu.Vendor != "" {
+													{ psu.Vendor }
+												}
+												if psu.Model != "" {
+													<span> { psu.Model }</span>
+												}
+												if psu.Vendor == "" && psu.Model == "" {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if psu.PowerCapacityWatts > 0 {
+													{ strconv.FormatInt(psu.PowerCapacityWatts, 10) } W
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 text-sm text-gray-900 dark:text-white">
+												if psu.Status.Health != "" {
+													@StatusBadge(psu.Status.Health)
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- GPUs -->
+				if len(hw.BMCInventory.GPUs) > 0 {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">GPUs</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<tbody>
+									for _, gpu := range hw.BMCInventory.GPUs {
+										<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+											<td class="py-2 text-sm text-gray-900 dark:text-white">
+												if gpu.Vendor != "" {
+													{ gpu.Vendor }
+												}
+												if gpu.Model != "" {
+													<span> { gpu.Model }</span>
+												}
+												if gpu.Vendor == "" && gpu.Model == "" {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				<!-- TPMs -->
+				if len(hw.BMCInventory.TPMs) > 0 {
+					<div>
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">TPMs</h4>
+						<div class="overflow-x-auto">
+							<table class="min-w-full">
+								<tbody>
+									for _, tpm := range hw.BMCInventory.TPMs {
+										<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
+												if tpm.Description != "" {
+													{ tpm.Description }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 text-sm font-mono text-gray-900 dark:text-white">
+												if tpm.SerialNumber != "" {
+													{ tpm.SerialNumber }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+			</div>
+		}
+	}
+
+	<!-- Status Section -->
+	@SectionBoxCollapsible("Status", false) {
+		@CodeBlockYAML(hw.StatusYAML)
+	}
+
 	<!-- Spec Section -->
 	@SectionBoxCollapsible("Spec", true) {
 		@CodeBlockYAML(hw.SpecYAML)
