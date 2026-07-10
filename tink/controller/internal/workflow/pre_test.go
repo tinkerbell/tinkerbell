@@ -542,15 +542,11 @@ func TestPrepareWorkflow(t *testing.T) {
 					BootOptions: v1alpha1.BootOptions{
 						BootMode: v1alpha1.BootModeCustomboot,
 						CustombootConfig: v1alpha1.CustombootConfig{
-							PreparingActions: []bmc.Action{
-								{
-									PowerAction: valueToPointer(bmc.PowerOn),
-								},
+							PreparingActions: []v1alpha1.CustombootAction{
+								{Action: bmc.Action{PowerAction: valueToPointer(bmc.PowerOn)}},
 							},
-							PostActions: []bmc.Action{
-								{
-									PowerAction: valueToPointer(bmc.PowerHardOff),
-								},
+							PostActions: []v1alpha1.CustombootAction{
+								{Action: bmc.Action{PowerAction: valueToPointer(bmc.PowerHardOff)}},
 							},
 						},
 					},
@@ -577,6 +573,15 @@ func TestPrepareWorkflow(t *testing.T) {
 						Jobs: map[string]v1alpha1.JobStatus{
 							fmt.Sprintf("%s-test-workflow", jobNameCustombootPreparing): {ExistingJobDeleted: true},
 						},
+						// handleCustombootActions batches the single-action list into one Job
+						// named "<phase>-<workflow>-0" (the "-0" batch-start-index suffix,
+						// derived from Completed, not stored), tracked via Actions instead of
+						// directly via Jobs (the pre-seeded Jobs entry above is now an orphaned
+						// leftover, untouched by this reconcile). The batch is still in flight,
+						// so nothing is written under Actions["customboot-preparing"] yet — the
+						// map itself is initialized (non-nil) but empty until the batch's own
+						// write happens on completion or a webhook entry succeeds.
+						Actions: map[string]v1alpha1.ActionListStatus{},
 					},
 					Conditions: []v1alpha1.WorkflowCondition{
 						{
@@ -625,10 +630,8 @@ func TestPrepareWorkflow(t *testing.T) {
 					BootOptions: v1alpha1.BootOptions{
 						BootMode: v1alpha1.BootModeCustomboot,
 						CustombootConfig: v1alpha1.CustombootConfig{
-							PostActions: []bmc.Action{
-								{
-									PowerAction: valueToPointer(bmc.PowerHardOff),
-								},
+							PostActions: []v1alpha1.CustombootAction{
+								{Action: bmc.Action{PowerAction: valueToPointer(bmc.PowerHardOff)}},
 							},
 						},
 					},

@@ -88,14 +88,16 @@ spec:
                     properties:
                       postActions:
                         description: |-
-                          PostActions are the BMC Actions that will be run after all Workflow Actions have completed.
-                          In most cases these Actions should get a Machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
-                          These Actions will be run only if the main Workflow Actions complete successfully.
+                          PostActions are the BMC actions and/or webhook calls that will be run, in order, after
+                          all Workflow Actions have completed. In most cases these should get a Machine into a
+                          state where it can be powered off or rebooted and remove any mounted virtual media.
+                          These will be run only if the main Workflow Actions complete successfully.
                         items:
                           description: |-
-                            Action represents the action to be performed.
-                            A single task can only perform one type of action.
-                            For example either PowerAction or OneTimeBootDeviceAction.
+                            CustombootAction is one element of PreparingActions/PostActions, executed in list order.
+                            bmc.Action is embedded (not nested under a "bmcAction" key) so a pure-BMC entry is written
+                            exactly as it always has been, e.g. "- powerAction: off" — only an entry that's a webhook call
+                            needs the extra Webhook field. Exactly one of bmc.Action's own fields or Webhook must be set.
                           maxProperties: 1
                           properties:
                             bootDevice:
@@ -165,17 +167,133 @@ spec:
                               required:
                               - kind
                               type: object
+                            webhook:
+                              description: Webhook, if set, makes this entry an HTTP
+                                call instead of a BMC action.
+                              properties:
+                                basicAuth:
+                                  description: |-
+                                    BasicAuth, if set, adds an HTTP Basic Authorization header built from a Secret
+                                    containing "username" and "password" keys. Takes precedence over any Headers entry
+                                    named "Authorization".
+                                  properties:
+                                    name:
+                                      description: name is unique within a namespace
+                                        to reference a secret resource.
+                                      type: string
+                                    namespace:
+                                      description: namespace defines the space within
+                                        which the secret name must be unique.
+                                      type: string
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                body:
+                                  description: Body is the request body, templated
+                                    the same way as URL. Empty for GET/DELETE.
+                                  type: string
+                                expectStatus:
+                                  description: |-
+                                    ExpectStatus, if set, is the exact HTTP status code that counts as success.
+                                    If unset, any 2xx response counts as success.
+                                  type: integer
+                                headers:
+                                  description: |-
+                                    Headers are sent with the request, in order. Each is either a static (still templated)
+                                    Value or sourced directly from a Secret via ValueFrom.
+                                  items:
+                                    description: |-
+                                      WebhookHeader is one HTTP header for a WebhookAction. Exactly one of Value or ValueFrom
+                                      must be set.
+                                    properties:
+                                      name:
+                                        type: string
+                                      value:
+                                        description: Value is a static header value,
+                                          templated the same way as URL/Body.
+                                        type: string
+                                      valueFrom:
+                                        description: |-
+                                          ValueFrom sources this header's value directly from a Secret key. Never templated —
+                                          unlike Value, it goes straight from Secret.Data[key] to the HTTP request, so a
+                                          credential can't leak into a body/URL that gets logged on failure.
+                                        properties:
+                                          key:
+                                            description: The key of the secret to
+                                              select from.  Must be a valid secret
+                                              key.
+                                            type: string
+                                          name:
+                                            default: ""
+                                            description: |-
+                                              Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            type: string
+                                          optional:
+                                            description: Specify whether the Secret
+                                              or its key must be defined
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                    required:
+                                    - name
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: exactly one of value or valueFrom must
+                                        be specified
+                                      rule: '(has(self.value) ? 1 : 0) + (has(self.valueFrom)
+                                        ? 1 : 0) == 1'
+                                  type: array
+                                method:
+                                  description: Method defaults to POST if empty.
+                                  enum:
+                                  - GET
+                                  - POST
+                                  - PUT
+                                  - PATCH
+                                  - DELETE
+                                  type: string
+                                timeout:
+                                  description: |-
+                                    Timeout in seconds for this call. Defaults to 30 if unset. Matches the existing
+                                    container-task Action.Timeout int64-seconds convention, not metav1.Duration.
+                                  format: int64
+                                  type: integer
+                                url:
+                                  description: |-
+                                    URL is the target of the HTTP request. Supports the same Go-template/sprig syntax
+                                    as bmc.VirtualMediaAction.MediaURL (see templateActions), e.g.
+                                    "https://inventory.example.com/hosts/{{ (index .Hardware.Interfaces 0).DHCP.MAC }}/provisioning-started".
+                                  type: string
+                              required:
+                              - url
+                              type: object
                           type: object
+                          x-kubernetes-validations:
+                          - message: exactly one of powerAction, bootDevice, virtualMediaAction,
+                              oneTimeBootDeviceAction, or webhook must be specified
+                            rule: '(has(self.powerAction) ? 1 : 0) + (has(self.oneTimeBootDeviceAction)
+                              ? 1 : 0) + (has(self.bootDevice) ? 1 : 0) + (has(self.virtualMediaAction)
+                              ? 1 : 0) + (has(self.webhook) ? 1 : 0) == 1'
+                        maxItems: 50
                         type: array
                       preparingActions:
                         description: |-
-                          PreparingActions are the BMC Actions that will be run before any Workflow Actions.
-                          In most cases these Actions should get a Machine into a state where a Tink Agent is running.
+                          PreparingActions are the BMC actions and/or webhook calls that will be run, in order,
+                          before any Workflow Actions. In most cases these should get a Machine into a state where
+                          a Tink Agent is running. A pure-BMC-actions list (no webhook entries) behaves exactly as
+                          it always has; a webhook entry interleaved among them makes an HTTP call instead of a
+                          BMC action at that point in the sequence.
                         items:
                           description: |-
-                            Action represents the action to be performed.
-                            A single task can only perform one type of action.
-                            For example either PowerAction or OneTimeBootDeviceAction.
+                            CustombootAction is one element of PreparingActions/PostActions, executed in list order.
+                            bmc.Action is embedded (not nested under a "bmcAction" key) so a pure-BMC entry is written
+                            exactly as it always has been, e.g. "- powerAction: off" — only an entry that's a webhook call
+                            needs the extra Webhook field. Exactly one of bmc.Action's own fields or Webhook must be set.
                           maxProperties: 1
                           properties:
                             bootDevice:
@@ -245,7 +363,119 @@ spec:
                               required:
                               - kind
                               type: object
+                            webhook:
+                              description: Webhook, if set, makes this entry an HTTP
+                                call instead of a BMC action.
+                              properties:
+                                basicAuth:
+                                  description: |-
+                                    BasicAuth, if set, adds an HTTP Basic Authorization header built from a Secret
+                                    containing "username" and "password" keys. Takes precedence over any Headers entry
+                                    named "Authorization".
+                                  properties:
+                                    name:
+                                      description: name is unique within a namespace
+                                        to reference a secret resource.
+                                      type: string
+                                    namespace:
+                                      description: namespace defines the space within
+                                        which the secret name must be unique.
+                                      type: string
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                body:
+                                  description: Body is the request body, templated
+                                    the same way as URL. Empty for GET/DELETE.
+                                  type: string
+                                expectStatus:
+                                  description: |-
+                                    ExpectStatus, if set, is the exact HTTP status code that counts as success.
+                                    If unset, any 2xx response counts as success.
+                                  type: integer
+                                headers:
+                                  description: |-
+                                    Headers are sent with the request, in order. Each is either a static (still templated)
+                                    Value or sourced directly from a Secret via ValueFrom.
+                                  items:
+                                    description: |-
+                                      WebhookHeader is one HTTP header for a WebhookAction. Exactly one of Value or ValueFrom
+                                      must be set.
+                                    properties:
+                                      name:
+                                        type: string
+                                      value:
+                                        description: Value is a static header value,
+                                          templated the same way as URL/Body.
+                                        type: string
+                                      valueFrom:
+                                        description: |-
+                                          ValueFrom sources this header's value directly from a Secret key. Never templated —
+                                          unlike Value, it goes straight from Secret.Data[key] to the HTTP request, so a
+                                          credential can't leak into a body/URL that gets logged on failure.
+                                        properties:
+                                          key:
+                                            description: The key of the secret to
+                                              select from.  Must be a valid secret
+                                              key.
+                                            type: string
+                                          name:
+                                            default: ""
+                                            description: |-
+                                              Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            type: string
+                                          optional:
+                                            description: Specify whether the Secret
+                                              or its key must be defined
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                    required:
+                                    - name
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: exactly one of value or valueFrom must
+                                        be specified
+                                      rule: '(has(self.value) ? 1 : 0) + (has(self.valueFrom)
+                                        ? 1 : 0) == 1'
+                                  type: array
+                                method:
+                                  description: Method defaults to POST if empty.
+                                  enum:
+                                  - GET
+                                  - POST
+                                  - PUT
+                                  - PATCH
+                                  - DELETE
+                                  type: string
+                                timeout:
+                                  description: |-
+                                    Timeout in seconds for this call. Defaults to 30 if unset. Matches the existing
+                                    container-task Action.Timeout int64-seconds convention, not metav1.Duration.
+                                  format: int64
+                                  type: integer
+                                url:
+                                  description: |-
+                                    URL is the target of the HTTP request. Supports the same Go-template/sprig syntax
+                                    as bmc.VirtualMediaAction.MediaURL (see templateActions), e.g.
+                                    "https://inventory.example.com/hosts/{{ (index .Hardware.Interfaces 0).DHCP.MAC }}/provisioning-started".
+                                  type: string
+                              required:
+                              - url
+                              type: object
                           type: object
+                          x-kubernetes-validations:
+                          - message: exactly one of powerAction, bootDevice, virtualMediaAction,
+                              oneTimeBootDeviceAction, or webhook must be specified
+                            rule: '(has(self.powerAction) ? 1 : 0) + (has(self.oneTimeBootDeviceAction)
+                              ? 1 : 0) + (has(self.bootDevice) ? 1 : 0) + (has(self.virtualMediaAction)
+                              ? 1 : 0) + (has(self.webhook) ? 1 : 0) == 1'
+                        maxItems: 50
                         type: array
                     type: object
                   isoURL:
@@ -290,6 +520,23 @@ spec:
               bootOptions:
                 description: BootOptions holds the state of any boot options.
                 properties:
+                  actions:
+                    additionalProperties:
+                      description: ActionListStatus holds progress through an ordered
+                        PreparingActions/PostActions list.
+                      properties:
+                        completed:
+                          description: |-
+                            Completed is the number of entries in the list that have fully succeeded, in order.
+                            The entry at index Completed is the one currently in flight (if any). The batch Job
+                            name for an in-flight BMC-action run is always derivable as "<phase>-<workflow>-
+                            <Completed>" — it isn't tracked separately here.
+                          type: integer
+                      type: object
+                    description: |-
+                      Actions tracks per-phase progress through PreparingActions/PostActions,
+                      e.g. "customboot-preparing".
+                    type: object
                   allowNetboot:
                     description: AllowNetboot holds the state of the the controller's
                       interactions with the allowPXE field in a Hardware object.

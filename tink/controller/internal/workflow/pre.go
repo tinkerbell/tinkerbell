@@ -156,42 +156,19 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 		// what do i set the state to? I think if we get here then the preparing was successful
 	case v1alpha1.BootModeCustomboot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPreparing, s.workflow.GetName()))
-		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
-			journal.Log(ctx, "boot mode customboot preparing")
-			hw, err := hardwareFrom(ctx, s.client, s.workflow)
-			if err != nil {
-				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
-					Type:    v1alpha1.BootJobSetupFailed,
-					Status:  metav1.ConditionFalse,
-					Reason:  "Error",
-					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
-					Time:    &metav1.Time{Time: metav1.Now().UTC()},
-				})
-				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
-				return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
-			}
-			actions, err := templateActions(s.workflow.Spec.BootOptions.CustombootConfig.PreparingActions, hw)
-			if err != nil {
-				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
-					Type:    v1alpha1.BootJobSetupFailed,
-					Status:  metav1.ConditionFalse,
-					Reason:  "Error",
-					Message: fmt.Sprintf("failed to template actions: %s", err.Error()),
-					Time:    &metav1.Time{Time: metav1.Now().UTC()},
-				})
-				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
-				return reconcile.Result{}, fmt.Errorf("failed to template actions: %w", err)
-			}
-			r, err := s.handleJob(ctx, actions, name)
-			if err != nil {
-				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
-				return r, err
-			}
-			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete && s.workflow.Status.State == v1alpha1.WorkflowStatePreparing {
-				s.workflow.Status.State = v1alpha1.WorkflowStatePending
-			}
+		journal.Log(ctx, "boot mode customboot preparing")
+		r, done, err := s.handleCustombootActions(ctx, s.workflow.Spec.BootOptions.CustombootConfig.PreparingActions, "customboot-preparing", name)
+		if err != nil {
+			s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+			return r, err
+		}
+		if !done {
 			return r, nil
 		}
+		if s.workflow.Status.State == v1alpha1.WorkflowStatePreparing {
+			s.workflow.Status.State = v1alpha1.WorkflowStatePending
+		}
+		return r, nil
 	default:
 		s.workflow.Status.State = v1alpha1.WorkflowStatePending
 	}

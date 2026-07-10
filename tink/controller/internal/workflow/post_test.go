@@ -308,10 +308,8 @@ func TestPostActions(t *testing.T) {
 					BootOptions: v1alpha1.BootOptions{
 						BootMode: v1alpha1.BootModeCustomboot,
 						CustombootConfig: v1alpha1.CustombootConfig{
-							PostActions: []bmc.Action{
-								{
-									PowerAction: valueToPointer(bmc.PowerHardOff),
-								},
+							PostActions: []v1alpha1.CustombootAction{
+								{Action: bmc.Action{PowerAction: valueToPointer(bmc.PowerHardOff)}},
 							},
 						},
 					},
@@ -339,6 +337,11 @@ func TestPostActions(t *testing.T) {
 				Spec:   bmc.JobSpec{},
 				Status: bmc.JobStatus{},
 			},
+			// handleCustombootActions batches PostActions into a new "<phase>-<workflow>-0"
+			// Job (the batch-start-index suffix, derived from Completed, not stored) tracked
+			// via Actions, distinct from the pre-seeded, now-orphaned Jobs entry above (which
+			// predates the retyping of PostActions to []CustombootAction). The batch is still
+			// in flight, so Actions is initialized (non-nil) but empty until it completes.
 			wantWorkflow: &v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
 					CurrentState: &v1alpha1.CurrentState{
@@ -346,8 +349,12 @@ func TestPostActions(t *testing.T) {
 					},
 					BootOptions: v1alpha1.BootOptionsStatus{
 						Jobs: map[string]v1alpha1.JobStatus{
-							fmt.Sprintf("%s-test-workflow", jobNameCustombootPost): {ExistingJobDeleted: true},
+							fmt.Sprintf("%s-test-workflow", jobNameCustombootPost): {
+								ExistingJobDeleted: true,
+								Complete:           false,
+							},
 						},
+						Actions: map[string]v1alpha1.ActionListStatus{},
 					},
 					State: v1alpha1.WorkflowStatePost,
 					Conditions: []v1alpha1.WorkflowCondition{
@@ -362,21 +369,50 @@ func TestPostActions(t *testing.T) {
 			},
 		},
 		"customboot post actions complete": {
-			wantResult: reconcile.Result{},
-			hardware:   &v1alpha1.Hardware{},
+			// Note: under the PostActions retyping to []CustombootAction, "complete" per the
+			// pre-existing (now-orphaned) Jobs entry no longer short-circuits this reconcile —
+			// there's no equivalent "already done" signal in Actions (absent, not pre-seeded),
+			// so handleCustombootActions starts a fresh "<phase>-<workflow>-0" batch. A
+			// Workflow already fully complete under the old model will run its PostActions
+			// once more on the first reconcile after this change ships, since Actions has no
+			// record of prior completion.
+			wantResult: reconcile.Result{Requeue: true},
+			hardware: &v1alpha1.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hardware",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.HardwareSpec{
+					BMCRef: &v1.TypedLocalObjectReference{
+						Name: "test-bmc",
+						Kind: "machine.bmc.tinkerbell.org",
+					},
+				},
+			},
+			wantHardware: &v1alpha1.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hardware",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.HardwareSpec{
+					BMCRef: &v1.TypedLocalObjectReference{
+						Name: "test-bmc",
+						Kind: "machine.bmc.tinkerbell.org",
+					},
+				},
+			},
 			workflow: &v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-workflow",
 					Namespace: "default",
 				},
 				Spec: v1alpha1.WorkflowSpec{
+					HardwareRef: "test-hardware",
 					BootOptions: v1alpha1.BootOptions{
 						BootMode: v1alpha1.BootModeCustomboot,
 						CustombootConfig: v1alpha1.CustombootConfig{
-							PostActions: []bmc.Action{
-								{
-									PowerAction: valueToPointer(bmc.PowerHardOff),
-								},
+							PostActions: []v1alpha1.CustombootAction{
+								{Action: bmc.Action{PowerAction: valueToPointer(bmc.PowerHardOff)}},
 							},
 						},
 					},
@@ -398,7 +434,6 @@ func TestPostActions(t *testing.T) {
 			},
 			wantWorkflow: &v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
-					State: v1alpha1.WorkflowStateSuccess,
 					CurrentState: &v1alpha1.CurrentState{
 						State: v1alpha1.WorkflowStateSuccess,
 					},
@@ -409,6 +444,15 @@ func TestPostActions(t *testing.T) {
 								UID:                "test-uid",
 								Complete:           true,
 							},
+						},
+						Actions: map[string]v1alpha1.ActionListStatus{},
+					},
+					Conditions: []v1alpha1.WorkflowCondition{
+						{
+							Type:    v1alpha1.BootJobSetupComplete,
+							Status:  metav1.ConditionTrue,
+							Reason:  "Created",
+							Message: "job created",
 						},
 					},
 				},
