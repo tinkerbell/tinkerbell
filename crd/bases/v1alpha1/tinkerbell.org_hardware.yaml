@@ -498,6 +498,473 @@ spec:
           status:
             description: HardwareStatus defines the observed state of Hardware.
             properties:
+              bmcInventory:
+                description: |-
+                  BMCInventory contains hardware attributes collected out-of-band via the BMC's
+                  Redfish API. It is updated by the Machine controller when BMC connectivity is
+                  established. This data is available before the machine boots. IPMI-only BMCs
+                  cannot provide this data and will not populate this field.
+                properties:
+                  bios:
+                    description: BIOS describes the system BIOS firmware.
+                    properties:
+                      firmwareInstalled:
+                        type: string
+                      model:
+                        type: string
+                      nic:
+                        description: |-
+                          NIC is the BMC's own out-of-band management network interface. It is
+                          distinct from BMCInventory.NICs, which lists the host's NICs.
+                        properties:
+                          firmwareInstalled:
+                            type: string
+                          model:
+                            type: string
+                          ports:
+                            description: Ports lists the individual physical ports
+                              on this adapter.
+                            items:
+                              description: BMCNICPort describes a single physical
+                                port on a network adapter.
+                              properties:
+                                linkStatus:
+                                  type: string
+                                macAddress:
+                                  type: string
+                                mtu:
+                                  format: int32
+                                  type: integer
+                                portID:
+                                  type: string
+                                speedMbps:
+                                  format: int32
+                                  type: integer
+                              type: object
+                            type: array
+                          serialNumber:
+                            type: string
+                          vendor:
+                            type: string
+                        type: object
+                      serialNumber:
+                        type: string
+                      status:
+                        description: |-
+                          BMCStatus is health/state info, mirroring bmclib/common.Status. PostCode is only
+                          meaningful for BIOS (POST diagnostics) and will be empty elsewhere.
+                        properties:
+                          health:
+                            type: string
+                          postCode:
+                            format: int32
+                            type: integer
+                          postCodeStatus:
+                            type: string
+                          state:
+                            type: string
+                        type: object
+                      vendor:
+                        type: string
+                    type: object
+                  bmc:
+                    description: BMC describes the BMC firmware.
+                    properties:
+                      firmwareInstalled:
+                        type: string
+                      model:
+                        type: string
+                      nic:
+                        description: |-
+                          NIC is the BMC's own out-of-band management network interface. It is
+                          distinct from BMCInventory.NICs, which lists the host's NICs.
+                        properties:
+                          firmwareInstalled:
+                            type: string
+                          model:
+                            type: string
+                          ports:
+                            description: Ports lists the individual physical ports
+                              on this adapter.
+                            items:
+                              description: BMCNICPort describes a single physical
+                                port on a network adapter.
+                              properties:
+                                linkStatus:
+                                  type: string
+                                macAddress:
+                                  type: string
+                                mtu:
+                                  format: int32
+                                  type: integer
+                                portID:
+                                  type: string
+                                speedMbps:
+                                  format: int32
+                                  type: integer
+                              type: object
+                            type: array
+                          serialNumber:
+                            type: string
+                          vendor:
+                            type: string
+                        type: object
+                      serialNumber:
+                        type: string
+                      status:
+                        description: |-
+                          BMCStatus is health/state info, mirroring bmclib/common.Status. PostCode is only
+                          meaningful for BIOS (POST diagnostics) and will be empty elsewhere.
+                        properties:
+                          health:
+                            type: string
+                          postCode:
+                            format: int32
+                            type: integer
+                          postCodeStatus:
+                            type: string
+                          state:
+                            type: string
+                        type: object
+                      vendor:
+                        type: string
+                    type: object
+                  collectionMethod:
+                    description: |-
+                      CollectionMethod identifies which bmclib driver produced this inventory
+                      (e.g. "redfish", "dell", "supermicro", "asrockrack", "openbmc"). Field
+                      completeness varies significantly by driver, so consumers should use this to
+                      interpret absent fields rather than treating them as errors.
+                    type: string
+                  cpus:
+                    description: CPUs lists CPUs as reported by the BMC.
+                    items:
+                      description: |-
+                        BMCCPUComponent describes a CPU as reported by the BMC. Note: on the Redfish
+                        collection path (Dell/Supermicro/gofish/OpenBMC), SerialNumber is always empty
+                        upstream in bmclib — not a bug in the conversion, just what the BMC exposes.
+                      properties:
+                        clockSpeedMHz:
+                          format: int32
+                          type: integer
+                        cores:
+                          format: int32
+                          type: integer
+                        firmwareInstalled:
+                          type: string
+                        model:
+                          type: string
+                        serialNumber:
+                          type: string
+                        slot:
+                          type: string
+                        threads:
+                          format: int32
+                          type: integer
+                        vendor:
+                          type: string
+                      type: object
+                    type: array
+                  drives:
+                    description: Drives lists storage drives as reported by the BMC,
+                      with firmware details.
+                    items:
+                      description: BMCDriveComponent describes a storage drive as
+                        reported by the BMC.
+                      properties:
+                        firmwareInstalled:
+                          type: string
+                        model:
+                          type: string
+                        serialNumber:
+                          type: string
+                        sizeBytes:
+                          format: int64
+                          type: integer
+                        smartStatus:
+                          description: |-
+                            SmartStatus is the drive's self-reported SMART health status (e.g. "ok",
+                            "predict-failure").
+                          type: string
+                        type:
+                          type: string
+                        vendor:
+                          type: string
+                        wwn:
+                          description: WWN is the World Wide Name, a standard unique
+                            storage identifier.
+                          type: string
+                      type: object
+                    type: array
+                  gpus:
+                    description: GPUs lists GPU/accelerator devices as reported by
+                      the BMC.
+                    items:
+                      description: BMCComponent is a basic hardware component without
+                        specialized fields.
+                      properties:
+                        description:
+                          type: string
+                        firmwareInstalled:
+                          type: string
+                        model:
+                          type: string
+                        serialNumber:
+                          type: string
+                        status:
+                          description: |-
+                            BMCStatus is health/state info, mirroring bmclib/common.Status. PostCode is only
+                            meaningful for BIOS (POST diagnostics) and will be empty elsewhere.
+                          properties:
+                            health:
+                              type: string
+                            postCode:
+                              format: int32
+                              type: integer
+                            postCodeStatus:
+                              type: string
+                            state:
+                              type: string
+                          type: object
+                        vendor:
+                          type: string
+                      type: object
+                    type: array
+                  lastUpdated:
+                    description: LastUpdated is the time at which this inventory was
+                      last refreshed.
+                    format: date-time
+                    type: string
+                  mainboard:
+                    description: Mainboard describes the mainboard.
+                    properties:
+                      description:
+                        type: string
+                      firmwareInstalled:
+                        type: string
+                      model:
+                        type: string
+                      serialNumber:
+                        type: string
+                      status:
+                        description: |-
+                          BMCStatus is health/state info, mirroring bmclib/common.Status. PostCode is only
+                          meaningful for BIOS (POST diagnostics) and will be empty elsewhere.
+                        properties:
+                          health:
+                            type: string
+                          postCode:
+                            format: int32
+                            type: integer
+                          postCodeStatus:
+                            type: string
+                          state:
+                            type: string
+                        type: object
+                      vendor:
+                        type: string
+                    type: object
+                  memory:
+                    description: Memory lists memory modules as reported by the BMC,
+                      with firmware details.
+                    items:
+                      description: |-
+                        BMCMemoryComponent describes a memory module as reported by the BMC. Note: on
+                        the Redfish collection path, Model is always empty upstream in bmclib — not a
+                        bug in the conversion, just what the BMC exposes.
+                      properties:
+                        firmwareInstalled:
+                          type: string
+                        formFactor:
+                          type: string
+                        model:
+                          type: string
+                        partNumber:
+                          type: string
+                        serialNumber:
+                          type: string
+                        sizeBytes:
+                          format: int64
+                          type: integer
+                        slot:
+                          type: string
+                        speedMHz:
+                          format: int32
+                          type: integer
+                        vendor:
+                          type: string
+                      type: object
+                    type: array
+                  nics:
+                    description: NICs lists network adapters as reported by the BMC,
+                      with firmware details.
+                    items:
+                      description: BMCNICComponent describes a network adapter as
+                        reported by the BMC.
+                      properties:
+                        firmwareInstalled:
+                          type: string
+                        model:
+                          type: string
+                        ports:
+                          description: Ports lists the individual physical ports on
+                            this adapter.
+                          items:
+                            description: BMCNICPort describes a single physical port
+                              on a network adapter.
+                            properties:
+                              linkStatus:
+                                type: string
+                              macAddress:
+                                type: string
+                              mtu:
+                                format: int32
+                                type: integer
+                              portID:
+                                type: string
+                              speedMbps:
+                                format: int32
+                                type: integer
+                            type: object
+                          type: array
+                        serialNumber:
+                          type: string
+                        vendor:
+                          type: string
+                      type: object
+                    type: array
+                  product:
+                    description: |-
+                      Product describes the overall system identity (e.g. the Redfish "System"
+                      resource's own vendor/model/serial) — the machine's own asset tag, distinct
+                      from any individual component like the Mainboard or BMC.
+                    properties:
+                      model:
+                        type: string
+                      productName:
+                        type: string
+                      serialNumber:
+                        type: string
+                      status:
+                        description: |-
+                          BMCStatus is health/state info, mirroring bmclib/common.Status. PostCode is only
+                          meaningful for BIOS (POST diagnostics) and will be empty elsewhere.
+                        properties:
+                          health:
+                            type: string
+                          postCode:
+                            format: int32
+                            type: integer
+                          postCodeStatus:
+                            type: string
+                          state:
+                            type: string
+                        type: object
+                      vendor:
+                        type: string
+                    type: object
+                  psus:
+                    description: PSUs lists power supply units.
+                    items:
+                      description: BMCPSUComponent describes a power supply unit as
+                        reported by the BMC.
+                      properties:
+                        description:
+                          type: string
+                        model:
+                          type: string
+                        powerCapacityWatts:
+                          format: int64
+                          type: integer
+                        serialNumber:
+                          type: string
+                        status:
+                          description: |-
+                            BMCStatus is health/state info, mirroring bmclib/common.Status. PostCode is only
+                            meaningful for BIOS (POST diagnostics) and will be empty elsewhere.
+                          properties:
+                            health:
+                              type: string
+                            postCode:
+                              format: int32
+                              type: integer
+                            postCodeStatus:
+                              type: string
+                            state:
+                              type: string
+                          type: object
+                        vendor:
+                          type: string
+                      type: object
+                    type: array
+                  storageControllers:
+                    description: StorageControllers lists storage controllers as reported
+                      by the BMC.
+                    items:
+                      description: BMCComponent is a basic hardware component without
+                        specialized fields.
+                      properties:
+                        description:
+                          type: string
+                        firmwareInstalled:
+                          type: string
+                        model:
+                          type: string
+                        serialNumber:
+                          type: string
+                        status:
+                          description: |-
+                            BMCStatus is health/state info, mirroring bmclib/common.Status. PostCode is only
+                            meaningful for BIOS (POST diagnostics) and will be empty elsewhere.
+                          properties:
+                            health:
+                              type: string
+                            postCode:
+                              format: int32
+                              type: integer
+                            postCodeStatus:
+                              type: string
+                            state:
+                              type: string
+                          type: object
+                        vendor:
+                          type: string
+                      type: object
+                    type: array
+                  tpms:
+                    description: TPMs lists trusted platform modules.
+                    items:
+                      description: BMCComponent is a basic hardware component without
+                        specialized fields.
+                      properties:
+                        description:
+                          type: string
+                        firmwareInstalled:
+                          type: string
+                        model:
+                          type: string
+                        serialNumber:
+                          type: string
+                        status:
+                          description: |-
+                            BMCStatus is health/state info, mirroring bmclib/common.Status. PostCode is only
+                            meaningful for BIOS (POST diagnostics) and will be empty elsewhere.
+                          properties:
+                            health:
+                              type: string
+                            postCode:
+                              format: int32
+                              type: integer
+                            postCodeStatus:
+                              type: string
+                            state:
+                              type: string
+                          type: object
+                        vendor:
+                          type: string
+                      type: object
+                    type: array
+                type: object
               state:
                 description: HardwareState represents the hardware state.
                 type: string
