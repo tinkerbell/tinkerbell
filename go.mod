@@ -26,7 +26,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20210315223345-82c243799c99
 	github.com/insomniacslk/dhcp v0.0.0-20260407060928-11b94ed970f2
 	github.com/jacobweinstock/registrar v0.4.7
-	github.com/jaypipes/ghw v0.24.0
+	github.com/jaypipes/ghw v0.25.1-0.20260710085941-ed1c31cf4aff
 	github.com/moby/moby/api v1.55.0
 	github.com/moby/moby/client v0.5.0
 	github.com/nats-io/nats.go v1.52.0
