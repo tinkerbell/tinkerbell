@@ -289,7 +289,8 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 			sort.Strings(resp)
 			return resp
 		}(),
-		Pid: toPtr(action.Pid),
+		Pid:     toPtr(action.Pid),
+		Network: toPtr(action.Network),
 	}
 
 	log.Info("sending action", "action", ar, "actionID", action.ID)

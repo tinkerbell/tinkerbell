@@ -25,6 +25,7 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 				State:       v1alpha1.WorkflowState(proto.ActionStatusRequest_PENDING.String()),
 				Environment: action.Environment,
 				Pid:         action.Pid,
+				Network:     action.Network,
 			})
 		}
 		tasks = append(tasks, v1alpha1.Task{

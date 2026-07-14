@@ -248,6 +248,7 @@ type Action struct {
 	Command           []string          `json:"command,omitempty"`
 	Volumes           []string          `json:"volumes,omitempty"`
 	Pid               string            `json:"pid,omitempty"`
+	Network           string            `json:"network,omitempty"`
 	Environment       map[string]string `json:"environment,omitempty"`
 	State             WorkflowState     `json:"state,omitempty"`
 	ExecutionStart    *metav1.Time      `json:"executionStart,omitempty"`

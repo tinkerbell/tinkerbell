@@ -29,4 +29,5 @@ type Action struct {
 	Volumes     []string          `yaml:"volumes,omitempty"`
 	Environment map[string]string `yaml:"environment,omitempty"`
 	Pid         string            `yaml:"pid,omitempty"`
+	Network     string            `yaml:"network,omitempty"`
 }

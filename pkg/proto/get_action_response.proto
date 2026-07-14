@@ -48,6 +48,10 @@ message ActionResponse {
     * Set the namespace that the process IDs will be in.
     */
    string pid = 11;
+   /*
+    * Set the network namespace (e.g. "host") that the action container will run in.
+    */
+   string network = 12;
 }
 
 
