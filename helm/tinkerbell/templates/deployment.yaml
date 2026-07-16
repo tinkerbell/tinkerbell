@@ -78,11 +78,19 @@ spec:
               value: {{ .Values.deployment.envs.tinkController.maxConcurrentReconciles | quote }}
             - name: TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES
             {{- if .Values.deployment.envs.tinkController.referenceAllowListRules }}
-              value: {{ .Values.deployment.envs.tinkController.referenceAllowListRules | toJson | quote }}
+              {{- $rules := list }}
+              {{- range .Values.deployment.envs.tinkController.referenceAllowListRules }}
+              {{- $rules = append $rules (toJson .) }}
+              {{- end }}
+              value: {{ join "|" $rules | quote }}
             {{- end }}
             - name: TINKERBELL_TINK_CONTROLLER_REFERENCE_DENY_LIST_RULES
             {{- if .Values.deployment.envs.tinkController.referenceDenyListRules }}
-              value: {{ .Values.deployment.envs.tinkController.referenceDenyListRules | toJson | quote }}
+              {{- $rules := list }}
+              {{- range .Values.deployment.envs.tinkController.referenceDenyListRules }}
+              {{- $rules = append $rules (toJson .) }}
+              {{- end }}
+              value: {{ join "|" $rules | quote }}
             {{- end }}
           # TINK SERVER
             - name: TINKERBELL_TINK_SERVER_BIND_ADDR

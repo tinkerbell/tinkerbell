@@ -213,9 +213,30 @@ Helm Values:
 - `deployment.envs.tinkController.referenceAllowListRules`
 - `deployment.envs.tinkController.referenceDenyListRules`
 
+Each value is a list of rule objects. The chart renders each rule as a JSON object and joins them with `|` for the controller.
+
 ```yaml
---set-json 'deployment.envs.tinkController.referenceAllowListRules={"reference":{"resource":["secrets"]}}'
---set-json 'deployment.envs.tinkController.referenceDenyListRules={"reference":{"resource":["pods"]}}'
+--set-json 'deployment.envs.tinkController.referenceAllowListRules=[{"reference":{"resource":["hardware"]}},{"reference":{"resource":["workflows"]}}]'
+--set-json 'deployment.envs.tinkController.referenceDenyListRules=[{"reference":{"resource":["pods"]}}]'
+```
+
+Or in a values file:
+
+```yaml
+deployment:
+  envs:
+    tinkController:
+      referenceAllowListRules:
+        - reference:
+            resource:
+              - hardware
+        - reference:
+            resource:
+              - workflows
+      referenceDenyListRules:
+        - reference:
+            resource:
+              - pods
 ```
 
 ## Full Example
@@ -231,7 +252,7 @@ The following is a full example of defining a Reference in a Hardware object to 
 1. Configure access to just this specific Secret by setting the allow list rule below when deploying Tinkerbell with Helm
 
    ```bash
-   --set-json 'deployment.envs.tinkController.referenceAllowListRules={"source":{"name":["example-hardware"],"namespace":["tinkerbell"]},"reference":{"name":["my-secret"],"namespace":["tinkerbell"],"resource":["secrets"]}}' 
+   --set-json 'deployment.envs.tinkController.referenceAllowListRules=[{"source":{"name":["example-hardware"],"namespace":["tinkerbell"]},"reference":{"name":["my-secret"],"namespace":["tinkerbell"],"resource":["secrets"]}}]' 
    ```
 
 1. Create the Hardware object, with the Reference to the Secret

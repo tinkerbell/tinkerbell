@@ -109,8 +109,8 @@ deployment:
       leaderElectionNamespace: ""
       logLevel: 0
       maxConcurrentReconciles: 1
-      referenceAllowListRules: {}
-      referenceDenyListRules: {}
+      referenceAllowListRules: []
+      referenceDenyListRules: []
     tinkServer:
       autoDiscoveryAutoEnrollmentEnabled: false
       autoDiscoveryEnabled: false
