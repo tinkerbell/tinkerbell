@@ -131,8 +131,94 @@ spec:
       - powerAction: "reset"
 ```
 
-[PREPARING Reference](/tink/controller/internal/workflow/pre.go#L158)
-[POST Reference](/tink/controller/internal/workflow/post.go#L61)
+[PREPARING Reference](/tink/controller/internal/workflow/pre.go#L157)
+[POST Reference](/tink/controller/internal/workflow/post.go#L57)
+
+### Webhooks in customboot
+
+`preparingActions` and `postActions` can also call arbitrary HTTP endpoints — e.g. to notify an
+external system, or gate on something outside Tinkerbell — interleaved with BMC actions in the
+same ordered sequence. Each element is either a BMC action, written exactly as shown above
+(`- powerAction: "off"`, `- bootDevice: {...}`, no wrapper key needed), or a `webhook:` entry.
+Webhook calls are made directly by the Tink Controller (no BMC or `job.bmc.tinkerbell.org`
+involved); contiguous BMC-action steps are still batched into a single `job.bmc.tinkerbell.org`
+— only a webhook in between forces a new one:
+
+```yaml
+apiVersion: "tinkerbell.org/v1alpha1"
+kind: Workflow
+metadata:
+  name: example
+spec:
+  templateRef: example
+  hardwareRef: example
+  bootOptions:
+    bootMode: customboot
+    custombootConfig:
+      preparingActions:
+      - webhook:
+          url: "https://inventory.example.com/hosts/{{ (index .Hardware.Interfaces 0).DHCP.MAC | replace \":\" \"-\" }}/power-off-requested"
+      - powerAction: "off"
+      - webhook:
+          url: "https://inventory.example.com/hosts/{{ (index .Hardware.Interfaces 0).DHCP.MAC | replace \":\" \"-\" }}/power-off-confirmed"
+      - bootDevice:
+          device: "pxe"
+          efiBoot: true
+      - powerAction: "on"
+      postActions:
+      - powerAction: "on"
+      - webhook:
+          url: "https://inventory.example.com/hosts/{{ (index .Hardware.Interfaces 0).DHCP.MAC | replace \":\" \"-\" }}/provisioning-complete"
+```
+
+A pure-BMC-actions list (no `webhook:` entries at all) behaves identically to how
+`preparingActions`/`postActions` always have — there's no cost to writing a plain BMC-only list
+this way, whether or not you use webhooks.
+
+A webhook call fails the Workflow the same way a failed BMC action does — there's no automatic
+retry. Progress through the list is tracked in `status.bootOptions.actions`, so an
+already-succeeded step is never re-run on a later reconcile. (One exception: a Workflow that
+completed its `postActions` *before* upgrading to a Tinkerbell version with this feature has no
+such tracking recorded yet, so its `postActions` run once more on the first reconcile after the
+upgrade.)
+
+#### Webhook headers and authentication
+
+`headers` is a list of `{name, value}` for static (still templated) values, or
+`{name, valueFrom: {name, key}}` to source a header directly from a Secret — useful for a Bearer
+token, which is never templated so it can't leak into logs via a failed render:
+
+```yaml
+      preparingActions:
+      - webhook:
+          url: "https://inventory.example.com/notify"
+          headers:
+          - name: X-Correlation-ID
+            value: "{{ .Hardware.Metadata.State }}"
+          - name: Authorization
+            valueFrom:
+              name: inventory-webhook-token
+              key: bearer-token
+```
+
+For HTTP Basic auth, `basicAuth` references a Secret containing `username` and `password` keys —
+the request's `Authorization` header is built and base64-encoded automatically, no pre-encoding
+required:
+
+```yaml
+      preparingActions:
+      - webhook:
+          url: "https://inventory.example.com/notify"
+          basicAuth:
+            name: inventory-webhook-creds
+            namespace: tinkerbell
+```
+
+`basicAuth` takes precedence over a `headers` entry named `Authorization` if both are set on the
+same webhook — don't combine them on the same call.
+
+[`WebhookAction` reference](/tink/controller/internal/workflow/webhook.go)
+[`preparingActions`/`postActions` execution reference](/tink/controller/internal/workflow/customboot.go)
 
 #### Example: PXE Boot with customboot
 
@@ -174,7 +260,7 @@ This configuration will:
 
 ### Templating in customboot
 
-The `customboot` mode supports Go template syntax in action fields, enabling dynamic configuration based on Hardware specifications. This is particularly useful for virtual media URLs that need to include the Machine's MAC address.
+The `customboot` mode supports Go template syntax in action fields, enabling dynamic configuration based on Hardware specifications. This is particularly useful for virtual media URLs that need to include the Machine's MAC address. The same templating applies to a `webhook`'s `url`, `body`, and static header `value` fields — a `webhook.valueFrom`/`basicAuth`-sourced value is never templated (see [Webhooks in customboot](#webhooks-in-customboot)).
 
 #### Available Template Data
 

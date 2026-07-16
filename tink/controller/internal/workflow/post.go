@@ -56,31 +56,20 @@ func (s *state) postActions(ctx context.Context) (reconcile.Result, error) {
 		}
 	case v1alpha1.BootModeCustomboot:
 		name := jobName(fmt.Sprintf("%s-%s", jobNameCustombootPost, s.workflow.GetName()))
-		if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted || j.UID == "" || !j.Complete {
-			journal.Log(ctx, "boot mode customboot post")
-			hw, err := hardwareFrom(ctx, s.client, s.workflow)
-			if err != nil {
-				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
-				return reconcile.Result{}, fmt.Errorf("failed to get hardware: %w", err)
-			}
-			actions, err := templateActions(s.workflow.Spec.BootOptions.CustombootConfig.PostActions, hw)
-			if err != nil {
-				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
-				return reconcile.Result{}, fmt.Errorf("failed to template post actions: %w", err)
-			}
-			r, err := s.handleJob(ctx, actions, name)
-			if err != nil {
-				s.workflow.Status.State = v1alpha1.WorkflowStateFailed
-				return r, err
-			}
-			if s.workflow.Status.BootOptions.Jobs[name.String()].Complete || len(s.workflow.Spec.BootOptions.CustombootConfig.PostActions) == 0 {
-				// Post Action handling must only change the Status.State if the status.State was not a failure state (i.e. not FAILED, TIMEOUT).
-				if s.workflow.Status.CurrentState != nil {
-					s.workflow.Status.State = s.workflow.Status.CurrentState.State
-				}
-			}
+		journal.Log(ctx, "boot mode customboot post")
+		r, done, err := s.handleCustombootActions(ctx, s.workflow.Spec.BootOptions.CustombootConfig.PostActions, "customboot-post", name)
+		if err != nil {
+			s.workflow.Status.State = v1alpha1.WorkflowStateFailed
+			return r, err
+		}
+		if !done {
 			return r, nil
 		}
+		// Post Action handling must only change the Status.State if the status.State was not a failure state (i.e. not FAILED, TIMEOUT).
+		if s.workflow.Status.CurrentState != nil {
+			s.workflow.Status.State = s.workflow.Status.CurrentState.State
+		}
+		return r, nil
 	case v1alpha1.BootModeNetboot:
 		// Nothing to do here for netboot mode.
 	}

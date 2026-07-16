@@ -2,6 +2,7 @@ package tinkerbell
 
 import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -119,13 +120,79 @@ type BootOptions struct {
 
 // CustombootConfig defines the configuration for the customboot boot mode.
 type CustombootConfig struct {
-	// PreparingActions are the BMC Actions that will be run before any Workflow Actions.
-	// In most cases these Actions should get a Machine into a state where a Tink Agent is running.
-	PreparingActions []bmc.Action `json:"preparingActions,omitempty"`
-	// PostActions are the BMC Actions that will be run after all Workflow Actions have completed.
-	// In most cases these Actions should get a Machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
-	// These Actions will be run only if the main Workflow Actions complete successfully.
-	PostActions []bmc.Action `json:"postActions,omitempty"`
+	// PreparingActions are the BMC actions and/or webhook calls that will be run, in order,
+	// before any Workflow Actions. In most cases these should get a Machine into a state where
+	// a Tink Agent is running. A pure-BMC-actions list (no webhook entries) behaves exactly as
+	// it always has; a webhook entry interleaved among them makes an HTTP call instead of a
+	// BMC action at that point in the sequence.
+	// +kubebuilder:validation:MaxItems=50
+	PreparingActions []CustombootAction `json:"preparingActions,omitempty"`
+
+	// PostActions are the BMC actions and/or webhook calls that will be run, in order, after
+	// all Workflow Actions have completed. In most cases these should get a Machine into a
+	// state where it can be powered off or rebooted and remove any mounted virtual media.
+	// These will be run only if the main Workflow Actions complete successfully.
+	// +kubebuilder:validation:MaxItems=50
+	PostActions []CustombootAction `json:"postActions,omitempty"`
+}
+
+// WebhookAction represents a single HTTP call made directly by the workflow controller.
+type WebhookAction struct {
+	// URL is the target of the HTTP request. Supports the same Go-template/sprig syntax
+	// as bmc.VirtualMediaAction.MediaURL (see templateActions), e.g.
+	// "https://inventory.example.com/hosts/{{ (index .Hardware.Interfaces 0).DHCP.MAC }}/provisioning-started".
+	URL string `json:"url"`
+
+	// Method defaults to POST if empty.
+	// +kubebuilder:validation:Enum=GET;POST;PUT;PATCH;DELETE
+	Method string `json:"method,omitempty"`
+
+	// Headers are sent with the request, in order. Each is either a static (still templated)
+	// Value or sourced directly from a Secret via ValueFrom.
+	Headers []WebhookHeader `json:"headers,omitempty"`
+
+	// BasicAuth, if set, adds an HTTP Basic Authorization header built from a Secret
+	// containing "username" and "password" keys. Takes precedence over any Headers entry
+	// named "Authorization".
+	BasicAuth *corev1.SecretReference `json:"basicAuth,omitempty"`
+
+	// Body is the request body, templated the same way as URL. Empty for GET/DELETE.
+	Body string `json:"body,omitempty"`
+
+	// Timeout in seconds for this call. Defaults to 30 if unset. Matches the existing
+	// container-task Action.Timeout int64-seconds convention, not metav1.Duration.
+	Timeout int64 `json:"timeout,omitempty"`
+
+	// ExpectStatus, if set, is the exact HTTP status code that counts as success.
+	// If unset, any 2xx response counts as success.
+	ExpectStatus int `json:"expectStatus,omitempty"`
+}
+
+// WebhookHeader is one HTTP header for a WebhookAction. Exactly one of Value or ValueFrom
+// must be set.
+// +kubebuilder:validation:XValidation:rule="(has(self.value) ? 1 : 0) + (has(self.valueFrom) ? 1 : 0) == 1",message="exactly one of value or valueFrom must be specified"
+type WebhookHeader struct {
+	Name string `json:"name"`
+
+	// Value is a static header value, templated the same way as URL/Body.
+	Value string `json:"value,omitempty"`
+
+	// ValueFrom sources this header's value directly from a Secret key. Never templated —
+	// unlike Value, it goes straight from Secret.Data[key] to the HTTP request, so a
+	// credential can't leak into a body/URL that gets logged on failure.
+	ValueFrom *corev1.SecretKeySelector `json:"valueFrom,omitempty"`
+}
+
+// CustombootAction is one element of PreparingActions/PostActions, executed in list order.
+// bmc.Action is embedded (not nested under a "bmcAction" key) so a pure-BMC entry is written
+// exactly as it always has been, e.g. "- powerAction: off" — only an entry that's a webhook call
+// needs the extra Webhook field. Exactly one of bmc.Action's own fields or Webhook must be set.
+// +kubebuilder:validation:XValidation:rule="(has(self.powerAction) ? 1 : 0) + (has(self.oneTimeBootDeviceAction) ? 1 : 0) + (has(self.bootDevice) ? 1 : 0) + (has(self.virtualMediaAction) ? 1 : 0) + (has(self.webhook) ? 1 : 0) == 1",message="exactly one of powerAction, bootDevice, virtualMediaAction, oneTimeBootDeviceAction, or webhook must be specified"
+type CustombootAction struct {
+	bmc.Action `json:",inline"`
+
+	// Webhook, if set, makes this entry an HTTP call instead of a BMC action.
+	Webhook *WebhookAction `json:"webhook,omitempty"`
 }
 
 func (b BootOptions) IsZero() bool {
@@ -142,6 +209,18 @@ type BootOptionsStatus struct {
 	AllowNetboot AllowNetbootStatus `json:"allowNetboot,omitempty"`
 	// Jobs holds the state of any job.bmc.tinkerbell.org objects created.
 	Jobs map[string]JobStatus `json:"jobs,omitempty"`
+	// Actions tracks per-phase progress through PreparingActions/PostActions,
+	// e.g. "customboot-preparing".
+	Actions map[string]ActionListStatus `json:"actions,omitempty"`
+}
+
+// ActionListStatus holds progress through an ordered PreparingActions/PostActions list.
+type ActionListStatus struct {
+	// Completed is the number of entries in the list that have fully succeeded, in order.
+	// The entry at index Completed is the one currently in flight (if any). The batch Job
+	// name for an in-flight BMC-action run is always derivable as "<phase>-<workflow>-
+	// <Completed>" — it isn't tracked separately here.
+	Completed int `json:"completed,omitempty"`
 }
 
 type AllowNetbootStatus struct {
