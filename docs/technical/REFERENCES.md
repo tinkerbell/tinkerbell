@@ -215,7 +215,7 @@ Helm Values:
 
 Each value is a list of rule objects. The chart renders each rule as a JSON object and joins them with `|` for the controller.
 
-```yaml
+```bash
 --set-json 'deployment.envs.tinkController.referenceAllowListRules=[{"reference":{"resource":["hardware"]}},{"reference":{"resource":["workflows"]}}]'
 --set-json 'deployment.envs.tinkController.referenceDenyListRules=[{"reference":{"resource":["pods"]}}]'
 ```
