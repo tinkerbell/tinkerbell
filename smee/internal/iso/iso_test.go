@@ -375,51 +375,35 @@ func (m *mockBackend) FilterHardware(_ context.Context, opts data.HardwareFilter
 func TestGetTargetURL(t *testing.T) {
 	tests := map[string]struct {
 		defaultISO    string
-		queryParam    string
 		hardwareISO   string
 		expectedURL   string
 		expectedError bool
 	}{
-		"Query parameter with valid HTTP URL": {
+		"No hardware ISO, use default": {
 			defaultISO:    "http://default.com/default.iso",
-			queryParam:    "http://example.com/hook.iso",
-			expectedURL:   "http://example.com/hook.iso",
-			expectedError: false,
-		},
-		"Query parameter with valid HTTPS URL": {
-			defaultISO:    "http://default.com/default.iso",
-			queryParam:    "https://secure.example.com/hook.iso",
-			expectedURL:   "https://secure.example.com/hook.iso",
-			expectedError: false,
-		},
-		"No query parameter, use default": {
-			defaultISO:    "http://default.com/default.iso",
-			queryParam:    "",
 			expectedURL:   "http://default.com/default.iso",
 			expectedError: false,
 		},
-		"Invalid scheme in query parameter": {
+		"Invalid scheme in hardware ISO": {
 			defaultISO:    "http://default.com/default.iso",
-			queryParam:    "ftp://example.com/hook.iso",
+			hardwareISO:   "ftp://example.com/hook.iso",
 			expectedURL:   "",
 			expectedError: true,
 		},
-		"Invalid URL format in query parameter": {
+		"Invalid URL format in hardware ISO": {
 			defaultISO:    "http://default.com/default.iso",
-			queryParam:    "not-a-valid-url",
+			hardwareISO:   "not-a-valid-url",
 			expectedURL:   "",
 			expectedError: true,
 		},
-		"No default and no query parameter": {
+		"No default and no hardware ISO": {
 			defaultISO:    "",
-			queryParam:    "",
 			expectedURL:   "",
 			expectedError: true,
 		},
 		"use Hardware object ISO": {
 			defaultISO:    "http://default.com/default.iso",
 			hardwareISO:   "http://hardware.com/hardware.iso",
-			queryParam:    "",
 			expectedURL:   "http://hardware.com/hardware.iso",
 			expectedError: false,
 		},
@@ -427,7 +411,7 @@ func TestGetTargetURL(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			targetURL, err := targetURL(tt.queryParam, tt.hardwareISO, tt.defaultISO)
+			targetURL, err := targetURL(tt.hardwareISO, tt.defaultISO)
 			if tt.expectedError {
 				if err == nil {
 					t.Errorf("Expected error but got none")
