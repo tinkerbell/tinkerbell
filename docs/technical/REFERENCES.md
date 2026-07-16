@@ -213,7 +213,7 @@ Helm Values:
 - `deployment.envs.tinkController.referenceAllowListRules`
 - `deployment.envs.tinkController.referenceDenyListRules`
 
-Each value is a list of rule objects. The chart renders each rule as a JSON object and joins them with `|` for the controller.
+Each value is a list of rule objects. The chart renders each rule as a JSON object and joins them with `|` for the controller. A single rule object (map) is also accepted and treated as one rule.
 
 ```bash
 --set-json 'deployment.envs.tinkController.referenceAllowListRules=[{"reference":{"resource":["hardware"]}},{"reference":{"resource":["workflows"]}}]'

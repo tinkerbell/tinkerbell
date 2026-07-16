@@ -78,23 +78,31 @@ spec:
               value: {{ .Values.deployment.envs.tinkController.maxConcurrentReconciles | quote }}
             - name: TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES
             {{- if .Values.deployment.envs.tinkController.referenceAllowListRules }}
-              {{- if not (kindIs "slice" .Values.deployment.envs.tinkController.referenceAllowListRules) }}
-                {{- fail "deployment.envs.tinkController.referenceAllowListRules must be a list of rule objects; the map/object form is no longer supported (see docs/technical/REFERENCES.md)" }}
-              {{- end }}
               {{- $rules := list }}
-              {{- range .Values.deployment.envs.tinkController.referenceAllowListRules }}
-              {{- $rules = append $rules (toJson .) }}
+              {{- $value := .Values.deployment.envs.tinkController.referenceAllowListRules }}
+              {{- if kindIs "slice" $value }}
+                {{- range $value }}
+                {{- $rules = append $rules (toJson .) }}
+                {{- end }}
+              {{- else if kindIs "map" $value }}
+                {{- $rules = append $rules (toJson $value) }}
+              {{- else }}
+                {{- fail "deployment.envs.tinkController.referenceAllowListRules must be a list of rule objects or a single rule object (see docs/technical/REFERENCES.md)" }}
               {{- end }}
               value: {{ join "|" $rules | quote }}
             {{- end }}
             - name: TINKERBELL_TINK_CONTROLLER_REFERENCE_DENY_LIST_RULES
             {{- if .Values.deployment.envs.tinkController.referenceDenyListRules }}
-              {{- if not (kindIs "slice" .Values.deployment.envs.tinkController.referenceDenyListRules) }}
-                {{- fail "deployment.envs.tinkController.referenceDenyListRules must be a list of rule objects; the map/object form is no longer supported (see docs/technical/REFERENCES.md)" }}
-              {{- end }}
               {{- $rules := list }}
-              {{- range .Values.deployment.envs.tinkController.referenceDenyListRules }}
-              {{- $rules = append $rules (toJson .) }}
+              {{- $value := .Values.deployment.envs.tinkController.referenceDenyListRules }}
+              {{- if kindIs "slice" $value }}
+                {{- range $value }}
+                {{- $rules = append $rules (toJson .) }}
+                {{- end }}
+              {{- else if kindIs "map" $value }}
+                {{- $rules = append $rules (toJson $value) }}
+              {{- else }}
+                {{- fail "deployment.envs.tinkController.referenceDenyListRules must be a list of rule objects or a single rule object (see docs/technical/REFERENCES.md)" }}
               {{- end }}
               value: {{ join "|" $rules | quote }}
             {{- end }}
