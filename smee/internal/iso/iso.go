@@ -26,10 +26,9 @@ import (
 )
 
 const (
-	defaultConsoles     = "console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1"
-	queryParamSourceISO = "sourceISO"
-	schemeHTTP          = "http"
-	schemeHTTPS         = "https"
+	defaultConsoles = "console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1"
+	schemeHTTP      = "http"
+	schemeHTTPS     = "https"
 )
 
 // BackendReader is the interface for getting data from a backend.
@@ -85,13 +84,7 @@ func (h *Handler) HandlerFunc() (http.HandlerFunc, error) {
 
 	proxy := &internal.ReverseProxy{
 		Rewrite: func(pr *internal.ProxyRequest) {
-			tu, err := targetURL(pr.In.URL.Query().Get(queryParamSourceISO), "", defaultSourceISO.String())
-			if err != nil {
-				pr.SetURL(defaultSourceISO)
-				h.Logger.Error(err, "error parsing target URL from query parameter, using default SourceISO", "defaultSourceISO", defaultSourceISO.String(), queryParamSourceISO, pr.In.URL.Query().Get(queryParamSourceISO))
-				return
-			}
-			pr.SetURL(tu)
+			pr.SetURL(defaultSourceISO)
 		},
 		Transport:     h,
 		FlushInterval: -1,
@@ -107,21 +100,10 @@ func (h *Handler) HandlerFunc() (http.HandlerFunc, error) {
 //
 // The order of precedence for sources is:
 //
-// 1. From query parameter "isoFromQuery"
+// 1. From hardware object "isoFromHWObject"
 //
-// 2. From hardware object "isoFromHWObject"
-//
-// 3. From config "isoFromConfig"
-func targetURL(isoFromQuery, isoFromHWObject, isoFromConfig string) (*url.URL, error) {
-	if isoFromQuery != "" {
-		tu, err := url.Parse(isoFromQuery)
-		if err != nil {
-			return nil, fmt.Errorf("invalid sourceISO URL in query parameter: %w", err)
-		}
-
-		return validateURL(tu)
-	}
-
+// 2. From config "isoFromConfig"
+func targetURL(isoFromHWObject, isoFromConfig string) (*url.URL, error) {
 	if isoFromHWObject != "" {
 		tu, err := url.Parse(isoFromHWObject)
 		if err != nil {
@@ -284,12 +266,12 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 		// The patch is added to the request context so that it can be used in the Copy method.
 		req = req.WithContext(internal.WithPatch(req.Context(), []byte(h.constructPatch(consoles, ha.String(), hw.DHCP))))
 
-		// Get the target URL (either from query parameter or default SourceISO)
+		// Get the target URL (either from the hardware object or default SourceISO)
 		fromHWObject := ""
 		if hw.Isoboot != nil && hw.Isoboot.SourceISO != nil {
 			fromHWObject = hw.Isoboot.SourceISO.String()
 		}
-		tu, err := targetURL(req.URL.Query().Get(queryParamSourceISO), fromHWObject, h.Patch.SourceISO)
+		tu, err := targetURL(fromHWObject, h.Patch.SourceISO)
 		if err != nil {
 			log.Info("unable to determine target URL", "error", err)
 			return &http.Response{

@@ -37,17 +37,8 @@ The BMC mounts the ISO file and makes it available to the target machine as a vi
 When the BMC requests the ISO file from Tinkerbell, Tinkerbell acts as a reverse proxy serving and patching a source ISO.
 The source ISO is defined by one of the following locations, in order of precedence:
 
-1. URL query parameter on the ISO request. For example:
-
-   ```bash
-   http(s)://<TINKERBELL_IP_OR_HOSTNAME>:<PORT>/iso/<MAC_ADDRESS>/hook.iso?sourceISO=<url>
-   ```
-
-> [!NOTE]
-> Not all BMC vendors support query parameters. Validate that your BMC vendor supports query parameters before using this method.
-
-2. The `spec.interfaces[].isoboot.sourceISO` field in the Hardware object corresponding to the MAC Address in the URL.
-3. The source ISO defined by the CLI flag `--iso-upstream-url`.
+1. The `spec.interfaces[].isoboot.sourceISO` field in the Hardware object corresponding to the MAC Address in the URL.
+2. The source ISO defined by the CLI flag `--iso-upstream-url`.
 
 ## How to Use Layer 3 Provisioning (ISO Boot) in Tinkerbell
 
