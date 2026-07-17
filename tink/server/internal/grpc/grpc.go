@@ -289,7 +289,20 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 			sort.Strings(resp)
 			return resp
 		}(),
-		Pid: toPtr(action.Pid),
+		Pid: toPtr(action.Pid), //nolint:staticcheck // intentionally read the deprecated top-level Pid for backward compatibility; namespaces.pid overrides it below when set
+	}
+	if action.Namespaces != nil {
+		// Pass the namespace values through to the agent as-is. The container
+		// runtime interprets them (e.g. network "host" shares the host's
+		// network namespace); the server does not impose any semantics.
+		ar.Namespaces = &proto.Namespaces{
+			Network: toPtr(action.Namespaces.Network),
+			Pid:     toPtr(action.Namespaces.PID),
+		}
+		// Prefer namespaces.pid over the deprecated top-level pid field when set.
+		if action.Namespaces.PID != "" {
+			ar.Pid = toPtr(action.Namespaces.PID)
+		}
 	}
 
 	log.Info("sending action", "action", ar, "actionID", action.ID)

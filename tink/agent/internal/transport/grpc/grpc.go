@@ -99,7 +99,15 @@ func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 		}
 		as.Env = append(as.Env, env)
 	}
+	// The deprecated top-level pid field is the fallback; namespaces.pid takes
+	// precedence when set (the server already applies this preference).
 	as.Namespaces.PID = response.GetPid()
+	if ns := response.GetNamespaces(); ns != nil {
+		as.Namespaces.Network = ns.GetNetwork()
+		if ns.GetPid() != "" {
+			as.Namespaces.PID = ns.GetPid()
+		}
+	}
 
 	return as, nil
 }
