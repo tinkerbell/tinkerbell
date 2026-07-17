@@ -419,7 +419,31 @@ spec:
                             type: string
                           name:
                             type: string
+                          namespaces:
+                            description: |-
+                              ActionNamespace defines the Linux namespaces an action container runs in.
+                              This mirrors the v1alpha2 API spec.
+                            properties:
+                              network:
+                                description: |-
+                                  Network is the network namespace the action container runs in. The value
+                                  is passed through to the container runtime as-is; set it to "host" to
+                                  share the host's network namespace (required by tools that must see all
+                                  host network interfaces, e.g. lshw). When empty, the runtime's default
+                                  networking is used.
+                                type: string
+                              pid:
+                                description: |-
+                                  PID is the PID namespace the action container runs in. The value is
+                                  passed through to the container runtime as-is (e.g. "host" to share the
+                                  host's PID namespace). When set, it takes precedence over the deprecated
+                                  top-level pid field.
+                                type: string
+                            type: object
                           pid:
+                            description: 'Deprecated: This field is deprecated and
+                              will be removed in a future release. Use namespaces.pid
+                              instead.'
                             type: string
                           state:
                             type: string

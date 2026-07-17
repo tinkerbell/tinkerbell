@@ -94,7 +94,11 @@ type ActionResponse struct {
 	// Set environment variables usable from the action itself.
 	Environment []string `protobuf:"bytes,10,rep,name=environment" json:"environment,omitempty"`
 	// Set the namespace that the process IDs will be in.
-	Pid           *string `protobuf:"bytes,11,opt,name=pid" json:"pid,omitempty"`
+	// Deprecated: use namespaces.pid instead. Retained for backward
+	// compatibility; namespaces.pid takes precedence when both are set.
+	Pid *string `protobuf:"bytes,11,opt,name=pid" json:"pid,omitempty"`
+	// The Linux namespaces the action container should run in.
+	Namespaces    *Namespaces `protobuf:"bytes,12,opt,name=namespaces" json:"namespaces,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -206,11 +210,76 @@ func (x *ActionResponse) GetPid() string {
 	return ""
 }
 
+func (x *ActionResponse) GetNamespaces() *Namespaces {
+	if x != nil {
+		return x.Namespaces
+	}
+	return nil
+}
+
+// Namespaces defines the Linux namespaces an action container runs in.
+// This mirrors the v1alpha2 API spec.
+type Namespaces struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The network namespace for the action container. The value is passed
+	// through to the container runtime as-is (e.g. "host" to share the host's
+	// network namespace).
+	Network *string `protobuf:"bytes,1,opt,name=network" json:"network,omitempty"`
+	// The PID namespace for the action container.
+	Pid           *string `protobuf:"bytes,2,opt,name=pid" json:"pid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Namespaces) Reset() {
+	*x = Namespaces{}
+	mi := &file_get_action_response_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Namespaces) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Namespaces) ProtoMessage() {}
+
+func (x *Namespaces) ProtoReflect() protoreflect.Message {
+	mi := &file_get_action_response_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Namespaces.ProtoReflect.Descriptor instead.
+func (*Namespaces) Descriptor() ([]byte, []int) {
+	return file_get_action_response_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Namespaces) GetNetwork() string {
+	if x != nil && x.Network != nil {
+		return *x.Network
+	}
+	return ""
+}
+
+func (x *Namespaces) GetPid() string {
+	if x != nil && x.Pid != nil {
+		return *x.Pid
+	}
+	return ""
+}
+
 var File_get_action_response_proto protoreflect.FileDescriptor
 
 const file_get_action_response_proto_rawDesc = "" +
 	"\n" +
-	"\x19get_action_response.proto\x12\x05proto\"\xae\x02\n" +
+	"\x19get_action_response.proto\x12\x05proto\"\xe1\x02\n" +
 	"\x0eActionResponse\x12\x1f\n" +
 	"\vworkflow_id\x18\x01 \x01(\tR\n" +
 	"workflowId\x12\x17\n" +
@@ -224,7 +293,14 @@ const file_get_action_response_proto_rawDesc = "" +
 	"\avolumes\x18\t \x03(\tR\avolumes\x12 \n" +
 	"\venvironment\x18\n" +
 	" \x03(\tR\venvironment\x12\x10\n" +
-	"\x03pid\x18\v \x01(\tR\x03pid*\x86\x01\n" +
+	"\x03pid\x18\v \x01(\tR\x03pid\x121\n" +
+	"\n" +
+	"namespaces\x18\f \x01(\v2\x11.proto.NamespacesR\n" +
+	"namespaces\"8\n" +
+	"\n" +
+	"Namespaces\x12\x18\n" +
+	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x10\n" +
+	"\x03pid\x18\x02 \x01(\tR\x03pid*\x86\x01\n" +
 	"\x1cPreconditionFailureViolation\x12.\n" +
 	"*PRECONDITION_FAILURE_VIOLATION_UNSPECIFIED\x10\x00\x126\n" +
 	"2PRECONDITION_FAILURE_VIOLATION_NO_ACTION_AVAILABLE\x10\x01B\x83\x01\n" +
@@ -243,17 +319,19 @@ func file_get_action_response_proto_rawDescGZIP() []byte {
 }
 
 var file_get_action_response_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_get_action_response_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_get_action_response_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_get_action_response_proto_goTypes = []any{
 	(PreconditionFailureViolation)(0), // 0: proto.PreconditionFailureViolation
 	(*ActionResponse)(nil),            // 1: proto.ActionResponse
+	(*Namespaces)(nil),                // 2: proto.Namespaces
 }
 var file_get_action_response_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	2, // 0: proto.ActionResponse.namespaces:type_name -> proto.Namespaces
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_get_action_response_proto_init() }
@@ -267,7 +345,7 @@ func file_get_action_response_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_get_action_response_proto_rawDesc), len(file_get_action_response_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

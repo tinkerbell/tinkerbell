@@ -46,8 +46,31 @@ message ActionResponse {
    repeated string environment = 10;
    /*
     * Set the namespace that the process IDs will be in.
+    * Deprecated: use namespaces.pid instead. Retained for backward
+    * compatibility; namespaces.pid takes precedence when both are set.
     */
    string pid = 11;
+   /*
+    * The Linux namespaces the action container should run in.
+    */
+   Namespaces namespaces = 12;
+}
+
+/*
+ * Namespaces defines the Linux namespaces an action container runs in.
+ * This mirrors the v1alpha2 API spec.
+ */
+message Namespaces {
+   /*
+    * The network namespace for the action container. The value is passed
+    * through to the container runtime as-is (e.g. "host" to share the host's
+    * network namespace).
+    */
+   string network = 1;
+   /*
+    * The PID namespace for the action container.
+    */
+   string pid = 2;
 }
 
 

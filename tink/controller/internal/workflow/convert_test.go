@@ -83,6 +83,102 @@ func TestYAMLToStatus(t *testing.T) {
 				},
 			},
 		},
+		{
+			"Action with namespaces",
+			&Workflow{
+				Version:       "1",
+				Name:          "inventory-workflow",
+				ID:            "abc-123",
+				GlobalTimeout: 300,
+				Tasks: []Task{
+					{
+						Name:       "inventory-task",
+						WorkerAddr: "00:00:53:00:53:F4",
+						Actions: []Action{
+							{
+								Name:    "run-inventory",
+								Image:   "example/inventory:latest",
+								Timeout: 120,
+								Namespaces: ActionNamespace{
+									Network: "host",
+									PID:     "host",
+								},
+							},
+						},
+					},
+				},
+			},
+			&v1alpha1.WorkflowStatus{
+				GlobalTimeout: 300,
+				AgentID:       "00:00:53:00:53:F4",
+				Tasks: []v1alpha1.Task{
+					{
+						Name:    "inventory-task",
+						AgentID: "00:00:53:00:53:F4",
+						Actions: []v1alpha1.Action{
+							{
+								Name:    "run-inventory",
+								Image:   "example/inventory:latest",
+								Timeout: 120,
+								Namespaces: &v1alpha1.ActionNamespace{
+									Network: "host",
+									PID:     "host",
+								},
+								State: v1alpha1.WorkflowStatePending,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"Action with namespaces and legacy pid",
+			&Workflow{
+				Version:       "1",
+				Name:          "mixed-workflow",
+				ID:            "def-456",
+				GlobalTimeout: 300,
+				Tasks: []Task{
+					{
+						Name:       "mixed-task",
+						WorkerAddr: "00:00:53:00:53:F4",
+						Actions: []Action{
+							{
+								Name:    "run-action",
+								Image:   "example/action:latest",
+								Timeout: 120,
+								Pid:     "host",
+								Namespaces: ActionNamespace{
+									Network: "host",
+								},
+							},
+						},
+					},
+				},
+			},
+			&v1alpha1.WorkflowStatus{
+				GlobalTimeout: 300,
+				AgentID:       "00:00:53:00:53:F4",
+				Tasks: []v1alpha1.Task{
+					{
+						Name:    "mixed-task",
+						AgentID: "00:00:53:00:53:F4",
+						Actions: []v1alpha1.Action{
+							{
+								Name:    "run-action",
+								Image:   "example/action:latest",
+								Timeout: 120,
+								Pid:     "host",
+								Namespaces: &v1alpha1.ActionNamespace{
+									Network: "host",
+								},
+								State: v1alpha1.WorkflowStatePending,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {

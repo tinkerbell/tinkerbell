@@ -159,6 +159,98 @@ func TestGetAction(t *testing.T) {
 			request: &proto.ActionRequest{},
 			wantErr: status.Errorf(codes.InvalidArgument, "invalid Agent ID"),
 		},
+		"action with namespaces network host": {
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			want: &proto.ActionResponse{
+				WorkflowId:  toPtr("default/machine1"),
+				AgentId:     toPtr("machine-mac-1"),
+				TaskId:      new(string),
+				ActionId:    new(string),
+				Name:        toPtr("run-inventory"),
+				Image:       toPtr("example/inventory:latest"),
+				Timeout:     toPtr(int64(120)),
+				Environment: []string{},
+				Pid:         new(string),
+				Namespaces:  &proto.Namespaces{Network: toPtr("host"), Pid: new(string)},
+			},
+			workflow: &tinkerbell.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStateRunning,
+					GlobalTimeout: 600,
+					Tasks: []tinkerbell.Task{
+						{
+							Name:    "inventory",
+							AgentID: "machine-mac-1",
+							Actions: []tinkerbell.Action{
+								{
+									Name:    "run-inventory",
+									Image:   "example/inventory:latest",
+									Timeout: 120,
+									State:   tinkerbell.WorkflowStatePending,
+									Namespaces: &tinkerbell.ActionNamespace{
+										Network: "host",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		"action with namespaces pid preferred over top-level pid": {
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			want: &proto.ActionResponse{
+				WorkflowId:  toPtr("default/machine1"),
+				AgentId:     toPtr("machine-mac-1"),
+				TaskId:      new(string),
+				ActionId:    new(string),
+				Name:        toPtr("run-inventory"),
+				Image:       toPtr("example/inventory:latest"),
+				Timeout:     toPtr(int64(120)),
+				Environment: []string{},
+				Pid:         toPtr("host"),
+				Namespaces:  &proto.Namespaces{Network: toPtr("host"), Pid: toPtr("host")},
+			},
+			workflow: &tinkerbell.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStateRunning,
+					GlobalTimeout: 600,
+					Tasks: []tinkerbell.Task{
+						{
+							Name:    "inventory",
+							AgentID: "machine-mac-1",
+							Actions: []tinkerbell.Action{
+								{
+									Name:    "run-inventory",
+									Image:   "example/inventory:latest",
+									Timeout: 120,
+									State:   tinkerbell.WorkflowStatePending,
+									Pid:     "legacy-value",
+									Namespaces: &tinkerbell.ActionNamespace{
+										Network: "host",
+										PID:     "host",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
 		"re-serve running first Action after server restart": {
 			request: &proto.ActionRequest{
 				AgentId: toPtr("machine-mac-1"),
@@ -387,7 +479,7 @@ func TestGetAction(t *testing.T) {
 				return
 			}
 
-			if diff := cmp.Diff(resp, tc.want, cmpopts.IgnoreUnexported(proto.ActionResponse{})); diff != "" {
+			if diff := cmp.Diff(resp, tc.want, cmpopts.IgnoreUnexported(proto.ActionResponse{}, proto.Namespaces{})); diff != "" {
 				t.Errorf("unexpected difference:\n%v", diff)
 			}
 		})
