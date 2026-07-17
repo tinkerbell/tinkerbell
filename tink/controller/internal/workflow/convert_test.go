@@ -99,7 +99,7 @@ func TestYAMLToStatus(t *testing.T) {
 								Name:    "run-inventory",
 								Image:   "example/inventory:latest",
 								Timeout: 120,
-								Namespaces: ActionNamespace{
+								Namespaces: ActionNamespaces{
 									Network: "host",
 									PID:     "host",
 								},
@@ -120,7 +120,7 @@ func TestYAMLToStatus(t *testing.T) {
 								Name:    "run-inventory",
 								Image:   "example/inventory:latest",
 								Timeout: 120,
-								Namespaces: &v1alpha1.ActionNamespace{
+								Namespaces: &v1alpha1.ActionNamespaces{
 									Network: "host",
 									PID:     "host",
 								},
@@ -148,7 +148,7 @@ func TestYAMLToStatus(t *testing.T) {
 								Image:   "example/action:latest",
 								Timeout: 120,
 								Pid:     "host",
-								Namespaces: ActionNamespace{
+								Namespaces: ActionNamespaces{
 									Network: "host",
 								},
 							},
@@ -169,7 +169,7 @@ func TestYAMLToStatus(t *testing.T) {
 								Image:   "example/action:latest",
 								Timeout: 120,
 								Pid:     "host",
-								Namespaces: &v1alpha1.ActionNamespace{
+								Namespaces: &v1alpha1.ActionNamespaces{
 									Network: "host",
 								},
 								State: v1alpha1.WorkflowStatePending,

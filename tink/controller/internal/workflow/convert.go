@@ -27,7 +27,7 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 				Pid:         action.Pid,
 			}
 			if action.Namespaces.Network != "" || action.Namespaces.PID != "" {
-				a.Namespaces = &v1alpha1.ActionNamespace{
+				a.Namespaces = &v1alpha1.ActionNamespaces{
 					Network: action.Namespaces.Network,
 					PID:     action.Namespaces.PID,
 				}

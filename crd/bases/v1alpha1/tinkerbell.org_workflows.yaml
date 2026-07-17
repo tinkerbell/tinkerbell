@@ -421,7 +421,7 @@ spec:
                             type: string
                           namespaces:
                             description: |-
-                              ActionNamespace defines the Linux namespaces an action container runs in.
+                              ActionNamespaces defines the Linux namespaces an action container runs in.
                               This mirrors the v1alpha2 API spec.
                             properties:
                               network:

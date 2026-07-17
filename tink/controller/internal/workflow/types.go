@@ -29,12 +29,12 @@ type Action struct {
 	Volumes     []string          `yaml:"volumes,omitempty"`
 	Environment map[string]string `yaml:"environment,omitempty"`
 	Pid         string            `yaml:"pid,omitempty"`
-	Namespaces  ActionNamespace   `yaml:"namespaces,omitempty"`
+	Namespaces  ActionNamespaces  `yaml:"namespaces,omitempty"`
 }
 
-// ActionNamespace defines the Linux namespaces an action container runs in.
+// ActionNamespaces defines the Linux namespaces an action container runs in.
 // This mirrors the v1alpha2 API spec.
-type ActionNamespace struct {
+type ActionNamespaces struct {
 	// Network is the network namespace the action container runs in. Passed
 	// through to the container runtime as-is; set to "host" to share the host's
 	// network namespace.

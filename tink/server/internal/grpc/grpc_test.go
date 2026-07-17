@@ -193,7 +193,7 @@ func TestGetAction(t *testing.T) {
 									Image:   "example/inventory:latest",
 									Timeout: 120,
 									State:   tinkerbell.WorkflowStatePending,
-									Namespaces: &tinkerbell.ActionNamespace{
+									Namespaces: &tinkerbell.ActionNamespaces{
 										Network: "host",
 									},
 								},
@@ -239,7 +239,7 @@ func TestGetAction(t *testing.T) {
 									Timeout: 120,
 									State:   tinkerbell.WorkflowStatePending,
 									Pid:     "legacy-value",
-									Namespaces: &tinkerbell.ActionNamespace{
+									Namespaces: &tinkerbell.ActionNamespaces{
 										Network: "host",
 										PID:     "host",
 									},

@@ -250,7 +250,7 @@ type Action struct {
 	// Deprecated: This field is deprecated and will be removed in a future release. Use namespaces.pid instead.
 	// +kubebuilder:deprecatedversion:warning="Pid is deprecated and will be removed in a future release. Use namespaces.pid instead."
 	Pid               string            `json:"pid,omitempty"`
-	Namespaces        *ActionNamespace  `json:"namespaces,omitempty"`
+	Namespaces        *ActionNamespaces `json:"namespaces,omitempty"`
 	Environment       map[string]string `json:"environment,omitempty"`
 	State             WorkflowState     `json:"state,omitempty"`
 	ExecutionStart    *metav1.Time      `json:"executionStart,omitempty"`
@@ -259,9 +259,9 @@ type Action struct {
 	Message           string            `json:"message,omitempty"`
 }
 
-// ActionNamespace defines the Linux namespaces an action container runs in.
+// ActionNamespaces defines the Linux namespaces an action container runs in.
 // This mirrors the v1alpha2 API spec.
-type ActionNamespace struct {
+type ActionNamespaces struct {
 	// Network is the network namespace the action container runs in. The value
 	// is passed through to the container runtime as-is; set it to "host" to
 	// share the host's network namespace (required by tools that must see all
