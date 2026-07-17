@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -18,42 +17,44 @@ var syslogMessagePool = sync.Pool{
 }
 
 type Receiver struct {
-	c     *net.UDPConn
-	parse chan *message
-	done  chan struct{}
-	err   error
-
+	conn   *net.UDPConn
+	msgCh  chan *message
+	done   chan struct{}
+	wg     sync.WaitGroup
+	mu     sync.Mutex
+	err    error
 	Logger logr.Logger
 }
 
-func StartReceiver(ctx context.Context, logger logr.Logger, laddr string, parsers int) error {
+func StartReceiver(ctx context.Context, logger logr.Logger, laddr string, parsers int) (*Receiver, error) {
 	if parsers < 1 {
 		parsers = 1
 	}
 
 	addr, err := net.ResolveUDPAddr("udp4", laddr)
 	if err != nil {
-		return fmt.Errorf("resolve syslog udp listen address: %w", err)
+		return nil, fmt.Errorf("resolve syslog udp listen address: %w", err)
 	}
 
 	c, err := net.ListenUDP("udp4", addr)
 	if err != nil {
-		return fmt.Errorf("listen on syslog udp address: %w", err)
+		return nil, fmt.Errorf("listen on syslog udp address: %w", err)
 	}
 
-	s := &Receiver{
-		c:      c,
-		parse:  make(chan *message, parsers),
+	r := &Receiver{
+		conn:   c,
+		msgCh:  make(chan *message, parsers*64),
 		done:   make(chan struct{}),
 		Logger: logger,
 	}
 
+	r.wg.Add(parsers)
 	for i := 0; i < parsers; i++ {
-		go s.runParser()
+		go r.runParser()
 	}
-	go s.run(ctx)
+	go r.run(ctx)
 
-	return nil
+	return r, nil
 }
 
 func (r *Receiver) Done() <-chan struct{} {
@@ -61,13 +62,21 @@ func (r *Receiver) Done() <-chan struct{} {
 }
 
 func (r *Receiver) Err() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	return r.err
 }
 
-func (r *Receiver) cleanup() {
-	r.c.Close()
+func (r *Receiver) setErr(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.err = err
+}
 
-	close(r.parse)
+func (r *Receiver) shutdown() {
+	r.conn.Close()
+	close(r.msgCh)
+	r.wg.Wait()
 	close(r.done)
 }
 
@@ -81,7 +90,7 @@ func (r *Receiver) run(ctx context.Context) {
 
 	go func() {
 		<-ctx.Done()
-		r.cleanup()
+		r.conn.Close()
 	}()
 
 	for {
@@ -94,32 +103,30 @@ func (r *Receiver) run(ctx context.Context) {
 				continue
 			}
 		}
-		n, from, err := r.c.ReadFromUDP(msg.buf[:])
+		n, from, err := r.conn.ReadFromUDP(msg.buf[:])
 		if err != nil {
-			err = fmt.Errorf("error reading udp message: %w", err)
-			if _, ok := err.(net.Error); ok {
+			if ctx.Err() != nil {
+				r.shutdown()
+				return
+			}
+			var netErr net.Error
+			if errors.As(err, &netErr) {
 				r.Logger.Error(err, "error reading udp message")
-
 				continue
 			}
-			r.err = err
-
+			r.setErr(fmt.Errorf("error reading udp message: %w", err))
+			r.shutdown()
 			return
 		}
 		msg.time = time.Now().UTC()
 		msg.host = from.IP
 		msg.size = n
-		select {
-		case <-ctx.Done():
-			r.Logger.Info("context done, exiting syslog receiver")
-			return
-		case r.parse <- msg:
-		}
+		r.msgCh <- msg
 		msg = nil
 	}
 }
 
-func parse(m *message) map[string]interface{} {
+func toStructured(m *message) map[string]interface{} {
 	structured := make(map[string]interface{})
 	if m.Facility().String() != "" {
 		structured["facility"] = m.Facility().String()
@@ -127,20 +134,20 @@ func parse(m *message) map[string]interface{} {
 	if m.Severity().String() != "" {
 		structured["severity"] = m.Severity().String()
 	}
-	if string(m.hostname) != "" {
+	if len(m.hostname) > 0 {
 		structured["hostname"] = string(m.hostname)
 	}
-	if string(m.app) != "" {
+	if len(m.app) > 0 {
 		structured["app-name"] = string(m.app)
 	}
-	if string(m.procid) != "" {
+	if len(m.procid) > 0 {
 		structured["procid"] = string(m.procid)
 	}
-	if string(m.msgid) != "" {
+	if len(m.msgid) > 0 {
 		structured["msgid"] = string(m.msgid)
 	}
-	if string(m.msg) != "" {
-		if strings.HasPrefix(string(m.msg), "{") {
+	if len(m.msg) > 0 {
+		if m.msg[0] == '{' {
 			var j map[string]interface{}
 			if err := json.Unmarshal(m.msg, &j); err == nil {
 				structured["msg"] = j
@@ -157,17 +164,17 @@ func parse(m *message) map[string]interface{} {
 }
 
 func (r *Receiver) runParser() {
-	for m := range r.parse {
+	defer r.wg.Done()
+	for m := range r.msgCh {
 		if m.parse() {
-			structured := parse(m)
-			sl := r.Logger.WithValues("logEntry", structured)
+			structured := toStructured(m)
 			if m.Severity() == DEBUG {
-				sl.V(1).Info("syslog message received")
+				r.Logger.V(1).Info("syslog message received", "syslog", structured)
 			} else {
-				sl.Info("syslog message received")
+				r.Logger.Info("syslog message received", "syslog", structured)
 			}
 		} else {
-			r.Logger.V(1).Info("syslog message received", "logEntry", m)
+			r.Logger.V(1).Info("unparseable syslog message", "raw", m)
 		}
 		m.reset()
 		syslogMessagePool.Put(m)
