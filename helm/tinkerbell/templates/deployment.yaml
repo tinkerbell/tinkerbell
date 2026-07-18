@@ -223,6 +223,10 @@ spec:
               value: {{ .Values.deployment.envs.smee.tftpSinglePort | quote }}
             - name: TINKERBELL_TFTP_ASSET_DIR
               value: {{ .Values.deployment.envs.smee.tftpAssetDir | quote }}
+            - name: TINKERBELL_PXE_HTTP_ENABLED
+              value: {{ .Values.deployment.envs.smee.pxeHttpEnabled | quote }}
+            - name: TINKERBELL_PXE_HTTP_PATH_PREFIX
+              value: {{ .Values.deployment.envs.smee.pxeHttpPathPrefix | quote }}
           # SECONDSTAR
             - name: TINKERBELL_SECONDSTAR_PORT
               value: {{ .Values.deployment.envs.secondstar.bindPort | quote }}

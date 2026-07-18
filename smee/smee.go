@@ -55,14 +55,15 @@ const (
 	isoMagicString = `464vn90e7rbj08xbwdjejmdf4it17c5zfzjyfhthbh19eij201hjgit021bmpdb9ctrc87x2ymc8e7icu4ffi15x1hah9iyaiz38ckyap8hwx2vt5rm44ixv4hau8iw718q5yd019um5dt2xpqqa2rjtdypzr5v1gun8un110hhwp8cex7pqrh2ivh0ynpm4zkkwc8wcn367zyethzy7q8hzudyeyzx3cgmxqbkh825gcak7kxzjbgjajwizryv7ec1xm2h0hh7pz29qmvtgfjj1vphpgq1zcbiiehv52wrjy9yq473d9t1rvryy6929nk435hfx55du3ih05kn5tju3vijreru1p6knc988d4gfdz28eragvryq5x8aibe5trxd0t6t7jwxkde34v6pj1khmp50k6qqj3nzgcfzabtgqkmeqhdedbvwf3byfdma4nkv3rcxugaj2d0ru30pa2fqadjqrtjnv8bu52xzxv7irbhyvygygxu1nt5z4fh9w1vwbdcmagep26d298zknykf2e88kumt59ab7nq79d8amnhhvbexgh48e8qc61vq2e9qkihzt1twk1ijfgw70nwizai15iqyted2dt9gfmf2gg7amzufre79hwqkddc1cd935ywacnkrnak6r7xzcz7zbmq3kt04u2hg1iuupid8rt4nyrju51e6uejb2ruu36g9aibmz3hnmvazptu8x5tyxk820g2cdpxjdij766bt2n3djur7v623a2v44juyfgz80ekgfb9hkibpxh3zgknw8a34t4jifhf116x15cei9hwch0fye3xyq0acuym8uhitu5evc4rag3ui0fny3qg4kju7zkfyy8hwh537urd5uixkzwu5bdvafz4jmv7imypj543xg5em8jk8cgk7c4504xdd5e4e71ihaumt6u5u2t1w7um92fepzae8p0vq93wdrd1756npu1pziiur1payc7kmdwyxg3hj5n4phxbc29x0tcddamjrwt260b0w`
 
 	// Defaults consumers can use.
-	DefaultTFTPAssetDir    = ""
-	DefaultTFFTPPort       = 69
-	DefaultTFFTPBlockSize  = 512
-	DefaultTFFTPSinglePort = true
-	DefaultTFFTPTimeout    = 10 * time.Second
-	DefaultDHCPPort        = 67
-	DefaultSyslogPort      = 514
-	DefaultTinkServerPort  = 42113
+	DefaultTFTPAssetDir      = ""
+	DefaultPXEHTTPPathPrefix = "/tftp/"
+	DefaultTFFTPPort         = 69
+	DefaultTFFTPBlockSize    = 512
+	DefaultTFFTPSinglePort   = true
+	DefaultTFFTPTimeout      = 10 * time.Second
+	DefaultDHCPPort          = 67
+	DefaultSyslogPort        = 514
+	DefaultTinkServerPort    = 42113
 
 	IPXEBinaryURI = "/ipxe/binary/"
 	IPXEScriptURI = "/ipxe/script/"
@@ -101,6 +102,9 @@ type Config struct {
 	ISO ISO
 	// OTEL is the configuration for OpenTelemetry.
 	OTEL OTEL
+	// PXEHTTP is the configuration for serving pxelinux.cfg and the TFTP asset
+	// dir over the HTTP server (for u-boot pxe-over-http).
+	PXEHTTP PXEHTTP
 	// Syslog is the configuration for the syslog service.
 	Syslog Syslog
 	// TFTP is the configuration for the TFTP service.
@@ -135,6 +139,17 @@ type TFTP struct {
 	Timeout time.Duration
 	// Enabled is a flag to enable or disable the TFTP server.
 	Enabled bool
+}
+
+// PXEHTTP configures serving pxelinux.cfg and the TFTP asset directory
+// (TFTP.AssetDir) over Smee's HTTP server, for clients that netboot via
+// HTTP (eg. u-boot's pxe-over-http, which uses wget) using the same request
+// path shapes as TFTP.
+type PXEHTTP struct {
+	// Enabled is a flag to enable or disable serving over HTTP.
+	Enabled bool
+	// PathPrefix is the URL path prefix the assets are served under.
+	PathPrefix string
 }
 
 type IPXE struct {
@@ -279,6 +294,10 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			Endpoint:         "",
 			InsecureEndpoint: false,
 		},
+		PXEHTTP: PXEHTTP{
+			Enabled:    false,
+			PathPrefix: DefaultPXEHTTPPathPrefix,
+		},
 		Syslog: Syslog{
 			BindAddr: publicIP,
 			BindPort: DefaultSyslogPort,
@@ -319,6 +338,32 @@ func (c *Config) BinaryHandler(log logr.Logger) http.Handler {
 		return nil
 	}
 	return http.HandlerFunc(binary.Handler{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)}.Handle)
+}
+
+// PXEHTTPHandler returns an http.Handler that serves pxelinux.cfg and the
+// TFTP asset directory (c.TFTP.AssetDir) over HTTP, for clients that netboot
+// via HTTP (eg. u-boot's pxe-over-http) using the same request path shapes as
+// TFTP. Returns nil if PXE-over-HTTP serving is disabled.
+//
+// It reuses the same Route implementations as the TFTP server, minus the
+// embedded iPXE route (iPXE binaries are already served at IPXEBinaryURI) and
+// the RPi route (out of scope for u-boot).
+func (c *Config) PXEHTTPHandler(log logr.Logger) http.Handler {
+	if !c.PXEHTTP.Enabled {
+		return nil
+	}
+	resolver := hardware.BackendResolver{Backend: c.Backend}
+	return http.HandlerFunc(binary.HTTPHandler{
+		Log:        log,
+		PathPrefix: c.PXEHTTP.PathPrefix,
+		Router: binary.Router{
+			Log: log,
+			Routes: []binary.Route{
+				binary.PXELinuxMACRoute{Log: log, Resolver: resolver},
+				binary.DiskAssetRoute{Log: log, Dir: c.TFTP.AssetDir},
+			},
+		},
+	}.Handle)
 }
 
 // ScriptHandler returns an http.Handler that serves iPXE scripts.
@@ -627,5 +672,5 @@ func (c *Config) Transformer(typ reflect.Type) func(dst, src reflect.Value) erro
 }
 
 func (c *Config) noServicesEnabled() bool {
-	return !c.DHCP.Enabled && !c.TFTP.Enabled && !c.Syslog.Enabled && !c.ISO.Enabled && !c.IPXE.HTTPBinaryServer.Enabled && !c.IPXE.HTTPScriptServer.Enabled
+	return !c.DHCP.Enabled && !c.TFTP.Enabled && !c.Syslog.Enabled && !c.ISO.Enabled && !c.IPXE.HTTPBinaryServer.Enabled && !c.IPXE.HTTPScriptServer.Enabled && !c.PXEHTTP.Enabled
 }

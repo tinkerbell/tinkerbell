@@ -105,6 +105,8 @@ deployment:
       tftpTimeout: "10s"
       tftpSinglePort: true # if true, use single port mode for TFTP server
       tftpAssetDir: "" # serves extra TFTP files from this (in-pod) directory if set
+      pxeHttpEnabled: false # serve pxelinux.cfg and the TFTP asset dir over HTTP (for u-boot pxe-over-http)
+      pxeHttpPathPrefix: "/tftp/" # URL path prefix to serve pxelinux.cfg and TFTP assets under over HTTP
     tinkController:
       enableLeaderElection: true
       leaderElectionNamespace: ""
