@@ -263,6 +263,42 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 	}
 }
 
+func TestDefaultScriptKernelParams(t *testing.T) {
+	h := Handler{
+		OSIEURL:              "http://127.1.1.1",
+		IPXEScriptRetries:    10,
+		IPXEScriptRetryDelay: 3,
+		TinkServerGRPCAddr:   "127.0.0.1:42113",
+		KernelName:           "vmlinuz",
+		InitrdName:           "initramfs",
+		ExtraKernelParams:    []string{"global=1", "shared=global"},
+	}
+	hw := hardware.Info{
+		MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
+		Arch:       "x86_64",
+		OSIE: hardware.OSIE{
+			KernelParams: []string{"perhw=1", "shared=perhw"},
+		},
+	}
+
+	sp := trace.SpanFromContext(context.Background())
+	got, err := h.defaultScript(sp, hw)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, param := range []string{"global=1", "shared=global", "perhw=1", "shared=perhw"} {
+		if !strings.Contains(got, param) {
+			t.Errorf("expected kernel param %q in script, got:\n%s", param, got)
+		}
+	}
+	// per-Hardware params must render after the global ones so machine-specific
+	// values win on duplicate keys (kernel cmdline is last-wins).
+	if strings.Index(got, "shared=perhw") < strings.Index(got, "shared=global") {
+		t.Errorf("expected per-Hardware params to render after global params, got:\n%s", got)
+	}
+}
+
 func TestStaticScript(t *testing.T) {
 	want := `#!ipxe
 

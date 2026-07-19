@@ -205,11 +205,15 @@ func (h *Handler) defaultScript(span trace.Span, hw hardware.Info) (string, erro
 		wID = hw.AgentID
 	}
 
+	// Global params first, then per-Hardware OSIE.KernelParams so machine-specific
+	// values win on duplicate keys (Linux kernel cmdline is last-wins).
+	extraKernelParams := append(append([]string{}, h.ExtraKernelParams...), hw.OSIE.KernelParams...)
+
 	auto := Hook{
 		Arch:                  arch,
 		Console:               "",
 		DownloadURL:           h.OSIEURL,
-		ExtraKernelParams:     h.ExtraKernelParams,
+		ExtraKernelParams:     extraKernelParams,
 		Facility:              hw.Facility,
 		HWAddr:                mac.String(),
 		SyslogHost:            h.PublicSyslogFQDN,
