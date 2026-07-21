@@ -38,7 +38,7 @@ spec:
                   - "/etc/task-data:/data:ro"
               timeoutSeconds: 300
               taskRef:
-                name: example-workflow
+                name: example
                 namespace: tinkerbell
     referenceAccess:
       hardware:
@@ -111,7 +111,7 @@ spec:
               resource: [ "configmaps" ]
         deny:
           - source:
-              name: [ "example-workflow" ]
+              name: [ "node-01" ]
               namespace: [ "tinkerbell" ]
             reference:
               name: [ "my-secret" ]

@@ -7,6 +7,9 @@ metadata:
   annotations:
     tinkerbell.org/disabled: "waiting for hardware readiness"
 spec:
+  # Disabled pauses the Workflow without deleting it. The tinkerbell.org/disabled
+  # annotation above is an optional human-readable reason for the pause.
+  disabled: true
   globals:
     env:
       globalOne: "1"
@@ -15,7 +18,8 @@ spec:
       "artifactServer": "{{ .references.mysecret.data.datacenterSpecificURL | b64dec }}"
     volumes:
       - "/etc/data2:/data2:ro"
-  # Reference can be used in the Workflow templating. References also make 
+  # References can be used in Workflow templating. They fetch external objects
+  # (Secrets, ConfigMaps, etc.) and expose their data under `.references.<name>`.
   references:
     "mysecret":
       name: "secret01"

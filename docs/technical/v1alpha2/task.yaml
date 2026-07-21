@@ -32,7 +32,7 @@ spec:
       command: "/bin/sh"
       args:
         - "-c"
-        # Workflow reference: access reference objects from the Workflow that uses this Task
+        # Workflow data: access fields from the Workflow that runs this Task (including reference-derived values the Workflow rendered into its spec)
         - "curl {{ .workflow.spec.globals.templateMap.artifactServer }} > /tmp/data.txt"
       env:
         # Reference templating: access a referenced ConfigMap's data
@@ -51,7 +51,7 @@ spec:
     # Default templating: access a value from the Workflow's templateMap field with a default value of "1" if not found
     one: '{{ default "1" .workflow.spec.globals.templateMap.globalKey }}'
     # Dig templating: access a value from the Workflow's templateMap field with a default value of "2" if not found
-    two: '{{ default "2" (dig "workflow" "spec" "globals" "templateMap" "envTwo" .) }}'
+    two: '{{ default "2" (dig "spec" "globals" "templateMap" "envTwo" "" .workflow) }}'
     THREE: "3"
   references:
     "clusterConfig":
