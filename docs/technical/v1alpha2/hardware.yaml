@@ -161,8 +161,6 @@ spec:
             [all]
             hdmi_safe=1
           firmwarePath: "captain-armbian-rpi/firmware-rpi"
-          tftpPrefix: custom
-          tftpPrefixCustom: "my-custom-prefix/"
   references:
     additional:
       "registryCert":
