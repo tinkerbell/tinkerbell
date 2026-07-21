@@ -35,9 +35,9 @@ type TaskSpec struct {
 	// Actions are the list of individual Actions that are part of this Task.
 	Actions []Action `json:"actions"`
 
-	// EnvVars variables here are added to all Actions in the Task.
+	// Env variables here are added to all Actions in the Task.
 	// +optional
-	EnvVars []EnvVar `json:"envVars,omitempty"`
+	Env map[string]string `json:"env,omitempty"`
 
 	// References are dynamic and defined by the user.
 	// These will be available to use in Actions as template dot notation.
@@ -68,6 +68,19 @@ type Action struct {
 	// Name is a human readable name for the Action.
 	Name string `json:"name" yaml:"name"`
 
+	// If determines whether the Action is executed. It is a string boolean:
+	// the rendered value must be "true", "false", or "" (empty). Empty or
+	// unset is treated as true. Rendered values other than "true", "false",
+	// or "" are treated as false. The "true" and "false" values are case-insensitive,
+	// so "True", "TRUE", "False", "FALSE" are all valid.
+	//
+	// The value is typically a Go template that evaluates to the boolean, e.g.
+	// "{{ eq .hardware.spec.attributes.arch \"amd64\" }}". Templating runs before
+	// the result is parsed, so the template output — not the raw field — is what
+	// must resolve to true/false/"".
+	// +optional
+	If string `json:"if,omitempty,omitzero" yaml:"if,omitempty,omitzero"`
+
 	// Image is an OCI image. Should generally be a fully qualified OCI image reference.
 	// For example, quay.io/tinkerbell/actions/image2disk:v1.0.0 or docker.io/library/alpine:3.23
 	Image string `json:"image" yaml:"image"`
@@ -83,9 +96,9 @@ type Action struct {
 	// +optional
 	Args []string `json:"args,omitempty,omitzero" yaml:"args,omitempty,omitzero"`
 
-	// EnvVars defines environment variables that will be available inside a container.
+	// Env defines environment variables that will be available inside a container.
 	// +optional
-	EnvVars []EnvVar `json:"envVars,omitempty,omitzero" yaml:"envVars,omitempty,omitzero"`
+	Env map[string]string `json:"env,omitempty,omitzero" yaml:"env,omitempty,omitzero"`
 
 	// Volumes defines the volumes that will be mounted into the container.
 	// +optional
@@ -96,11 +109,13 @@ type Action struct {
 	Namespaces Namespaces `json:"namespaces,omitempty,omitzero" yaml:"namespaces,omitempty,omitzero"`
 
 	// Retries is the number of times the Action should be run until completed successfully.
+	// Zero value means no retries.
 	// +kubebuilder:validation:Minimum=0
 	Retries int `json:"retries,omitempty,omitzero" yaml:"retries,omitempty,omitzero"`
 
 	// TimeoutSeconds is the total number of seconds the Action is allowed to run without completing
 	// before marking it as timed out.
+	// This includes all retries.
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty,omitzero" yaml:"timeoutSeconds,omitempty,omitzero"`
 
 	// Background or Detach indicates that the Action should be run in the background and not block the execution of other Actions.
@@ -109,14 +124,6 @@ type Action struct {
 	// This is useful for Actions that do things like kexec, reboot, or power off a machine.
 	// +optional
 	Background bool `json:"background,omitempty,omitzero" yaml:"background,omitempty,omitzero"`
-}
-
-// EnvVar defines a single environment variable.
-type EnvVar struct {
-	// Key is the name of the environment variable.
-	Key string `json:"key" yaml:"key"`
-	// Value is the value of the environment variable.
-	Value string `json:"value" yaml:"value"`
 }
 
 // Volume is a specification for mounting a location on a Host into an Action container.

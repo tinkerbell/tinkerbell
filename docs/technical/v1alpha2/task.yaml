@@ -7,28 +7,52 @@ metadata:
 spec:
   actions:
     - name: "action 1"
+      if: '{{ eq .hardware.spec.attributes.arch "amd64" }}'
       image: "alpine"
       command: "/bin/sleep"
       args:
-        - "1"
-      envVars:
+        # Task self reference: access values from this Task object
+        - "{{ .task.spec.env.two }}"
+      env:
         # Reference templating: access a referenced ConfigMap's data
-        - key: "REGISTRY_URL"
-          value: "{{ .references.clusterConfig.data.registryURL }}"
+        REGISTRY_URL: "{{ .references.clusterConfig.data.registryURL }}"
         # Hardware templating: access fields from the Hardware object
-        - key: "DEVICE_ARCH"
-          value: "{{ .hardware.spec.attributes.arch }}"
+        DEVICE_ARCH: "{{ .hardware.spec.attributes.arch }}"
       volumes:
         - "/var/data:/var-data:ro"
       namespaces:
         network: "host"
-        pid: "1"
+        pid: "host"
       retries: 4
       timeoutSeconds: 120
       background: false
-  envVars:
-    - key: "one"
-      value: "1"
+    - name: "action 2"
+      if: '{{ eq .hardware.spec.attributes.arch "amd64" }}'
+      image: "alpine"
+      command: "/bin/sh"
+      args:
+        - "-c"
+        # Workflow reference: access reference objects from the Workflow that uses this Task
+        - "curl {{ .workflow.spec.globals.templateMap.artifactServer }} > /tmp/data.txt"
+      env:
+        # Reference templating: access a referenced ConfigMap's data
+        REGISTRY_URL: "{{ .references.clusterConfig.data.registryURL }}"
+        # Hardware templating: access fields from the Hardware object
+        DEVICE_ARCH: "{{ .hardware.spec.attributes.arch }}"
+      volumes:
+        - "/var/data:/var-data:ro"
+      namespaces:
+        network: "host"
+        pid: "host"
+      retries: 4
+      timeoutSeconds: 120
+      background: false
+  env:
+    # Default templating: access a value from the Workflow's templateMap field with a default value of "1" if not found
+    one: '{{ default "1" .workflow.spec.globals.templateMap.globalKey }}'
+    # Dig templating: access a value from the Workflow's templateMap field with a default value of "2" if not found
+    two: '{{ default "2" (dig "workflow" "spec" "globals" "templateMap" "envTwo" .) }}'
+    THREE: "3"
   references:
     "clusterConfig":
       name: "cluster-settings"

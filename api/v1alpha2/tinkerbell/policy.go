@@ -54,15 +54,37 @@ type ReferenceRules struct {
 	// Within each rule, fields are combined with AND logic (all specified fields must match).
 	// If any rule matches, the Hardware templating will have access to the Reference object(s) through the corresponding Hardware object.
 	// +optional
-	Hardware []AccessRule `json:"hardware,omitempty"`
+	Hardware RuleLists `json:"hardware,omitempty"`
 
 	// Task defines rules for granting Task objects access to References.
 	// Multiple rules in this array are combined with OR logic (any rule can match).
 	// Within each rule, fields are combined with AND logic (all specified fields must match).
 	// If any rule matches, the Task templating will have access to the Reference object(s) through the corresponding Task object.
 	// +optional
-	Task []AccessRule `json:"task,omitempty"`
+	Task RuleLists `json:"task,omitempty"`
+
+	// Workflow defines rules for granting Workflow objects access to References.
+	// Multiple rules in this array are combined with OR logic (any rule can match).
+	// Within each rule, fields are combined with AND logic (all specified fields must match).
+	// If any rule matches, the Workflow templating will have access to the Reference object(s) through the corresponding Workflow object.
+	// +optional
+	Workflow RuleLists `json:"workflow,omitempty"`
 }
+
+type RuleLists struct {
+	// AllowRules represents a set of AccessRules that are explicitly allowed.
+	// +optional
+	Allow AllowRules `json:"allow,omitempty"`
+	// DenyRules represents a set of AccessRules that are explicitly denied.
+	// +optional
+	Deny DenyRules `json:"deny,omitempty"`
+}
+
+// AllowRules represents a set of AccessRules that are explicitly allowed.
+type AllowRules []AccessRule
+
+// DenyRules represents a set of AccessRules that are explicitly denied.
+type DenyRules []AccessRule
 
 // WorkflowRule defines the Rules, options, and Workflow to be created on rules match.
 type WorkflowRule struct {
@@ -94,15 +116,34 @@ type WorkflowConfig struct {
 	// This maps to WorkflowSpec.Globals.
 	Globals *Extra `json:"globals,omitempty"`
 
+	// References are dynamic and defined by the user.
+	// These will be available to use in Actions as template dot notation.
+	//
+	// For example, given the following reference:
+	//
+	// References:
+	//   config:
+	//     name: my-config
+	//     namespace: tinkerbell
+	//     resource: configmaps
+	//     version: v1
+	//
+	// The following Action template string can be used access the reference:
+	//
+	// {{ .references.config.data.my-key }}
+	//
+	// +optional
+	References map[string]Reference `json:"references,omitempty"`
+
 	// TimeoutSeconds is the duration in seconds before the Workflow times out.
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
 	// Tasks defines the Tasks created in the Workflow.
-	Tasks []PolicyWorkflowTask `json:"tasks,omitempty"`
+	Tasks []WorkflowTaskConfig `json:"tasks,omitempty"`
 }
 
-// PolicyWorkflowTask defines a Task entry for auto-created Workflows.
-type PolicyWorkflowTask struct {
+// WorkflowTaskConfig defines a Task entry for auto-created Workflows.
+type WorkflowTaskConfig struct {
 	// Extra configuration that is applied to this specific Task.
 	// +optional
 	Extra *Extra `json:"extra,omitempty"`
@@ -135,15 +176,20 @@ type AccessRule struct {
 //
 // +kubebuilder:validation:MinProperties=1
 type SourcePattern struct {
-	// Name matches the name of the Hardware object.
+	// Name matches the name of the object.
 	// Multiple values are combined with OR logic.
 	// +optional
 	Name FieldPattern `json:"name,omitempty"`
 
-	// Namespace matches the namespace of the Hardware object.
+	// Namespace matches the namespace of the object.
 	// Multiple values are combined with OR logic.
 	// +optional
 	Namespace FieldPattern `json:"namespace,omitempty"`
+
+	// Labels matches labels of the object.
+	// Multiple values are combined with OR logic.
+	// +optional
+	Labels FieldPattern `json:"labels,omitempty"`
 }
 
 // ReferencePattern matches attributes of the referenced Kubernetes object.
