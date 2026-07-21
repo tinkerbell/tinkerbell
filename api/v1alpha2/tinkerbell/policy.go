@@ -54,21 +54,21 @@ type ReferenceRules struct {
 	// Within each rule, fields are combined with AND logic (all specified fields must match).
 	// If any rule matches, the Hardware templating will have access to the Reference object(s) through the corresponding Hardware object.
 	// +optional
-	Hardware RuleLists `json:"hardware,omitempty"`
+	Hardware *RuleLists `json:"hardware,omitempty"`
 
 	// Task defines rules for granting Task objects access to References.
 	// Multiple rules in this array are combined with OR logic (any rule can match).
 	// Within each rule, fields are combined with AND logic (all specified fields must match).
 	// If any rule matches, the Task templating will have access to the Reference object(s) through the corresponding Task object.
 	// +optional
-	Task RuleLists `json:"task,omitempty"`
+	Task *RuleLists `json:"task,omitempty"`
 
 	// Workflow defines rules for granting Workflow objects access to References.
 	// Multiple rules in this array are combined with OR logic (any rule can match).
 	// Within each rule, fields are combined with AND logic (all specified fields must match).
 	// If any rule matches, the Workflow templating will have access to the Reference object(s) through the corresponding Workflow object.
 	// +optional
-	Workflow RuleLists `json:"workflow,omitempty"`
+	Workflow *RuleLists `json:"workflow,omitempty"`
 }
 
 type RuleLists struct {

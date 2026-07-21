@@ -90,10 +90,10 @@ At render time each object is evaluated against its JSON representation, so ever
   {{ (index .hardware.spec.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}
   ```
 
-- When a referenced value's key itself contains a dot, escape the dot so it is treated as a single key segment:
+- When a referenced value's key itself contains a dot, use the `index` function so the dot is treated as part of the key:
 
   ```gotemplate
-  {{ .references.registryCert.data.ca\.crt | b64dec | nindent 12 }}
+  {{ index .references.registryCert.data "ca.crt" | b64dec | nindent 12 }}
   ```
 
 ## Hardware templating
@@ -110,7 +110,7 @@ The following top-level fields are available to template functions inside a `Har
 References work the same way they do in v1alpha1. Entries under `spec.references` name external objects to fetch, and the fetched objects are available under `.references.<name>`.
 
 ```gotemplate
-{{ .references.registryCert.data.ca\.crt | b64dec | nindent 12 }}
+{{ index .references.registryCert.data "ca.crt" | b64dec | nindent 12 }}
 ```
 
 ### `.hardware`
@@ -119,7 +119,7 @@ References work the same way they do in v1alpha1. Entries under `spec.references
 
 ```gotemplate
 # Reference another field in this same Hardware object
-{{ .hardware.spec.instance.sshKeys[0] }}
+{{ index .hardware.spec.instance.sshKeys 0 }}
 
 # Build a value from a map-keyed interface
 {{ (index .hardware.spec.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}/{{ (index .hardware.spec.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.prefix }}
