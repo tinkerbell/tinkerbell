@@ -245,6 +245,7 @@ func HandleHardwareDetail(c *gin.Context, log logr.Logger) {
 		Labels:          hw.Labels,
 		Annotations:     hw.Annotations,
 		AgentAttributes: agentAttrs,
+		BMCInventory:    templates.BMCInventoryFromStatus(hw.Status.BMCInventory),
 		SpecYAML:        string(specYAML),
 		StatusYAML:      string(statusYAML),
 		YAML:            string(yamlBytes),

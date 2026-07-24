@@ -1,5 +1,10 @@
 package templates
 
+import (
+	"strconv"
+	"strings"
+)
+
 // PageConfig holds common page configuration.
 type PageConfig struct {
 	BaseURL    string   // URL prefix for all routes (e.g., "/ui")
@@ -247,6 +252,157 @@ type AgentProduct struct {
 	SerialNumber string `json:"serialNumber"`
 }
 
+// BMCStatus is health/state info for a BMC-reported component. Mirrors
+// api/v1alpha1/tinkerbell.BMCStatus, flattened to a value type for template
+// convenience.
+type BMCStatus struct {
+	Health         string
+	State          string
+	PostCode       int32
+	PostCodeStatus string
+}
+
+// BMCFirmwareComponent is a hardware component that carries firmware version
+// info, e.g. BIOS or BMC firmware.
+type BMCFirmwareComponent struct {
+	Vendor            string
+	Model             string
+	SerialNumber      string
+	FirmwareInstalled string
+	Status            BMCStatus
+}
+
+// BMCComponent is a basic hardware component without specialized fields, e.g.
+// Mainboard, a storage controller, or a TPM.
+type BMCComponent struct {
+	Vendor            string
+	Model             string
+	SerialNumber      string
+	Description       string
+	FirmwareInstalled string
+	Status            BMCStatus
+}
+
+// BMCProduct describes the overall system identity as reported by the BMC —
+// the machine's own asset tag, distinct from any individual component.
+type BMCProduct struct {
+	Vendor       string
+	Model        string
+	ProductName  string
+	SerialNumber string
+	Status       BMCStatus
+}
+
+// BMCPSUComponent describes a power supply unit as reported by the BMC.
+type BMCPSUComponent struct {
+	Vendor             string
+	Model              string
+	SerialNumber       string
+	Description        string
+	Status             BMCStatus
+	PowerCapacityWatts int64
+}
+
+// BMCCPUComponent describes a CPU as reported by the BMC.
+type BMCCPUComponent struct {
+	Vendor            string
+	Model             string
+	SerialNumber      string
+	Slot              string
+	Cores             uint32
+	Threads           uint32
+	ClockSpeedMHz     uint32
+	FirmwareInstalled string
+}
+
+// BMCMemoryComponent describes a memory module as reported by the BMC.
+type BMCMemoryComponent struct {
+	Vendor            string
+	Model             string
+	SerialNumber      string
+	Slot              string
+	SizeBytes         int64
+	SpeedMHz          uint32
+	FormFactor        string
+	PartNumber        string
+	FirmwareInstalled string
+}
+
+// BMCNICComponent describes a network adapter as reported by the BMC.
+type BMCNICComponent struct {
+	Vendor            string
+	Model             string
+	SerialNumber      string
+	FirmwareInstalled string
+	Ports             []BMCNICPort
+}
+
+// BMCNICPort describes a single physical port on a network adapter.
+type BMCNICPort struct {
+	PortID     string
+	MACAddress string
+	LinkStatus string
+	SpeedMbps  uint32
+	MTU        uint32
+}
+
+// MACAddresses joins every port's MAC address for display in a single table
+// cell, since a NIC can have multiple physical ports.
+func (n BMCNICComponent) MACAddresses() string {
+	var macs []string
+	for _, p := range n.Ports {
+		if p.MACAddress != "" {
+			macs = append(macs, p.MACAddress)
+		}
+	}
+	return strings.Join(macs, ", ")
+}
+
+// PortSpeeds joins every port's speed (e.g. "25000 Mbps") for display in a
+// single table cell, since a NIC can have multiple physical ports.
+func (n BMCNICComponent) PortSpeeds() string {
+	var speeds []string
+	for _, p := range n.Ports {
+		if p.SpeedMbps > 0 {
+			speeds = append(speeds, strconv.Itoa(int(p.SpeedMbps))+" Mbps")
+		}
+	}
+	return strings.Join(speeds, ", ")
+}
+
+// BMCDriveComponent describes a storage drive as reported by the BMC.
+type BMCDriveComponent struct {
+	Vendor            string
+	Model             string
+	SerialNumber      string
+	WWN               string
+	SizeBytes         int64
+	Type              string
+	SmartStatus       string
+	FirmwareInstalled string
+}
+
+// BMCInventory is hardware data collected out-of-band via the BMC, mirroring
+// api/v1alpha1/tinkerbell.BMCInventory. Every field is optional: BMC
+// vendors/protocols vary widely in what they report, so an empty field here
+// reflects what the BMC/collection driver reports, not an error.
+type BMCInventory struct {
+	LastUpdated        string // pre-formatted, same convention as HardwareDetail.CreatedAt
+	CollectionMethod   string
+	Product            BMCProduct
+	BIOS               BMCFirmwareComponent
+	BMC                BMCFirmwareComponent
+	Mainboard          BMCComponent
+	CPUs               []BMCCPUComponent
+	Memory             []BMCMemoryComponent
+	NICs               []BMCNICComponent
+	Drives             []BMCDriveComponent
+	StorageControllers []BMCComponent
+	PSUs               []BMCPSUComponent
+	TPMs               []BMCComponent
+	GPUs               []BMCComponent
+}
+
 // AgentAttributes represents the agent-attributes annotation data.
 type AgentAttributes struct {
 	CPU               AgentCPU                `json:"cpu"`
@@ -271,6 +427,7 @@ type HardwareDetail struct {
 	Labels          map[string]string
 	Annotations     map[string]string
 	AgentAttributes *AgentAttributes
+	BMCInventory    *BMCInventory
 	SpecYAML        string
 	StatusYAML      string
 	YAML            string

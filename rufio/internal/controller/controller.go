@@ -18,6 +18,9 @@ import (
 var schemeBuilder = runtime.NewSchemeBuilder(
 	scheme.AddToScheme,
 	api.AddToSchemeBMC,
+	// Needed so the Machine controller can read/write the linked Hardware object's
+	// status.bmcInventory field.
+	api.AddToSchemeTinkerbell,
 )
 
 // DefaultScheme returns a scheme with all the types necessary for the Rufio controller.
@@ -65,7 +68,7 @@ func NewReconciler(c client.Client) *Reconciler {
 }
 
 func (r *Reconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, bmcClient ClientFunc, powerCheckInterval time.Duration, opts ctrlcontroller.Options) error {
-	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorder("machine-controller"), bmcClient, powerCheckInterval).SetupWithManager(mgr, opts); err != nil {
+	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorder("machine-controller"), bmcClient, powerCheckInterval).SetupWithManager(ctx, mgr, opts); err != nil {
 		return fmt.Errorf("unable to create Machines controller: %w", err)
 	}
 
