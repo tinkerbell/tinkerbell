@@ -25,6 +25,7 @@ import (
 	"github.com/bmc-toolbox/bmclib/v2/providers/rpc"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -70,6 +71,8 @@ func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
+//+kubebuilder:rbac:groups=tinkerbell.org,resources=hardware,verbs=get;list;watch
+//+kubebuilder:rbac:groups=tinkerbell.org,resources=hardware/status,verbs=get;update;patch
 
 // Reconcile reports on the state of a Machine. It does not change the state of the Machine in any way.
 // Updates the Power status and conditions accordingly.
@@ -164,6 +167,12 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *bmc.Machine, bm
 	// Set condition.
 	bm.SetCondition(bmc.Contactable, contactable, conditionMsg)
 
+	// Collect and store BMC inventory on the linked Hardware, if any and if due.
+	// Reuses the bmcClient connection already open above — no second BMC
+	// connection. This is independent of Machine's own status/condition and never
+	// affects this reconcile's ctrl.Result or aggregated error.
+	r.reconcileInventoryIfDue(ctx, logger, bmcClient, bm)
+
 	// Patch the status after each reconciliation
 	if err := r.patchStatus(ctx, bm, bmPatch); err != nil {
 		multiErr = append(multiErr, err)
@@ -185,6 +194,31 @@ func (r *MachineReconciler) updatePowerState(ctx context.Context, bm *bmc.Machin
 	bm.Status.Power = toPowerState(rawState)
 
 	return nil
+}
+
+// reconcileInventoryIfDue collects BMC inventory when it's due (see
+// dueForInventoryRefresh) and writes it to the linked Hardware's status.
+// Failures are logged and evented but never block Machine reconciliation —
+// Hardware and Machine are reconciled independently, and an unreachable/
+// unsupported inventory source (e.g. IPMI-only BMCs, which bmclib cannot collect
+// inventory from at all) is an expected, permanent state for some fleets, not a
+// fatal error.
+func (r *MachineReconciler) reconcileInventoryIfDue(ctx context.Context, logger logr.Logger, bmcClient *bmclib.Client, bm *bmc.Machine) {
+	hw, err := r.findLinkedHardware(ctx, bm)
+	if err != nil {
+		logger.Error(err, "failed to find linked Hardware for inventory refresh")
+		r.recorder.Eventf(bm, nil, corev1.EventTypeWarning, "HardwareLookupFailed", "FindLinkedHardware", "find linked Hardware: %v", err)
+		return
+	}
+	if hw == nil || !dueForInventoryRefresh(hw, bm) {
+		return
+	}
+	if err := r.reconcileInventory(ctx, bmcClient, hw); err != nil {
+		logger.Error(err, "BMC inventory collection failed", "host", bm.Spec.Connection.Host)
+		r.recorder.Eventf(bm, nil, corev1.EventTypeWarning, "InventoryUnreachable", "GetInventory", "get BMC inventory: %v", err)
+		return
+	}
+	r.clearRefreshInventoryAnnotation(ctx, logger, bm)
 }
 
 // patchStatus patches the specifies patch on the Machine.
@@ -219,7 +253,16 @@ func retrieveHMACSecrets(ctx context.Context, c client.Client, hmacSecrets bmc.H
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MachineReconciler) SetupWithManager(mgr ctrl.Manager, opts ctrlcontroller.Options) error {
+func (r *MachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts ctrlcontroller.Options) error {
+	if err := mgr.GetFieldIndexer().IndexField(
+		ctx,
+		&tinkerbell.Hardware{},
+		hardwareBMCRefIndexKey,
+		hardwareBMCRefIndexFunc,
+	); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(opts).
 		For(&bmc.Machine{}).

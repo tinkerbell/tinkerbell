@@ -5,8 +5,10 @@ import (
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	"github.com/bmc-toolbox/bmclib/v2/providers"
+	common "github.com/bmc-toolbox/common"
 	"github.com/go-logr/logr"
 	"github.com/jacobweinstock/registrar"
+	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +29,9 @@ import (
 func newClientBuilder() *fake.ClientBuilder {
 	scheme := runtime.NewScheme()
 	if err := api.AddToSchemeBMC(scheme); err != nil {
+		panic(err)
+	}
+	if err := api.AddToSchemeTinkerbell(scheme); err != nil {
 		panic(err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
@@ -54,6 +59,7 @@ func newClientBuilder() *fake.ClientBuilder {
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjectTracker(tracker).
+		WithIndex(&tinkerbell.Hardware{}, controller.HardwareBMCRefIndexKey, controller.HardwareBMCRefIndexFunc).
 		WithInterceptorFuncs(interceptor.Funcs{
 			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 				err := c.Get(ctx, key, obj, opts...)
@@ -98,6 +104,15 @@ type testProvider struct {
 	ErrPowerStateSet      error
 	ErrBootDeviceSet      error
 	ErrVirtualMediaInsert error
+
+	// InventoryDevice and ErrInventory control the Inventory() implementation
+	// below, used to test BMC inventory collection without a live BMC or a
+	// Redfish simulator. InventoryCalls counts how many times Inventory() was
+	// called, used to assert on reconcile cadence (e.g. once per 24h, not once
+	// per 3-minute power-poll reconcile).
+	InventoryDevice *common.Device
+	ErrInventory    error
+	InventoryCalls  int
 }
 
 func (t *testProvider) Name() string {
@@ -120,7 +135,16 @@ func (t *testProvider) Features() registrar.Features {
 		providers.FeaturePowerSet,
 		providers.FeatureBootDeviceSet,
 		providers.FeatureVirtualMedia,
+		providers.FeatureInventoryRead,
 	}
+}
+
+// Inventory implements bmc.InventoryGetter, so this fake provider can also serve
+// bmclib.Client.Inventory() calls in tests — no live BMC or Redfish simulator
+// needed.
+func (t *testProvider) Inventory(_ context.Context) (*common.Device, error) {
+	t.InventoryCalls++
+	return t.InventoryDevice, t.ErrInventory
 }
 
 func (t *testProvider) Open(_ context.Context) error {

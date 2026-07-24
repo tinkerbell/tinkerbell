@@ -358,6 +358,256 @@ type Disk struct {
 type HardwareStatus struct {
 	//+optional
 	State HardwareState `json:"state,omitempty"`
+
+	// BMCInventory contains hardware attributes collected out-of-band via the BMC's
+	// Redfish API. It is updated by the Machine controller when BMC connectivity is
+	// established. This data is available before the machine boots. IPMI-only BMCs
+	// cannot provide this data and will not populate this field.
+	//+optional
+	BMCInventory *BMCInventory `json:"bmcInventory,omitempty"`
+}
+
+// BMCInventory is hardware data collected out-of-band via the BMC.
+// Fields mirror the bmclib/common.Device structure. Every field is optional: BMC
+// vendors/protocols vary widely in what they report (Redfish, IPMI, vendor-specific
+// APIs all populate a different subset), so absence of a field here reflects what
+// the BMC/collection driver reports, not an error.
+type BMCInventory struct {
+	// LastUpdated is the time at which this inventory was last refreshed.
+	//+optional
+	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
+
+	// CollectionMethod identifies which bmclib driver produced this inventory
+	// (e.g. "redfish", "dell", "supermicro", "asrockrack", "openbmc"). Field
+	// completeness varies significantly by driver, so consumers should use this to
+	// interpret absent fields rather than treating them as errors.
+	//+optional
+	CollectionMethod string `json:"collectionMethod,omitempty"`
+
+	// Product describes the overall system identity (e.g. the Redfish "System"
+	// resource's own vendor/model/serial) — the machine's own asset tag, distinct
+	// from any individual component like the Mainboard or BMC.
+	//+optional
+	Product *BMCProduct `json:"product,omitempty"`
+
+	// BIOS describes the system BIOS firmware.
+	//+optional
+	BIOS *BMCFirmwareComponent `json:"bios,omitempty"`
+
+	// BMC describes the BMC firmware.
+	//+optional
+	BMC *BMCFirmwareComponent `json:"bmc,omitempty"`
+
+	// Mainboard describes the mainboard.
+	//+optional
+	Mainboard *BMCComponent `json:"mainboard,omitempty"`
+
+	// CPUs lists CPUs as reported by the BMC.
+	//+optional
+	CPUs []BMCCPUComponent `json:"cpus,omitempty"`
+
+	// Memory lists memory modules as reported by the BMC, with firmware details.
+	//+optional
+	Memory []BMCMemoryComponent `json:"memory,omitempty"`
+
+	// NICs lists network adapters as reported by the BMC, with firmware details.
+	//+optional
+	NICs []BMCNICComponent `json:"nics,omitempty"`
+
+	// Drives lists storage drives as reported by the BMC, with firmware details.
+	//+optional
+	Drives []BMCDriveComponent `json:"drives,omitempty"`
+
+	// StorageControllers lists storage controllers as reported by the BMC.
+	//+optional
+	StorageControllers []BMCComponent `json:"storageControllers,omitempty"`
+
+	// PSUs lists power supply units.
+	//+optional
+	PSUs []BMCPSUComponent `json:"psus,omitempty"`
+
+	// TPMs lists trusted platform modules.
+	//+optional
+	TPMs []BMCComponent `json:"tpms,omitempty"`
+
+	// GPUs lists GPU/accelerator devices as reported by the BMC.
+	//+optional
+	GPUs []BMCComponent `json:"gpus,omitempty"`
+}
+
+// BMCProduct describes the overall system identity as reported by the BMC.
+type BMCProduct struct {
+	//+optional
+	Vendor string `json:"vendor,omitempty"`
+	//+optional
+	Model string `json:"model,omitempty"`
+	//+optional
+	ProductName string `json:"productName,omitempty"`
+	//+optional
+	SerialNumber string `json:"serialNumber,omitempty"`
+	//+optional
+	Status *BMCStatus `json:"status,omitempty"`
+}
+
+// BMCStatus is health/state info, mirroring bmclib/common.Status. PostCode is only
+// meaningful for BIOS (POST diagnostics) and will be empty elsewhere.
+type BMCStatus struct {
+	//+optional
+	Health string `json:"health,omitempty"`
+	//+optional
+	State string `json:"state,omitempty"`
+	//+optional
+	PostCode int32 `json:"postCode,omitempty"`
+	//+optional
+	PostCodeStatus string `json:"postCodeStatus,omitempty"`
+}
+
+// BMCFirmwareComponent is a hardware component that carries firmware version info.
+type BMCFirmwareComponent struct {
+	//+optional
+	Vendor string `json:"vendor,omitempty"`
+	//+optional
+	Model string `json:"model,omitempty"`
+	//+optional
+	SerialNumber string `json:"serialNumber,omitempty"`
+	//+optional
+	FirmwareInstalled string `json:"firmwareInstalled,omitempty"`
+	//+optional
+	Status *BMCStatus `json:"status,omitempty"`
+	// NIC is the BMC's own out-of-band management network interface. It is
+	// distinct from BMCInventory.NICs, which lists the host's NICs.
+	//+optional
+	NIC *BMCNICComponent `json:"nic,omitempty"`
+}
+
+// BMCComponent is a basic hardware component without specialized fields.
+type BMCComponent struct {
+	//+optional
+	Vendor string `json:"vendor,omitempty"`
+	//+optional
+	Model string `json:"model,omitempty"`
+	//+optional
+	SerialNumber string `json:"serialNumber,omitempty"`
+	//+optional
+	Description string `json:"description,omitempty"`
+	//+optional
+	FirmwareInstalled string `json:"firmwareInstalled,omitempty"`
+	//+optional
+	Status *BMCStatus `json:"status,omitempty"`
+}
+
+// BMCPSUComponent describes a power supply unit as reported by the BMC.
+type BMCPSUComponent struct {
+	//+optional
+	Vendor string `json:"vendor,omitempty"`
+	//+optional
+	Model string `json:"model,omitempty"`
+	//+optional
+	SerialNumber string `json:"serialNumber,omitempty"`
+	//+optional
+	Description string `json:"description,omitempty"`
+	//+optional
+	Status *BMCStatus `json:"status,omitempty"`
+	//+optional
+	PowerCapacityWatts int64 `json:"powerCapacityWatts,omitempty"`
+}
+
+// BMCCPUComponent describes a CPU as reported by the BMC. Note: on the Redfish
+// collection path (Dell/Supermicro/gofish/OpenBMC), SerialNumber is always empty
+// upstream in bmclib — not a bug in the conversion, just what the BMC exposes.
+type BMCCPUComponent struct {
+	//+optional
+	Vendor string `json:"vendor,omitempty"`
+	//+optional
+	Model string `json:"model,omitempty"`
+	//+optional
+	SerialNumber string `json:"serialNumber,omitempty"`
+	//+optional
+	Slot string `json:"slot,omitempty"`
+	//+optional
+	Cores uint32 `json:"cores,omitempty"`
+	//+optional
+	Threads uint32 `json:"threads,omitempty"`
+	//+optional
+	ClockSpeedMHz uint32 `json:"clockSpeedMHz,omitempty"`
+	//+optional
+	FirmwareInstalled string `json:"firmwareInstalled,omitempty"`
+}
+
+// BMCMemoryComponent describes a memory module as reported by the BMC. Note: on
+// the Redfish collection path, Model is always empty upstream in bmclib — not a
+// bug in the conversion, just what the BMC exposes.
+type BMCMemoryComponent struct {
+	//+optional
+	Vendor string `json:"vendor,omitempty"`
+	//+optional
+	Model string `json:"model,omitempty"`
+	//+optional
+	SerialNumber string `json:"serialNumber,omitempty"`
+	//+optional
+	Slot string `json:"slot,omitempty"`
+	//+optional
+	SizeBytes int64 `json:"sizeBytes,omitempty"`
+	//+optional
+	SpeedMHz uint32 `json:"speedMHz,omitempty"`
+	//+optional
+	FormFactor string `json:"formFactor,omitempty"`
+	//+optional
+	PartNumber string `json:"partNumber,omitempty"`
+	//+optional
+	FirmwareInstalled string `json:"firmwareInstalled,omitempty"`
+}
+
+// BMCNICComponent describes a network adapter as reported by the BMC.
+type BMCNICComponent struct {
+	//+optional
+	Vendor string `json:"vendor,omitempty"`
+	//+optional
+	Model string `json:"model,omitempty"`
+	//+optional
+	SerialNumber string `json:"serialNumber,omitempty"`
+	//+optional
+	FirmwareInstalled string `json:"firmwareInstalled,omitempty"`
+	// Ports lists the individual physical ports on this adapter.
+	//+optional
+	Ports []BMCNICPort `json:"ports,omitempty"`
+}
+
+// BMCNICPort describes a single physical port on a network adapter.
+type BMCNICPort struct {
+	//+optional
+	PortID string `json:"portID,omitempty"`
+	//+optional
+	MACAddress string `json:"macAddress,omitempty"`
+	//+optional
+	LinkStatus string `json:"linkStatus,omitempty"`
+	//+optional
+	SpeedMbps uint32 `json:"speedMbps,omitempty"`
+	//+optional
+	MTU uint32 `json:"mtu,omitempty"`
+}
+
+// BMCDriveComponent describes a storage drive as reported by the BMC.
+type BMCDriveComponent struct {
+	//+optional
+	Vendor string `json:"vendor,omitempty"`
+	//+optional
+	Model string `json:"model,omitempty"`
+	//+optional
+	SerialNumber string `json:"serialNumber,omitempty"`
+	// WWN is the World Wide Name, a standard unique storage identifier.
+	//+optional
+	WWN string `json:"wwn,omitempty"`
+	//+optional
+	SizeBytes int64 `json:"sizeBytes,omitempty"`
+	//+optional
+	Type string `json:"type,omitempty"`
+	// SmartStatus is the drive's self-reported SMART health status (e.g. "ok",
+	// "predict-failure").
+	//+optional
+	SmartStatus string `json:"smartStatus,omitempty"`
+	//+optional
+	FirmwareInstalled string `json:"firmwareInstalled,omitempty"`
 }
 
 // AutoCapabilities defines the configuration for the automatic capabilities of this Hardware.
