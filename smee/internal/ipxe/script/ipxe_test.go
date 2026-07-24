@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/tinkerbell/tinkerbell/smee/internal/hardware"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -34,7 +35,7 @@ func TestCustomScript(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			d := info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, IPXEScript: tt.ipxeScript, IPXEScriptURL: u}
+			d := hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, IPXEScript: tt.ipxeScript, IPXEScriptURL: u}
 			got, err := h.customScript(d)
 			if err != nil && !tt.shouldErr {
 				t.Fatal(err)
@@ -134,15 +135,15 @@ exit
 `
 	tests := map[string]struct {
 		want string
-		d    info
+		d    hardware.Info
 	}{
 		"success with defaults": {
 			want: one,
-			d:    info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, VLANID: "1234", Facility: "onprem", Arch: "x86_64"},
+			d:    hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, VLANID: "1234", Facility: "onprem", Arch: "x86_64"},
 		},
 		"success with set agent id": {
 			want: two,
-			d:    info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, AgentID: "worker1", VLANID: "1234", Facility: "onprem", Arch: "x86_64"},
+			d:    hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, AgentID: "worker1", VLANID: "1234", Facility: "onprem", Arch: "x86_64"},
 		},
 	}
 	for name, tt := range tests {
@@ -173,7 +174,7 @@ exit
 func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 	tests := map[string]struct {
 		handler    Handler
-		d          info
+		d          hardware.Info
 		wantKernel string
 		wantInitrd string
 	}{
@@ -186,7 +187,7 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 				KernelName:           "captain-kernel",
 				InitrdName:           "captain-rootfs",
 			},
-			d:          info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, Facility: "onprem", Arch: "x86_64"},
+			d:          hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, Facility: "onprem", Arch: "x86_64"},
 			wantKernel: "captain-kernel-x86_64",
 			wantInitrd: "captain-rootfs-x86_64",
 		},
@@ -199,7 +200,7 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 				KernelName:           "captain-kernel",
 				InitrdName:           "captain-rootfs",
 			},
-			d:          info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, Facility: "onprem", Arch: "aarch64"},
+			d:          hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, Facility: "onprem", Arch: "aarch64"},
 			wantKernel: "captain-kernel-aarch64",
 			wantInitrd: "captain-rootfs-aarch64",
 		},
@@ -212,11 +213,11 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 				KernelName:           "captain-kernel",
 				InitrdName:           "captain-rootfs",
 			},
-			d: info{
+			d: hardware.Info{
 				MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
 				Facility:   "onprem",
 				Arch:       "x86_64",
-				OSIE: OSIE{
+				OSIE: hardware.OSIE{
 					Kernel: "hw-specific-kernel",
 					Initrd: "hw-specific-initrd",
 				},
@@ -233,11 +234,11 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 				KernelName:           "captain-kernel",
 				InitrdName:           "captain-rootfs",
 			},
-			d: info{
+			d: hardware.Info{
 				MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
 				Facility:   "onprem",
 				Arch:       "x86_64",
-				OSIE: OSIE{
+				OSIE: hardware.OSIE{
 					Kernel: "hw-specific-kernel",
 				},
 			},
@@ -259,6 +260,42 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 				t.Errorf("expected initrd %q in script, got:\n%s", tt.wantInitrd, got)
 			}
 		})
+	}
+}
+
+func TestDefaultScriptKernelParams(t *testing.T) {
+	h := Handler{
+		OSIEURL:              "http://127.1.1.1",
+		IPXEScriptRetries:    10,
+		IPXEScriptRetryDelay: 3,
+		TinkServerGRPCAddr:   "127.0.0.1:42113",
+		KernelName:           "vmlinuz",
+		InitrdName:           "initramfs",
+		ExtraKernelParams:    []string{"global=1", "shared=global"},
+	}
+	hw := hardware.Info{
+		MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
+		Arch:       "x86_64",
+		OSIE: hardware.OSIE{
+			KernelParams: []string{"perhw=1", "shared=perhw"},
+		},
+	}
+
+	sp := trace.SpanFromContext(context.Background())
+	got, err := h.defaultScript(sp, hw)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, param := range []string{"global=1", "shared=global", "perhw=1", "shared=perhw"} {
+		if !strings.Contains(got, param) {
+			t.Errorf("expected kernel param %q in script, got:\n%s", param, got)
+		}
+	}
+	// per-Hardware params must render after the global ones so machine-specific
+	// values win on duplicate keys (kernel cmdline is last-wins).
+	if strings.Index(got, "shared=perhw") < strings.Index(got, "shared=global") {
+		t.Errorf("expected per-Hardware params to render after global params, got:\n%s", got)
 	}
 }
 
