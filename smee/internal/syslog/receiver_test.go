@@ -43,7 +43,7 @@ func TestStartReceiver(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
-			err := StartReceiver(ctx, logr.Discard(), tc.laddr, tc.parsers)
+			_, err := StartReceiver(ctx, logr.Discard(), tc.laddr, tc.parsers)
 
 			if tc.wantErr {
 				if err == nil {
@@ -72,7 +72,7 @@ func TestStartReceiver_AddressInUse(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err = StartReceiver(ctx, logr.Discard(), addr, 1)
+	_, err = StartReceiver(ctx, logr.Discard(), addr, 1)
 	if err == nil {
 		t.Error("StartReceiver() expected error for address in use but got none")
 	}
@@ -91,39 +91,35 @@ func TestReceiver_DoneAndErr(t *testing.T) {
 	addr := conn.LocalAddr().String()
 	conn.Close()
 
-	err = StartReceiver(ctx, logr.Discard(), addr, 1)
+	r, err := StartReceiver(ctx, logr.Discard(), addr, 1)
 	if err != nil {
 		t.Fatalf("StartReceiver() unexpected error = %v", err)
 	}
 
-	// Since we can't easily access the receiver instance from StartReceiver,
-	// we'll test the concept by creating our own receiver
-	testReceiver := &Receiver{
-		done: make(chan struct{}),
-		err:  nil,
-	}
-
-	// Test Done() method
+	// Test Done() method on the live receiver
 	select {
-	case <-testReceiver.Done():
+	case <-r.Done():
 		t.Error("Done() channel should not be closed initially")
 	default:
 		// Expected behavior
 	}
 
-	// Test Err() method
-	if testReceiver.Err() != nil {
-		t.Errorf("Err() = %v, want nil", testReceiver.Err())
+	// Test Err() method on the live receiver
+	if r.Err() != nil {
+		t.Errorf("Err() = %v, want nil", r.Err())
 	}
 
-	// Simulate an error
-	testReceiver.err = net.ErrClosed
+	// Simulate an error on a separate instance
+	testReceiver := &Receiver{
+		done: make(chan struct{}),
+	}
+	testReceiver.setErr(net.ErrClosed)
 	if !errors.Is(testReceiver.Err(), net.ErrClosed) {
 		t.Errorf("Err() = %v, want %v", testReceiver.Err(), net.ErrClosed)
 	}
 }
 
-func TestReceiver_cleanup(t *testing.T) {
+func TestReceiver_shutdown(t *testing.T) {
 	// Create a real UDP connection for testing
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
 	if err != nil {
@@ -131,19 +127,19 @@ func TestReceiver_cleanup(t *testing.T) {
 	}
 
 	r := &Receiver{
-		c:     conn,
-		parse: make(chan *message, 1),
+		conn:  conn,
+		msgCh: make(chan *message, 1),
 		done:  make(chan struct{}),
 	}
 
-	// Test that cleanup closes everything
-	r.cleanup()
+	// Test that shutdown closes everything
+	r.shutdown()
 
 	// Verify connection is closed by trying to read from it
 	buf := make([]byte, 1)
 	_, _, err = conn.ReadFromUDP(buf)
 	if err == nil {
-		t.Error("Expected connection to be closed after cleanup()")
+		t.Error("Expected connection to be closed after shutdown()")
 	}
 
 	// Verify channels are closed
@@ -151,13 +147,13 @@ func TestReceiver_cleanup(t *testing.T) {
 	case <-r.done:
 		// Expected - channel should be closed
 	default:
-		t.Error("done channel should be closed after cleanup()")
+		t.Error("done channel should be closed after shutdown()")
 	}
 
 	select {
-	case _, ok := <-r.parse:
+	case _, ok := <-r.msgCh:
 		if ok {
-			t.Error("parse channel should be closed after cleanup()")
+			t.Error("msgCh channel should be closed after shutdown()")
 		}
 	default:
 		// This is also acceptable as the channel might be empty
@@ -238,7 +234,7 @@ func TestParse(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := parse(tc.message)
+			result := toStructured(tc.message)
 			if diff := cmp.Diff(tc.expected, result); diff != "" {
 				t.Errorf("parse() mismatch (-want +got):\n%s", diff)
 			}
@@ -247,12 +243,13 @@ func TestParse(t *testing.T) {
 }
 
 func TestReceiver_runParser(t *testing.T) {
-	// Create a test receiver with a parse channel
-	parseChannel := make(chan *message, 2)
+	// Create a test receiver with a message channel
+	msgCh := make(chan *message, 2)
 	receiver := &Receiver{
-		parse:  parseChannel,
+		msgCh:  msgCh,
 		Logger: logr.Discard(),
 	}
+	receiver.wg.Add(1)
 
 	// Create test messages with valid syslog format
 	msg1 := &message{
@@ -278,9 +275,9 @@ func TestReceiver_runParser(t *testing.T) {
 	copy(msg2.buf[:], "<31>debug message")
 
 	// Send messages to the channel
-	parseChannel <- msg1
-	parseChannel <- msg2
-	close(parseChannel)
+	msgCh <- msg1
+	msgCh <- msg2
+	close(msgCh)
 
 	// Track the completion of message processing
 	var wg sync.WaitGroup
@@ -347,7 +344,7 @@ func TestReceiverIntegration(t *testing.T) {
 	conn.Close()
 
 	// Start the receiver
-	err = StartReceiver(ctx, logr.Discard(), addr, 1)
+	_, err = StartReceiver(ctx, logr.Discard(), addr, 1)
 	if err != nil {
 		t.Fatalf("StartReceiver() error = %v", err)
 	}
@@ -397,8 +394,8 @@ func TestReceiver_run_contextCancel(t *testing.T) {
 	defer conn.Close()
 
 	r := &Receiver{
-		c:      conn,
-		parse:  make(chan *message, 1),
+		conn:   conn,
+		msgCh:  make(chan *message, 1),
 		done:   make(chan struct{}),
 		Logger: logr.Discard(),
 	}
@@ -430,8 +427,8 @@ func TestReceiver_run_networkError(t *testing.T) {
 	conn.Close() // Close immediately to cause errors
 
 	r := &Receiver{
-		c:      conn,
-		parse:  make(chan *message, 1),
+		conn:   conn,
+		msgCh:  make(chan *message, 1),
 		done:   make(chan struct{}),
 		Logger: logr.Discard(),
 	}
@@ -461,10 +458,10 @@ func TestReceiver_run_parseChannelBlocking(t *testing.T) {
 	}
 	defer conn.Close()
 
-	parseChannel := make(chan *message) // No buffer - will block immediately
+	msgCh := make(chan *message) // No buffer - will block immediately
 	r := &Receiver{
-		c:      conn,
-		parse:  parseChannel,
+		conn:   conn,
+		msgCh:  msgCh,
 		done:   make(chan struct{}),
 		Logger: logr.Discard(),
 	}
@@ -553,7 +550,7 @@ func TestParse_emptyAndNilFields(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := parse(tc.message)
+			result := toStructured(tc.message)
 			if diff := cmp.Diff(tc.expected, result); diff != "" {
 				t.Errorf("parse() mismatch (-want +got):\n%s", diff)
 			}
@@ -590,7 +587,7 @@ func TestParse_priorityEdgeCases(t *testing.T) {
 				priority: tc.priority,
 				host:     net.IPv4(127, 0, 0, 1),
 			}
-			result := parse(message)
+			result := toStructured(message)
 
 			if result["facility"] != tc.facility {
 				t.Errorf("Expected facility %s, got %s", tc.facility, result["facility"])
@@ -636,7 +633,7 @@ func TestParse_malformedJSON(t *testing.T) {
 				msg:      []byte(tc.jsonMsg),
 				host:     net.IPv4(127, 0, 0, 1),
 			}
-			result := parse(message)
+			result := toStructured(message)
 
 			if diff := cmp.Diff(tc.expected, result["msg"]); diff != "" {
 				t.Errorf("JSON parsing mismatch (-want +got):\n%s", diff)
@@ -646,11 +643,12 @@ func TestParse_malformedJSON(t *testing.T) {
 }
 
 func TestReceiver_runParser_invalidMessages(t *testing.T) {
-	parseChannel := make(chan *message, 3)
+	msgCh := make(chan *message, 3)
 	receiver := &Receiver{
-		parse:  parseChannel,
+		msgCh:  msgCh,
 		Logger: logr.Discard(),
 	}
+	receiver.wg.Add(1)
 
 	// Create messages that will fail parsing
 	invalidMsg1 := &message{
@@ -670,9 +668,9 @@ func TestReceiver_runParser_invalidMessages(t *testing.T) {
 	}
 
 	// Send invalid messages
-	parseChannel <- invalidMsg1
-	parseChannel <- invalidMsg2
-	close(parseChannel)
+	msgCh <- invalidMsg1
+	msgCh <- invalidMsg2
+	close(msgCh)
 
 	// Track completion
 	var wg sync.WaitGroup
@@ -765,7 +763,7 @@ func TestStartReceiver_multipleInstances(t *testing.T) {
 
 	for i, addr := range addresses {
 		t.Run(fmt.Sprintf("instance_%d", i), func(t *testing.T) {
-			err := StartReceiver(ctx, logr.Discard(), addr, 2)
+			_, err := StartReceiver(ctx, logr.Discard(), addr, 2)
 			if err != nil {
 				t.Errorf("Failed to start receiver instance %d: %v", i, err)
 			}
@@ -775,11 +773,12 @@ func TestStartReceiver_multipleInstances(t *testing.T) {
 
 func TestReceiver_runParser_DEBUG_severity(t *testing.T) {
 	// Test specific handling of DEBUG severity messages
-	parseChannel := make(chan *message, 1)
+	msgCh := make(chan *message, 1)
 	receiver := &Receiver{
-		parse:  parseChannel,
+		msgCh:  msgCh,
 		Logger: logr.Discard(),
 	}
+	receiver.wg.Add(1)
 
 	// Create a DEBUG message
 	debugMsg := &message{
@@ -793,8 +792,8 @@ func TestReceiver_runParser_DEBUG_severity(t *testing.T) {
 	}
 	copy(debugMsg.buf[:], "<31>debug-host debug-app: debug message")
 
-	parseChannel <- debugMsg
-	close(parseChannel)
+	msgCh <- debugMsg
+	close(msgCh)
 
 	var wg sync.WaitGroup
 	wg.Add(1)

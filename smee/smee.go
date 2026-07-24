@@ -375,6 +375,23 @@ func (c *Config) ISOHandler(log logr.Logger) (http.Handler, error) {
 
 // Start will run Smee non-HTTP services (DHCP, TFTP, syslog).
 // HTTP serving is handled externally by the HTTP server.
+// runSyslogServer starts the syslog receiver bound to addr and blocks until it
+// stops, returning any error encountered while starting or running it.
+func runSyslogServer(ctx context.Context, log logr.Logger, addr string) error {
+	r, err := syslog.StartReceiver(ctx, log, addr, 1)
+	if err != nil {
+		log.Error(err, "syslog server failure")
+		return err
+	}
+	<-r.Done()
+	if err := r.Err(); err != nil {
+		log.Error(err, "syslog server failure")
+		return err
+	}
+	log.Info("syslog server stopped")
+	return nil
+}
+
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	if c.Backend == nil {
 		return errors.New("no backend provided")
@@ -392,13 +409,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		}
 		log.Info("starting syslog server", "bindAddr", addr)
 		g.Go(func() error {
-			if err := syslog.StartReceiver(ctx, log, addr.String(), 1); err != nil {
-				log.Error(err, "syslog server failure")
-				return err
-			}
-			<-ctx.Done()
-			log.Info("syslog server stopped")
-			return nil
+			return runSyslogServer(ctx, log, addr.String())
 		})
 	}
 
