@@ -1,10 +1,33 @@
 {{- if .Values.service.enabled }}
+{{- $loadBalancerIPs := list }}
+{{- $publicIP := coalesce .Values.deployment.envs.globals.publicIpv4 .Values.deployment.envs.globals.publicIPv4 .Values.publicIP }}
+{{- $publicIPv6 := coalesce .Values.deployment.envs.globals.publicIpv6 .Values.deployment.envs.globals.publicIPv6 .Values.publicIPv6 }}
+{{- if and $publicIP (include "tinkerbell.isIPv6Address" $publicIP) }}
+  {{- fail "publicIP must be an IPv4 address; use publicIPv6 for IPv6 addresses" }}
+{{- end }}
+{{- if and $publicIPv6 (include "tinkerbell.isIPv4Address" $publicIPv6) }}
+  {{- fail "publicIPv6 must be an IPv6 address; use publicIP for IPv4 addresses" }}
+{{- end }}
+{{- if $publicIP }}
+{{- $loadBalancerIPs = append $loadBalancerIPs $publicIP }}
+{{- end }}
+{{- if $publicIPv6 }}
+{{- $loadBalancerIPs = append $loadBalancerIPs $publicIPv6 }}
+{{- end }}
+{{- if .Values.service.loadBalancerIP }}
+{{- $loadBalancerIPs = append $loadBalancerIPs .Values.service.loadBalancerIP }}
+{{- end }}
+{{- $loadBalancerIPs = uniq $loadBalancerIPs }}
+{{- $hasKubeVIPLoadBalancerIPsAnnotation := hasKey (default dict .Values.service.annotations) "kube-vip.io/loadbalancerIPs" }}
 apiVersion: v1
 kind: Service
 metadata:
   annotations:
     {{- with .Values.service.annotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if and (eq .Values.service.type "LoadBalancer") (gt (len $loadBalancerIPs) 0) (not $hasKubeVIPLoadBalancerIPsAnnotation) }}
+    kube-vip.io/loadbalancerIPs: {{ join "," $loadBalancerIPs | quote }}
     {{- end }}
   labels:
     {{- with .Values.service.labels }}
@@ -18,8 +41,15 @@ spec:
   {{- if .Values.service.lbClass }}
   loadBalancerClass: {{ .Values.service.lbClass }}
   {{- end }}
-  loadBalancerIP: {{ coalesce .Values.service.loadBalancerIP .Values.publicIP }}
+  loadBalancerIP: {{ coalesce .Values.service.loadBalancerIP $publicIP $publicIPv6 }}
   externalTrafficPolicy: Local
+  {{- end }}
+  {{- if .Values.service.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.service.ipFamilyPolicy }}
+  {{- end }}
+  {{- with .Values.service.ipFamilies }}
+  ipFamilies:
+  {{- toYaml . | nindent 4 }}
   {{- end }}
   ports:
   {{- if .Values.deployment.envs.globals.enableSmee}}
@@ -27,6 +57,12 @@ spec:
     targetPort: {{ .Values.service.ports.dhcp.name }}
     protocol: {{ .Values.service.ports.dhcp.protocol }}
     name: {{ .Values.service.ports.dhcp.name }}
+  {{- if .Values.deployment.envs.smee.dhcpv6Enabled }}
+  - port: {{ .Values.service.ports.dhcpv6.port }}
+    targetPort: {{ .Values.service.ports.dhcpv6.name }}
+    protocol: {{ .Values.service.ports.dhcpv6.protocol }}
+    name: {{ .Values.service.ports.dhcpv6.name }}
+  {{- end }}
   - port: {{ .Values.service.ports.tftp.port }}
     targetPort: {{ .Values.service.ports.tftp.name }}
     protocol: {{ .Values.service.ports.tftp.protocol }}

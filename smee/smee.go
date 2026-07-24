@@ -2,7 +2,9 @@ package smee
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -18,11 +20,16 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
+	"github.com/insomniacslk/dhcp/dhcpv6"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	v6 "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/dhcpv6"
+	reservationv6 "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/dhcpv6/handler/reservation"
+	statelessv6 "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/dhcpv6/handler/stateless"
+	serverv6 "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/dhcpv6/server"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/proxy"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/handler/reservation"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp/server"
@@ -46,9 +53,13 @@ type BackendReader interface {
 }
 
 const (
-	DHCPModeProxy       DHCPMode = "proxy"
-	DHCPModeReservation DHCPMode = "reservation"
-	DHCPModeAutoProxy   DHCPMode = "auto-proxy"
+	DHCPModeProxy           DHCPMode   = "proxy"
+	DHCPModeReservation     DHCPMode   = "reservation"
+	DHCPModeAutoProxy       DHCPMode   = "auto-proxy"
+	DHCPv6ModeStateless     DHCPv6Mode = "stateless"
+	DHCPv6ModeAutoStateless DHCPv6Mode = "auto-stateless"
+	DHCPv6ModeReservation   DHCPv6Mode = "reservation"
+	DHCPv6ModeDerived       DHCPv6Mode = "derived"
 	// isoMagicString comes from the HookOS repo and is used to patch the HookOS ISO image.
 	// ref: https://github.com/tinkerbell/hook/blob/main/linuxkit-templates/hook.template.yaml
 	isoMagicString = `464vn90e7rbj08xbwdjejmdf4it17c5zfzjyfhthbh19eij201hjgit021bmpdb9ctrc87x2ymc8e7icu4ffi15x1hah9iyaiz38ckyap8hwx2vt5rm44ixv4hau8iw718q5yd019um5dt2xpqqa2rjtdypzr5v1gun8un110hhwp8cex7pqrh2ivh0ynpm4zkkwc8wcn367zyethzy7q8hzudyeyzx3cgmxqbkh825gcak7kxzjbgjajwizryv7ec1xm2h0hh7pz29qmvtgfjj1vphpgq1zcbiiehv52wrjy9yq473d9t1rvryy6929nk435hfx55du3ih05kn5tju3vijreru1p6knc988d4gfdz28eragvryq5x8aibe5trxd0t6t7jwxkde34v6pj1khmp50k6qqj3nzgcfzabtgqkmeqhdedbvwf3byfdma4nkv3rcxugaj2d0ru30pa2fqadjqrtjnv8bu52xzxv7irbhyvygygxu1nt5z4fh9w1vwbdcmagep26d298zknykf2e88kumt59ab7nq79d8amnhhvbexgh48e8qc61vq2e9qkihzt1twk1ijfgw70nwizai15iqyted2dt9gfmf2gg7amzufre79hwqkddc1cd935ywacnkrnak6r7xzcz7zbmq3kt04u2hg1iuupid8rt4nyrju51e6uejb2ruu36g9aibmz3hnmvazptu8x5tyxk820g2cdpxjdij766bt2n3djur7v623a2v44juyfgz80ekgfb9hkibpxh3zgknw8a34t4jifhf116x15cei9hwch0fye3xyq0acuym8uhitu5evc4rag3ui0fny3qg4kju7zkfyy8hwh537urd5uixkzwu5bdvafz4jmv7imypj543xg5em8jk8cgk7c4504xdd5e4e71ihaumt6u5u2t1w7um92fepzae8p0vq93wdrd1756npu1pziiur1payc7kmdwyxg3hj5n4phxbc29x0tcddamjrwt260b0w`
@@ -65,7 +76,15 @@ const (
 	IPXEBinaryURI = "/ipxe/binary/"
 	IPXEScriptURI = "/ipxe/script/"
 	ISOURI        = "/iso/"
+
+	// DHCPv6ServerDUIDHashPrefix scopes derived server DUIDs to Smee DHCPv6.
+	DHCPv6ServerDUIDHashPrefix = "tinkerbell:smee:dhcpv6:"
 )
+
+// fallbackDHCPv6ServerDUID is used when no configured DUID or IPv6 Tink server address is available.
+var fallbackDHCPv6ServerDUID = &dhcpv6.DUIDUUID{
+	UUID: [16]byte{0x8d, 0x5f, 0x4b, 0x6a, 0x7c, 0x2e, 0x49, 0x0f, 0x9a, 0x38, 0x36, 0x9d, 0x4c, 0x61, 0x2f, 0x10},
+}
 
 type DHCPMode string
 
@@ -87,12 +106,35 @@ func (d *DHCPMode) Type() string {
 	return "dhcp-mode"
 }
 
+type DHCPv6Mode string
+
+func (d DHCPv6Mode) String() string {
+	return string(d)
+}
+
+func (d *DHCPv6Mode) Set(s string) error {
+	mode := strings.ToLower(s)
+	switch mode {
+	case string(DHCPv6ModeStateless), string(DHCPv6ModeAutoStateless), string(DHCPv6ModeReservation), string(DHCPv6ModeDerived):
+		*d = DHCPv6Mode(mode)
+		return nil
+	default:
+		return fmt.Errorf("invalid DHCPv6 mode: %q, must be one of [%s, %s, %s, %s]", s, DHCPv6ModeStateless, DHCPv6ModeAutoStateless, DHCPv6ModeReservation, DHCPv6ModeDerived)
+	}
+}
+
+func (d *DHCPv6Mode) Type() string {
+	return "dhcpv6-mode"
+}
+
 // Config is the configuration for the Smee service.
 type Config struct {
 	// Backend is the backend to use for getting data.
 	Backend BackendReader
 	// DHCP is the configuration for the DHCP service.
 	DHCP DHCP
+	// DHCPv6 is the configuration for the DHCPv6 service.
+	DHCPv6 DHCPv6
 	// IPXE is the configuration for the iPXE service.
 	IPXE IPXE
 	// ISO is the configuration for the ISO service.
@@ -147,10 +189,13 @@ type IPXEHTTPBinaryServer struct {
 }
 
 type IPXEHTTPScriptServer struct {
-	Enabled         bool
-	Retries         int
-	RetryDelay      int
-	OSIEURL         *url.URL
+	Enabled    bool
+	Retries    int
+	RetryDelay int
+	// OSIEURL is the IPv4 HookOS artifact base URL rendered into iPXE scripts.
+	OSIEURL *url.URL
+	// OSIEURLv6 is the IPv6 HookOS artifact base URL rendered into iPXE scripts.
+	OSIEURLv6       *url.URL
 	TrustedProxies  []string
 	ExtraKernelArgs []string
 	KernelName      string
@@ -177,6 +222,39 @@ type DHCP struct {
 	// TFTPIP is the IP address to use in the DHCP packet for DHCP option 66.
 	TFTPIP netip.Addr
 	// TFTPPort is the port to use in the DHCP packet for DHCP option 66.
+	TFTPPort uint16
+	// IPXEHTTPBinaryURL is the URL to the iPXE binary server serving via HTTP.
+	IPXEHTTPBinaryURL *url.URL
+	// IPXEHTTPScript is the URL to the iPXE script to use.
+	IPXEHTTPScript IPXEHTTPScript
+}
+
+// DHCPv6 is the configuration for the DHCPv6 service.
+type DHCPv6 struct {
+	// Enabled configures whether the DHCPv6 server is enabled.
+	Enabled bool
+	// EnableNetbootOptions configures whether sending netboot options is enabled.
+	EnableNetbootOptions bool
+	// Mode determines the behavior of the DHCPv6 server.
+	Mode DHCPv6Mode
+	// ServerDUID is the DHCPv6 server identifier encoded as raw DUID bytes in hex.
+	// When empty, a DUID is automatically derived from AddrPortV6 or a built-in fallback.
+	ServerDUID string
+	// DerivedDirectAddressPool is an IPv6 prefix used to derive addresses for direct DHCPv6 requests.
+	DerivedDirectAddressPool netip.Prefix
+	// DerivedRelayAddressPrefix is the number of relay link-address prefix bits to use when deriving relay addresses.
+	DerivedRelayAddressPrefix int
+	// BindAddr is the local address to which to bind the DHCPv6 server and listen for DHCPv6 packets.
+	BindAddr netip.Addr
+	// BindPort is the local port to which to bind the DHCPv6 server.
+	BindPort uint16
+	// BindInterface is the local interface to which to bind the DHCPv6 server and listen for DHCPv6 packets.
+	BindInterface string
+	// SyslogIP is the IP address to use for the iPXE syslog setting served to DHCPv6 clients.
+	SyslogIP netip.Addr
+	// TFTPIP is the IP address to use in DHCPv6 boot file URLs.
+	TFTPIP netip.Addr
+	// TFTPPort is the port to use in DHCPv6 boot file URLs.
 	TFTPPort uint16
 	// IPXEHTTPBinaryURL is the URL to the iPXE binary server serving via HTTP.
 	IPXEHTTPBinaryURL *url.URL
@@ -216,7 +294,10 @@ type ISO struct {
 type TinkServer struct {
 	UseTLS      bool
 	InsecureTLS bool
-	AddrPort    string
+	// AddrPort is the IPv4 Tink server gRPC address rendered into iPXE scripts.
+	AddrPort string
+	// AddrPortV6 is the IPv6 Tink server gRPC address rendered into iPXE scripts.
+	AddrPortV6 string
 }
 
 type TLS struct {
@@ -247,6 +328,27 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			},
 			TFTPPort: DefaultTFFTPPort,
 		},
+		DHCPv6: DHCPv6{
+			Enabled:                   false,
+			EnableNetbootOptions:      true,
+			Mode:                      DHCPv6ModeStateless,
+			DerivedRelayAddressPrefix: 64,
+			BindAddr:                  netip.IPv6Unspecified(),
+			BindPort:                  dhcpv6.DefaultServerPort,
+			BindInterface:             "",
+			IPXEHTTPBinaryURL: &url.URL{
+				Scheme: "http",
+				Path:   IPXEBinaryURI,
+			},
+			IPXEHTTPScript: IPXEHTTPScript{
+				URL: &url.URL{
+					Scheme: "http",
+					Path:   path.Join(IPXEScriptURI, "auto6.ipxe"),
+				},
+				InjectMacAddress: true,
+			},
+			TFTPPort: DefaultTFFTPPort,
+		},
 		IPXE: IPXE{
 			EmbeddedScriptPatch: "",
 			HTTPBinaryServer: IPXEHTTPBinaryServer{
@@ -257,6 +359,7 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 				Retries:         1,
 				RetryDelay:      1,
 				OSIEURL:         &url.URL{},
+				OSIEURLv6:       &url.URL{},
 				TrustedProxies:  []string{},
 				ExtraKernelArgs: []string{},
 			},
@@ -326,14 +429,17 @@ func (c *Config) ScriptHandler(log logr.Logger) http.Handler {
 		Logger:                log,
 		Backend:               c.Backend,
 		OSIEURL:               c.IPXE.HTTPScriptServer.OSIEURL.String(),
+		OSIEURLv6:             c.IPXE.HTTPScriptServer.OSIEURLv6.String(),
 		ExtraKernelParams:     c.IPXE.HTTPScriptServer.ExtraKernelArgs,
 		PublicSyslogFQDN:      c.DHCP.SyslogIP.String(),
+		PublicSyslogFQDNv6:    c.DHCPv6.SyslogIP.String(),
 		TinkServerTLS:         c.TinkServer.UseTLS,
 		TinkServerInsecureTLS: c.TinkServer.InsecureTLS,
 		TinkServerGRPCAddr:    c.TinkServer.AddrPort,
+		TinkServerGRPCAddrV6:  c.TinkServer.AddrPortV6,
 		IPXEScriptRetries:     c.IPXE.HTTPScriptServer.Retries,
 		IPXEScriptRetryDelay:  c.IPXE.HTTPScriptServer.RetryDelay,
-		StaticIPXEEnabled:     (c.DHCP.Mode == DHCPModeAutoProxy),
+		StaticIPXEEnabled:     (c.DHCP.Enabled && c.DHCP.Mode == DHCPModeAutoProxy) || (c.DHCPv6.Enabled && c.DHCPv6.Mode == DHCPv6ModeAutoStateless),
 		KernelName:            c.IPXE.HTTPScriptServer.KernelName,
 		InitrdName:            c.IPXE.HTTPScriptServer.InitrdName,
 	}
@@ -380,7 +486,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		return errors.New("no backend provided")
 	}
 	if c.noServicesEnabled() {
-		return errors.New("all Smee services are disabled (DHCP, TFTP, syslog, iPXE binary, iPXE script, ISO)")
+		return errors.New("all Smee services are disabled (DHCP, DHCPv6, TFTP, syslog, iPXE binary, iPXE script, ISO)")
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -446,11 +552,52 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		})
 	}
 
+	if c.DHCPv6.Enabled {
+		dh, err := c.dhcpv6Handler(log)
+		if err != nil {
+			return fmt.Errorf("failed to create dhcpv6 listener: %w", err)
+		}
+		addr := netip.AddrPortFrom(c.DHCPv6.BindAddr, c.DHCPv6.BindPort)
+		if !addr.IsValid() {
+			return fmt.Errorf("invalid DHCPv6 bind address: IP: %v, Port: %v", addr.Addr(), addr.Port())
+		}
+		for _, bindInterface := range dhcpv6BindInterfaces(c.DHCPv6.BindInterface) {
+			log.Info("starting dhcpv6 server", "bindAddr", addr.String(), "bindInterface", bindInterface)
+			g.Go(func() error {
+				ds := serverv6.NewServer(bindInterface, net.UDPAddrFromAddrPort(addr), dh)
+				ds.SetLogger(log)
+				defer ds.Close()
+
+				return ds.Serve(ctx)
+			})
+		}
+	}
+
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return fmt.Errorf("failed running all Smee services: %w", err)
 	}
 	log.Info("smee is shutting down", "reason", ctx.Err())
 	return nil
+}
+
+func dhcpv6BindInterfaces(bindInterface string) []string {
+	if strings.TrimSpace(bindInterface) == "" {
+		return []string{""}
+	}
+
+	interfaces := strings.Split(bindInterface, ",")
+	out := make([]string, 0, len(interfaces))
+	for _, iface := range interfaces {
+		iface = strings.TrimSpace(iface)
+		if iface != "" {
+			out = append(out, iface)
+		}
+	}
+	if len(out) == 0 {
+		return []string{""}
+	}
+
+	return out
 }
 
 func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
@@ -464,24 +611,9 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 
 	httpBinaryURL := *c.DHCP.IPXEHTTPBinaryURL
 
-	httpScriptURL := c.DHCP.IPXEHTTPScript.URL
-
-	if httpScriptURL == nil {
-		return nil, errors.New("http ipxe script url is required")
-	}
-	if _, err := url.Parse(httpScriptURL.String()); err != nil {
-		return nil, fmt.Errorf("invalid http ipxe script url: %w", err)
-	}
-	ipxeScript := func(*dhcpv4.DHCPv4) *url.URL {
-		return httpScriptURL
-	}
-	if c.DHCP.IPXEHTTPScript.InjectMacAddress {
-		ipxeScript = func(d *dhcpv4.DHCPv4) *url.URL {
-			u := *httpScriptURL
-			p := path.Base(u.Path)
-			u.Path = path.Join(path.Dir(u.Path), d.ClientHWAddr.String(), p)
-			return &u
-		}
+	ipxeScript, err := ipxeScriptURLBuilderDHCPv4(c.DHCP.IPXEHTTPScript)
+	if err != nil {
+		return nil, err
 	}
 
 	switch c.DHCP.Mode {
@@ -539,6 +671,199 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 	}
 
 	return nil, errors.New("invalid dhcp mode")
+}
+
+func (c *Config) dhcpv6Handler(log logr.Logger) (serverv6.Handler, error) {
+	var tftpIP netip.AddrPort
+	var httpBinaryURL *url.URL
+	var ipxeScriptByMAC func(net.HardwareAddr) *url.URL
+
+	if c.DHCPv6.EnableNetbootOptions {
+		tftpIP = netip.AddrPortFrom(c.DHCPv6.TFTPIP, c.DHCPv6.TFTPPort)
+		if !tftpIP.IsValid() {
+			return nil, fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", tftpIP.Addr(), tftpIP.Port())
+		}
+
+		u := *c.DHCPv6.IPXEHTTPBinaryURL
+		httpBinaryURL = &u
+
+		var err error
+		ipxeScriptByMAC, err = ipxeScriptURLBuilder(c.DHCPv6.IPXEHTTPScript)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	serverID, err := dhcpv6ServerDUID(c.DHCPv6.ServerDUID, c.TinkServer.AddrPortV6)
+	if err != nil {
+		return nil, err
+	}
+	switch c.DHCPv6.Mode {
+	case DHCPv6ModeStateless:
+		return &statelessv6.Handler{
+			Backend:  c.Backend,
+			Log:      log,
+			ServerID: serverID,
+			Netboot: statelessv6.Netboot{
+				IPXEBinServerTFTP:   tftpIP,
+				IPXEBinServerHTTP:   httpBinaryURL,
+				IPXEScriptURL:       ipxeScriptByMAC,
+				Enabled:             c.DHCPv6.EnableNetbootOptions,
+				InjectMacAddrFormat: c.IPXE.IPXEBinary.InjectMacAddrFormat,
+				IPXEArchMapping:     c.IPXE.IPXEBinary.IPXEArchMapping,
+			},
+			OTELEnabled:          true,
+			AutoStatelessEnabled: false,
+		}, nil
+	case DHCPv6ModeAutoStateless:
+		return &statelessv6.Handler{
+			Backend:  c.Backend,
+			Log:      log,
+			ServerID: serverID,
+			Netboot: statelessv6.Netboot{
+				IPXEBinServerTFTP:   tftpIP,
+				IPXEBinServerHTTP:   httpBinaryURL,
+				IPXEScriptURL:       ipxeScriptByMAC,
+				Enabled:             c.DHCPv6.EnableNetbootOptions,
+				InjectMacAddrFormat: c.IPXE.IPXEBinary.InjectMacAddrFormat,
+				IPXEArchMapping:     c.IPXE.IPXEBinary.IPXEArchMapping,
+			},
+			OTELEnabled:          true,
+			AutoStatelessEnabled: true,
+		}, nil
+	case DHCPv6ModeReservation:
+		return &reservationv6.Handler{
+			Backend:  c.Backend,
+			Log:      log,
+			ServerID: serverID,
+			Netboot: reservationv6.Netboot{
+				IPXEBinServerTFTP:   tftpIP,
+				IPXEBinServerHTTP:   httpBinaryURL,
+				IPXEScriptURL:       ipxeScriptByMAC,
+				Enabled:             c.DHCPv6.EnableNetbootOptions,
+				InjectMacAddrFormat: c.IPXE.IPXEBinary.InjectMacAddrFormat,
+				IPXEArchMapping:     c.IPXE.IPXEBinary.IPXEArchMapping,
+			},
+			OTELEnabled: true,
+		}, nil
+	case DHCPv6ModeDerived:
+		if invalidDerivedDirectAddressPool(c.DHCPv6.DerivedDirectAddressPool) {
+			return nil, fmt.Errorf("invalid DHCPv6 derived direct address pool: %s must be a usable IPv6 unicast prefix with prefix length between /1 and /64", c.DHCPv6.DerivedDirectAddressPool)
+		}
+		if c.DHCPv6.DerivedRelayAddressPrefix < 1 || c.DHCPv6.DerivedRelayAddressPrefix > 64 {
+			return nil, fmt.Errorf("invalid DHCPv6 derived relay address prefix: %d must be between 1 and 64", c.DHCPv6.DerivedRelayAddressPrefix)
+		}
+		return &reservationv6.Handler{
+			Backend:  c.Backend,
+			Log:      log,
+			ServerID: serverID,
+			Netboot: reservationv6.Netboot{
+				IPXEBinServerTFTP:   tftpIP,
+				IPXEBinServerHTTP:   httpBinaryURL,
+				IPXEScriptURL:       ipxeScriptByMAC,
+				Enabled:             c.DHCPv6.EnableNetbootOptions,
+				InjectMacAddrFormat: c.IPXE.IPXEBinary.InjectMacAddrFormat,
+				IPXEArchMapping:     c.IPXE.IPXEBinary.IPXEArchMapping,
+			},
+			OTELEnabled:               true,
+			Derived:                   true,
+			DerivedDirectAddressPool:  c.DHCPv6.DerivedDirectAddressPool,
+			DerivedRelayAddressPrefix: c.DHCPv6.DerivedRelayAddressPrefix,
+		}, nil
+	}
+
+	return nil, errors.New("invalid dhcpv6 mode")
+}
+
+func invalidDerivedDirectAddressPool(prefix netip.Prefix) bool {
+	return prefix.IsValid() && !v6.UsableDerivedPrefix(prefix)
+}
+
+func dhcpv6ServerDUID(configuredDUID, tinkServerAddrPortV6 string) (dhcpv6.DUID, error) {
+	if configuredDUID != "" {
+		duid, err := parseDHCPv6ServerDUID(configuredDUID)
+		if err != nil {
+			return nil, err
+		}
+		return duid, nil
+	}
+
+	addrPort, err := netip.ParseAddrPort(tinkServerAddrPortV6)
+	if err == nil {
+		if !addrPort.Addr().Is6() || addrPort.Addr().Is4In6() {
+			return fallbackDHCPv6ServerDUID, nil
+		}
+
+		sum := sha256.Sum256([]byte(DHCPv6ServerDUIDHashPrefix + addrPort.Addr().String()))
+		var uuid [16]byte
+		copy(uuid[:], sum[:16])
+
+		return &dhcpv6.DUIDUUID{UUID: uuid}, nil
+	}
+
+	return fallbackDHCPv6ServerDUID, nil
+}
+
+func parseDHCPv6ServerDUID(s string) (dhcpv6.DUID, error) {
+	normalized := strings.NewReplacer(":", "", "-", "", " ", "").Replace(strings.TrimSpace(s))
+	if normalized == "" {
+		return nil, errors.New("invalid DHCPv6 server DUID: empty value")
+	}
+	if len(normalized)%2 != 0 {
+		return nil, fmt.Errorf("invalid DHCPv6 server DUID %q: hex value must have an even number of digits", s)
+	}
+	raw, err := hex.DecodeString(normalized)
+	if err != nil {
+		return nil, fmt.Errorf("invalid DHCPv6 server DUID %q: %w", s, err)
+	}
+	duid, err := dhcpv6.DUIDFromBytes(raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid DHCPv6 server DUID %q: %w", s, err)
+	}
+	return duid, nil
+}
+
+func ipxeScriptURLBuilderDHCPv4(ipxeHTTPScript IPXEHTTPScript) (func(*dhcpv4.DHCPv4) *url.URL, error) {
+	ipxeScriptByMAC, err := ipxeScriptURLBuilder(ipxeHTTPScript)
+	if err != nil {
+		return nil, err
+	}
+
+	ipxeScript := func(d *dhcpv4.DHCPv4) *url.URL {
+		if d == nil {
+			return ipxeScriptByMAC(nil)
+		}
+		return ipxeScriptByMAC(d.ClientHWAddr)
+	}
+
+	return ipxeScript, nil
+}
+
+func ipxeScriptURLBuilder(ipxeHTTPScript IPXEHTTPScript) (func(net.HardwareAddr) *url.URL, error) {
+	httpScriptURL := ipxeHTTPScript.URL
+	if httpScriptURL == nil {
+		return nil, errors.New("http ipxe script url is required")
+	}
+	if _, err := url.Parse(httpScriptURL.String()); err != nil {
+		return nil, fmt.Errorf("invalid http ipxe script url: %w", err)
+	}
+
+	f := func(net.HardwareAddr) *url.URL {
+		return httpScriptURL
+	}
+	if ipxeHTTPScript.InjectMacAddress {
+		f = func(mac net.HardwareAddr) *url.URL {
+			if mac == nil {
+				return httpScriptURL
+			}
+			u := *httpScriptURL
+			p := path.Base(u.Path)
+			u.Path = path.Join(path.Dir(u.Path), mac.String(), p)
+			return &u
+		}
+	}
+
+	return f, nil
 }
 
 // Transformer for merging the netip.IPPort and logr.Logger structs.
@@ -613,5 +938,5 @@ func (c *Config) Transformer(typ reflect.Type) func(dst, src reflect.Value) erro
 }
 
 func (c *Config) noServicesEnabled() bool {
-	return !c.DHCP.Enabled && !c.TFTP.Enabled && !c.Syslog.Enabled && !c.ISO.Enabled && !c.IPXE.HTTPBinaryServer.Enabled && !c.IPXE.HTTPScriptServer.Enabled
+	return !c.DHCP.Enabled && !c.DHCPv6.Enabled && !c.TFTP.Enabled && !c.Syslog.Enabled && !c.ISO.Enabled && !c.IPXE.HTTPBinaryServer.Enabled && !c.IPXE.HTTPScriptServer.Enabled
 }

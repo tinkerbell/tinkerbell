@@ -1,11 +1,40 @@
 {{- if or .Values.optional.hookos.enabled .Values.optional.captainos.enabled }}
-{{- if not .Values.artifactsFileServer }}
-  {{- fail "artifactsFileServer must be set when an OSIE is enabled" }}
+{{- if and (not .Values.artifactsFileServer) (not .Values.artifactsFileServerV6) }}
+  {{- fail "artifactsFileServer or artifactsFileServerV6 must be set when an OSIE is enabled" }}
 {{- else }}
 {{- if ne (include "tinkerbell.osie.hostNetwork" .) "true" }}
+{{- $loadBalancerIPs := list }}
+{{- if .Values.artifactsFileServer }}
 {{- $artifactsURL := urlParse .Values.artifactsFileServer }}
-{{- $artifactsHost :=  split ":" $artifactsURL.host }}
-{{- $artifactsIP := include "tinkerbell.isIpAddress" $artifactsHost._0 }}
+{{- $artifactsHost := include "tinkerbell.urlHost" $artifactsURL.host }}
+{{- if include "tinkerbell.isIPv6Address" $artifactsHost }}
+  {{- fail "artifactsFileServer must use an IPv4 address or hostname; use artifactsFileServerV6 for IPv6 addresses" }}
+{{- end }}
+{{- $artifactsIP := include "tinkerbell.isIpAddress" $artifactsHost }}
+{{- if $artifactsIP }}
+{{- $loadBalancerIPs = append $loadBalancerIPs $artifactsIP }}
+{{- end }}
+{{- end }}
+{{- if .Values.artifactsFileServerV6 }}
+{{- $artifactsURLV6 := urlParse .Values.artifactsFileServerV6 }}
+{{- $artifactsHostV6 := include "tinkerbell.urlHost" $artifactsURLV6.host }}
+{{- if include "tinkerbell.isIPv4Address" $artifactsHostV6 }}
+  {{- fail "artifactsFileServerV6 must use an IPv6 address or hostname; use artifactsFileServer for IPv4 addresses" }}
+{{- end }}
+{{- $artifactsIPV6 := include "tinkerbell.isIpAddress" $artifactsHostV6 }}
+{{- if $artifactsIPV6 }}
+{{- $loadBalancerIPs = append $loadBalancerIPs $artifactsIPV6 }}
+{{- end }}
+{{- end }}
+{{- $serviceLoadBalancerIP := include "tinkerbell.osie.service.loadBalancerIP" . }}
+{{- if and (empty $loadBalancerIPs) $serviceLoadBalancerIP }}
+{{- $loadBalancerIPs = append $loadBalancerIPs $serviceLoadBalancerIP }}
+{{- end }}
+{{- $loadBalancerIPs = uniq $loadBalancerIPs }}
+{{- $singleLoadBalancerIP := "" }}
+{{- if eq (len $loadBalancerIPs) 1 }}
+{{- $singleLoadBalancerIP = first $loadBalancerIPs }}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -22,6 +51,9 @@ metadata:
     {{- if $annotations }}
     {{- $annotations | nindent 4 }}
     {{- end }}
+    {{- if and (eq (include "tinkerbell.osie.service.type" .) "LoadBalancer") (not (empty $loadBalancerIPs)) }}
+    kube-vip.io/loadbalancerIPs: {{ join "," $loadBalancerIPs | quote }}
+    {{- end }}
 spec:
   type: {{ include "tinkerbell.osie.service.type" . }}
   {{- if eq (include "tinkerbell.osie.service.type" .) "LoadBalancer" }}
@@ -29,7 +61,12 @@ spec:
   {{- if $lbClass }}
   loadBalancerClass: {{ $lbClass }}
   {{- end }}
-  loadBalancerIP: {{ coalesce $artifactsIP (include "tinkerbell.osie.service.loadBalancerIP" .) | required "no load balancer IP specified, please specify a load balancer IP" }}
+  {{- if empty $loadBalancerIPs }}
+  {{- fail "no load balancer IP specified, please specify a literal IP in artifactsFileServer or artifactsFileServerV6, or set optional.osie.service.loadBalancerIP" }}
+  {{- end }}
+  {{- if $singleLoadBalancerIP }}
+  loadBalancerIP: {{ $singleLoadBalancerIP }}
+  {{- end }}
   externalTrafficPolicy: Local
   {{- end }}
   ports:

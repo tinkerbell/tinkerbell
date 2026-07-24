@@ -238,10 +238,32 @@ helm-publish: out/helm/tinkerbell-$(VERSION).tgz ## Publish the Helm chart
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart
 	helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2"
+	! helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2"
+	! helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set 'artifactsFileServer=http://[2001:db8:100::102]:717'
+	! helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=1.1.1.1" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:717'
+	! helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "artifactsFileServerV6=http://2.2.2.2:717"
+	helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:717'
+	helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "artifactsFileServerV6=http://artifacts-v6.example.com:717" --set "optional.osie.service.loadBalancerIP=2001:db8:100::102"
+	helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "deployment.envs.smee.ipxeHttpScriptOsieURLv6=http://[2001:db8::20]/hook" --set "artifactsFileServer=http://2.2.2.2"
 
 .PHONY: helm-template
 helm-template: ## Helm template for Tinkerbell
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" 2>&1 >/dev/null
+	! helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" 2>&1 >/dev/null
+	! helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set 'artifactsFileServer=http://[2001:db8:100::102]:717' 2>&1 >/dev/null
+	! helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=1.1.1.1" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:717' 2>&1 >/dev/null
+	! helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "artifactsFileServerV6=http://2.2.2.2:717" 2>&1 >/dev/null
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" | grep -F -q 'kube-vip.io/loadbalancerIPs: "1.1.1.1"'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" | grep -F -q 'kube-vip.io/loadbalancerIPs: "2001:db8::15"'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "publicIPv6=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" | grep -F -q 'kube-vip.io/loadbalancerIPs: "1.1.1.1,2001:db8::15"'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "deployment.envs.globals.publicIPv6=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" | grep -F -q 'kube-vip.io/loadbalancerIPs: "2001:db8::15"'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2:7173" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:7173' | grep -F -q 'kube-vip.io/loadbalancerIPs: "2.2.2.2,2001:db8:100::102"'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:717' | grep -A1 "name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL_V6" | grep -F -q 'value: "http://[2001:db8:100::102]:717"'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "artifactsFileServerV6=http://artifacts-v6.example.com:717" --set "optional.osie.service.loadBalancerIP=2001:db8:100::102" | grep -A1 "name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL_V6" | grep -F -q 'value: "http://artifacts-v6.example.com:717"'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "deployment.envs.smee.ipxeHttpScriptOsieURLv6=http://[2001:db8::20]/hook" --set "artifactsFileServer=http://2.2.2.2" | grep -A1 "name: TINKERBELL_PUBLIC_IPV6" | grep -F -q 'value: "2001:db8::15"'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "deployment.envs.smee.ipxeHttpScriptOsieURLv6=http://[2001:db8::20]/hook" --set "artifactsFileServer=http://2.2.2.2" | grep -A1 "name: TINKERBELL_DHCPV6_SYSLOG_IP" | grep -F -q 'value: ""'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "deployment.envs.smee.ipxeHttpScriptOsieURLv6=http://[2001:db8::20]/hook" --set "artifactsFileServer=http://2.2.2.2" | grep -A1 "name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT_V6" | grep -F -q 'value: ""'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "deployment.envs.smee.ipxeHttpScriptOsieURLv6=http://[2001:db8::20]/hook" --set "artifactsFileServer=http://2.2.2.2" | grep -A1 "name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL_V6" | grep -F -q 'value: "http://[2001:db8::20]/hook"'
 
 ######### Helm charts - end   #########
 

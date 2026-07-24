@@ -78,6 +78,21 @@ func TestStartReceiver_AddressInUse(t *testing.T) {
 	}
 }
 
+func TestStartReceiver_IPv6(t *testing.T) {
+	probe, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.IPv6loopback, Port: 0})
+	if err != nil {
+		t.Skipf("IPv6 loopback is unavailable: %v", err)
+	}
+	probe.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := StartReceiver(ctx, logr.Discard(), "[::1]:0", 1); err != nil {
+		t.Fatalf("StartReceiver() unexpected error for IPv6 address = %v", err)
+	}
+}
+
 func TestReceiver_DoneAndErr(t *testing.T) {
 	// Start a receiver on a random port
 	ctx, cancel := context.WithCancel(context.Background())

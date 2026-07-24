@@ -1,9 +1,11 @@
 # TRUSTED_PROXIES=$(kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}' | tr ' ' ',')
 # LB_IP=192.168.2.116
-# the ARTIFACTS_FILE_SERVER is used to set the load balancer IP for the HookOS/nginx service object and will be used to configure TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL in the Tinkerbell deployment.
+# ARTIFACTS_FILE_SERVER and ARTIFACTS_FILE_SERVER_V6 are used to set the load balancer IPs for the HookOS/nginx service object and configure TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL/TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL_V6 in the Tinkerbell deployment.
 # ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
-# helm install tinkerbell tinkerbell/ --create-namespace --namespace tinkerbell --wait --set "trustedProxies={${TRUSTED_PROXIES}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" --set "deployment.agentImageTag=latest" --set "deployment.imageTag=latest"
+# ARTIFACTS_FILE_SERVER_V6=http://[2001:db8:100::117]:7173
+# helm install tinkerbell tinkerbell/ --create-namespace --namespace tinkerbell --wait --set "trustedProxies={${TRUSTED_PROXIES}}" --set "publicIP=$LB_IP" --set "artifactsFileServer=$ARTIFACTS_FILE_SERVER" --set "artifactsFileServerV6=$ARTIFACTS_FILE_SERVER_V6" --set "deployment.agentImageTag=latest" --set "deployment.imageTag=latest"
 artifactsFileServer:
+artifactsFileServerV6:
 deployment:
   additionalEnvs: []
   # - name: MY_ENV_VAR
@@ -27,6 +29,7 @@ deployment:
       backendKubeNamespace: ""
       backendKubeQPS: 100
       bindAddr: ""
+      dualStack: false
       enableCRDMigrations: true
       enableRufioController: true
       enableSecondstar: true
@@ -41,6 +44,7 @@ deployment:
       otelEndpoint: ""
       otelInsecure: false
       publicIpv4: ""
+      publicIpv6: ""
       tlsCertFile: ""
       tlsKeyFile: ""
       trustedProxies: ""
@@ -75,6 +79,27 @@ deployment:
       dhcpSyslogIP: ""
       dhcpTftpIP: ""
       dhcpTftpPort: 69
+      dhcpv6BindAddr: ""
+      dhcpv6BindInterface: ""
+      dhcpv6BindPort: 547
+      dhcpv6Enabled: false
+      dhcpv6EnableNetbootOptions: true
+      dhcpv6SyslogIP: ""
+      dhcpv6IpxeHttpBinaryHost: ""
+      dhcpv6IpxeHttpBinaryPath: "/ipxe/binary"
+      dhcpv6IpxeHttpBinaryPort: 7080
+      dhcpv6IpxeHttpBinaryScheme: "http"
+      dhcpv6IpxeHttpScriptHost: ""
+      dhcpv6IpxeHttpScriptPath: "/ipxe/script/auto6.ipxe"
+      dhcpv6IpxeHttpScriptPort: 7080
+      dhcpv6IpxeHttpScriptPrependMac: true
+      dhcpv6IpxeHttpScriptScheme: "http"
+      dhcpv6Mode: "stateless" # stateless, auto-stateless, reservation, derived
+      dhcpv6ServerDUID: ""
+      dhcpv6DerivedDirectAddressPool: ""
+      dhcpv6DerivedRelayAddressPrefix: 64
+      dhcpv6TftpIP: ""
+      dhcpv6TftpPort: 69
       ipxeBinaryInjectMacAddrFormat: "" # one of colon, dot, dash, no-delimiter, empty. defaults to colon when empty.
       ipxeEmbeddedScriptPatch: ""
       ipxeHttpBinaryEnabled: true
@@ -84,10 +109,12 @@ deployment:
       ipxeHttpScriptInitrdName: "initramfs" # name of the initrd file to fetch in the iPXE script, defaults to initramfs, which becomes initramfs-<arch> in the script
       ipxeHttpScriptTrustedProxies: ""
       ipxeHttpScriptOsieURL: ""
+      ipxeHttpScriptOsieURLv6: ""
       ipxeHttpScriptRetries: 1
       ipxeHttpScriptRetryDelay: 1
       ipxeOverrideArchMapping: "" # a comma separated list of <arch>=<binary> pairs. See the iPXE Architecture Mapping documentation for more details.
       ipxeScriptTinkServerAddrPort: ""
+      ipxeScriptTinkServerAddrPortV6: ""
       ipxeScriptTinkServerInsecureTLS: false
       ipxeScriptTinkServerUseTLS: false
       isoEnabled: true
@@ -173,6 +200,7 @@ deployment:
   #   readOnly: true
 name: tinkerbell
 publicIP:
+publicIPv6:
 rbac:
   additionalRoleRules: []
   # Resource-based rule example:
@@ -192,6 +220,8 @@ service:
   annotations: {}
   labels:
     app: tinkerbell
+  ipFamilies: []
+  ipFamilyPolicy: ""
   lbClass: "kube-vip.io/kube-vip-class"
   loadBalancerIP: ""
   name: tinkerbell
@@ -199,6 +229,10 @@ service:
     dhcp:
       name: dhcp
       port: 67
+      protocol: UDP
+    dhcpv6:
+      name: dhcpv6
+      port: 547
       protocol: UDP
     grpc:
       name: grpc
@@ -306,7 +340,7 @@ optional:
     service:
       annotations: {}
       lbClass:
-      loadBalancerIP: 
+      loadBalancerIP:
       type:
     affinity: {}
 

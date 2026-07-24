@@ -29,10 +29,7 @@ type Config struct {
 }
 
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
-	addrPort := fmt.Sprintf(":%d", c.SSHPort)
-	if c.BindAddr.IsValid() && !c.BindAddr.IsUnspecified() {
-		addrPort = fmt.Sprintf("%s:%d", c.BindAddr.String(), c.SSHPort)
-	}
+	addrPort := sshAddrPort(c.BindAddr, c.SSHPort)
 	log.Info("starting ssh server", "addrPort", addrPort)
 	server := &gssh.Server{
 		Addr:             addrPort,
@@ -61,6 +58,14 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 	return nil
+}
+
+func sshAddrPort(addr netip.Addr, port int) string {
+	addrPort := fmt.Sprintf(":%d", port)
+	if addr.IsValid() && !addr.IsUnspecified() && port >= 0 && port <= 65535 {
+		addrPort = netip.AddrPortFrom(addr, uint16(port)).String()
+	}
+	return addrPort
 }
 
 // HostKeyFrom reads a host key from a file and returns a signer.

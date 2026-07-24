@@ -3,18 +3,48 @@ Test if the given value is an IP address
 {{ include "tinkerbell.isIpAddress" "1.2.3.4" }}
 */}}
 {{- define "tinkerbell.isIpAddress" -}}
-{{- $rc := . -}}
-{{- $parts := splitList "." . -}}
-{{- if eq (len $parts) 4 -}}
-    {{- range $parts -}}
-        {{- if and (not (atoi .)) (ne . "0") -}}
-            {{- $rc = "" -}}
-        {{- end -}}
-    {{- end -}}
-{{- else -}}
-    {{- $rc = "" -}}
+{{- $ipv4Pattern := "^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$" -}}
+{{- $isIPv6 := and (contains ":" .) (regexMatch "^[0-9A-Fa-f:.]+$" .) -}}
+{{- if or (regexMatch $ipv4Pattern .) $isIPv6 -}}
+{{- . -}}
 {{- end -}}
-{{- print $rc }}
+{{- end -}}
+
+{{/*
+Test if the given value is an IPv4 address
+{{ include "tinkerbell.isIPv4Address" "1.2.3.4" }}
+*/}}
+{{- define "tinkerbell.isIPv4Address" -}}
+{{- $ipv4Pattern := "^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$" -}}
+{{- if regexMatch $ipv4Pattern . -}}
+{{- . -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Test if the given value is an IPv6 address
+{{ include "tinkerbell.isIPv6Address" "2001:db8::10" }}
+*/}}
+{{- define "tinkerbell.isIPv6Address" -}}
+{{- $value := trimAll "[]" . -}}
+{{- if and (regexMatch ".*:.*:.*" $value) (regexMatch "^[0-9A-Fa-f:.]+$" $value) -}}
+{{- $value -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Extract the hostname or IP literal from a parsed URL host.
+{{ include "tinkerbell.urlHost" "192.0.2.10:7173" }}
+{{ include "tinkerbell.urlHost" "[2001:db8::10]:7173" }}
+*/}}
+{{- define "tinkerbell.urlHost" -}}
+{{- if hasPrefix "[" . -}}
+{{- regexFind "\\[[^]]+\\]" . | trimAll "[]" -}}
+{{- else if regexMatch ".*:.*:.*" . -}}
+{{- . -}}
+{{- else -}}
+{{- regexFind "^[^:]+" . -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
