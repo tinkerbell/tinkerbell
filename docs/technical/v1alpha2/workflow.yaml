@@ -7,21 +7,31 @@ metadata:
   annotations:
     tinkerbell.org/disabled: "waiting for hardware readiness"
 spec:
+  # Disabled pauses the Workflow without deleting it. The tinkerbell.org/disabled
+  # annotation above is an optional human-readable reason for the pause.
+  disabled: true
   globals:
-    envVars:
-      - key: globalOne
-        value: "1"
+    env:
+      globalOne: "1"
     templateMap:
       "globalKey": "value"
+      "artifactServer": "{{ .references.mysecret.data.datacenterSpecificURL | b64dec }}"
     volumes:
       - "/etc/data2:/data2:ro"
+  # References can be used in Workflow templating. They fetch external objects
+  # (Secrets, ConfigMaps, etc.) and expose their data under `.references.<name>`.
+  references:
+    "mysecret":
+      name: "secret01"
+      namespace: "tinkerbell"
+      resource: "secrets"
+      version: "v1"
   timeoutSeconds: 600
   tasks:
     - agentID: "1234"
       extra:
-        envVars:
-          - key: workflowOne
-            value: "1"
+        env:
+          workflowOne: "1"
         templateMap:
           "workflowKey": "value"
         volumes:
@@ -33,6 +43,8 @@ spec:
         bootOptions:
           toggleNetboot: true
           #isoURL: "https://tinkerbell.org/iso/00-01-02-03-04-05/captain.iso"
+          #isoURL can be templated, for example:
+          #isoURL: 'https://tinkerbell.org/iso/{{ keys .hardware.spec.networkInterfaces | sortAlpha | first | replace ":" "-" }}/captain.iso'
           bootMode: customboot
           customboot:
             preOperations:

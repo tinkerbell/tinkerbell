@@ -41,8 +41,31 @@ type WorkflowList struct {
 
 // WorkflowSpec defines Tasks and associated options.
 type WorkflowSpec struct {
+	// Disabled indicates whether the Workflow will be enabled or not.
+	// +optional
+	Disabled *bool `json:"disabled,omitempty"`
+
 	// Globals are extra configuration that is applied to all Tasks in the Workflow.
 	Globals *Extra `json:"globals,omitempty"`
+
+	// References are dynamic and defined by the user.
+	// These will be available to use in Actions as template dot notation.
+	//
+	// For example, given the following reference:
+	//
+	// References:
+	//   config:
+	//     name: my-config
+	//     namespace: tinkerbell
+	//     resource: configmaps
+	//     version: v1
+	//
+	// The following Action template string can be used access the reference:
+	//
+	// {{ .references.config.data.my-key }}
+	//
+	// +optional
+	References map[string]Reference `json:"references,omitempty"`
 
 	// TimeoutSeconds is the duration before a Workflow time out is reached.
 	// A zero or nil value means no timeout.
@@ -54,9 +77,9 @@ type WorkflowSpec struct {
 }
 
 type Extra struct {
-	// EnvVars defined here are additive to any existing environment variables.
+	// Env variables defined here are additive to any existing environment variables.
 	// +optional
-	EnvVars []EnvVar `json:"envVars,omitempty"`
+	Env map[string]string `json:"env,omitempty"`
 
 	// TemplateMap is a mapping of key/values that will be used when templating a Task.
 	// +optional
