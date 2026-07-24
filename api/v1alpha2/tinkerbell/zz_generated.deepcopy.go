@@ -1084,6 +1084,13 @@ func (in *Instance) DeepCopyInto(out *Instance) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.Vars != nil {
+		in, out := &in.Vars, &out.Vars
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.Vendordata != nil {
 		in, out := &in.Vendordata, &out.Vendordata
 		*out = new(string)
@@ -1909,6 +1916,13 @@ func (in *TaskSpec) DeepCopyInto(out *TaskSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.Vars != nil {
+		in, out := &in.Vars, &out.Vars
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.Volumes != nil {
 		in, out := &in.Volumes, &out.Volumes
 		*out = make([]Volume, len(*in))
@@ -2180,6 +2194,13 @@ func (in *WorkflowSpec) DeepCopyInto(out *WorkflowSpec) {
 		*out = make([]WorkflowTask, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.Vars != nil {
+		in, out := &in.Vars, &out.Vars
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
 		}
 	}
 }

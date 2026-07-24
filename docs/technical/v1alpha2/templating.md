@@ -249,6 +249,7 @@ Each Action has an optional `if` field that determines whether the Action runs. 
 - The rendered value must be `"true"`, `"false"`, or `""` (empty).
 - Empty or unset is treated as `true`.
 - Any rendered value other than `"true"`, `"false"`, or `""` is treated as `false`.
+- The `"true"` and `"false"` values are case-insensitive, so `"True"`, `"TRUE"`, `"False"`, and `"FALSE"` are all valid.
 
 ```yaml
 actions:

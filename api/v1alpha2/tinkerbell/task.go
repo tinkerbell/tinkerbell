@@ -58,6 +58,10 @@ type TaskSpec struct {
 	// +optional
 	References map[string]Reference `json:"references,omitempty"`
 
+	// Vars are custom variables that can be filled with arbitrary key-value pairs.
+	// +optional
+	Vars map[string]string `json:"vars,omitempty"`
+
 	// Volumes defined here are added to all Actions in the Task.
 	// +optional
 	Volumes []Volume `json:"volumes,omitempty"`

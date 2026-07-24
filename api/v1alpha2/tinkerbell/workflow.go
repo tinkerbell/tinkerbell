@@ -41,7 +41,8 @@ type WorkflowList struct {
 
 // WorkflowSpec defines Tasks and associated options.
 type WorkflowSpec struct {
-	// Disabled indicates whether the Workflow will be enabled or not.
+	// Disabled pauses the Workflow when set to true, preventing its Tasks from
+	// executing. When false or unset, the Workflow runs normally.
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
 
@@ -74,6 +75,10 @@ type WorkflowSpec struct {
 
 	// Tasks that are run as part of the Workflow.
 	Tasks []WorkflowTask `json:"tasks,omitempty"`
+
+	// Vars are custom variables that can be filled with arbitrary key-value pairs.
+	// +optional
+	Vars map[string]string `json:"vars,omitempty"`
 }
 
 type Extra struct {

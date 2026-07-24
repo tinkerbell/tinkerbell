@@ -59,6 +59,8 @@ spec:
       runcmd:
         - echo "Hello from cloud-init!" > /home/clouduser/greeting.txt
         - apt update
+    vars:
+      exampleVar: "exampleValue"
     vendordata: |
       #cloud-config
       vendor_data:

@@ -195,6 +195,12 @@ spec:
 
                   {{ .references.config.data.my-key }}
                 type: object
+              vars:
+                additionalProperties:
+                  type: string
+                description: Vars are custom variables that can be filled with arbitrary
+                  key-value pairs.
+                type: object
               volumes:
                 description: Volumes defined here are added to all Actions in the
                   Task.

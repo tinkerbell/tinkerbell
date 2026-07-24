@@ -202,6 +202,12 @@ spec:
                       Reference the IPv4 address of a network interface:
                       {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}
                     type: string
+                  vars:
+                    additionalProperties:
+                      type: string
+                    description: Vars are custom variables that can be filled with
+                      arbitrary key-value pairs.
+                    type: object
                   vendordata:
                     description: |-
                       Vendordata is data following the cloud-init NoCloud datasource for vendor-data.

@@ -59,5 +59,7 @@ spec:
       namespace: "tinkerbell"
       resource: "configmaps"
       version: "v1"
+  vars:
+    exampleVar: "exampleValue"
   volumes:
     - "/etc/data1:/data1:ro"

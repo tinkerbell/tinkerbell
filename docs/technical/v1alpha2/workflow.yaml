@@ -76,3 +76,5 @@ spec:
       taskRef:
         name: "example"
         namespace: "tinkerbell"
+  vars:
+      exampleVar: "exampleValue"

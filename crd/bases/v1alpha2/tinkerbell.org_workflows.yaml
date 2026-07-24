@@ -79,8 +79,9 @@ spec:
             description: WorkflowSpec defines Tasks and associated options.
             properties:
               disabled:
-                description: Disabled indicates whether the Workflow will be enabled
-                  or not.
+                description: |-
+                  Disabled pauses the Workflow when set to true, preventing its Tasks from
+                  executing. When false or unset, the Workflow runs normally.
                 type: boolean
               globals:
                 description: Globals are extra configuration that is applied to all
@@ -454,6 +455,12 @@ spec:
                   A zero or nil value means no timeout.
                 format: int64
                 type: integer
+              vars:
+                additionalProperties:
+                  type: string
+                description: Vars are custom variables that can be filled with arbitrary
+                  key-value pairs.
+                type: object
             type: object
           status:
             description: WorkflowStatus defines the observed state of a Workflow.
