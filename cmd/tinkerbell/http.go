@@ -71,6 +71,12 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 		} else if err != nil {
 			return fmt.Errorf("failed to create smee iso handler: %w", err)
 		}
+		if ph := s.Config.PXEHTTPHandler(smeeLog); ph != nil {
+			routeList.Register(normalizeURLPrefix(s.Config.PXEHTTP.PathPrefix),
+				middleware.WithLogLevel(middleware.LogLevelAlways, ph),
+				"smee PXE-over-HTTP handler",
+			)
+		}
 	}
 
 	// Tootles HTTP handlers

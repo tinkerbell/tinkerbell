@@ -139,6 +139,11 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
 	fs.Register(TFTPSinglePort, ffval.NewValueDefault(&sc.Config.TFTP.SinglePort, sc.Config.TFTP.SinglePort))
+	fs.Register(TFTPAssetDir, ffval.NewValueDefault(&sc.Config.TFTP.AssetDir, sc.Config.TFTP.AssetDir))
+
+	// PXE-over-HTTP flags
+	fs.Register(PXEHTTPEnabled, ffval.NewValueDefault(&sc.Config.PXEHTTP.Enabled, sc.Config.PXEHTTP.Enabled))
+	fs.Register(PXEHTTPPathPrefix, ffval.NewValueDefault(&sc.Config.PXEHTTP.PathPrefix, sc.Config.PXEHTTP.PathPrefix))
 }
 
 // Convert CLI specific fields to smee.Config fields.
@@ -400,6 +405,22 @@ var TFTPBlockSize = Config{
 var TFTPSinglePort = Config{
 	Name:  "tftp-single-port",
 	Usage: "[tftp] Use a single port for TFTP transfers",
+}
+
+var TFTPAssetDir = Config{
+	Name:  "tftp-asset-dir",
+	Usage: "[tftp] Directory to serve extra TFTP assets from (disabled if empty)",
+}
+
+// PXE-over-HTTP flags.
+var PXEHTTPEnabled = Config{
+	Name:  "pxe-http-enabled",
+	Usage: "[pxe-http] enable serving pxelinux.cfg and the TFTP asset dir over HTTP (for u-boot pxe-over-http)",
+}
+
+var PXEHTTPPathPrefix = Config{
+	Name:  "pxe-http-path-prefix",
+	Usage: "[pxe-http] URL path prefix to serve pxelinux.cfg and TFTP assets under over HTTP",
 }
 
 // iPXE flags.
