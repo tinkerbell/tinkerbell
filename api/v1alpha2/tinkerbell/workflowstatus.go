@@ -43,9 +43,9 @@ type TaskWithMetadata struct {
 	// Actions that the Task runs.
 	Actions []ActionWithMetadata `json:"actions"`
 
-	// Environment variables here are added to all Actions in the Task.
+	// Env variables here are added to all Actions in the Task.
 	// +optional
-	Environment []EnvVar `json:"environment,omitempty"`
+	Env map[string]string `json:"env,omitempty"`
 
 	// Name is a human readable name for the Task.
 	Name string `json:"name"`

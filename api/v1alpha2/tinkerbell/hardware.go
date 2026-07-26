@@ -172,6 +172,10 @@ type Instance struct {
 	// +optional
 	Userdata *string `json:"userdata,omitempty"`
 
+	// Vars are custom variables that can be filled with arbitrary key-value pairs.
+	// +optional
+	Vars map[string]string `json:"vars,omitempty"`
+
 	// Vendordata is data following the cloud-init NoCloud datasource for vendor-data.
 	//
 	// https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html#vendor-data
