@@ -22,20 +22,33 @@ import (
 // HTTP (eg. u-boot's pxe-over-http, which uses wget) instead of TFTP, using the
 // exact same request path shapes.
 //
-// The requested URL path has PathPrefix stripped and is then handed to the
-// Router as a binary.Request, so the underlying Route implementations
+// The requested URL path has the mount prefix stripped and is then handed to
+// the Router as a binary.Request, so the underlying Route implementations
 // (PXELinuxMACRoute, DiskAssetRoute, ...) are reused unchanged.
+//
+// Construct it with NewHTTPHandler so the mount prefix is normalized once.
 type HTTPHandler struct {
 	Log logr.Logger
 	// Router dispatches each request through its configured Routes in order.
 	// The caller is responsible for constructing the Router with the routes it
 	// wants to enable.
 	Router Router
-	// PathPrefix is the URL path prefix the handler is mounted under (eg.
-	// "/tftp/"). It is stripped before the remaining path is dispatched. A
-	// missing leading slash is normalized so it always matches the mount
-	// prefix regardless of how it was configured (eg. "tftp" == "/tftp/").
-	PathPrefix string
+	// prefix is the normalized URL path prefix the handler is mounted under
+	// (eg. "/tftp/"). It is precomputed once by NewHTTPHandler and stripped
+	// from each request path before dispatch, so stripping always agrees with
+	// the mount point regardless of how the prefix was configured (eg. "tftp",
+	// "/tftp", and "/tftp//" all normalize to "/tftp/").
+	prefix string
+}
+
+// NewHTTPHandler builds an HTTPHandler, normalizing pathPrefix once (via
+// normalizePathPrefix) so it does not have to be recomputed on every request.
+func NewHTTPHandler(log logr.Logger, router Router, pathPrefix string) HTTPHandler {
+	return HTTPHandler{
+		Log:    log,
+		Router: router,
+		prefix: normalizePathPrefix(pathPrefix),
+	}
 }
 
 // normalizePathPrefix canonicalizes a mount prefix to a leading- and
@@ -65,10 +78,10 @@ func (h HTTPHandler) Handle(w http.ResponseWriter, req *http.Request) {
 
 	// Strip the mount prefix and any leading slash so the remaining path
 	// matches the shapes the Routes expect (eg. "pxelinux.cfg/01-<MAC>").
-	// PathPrefix is normalized the same way the HTTP server normalizes the
-	// mount point, so stripping always agrees with where the handler is
-	// actually mounted, even for inputs like "tftp" or "/tftp//".
-	rel := strings.TrimPrefix(req.URL.Path, normalizePathPrefix(h.PathPrefix))
+	// h.prefix was normalized at construction the same way the HTTP server
+	// normalizes the mount point, so stripping always agrees with where the
+	// handler is actually mounted, even for inputs like "tftp" or "/tftp//".
+	rel := strings.TrimPrefix(req.URL.Path, h.prefix)
 	rel = strings.TrimPrefix(rel, "/")
 
 	host, port, _ := net.SplitHostPort(req.RemoteAddr)

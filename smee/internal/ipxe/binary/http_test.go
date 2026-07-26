@@ -113,11 +113,7 @@ func TestHTTPHandler(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			h := HTTPHandler{
-				Log:        logr.Discard(),
-				Router:     pxeHTTPRouter(resolver, dir),
-				PathPrefix: tt.prefix,
-			}
+			h := NewHTTPHandler(logr.Discard(), pxeHTTPRouter(resolver, dir), tt.prefix)
 			req := httptest.NewRequest(tt.method, tt.target, nil)
 			rr := httptest.NewRecorder()
 			h.Handle(rr, req)
