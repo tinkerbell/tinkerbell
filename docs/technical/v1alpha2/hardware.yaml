@@ -59,6 +59,8 @@ spec:
       runcmd:
         - echo "Hello from cloud-init!" > /home/clouduser/greeting.txt
         - apt update
+    vars:
+      exampleVar: "exampleValue"
     vendordata: |
       #cloud-config
       vendor_data:
@@ -161,8 +163,6 @@ spec:
             [all]
             hdmi_safe=1
           firmwarePath: "captain-armbian-rpi/firmware-rpi"
-          tftpPrefix: custom
-          tftpPrefixCustom: "my-custom-prefix/"
   references:
     additional:
       "registryCert":
