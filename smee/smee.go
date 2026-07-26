@@ -353,17 +353,14 @@ func (c *Config) PXEHTTPHandler(log logr.Logger) http.Handler {
 		return nil
 	}
 	resolver := hardware.BackendResolver{Backend: c.Backend}
-	return http.HandlerFunc(binary.HTTPHandler{
-		Log:        log,
-		PathPrefix: c.PXEHTTP.PathPrefix,
-		Router: binary.Router{
-			Log: log,
-			Routes: []binary.Route{
-				binary.PXELinuxMACRoute{Log: log, Resolver: resolver},
-				binary.DiskAssetRoute{Log: log, Dir: c.TFTP.AssetDir},
-			},
+	router := binary.Router{
+		Log: log,
+		Routes: []binary.Route{ // order matters here, first match wins
+			binary.PXELinuxMACRoute{Log: log, Resolver: resolver},
+			binary.DiskAssetRoute{Log: log, Dir: c.TFTP.AssetDir},
 		},
-	}.Handle)
+	}
+	return http.HandlerFunc(binary.NewHTTPHandler(log, router, c.PXEHTTP.PathPrefix).Handle)
 }
 
 // ScriptHandler returns an http.Handler that serves iPXE scripts.
@@ -467,7 +464,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 			BlockSize:            c.TFTP.BlockSize,
 			Router: binary.Router{
 				Log: log,
-				Routes: []binary.Route{
+				Routes: []binary.Route{ // order matters here, first match wins
 					binary.EmbeddedIPXERoute{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)},
 					binary.PXELinuxMACRoute{Log: log, Resolver: resolver},
 					binary.RPiNetbootRoute{Log: log, Resolver: resolver, AssetDir: c.TFTP.AssetDir},
