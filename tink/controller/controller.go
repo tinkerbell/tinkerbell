@@ -5,7 +5,8 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/tinkerbell/tinkerbell/pkg/api"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -21,8 +22,8 @@ import (
 
 var schemeBuilder = runtime.NewSchemeBuilder(
 	clientgoscheme.AddToScheme,
-	api.AddToSchemeTinkerbell,
-	api.AddToSchemeBMC,
+	tinkerbell.AddToScheme,
+	bmc.AddToScheme,
 )
 
 type Config struct {
