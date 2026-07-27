@@ -392,11 +392,16 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		}
 		log.Info("starting syslog server", "bindAddr", addr)
 		g.Go(func() error {
-			if err := syslog.StartReceiver(ctx, log, addr.String(), 1); err != nil {
+			r, err := syslog.StartReceiver(ctx, log, addr.String(), 1)
+			if err != nil {
 				log.Error(err, "syslog server failure")
 				return err
 			}
-			<-ctx.Done()
+			<-r.Done()
+			if err := r.Err(); err != nil {
+				log.Error(err, "syslog server failure")
+				return err
+			}
 			log.Info("syslog server stopped")
 			return nil
 		})
