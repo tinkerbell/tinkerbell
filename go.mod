@@ -41,7 +41,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tinkerbell/tinkerbell/api v0.0.0 // v0.0.0 is used as a placeholder because a replace directive is used to point to the local api directory
 	github.com/vishvananda/netlink v1.3.1
-	go.etcd.io/etcd/server/v3 v3.6.13
+	go.etcd.io/etcd/server/v3 v3.7.1
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0
 	go.opentelemetry.io/otel v1.44.0
@@ -143,7 +143,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cadvisor v0.56.2 // indirect
 	github.com/google/cel-go v0.26.0 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
@@ -223,12 +222,12 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xiang90/probing v0.0.0-20221125231312-a49e3df8f510 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	go.etcd.io/bbolt v1.4.3 // indirect
-	go.etcd.io/etcd/api/v3 v3.6.13 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.6.13 // indirect
-	go.etcd.io/etcd/client/v3 v3.6.13 // indirect
-	go.etcd.io/etcd/pkg/v3 v3.6.13 // indirect
-	go.etcd.io/raft/v3 v3.6.0 // indirect
+	go.etcd.io/bbolt v1.5.0 // indirect
+	go.etcd.io/etcd/api/v3 v3.7.1 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.7.1 // indirect
+	go.etcd.io/etcd/client/v3 v3.7.1 // indirect
+	go.etcd.io/etcd/pkg/v3 v3.7.1 // indirect
+	go.etcd.io/raft/v3 v3.7.0 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -242,7 +241,7 @@ require (
 	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
