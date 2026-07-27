@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -200,7 +199,7 @@ func TestHandlerDiscover(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// Create a scheme with the necessary types
 			scheme := runtime.NewScheme()
-			_ = api.AddToSchemeTinkerbell(scheme)
+			_ = tinkerbell.AddToScheme(scheme)
 
 			// Create fake client builder
 			clientBuilder := fake.NewClientBuilder().WithScheme(scheme)

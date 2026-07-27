@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	bmcv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	tinkv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"github.com/tinkerbell/tinkerbell/ui/templates"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,10 +82,10 @@ func NewKubeClientFromRestConfig(config *rest.Config) (*KubeClient, error) {
 	if err := corev1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add core types to scheme: %w", err)
 	}
-	if err := api.AddToSchemeTinkerbell(scheme); err != nil {
+	if err := tinkv1alpha1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add tinkerbell types to scheme: %w", err)
 	}
-	if err := api.AddToSchemeBMC(scheme); err != nil {
+	if err := bmcv1alpha1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add bmc types to scheme: %w", err)
 	}
 

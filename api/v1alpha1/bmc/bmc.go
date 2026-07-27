@@ -21,10 +21,30 @@ limitations under the License.
 package bmc
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var GroupVersion = schema.GroupVersion{Group: "bmc.tinkerbell.org", Version: "v1alpha1"}
+
+var (
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+
+	// AddToScheme adds the types in this group-version to the given scheme.
+	AddToScheme = SchemeBuilder.AddToScheme
+)
+
+func addKnownTypes(s *runtime.Scheme) error {
+	s.AddKnownTypes(GroupVersion,
+		&Job{}, &JobList{},
+		&Machine{}, &MachineList{},
+		&Task{}, &TaskList{},
+	)
+	metav1.AddToGroupVersion(s, GroupVersion)
+	return nil
+}
 
 // Hub is a marker function to indicate that this v1alpha1 spec is a Hub.
 // See https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts

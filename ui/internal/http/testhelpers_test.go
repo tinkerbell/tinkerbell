@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	bmcv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	tinkv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/pkg/api"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,8 +24,8 @@ func init() {
 func newTestScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
-	_ = api.AddToSchemeTinkerbell(scheme)
-	_ = api.AddToSchemeBMC(scheme)
+	_ = tinkv1alpha1.AddToScheme(scheme)
+	_ = bmcv1alpha1.AddToScheme(scheme)
 	return scheme
 }
 

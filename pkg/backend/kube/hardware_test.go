@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/pkg/api"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +42,7 @@ func TestReadHardwareByIP(t *testing.T) {
 			if err := scheme.AddToScheme(rs); err != nil {
 				t.Fatal(err)
 			}
-			if err := api.AddToSchemeTinkerbell(rs); err != nil {
+			if err := tinkerbell.AddToScheme(rs); err != nil {
 				t.Fatal(err)
 			}
 
@@ -122,7 +121,7 @@ func TestReadHardwareByMac(t *testing.T) {
 			if err := scheme.AddToScheme(rs); err != nil {
 				t.Fatal(err)
 			}
-			if err := api.AddToSchemeTinkerbell(rs); err != nil {
+			if err := tinkerbell.AddToScheme(rs); err != nil {
 				t.Fatal(err)
 			}
 
