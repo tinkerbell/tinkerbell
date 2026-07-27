@@ -84,6 +84,9 @@ func (r *Receiver) run(ctx context.Context) {
 	var msg *message
 	defer func() {
 		if msg != nil {
+			// Reset before returning to the pool so a partially-populated
+			// message is never reused with stale state.
+			msg.reset()
 			syslogMessagePool.Put(msg)
 		}
 	}()
