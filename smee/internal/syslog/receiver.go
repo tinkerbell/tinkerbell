@@ -121,7 +121,15 @@ func (r *Receiver) run(ctx context.Context) {
 		msg.time = time.Now().UTC()
 		msg.host = from.IP
 		msg.size = n
-		r.msgCh <- msg
+		// Guard the send on ctx so a full msgCh (slow/blocked parsers) can't
+		// wedge the read loop past cancellation: closing the conn only unblocks
+		// a blocked read, not a blocked send.
+		select {
+		case <-ctx.Done():
+			r.shutdown()
+			return
+		case r.msgCh <- msg:
+		}
 		msg = nil
 	}
 }

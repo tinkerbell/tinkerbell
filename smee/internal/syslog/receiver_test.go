@@ -236,7 +236,7 @@ func TestParse(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			result := toStructured(tc.message)
 			if diff := cmp.Diff(tc.expected, result); diff != "" {
-				t.Errorf("parse() mismatch (-want +got):\n%s", diff)
+				t.Errorf("toStructured() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -488,6 +488,48 @@ func TestReceiver_run_parseChannelBlocking(t *testing.T) {
 	}
 }
 
+func TestReceiver_run_blockedSendContextCancel(t *testing.T) {
+	// A datagram is read but the unbuffered, undrained msgCh blocks the send.
+	// Cancelling the context must still stop the receiver instead of wedging
+	// the read loop on the send (closing the conn only unblocks a blocked read).
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := conn.LocalAddr().(*net.UDPAddr)
+
+	r := &Receiver{
+		conn:   conn,
+		msgCh:  make(chan *message), // unbuffered, no consumer -> send blocks
+		done:   make(chan struct{}),
+		Logger: logr.Discard(),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go r.run(ctx)
+
+	// Send a datagram so run() reads it and then blocks on the send.
+	client, err := net.DialUDP("udp4", nil, addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if _, err := client.Write([]byte("<13>1 hello world")); err != nil {
+		t.Fatal(err)
+	}
+
+	// Give run() time to read the datagram and block on the send, then cancel.
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-r.Done():
+		// Expected: receiver stopped despite the blocked send.
+	case <-time.After(2 * time.Second):
+		t.Fatal("receiver did not stop after context cancellation while blocked on send")
+	}
+}
+
 func TestParse_emptyAndNilFields(t *testing.T) {
 	tests := map[string]struct {
 		message  *message
@@ -552,7 +594,7 @@ func TestParse_emptyAndNilFields(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			result := toStructured(tc.message)
 			if diff := cmp.Diff(tc.expected, result); diff != "" {
-				t.Errorf("parse() mismatch (-want +got):\n%s", diff)
+				t.Errorf("toStructured() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
