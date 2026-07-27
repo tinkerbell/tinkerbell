@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/pkg/api"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,7 +54,7 @@ func withDuration(duration func() time.Duration) backoffOpts {
 func TestSetAllowPXE(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = api.AddToSchemeTinkerbell(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
 
 	tests := map[string]struct {
 		workflow         *v1alpha1.Workflow
@@ -568,7 +567,7 @@ func TestSetAllowPXE(t *testing.T) {
 func TestSetAllowPXE_RetryMechanism(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = api.AddToSchemeTinkerbell(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
 
 	tests := map[string]struct {
 		maxConflicts    int

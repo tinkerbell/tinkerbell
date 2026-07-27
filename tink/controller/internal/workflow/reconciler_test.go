@@ -10,7 +10,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/pkg/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,7 +28,7 @@ var TestTime = NewFrozenTimeUnix(1637361793)
 
 func init() {
 	_ = clientgoscheme.AddToScheme(runtimescheme)
-	_ = api.AddToSchemeTinkerbell(runtimescheme)
+	_ = v1alpha1.AddToScheme(runtimescheme)
 }
 
 func GetFakeClientBuilder() *fake.ClientBuilder {
