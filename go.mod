@@ -28,7 +28,7 @@ require (
 	github.com/jacobweinstock/registrar v0.4.7
 	github.com/jaypipes/ghw v0.25.1-0.20260710085941-ed1c31cf4aff
 	github.com/moby/moby/api v1.55.0
-	github.com/moby/moby/client v0.5.0
+	github.com/moby/moby/client v0.5.1
 	github.com/nats-io/nats.go v1.52.0
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/opencontainers/image-spec v1.1.1
