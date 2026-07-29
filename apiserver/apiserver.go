@@ -56,7 +56,14 @@ func ConfigAndFlags(disableLogging *bool) (*pflag.FlagSet, func(context.Context,
 		if disableLogging != nil && *disableLogging {
 			log = logr.Discard()
 		}
-		klog.SetLogger(log)
+		// logsapi.ValidateAndApply above is required apiserver setup: it
+		// validates and applies the Kubernetes logging options (s.Logs). A side
+		// effect is that it installs klog's own JSON logger as the process-global
+		// logger, overriding the logger cmd.go set. We don't want that format, so
+		// re-point the global klog logger back at the dedicated "klog" logger here,
+		// matching the name cmd.go uses. This also covers the embedded
+		// kube-controller-manager, which shares the same global klog.
+		klog.SetLogger(log.WithName("klog"))
 		return apiapp.Run(ctx, completedOptions)
 	}
 

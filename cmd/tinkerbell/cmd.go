@@ -26,6 +26,9 @@ import (
 	"github.com/tinkerbell/tinkerbell/ui"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
+	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
 var (
@@ -152,6 +155,28 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	log := getLogger(globals.LogLevel)
+
+	// klog (client-go and other Kubernetes libraries) and controller-runtime
+	// both log through process-global loggers for code paths that aren't handed
+	// an explicit, per-instance logger. Set each once here, named after the
+	// library that emits through it, so their output is attributed to the
+	// correct logger instead of to whichever component called SetLogger last.
+	// Per-component logs are unaffected: each manager still logs under its own
+	// name via controllerruntime.Options.Logger.
+	klog.SetLogger(log.WithName("klog"))
+	controllerruntime.SetLogger(log.WithName("controller-runtime"))
+
+	// Kubernetes API servers return HTTP "Warning" headers (e.g. API
+	// deprecations such as v1 Endpoints) that client-go surfaces through a
+	// process-global default warning handler. By default that handler logs via
+	// klog, so warnings inherit whichever component's global klog logger is
+	// active (misattributing them). Own the handler here so warnings are
+	// attributed to a dedicated logger, independent of klog. The embedded
+	// kube-apiserver/kube-controller-manager install their own NoWarnings
+	// handler only from their cobra pre-run, which this binary bypasses, so this
+	// handler is not overridden.
+	rest.SetDefaultWarningHandler(k8sAPIWarningLogger{log: log.WithName("kube-api-warning")})
+
 	cliLog := log.WithName("cli")
 	cliLog.Info("starting tinkerbell",
 		"version", build.GitRevision(),
@@ -264,7 +289,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		}
 		if embeddedApiserverExecute != nil {
 			if err := retry.Do(func() error {
-				if err := embeddedApiserverExecute(ctx, log.WithName("kube-apiserver")); err != nil {
+				if err := embeddedApiserverExecute(ctx, log); err != nil {
 					return fmt.Errorf("API server error: %w", err)
 				}
 				return nil
