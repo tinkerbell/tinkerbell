@@ -12,11 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
-	clog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
@@ -112,10 +110,6 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	if c.Namespace != "" {
 		options.Cache = cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}
 	}
-
-	controllerruntime.SetLogger(log)
-	clog.SetLogger(log)
-	klog.SetLogger(log)
 
 	wfOpts := []workflow.Option{}
 	if len(c.ReferenceAllowListRules) > 0 {

@@ -20,6 +20,22 @@ func getLogger(level int) logr.Logger {
 	return defaultLogger(level)
 }
 
+// k8sAPIWarningLogger routes client-go API server warning headers (HTTP code
+// 299, e.g. API deprecations) to a logr.Logger. It replaces client-go's default
+// klog-based warning handler so warnings are attributed to a dedicated,
+// identifiable logger instead of whichever component's global klog logger is
+// active.
+type k8sAPIWarningLogger struct {
+	log logr.Logger
+}
+
+func (w k8sAPIWarningLogger) HandleWarningHeader(code int, agent string, message string) {
+	if message == "" {
+		return
+	}
+	w.log.Info(message, "code", code, "agent", agent)
+}
+
 // defaultLogger uses the slog logr implementation.
 func defaultLogger(level int) logr.Logger {
 	// source file and function can be long. This makes the logs less readable.
