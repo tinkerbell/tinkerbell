@@ -21,9 +21,10 @@ import (
 
 func TestJobFor(t *testing.T) {
 	tests := map[string]struct {
-		action  spec.Action
-		want    *batchv1.Job
-		wantErr bool
+		action             spec.Action
+		serviceAccountName string
+		want               *batchv1.Job
+		wantErr            bool
 	}{
 		"basic": {
 			action: spec.Action{
@@ -47,7 +48,8 @@ func TestJobFor(t *testing.T) {
 							Labels: map[string]string{actionIDLabel: "abc-123"},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy: corev1.RestartPolicyNever,
+							RestartPolicy:                corev1.RestartPolicyNever,
+							AutomountServiceAccountToken: boolPtr(false),
 							Containers: []corev1.Container{
 								{
 									Name:    "action",
@@ -75,8 +77,32 @@ func TestJobFor(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{actionIDLabel: "id2"}},
 						Spec: corev1.PodSpec{
-							RestartPolicy: corev1.RestartPolicyNever,
-							Containers:    []corev1.Container{{Name: "action", Image: "img"}},
+							RestartPolicy:                corev1.RestartPolicyNever,
+							AutomountServiceAccountToken: boolPtr(false),
+							Containers:                   []corev1.Container{{Name: "action", Image: "img"}},
+						},
+					},
+				},
+			},
+		},
+		"explicit service account name is set on the pod": {
+			action:             spec.Action{ID: "id6", Name: "n6", Image: "img"},
+			serviceAccountName: "tink-agent",
+			want: &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tinkerbell-n6-id6",
+					Namespace: "tinkerbell",
+					Labels:    map[string]string{actionIDLabel: "id6"},
+				},
+				Spec: batchv1.JobSpec{
+					BackoffLimit: int32Ptr(0),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{actionIDLabel: "id6"}},
+						Spec: corev1.PodSpec{
+							RestartPolicy:                corev1.RestartPolicyNever,
+							ServiceAccountName:           "tink-agent",
+							AutomountServiceAccountToken: boolPtr(false),
+							Containers:                   []corev1.Container{{Name: "action", Image: "img"}},
 						},
 					},
 				},
@@ -98,7 +124,7 @@ func TestJobFor(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			c := &Config{Namespace: "tinkerbell"}
+			c := &Config{Namespace: "tinkerbell", ServiceAccountName: tt.serviceAccountName}
 			got, err := c.jobFor(tt.action)
 			if tt.wantErr {
 				if err == nil {

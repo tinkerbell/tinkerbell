@@ -50,6 +50,13 @@ type Config struct {
 	Log       logr.Logger
 	Client    kubernetes.Interface // interface, not *kubernetes.Clientset, so it can be faked in tests
 	Namespace string               // fixed namespace Jobs/Pods are created in
+	// ServiceAccountName is the ServiceAccount Job Pods run as. Kubernetes does not propagate the
+	// identity of the caller that creates an object to that object, so leaving this empty does NOT
+	// mean the Job inherits the Agent's own ServiceAccount: it means the Job Pod runs as the
+	// namespace's "default" ServiceAccount instead, which may not carry the imagePullSecrets a
+	// private image needs. Set this to the Agent's own ServiceAccount name to reuse its
+	// imagePullSecrets.
+	ServiceAccountName string
 }
 
 // Opt configures a Config returned by NewConfig.
@@ -58,6 +65,11 @@ type Opt func(*Config)
 // WithClient overrides the Kubernetes client used, for example with a fake clientset in tests.
 func WithClient(c kubernetes.Interface) Opt {
 	return func(cfg *Config) { cfg.Client = c }
+}
+
+// WithServiceAccountName sets the ServiceAccount Job Pods run as. See Config.ServiceAccountName.
+func WithServiceAccountName(name string) Opt {
+	return func(cfg *Config) { cfg.ServiceAccountName = name }
 }
 
 // NewConfig builds a Config. If kubeconfig is empty, it uses the in-cluster config, which is the
@@ -186,10 +198,13 @@ func (c *Config) jobFor(a spec.Action) (*batchv1.Job, error) {
 					Labels: map[string]string{actionIDLabel: a.ID},
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					Containers:    []corev1.Container{container},
-					// No ServiceAccountName override: inherits the executing Agent pod's own
-					// ServiceAccount, including whatever imagePullSecrets it already carries.
+					RestartPolicy:      corev1.RestartPolicyNever,
+					Containers:         []corev1.Container{container},
+					ServiceAccountName: c.ServiceAccountName,
+					// Action containers never need Kubernetes API access themselves (only the
+					// Agent does), so don't hand them an API token regardless of which
+					// ServiceAccount they run as.
+					AutomountServiceAccountToken: boolPtr(false),
 					// No SecurityContext/Privileged: deliberately the Kubernetes default
 					// (unprivileged), unlike docker.go/containerd.go which both set Privileged
 					// unconditionally for the bare-metal case this runtime isn't used for.
@@ -313,6 +328,8 @@ func convEnv(envs []spec.Env) []corev1.EnvVar {
 	}
 	return out
 }
+
+func boolPtr(v bool) *bool { return &v }
 
 var invalidJobNameChars = regexp.MustCompile(`[^a-z0-9-]`)
 

@@ -147,4 +147,5 @@ func RegisterContainerdRuntimeFlags(c *config, fs *flag.FlagSet) {
 func RegisterKubernetesRuntimeFlags(c *config, fs *flag.FlagSet) {
 	fs.StringVar(&c.Options.Runtime.Kubernetes.Namespace, "kubernetes-namespace", "tinkerbell", "Namespace Action Jobs are created in")
 	fs.StringVar(&c.Options.Runtime.Kubernetes.Kubeconfig, "kubernetes-kubeconfig", "", "Path to a kubeconfig file; defaults to the in-cluster config")
+	fs.StringVar(&c.Options.Runtime.Kubernetes.ServiceAccountName, "kubernetes-service-account", "", "ServiceAccount Action Job pods run as; defaults to the namespace's default ServiceAccount. Set this to the Agent's own ServiceAccount to reuse its imagePullSecrets for private images")
 }

@@ -258,8 +258,9 @@ type ContainerdRuntime struct {
 	DataRoot   string
 }
 type KubernetesRuntime struct {
-	Namespace  string
-	Kubeconfig string
+	Namespace          string
+	Kubeconfig         string
+	ServiceAccountName string
 }
 
 // BackoffOptions holds the configuration for the backoff strategy.
@@ -327,7 +328,8 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 	var re RuntimeExecutor
 	switch o.RuntimeSelected {
 	case KubernetesRuntimeType:
-		kn, err := kubernetes.NewConfig(log, o.Runtime.Kubernetes.Namespace, o.Runtime.Kubernetes.Kubeconfig)
+		kn, err := kubernetes.NewConfig(log, o.Runtime.Kubernetes.Namespace, o.Runtime.Kubernetes.Kubeconfig,
+			kubernetes.WithServiceAccountName(o.Runtime.Kubernetes.ServiceAccountName))
 		if err != nil {
 			return fmt.Errorf("unable to create Kubernetes config: %w", err)
 		}

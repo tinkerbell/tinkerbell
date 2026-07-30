@@ -27,13 +27,15 @@ RBAC to create/watch `Job`s and `Pod`s and read `Pod` logs in one namespace.
 ```bash
 tink-agent -id=abcd -transport=grpc -grpc-server=tink-server.tinkerbell.svc.cluster.local:42113 \
   -runtime=kubernetes \
-  -kubernetes-namespace=tinkerbell
+  -kubernetes-namespace=tinkerbell \
+  -kubernetes-service-account=tink-agent
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `-kubernetes-namespace` | `tinkerbell` | Namespace Action `Job`s are created in. |
 | `-kubernetes-kubeconfig` | *(empty)* | Path to a kubeconfig file. Leave empty to use the in-cluster config — the expected setup when the Agent itself runs as a pod in the cluster it's creating `Job`s in. |
+| `-kubernetes-service-account` | *(empty)* | ServiceAccount the Action `Job`'s pod runs as. Kubernetes does **not** propagate the Agent's own ServiceAccount to objects it creates, so leaving this empty means the `Job` pod runs as the namespace's `default` ServiceAccount, not the Agent's. Set this to the Agent's own ServiceAccount name (e.g. `tink-agent`) to reuse the imagePullSecrets configured on it. |
 
 ## Unsupported Action fields
 
@@ -83,7 +85,10 @@ roleRef:
 ```
 
 Private images are pulled using whatever `imagePullSecrets` are already configured on the
-`tink-agent` ServiceAccount — a one-time, cluster-operator-managed setup:
+`tink-agent` ServiceAccount — but only if `-kubernetes-service-account=tink-agent` is set (see
+[Enabling it](#enabling-it)); otherwise the Job pod runs as the namespace's `default`
+ServiceAccount instead and won't see these secrets. This is a one-time, cluster-operator-managed
+setup:
 
 ```bash
 kubectl create secret docker-registry my-registry-cred \
@@ -128,6 +133,7 @@ spec:
             - -grpc-server=tink-server.tinkerbell.svc.cluster.local:42113
             - -runtime=kubernetes
             - -kubernetes-namespace=tinkerbell
+            - -kubernetes-service-account=tink-agent
 ```
 
 No `privileged`, no `hostNetwork`, no sidecar, no host socket mount — the whole pod is a single,
