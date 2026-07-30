@@ -421,7 +421,7 @@ func (t *TransportType) Type() string {
 func (r *RuntimeType) Set(s string) error {
 	switch strings.ToLower(s) {
 	case DockerRuntimeType.String(), ContainerdRuntimeType.String(), KubernetesRuntimeType.String():
-		*r = RuntimeType(s)
+		*r = RuntimeType(strings.ToLower(s))
 		return nil
 	default:
 		return fmt.Errorf("invalid Runtime type: %q, must be one of [%s, %s, %s]", s, DockerRuntimeType, ContainerdRuntimeType, KubernetesRuntimeType)

@@ -3,15 +3,20 @@ package kubernetes
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
 )
 
 func TestJobFor(t *testing.T) {
@@ -204,6 +209,40 @@ func TestExecute_ContextCancelled(t *testing.T) {
 	}
 	if len(jobs.Items) != 0 {
 		t.Fatalf("expected job to be deleted, found %d", len(jobs.Items))
+	}
+}
+
+// TestDeleteJob verifies that deleteJob blocks until the Job actually disappears rather than
+// returning as soon as the Delete call is acknowledged (foreground-propagation Delete only marks
+// the Job for deletion; the garbage collector removes it asynchronously). Without this, a retried
+// Action reusing the same deterministic Job name could race its own predecessor's still-terminating
+// Job with an AlreadyExists error.
+func TestDeleteJob(t *testing.T) {
+	job := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: "j1", Namespace: "tinkerbell"}}
+	client := fake.NewSimpleClientset(job)
+
+	var gets atomic.Int32
+	client.PrependReactor("get", "jobs", func(_ clienttesting.Action) (bool, runtime.Object, error) {
+		if gets.Add(1) == 1 {
+			// First poll: still exists, so deleteJob must keep waiting.
+			return true, job, nil
+		}
+		return true, nil, apierrors.NewNotFound(batchv1.Resource("jobs"), "j1")
+	})
+
+	c := &Config{Log: logr.Discard()}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	c.deleteJob(ctx, client.BatchV1().Jobs("tinkerbell"), "j1")
+	elapsed := time.Since(start)
+
+	if gets.Load() < 2 {
+		t.Fatalf("expected deleteJob to poll Get at least twice, got %d", gets.Load())
+	}
+	if elapsed < 400*time.Millisecond {
+		t.Fatalf("deleteJob returned after %v, expected it to wait for the poll interval before the job disappeared", elapsed)
 	}
 }
 

@@ -16,8 +16,11 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -35,6 +38,11 @@ const (
 	// log endpoint would hang Execute (and therefore the single-threaded agent.Config.Run loop)
 	// forever.
 	logStreamTimeout = 30 * time.Second
+	// jobDeleteTimeout bounds how long the deferred cleanup in Execute waits for a deleted Job to
+	// actually disappear (foreground-propagation Delete only marks it for deletion; the garbage
+	// collector removes it asynchronously). Like logStreamTimeout, it uses its own bounded context
+	// rather than Execute's ctx, which may already be cancelled/expired by this point.
+	jobDeleteTimeout = 30 * time.Second
 )
 
 // Config is a RuntimeExecutor that runs Actions as Kubernetes Jobs.
@@ -85,7 +93,8 @@ func restConfig(kubeconfig string) (*rest.Config, error) {
 
 // Execute creates a Job for the Action, waits for its Pod to terminate, streams the Pod's logs,
 // and returns nil on a zero exit code or a descriptive error otherwise. The Job (and its Pod) are
-// always deleted before Execute returns.
+// always deleted, and confirmed gone, before Execute returns, so a retried Action (same ID, same
+// deterministic Job name) never races its own predecessor's still-terminating Job.
 func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	job, err := c.jobFor(a)
 	if err != nil {
@@ -100,11 +109,10 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 
 	defer func() {
 		// Always clean up, regardless of outcome. Use a background context since ctx may
-		// already be cancelled/expired, and foreground propagation so the Pod is gone too.
-		policy := metav1.DeletePropagationForeground
-		if err := jobs.Delete(context.Background(), created.Name, metav1.DeleteOptions{PropagationPolicy: &policy}); err != nil {
-			c.Log.Info("failed to delete job", "job", created.Name, "error", err)
-		}
+		// already be cancelled/expired.
+		delCtx, cancel := context.WithTimeout(context.Background(), jobDeleteTimeout)
+		defer cancel()
+		c.deleteJob(delCtx, jobs, created.Name)
 	}()
 
 	pod, err := c.waitForPod(ctx, a.ID)
@@ -115,6 +123,30 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	c.streamLogs(pod.Name)
 
 	return exitError(pod)
+}
+
+// deleteJob issues a foreground-propagation delete and then waits for the Job to actually
+// disappear (foreground propagation only marks it for deletion; the garbage collector removes it
+// asynchronously), so the caller can rely on the Job name being free again once this returns.
+// Errors are logged, not returned: cleanup is best-effort and must never fail an Action that
+// otherwise already succeeded or failed on its own terms.
+func (c *Config) deleteJob(ctx context.Context, jobs batchv1client.JobInterface, name string) {
+	policy := metav1.DeletePropagationForeground
+	if err := jobs.Delete(ctx, name, metav1.DeleteOptions{PropagationPolicy: &policy}); err != nil && !apierrors.IsNotFound(err) {
+		c.Log.Info("failed to delete job", "job", name, "error", err)
+		return
+	}
+
+	err := wait.PollUntilContextCancel(ctx, 500*time.Millisecond, true, func(ctx context.Context) (bool, error) {
+		_, err := jobs.Get(ctx, name, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	})
+	if err != nil {
+		c.Log.Info("timed out waiting for job deletion to complete", "job", name, "error", err)
+	}
 }
 
 // jobFor builds the Kubernetes Job for an Action. It fails fast on Action fields that have no
@@ -252,7 +284,7 @@ func (c *Config) streamLogs(podName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), logStreamTimeout)
 	defer cancel()
 
-	rc, err := c.Client.CoreV1().Pods(c.Namespace).GetLogs(podName, &corev1.PodLogOptions{}).Stream(ctx)
+	rc, err := c.Client.CoreV1().Pods(c.Namespace).GetLogs(podName, &corev1.PodLogOptions{Container: actionContainerName}).Stream(ctx)
 	if err != nil {
 		c.Log.Info("failed to fetch pod logs", "pod", podName, "error", err)
 		return
