@@ -16,6 +16,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/attribute"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/containerd"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/docker"
+	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/kubernetes"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/transport/file"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/transport/grpc"
@@ -190,6 +191,7 @@ const (
 
 	DockerRuntimeType     RuntimeType = "docker"
 	ContainerdRuntimeType RuntimeType = "containerd"
+	KubernetesRuntimeType RuntimeType = "kubernetes"
 )
 
 type TransportType string
@@ -216,6 +218,7 @@ type Transport struct {
 type Runtime struct {
 	Docker     DockerRuntime
 	Containerd ContainerdRuntime
+	Kubernetes KubernetesRuntime
 }
 
 type Registry struct {
@@ -253,6 +256,10 @@ type ContainerdRuntime struct {
 	Namespace  string
 	SocketPath string
 	DataRoot   string
+}
+type KubernetesRuntime struct {
+	Namespace  string
+	Kubeconfig string
 }
 
 // BackoffOptions holds the configuration for the backoff strategy.
@@ -319,6 +326,13 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 
 	var re RuntimeExecutor
 	switch o.RuntimeSelected {
+	case KubernetesRuntimeType:
+		kn, err := kubernetes.NewConfig(log, o.Runtime.Kubernetes.Namespace, o.Runtime.Kubernetes.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("unable to create Kubernetes config: %w", err)
+		}
+		re = kn
+		log.Info("using Kubernetes runtime")
 	case ContainerdRuntimeType:
 		opts := []containerd.Opt{}
 		if o.Runtime.Containerd.Namespace != "" {
@@ -406,11 +420,11 @@ func (t *TransportType) Type() string {
 
 func (r *RuntimeType) Set(s string) error {
 	switch strings.ToLower(s) {
-	case DockerRuntimeType.String(), ContainerdRuntimeType.String():
+	case DockerRuntimeType.String(), ContainerdRuntimeType.String(), KubernetesRuntimeType.String():
 		*r = RuntimeType(s)
 		return nil
 	default:
-		return fmt.Errorf("invalid Runtime type: %q, must be one of [%s, %s, %s]", s, GRPCTransportType, NATSTransportType, FileTransportType)
+		return fmt.Errorf("invalid Runtime type: %q, must be one of [%s, %s, %s]", s, DockerRuntimeType, ContainerdRuntimeType, KubernetesRuntimeType)
 	}
 }
 

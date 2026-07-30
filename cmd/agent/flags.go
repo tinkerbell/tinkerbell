@@ -76,9 +76,13 @@ func RegisterAllFlags(c *config) *ff.FlagSet {
 	RegisterDockerRuntimeFlags(c, fsd)
 	fsDocker := ff.NewFlagSetFrom("docker runtime", fsd).SetParent(fsContainerd)
 
+	fsk := flag.NewFlagSet("kubernetes runtime", flag.ContinueOnError)
+	RegisterKubernetesRuntimeFlags(c, fsk)
+	fsKubernetes := ff.NewFlagSetFrom("kubernetes runtime", fsk).SetParent(fsDocker)
+
 	fsg := flag.NewFlagSet("grpc transport", flag.ContinueOnError)
 	RegisterGRPCTransportFlags(c, fsg)
-	fsGrpc := ff.NewFlagSetFrom("grpc transport", fsg).SetParent(fsDocker)
+	fsGrpc := ff.NewFlagSetFrom("grpc transport", fsg).SetParent(fsKubernetes)
 
 	fsf := flag.NewFlagSet("file transport", flag.ContinueOnError)
 	RegisterFileTransportFlags(c, fsf)
@@ -98,7 +102,7 @@ func RegisterAllFlags(c *config) *ff.FlagSet {
 func RegisterRootFlags(c *config, fs *flag.FlagSet) {
 	fs.StringVar(&c.AgentID, "id", "", "ID of the agent")
 	fs.IntVar(&c.LogLevel, "log-level", 0, "Log level")
-	fs.Var(&c.Options.RuntimeSelected, "runtime", fmt.Sprintf("Container runtime used to run Actions, must be one of [%s, %s]", agent.DockerRuntimeType, agent.ContainerdRuntimeType))
+	fs.Var(&c.Options.RuntimeSelected, "runtime", fmt.Sprintf("Container runtime used to run Actions, must be one of [%s, %s, %s]", agent.DockerRuntimeType, agent.ContainerdRuntimeType, agent.KubernetesRuntimeType))
 	fs.Var(&c.Options.TransportSelected, "transport", fmt.Sprintf("Transport used to receive Workflows/Actions and to send results, must be one of [%s, %s, %s]", agent.GRPCTransportType, agent.NATSTransportType, agent.FileTransportType))
 	fs.BoolVar(&c.Options.AttributeDetectionEnabled, "attribute-detection", true, "Enable attribute detection")
 	// This is an implementation detail of github.com/cenkalti/backoff/v5, MaxInterval caps the RetryInterval and not the randomized interval.
@@ -138,4 +142,9 @@ func RegisterContainerdRuntimeFlags(c *config, fs *flag.FlagSet) {
 	fs.StringVar(&c.Options.Runtime.Containerd.Namespace, "containerd-namespace", "tinkerbell", "Containerd namespace")
 	fs.StringVar(&c.Options.Runtime.Containerd.SocketPath, "containerd-socket", "/run/containerd/containerd.sock", "Containerd socket path")
 	fs.StringVar(&c.Options.Runtime.Containerd.DataRoot, "containerd-data-root", "/var/lib/nerdctl", "Root directory for nerdctl-compatible per-container state (json-file logs read by `nerdctl logs`)")
+}
+
+func RegisterKubernetesRuntimeFlags(c *config, fs *flag.FlagSet) {
+	fs.StringVar(&c.Options.Runtime.Kubernetes.Namespace, "kubernetes-namespace", "tinkerbell", "Namespace Action Jobs are created in")
+	fs.StringVar(&c.Options.Runtime.Kubernetes.Kubeconfig, "kubernetes-kubeconfig", "", "Path to a kubeconfig file; defaults to the in-cluster config")
 }
