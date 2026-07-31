@@ -15,6 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 )
@@ -101,6 +102,28 @@ func TestJobFor(t *testing.T) {
 						Spec: corev1.PodSpec{
 							RestartPolicy:                corev1.RestartPolicyNever,
 							ServiceAccountName:           "tink-agent",
+							AutomountServiceAccountToken: boolPtr(false),
+							Containers:                   []corev1.Container{{Name: "action", Image: "img"}},
+						},
+					},
+				},
+			},
+		},
+		"timeout sets ActiveDeadlineSeconds on the job": {
+			action: spec.Action{ID: "id7", Name: "n7", Image: "img", TimeoutSeconds: 90},
+			want: &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tinkerbell-n7-id7",
+					Namespace: "tinkerbell",
+					Labels:    map[string]string{actionIDLabel: "id7"},
+				},
+				Spec: batchv1.JobSpec{
+					BackoffLimit:          int32Ptr(0),
+					ActiveDeadlineSeconds: int64Ptr(90),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{actionIDLabel: "id7"}},
+						Spec: corev1.PodSpec{
+							RestartPolicy:                corev1.RestartPolicyNever,
 							AutomountServiceAccountToken: boolPtr(false),
 							Containers:                   []corev1.Container{{Name: "action", Image: "img"}},
 						},
@@ -235,6 +258,42 @@ func TestExecute_ContextCancelled(t *testing.T) {
 	}
 	if len(jobs.Items) != 0 {
 		t.Fatalf("expected job to be deleted, found %d", len(jobs.Items))
+	}
+}
+
+// TestWaitForPod_ReconnectsAfterWatchCloses verifies that a watch closing for a benign reason
+// (API server watch timeout, resourceVersion expiry, transient network blip) is not treated as a
+// fatal error: waitForPod must re-list and re-establish the watch instead of failing a
+// long-running Action just because its watch aged out.
+func TestWaitForPod_ReconnectsAfterWatchCloses(t *testing.T) {
+	runningPod := podWithContainerState("action-7", "tinkerbell", corev1.PodRunning, nil)
+	terminatedPod := podWithContainerState("action-7", "tinkerbell", corev1.PodSucceeded, &corev1.ContainerStateTerminated{ExitCode: 0})
+
+	client := fake.NewSimpleClientset(runningPod)
+
+	var watches atomic.Int32
+	client.PrependWatchReactor("pods", func(_ clienttesting.Action) (bool, watch.Interface, error) {
+		fw := watch.NewFake()
+		if watches.Add(1) == 1 {
+			// First watch: close immediately, simulating a benign disconnect.
+			fw.Stop()
+			return true, fw, nil
+		}
+		// Second watch: deliver the terminated pod.
+		go fw.Modify(terminatedPod)
+		return true, fw, nil
+	})
+
+	c := &Config{Log: logr.Discard(), Client: client, Namespace: "tinkerbell"}
+	got, err := c.waitForPod(context.Background(), "action-7")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !podTerminated(got) {
+		t.Fatalf("expected a terminated pod, got %+v", got)
+	}
+	if n := watches.Load(); n < 2 {
+		t.Fatalf("expected waitForPod to reconnect after the first watch closed, got %d watch call(s)", n)
 	}
 }
 

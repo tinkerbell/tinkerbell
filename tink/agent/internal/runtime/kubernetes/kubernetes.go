@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -193,6 +194,11 @@ func (c *Config) jobFor(a spec.Action) (*batchv1.Job, error) {
 		},
 		Spec: batchv1.JobSpec{
 			BackoffLimit: &backoffLimit,
+			// A backstop independent of the Agent's own liveness: if the Agent pod is OOM-killed,
+			// crashes, or restarts mid-Execute, this Job would otherwise be orphaned with nothing
+			// enforcing the Action's timeout or cleaning it up. nil (unset) if the Action has no
+			// timeout, matching the Agent's own ctx-based behavior.
+			ActiveDeadlineSeconds: activeDeadlineSeconds(a),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{actionIDLabel: a.ID},
@@ -214,45 +220,82 @@ func (c *Config) jobFor(a spec.Action) (*batchv1.Job, error) {
 	}, nil
 }
 
+// activeDeadlineSeconds returns nil if the Action has no timeout, so the Job never gets an
+// ActiveDeadlineSeconds it wasn't asked for.
+func activeDeadlineSeconds(a spec.Action) *int64 {
+	if a.TimeoutSeconds <= 0 {
+		return nil
+	}
+	return int64Ptr(int64(a.TimeoutSeconds))
+}
+
+// watchReconnectBackoff bounds how long waitForPod waits before re-listing and re-establishing a
+// watch after one closes for a benign reason, so a persistent connectivity problem can't turn into
+// a tight List/Watch loop hammering the API server.
+const watchReconnectBackoff = time.Second
+
 // waitForPod blocks until the Action's Job Pod reaches a terminal state (a container has
 // terminated, or the Pod itself failed/succeeded without ever reporting a container status, e.g.
-// ImagePullBackOff) and returns it.
+// ImagePullBackOff) and returns it. A watch closing on its own — API server watch timeouts,
+// resourceVersion expiry, and transient network interruptions all do this routinely — is not
+// treated as fatal: waitForPod re-lists and re-establishes the watch instead, so a long-running
+// Action can't fail spuriously just because its watch aged out.
 func (c *Config) waitForPod(ctx context.Context, actionID string) (*corev1.Pod, error) {
 	pods := c.Client.CoreV1().Pods(c.Namespace)
 	selector := fmt.Sprintf("%s=%s", actionIDLabel, actionID)
 
-	// Check first in case the Pod already reached a terminal state before the watch below is
-	// established (e.g. a very fast-exiting container).
-	list, err := pods.List(ctx, metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		return nil, fmt.Errorf("kubernetes: listing pods: %w", err)
-	}
-	for i := range list.Items {
-		if podTerminated(&list.Items[i]) {
-			return &list.Items[i], nil
+	for {
+		// Check first in case the Pod already reached a terminal state before the watch below is
+		// (re-)established (e.g. a very fast-exiting container).
+		list, err := pods.List(ctx, metav1.ListOptions{LabelSelector: selector})
+		if err != nil {
+			return nil, fmt.Errorf("kubernetes: listing pods: %w", err)
+		}
+		for i := range list.Items {
+			if podTerminated(&list.Items[i]) {
+				return &list.Items[i], nil
+			}
+		}
+
+		pod, closed, err := c.watchForTerminatedPod(ctx, pods, selector, list.ResourceVersion)
+		if err != nil {
+			return nil, err
+		}
+		if !closed {
+			return pod, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(watchReconnectBackoff):
 		}
 	}
+}
 
-	w, err := pods.Watch(ctx, metav1.ListOptions{LabelSelector: selector, ResourceVersion: list.ResourceVersion})
+// watchForTerminatedPod watches until the Action's Pod terminates or the watch itself closes.
+// closed is true only in the latter case, in which case pod and err are both nil.
+func (c *Config) watchForTerminatedPod(ctx context.Context, pods corev1client.PodInterface, selector, resourceVersion string) (pod *corev1.Pod, closed bool, err error) {
+	w, err := pods.Watch(ctx, metav1.ListOptions{LabelSelector: selector, ResourceVersion: resourceVersion})
 	if err != nil {
-		return nil, fmt.Errorf("kubernetes: watching pods: %w", err)
+		return nil, false, fmt.Errorf("kubernetes: watching pods: %w", err)
 	}
 	defer w.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, false, ctx.Err()
 		case event, ok := <-w.ResultChan():
 			if !ok {
-				return nil, fmt.Errorf("kubernetes: watch closed before pod for action %s terminated", actionID)
+				return nil, true, nil
 			}
 			pod, ok := event.Object.(*corev1.Pod)
 			if !ok {
 				continue
 			}
 			if podTerminated(pod) {
-				return pod, nil
+				return pod, false, nil
 			}
 		}
 	}
@@ -330,6 +373,8 @@ func convEnv(envs []spec.Env) []corev1.EnvVar {
 }
 
 func boolPtr(v bool) *bool { return &v }
+
+func int64Ptr(v int64) *int64 { return &v }
 
 var invalidJobNameChars = regexp.MustCompile(`[^a-z0-9-]`)
 

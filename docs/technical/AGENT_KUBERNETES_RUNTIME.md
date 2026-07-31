@@ -37,6 +37,14 @@ tink-agent -id=abcd -transport=grpc -grpc-server=tink-server.tinkerbell.svc.clus
 | `-kubernetes-kubeconfig` | *(empty)* | Path to a kubeconfig file. Leave empty to use the in-cluster config — the expected setup when the Agent itself runs as a pod in the cluster it's creating `Job`s in. |
 | `-kubernetes-service-account` | *(empty)* | ServiceAccount the Action `Job`'s pod runs as. Kubernetes does **not** propagate the Agent's own ServiceAccount to objects it creates, so leaving this empty means the `Job` pod runs as the namespace's `default` ServiceAccount, not the Agent's. Set this to the Agent's own ServiceAccount name (e.g. `tink-agent`) to reuse the imagePullSecrets configured on it. |
 
+## Timeouts
+
+An Action's `timeoutSeconds` bounds both the Agent's own wait (as with every other runtime) and,
+independently, the Job's `activeDeadlineSeconds`. The latter is a backstop enforced by the cluster
+itself (kubelet/kube-controller-manager): if the Agent pod is OOM-killed, crashes, or restarts
+mid-Action, the Job would otherwise be orphaned with nothing left to enforce the timeout or clean
+it up.
+
 ## Unsupported Action fields
 
 Because a `Job`'s Pod can land on any node, some Action fields have no safe Kubernetes equivalent
