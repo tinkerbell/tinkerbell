@@ -1,13 +1,10 @@
 package workflow
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"text/template"
 
-	"github.com/Masterminds/sprig/v3"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
@@ -245,16 +242,10 @@ func templateActions(actions []bmc.Action, hw *v1alpha1.Hardware) ([]bmc.Action,
 
 // templateString executes a Go template string with the provided data.
 func templateString(tmplStr string, data templateData) (string, error) {
-	// Use Sprig hermetic functions for template operations (includes replace, etc.)
-	tmpl, err := template.New("action").Funcs(sprig.HermeticTxtFuncMap()).Funcs(templateFuncs).Parse(tmplStr)
+	rendered, err := renderTemplate("action", tmplStr, data)
 	if err != nil {
 		return "", err
 	}
 
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return string(rendered), nil
 }

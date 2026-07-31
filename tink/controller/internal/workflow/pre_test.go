@@ -730,6 +730,26 @@ func TestTemplateStringYamlFuncs(t *testing.T) {
 			data:    templateData{},
 			wantErr: true,
 		},
+		"env func is disabled": {
+			tmplStr: `{{ env "PATH" }}`,
+			data:    templateData{},
+			wantErr: true,
+		},
+		"expandenv func is disabled": {
+			tmplStr: `{{ expandenv "$PATH" }}`,
+			data:    templateData{},
+			wantErr: true,
+		},
+		"missing map key errors": {
+			tmplStr: `{{ .Hardware.References.missing }}`,
+			data:    templateData{},
+			wantErr: true,
+		},
+		"oversized output errors": {
+			tmplStr: `{{ repeat 300000 "a" }}`,
+			data:    templateData{},
+			wantErr: true,
+		},
 	}
 
 	for name, tt := range tests {

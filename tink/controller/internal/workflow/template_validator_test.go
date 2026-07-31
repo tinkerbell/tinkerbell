@@ -334,3 +334,43 @@ tasks:
 	env := wf.Tasks[0].Actions[0].Environment
 	assert.Equal(t, "worker-1", env["HOSTNAME"])
 }
+
+func TestRenderTemplateHardwareDisallowsUnsafeFuncs(t *testing.T) {
+	for _, fn := range []string{`{{ env "PATH" }}`, `{{ expandenv "$PATH" }}`, `{{ getHostByName "localhost" }}`} {
+		tmpl := `
+version: "0.1"
+name: unsafe_func_workflow
+global_timeout: 600
+tasks:
+  - name: "provision"
+    worker: "{{.device_1}}"
+    actions:
+    - name: "apply-config"
+      image: apply-config
+      timeout: 60
+      environment:
+        VALUE: "` + fn + `"
+`
+		_, err := renderTemplateHardware("test-unsafe", tmpl, map[string]interface{}{"device_1": "08:00:27:00:00:01"})
+		assert.Error(t, err, "expected %q to be disabled", fn)
+	}
+}
+
+func TestRenderTemplateHardwareRejectsOversizedOutput(t *testing.T) {
+	tmpl := `
+version: "0.1"
+name: oversized_workflow
+global_timeout: 600
+tasks:
+  - name: "provision"
+    worker: "{{.device_1}}"
+    actions:
+    - name: "apply-config"
+      image: apply-config
+      timeout: 60
+      environment:
+        VALUE: "{{ repeat 300000 "a" }}"
+`
+	_, err := renderTemplateHardware("test-oversized", tmpl, map[string]interface{}{"device_1": "08:00:27:00:00:01"})
+	assert.ErrorContains(t, err, "exceeds")
+}
