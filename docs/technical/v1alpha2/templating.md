@@ -4,7 +4,7 @@ When a Workflow is created, Tinkerbell renders the Hardware, Workflow, and Tasks
 
 ## Background
 
-Tinkerbell renders `Hardware`, `Workflow`, and `Task` objects with [Go `text/template`](https://pkg.go.dev/text/template) plus the [Sprig](https://masterminds.github.io/sprig/) function library (the same engine used by v1alpha1). Template expressions are written inline as `{{ ... }}` within string fields and are evaluated at render time, before the object is used.
+Tinkerbell renders `Hardware`, `Workflow`, and `Task` objects with [Go `text/template`](https://pkg.go.dev/text/template) plus the [Sprig](https://masterminds.github.io/sprig/) function library (the same engine used by v1alpha1). Only Sprig's [hermetic functions](https://masterminds.github.io/sprig/) are enabled; non-repeatable and host-dependent functions such as `env`, `expandenv`, and `getHostByName` are disabled for security. Template expressions are written inline as `{{ ... }}` within string fields and are evaluated at render time, before the object is used.
 
 This document describes the top-level data available to templates in the `Hardware`, `Workflow`, and `Task` objects, how rendering is ordered, and the constraints the Kubernetes API places on where templating can be used.
 

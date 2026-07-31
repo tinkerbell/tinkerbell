@@ -1,12 +1,9 @@
 package workflow
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"text/template"
 
-	"github.com/Masterminds/sprig/v3"
 	"github.com/distribution/reference"
 	"gopkg.in/yaml.v3"
 )
@@ -33,24 +30,12 @@ func parse(yamlContent []byte) (*Workflow, error) {
 
 // renderTemplateHardware renders the workflow template and returns the Workflow and the interpolated bytes.
 func renderTemplateHardware(templateID, templateData string, hardware map[string]interface{}) (*Workflow, error) {
-	t := template.New("workflow-template").
-		Option("missingkey=error").
-		Funcs(sprig.FuncMap()).
-		Funcs(templateFuncs)
-
-	_, err := t.Parse(templateData)
+	rendered, err := renderTemplate("workflow-template", templateData, hardware)
 	if err != nil {
-		err = fmt.Errorf("%s: err: %w", fmt.Sprintf(errTemplateParsing, templateID), err)
-		return nil, err
+		return nil, fmt.Errorf("%s: err: %w", fmt.Sprintf(errTemplateParsing, templateID), err)
 	}
 
-	var buf bytes.Buffer
-	if err := t.Execute(&buf, hardware); err != nil {
-		err = fmt.Errorf("%s: err: %w", fmt.Sprintf(errTemplateParsing, templateID), err)
-		return nil, err
-	}
-
-	wf, err := parse(buf.Bytes())
+	wf, err := parse(rendered)
 	if err != nil {
 		return nil, err
 	}
