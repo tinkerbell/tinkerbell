@@ -19,6 +19,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -107,7 +108,9 @@ func restConfig(kubeconfig string) (*rest.Config, error) {
 // Execute creates a Job for the Action, waits for its Pod to terminate, streams the Pod's logs,
 // and returns nil on a zero exit code or a descriptive error otherwise. The Job (and its Pod) are
 // always deleted, and confirmed gone, before Execute returns, so a retried Action (same ID, same
-// deterministic Job name) never races its own predecessor's still-terminating Job.
+// deterministic Job name) never races its own predecessor's still-terminating Job. If a Job with
+// that name already exists — a leftover from a previous Agent process that crashed or restarted
+// before its own cleanup ran — Execute adopts it via adoptExistingJob instead of failing outright.
 func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	job, err := c.jobFor(a)
 	if err != nil {
@@ -116,6 +119,9 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 
 	jobs := c.Client.BatchV1().Jobs(c.Namespace)
 	created, err := jobs.Create(ctx, job, metav1.CreateOptions{})
+	if apierrors.IsAlreadyExists(err) {
+		created, err = c.adoptExistingJob(ctx, jobs, job.Name, a.ID, err)
+	}
 	if err != nil {
 		return fmt.Errorf("kubernetes: creating job: %w", err)
 	}
@@ -136,6 +142,22 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	c.streamLogs(pod.Name)
 
 	return exitError(pod)
+}
+
+// adoptExistingJob recovers from a Jobs.Create AlreadyExists conflict by checking whether the
+// existing Job belongs to this same Action (its action-id label matches). If so, it's a leftover
+// from a previous Agent process that crashed or restarted before its deferred cleanup could run:
+// Execute can safely observe it instead of failing the Action permanently just because its
+// deterministic name (see jobName) is already taken. If the existing Job belongs to a different
+// Action — a rare name-truncation collision — or can't be fetched, createErr is returned unchanged
+// so the caller never touches a Job it doesn't own.
+func (c *Config) adoptExistingJob(ctx context.Context, jobs batchv1client.JobInterface, name, actionID string, createErr error) (*batchv1.Job, error) {
+	existing, err := jobs.Get(ctx, name, metav1.GetOptions{})
+	if err != nil || existing.Labels[actionIDLabel] != actionID {
+		return nil, createErr
+	}
+	c.Log.Info("adopting existing job left over from a previous attempt", "job", existing.Name)
+	return existing, nil
 }
 
 // deleteJob issues a foreground-propagation delete and then waits for the Job to actually
@@ -274,7 +296,10 @@ func (c *Config) waitForPod(ctx context.Context, actionID string) (*corev1.Pod, 
 }
 
 // watchForTerminatedPod watches until the Action's Pod terminates or the watch itself closes.
-// closed is true only in the latter case, in which case pod and err are both nil.
+// closed is true only in the latter case, in which case pod and err are both nil. A watch.Error
+// event (e.g. a 410 Gone from a resourceVersion that aged out) is treated the same as a closed
+// channel rather than silently ignored: waitForPod re-lists and re-establishes the watch after a
+// short backoff, instead of waiting out the rest of ctx for no reason.
 func (c *Config) watchForTerminatedPod(ctx context.Context, pods corev1client.PodInterface, selector, resourceVersion string) (pod *corev1.Pod, closed bool, err error) {
 	w, err := pods.Watch(ctx, metav1.ListOptions{LabelSelector: selector, ResourceVersion: resourceVersion})
 	if err != nil {
@@ -288,6 +313,10 @@ func (c *Config) watchForTerminatedPod(ctx context.Context, pods corev1client.Po
 			return nil, false, ctx.Err()
 		case event, ok := <-w.ResultChan():
 			if !ok {
+				return nil, true, nil
+			}
+			if event.Type == watch.Error {
+				c.Log.Info("pod watch reported an error, reconnecting", "error", apierrors.FromObject(event.Object))
 				return nil, true, nil
 			}
 			pod, ok := event.Object.(*corev1.Pod)
