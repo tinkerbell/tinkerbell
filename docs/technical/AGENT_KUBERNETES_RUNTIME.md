@@ -107,7 +107,9 @@ kubectl patch serviceaccount tink-agent -n tinkerbell \
 ```
 
 The `kubernetes` runtime itself never creates or reads Secrets, so no `secrets` RBAC verb is
-needed.
+needed. Action `Job` pods also never get a Kubernetes API token mounted
+(`automountServiceAccountToken: false`), regardless of which ServiceAccount they run as — only the
+Agent itself needs API access.
 
 ## Example Deployment
 

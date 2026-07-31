@@ -179,10 +179,10 @@ func TestExecute(t *testing.T) {
 		wantErr bool
 	}{
 		"success": {
-			pod: podWithContainerState("action-1", "tinkerbell", corev1.PodSucceeded, &corev1.ContainerStateTerminated{ExitCode: 0}),
+			pod: podWithContainerState("action-1", corev1.PodSucceeded, &corev1.ContainerStateTerminated{ExitCode: 0}),
 		},
 		"non-zero exit code": {
-			pod:     podWithContainerState("action-2", "tinkerbell", corev1.PodFailed, &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"}),
+			pod:     podWithContainerState("action-2", corev1.PodFailed, &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"}),
 			wantErr: true,
 		},
 		"failed with no container status": {
@@ -197,13 +197,13 @@ func TestExecute(t *testing.T) {
 			wantErr: true,
 		},
 		"success despite a terminated sidecar container listed first": {
-			pod: podWithContainers("action-5", "tinkerbell", corev1.PodSucceeded,
+			pod: podWithContainers("action-5", corev1.PodSucceeded,
 				corev1.ContainerStatus{Name: "istio-proxy", State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"}}},
 				corev1.ContainerStatus{Name: actionContainerName, State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 0}}},
 			),
 		},
 		"failure from the action container despite a healthy sidecar listed first": {
-			pod: podWithContainers("action-6", "tinkerbell", corev1.PodFailed,
+			pod: podWithContainers("action-6", corev1.PodFailed,
 				corev1.ContainerStatus{Name: "istio-proxy", State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 0}}},
 				corev1.ContainerStatus{Name: actionContainerName, State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"}}},
 			),
@@ -266,8 +266,8 @@ func TestExecute_ContextCancelled(t *testing.T) {
 // fatal error: waitForPod must re-list and re-establish the watch instead of failing a
 // long-running Action just because its watch aged out.
 func TestWaitForPod_ReconnectsAfterWatchCloses(t *testing.T) {
-	runningPod := podWithContainerState("action-7", "tinkerbell", corev1.PodRunning, nil)
-	terminatedPod := podWithContainerState("action-7", "tinkerbell", corev1.PodSucceeded, &corev1.ContainerStateTerminated{ExitCode: 0})
+	runningPod := podWithContainerState("action-7", corev1.PodRunning, nil)
+	terminatedPod := podWithContainerState("action-7", corev1.PodSucceeded, &corev1.ContainerStateTerminated{ExitCode: 0})
 
 	client := fake.NewSimpleClientset(runningPod)
 
@@ -331,17 +331,17 @@ func TestDeleteJob(t *testing.T) {
 	}
 }
 
-func podWithContainerState(actionID, namespace string, phase corev1.PodPhase, terminated *corev1.ContainerStateTerminated) *corev1.Pod {
-	return podWithContainers(actionID, namespace, phase,
+func podWithContainerState(actionID string, phase corev1.PodPhase, terminated *corev1.ContainerStateTerminated) *corev1.Pod {
+	return podWithContainers(actionID, phase,
 		corev1.ContainerStatus{Name: actionContainerName, State: corev1.ContainerState{Terminated: terminated}},
 	)
 }
 
-func podWithContainers(actionID, namespace string, phase corev1.PodPhase, statuses ...corev1.ContainerStatus) *corev1.Pod {
+func podWithContainers(actionID string, phase corev1.PodPhase, statuses ...corev1.ContainerStatus) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod-" + actionID,
-			Namespace: namespace,
+			Namespace: "tinkerbell",
 			Labels:    map[string]string{actionIDLabel: actionID},
 		},
 		Status: corev1.PodStatus{
