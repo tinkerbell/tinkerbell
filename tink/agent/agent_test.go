@@ -157,3 +157,36 @@ func TestRunHaltsOnPermanentWriteError(t *testing.T) {
 		t.Errorf("expected 2 Write calls, got %d", got)
 	}
 }
+
+func TestRuntimeTypeSet(t *testing.T) {
+	tests := map[string]struct {
+		in      string
+		want    RuntimeType
+		wantErr bool
+	}{
+		"lowercase docker":         {in: "docker", want: DockerRuntimeType},
+		"lowercase containerd":     {in: "containerd", want: ContainerdRuntimeType},
+		"lowercase kubernetes":     {in: "kubernetes", want: KubernetesRuntimeType},
+		"mixed case is normalized": {in: "Kubernetes", want: KubernetesRuntimeType},
+		"unknown value rejected":   {in: "bogus", wantErr: true},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var r RuntimeType
+			err := r.Set(tt.in)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if r != tt.want {
+				t.Errorf("Set(%q): got %q, want %q", tt.in, r, tt.want)
+			}
+		})
+	}
+}
