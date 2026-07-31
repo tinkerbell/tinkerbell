@@ -261,6 +261,66 @@ func TestExecute_ContextCancelled(t *testing.T) {
 	}
 }
 
+// TestExecute_AdoptsLeftoverJobFromSameAction verifies that Execute recovers from a Jobs.Create
+// AlreadyExists conflict when the existing Job belongs to this same Action: a leftover from a
+// previous Agent process that crashed or restarted before its own deferred cleanup could run.
+func TestExecute_AdoptsLeftoverJobFromSameAction(t *testing.T) {
+	actionID, name := "action-8", "n8"
+	leftoverJob := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobName(actionID, name),
+			Namespace: "tinkerbell",
+			Labels:    map[string]string{actionIDLabel: actionID},
+		},
+	}
+	terminatedPod := podWithContainerState(actionID, corev1.PodSucceeded, &corev1.ContainerStateTerminated{ExitCode: 0})
+
+	client := fake.NewSimpleClientset(leftoverJob, terminatedPod)
+	c := &Config{Log: logr.Discard(), Client: client, Namespace: "tinkerbell"}
+
+	if err := c.Execute(context.Background(), spec.Action{ID: actionID, Name: name, Image: "img"}); err != nil {
+		t.Fatalf("expected Execute to adopt the leftover job and succeed, got: %v", err)
+	}
+
+	jobs, jerr := client.BatchV1().Jobs("tinkerbell").List(context.Background(), metav1.ListOptions{})
+	if jerr != nil {
+		t.Fatalf("listing jobs: %v", jerr)
+	}
+	if len(jobs.Items) != 0 {
+		t.Fatalf("expected the adopted job to be cleaned up, found %d", len(jobs.Items))
+	}
+}
+
+// TestExecute_DoesNotAdoptDifferentActionsJob verifies that Execute does not touch an existing Job
+// whose deterministic name collides but whose action-id label belongs to a different Action (see
+// jobName's truncation-collision note): adopting it could mean observing, or worse deleting, a
+// Job for an unrelated, possibly still-running Action.
+func TestExecute_DoesNotAdoptDifferentActionsJob(t *testing.T) {
+	actionID, name := "action-9", "n9"
+	othersJob := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobName(actionID, name),
+			Namespace: "tinkerbell",
+			Labels:    map[string]string{actionIDLabel: "some-other-action"},
+		},
+	}
+
+	client := fake.NewSimpleClientset(othersJob)
+	c := &Config{Log: logr.Discard(), Client: client, Namespace: "tinkerbell"}
+
+	if err := c.Execute(context.Background(), spec.Action{ID: actionID, Name: name, Image: "img"}); err == nil {
+		t.Fatalf("expected Execute to fail rather than adopt a job belonging to a different action")
+	}
+
+	jobs, jerr := client.BatchV1().Jobs("tinkerbell").List(context.Background(), metav1.ListOptions{})
+	if jerr != nil {
+		t.Fatalf("listing jobs: %v", jerr)
+	}
+	if len(jobs.Items) != 1 || jobs.Items[0].Labels[actionIDLabel] != "some-other-action" {
+		t.Fatalf("expected the other action's job to be left untouched, got %+v", jobs.Items)
+	}
+}
+
 // TestWaitForPod_ReconnectsAfterWatchCloses verifies that a watch closing for a benign reason
 // (API server watch timeout, resourceVersion expiry, transient network blip) is not treated as a
 // fatal error: waitForPod must re-list and re-establish the watch instead of failing a
@@ -294,6 +354,43 @@ func TestWaitForPod_ReconnectsAfterWatchCloses(t *testing.T) {
 	}
 	if n := watches.Load(); n < 2 {
 		t.Fatalf("expected waitForPod to reconnect after the first watch closed, got %d watch call(s)", n)
+	}
+}
+
+// TestWaitForPod_ReconnectsAfterWatchError verifies that a watch.Error event (e.g. a 410 Gone from
+// a resourceVersion that aged out) is treated the same as a closed watch: waitForPod must re-list
+// and re-establish the watch immediately instead of silently ignoring the event and waiting out
+// the rest of ctx for no reason.
+func TestWaitForPod_ReconnectsAfterWatchError(t *testing.T) {
+	runningPod := podWithContainerState("action-11", corev1.PodRunning, nil)
+	terminatedPod := podWithContainerState("action-11", corev1.PodSucceeded, &corev1.ContainerStateTerminated{ExitCode: 0})
+
+	client := fake.NewSimpleClientset(runningPod)
+
+	var watches atomic.Int32
+	client.PrependWatchReactor("pods", func(_ clienttesting.Action) (bool, watch.Interface, error) {
+		fw := watch.NewFake()
+		if watches.Add(1) == 1 {
+			// First watch: deliver a watch.Error event, simulating a resourceVersion that aged
+			// out mid-watch (a 410 Gone).
+			go fw.Error(&metav1.Status{Status: metav1.StatusFailure, Reason: metav1.StatusReasonGone})
+			return true, fw, nil
+		}
+		// Second watch: deliver the terminated pod.
+		go fw.Modify(terminatedPod)
+		return true, fw, nil
+	})
+
+	c := &Config{Log: logr.Discard(), Client: client, Namespace: "tinkerbell"}
+	got, err := c.waitForPod(context.Background(), "action-11")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !podTerminated(got) {
+		t.Fatalf("expected a terminated pod, got %+v", got)
+	}
+	if n := watches.Load(); n < 2 {
+		t.Fatalf("expected waitForPod to reconnect after the watch error, got %d watch call(s)", n)
 	}
 }
 
