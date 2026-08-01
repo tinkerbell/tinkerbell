@@ -63,3 +63,92 @@ func TestSmeeConvertBindAddressPrecedence(t *testing.T) {
 		})
 	}
 }
+
+// TestSmeeConfig_Convert_TinkServerAddrPort verifies that a user-provided hostname or IP in
+// --ipxe-script-tink-server-addr-port is preserved, and that publicIP is only used as a
+// fallback for the host portion. Regression test for #531.
+func TestSmeeConfig_Convert_TinkServerAddrPort(t *testing.T) {
+	tests := []struct {
+		name          string
+		inputAddrPort string
+		publicIP      netip.Addr
+		want          string
+	}{
+		{
+			name:          "hostname with port preserved",
+			inputAddrPort: "reboot.example.com:443",
+			publicIP:      netip.MustParseAddr("192.168.1.100"),
+			want:          "reboot.example.com:443",
+		},
+		{
+			name:          "hostname without port gets default port",
+			inputAddrPort: "reboot.example.com",
+			publicIP:      netip.MustParseAddr("192.168.1.100"),
+			want:          "reboot.example.com:42113",
+		},
+		{
+			name:          "IP with port preserved",
+			inputAddrPort: "10.0.0.1:8080",
+			publicIP:      netip.MustParseAddr("192.168.1.100"),
+			want:          "10.0.0.1:8080",
+		},
+		{
+			name:          "empty input falls back to publicIP with default port",
+			inputAddrPort: "",
+			publicIP:      netip.MustParseAddr("192.168.1.100"),
+			want:          "192.168.1.100:42113",
+		},
+		{
+			name:          "only port specified falls back to publicIP for host",
+			inputAddrPort: ":443",
+			publicIP:      netip.MustParseAddr("192.168.1.100"),
+			want:          "192.168.1.100:443",
+		},
+		{
+			name:          "hostname preserved even when publicIP is unspecified",
+			inputAddrPort: "reboot.example.com",
+			publicIP:      netip.Addr{},
+			want:          "reboot.example.com:42113",
+		},
+		{
+			name:          "IPv6 literal with port keeps brackets",
+			inputAddrPort: "[2001:db8::1]:443",
+			publicIP:      netip.MustParseAddr("192.168.1.100"),
+			want:          "[2001:db8::1]:443",
+		},
+		{
+			name:          "IPv6 literal without port gets default port and keeps brackets",
+			inputAddrPort: "[2001:db8::1]",
+			publicIP:      netip.MustParseAddr("192.168.1.100"),
+			want:          "[2001:db8::1]:42113",
+		},
+		{
+			name:          "empty input with unspecified publicIP yields empty addr",
+			inputAddrPort: "",
+			publicIP:      netip.Addr{},
+			want:          "",
+		},
+		{
+			name:          "only port with unspecified publicIP yields empty addr",
+			inputAddrPort: ":443",
+			publicIP:      netip.Addr{},
+			want:          "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sc := &SmeeConfig{
+				Config: smee.NewConfig(smee.Config{}),
+			}
+			sc.Config.TinkServer.AddrPort = tt.inputAddrPort
+
+			var trustedProxies []netip.Prefix
+			sc.Convert(&trustedProxies, tt.publicIP, netip.Addr{}, smee.DefaultTinkServerPort)
+
+			if sc.Config.TinkServer.AddrPort != tt.want {
+				t.Errorf("TinkServer.AddrPort = %q, want %q", sc.Config.TinkServer.AddrPort, tt.want)
+			}
+		})
+	}
+}
