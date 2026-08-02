@@ -243,8 +243,9 @@ type TLS struct {
 }
 
 // NewConfig is a constructor for the Config struct. It will set default values for the Config struct.
+// Syslog and TFTP bind addresses remain unset unless provided in c.
 // Boolean fields are not set-able via c. To set boolean, modify the returned Config struct.
-func NewConfig(c Config, publicIP netip.Addr) *Config {
+func NewConfig(c Config) *Config {
 	defaults := &Config{
 		DHCP: DHCP{
 			Enabled:              true,
@@ -299,13 +300,11 @@ func NewConfig(c Config, publicIP netip.Addr) *Config {
 			PathPrefix: DefaultPXEHTTPPathPrefix,
 		},
 		Syslog: Syslog{
-			BindAddr: publicIP,
 			BindPort: DefaultSyslogPort,
 			Enabled:  true,
 		},
 		TFTP: TFTP{
 			AssetDir:   DefaultTFTPAssetDir,
-			BindAddr:   publicIP,
 			BindPort:   DefaultTFFTPPort,
 			BlockSize:  DefaultTFFTPBlockSize,
 			SinglePort: DefaultTFFTPSinglePort,
