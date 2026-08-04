@@ -189,6 +189,16 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 		return addr
 	}()
 
+	// Service-specific bind addresses take precedence over the global bind address.
+	if bindAddr.IsValid() {
+		if !s.Config.Syslog.BindAddr.IsValid() {
+			s.Config.Syslog.BindAddr = bindAddr
+		}
+		if !s.Config.TFTP.BindAddr.IsValid() {
+			s.Config.TFTP.BindAddr = bindAddr
+		}
+	}
+
 	// publicIP is used to set IPForPacket, SyslogIP, TFTPIP, IPXEHTTPBinaryURL.Host, IPXEHTTPScript.URL.Host, and TinkServer.AddrPort.
 	if publicIP.IsUnspecified() || !publicIP.IsValid() {
 		return
@@ -211,14 +221,6 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP netip.Addr
 		}
 		return fmt.Sprintf("%s:%s", publicIP.String(), port)
 	}()
-
-	// Set bind addresses if bindAddr is specified.
-	if bindAddr.IsValid() {
-		// syslog server
-		s.Config.Syslog.BindAddr = bindAddr
-		// TFTP server
-		s.Config.TFTP.BindAddr = bindAddr
-	}
 }
 
 func macAddrFormatParser(s string) (constant.MACFormat, error) {
