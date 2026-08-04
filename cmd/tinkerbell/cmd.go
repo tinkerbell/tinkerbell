@@ -70,7 +70,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 
 	s := &flag.SmeeConfig{
-		Config: smee.NewConfig(smee.Config{}, detectPublicIPv4()),
+		Config: smee.NewConfig(smee.Config{}),
 	}
 
 	h := &flag.TootlesConfig{
@@ -78,7 +78,6 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	}
 	ts := &flag.TinkServerConfig{
 		Config:   server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
-		BindAddr: detectPublicIPv4(),
 		BindPort: defaultTinkServerPort,
 	}
 	controllerOpts := []controller.Option{

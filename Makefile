@@ -242,6 +242,7 @@ helm-lint: ## Lint the Helm chart
 .PHONY: helm-template
 helm-template: ## Helm template for Tinkerbell
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" 2>&1 >/dev/null
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" --set "deployment.envs.globals.bindAddr=192.0.2.10" | grep -A1 "name: TINKERBELL_BIND_ADDRESS" | grep -F -q 'value: "192.0.2.10"'
 
 ######### Helm charts - end   #########
 
