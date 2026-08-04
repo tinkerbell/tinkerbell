@@ -3,8 +3,12 @@ package script
 // StaticScript is the iPXE script used when in the auto-proxy mode.
 // It is built to be generic enough for all hardware to use.
 var StaticScript = `#!ipxe
-
-set syslog {{ .SyslogHost }}
+{{- if .SyslogHost }}
+# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog).
+# Resolve the (possibly FQDN) syslog host to an IP and use that for the syslog target.
+nslookup syslogserver {{ .SyslogHost }}
+set syslog ${syslogserver}
+{{- end}}
 echo Loading the static Tinkerbell iPXE script...
 
 set arch ${buildarch}
