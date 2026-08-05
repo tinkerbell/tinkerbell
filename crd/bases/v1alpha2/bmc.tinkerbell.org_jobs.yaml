@@ -41,35 +41,16 @@ spec:
           metadata:
             type: object
           spec:
-            description: JobSpec defines the desired state of Job.
+            description: JobSpec defines the operations to be executed against a BMC.
             properties:
-              bmcRef:
-                description: |-
-                  BMCRef represents the BMC object that will be used for connection details when executing the Job.
-                  All the operations in the Job are executed for the same BMC.
-                  Mutually exclusive with Connection.
-                properties:
-                  name:
-                    description: Name of the object.
-                    type: string
-                  namespace:
-                    description: Namespace in which the object resides.
-                    type: string
-                required:
-                - name
-                - namespace
-                type: object
-                x-kubernetes-validations:
-                - message: name and namespace must both be non-empty or both be empty
-                  rule: (self.name != "") == (self.namespace != "")
               connection:
                 description: |-
                   Connection contains connection details that will be used for executing the Job.
-                  Mutually exclusive with BMCRef.
+                  Mutually exclusive with HardwareRef.
                 properties:
-                  authRef:
+                  credentialsRef:
                     description: |-
-                      AuthRef is the Secret object that contains authentication information of the Machine.
+                      CredentialsRef is the Secret object that contains authentication information of the Machine.
                       The Secret must contain username and password keys. This is optional as it is not required when using
                       the RPC provider.
                     properties:
@@ -273,9 +254,28 @@ spec:
                 required:
                 - host
                 type: object
+              hardwareRef:
+                description: |-
+                  HardwareRef represents the Hardware object that holds the connection details to be used for executing the Job.
+                  All the operations in the Job are executed for the same BMC.
+                  Mutually exclusive with Connection.
+                properties:
+                  name:
+                    description: Name of the object.
+                    type: string
+                  namespace:
+                    description: Namespace in which the object resides.
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+                x-kubernetes-validations:
+                - message: name and namespace must both be non-empty or both be empty
+                  rule: (self.name != "") == (self.namespace != "")
               operations:
                 description: |-
-                  Operations represents a list of baseboard management actions to be executed.
+                  Operations represents a list of BMC (baseboard management) operations to be executed.
                   The operations are executed sequentially. Controller waits for one operation to complete before executing the next.
                   If a single operation fails, job execution stops and sets condition Failed.
                   Condition Completed is set only if all the operations were successful.
@@ -290,14 +290,14 @@ spec:
                       description: BootDevice is the device to set as the first boot
                         device on the Machine.
                       properties:
-                        device:
-                          description: Device is the name of the device to set as
-                            the first boot device.
-                          type: string
                         efiBoot:
                           description: EFIBoot indicates whether the boot device should
                             be set to efiboot mode.
                           type: boolean
+                        name:
+                          description: Name is the name of the device to set as the
+                            first boot device.
+                          type: string
                         persistent:
                           description: Persistent indicates whether the boot device
                             should be set persistently as the first boot device.
@@ -347,11 +347,19 @@ spec:
             - operations
             type: object
             x-kubernetes-validations:
-            - message: bmcRef and connection are mutually exclusive
-              rule: '!(has(self.bmcRef) && has(self.connection))'
+            - message: hardwareRef and connection are mutually exclusive
+              rule: '!(has(self.hardwareRef) && has(self.connection))'
           status:
             description: JobStatus defines the observed state of Job.
             properties:
+              completedOperations:
+                description: |-
+                  CompletedOperations is the number of operations in the Job that have
+                  completed successfully. It is used to resume a partially completed Job
+                  after a controller restart or leadership change without re-running
+                  operations that already succeeded.
+                format: int32
+                type: integer
               completionTime:
                 description: |-
                   CompletionTime represents time when the job was completed.

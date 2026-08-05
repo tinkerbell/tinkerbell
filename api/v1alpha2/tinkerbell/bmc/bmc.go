@@ -46,11 +46,11 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 
 // Connection contains connection data for a Baseboard Management Controller.
 type Connection struct {
-	// AuthRef is the Secret object that contains authentication information of the Machine.
+	// CredentialsRef is the Secret object that contains authentication information of the Machine.
 	// The Secret must contain username and password keys. This is optional as it is not required when using
 	// the RPC provider.
 	// +optional
-	AuthRef SimpleReference `json:"authRef,omitempty"`
+	CredentialsRef SimpleReference `json:"credentialsRef,omitempty"`
 
 	// Host is the host IP address or hostname of the Machine.
 	// +kubebuilder:validation:MinLength=1

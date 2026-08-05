@@ -43,21 +43,21 @@ type JobList struct {
 	Items           []Job `json:"items"`
 }
 
-// JobSpec defines the desired state of Job.
-// +kubebuilder:validation:XValidation:rule="!(has(self.bmcRef) && has(self.connection))",message="bmcRef and connection are mutually exclusive"
+// JobSpec defines the operations to be executed against a BMC.
+// +kubebuilder:validation:XValidation:rule="!(has(self.hardwareRef) && has(self.connection))",message="hardwareRef and connection are mutually exclusive"
 type JobSpec struct {
-	// BMCRef represents the BMC object that will be used for connection details when executing the Job.
+	// HardwareRef represents the Hardware object that holds the connection details to be used for executing the Job.
 	// All the operations in the Job are executed for the same BMC.
 	// Mutually exclusive with Connection.
 	// +optional
-	BMCRef *SimpleReference `json:"bmcRef,omitempty"`
+	HardwareRef *SimpleReference `json:"hardwareRef,omitempty"`
 
 	// Connection contains connection details that will be used for executing the Job.
-	// Mutually exclusive with BMCRef.
+	// Mutually exclusive with HardwareRef.
 	// +optional
 	Connection *Connection `json:"connection,omitempty"`
 
-	// Operations represents a list of baseboard management actions to be executed.
+	// Operations represents a list of BMC (baseboard management) operations to be executed.
 	// The operations are executed sequentially. Controller waits for one operation to complete before executing the next.
 	// If a single operation fails, job execution stops and sets condition Failed.
 	// Condition Completed is set only if all the operations were successful.
@@ -80,6 +80,13 @@ type JobStatus struct {
 	// The completion time is only set when the job finishes successfully.
 	// +optional
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+
+	// CompletedOperations is the number of operations in the Job that have
+	// completed successfully. It is used to resume a partially completed Job
+	// after a controller restart or leadership change without re-running
+	// operations that already succeeded.
+	// +optional
+	CompletedOperations int32 `json:"completedOperations,omitempty"`
 }
 
 // SimpleReference is used to reference an object.

@@ -117,25 +117,18 @@ type WorkflowTask struct {
 	TaskRef SimpleReference `json:"taskRef,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="!(has(self.hardwareRef) && has(self.bmcRef))",message="hardwareRef and bmcRef are mutually exclusive"
-// +kubebuilder:validation:XValidation:rule="has(self.hardwareRef) || has(self.bmcRef)",message="at least one of hardwareRef or bmcRef must be specified"
+// +kubebuilder:validation:XValidation:rule="has(self.hardwareRef)",message="hardwareRef must be specified"
 type WorkflowHardware struct {
 	// BootOptions are options that control the booting of Hardware.
-	// These are only applicable when a HardwareRef or a BMCRef is provided.
+	// These are only applicable when a HardwareRef is provided.
+	// When specified, the BootOptions will be applied using the HardwareRef defined.
 	BootOptions BootOptions `json:"bootOptions,omitempty,omitzero"`
 
 	// HardwareRef is the Hardware object associated with this Task.
 	// This is used if the Task has templating that requires Hardware information.
-	// When specified, the BootOptions will be applied using the BMCRef defined in the Hardware object.
-	// Mutually exclusive with BMCRef.
+	// Must be specified if BootOptions are provided.
 	// +optional
 	HardwareRef *SimpleReference `json:"hardwareRef,omitempty"`
-
-	// BMCRef is the bmc.tinkerbell.org object associated with this Task.
-	// When specified, the BootOptions will be applied using this bmc.tinkerbell.org object.
-	// Mutually exclusive with HardwareRef.
-	// +optional
-	BMCRef *SimpleReference `json:"bmcRef,omitempty"`
 }
 
 // BootOptions are options that control the booting of Hardware.
@@ -149,7 +142,7 @@ type BootOptions struct {
 	// ISOURL is the URL of the ISO that will be one-time booted.
 	// When this field is set, a job.bmc.tinkerbell.org object will be created
 	// for getting the associated Hardware into a CDROM booting state.
-	// A Workflow Hardware Reference that contains a spec.reference.builtin.bmc must be provided.
+	// A Workflow Hardware Reference that contains a bmc must be provided.
 	// BootMode must be set to "isoboot".
 	// +optional
 	// +kubebuilder:validation:Format=uri

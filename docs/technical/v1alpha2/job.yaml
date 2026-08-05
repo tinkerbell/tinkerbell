@@ -5,12 +5,12 @@ metadata:
   name: example
   namespace: tinkerbell
 spec:
-  bmcRef:
+  hardwareRef:
     name: example
     namespace: tinkerbell
   #connection:
   #  host: 0.0.0.0
-  #  authRef:
+  #  credentialsRef:
   #    name: bm-auth
   #    namespace: tinkerbell
   #  insecureTLS: false
