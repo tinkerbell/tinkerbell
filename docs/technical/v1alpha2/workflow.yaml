@@ -52,7 +52,7 @@ spec:
                   kind: "CD"
                 timeoutSeconds: 60
               - bootDevice:
-                  device: "cdrom" # pxe, disk, bios, cdrom, safe
+                  name: "cdrom" # pxe, disk, bios, cdrom, safe
                   persistent: false
                   efiBoot: true
               - powerAction: "on" # on, off, soft, status, cycle, reset
@@ -62,7 +62,7 @@ spec:
                   mediaURL: "" # empty to eject media
                   kind: "CD"
               - bootDevice:
-                  device: "disk"
+                  name: "disk"
                   persistent: true
                   efiBoot: true
               - powerAction: "cycle" # on, off, soft, status, cycle, reset

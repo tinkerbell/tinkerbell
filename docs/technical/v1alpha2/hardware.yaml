@@ -209,16 +209,11 @@ spec:
             hdmi_safe=1
           firmwarePath: "captain-armbian-rpi/firmware-rpi"
   references:
-    additional:
-      "registryCert":
-        group: ""
-        name: "registry-ca-cert"
-        namespace: "tinkerbell"
-        resource: "secrets"
-        version: "v1"
-    builtin:
-      bmc:
-        name: "example"
-        namespace: "tinkerbell"
+    "registryCert":
+      group: ""
+      name: "registry-ca-cert"
+      namespace: "tinkerbell"
+      resource: "secrets"
+      version: "v1"
   storageDevices:
     - name: "/dev/sda"
