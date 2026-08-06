@@ -117,17 +117,17 @@ type WorkflowTask struct {
 	TaskRef SimpleReference `json:"taskRef,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="has(self.hardwareRef)",message="hardwareRef must be specified"
+// WorkflowHardware associates Hardware with a Task.
 type WorkflowHardware struct {
 	// BootOptions are options that control the booting of Hardware.
 	// These are only applicable when a HardwareRef is provided.
 	// When specified, the BootOptions will be applied using the HardwareRef defined.
-	BootOptions BootOptions `json:"bootOptions,omitempty,omitzero"`
+	// +optional
+	BootOptions *BootOptions `json:"bootOptions,omitempty,omitzero"`
 
 	// HardwareRef is the Hardware object associated with this Task.
 	// This is used if the Task has templating that requires Hardware information.
-	// Must be specified if BootOptions are provided.
-	// +optional
+	// +required
 	HardwareRef *SimpleReference `json:"hardwareRef,omitempty"`
 }
 
@@ -155,6 +155,7 @@ type BootOptions struct {
 
 	// Customboot is the configuration for the "customboot" boot mode.
 	// This allows users to define custom BMC Operations for pre and post a Task.
+	// +optional
 	Customboot *Customboot `json:"customboot,omitempty,omitzero"`
 }
 

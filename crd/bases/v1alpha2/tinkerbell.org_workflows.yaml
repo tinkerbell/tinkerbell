@@ -388,7 +388,6 @@ spec:
                           description: |-
                             HardwareRef is the Hardware object associated with this Task.
                             This is used if the Task has templating that requires Hardware information.
-                            Must be specified if BootOptions are provided.
                           properties:
                             name:
                               description: Name of the object.
@@ -402,10 +401,9 @@ spec:
                               both be empty
                             rule: (has(self.name) && self.name != "") == (has(self.namespace)
                               && self.namespace != "")
+                      required:
+                      - hardwareRef
                       type: object
-                      x-kubernetes-validations:
-                      - message: hardwareRef must be specified
-                        rule: has(self.hardwareRef)
                     taskRef:
                       description: TaskRef is the Task associated with this Workflow.
                       properties:

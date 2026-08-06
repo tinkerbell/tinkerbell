@@ -6,6 +6,7 @@ import (
 )
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:path=hardware,scope=Namespaced,categories=tinkerbell,singular=hardware,shortName=hw
 // +kubebuilder:storageversion
 // +kubebuilder:metadata:labels=clusterctl.cluster.x-k8s.io=
