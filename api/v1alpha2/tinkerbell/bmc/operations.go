@@ -38,9 +38,10 @@ type VirtualMediaAction struct {
 }
 
 // BootDeviceConfig represents the configuration for setting a boot device.
+// By default, the boot device is set for the next boot only. If Persistent is set to true, the boot device is set persistently as the first boot device.
 type BootDeviceConfig struct {
-	// Device is the name of the device to set as the first boot device.
-	Device BootDevice `json:"device,omitempty"`
+	// Name is the name of the device to set as the first boot device.
+	Name BootDevice `json:"name,omitempty"`
 
 	// Persistent indicates whether the boot device should be set persistently as the first boot device.
 	Persistent bool `json:"persistent,omitempty"`

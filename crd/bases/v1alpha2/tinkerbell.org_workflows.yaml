@@ -205,28 +205,11 @@ spec:
                       description: Hardware is the Hardware and options associated
                         with this Task.
                       properties:
-                        bmcRef:
-                          description: |-
-                            BMCRef is the bmc.tinkerbell.org object associated with this Task.
-                            When specified, the BootOptions will be applied using this bmc.tinkerbell.org object.
-                            Mutually exclusive with HardwareRef.
-                          properties:
-                            name:
-                              description: Name of the object.
-                              type: string
-                            namespace:
-                              description: Namespace where the object resides.
-                              type: string
-                          type: object
-                          x-kubernetes-validations:
-                          - message: name and namespace must both be specified or
-                              both be empty
-                            rule: (has(self.name) && self.name != "") == (has(self.namespace)
-                              && self.namespace != "")
                         bootOptions:
                           description: |-
                             BootOptions are options that control the booting of Hardware.
-                            These are only applicable when a HardwareRef or a BMCRef is provided.
+                            These are only applicable when a HardwareRef is provided.
+                            When specified, the BootOptions will be applied using the HardwareRef defined.
                           properties:
                             bootMode:
                               description: BootMode is the type of booting that will
@@ -257,15 +240,15 @@ spec:
                                         description: BootDevice is the device to set
                                           as the first boot device on the Machine.
                                         properties:
-                                          device:
-                                            description: Device is the name of the
-                                              device to set as the first boot device.
-                                            type: string
                                           efiBoot:
                                             description: EFIBoot indicates whether
                                               the boot device should be set to efiboot
                                               mode.
                                             type: boolean
+                                          name:
+                                            description: Name is the name of the device
+                                              to set as the first boot device.
+                                            type: string
                                           persistent:
                                             description: Persistent indicates whether
                                               the boot device should be set persistently
@@ -328,15 +311,15 @@ spec:
                                         description: BootDevice is the device to set
                                           as the first boot device on the Machine.
                                         properties:
-                                          device:
-                                            description: Device is the name of the
-                                              device to set as the first boot device.
-                                            type: string
                                           efiBoot:
                                             description: EFIBoot indicates whether
                                               the boot device should be set to efiboot
                                               mode.
                                             type: boolean
+                                          name:
+                                            description: Name is the name of the device
+                                              to set as the first boot device.
+                                            type: string
                                           persistent:
                                             description: Persistent indicates whether
                                               the boot device should be set persistently
@@ -390,7 +373,7 @@ spec:
                                 ISOURL is the URL of the ISO that will be one-time booted.
                                 When this field is set, a job.bmc.tinkerbell.org object will be created
                                 for getting the associated Hardware into a CDROM booting state.
-                                A Workflow Hardware Reference that contains a spec.reference.builtin.bmc must be provided.
+                                A Workflow Hardware Reference that contains a bmc must be provided.
                                 BootMode must be set to "isoboot".
                               format: uri
                               type: string
@@ -405,8 +388,7 @@ spec:
                           description: |-
                             HardwareRef is the Hardware object associated with this Task.
                             This is used if the Task has templating that requires Hardware information.
-                            When specified, the BootOptions will be applied using the BMCRef defined in the Hardware object.
-                            Mutually exclusive with BMCRef.
+                            Required when BootOptions is set.
                           properties:
                             name:
                               description: Name of the object.
@@ -422,10 +404,8 @@ spec:
                               && self.namespace != "")
                       type: object
                       x-kubernetes-validations:
-                      - message: hardwareRef and bmcRef are mutually exclusive
-                        rule: '!(has(self.hardwareRef) && has(self.bmcRef))'
-                      - message: at least one of hardwareRef or bmcRef must be specified
-                        rule: has(self.hardwareRef) || has(self.bmcRef)
+                      - message: hardwareRef is required when bootOptions is set
+                        rule: '!has(self.bootOptions) || has(self.hardwareRef)'
                     taskRef:
                       description: TaskRef is the Task associated with this Workflow.
                       properties:

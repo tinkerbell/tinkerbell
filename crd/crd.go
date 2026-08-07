@@ -64,7 +64,6 @@ var TinkerbellDefaults = map[string][]byte{
 var TinkerbellV1Alpha2 = map[string][]byte{
 	"hardware.tinkerbell.org":  mustReadCRD("bases/v1alpha2/tinkerbell.org_hardware.yaml"),
 	"tasks.tinkerbell.org":     mustReadCRD("bases/v1alpha2/tinkerbell.org_tasks.yaml"),
-	"bmcs.tinkerbell.org":      mustReadCRD("bases/v1alpha2/tinkerbell.org_bmcs.yaml"),
 	"workflows.tinkerbell.org": mustReadCRD("bases/v1alpha2/tinkerbell.org_workflows.yaml"),
 	"policies.tinkerbell.org":  mustReadCRD("bases/v1alpha2/tinkerbell.org_policies.yaml"),
 	"jobs.bmc.tinkerbell.org":  mustReadCRD("bases/v1alpha2/bmc.tinkerbell.org_jobs.yaml"),

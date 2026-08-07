@@ -209,14 +209,25 @@ out/.manifests-v1alpha2.stamp: $(CONTROLLER_GEN_FQP) $(V1ALPHA2_API_SOURCES)
 
 manifests: manifests-v1alpha1 manifests-v1alpha2 ## Generate all CRDs
 
-generate-deepcopy: out/.generate-deepcopy.stamp ## Generate DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-out/.generate-deepcopy.stamp: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES) $(V1ALPHA2_API_SOURCES) script/boilerplate.go.txt
-	$(CONTROLLER_GEN_FQP) object:headerFile="script/boilerplate.go.txt" paths="./..."
+# The generated files are the real targets (not a stamp) so that deleting any
+# one of them re-triggers generation. A grouped-target rule (&:, GNU Make 4.3+)
+# tells Make a single controller-gen invocation produces all of them at once.
+DEEPCOPY_FILES := \
+		api/v1alpha1/tinkerbell/zz_generated.deepcopy.go \
+		api/v1alpha1/bmc/zz_generated.deepcopy.go \
+		api/v1alpha2/tinkerbell/zz_generated.deepcopy.go \
+		api/v1alpha2/tinkerbell/bmc/zz_generated.deepcopy.go \
+
+generate-deepcopy: $(DEEPCOPY_FILES) ## Generate DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+# controller-gen must run inside the nested api/ module: every +kubebuilder:object
+# type lives in the github.com/tinkerbell/tinkerbell/api module, which the root
+# module's ./... expansion excludes, so running from the repo root generates nothing.
+$(DEEPCOPY_FILES) &: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES) $(V1ALPHA2_API_SOURCES) api/boilerplate.go.txt
+	(cd api; $(CONTROLLER_GEN_FQP) object:headerFile="boilerplate.go.txt" paths="./...")
 	$(MAKE) fmt
-	@touch $@
 
 generate: out/.generate.stamp ## Run all code generation steps
-out/.generate.stamp: out/.generate-deepcopy.stamp out/.generate-proto.stamp out/.generate-go.stamp out/.ui-generate.stamp out/.manifests-v1alpha1.stamp out/.manifests-v1alpha2.stamp
+out/.generate.stamp: $(DEEPCOPY_FILES) out/.generate-proto.stamp out/.generate-go.stamp out/.ui-generate.stamp out/.manifests-v1alpha1.stamp out/.manifests-v1alpha2.stamp
 	@touch $@
 
 .PHONY: dep-graph
@@ -285,7 +296,7 @@ clean-tools: ## Remove all tools
 .PHONY: clean-all
 clean-all: clean clean-agent clean-tools ## Remove all binaries and tools
 	rm -f out/.manifests-v1alpha1.stamp out/.manifests-v1alpha2.stamp
-	rm -f out/.generate-deepcopy.stamp out/.generate-proto.stamp out/.generate-go.stamp
+	rm -f out/.generate-proto.stamp out/.generate-go.stamp
 	rm -f out/.ui-install-deps.stamp out/.ui-templ.stamp out/.ui-css.stamp out/.ui-generate.stamp out/.generate.stamp
 
 ############## Tools ##############

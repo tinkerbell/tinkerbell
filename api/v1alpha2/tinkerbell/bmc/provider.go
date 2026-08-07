@@ -14,7 +14,7 @@ const (
 	ProviderNameOpenBMC    ProviderName = "openbmc"
 )
 
-// ProviderOptions hold provider specific configurable options.
+// ProviderOptions holds provider specific configurable options.
 type ProviderOptions struct {
 	// PreferredOrder allows customizing the order that BMC providers are called.
 	// Providers added to this list will be moved to the front of the default order.
