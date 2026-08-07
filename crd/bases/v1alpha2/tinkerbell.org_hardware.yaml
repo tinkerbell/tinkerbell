@@ -88,9 +88,9 @@ spec:
                 properties:
                   credentialsRef:
                     description: |-
-                      CredentialsRef is the Secret object that contains authentication information of the Machine.
-                      The Secret must contain username and password keys. This is optional as it is not required when using
-                      the RPC provider.
+                      CredentialsRef is the Secret object that contains credentials for authenticating to the BMC.
+                      The Secret must contain username and password keys.
+                      This is optional as it is not required when using the RPC provider.
                     properties:
                       name:
                         description: Name of the object.
@@ -107,11 +107,12 @@ spec:
                         empty
                       rule: (self.name != "") == (self.namespace != "")
                   host:
-                    description: Host is the host IP address or hostname of the Machine.
+                    description: Host is the IP address or hostname of the BMC.
                     minLength: 1
                     type: string
                   insecureTLS:
-                    description: InsecureTLS specifies trusted TLS connections.
+                    description: InsecureTLS indicates whether to skip TLS certificate
+                      verification when connecting to the BMC.
                     type: boolean
                   providerOptions:
                     description: ProviderOptions contains provider specific options.
@@ -814,7 +815,7 @@ spec:
                       type: string
                     observedGeneration:
                       description: |-
-                        ObservedGeneration is the generation of the Machine that was last observed by the controller.
+                        ObservedGeneration is the generation of the BMC that was last observed by the controller.
                         It is used to determine if the condition is up to date with the latest changes.
                       format: int64
                       type: integer
