@@ -118,6 +118,7 @@ type WorkflowTask struct {
 }
 
 // WorkflowHardware associates Hardware with a Task.
+// +kubebuilder:validation:XValidation:rule="!has(self.bootOptions) || has(self.hardwareRef)",message="hardwareRef is required when bootOptions is set"
 type WorkflowHardware struct {
 	// BootOptions are options that control the booting of Hardware.
 	// These are only applicable when a HardwareRef is provided.
@@ -127,7 +128,8 @@ type WorkflowHardware struct {
 
 	// HardwareRef is the Hardware object associated with this Task.
 	// This is used if the Task has templating that requires Hardware information.
-	// +required
+	// Required when BootOptions is set.
+	// +optional
 	HardwareRef *SimpleReference `json:"hardwareRef,omitempty"`
 }
 
