@@ -46,17 +46,17 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 
 // Connection contains connection data for a Baseboard Management Controller.
 type Connection struct {
-	// AuthRef is the Secret object that contains authentication information of the Machine.
-	// The Secret must contain username and password keys. This is optional as it is not required when using
-	// the RPC provider.
+	// CredentialsRef is the Secret object that contains credentials for authenticating to the BMC.
+	// The Secret must contain username and password keys.
+	// This is optional as it is not required when using the RPC provider.
 	// +optional
-	AuthRef SimpleReference `json:"authRef,omitempty"`
+	CredentialsRef SimpleReference `json:"credentialsRef,omitempty"`
 
-	// Host is the host IP address or hostname of the Machine.
+	// Host is the IP address or hostname of the BMC.
 	// +kubebuilder:validation:MinLength=1
 	Host string `json:"host"`
 
-	// InsecureTLS specifies trusted TLS connections.
+	// InsecureTLS indicates whether to skip TLS certificate verification when connecting to the BMC.
 	// +optional
 	InsecureTLS bool `json:"insecureTLS,omitempty"`
 
@@ -70,11 +70,11 @@ type ConditionType string
 type ConditionStatus string
 
 const (
-	ConditionTypeMachineContactable ConditionType = "Contactable"
-	ConditionTypeMachinePowerState  ConditionType = "PowerState"
-	ConditionTypeCompleted          ConditionType = "Completed"
-	ConditionTypeFailed             ConditionType = "Failed"
-	ConditionTypeRunning            ConditionType = "Running"
+	ConditionTypeBMCContactable ConditionType = "Contactable"
+	ConditionTypeBMCPowerState  ConditionType = "PowerState"
+	ConditionTypeCompleted      ConditionType = "Completed"
+	ConditionTypeFailed         ConditionType = "Failed"
+	ConditionTypeRunning        ConditionType = "Running"
 
 	ConditionStatusTrue    ConditionStatus = "True"
 	ConditionStatusFalse   ConditionStatus = "False"
@@ -98,12 +98,12 @@ type Condition struct {
 	// LastUpdateTime of the condition.
 	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
 
-	// ObservedGeneration is the generation of the Machine that was last observed by the controller.
+	// ObservedGeneration is the generation of the BMC that was last observed by the controller.
 	// It is used to determine if the condition is up to date with the latest changes.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-// HasCondition checks if the cType condition is present with status cStatus on a bmt.
+// HasCondition checks if the cType condition is present with status cStatus on a BMC.
 func HasConditionStatus(existingConditions []Condition, ct ConditionType, cs ConditionStatus) bool {
 	for _, c := range existingConditions {
 		if c.Type == ct {
@@ -115,7 +115,7 @@ func HasConditionStatus(existingConditions []Condition, ct ConditionType, cs Con
 }
 
 // SetCondition applies the condition to the resource's status. If the condition already exists, it is updated.
-// This is a generic function that works with BMC, Operation, and Job types.
+// This is a generic function that works with Job types.
 func SetCondition(existingConditions []Condition, toAdd Condition) []Condition {
 	if existingConditions == nil {
 		existingConditions = []Condition{toAdd}

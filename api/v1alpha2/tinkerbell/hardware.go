@@ -1,10 +1,12 @@
 package tinkerbell
 
 import (
+	"github.com/tinkerbell/tinkerbell/api/v1alpha2/tinkerbell/bmc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:path=hardware,scope=Namespaced,categories=tinkerbell,singular=hardware,shortName=hw
 // +kubebuilder:storageversion
 // +kubebuilder:metadata:labels=clusterctl.cluster.x-k8s.io=
@@ -16,7 +18,8 @@ type Hardware struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec HardwareSpec `json:"spec,omitempty"`
+	Spec   HardwareSpec   `json:"spec,omitempty"`
+	Status HardwareStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -44,6 +47,9 @@ type HardwareSpec struct {
 	// Auto is the configuration for the automatic capabilities.
 	Auto AutoCapabilities `json:"auto,omitempty"`
 
+	// BMC contains connection and configuration data for the BMC (Baseboard Management Controller) of this Hardware.
+	BMC *bmc.Connection `json:"bmc,omitempty"`
+
 	// Instance describes data that is less permanent than any physical attributes of the Hardware.
 	// +optional
 	Instance *Instance `json:"instance,omitempty"`
@@ -56,7 +62,7 @@ type HardwareSpec struct {
 	// These are available in Workflows for templating. They are referenced by the name of the reference.
 	// For example, given a reference with the name "lvm", you can access it in a Workflow with {{ .references.lvm }}.
 	// +optional
-	References *References `json:"references,omitempty"`
+	References map[string]Reference `json:"references,omitempty"`
 
 	// StorageDevices is a list of storage devices that will be available in the OSIE.
 	// +optional
@@ -510,17 +516,6 @@ type RPI struct {
 	SerialNum string `json:"serialNum"`
 }
 
-// References represents builtin and additional reference maps.
-type References struct {
-	// Additional references are dynamic and defined by the user.
-	// +optional
-	Additional map[string]Reference `json:"additional,omitempty"`
-
-	// Builtin references are predefined.
-	// +optional
-	Builtin BuiltinReferences `json:"builtin,omitempty"`
-}
-
 type Reference struct {
 	// Group of the referent.
 	// More info: https://kubernetes.io/docs/reference/using-api/#api-groups
@@ -543,22 +538,6 @@ type Reference struct {
 	Version string `json:"version,omitempty"`
 }
 
-type BuiltinReferences struct {
-	// BMC is the reference to a machine.bmc.tinkerbell.org object.
-	// +optional
-	BMC SimpleReference `json:"bmc,omitempty"`
-}
-
-// SimpleReference
-// +kubebuilder:validation:XValidation:rule="(has(self.name) && self.name != \"\") == (has(self.namespace) && self.namespace != \"\")",message="name and namespace must both be specified or both be empty"
-type SimpleReference struct {
-	// Name of the object.
-	Name string `json:"name,omitempty"`
-
-	// Namespace where the object resides.
-	Namespace string `json:"namespace,omitempty"`
-}
-
 // / StorageDevice describes a storage device that is be present on the Hardware.
 type StorageDevice struct {
 	// Name must be a valid Linux path. It should not contain partitions.
@@ -577,4 +556,11 @@ type StorageDevice struct {
 	//
 	//	\dev\sda
 	Name string `json:"name,omitempty"`
+}
+
+// HardwareStatus defines the observed state of Hardware.
+type HardwareStatus struct {
+	// Conditions represents the latest available observations of an object's current state.
+	// +optional
+	Conditions []bmc.Condition `json:"conditions,omitempty"`
 }

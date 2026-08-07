@@ -13,6 +13,51 @@ spec:
   attributes:
     arch: "x86_64"
     uefi: true
+  bmc:
+    host: 0.0.0.0
+    credentialsRef:
+      name: bm-cred
+      namespace: tinkerbell
+    insecureTLS: false
+    #providerOptions:
+    #  preferredOrder:
+    #    - "redfish"
+    #    - "ipmitool"
+    #  redfish:
+    #    port: 443
+    #    useBasicAuth: false
+    #    systemName: "System.Embedded.1"
+    #  ipmitool:
+    #    port: 623
+    #    cipherSuite: "3"
+    #  intelAMT:
+    #    port: 16992
+    #    hostScheme: "http"
+    #  rpc:
+    #    consumerURL: "https://rpc-consumer.example.com"
+    #    logNotificationsDisabled: false
+    #    request:
+    #      httpContentType: "application/json"
+    #      httpMethod: "POST"
+    #      staticHeaders:
+    #        X-Custom-Header:
+    #          - "custom-value"
+    #      timestampFormat: "2006-01-02T15:04:05Z07:00"
+    #      timestampHeader: "X-BMCLIB-Timestamp"
+    #    signature:
+    #      headerName: "X-BMCLIB-Signature"
+    #      appendAlgoToHeaderDisabled: false
+    #      includedPayloadHeaders:
+    #        - "X-BMCLIB-Timestamp"
+    #    hmac:
+    #      prefixSigDisabled: false
+    #      secrets:
+    #        sha256:
+    #          - name: "hmac-secret"
+    #            namespace: "tinkerbell"
+    #    experimental:
+    #      customRequestPayload: '{"custom": "payload"}'
+    #      dotPath: "object.data.body"
   instance:
     lookupID: "a8f3e2b1-9c4d-4e5f-b6a7-8d9e0f1a2b3c"
     metadata: |
@@ -164,16 +209,11 @@ spec:
             hdmi_safe=1
           firmwarePath: "captain-armbian-rpi/firmware-rpi"
   references:
-    additional:
-      "registryCert":
-        group: ""
-        name: "registry-ca-cert"
-        namespace: "tinkerbell"
-        resource: "secrets"
-        version: "v1"
-    builtin:
-      bmc:
-        name: "example"
-        namespace: "tinkerbell"
+    "registryCert":
+      group: ""
+      name: "registry-ca-cert"
+      namespace: "tinkerbell"
+      resource: "secrets"
+      version: "v1"
   storageDevices:
     - name: "/dev/sda"

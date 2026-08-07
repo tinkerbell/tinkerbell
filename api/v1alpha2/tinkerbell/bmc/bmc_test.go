@@ -30,60 +30,60 @@ func TestHasConditionStatus(t *testing.T) {
 		"condition exists with matching status": {
 			existingConditions: []Condition{
 				{
-					Type:   ConditionTypeMachineContactable,
+					Type:   ConditionTypeBMCContactable,
 					Status: ConditionStatusTrue,
 				},
 			},
-			conditionType:   ConditionTypeMachineContactable,
+			conditionType:   ConditionTypeBMCContactable,
 			conditionStatus: ConditionStatusTrue,
 			expected:        true,
 		},
 		"condition exists with non-matching status": {
 			existingConditions: []Condition{
 				{
-					Type:   ConditionTypeMachineContactable,
+					Type:   ConditionTypeBMCContactable,
 					Status: ConditionStatusFalse,
 				},
 			},
-			conditionType:   ConditionTypeMachineContactable,
+			conditionType:   ConditionTypeBMCContactable,
 			conditionStatus: ConditionStatusTrue,
 			expected:        false,
 		},
 		"condition does not exist": {
 			existingConditions: []Condition{
 				{
-					Type:   ConditionTypeMachineContactable,
+					Type:   ConditionTypeBMCContactable,
 					Status: ConditionStatusTrue,
 				},
 			},
-			conditionType:   ConditionTypeMachinePowerState,
+			conditionType:   ConditionTypeBMCPowerState,
 			conditionStatus: ConditionStatusOn,
 			expected:        false,
 		},
 		"empty conditions slice": {
 			existingConditions: []Condition{},
-			conditionType:      ConditionTypeMachineContactable,
+			conditionType:      ConditionTypeBMCContactable,
 			conditionStatus:    ConditionStatusTrue,
 			expected:           false,
 		},
 		"nil conditions slice": {
 			existingConditions: nil,
-			conditionType:      ConditionTypeMachineContactable,
+			conditionType:      ConditionTypeBMCContactable,
 			conditionStatus:    ConditionStatusTrue,
 			expected:           false,
 		},
 		"multiple conditions with match": {
 			existingConditions: []Condition{
 				{
-					Type:   ConditionTypeMachineContactable,
+					Type:   ConditionTypeBMCContactable,
 					Status: ConditionStatusFalse,
 				},
 				{
-					Type:   ConditionTypeMachinePowerState,
+					Type:   ConditionTypeBMCPowerState,
 					Status: ConditionStatusOn,
 				},
 			},
-			conditionType:   ConditionTypeMachinePowerState,
+			conditionType:   ConditionTypeBMCPowerState,
 			conditionStatus: ConditionStatusOn,
 			expected:        true,
 		},
