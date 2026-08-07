@@ -7,6 +7,7 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -18,6 +19,9 @@ import (
 var schemeBuilder = runtime.NewSchemeBuilder(
 	scheme.AddToScheme,
 	bmc.AddToScheme,
+	// Needed so the Machine controller can read/write the linked Hardware object's
+	// status.attributes.outOfBand field.
+	tinkerbell.AddToScheme,
 )
 
 // DefaultScheme returns a scheme with all the types necessary for the Rufio controller.
@@ -65,7 +69,7 @@ func NewReconciler(c client.Client) *Reconciler {
 }
 
 func (r *Reconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, bmcClient ClientFunc, powerCheckInterval time.Duration, opts ctrlcontroller.Options) error {
-	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorder("machine-controller"), bmcClient, powerCheckInterval).SetupWithManager(mgr, opts); err != nil {
+	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorder("machine-controller"), bmcClient, powerCheckInterval).SetupWithManager(ctx, mgr, opts); err != nil {
 		return fmt.Errorf("unable to create Machines controller: %w", err)
 	}
 
