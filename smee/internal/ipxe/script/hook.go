@@ -4,7 +4,10 @@ package script
 var HookScript = `#!ipxe
 
 {{- if .SyslogHost }}
-set syslog {{ .SyslogHost }}
+# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog).
+# Resolve the (possibly FQDN) syslog host to an IP and use that for the syslog target.
+nslookup syslogserver {{ .SyslogHost }}
+set syslog ${syslogserver}
 {{- end}}
 
 echo Loading the Tinkerbell Hook iPXE script...
