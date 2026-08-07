@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -106,14 +108,14 @@ func (c *Config) Serve(ctx context.Context, log logr.Logger, httpHandler http.Ha
 			log.Info("no HTTP handler, skipping HTTP server")
 			return nil
 		}
-		httpAddr := fmt.Sprintf("%s:%d", c.BindAddr, c.BindPort)
+		httpAddr := net.JoinHostPort(c.BindAddr, strconv.Itoa(c.BindPort))
 
 		return c.doServe(ctx, log, httpAddr, httpHandler, nil)
 	})
 
 	// HTTPS server (optional)
 	if len(c.TLSCerts) > 0 && httpsHandler != nil {
-		httpsAddr := fmt.Sprintf("%s:%d", c.BindAddr, c.HTTPSPort)
+		httpsAddr := net.JoinHostPort(c.BindAddr, strconv.Itoa(c.HTTPSPort))
 		tlsCfg := &tls.Config{
 			MinVersion:   tls.VersionTLS12,
 			Certificates: c.TLSCerts,

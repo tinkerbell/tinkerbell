@@ -797,6 +797,36 @@ func client(pc net.PacketConn) (*dhcpv4.DHCPv4, error) {
 	return msg, nil
 }
 
+func TestHasIPv4Reservation(t *testing.T) {
+	tests := map[string]struct {
+		d    *dhcp.DHCP
+		want bool
+	}{
+		"ipv4": {
+			d:    &dhcp.DHCP{IPAddress: netip.MustParseAddr("192.168.1.100")},
+			want: true,
+		},
+		"ipv6": {
+			d: &dhcp.DHCP{IPAddress: netip.MustParseAddr("2001:db8::100")},
+		},
+		"ipv4 mapped ipv6": {
+			d: &dhcp.DHCP{IPAddress: netip.MustParseAddr("::ffff:192.168.1.100")},
+		},
+		"missing address": {
+			d: &dhcp.DHCP{},
+		},
+		"nil": {},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := hasIPv4Reservation(tt.d); got != tt.want {
+				t.Fatalf("hasIPv4Reservation() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestUpdateMsg(t *testing.T) {
 	type args struct {
 		m       *dhcpv4.DHCPv4
