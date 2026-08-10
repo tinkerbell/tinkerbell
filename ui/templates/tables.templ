@@ -207,34 +207,16 @@ templ WorkflowTableContent(workflowData WorkflowPageData) {
 						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Template</th>
 						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">State</th>
 						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Age</th>
+						<th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider"></th>
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-darkNav divide-y divide-gray-100 dark:divide-darkBorder">
 					for _, wf := range workflowData.Workflows {
-					<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder/50 cursor-pointer transition-colors clickable-row" data-href={ "/workflows/" + wf.Namespace + "/" + wf.Name }>
-						<td class="px-6 py-4 whitespace-nowrap">
-							<div class="flex items-center">
-								<div class="flex-shrink-0 h-8 w-8 rounded-md bg-tink-teal-50 dark:bg-tink-teal-900/30 flex items-center justify-center">
-									@templ.Raw(workflowsIcon())
-								</div>
-								<span class="ml-3 text-sm font-medium text-gray-900 dark:text-white">{ wf.Name }</span>
-							</div>
-						</td>
-						<td class="px-6 py-4 whitespace-nowrap">
-							<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-300">{ wf.Namespace }</span>
-						</td>
-						<td class="px-6 py-4 whitespace-nowrap text-sm">
-							if wf.TemplateRef != "" {
-								<a href={ templ.SafeURL("/templates/" + wf.Namespace + "/" + wf.TemplateRef) } class="text-tink-teal-600 hover:text-tink-teal-700 dark:text-tink-teal-400 dark:hover:text-tink-teal-300 hover:underline" onclick="event.stopPropagation()">{ wf.TemplateRef }</a>
-							}
-						</td>
-						<td class="px-6 py-4 whitespace-nowrap">@StatusBadge(wf.State)</td>
-						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ wf.CreatedAt }</td>
-					</tr>
+						@WorkflowTableRow(wf)
 					}
 					if len(workflowData.Workflows) == 0 {
 						<tr>
-							<td colspan="5" class="px-6 py-12 text-center">
+							<td colspan="6" class="px-6 py-12 text-center">
 								<div class="flex flex-col items-center">
 									<div class="h-12 w-12 rounded-full bg-gray-100 dark:bg-darkBorderSoft flex items-center justify-center mb-4">
 										@templ.Raw(workflowsIcon())
@@ -249,6 +231,47 @@ templ WorkflowTableContent(workflowData WorkflowPageData) {
 		</div>
 		@TableCardFooter(workflowData.Pagination)
 	}
+}
+
+// WorkflowTableRow renders a single row of the Workflow list table. It's also
+// returned standalone as an htmx swap target after the Play action enables a
+// disabled Workflow, so its root element must stay a single <tr>.
+templ WorkflowTableRow(wf Workflow) {
+	<tr class="hover:bg-gray-50 dark:hover:bg-darkBorder/50 cursor-pointer transition-colors clickable-row" data-href={ "/workflows/" + wf.Namespace + "/" + wf.Name }>
+		<td class="px-6 py-4 whitespace-nowrap">
+			<div class="flex items-center">
+				<div class="flex-shrink-0 h-8 w-8 rounded-md bg-tink-teal-50 dark:bg-tink-teal-900/30 flex items-center justify-center">
+					@templ.Raw(workflowsIcon())
+				</div>
+				<span class="ml-3 text-sm font-medium text-gray-900 dark:text-white">{ wf.Name }</span>
+			</div>
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap">
+			<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-darkBorderSoft dark:text-gray-300">{ wf.Namespace }</span>
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm">
+			if wf.TemplateRef != "" {
+				<a href={ templ.SafeURL("/templates/" + wf.Namespace + "/" + wf.TemplateRef) } class="text-tink-teal-600 hover:text-tink-teal-700 dark:text-tink-teal-400 dark:hover:text-tink-teal-300 hover:underline" onclick="event.stopPropagation()">{ wf.TemplateRef }</a>
+			}
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap">@StatusBadge(wf.State)</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ wf.CreatedAt }</td>
+		<td class="px-6 py-4 whitespace-nowrap text-right">
+			if wf.Disabled {
+				<button
+					hx-post={ "/workflows/" + wf.Namespace + "/" + wf.Name + "/enable" }
+					hx-vals={ `{"render":"row"}` }
+					hx-target="closest tr"
+					hx-swap="outerHTML"
+					onclick="event.stopPropagation()"
+					title="Enable this Workflow"
+					class="inline-flex items-center justify-center h-7 w-7 rounded-md text-tink-teal-600 hover:text-tink-teal-700 hover:bg-tink-teal-50 dark:text-tink-teal-400 dark:hover:text-tink-teal-300 dark:hover:bg-tink-teal-900/30 transition-colors cursor-pointer"
+				>
+					@templ.Raw(playIcon())
+				</button>
+			}
+		</td>
+	</tr>
 }
 
 templ TemplateTableContent(templateData TemplatePageData) {

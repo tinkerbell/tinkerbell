@@ -30,6 +30,7 @@ type Workflow struct {
 	Namespace   string
 	TemplateRef string
 	State       string
+	Disabled    bool
 	Task        string
 	Action      string
 	Agent       string
@@ -283,6 +284,7 @@ type WorkflowDetail struct {
 	TemplateRef       string
 	HardwareRef       string
 	State             string
+	Disabled          bool
 	Task              string
 	Action            string
 	Agent             string

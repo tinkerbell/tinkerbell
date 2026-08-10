@@ -420,6 +420,12 @@ templ WorkflowDetailContent(wf WorkflowDetail, baseURL string) {
 						<td class="py-3 text-sm text-gray-900 dark:text-white">{ wf.State }</td>
 					</tr>
 				}
+				<tr class="border-b border-gray-100 dark:border-darkBorder">
+					<td class="py-3 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 w-1/4 align-top">Disabled</td>
+					<td class="py-3 text-sm text-gray-900 dark:text-white">
+						@WorkflowDisabledControl(wf)
+					</td>
+				</tr>
 				if wf.Task != "" {
 					<tr class="border-b border-gray-100 dark:border-darkBorder">
 						<td class="py-3 pr-4 text-sm font-medium text-gray-500 dark:text-gray-400 w-1/4 align-top">Current Task</td>
@@ -469,6 +475,29 @@ templ WorkflowDetailContent(wf WorkflowDetail, baseURL string) {
 	@SectionBoxCollapsible("Full YAML", false) {
 		@CodeBlockYAMLWithCopy(wf.YAML, "wf-yaml")
 	}
+}
+
+// WorkflowDisabledControl renders the current spec.disabled state of a Workflow.
+// Only an "Enable" action is offered, and the backend endpoint it posts to only
+// ever clears spec.disabled: a Workflow left enabled leaves State == "" almost
+// immediately on its own, so a "Disable" action would only ever win a narrow
+// race against the controller and isn't offered.
+templ WorkflowDisabledControl(wf WorkflowDetail) {
+	<div id="workflow-disabled-control" class="flex items-center gap-3">
+		if wf.Disabled {
+			<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">Yes</span>
+			<button
+				hx-post={ "/workflows/" + wf.Namespace + "/" + wf.Name + "/enable" }
+				hx-target="#workflow-disabled-control"
+				hx-swap="outerHTML"
+				class="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-darkBorder rounded-md text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-darkBg hover:bg-gray-50 dark:hover:bg-darkBorder transition-colors cursor-pointer"
+			>
+				Enable
+			</button>
+		} else {
+			<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">No</span>
+		}
+	</div>
 }
 
 templ TemplateDetailContent(tpl TemplateDetail, baseURL string) {
