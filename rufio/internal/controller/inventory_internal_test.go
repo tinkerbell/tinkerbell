@@ -305,7 +305,7 @@ func TestApplyOutOfBandAttributesNilDeviceNoPanic(t *testing.T) {
 	if got == nil || got.LastUpdated == nil {
 		t.Fatalf("outOfBand = %+v, want LastUpdated set even with no device data, so the refresh gate advances", got)
 	}
-	if dueForInventoryRefresh(hw, &bmc.Machine{}) {
+	if dueForInventoryRefresh(hw, &bmc.Machine{}, defaultInventoryRefreshInterval) {
 		t.Error("dueForInventoryRefresh() = true right after a (nil, nil) collection, want false")
 	}
 }
@@ -490,7 +490,10 @@ func TestSortDeviceDeterminism_TiedKeys(t *testing.T) {
 
 func TestDueForInventoryRefresh(t *testing.T) {
 	now := metav1.Now()
-	stale := metav1.NewTime(now.Add(-25 * time.Hour))
+	// Margins are wider than defaultInventoryRefreshInterval's max jitter
+	// (inventoryJitterFraction * defaultInventoryRefreshInterval = 2.4h) so these
+	// cases are unambiguous regardless of the per-Machine jitter offset.
+	stale := metav1.NewTime(now.Add(-30 * time.Hour))
 	fresh := metav1.NewTime(now.Add(-1 * time.Hour))
 
 	tests := map[string]struct {
@@ -524,9 +527,43 @@ func TestDueForInventoryRefresh(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			if got := dueForInventoryRefresh(tt.hw, tt.bm); got != tt.want {
+			if got := dueForInventoryRefresh(tt.hw, tt.bm, defaultInventoryRefreshInterval); got != tt.want {
 				t.Errorf("dueForInventoryRefresh() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestInventoryJitter(t *testing.T) {
+	interval := 24 * time.Hour
+	maxJitter := time.Duration(float64(interval) * inventoryJitterFraction)
+
+	names := []string{"machine-a", "machine-b", "machine-c", "machine-d", "machine-e"}
+	seen := map[time.Duration]bool{}
+	for _, name := range names {
+		bm := &bmc.Machine{ObjectMeta: metav1.ObjectMeta{Namespace: "test-namespace", Name: name}}
+
+		got := inventoryJitter(bm, interval)
+		if got < -maxJitter || got > maxJitter {
+			t.Errorf("inventoryJitter(%q) = %v, want within [%v, %v]", name, got, -maxJitter, maxJitter)
+		}
+
+		// Deterministic: repeated calls for the same Machine must agree, so
+		// dueForInventoryRefresh doesn't flap between reconciles.
+		if again := inventoryJitter(bm, interval); again != got {
+			t.Errorf("inventoryJitter(%q) is not deterministic: got %v then %v", name, got, again)
+		}
+
+		seen[got] = true
+	}
+
+	// Different Machines should (usually) get different offsets, otherwise
+	// jitter isn't actually spreading the fleet out.
+	if len(seen) < 2 {
+		t.Errorf("inventoryJitter produced the same offset for all %d distinct Machines", len(names))
+	}
+
+	if got := inventoryJitter(&bmc.Machine{}, 0); got != 0 {
+		t.Errorf("inventoryJitter with zero interval = %v, want 0", got)
 	}
 }

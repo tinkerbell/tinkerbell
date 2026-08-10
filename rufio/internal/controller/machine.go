@@ -38,10 +38,12 @@ import (
 
 // MachineReconciler reconciles a Machine object.
 type MachineReconciler struct {
-	client             client.Client
-	recorder           events.EventRecorder
-	bmcClient          ClientFunc
-	powerCheckInterval time.Duration
+	client                     client.Client
+	recorder                   events.EventRecorder
+	bmcClient                  ClientFunc
+	powerCheckInterval         time.Duration
+	inventoryRefreshInterval   time.Duration
+	inventoryCollectionEnabled bool
 }
 
 const (
@@ -50,13 +52,17 @@ const (
 	machineRequeueInterval = 3 * time.Minute
 )
 
-// NewMachineReconciler returns a new MachineReconciler.
-func NewMachineReconciler(c client.Client, recorder events.EventRecorder, bmcClient ClientFunc, powerCheckInterval time.Duration) *MachineReconciler {
+// NewMachineReconciler returns a new MachineReconciler. inventoryCollectionEnabled
+// is a fleet-wide kill switch for BMC inventory collection; individual Hardware
+// objects can additionally opt out via disableOutOfBandInventoryAnnotation.
+func NewMachineReconciler(c client.Client, recorder events.EventRecorder, bmcClient ClientFunc, powerCheckInterval, inventoryRefreshInterval time.Duration, inventoryCollectionEnabled bool) *MachineReconciler {
 	return &MachineReconciler{
-		client:             c,
-		recorder:           recorder,
-		bmcClient:          bmcClient,
-		powerCheckInterval: ternary(powerCheckInterval > 0, powerCheckInterval, machineRequeueInterval),
+		client:                     c,
+		recorder:                   recorder,
+		bmcClient:                  bmcClient,
+		powerCheckInterval:         ternary(powerCheckInterval > 0, powerCheckInterval, machineRequeueInterval),
+		inventoryRefreshInterval:   ternary(inventoryRefreshInterval > 0, inventoryRefreshInterval, defaultInventoryRefreshInterval),
+		inventoryCollectionEnabled: inventoryCollectionEnabled,
 	}
 }
 
@@ -204,13 +210,16 @@ func (r *MachineReconciler) updatePowerState(ctx context.Context, bm *bmc.Machin
 // inventory from at all) is an expected, permanent state for some fleets, not a
 // fatal error.
 func (r *MachineReconciler) reconcileInventoryIfDue(ctx context.Context, logger logr.Logger, bmcClient *bmclib.Client, bm *bmc.Machine) {
+	if !r.inventoryCollectionEnabled {
+		return
+	}
 	hw, err := r.findLinkedHardware(ctx, bm)
 	if err != nil {
 		logger.Error(err, "failed to find linked Hardware for inventory refresh")
 		r.recorder.Eventf(bm, nil, corev1.EventTypeWarning, "HardwareLookupFailed", "FindLinkedHardware", "find linked Hardware: %v", err)
 		return
 	}
-	if hw == nil || !dueForInventoryRefresh(hw, bm) {
+	if hw == nil || hw.Annotations[disableOutOfBandInventoryAnnotation] == "true" || !dueForInventoryRefresh(hw, bm, r.inventoryRefreshInterval) {
 		return
 	}
 	if err := r.reconcileInventory(ctx, bmcClient, hw); err != nil {
@@ -252,15 +261,20 @@ func retrieveHMACSecrets(ctx context.Context, c client.Client, hmacSecrets bmc.H
 	return sec, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager sets up the controller with the Manager. When inventory
+// collection is disabled fleet-wide, the Hardware field index is skipped
+// entirely, so a disabled Machine controller doesn't pay for a Hardware
+// watch/cache it will never use.
 func (r *MachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts ctrlcontroller.Options) error {
-	if err := mgr.GetFieldIndexer().IndexField(
-		ctx,
-		&tinkerbell.Hardware{},
-		hardwareBMCRefIndexKey,
-		hardwareBMCRefIndexFunc,
-	); err != nil {
-		return err
+	if r.inventoryCollectionEnabled {
+		if err := mgr.GetFieldIndexer().IndexField(
+			ctx,
+			&tinkerbell.Hardware{},
+			hardwareBMCRefIndexKey,
+			hardwareBMCRefIndexFunc,
+		); err != nil {
+			return err
+		}
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

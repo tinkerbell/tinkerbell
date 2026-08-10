@@ -38,7 +38,7 @@ type Reconciler struct {
 	backoff *backoff.ExponentialBackOff
 }
 
-func NewManager(cfg *rest.Config, opts ctrl.Options, powerCheckInterval time.Duration, maxConcurrentReconciles int) (ctrl.Manager, error) {
+func NewManager(cfg *rest.Config, opts ctrl.Options, powerCheckInterval, inventoryRefreshInterval time.Duration, inventoryCollectionEnabled bool, maxConcurrentReconciles int) (ctrl.Manager, error) {
 	if opts.Scheme == nil {
 		opts.Scheme = DefaultScheme()
 	}
@@ -49,7 +49,7 @@ func NewManager(cfg *rest.Config, opts ctrl.Options, powerCheckInterval time.Dur
 	}
 
 	ctrlOpts := ctrlcontroller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}
-	if err := NewReconciler(mgr.GetClient()).SetupWithManager(context.Background(), mgr, NewClientFunc(time.Minute), powerCheckInterval, ctrlOpts); err != nil {
+	if err := NewReconciler(mgr.GetClient()).SetupWithManager(context.Background(), mgr, NewClientFunc(time.Minute), powerCheckInterval, inventoryRefreshInterval, inventoryCollectionEnabled, ctrlOpts); err != nil {
 		return nil, fmt.Errorf("unable to create reconciler: %w", err)
 	}
 
@@ -68,8 +68,8 @@ func NewReconciler(c client.Client) *Reconciler {
 	}
 }
 
-func (r *Reconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, bmcClient ClientFunc, powerCheckInterval time.Duration, opts ctrlcontroller.Options) error {
-	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorder("machine-controller"), bmcClient, powerCheckInterval).SetupWithManager(ctx, mgr, opts); err != nil {
+func (r *Reconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, bmcClient ClientFunc, powerCheckInterval, inventoryRefreshInterval time.Duration, inventoryCollectionEnabled bool, opts ctrlcontroller.Options) error {
+	if err := NewMachineReconciler(mgr.GetClient(), mgr.GetEventRecorder("machine-controller"), bmcClient, powerCheckInterval, inventoryRefreshInterval, inventoryCollectionEnabled).SetupWithManager(ctx, mgr, opts); err != nil {
 		return fmt.Errorf("unable to create Machines controller: %w", err)
 	}
 

@@ -92,7 +92,7 @@ func TestReconcileInventoryIfDue_Success(t *testing.T) {
 	}
 
 	client := newInventoryTestClient(hw)
-	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0)
+	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0, 0, true)
 	bmcClient := newOpenTestBMCClient(t, provider)
 
 	reconciler.ReconcileInventoryIfDueForTest(context.Background(), logr.Discard(), bmcClient, bm)
@@ -131,7 +131,7 @@ func TestReconcileInventoryIfDue_ClearsRefreshAnnotationOnSuccess(t *testing.T) 
 	}
 
 	client := newInventoryTestClient(hw, bm)
-	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0)
+	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0, 0, true)
 	bmcClient := newOpenTestBMCClient(t, provider)
 
 	reconciler.ReconcileInventoryIfDueForTest(context.Background(), logr.Discard(), bmcClient, bm)
@@ -157,7 +157,7 @@ func TestReconcileInventoryIfDue_IPMIOnlyHardError(t *testing.T) {
 	}
 
 	client := newInventoryTestClient(hw)
-	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0)
+	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0, 0, true)
 	bmcClient := newOpenTestBMCClient(t, provider)
 
 	// reconcileInventoryIfDue has no return value — failures are logged/evented,
@@ -187,7 +187,7 @@ func TestReconcileInventoryIfDue_Cadence(t *testing.T) {
 	}
 
 	client := newInventoryTestClient(hw)
-	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(4), newTestClient(provider), 0)
+	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(4), newTestClient(provider), 0, 0, true)
 	bmcClient := newOpenTestBMCClient(t, provider)
 
 	for i := 0; i < 3; i++ {
@@ -207,7 +207,7 @@ func TestReconcileInventoryIfDue_NoLinkedHardware(t *testing.T) {
 	provider := &testProvider{}
 
 	client := newInventoryTestClient() // no Hardware objects at all
-	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0)
+	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0, 0, true)
 	bmcClient := newOpenTestBMCClient(t, provider)
 
 	reconciler.ReconcileInventoryIfDueForTest(context.Background(), logr.Discard(), bmcClient, bm)
@@ -229,7 +229,7 @@ func TestReconcileInventoryIfDue_AmbiguousHardware(t *testing.T) {
 	provider := &testProvider{}
 
 	client := newInventoryTestClient(hw1, hw2)
-	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0)
+	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0, 0, true)
 	bmcClient := newOpenTestBMCClient(t, provider)
 
 	// Must not panic despite the ambiguous match.
@@ -237,6 +237,55 @@ func TestReconcileInventoryIfDue_AmbiguousHardware(t *testing.T) {
 
 	if provider.InventoryCalls != 0 {
 		t.Errorf("Inventory() called %d times with an ambiguous Hardware link, want 0", provider.InventoryCalls)
+	}
+}
+
+// TestReconcileInventoryIfDue_CollectionDisabledFleetWide verifies that the
+// fleet-wide inventoryCollectionEnabled=false kill switch skips inventory
+// collection entirely, even for a Machine/Hardware pair that would otherwise
+// be due.
+func TestReconcileInventoryIfDue_CollectionDisabledFleetWide(t *testing.T) {
+	bm := createMachine()
+	hw := createHardwareForMachine(bm.Name)
+	provider := &testProvider{
+		InventoryDevice: &common.Device{
+			BIOS: &common.BIOS{Common: common.Common{Vendor: "Dell Inc."}},
+		},
+	}
+
+	client := newInventoryTestClient(hw)
+	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0, 0, false)
+	bmcClient := newOpenTestBMCClient(t, provider)
+
+	reconciler.ReconcileInventoryIfDueForTest(context.Background(), logr.Discard(), bmcClient, bm)
+
+	if provider.InventoryCalls != 0 {
+		t.Errorf("Inventory() called %d times with fleet-wide collection disabled, want 0", provider.InventoryCalls)
+	}
+}
+
+// TestReconcileInventoryIfDue_DisabledForSpecificHardware verifies that a
+// Hardware object annotated with tinkerbell.org/disable-outofband-inventory
+// opts out of collection on its own, without affecting the fleet-wide
+// inventoryCollectionEnabled setting.
+func TestReconcileInventoryIfDue_DisabledForSpecificHardware(t *testing.T) {
+	bm := createMachine()
+	hw := createHardwareForMachine(bm.Name)
+	hw.Annotations = map[string]string{"tinkerbell.org/disable-outofband-inventory": "true"}
+	provider := &testProvider{
+		InventoryDevice: &common.Device{
+			BIOS: &common.BIOS{Common: common.Common{Vendor: "Dell Inc."}},
+		},
+	}
+
+	client := newInventoryTestClient(hw)
+	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0, 0, true)
+	bmcClient := newOpenTestBMCClient(t, provider)
+
+	reconciler.ReconcileInventoryIfDueForTest(context.Background(), logr.Discard(), bmcClient, bm)
+
+	if provider.InventoryCalls != 0 {
+		t.Errorf("Inventory() called %d times for a Hardware with disable-outofband-inventory annotation, want 0", provider.InventoryCalls)
 	}
 }
 
@@ -255,7 +304,7 @@ func TestMachineReconcile_WithHardwareLinked(t *testing.T) {
 		WithObjects(bm, hw, createSecret()).
 		Build()
 
-	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0)
+	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0, 0, true)
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "test-namespace", Name: "test-bm"}}
 
 	if _, err := reconciler.Reconcile(context.Background(), req); err != nil {

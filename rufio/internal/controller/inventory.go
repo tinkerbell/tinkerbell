@@ -20,6 +20,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"hash/fnv"
 	"sort"
 	"time"
 
@@ -36,15 +37,41 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// inventoryRefreshInterval is how often BMC inventory is refreshed per Machine.
-// Inventory collection is slow (5-30s on Redfish), so it deliberately does not run
-// on every power-poll reconcile (every machineRequeueInterval/powerCheckInterval) —
-// only once this interval has elapsed since the last successful collection.
-const inventoryRefreshInterval = 24 * time.Hour
+// defaultInventoryRefreshInterval is how often BMC inventory is refreshed per
+// Machine, unless overridden via NewMachineReconciler. Inventory collection is
+// slow (5-30s on Redfish), so it deliberately does not run on every power-poll
+// reconcile (every machineRequeueInterval/powerCheckInterval) — only once this
+// interval has elapsed since the last successful collection.
+const defaultInventoryRefreshInterval = 24 * time.Hour
 
 // refreshInventoryAnnotation, when set to "true" on a Machine, forces an immediate
-// inventory refresh regardless of inventoryRefreshInterval.
+// inventory refresh regardless of the configured refresh interval.
 const refreshInventoryAnnotation = "tinkerbell.org/refresh-inventory"
+
+// disableOutOfBandInventoryAnnotation, when set to "true" on a Hardware, opts
+// that specific Hardware out of BMC (out-of-band) inventory collection — e.g.
+// for a BMC/firmware combination known to misbehave under Redfish inventory
+// queries — without disabling the feature fleet-wide.
+//
+// Explicitly scoped to out-of-band: Hardware is the object both this
+// controller's out-of-band collector and a future in-band collector (see
+// HardwareAttributes.InBand) would write to, and the two are independently
+// owned and triggered by entirely different mechanisms (a periodic BMC
+// connection here vs. piggybacking on Agent-reported workflow data there) —
+// so a disable toggle for one should not be assumed to imply the other.
+const disableOutOfBandInventoryAnnotation = "tinkerbell.org/disable-outofband-inventory"
+
+// inventoryJitterFraction bounds the per-Machine jitter applied to the refresh
+// interval, as a fraction of that interval (0.1 == ±10%).
+//
+// Without jitter, every Machine's refresh interval is anchored to whenever it
+// was first collected. Fleets are commonly onboarded or upgraded in bulk, which
+// synchronizes those anchors: the whole fleet becomes due in the same reconcile
+// window, then again ~interval later, indefinitely. Jitter permanently desyncs
+// them. It is derived deterministically from the Machine's identity (not from
+// time or randomness), so it is stable across reconciles/restarts and doesn't
+// make dueForInventoryRefresh flap between calls.
+const inventoryJitterFraction = 0.1
 
 // hardwareBMCRefIndexKey indexes Hardware objects by the name of the Machine
 // their spec.bmcRef points at, so the Machine controller can find its linked
@@ -61,8 +88,10 @@ func hardwareBMCRefIndexFunc(obj ctrlclient.Object) []string {
 }
 
 // dueForInventoryRefresh returns true if inventory has never been collected, is
-// stale, or a manual refresh was explicitly requested via refreshInventoryAnnotation.
-func dueForInventoryRefresh(hw *tinkerbell.Hardware, bm *bmc.Machine) bool {
+// stale (older than interval, plus a per-Machine jitter — see
+// inventoryJitterFraction), or a manual refresh was explicitly requested via
+// refreshInventoryAnnotation.
+func dueForInventoryRefresh(hw *tinkerbell.Hardware, bm *bmc.Machine, interval time.Duration) bool {
 	if bm.Annotations[refreshInventoryAnnotation] == "true" {
 		return true
 	}
@@ -70,7 +99,29 @@ func dueForInventoryRefresh(hw *tinkerbell.Hardware, bm *bmc.Machine) bool {
 	if inv == nil || inv.LastUpdated == nil {
 		return true
 	}
-	return time.Since(inv.LastUpdated.Time) > inventoryRefreshInterval
+	return time.Since(inv.LastUpdated.Time) > interval+inventoryJitter(bm, interval)
+}
+
+// inventoryJitter returns a deterministic per-Machine offset in
+// [-interval*inventoryJitterFraction, +interval*inventoryJitterFraction],
+// derived from a hash of the Machine's namespace/name so it is stable across
+// calls without needing to persist any extra state.
+func inventoryJitter(bm *bmc.Machine, interval time.Duration) time.Duration {
+	maxJitter := float64(interval) * inventoryJitterFraction
+	if maxJitter <= 0 {
+		return 0
+	}
+
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(bm.Namespace + "/" + bm.Name))
+	// Normalize the 32-bit hash to [0, 1) and scale into [-maxJitter, +maxJitter).
+	// Using float64 here (rather than an integer modulo by 2*maxJitter) avoids
+	// truncating 2*maxJitter through a uint32 conversion, which for interval
+	// values above a few seconds would silently wrap and produce a modulus far
+	// smaller than intended.
+	frac := float64(h.Sum32()) / (1 << 32)
+
+	return time.Duration(frac*2*maxJitter - maxJitter)
 }
 
 // outOfBandAttributes returns the out-of-band attributes subtree, or nil if it has
