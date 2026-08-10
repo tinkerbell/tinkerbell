@@ -236,6 +236,11 @@ func HandleHardwareDetail(c *gin.Context, log logr.Logger) {
 		}
 	}
 
+	var outOfBand *templates.OutOfBandAttributes
+	if hw.Status.Attributes != nil {
+		outOfBand = templates.OutOfBandAttributesFromStatus(hw.Status.Attributes.OutOfBand)
+	}
+
 	hwDetail := templates.HardwareDetail{
 		Name:            hw.Name,
 		Namespace:       hw.Namespace,
@@ -245,6 +250,7 @@ func HandleHardwareDetail(c *gin.Context, log logr.Logger) {
 		Labels:          hw.Labels,
 		Annotations:     hw.Annotations,
 		AgentAttributes: agentAttrs,
+		OutOfBand:       outOfBand,
 		SpecYAML:        string(specYAML),
 		StatusYAML:      string(statusYAML),
 		YAML:            string(yamlBytes),

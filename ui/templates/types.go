@@ -1,5 +1,10 @@
 package templates
 
+import (
+	"strconv"
+	"strings"
+)
+
 // PageConfig holds common page configuration.
 type PageConfig struct {
 	BaseURL    string   // URL prefix for all routes (e.g., "/ui")
@@ -271,9 +276,201 @@ type HardwareDetail struct {
 	Labels          map[string]string
 	Annotations     map[string]string
 	AgentAttributes *AgentAttributes
+	OutOfBand       *OutOfBandAttributes
 	SpecYAML        string
 	StatusYAML      string
 	YAML            string
+}
+
+// OOBStatus is health/state info for a component, as reported out-of-band.
+// Mirrors api/v1alpha1/tinkerbell.ComponentStatus, flattened to a value type
+// for template convenience.
+type OOBStatus struct {
+	Health string
+	State  string
+	// PostCode is a pointer because 0 is a meaningful POST code (success).
+	// Only meaningful on BIOS.
+	PostCode       *int32
+	PostCodeStatus string
+}
+
+// OOBComponent is a basic hardware component without specialized fields, e.g.
+// a baseboard, chassis, or storage controller.
+type OOBComponent struct {
+	Vendor          string
+	Model           string
+	SerialNumber    string
+	Description     string
+	FirmwareVersion string
+	Status          OOBStatus
+}
+
+// OOBProduct describes the overall system identity as reported out-of-band —
+// the machine's own asset details, distinct from any individual component.
+type OOBProduct struct {
+	Name         string
+	Vendor       string
+	Model        string
+	SerialNumber string
+	Status       OOBStatus
+}
+
+// OOBBIOS describes the system BIOS firmware as reported out-of-band.
+type OOBBIOS struct {
+	Vendor          string
+	Model           string
+	SerialNumber    string
+	FirmwareVersion string
+	ReleaseDate     string
+	Status          OOBStatus
+}
+
+// OOBBMC describes the BMC's own firmware and management NIC.
+type OOBBMC struct {
+	Vendor          string
+	Model           string
+	SerialNumber    string
+	FirmwareVersion string
+	NIC             *OOBNetworkInterface
+	Status          OOBStatus
+}
+
+// OOBCPUSocket describes a single physical CPU as reported out-of-band.
+type OOBCPUSocket struct {
+	Slot            string
+	Vendor          string
+	Model           string
+	Cores           uint32
+	Threads         uint32
+	ClockSpeedMHz   uint32
+	SerialNumber    string
+	FirmwareVersion string
+}
+
+// OOBMemoryModule describes a single memory module as reported out-of-band.
+type OOBMemoryModule struct {
+	Slot            string
+	Vendor          string
+	Model           string
+	SerialNumber    string
+	PartNumber      string
+	SizeBytes       int64
+	SpeedMHz        uint32
+	FormFactor      string
+	FirmwareVersion string
+}
+
+// OOBNetworkInterface describes a network adapter as reported out-of-band.
+type OOBNetworkInterface struct {
+	Vendor          string
+	Model           string
+	SerialNumber    string
+	FirmwareVersion string
+	Ports           []OOBNetworkPort
+}
+
+// OOBNetworkPort describes a single physical port on a network adapter.
+type OOBNetworkPort struct {
+	PortID     string
+	MAC        string
+	LinkStatus string
+	SpeedMbps  uint32
+	MTU        uint32
+}
+
+// MACAddresses joins every port's MAC address for display in a single table
+// cell, since a NIC can have multiple physical ports.
+func (n OOBNetworkInterface) MACAddresses() string {
+	var macs []string
+	for _, p := range n.Ports {
+		if p.MAC != "" {
+			macs = append(macs, p.MAC)
+		}
+	}
+	return strings.Join(macs, ", ")
+}
+
+// PortSpeeds joins every port's speed (e.g. "25000 Mbps") for display in a
+// single table cell, since a NIC can have multiple physical ports.
+func (n OOBNetworkInterface) PortSpeeds() string {
+	var speeds []string
+	for _, p := range n.Ports {
+		if p.SpeedMbps > 0 {
+			speeds = append(speeds, strconv.Itoa(int(p.SpeedMbps))+" Mbps")
+		}
+	}
+	return strings.Join(speeds, ", ")
+}
+
+// OOBBlockDevice describes a storage drive as reported out-of-band.
+type OOBBlockDevice struct {
+	ControllerType  string
+	DriveType       string
+	Vendor          string
+	Model           string
+	SerialNumber    string
+	WWN             string
+	SizeBytes       int64
+	SmartStatus     string
+	FirmwareVersion string
+	Status          OOBStatus
+}
+
+// OOBPSU describes a power supply unit as reported out-of-band.
+type OOBPSU struct {
+	Vendor             string
+	Model              string
+	SerialNumber       string
+	Description        string
+	FirmwareVersion    string
+	PowerCapacityWatts int64
+	Status             OOBStatus
+}
+
+// OOBTPM describes a trusted platform module as reported out-of-band.
+type OOBTPM struct {
+	Vendor          string
+	Model           string
+	SerialNumber    string
+	InterfaceType   string
+	FirmwareVersion string
+	Status          OOBStatus
+}
+
+// OOBGPU describes a GPU or accelerator device as reported out-of-band.
+type OOBGPU struct {
+	Vendor          string
+	Model           string
+	SerialNumber    string
+	Description     string
+	FirmwareVersion string
+	Status          OOBStatus
+}
+
+// OutOfBandAttributes is hardware data collected out-of-band via the BMC,
+// mirroring api/v1alpha1/tinkerbell.Attributes (the
+// status.attributes.outOfBand subtree). Every field is optional: BMC
+// vendors/protocols vary widely in what they report, so an empty field here
+// reflects what the BMC/collection driver reports, not an error.
+type OutOfBandAttributes struct {
+	LastUpdated        string // pre-formatted, same convention as HardwareDetail.CreatedAt
+	CollectionMethod   string
+	TotalCores         uint32
+	TotalThreads       uint32
+	CPUs               []OOBCPUSocket
+	TotalMemoryBytes   int64
+	MemoryModules      []OOBMemoryModule
+	Drives             []OOBBlockDevice
+	NICs               []OOBNetworkInterface
+	GPUs               []OOBGPU
+	Chassis            OOBComponent
+	Baseboard          OOBComponent
+	BIOS               OOBBIOS
+	Product            OOBProduct
+	BMC                OOBBMC
+	PSUs               []OOBPSU
+	TPMs               []OOBTPM
+	StorageControllers []OOBComponent
 }
 
 // WorkflowDetail is the data for the workflow detail page.
