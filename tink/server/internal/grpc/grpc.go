@@ -43,6 +43,7 @@ type Backend interface {
 	HardwareReader
 	HardwareFilterer
 	HardwareUpdater
+	HardwareInBandAttributesApplier
 }
 
 type WorkflowCreator interface {
@@ -75,6 +76,10 @@ type HardwareFilterer interface {
 
 type HardwareUpdater interface {
 	UpdateHardware(ctx context.Context, hw *tinkerbell.Hardware, opts data.UpdateOptions) error
+}
+
+type HardwareInBandAttributesApplier interface {
+	ApplyHardwareInBandAttributes(ctx context.Context, name, namespace string, attrs *tinkerbell.Attributes) error
 }
 
 type HardwareCreator interface {
@@ -506,6 +511,16 @@ func (h *Handler) updateHardwareWithAttributes(ctx context.Context, log logr.Log
 
 	journal.Log(ctx, "updated Hardware with attributes annotation", "hardware", hw.Name)
 	log.Info("updated Hardware with attributes annotation", "hardware", hw.Name)
+
+	if inBand := inBandAttributesFromAgent(attrs); inBand != nil {
+		inBand.CollectionMethod = "agent"
+		inBand.LastUpdated = &metav1.Time{Time: h.NowFunc()}
+		if err := h.Backend.ApplyHardwareInBandAttributes(ctx, hw.Name, hw.Namespace, inBand); err != nil {
+			journal.Log(ctx, "error applying Hardware status.attributes.inBand", "error", err)
+			log.Error(err, "error applying Hardware status.attributes.inBand")
+		}
+	}
+
 	return nil
 }
 

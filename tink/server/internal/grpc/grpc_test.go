@@ -510,6 +510,8 @@ type mockBackendReadWriter struct {
 
 	updatedHardware *tinkerbell.Hardware // captures the hardware passed to UpdateHardware
 	updateOpts      data.UpdateOptions   // captures the options passed to UpdateHardware
+
+	appliedInBand *tinkerbell.Attributes // captures the attrs passed to ApplyHardwareInBandAttributes
 }
 
 func (m *mockBackendReadWriter) ReadWorkflow(_ context.Context, _ string, _ string) (*tinkerbell.Workflow, error) {
@@ -553,6 +555,11 @@ func (m *mockBackendReadWriter) FilterHardware(_ context.Context, _ data.Hardwar
 func (m *mockBackendReadWriter) UpdateHardware(_ context.Context, hw *tinkerbell.Hardware, opts data.UpdateOptions) error {
 	m.updatedHardware = hw
 	m.updateOpts = opts
+	return nil
+}
+
+func (m *mockBackendReadWriter) ApplyHardwareInBandAttributes(_ context.Context, _, _ string, attrs *tinkerbell.Attributes) error {
+	m.appliedInBand = attrs
 	return nil
 }
 
@@ -730,6 +737,18 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 				}
 				if mock.updateOpts.PatchFrom == nil {
 					t.Fatal("expected PatchFrom to be set in UpdateOptions for merge-patch, but it was nil")
+				}
+				if mock.appliedInBand == nil {
+					t.Fatal("expected status.attributes.inBand to be applied, but ApplyHardwareInBandAttributes was not called")
+				}
+				if mock.appliedInBand.CollectionMethod != "agent" {
+					t.Errorf("appliedInBand.CollectionMethod = %q, want agent", mock.appliedInBand.CollectionMethod)
+				}
+				if mock.appliedInBand.LastUpdated == nil {
+					t.Error("appliedInBand.LastUpdated is nil, want it set")
+				}
+				if mock.appliedInBand.CPU == nil || mock.appliedInBand.CPU.TotalCores != 4 {
+					t.Errorf("appliedInBand.CPU = %+v, want TotalCores=4", mock.appliedInBand.CPU)
 				}
 			}
 			if tc.wantNoHWUpdate {
