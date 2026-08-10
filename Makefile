@@ -197,15 +197,34 @@ out/.generate-proto.stamp: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_
 V1ALPHA1_API_SOURCES := $(shell find api/v1alpha1 -name '*.go' -not -name 'zz_generated*')
 V1ALPHA2_API_SOURCES := $(shell find api/v1alpha2 -name '*.go' -not -name 'zz_generated*')
 
-manifests-v1alpha1: out/.manifests-v1alpha1.stamp ## Generate v1alpha1 CRDs
-out/.manifests-v1alpha1.stamp: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES)
-	(cd api/v1alpha1; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha1)
-	@touch $@
+# The generated CRD YAML files are the real targets (not a stamp) so that
+# deleting or editing any one of them under crd/bases/<version>/ re-triggers
+# generation. A grouped-target rule (&:, GNU Make 4.3+) tells Make that a single
+# controller-gen invocation produces all of them at once. These lists must stay
+# in sync with the +kubebuilder:resource paths in the api sources.
+V1ALPHA1_CRD_FILES := \
+		crd/bases/v1alpha1/bmc.tinkerbell.org_jobs.yaml \
+		crd/bases/v1alpha1/bmc.tinkerbell.org_machines.yaml \
+		crd/bases/v1alpha1/bmc.tinkerbell.org_tasks.yaml \
+		crd/bases/v1alpha1/tinkerbell.org_hardware.yaml \
+		crd/bases/v1alpha1/tinkerbell.org_templates.yaml \
+		crd/bases/v1alpha1/tinkerbell.org_workflowrulesets.yaml \
+		crd/bases/v1alpha1/tinkerbell.org_workflows.yaml \
 
-manifests-v1alpha2: out/.manifests-v1alpha2.stamp ## Generate v1alpha2 CRDs
-out/.manifests-v1alpha2.stamp: $(CONTROLLER_GEN_FQP) $(V1ALPHA2_API_SOURCES)
+V1ALPHA2_CRD_FILES := \
+		crd/bases/v1alpha2/bmc.tinkerbell.org_jobs.yaml \
+		crd/bases/v1alpha2/tinkerbell.org_hardware.yaml \
+		crd/bases/v1alpha2/tinkerbell.org_policies.yaml \
+		crd/bases/v1alpha2/tinkerbell.org_tasks.yaml \
+		crd/bases/v1alpha2/tinkerbell.org_workflows.yaml \
+
+manifests-v1alpha1: $(V1ALPHA1_CRD_FILES) ## Generate v1alpha1 CRDs
+$(V1ALPHA1_CRD_FILES) &: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES)
+	(cd api/v1alpha1; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha1)
+
+manifests-v1alpha2: $(V1ALPHA2_CRD_FILES) ## Generate v1alpha2 CRDs
+$(V1ALPHA2_CRD_FILES) &: $(CONTROLLER_GEN_FQP) $(V1ALPHA2_API_SOURCES)
 	(cd api/v1alpha2; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha2)
-	@touch $@
 
 manifests: manifests-v1alpha1 manifests-v1alpha2 ## Generate all CRDs
 
@@ -227,7 +246,7 @@ $(DEEPCOPY_FILES) &: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES) $(V1ALPHA2_AP
 	$(MAKE) fmt
 
 generate: out/.generate.stamp ## Run all code generation steps
-out/.generate.stamp: $(DEEPCOPY_FILES) out/.generate-proto.stamp out/.generate-go.stamp out/.ui-generate.stamp out/.manifests-v1alpha1.stamp out/.manifests-v1alpha2.stamp
+out/.generate.stamp: $(DEEPCOPY_FILES) out/.generate-proto.stamp out/.generate-go.stamp out/.ui-generate.stamp $(V1ALPHA1_CRD_FILES) $(V1ALPHA2_CRD_FILES)
 	@touch $@
 
 .PHONY: dep-graph
@@ -295,7 +314,6 @@ clean-tools: ## Remove all tools
 
 .PHONY: clean-all
 clean-all: clean clean-agent clean-tools ## Remove all binaries and tools
-	rm -f out/.manifests-v1alpha1.stamp out/.manifests-v1alpha2.stamp
 	rm -f out/.generate-proto.stamp out/.generate-go.stamp
 	rm -f out/.ui-install-deps.stamp out/.ui-templ.stamp out/.ui-css.stamp out/.ui-generate.stamp out/.generate.stamp
 

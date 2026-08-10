@@ -39,16 +39,15 @@ type HardwareSpec struct {
 	// It is typically the MAC address of the primary network interface.
 	AgentID string `json:"agentID,omitempty"`
 
-	// Attributes related to Hardware. These are attributes that are needed/used to make logical decisions
-	// around builtin capabilities. For example, the Arch determines which OSIE files to server (x86_64 or aarch64).
-	// The UEFI boolean us needed/used to determine options in IPMI calls.
-	Attributes *Attributes `json:"attributes,omitempty"`
+	// Arch represents the Hardware's architecture type.
+	// For example: x86_64, amd64, aarch64, arm64, etc.
+	Arch string `json:"arch,omitempty"`
 
 	// Auto is the configuration for the automatic capabilities.
 	Auto AutoCapabilities `json:"auto,omitempty"`
 
 	// BMC contains connection and configuration data for the BMC (Baseboard Management Controller) of this Hardware.
-	BMC *bmc.Connection `json:"bmc,omitempty"`
+	BMC *BMC `json:"bmc,omitempty"`
 
 	// Instance describes data that is less permanent than any physical attributes of the Hardware.
 	// +optional
@@ -67,18 +66,6 @@ type HardwareSpec struct {
 	// StorageDevices is a list of storage devices that will be available in the OSIE.
 	// +optional
 	StorageDevices []StorageDevice `json:"storageDevices,omitempty"`
-}
-
-// Attributes related to Hardware. These are attributes that are needed/used to make logical decisions
-// around builtin capabilities. For example, the Arch determines which OSIE files to server (x86_64 or aarch64).
-// The UEFI boolean us needed/used to determine options in IPMI calls.
-type Attributes struct {
-	// Arch represents the Hardware's architecture type.
-	// For example; x86_64 or aarch64
-	Arch string `json:"arch,omitempty"`
-
-	// UEFI reports whether the Hardware uses UEFI.
-	UEFI bool `json:"uefi,omitempty"`
 }
 
 // AutoCapabilities defines the configuration for the automatic capabilities of this Hardware.
