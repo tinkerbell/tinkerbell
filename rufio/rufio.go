@@ -29,13 +29,15 @@ import (
 )
 
 type Config struct {
-	Namespace               string
-	Client                  *rest.Config
-	EnableLeaderElection    bool
-	LeaderElectionNamespace string
-	BMCConnectTimeout       time.Duration
-	PowerCheckInterval      time.Duration
-	MaxConcurrentReconciles int
+	Namespace                 string
+	Client                    *rest.Config
+	EnableLeaderElection      bool
+	LeaderElectionNamespace   string
+	BMCConnectTimeout         time.Duration
+	PowerCheckInterval        time.Duration
+	InventoryRefreshInterval  time.Duration
+	EnableInventoryCollection bool
+	MaxConcurrentReconciles   int
 }
 
 type Option func(*Config)
@@ -70,6 +72,21 @@ func WithPowerCheckInterval(interval time.Duration) Option {
 	}
 }
 
+func WithInventoryRefreshInterval(interval time.Duration) Option {
+	return func(c *Config) {
+		c.InventoryRefreshInterval = interval
+	}
+}
+
+// WithEnableInventoryCollection is a fleet-wide kill switch for BMC (out-of-band)
+// inventory collection. Individual Hardware objects can additionally opt out via
+// the tinkerbell.org/disable-outofband-inventory annotation.
+func WithEnableInventoryCollection(enable bool) Option {
+	return func(c *Config) {
+		c.EnableInventoryCollection = enable
+	}
+}
+
 func WithLeaderElectionNamespace(namespace string) Option {
 	return func(c *Config) {
 		c.LeaderElectionNamespace = namespace
@@ -78,8 +95,9 @@ func WithLeaderElectionNamespace(namespace string) Option {
 
 func NewConfig(opts ...Option) *Config {
 	defaults := &Config{
-		EnableLeaderElection:    true,
-		MaxConcurrentReconciles: 1,
+		EnableLeaderElection:      true,
+		EnableInventoryCollection: true,
+		MaxConcurrentReconciles:   1,
 	}
 
 	for _, opt := range opts {
@@ -104,7 +122,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		options.Cache = cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}
 	}
 
-	mgr, err := controller.NewManager(c.Client, options, c.PowerCheckInterval, c.MaxConcurrentReconciles)
+	mgr, err := controller.NewManager(c.Client, options, c.PowerCheckInterval, c.InventoryRefreshInterval, c.EnableInventoryCollection, c.MaxConcurrentReconciles)
 	if err != nil {
 		return err
 	}

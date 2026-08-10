@@ -90,6 +90,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	rufioOpts := []rufio.Option{
 		rufio.WithBmcConnectTimeout(2 * time.Minute),
 		rufio.WithPowerCheckInterval(30 * time.Minute),
+		rufio.WithInventoryRefreshInterval(24 * time.Hour),
 		rufio.WithEnableLeaderElection(false),
 	}
 	rc := &flag.RufioConfig{
