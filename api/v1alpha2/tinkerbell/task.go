@@ -79,7 +79,7 @@ type Action struct {
 	// so "True", "TRUE", "False", "FALSE" are all valid.
 	//
 	// The value is typically a Go template that evaluates to the boolean, e.g.
-	// "{{ eq .hardware.spec.attributes.arch \"amd64\" }}". Templating runs before
+	// "{{ eq .hardware.spec.arch \"amd64\" }}". Templating runs before
 	// the result is parsed, so the template output — not the raw field — is what
 	// must resolve to true/false/"".
 	// +optional
