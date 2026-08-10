@@ -15,6 +15,8 @@ func RegisterRufioFlags(fs *Set, t *RufioConfig) {
 	fs.Register(RufioControllerLeaderElectionNamespace, ffval.NewValueDefault(&t.Config.LeaderElectionNamespace, t.Config.LeaderElectionNamespace))
 	fs.Register(RufioBMCConnectTimeout, ffval.NewValueDefault(&t.Config.BMCConnectTimeout, t.Config.BMCConnectTimeout))
 	fs.Register(RufioPowerCheckInterval, ffval.NewValueDefault(&t.Config.PowerCheckInterval, t.Config.PowerCheckInterval))
+	fs.Register(RufioInventoryRefreshInterval, ffval.NewValueDefault(&t.Config.InventoryRefreshInterval, t.Config.InventoryRefreshInterval))
+	fs.Register(RufioEnableInventoryCollection, ffval.NewValueDefault(&t.Config.EnableInventoryCollection, t.Config.EnableInventoryCollection))
 	fs.Register(RufioMaxConcurrentReconciles, ffval.NewValueDefault(&t.Config.MaxConcurrentReconciles, t.Config.MaxConcurrentReconciles))
 	fs.Register(RufioLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
 }
@@ -37,6 +39,16 @@ var RufioBMCConnectTimeout = Config{
 var RufioPowerCheckInterval = Config{
 	Name:  "rufio-power-check-interval",
 	Usage: "interval at which the machine's power state is reconciled",
+}
+
+var RufioInventoryRefreshInterval = Config{
+	Name:  "rufio-inventory-refresh-interval",
+	Usage: "interval at which out-of-band BMC hardware inventory is refreshed",
+}
+
+var RufioEnableInventoryCollection = Config{
+	Name:  "rufio-enable-inventory-collection",
+	Usage: "enable out-of-band BMC hardware inventory collection; individual Hardware objects can additionally opt out via the tinkerbell.org/disable-outofband-inventory annotation",
 }
 
 var RufioLogLevel = Config{

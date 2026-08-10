@@ -122,6 +122,8 @@ func TestMachineReconcile(t *testing.T) {
 				fakeRecorder,
 				newTestClient(tt.provider),
 				0,
+				0,
+				true,
 			)
 
 			req := reconcile.Request{
