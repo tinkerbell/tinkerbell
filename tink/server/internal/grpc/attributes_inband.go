@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -175,6 +176,9 @@ func parseSpeedMbps(speed string) uint32 {
 	}
 	if strings.Contains(strings.ToLower(unit), "gb") {
 		v *= 1000
+	}
+	if v > math.MaxUint32 {
+		return math.MaxUint32
 	}
 	return uint32(v)
 }
