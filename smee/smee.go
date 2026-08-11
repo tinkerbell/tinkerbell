@@ -411,7 +411,7 @@ func (c *Config) ISOHandler(log logr.Logger) (http.Handler, error) {
 		Patch: iso.Patch{
 			KernelParams: iso.KernelParams{
 				ExtraParams:        c.IPXE.HTTPScriptServer.ExtraKernelArgs,
-				Syslog:             c.DHCP.SyslogIP.String(),
+				Syslog:             c.syslogHost(),
 				TinkServerTLS:      c.TinkServer.UseTLS,
 				TinkServerGRPCAddr: c.TinkServer.AddrPort,
 			},
