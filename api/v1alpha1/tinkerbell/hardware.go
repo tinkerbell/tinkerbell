@@ -433,11 +433,6 @@ type HardwareStatus struct {
 // HardwareAttributes holds hardware attribute subtrees, one per collection path.
 // Each subtree is written by a single owner and the owners touch disjoint paths,
 // so no merge keys or per-field precedence rules are needed.
-//
-// Only OutOfBand exists today. An InBand sibling, written by tink-server from the
-// Agent-reported attributes that currently land in the
-// "tinkerbell.org/agent-attributes" annotation, is the intended next step — it
-// shares the Attributes type below, and adding it is a purely additive change.
 type HardwareAttributes struct {
 	// OutOfBand holds attributes collected via the BMC (Redfish or vendor API).
 	// Available before the machine boots. IPMI-only BMCs cannot provide this data
