@@ -512,6 +512,8 @@ type mockBackendReadWriter struct {
 	updateOpts      data.UpdateOptions   // captures the options passed to UpdateHardware
 
 	appliedInBand *tinkerbell.Attributes // captures the attrs passed to ApplyHardwareInBandAttributes
+
+	readHardwareCalls int // counts calls to ReadHardware, to catch redundant re-reads
 }
 
 func (m *mockBackendReadWriter) ReadWorkflow(_ context.Context, _ string, _ string) (*tinkerbell.Workflow, error) {
@@ -533,6 +535,7 @@ func (m *mockBackendReadWriter) UpdateWorkflow(_ context.Context, _ *tinkerbell.
 }
 
 func (m *mockBackendReadWriter) ReadHardware(_ context.Context, _ string, _ string) (*tinkerbell.Hardware, error) {
+	m.readHardwareCalls++
 	if m.hardware != nil {
 		return m.hardware, nil
 	}
@@ -601,6 +604,10 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 		wantAnnotation bool
 		wantNoHWUpdate bool
 		wantInBand     bool
+		// wantReadHardwareCalls, when non-nil, asserts the exact number of ReadHardware
+		// calls - used to catch a redundant re-read when both the annotation and inBand
+		// paths resolve Hardware in the same request.
+		wantReadHardwareCalls *int
 	}{
 		"first action with HardwareRef and no existing annotation": {
 			workflow: baseWorkflow("my-hw"),
@@ -615,8 +622,9 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 				AgentId:         toPtr("machine-mac-1"),
 				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
 			},
-			wantAnnotation: true,
-			wantInBand:     true,
+			wantAnnotation:        true,
+			wantInBand:            true,
+			wantReadHardwareCalls: toPtr(1),
 		},
 		"first action with nil attributes does not update hardware": {
 			workflow: baseWorkflow("my-hw"),
@@ -650,8 +658,9 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 			},
 			// The legacy annotation is write-once and stays untouched, but inBand is
 			// not gated on it: it must still be (re-)applied on every matching report.
-			wantNoHWUpdate: true,
-			wantInBand:     true,
+			wantNoHWUpdate:        true,
+			wantInBand:            true,
+			wantReadHardwareCalls: toPtr(1),
 		},
 		"first action with no HardwareRef": {
 			workflow: baseWorkflow(""),
@@ -846,6 +855,9 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 				}
 			} else if mock.appliedInBand != nil {
 				t.Errorf("expected status.attributes.inBand not to be applied, but it was: %+v", mock.appliedInBand)
+			}
+			if tc.wantReadHardwareCalls != nil && mock.readHardwareCalls != *tc.wantReadHardwareCalls {
+				t.Errorf("ReadHardware called %d times, want %d", mock.readHardwareCalls, *tc.wantReadHardwareCalls)
 			}
 		})
 	}

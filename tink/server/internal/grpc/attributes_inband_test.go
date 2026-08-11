@@ -125,7 +125,8 @@ func TestParseSpeedMbps(t *testing.T) {
 		"25000":    25000,
 		"":         0,
 		"unknown":  0,
-		"10 Gb/s":  10,
+		"10 Gb/s":  10000,
+		"25 GB/s":  25000,
 	}
 	for input, want := range tests {
 		if got := parseSpeedMbps(input); got != want {

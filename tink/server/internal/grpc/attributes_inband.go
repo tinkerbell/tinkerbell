@@ -164,12 +164,17 @@ func inBandAttributesFromAgent(attrs *data.AgentAttributes) *tinkerbell.Attribut
 func parseSpeedMbps(speed string) uint32 {
 	digits := strings.TrimLeftFunc(speed, func(r rune) bool { return r < '0' || r > '9' })
 	end := strings.IndexFunc(digits, func(r rune) bool { return r < '0' || r > '9' })
+	unit := ""
 	if end != -1 {
+		unit = digits[end:]
 		digits = digits[:end]
 	}
 	v, err := strconv.ParseUint(digits, 10, 32)
 	if err != nil {
 		return 0
+	}
+	if strings.Contains(strings.ToLower(unit), "gb") {
+		v *= 1000
 	}
 	return uint32(v)
 }

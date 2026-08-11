@@ -224,7 +224,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	if isFirstAction(wf.Status.Tasks[0]) {
 		task = &wf.Status.Tasks[0]
 		journal.Log(ctx, "first Task, first Action")
-		h.resolveAndAnnotateHardware(ctx, log, hwRef, wf.Spec.HardwareRef, wf.Namespace, attrs)
+		hwRef = h.resolveAndAnnotateHardware(ctx, log, hwRef, wf.Spec.HardwareRef, wf.Namespace, attrs)
 	} else {
 		for _, t := range wf.Status.Tasks {
 			// check if all actions have been run successfully in this task.
@@ -470,19 +470,21 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 // resolveAndAnnotateHardware resolves the Hardware object for a Workflow and persists agent attributes
 // as a legacy annotation. This is only called on the very first action of the Workflow's first Task to
 // avoid unnecessary backend reads; see updateHardwareWithAttributes for why the annotation, once set, is
-// never refreshed by later Workflow runs.
-func (h *Handler) resolveAndAnnotateHardware(ctx context.Context, log logr.Logger, hwRef *tinkerbell.Hardware, hardwareRef, namespace string, attrs *data.AgentAttributes) {
+// never refreshed by later Workflow runs. The resolved Hardware is returned so callers that need it again
+// in the same request (e.g. for status.attributes.inBand) don't have to re-read it from the backend.
+func (h *Handler) resolveAndAnnotateHardware(ctx context.Context, log logr.Logger, hwRef *tinkerbell.Hardware, hardwareRef, namespace string, attrs *data.AgentAttributes) *tinkerbell.Hardware {
 	if attrs == nil {
-		return
+		return hwRef
 	}
 	hwRef = h.resolveHardware(ctx, hwRef, hardwareRef, namespace)
 	if hwRef == nil {
-		return
+		return nil
 	}
 	if err := h.updateHardwareWithAttributes(ctx, log, hwRef, attrs); err != nil {
 		journal.Log(ctx, "error updating Hardware with attributes", "error", err)
 		log.Error(err, "error updating Hardware with attributes")
 	}
+	return hwRef
 }
 
 // updateHardwareWithAttributes updates the Hardware with the given attributes annotation if it doesn't already have it.
