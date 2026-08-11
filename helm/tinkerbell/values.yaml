@@ -27,6 +27,7 @@ deployment:
       backendKubeNamespace: ""
       backendKubeQPS: 100
       bindAddr: ""
+      disableHttpToHttpsRedirect: false # set true to stop auto-redirecting plain HTTP requests to HTTPS when TLS is enabled
       enableCRDMigrations: true
       enableRufioController: true
       enableSecondstar: true
@@ -46,7 +47,9 @@ deployment:
       trustedProxies: ""
     rufio:
       bmcConnectTimeout: "2m0s"
+      enableInventoryCollection: true # collect out-of-band BMC hardware inventory into Hardware.status; per-Hardware opt-out via the tinkerbell.org/disable-outofband-inventory annotation
       enableLeaderElection: true
+      inventoryRefreshInterval: "24h0m0s" # how often out-of-band BMC hardware inventory is refreshed per machine
       leaderElectionNamespace: ""
       logLevel: 0
       maxConcurrentReconciles: 1
@@ -60,6 +63,7 @@ deployment:
     smee:
       dhcpBindAddr: ""
       dhcpBindInterface: ""
+      dhcpEnableNetbootOptions: true # send PXE/iPXE netboot DHCP options (bootfile/next-server/opt43); disable if a non Tinkerbell (Proxy)DHCP owns netboot
       dhcpEnabled: true
       dhcpIPForPacket: ""
       dhcpIpxeHttpBinaryHost: ""
