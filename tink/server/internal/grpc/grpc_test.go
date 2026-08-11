@@ -600,6 +600,7 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 		request        *proto.ActionRequest
 		wantAnnotation bool
 		wantNoHWUpdate bool
+		wantInBand     bool
 	}{
 		"first action with HardwareRef and no existing annotation": {
 			workflow: baseWorkflow("my-hw"),
@@ -608,12 +609,14 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 					Name:      "my-hw",
 					Namespace: "default",
 				},
+				Spec: tinkerbell.HardwareSpec{AgentID: "machine-mac-1"},
 			},
 			request: &proto.ActionRequest{
 				AgentId:         toPtr("machine-mac-1"),
 				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
 			},
 			wantAnnotation: true,
+			wantInBand:     true,
 		},
 		"first action with nil attributes does not update hardware": {
 			workflow: baseWorkflow("my-hw"),
@@ -622,13 +625,14 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 					Name:      "my-hw",
 					Namespace: "default",
 				},
+				Spec: tinkerbell.HardwareSpec{AgentID: "machine-mac-1"},
 			},
 			request: &proto.ActionRequest{
 				AgentId: toPtr("machine-mac-1"),
 			},
 			wantNoHWUpdate: true,
 		},
-		"first action with HardwareRef and existing annotation": {
+		"first action with HardwareRef and existing annotation still applies inBand": {
 			workflow: baseWorkflow("my-hw"),
 			hardware: &tinkerbell.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
@@ -638,12 +642,16 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 						constant.AttributesAnnotation: `{"cpu":{}}`,
 					},
 				},
+				Spec: tinkerbell.HardwareSpec{AgentID: "machine-mac-1"},
 			},
 			request: &proto.ActionRequest{
 				AgentId:         toPtr("machine-mac-1"),
 				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
 			},
+			// The legacy annotation is write-once and stays untouched, but inBand is
+			// not gated on it: it must still be (re-)applied on every matching report.
 			wantNoHWUpdate: true,
+			wantInBand:     true,
 		},
 		"first action with no HardwareRef": {
 			workflow: baseWorkflow(""),
@@ -658,6 +666,26 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 				AgentId: toPtr("machine-mac-1"),
 			},
 			wantNoHWUpdate: true,
+		},
+		"first action but calling Agent is not the Hardware's own Agent": {
+			workflow: baseWorkflow("my-hw"),
+			hardware: &tinkerbell.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-hw",
+					Namespace: "default",
+				},
+				// The Hardware's own Agent is a different (physical) Agent than the one
+				// serving this Workflow's first Task (e.g. an administrative Agent
+				// handling Netbox/network setup) - the annotation still gets written
+				// (unchanged legacy behavior), but inBand must not.
+				Spec: tinkerbell.HardwareSpec{AgentID: "some-other-physical-agent"},
+			},
+			request: &proto.ActionRequest{
+				AgentId:         toPtr("machine-mac-1"),
+				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
+			},
+			wantAnnotation: true,
+			wantInBand:     false,
 		},
 		"non-first action does not update hardware": {
 			workflow: &tinkerbell.Workflow{
@@ -704,12 +732,71 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 					Name:      "my-hw",
 					Namespace: "default",
 				},
+				Spec: tinkerbell.HardwareSpec{AgentID: "machine-mac-1"},
 			},
 			request: &proto.ActionRequest{
 				AgentId:         toPtr("machine-mac-1"),
 				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
 			},
 			wantNoHWUpdate: true,
+		},
+		"first action of a later Task on the Hardware's own Agent applies inBand even though the Workflow's first Task belongs to a different Agent": {
+			workflow: &tinkerbell.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
+				Spec: tinkerbell.WorkflowSpec{
+					HardwareRef: "my-hw",
+				},
+				Status: tinkerbell.WorkflowStatus{
+					State: tinkerbell.WorkflowStateRunning,
+					Tasks: []tinkerbell.Task{
+						{
+							Name:    "provisioning network config",
+							AgentID: "admin-agent",
+							ID:      "task-admin",
+							Actions: []tinkerbell.Action{
+								{
+									Name:  "mark netbox provisioning",
+									Image: "curlimages/curl:8.11.1",
+									State: tinkerbell.WorkflowStateSuccess,
+									ID:    "action-admin",
+								},
+							},
+						},
+						{
+							Name:    "os installation",
+							AgentID: "machine-mac-1",
+							ID:      "task-os",
+							Actions: []tinkerbell.Action{
+								{
+									Name:  "select install target",
+									Image: "alpine:3.20",
+									State: tinkerbell.WorkflowStatePending,
+									ID:    "action-os",
+								},
+							},
+						},
+					},
+				},
+			},
+			hardware: &tinkerbell.Hardware{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-hw",
+					Namespace: "default",
+				},
+				Spec: tinkerbell.HardwareSpec{AgentID: "machine-mac-1"},
+			},
+			request: &proto.ActionRequest{
+				AgentId:         toPtr("machine-mac-1"),
+				AgentAttributes: &proto.AgentAttributes{Cpu: &proto.CPU{TotalCores: toPtr(uint32(4))}},
+			},
+			// This is not the Workflow's overall first Task, so the legacy annotation
+			// is not written - but it is the first Action of a Task assigned to the
+			// Hardware's own Agent, so inBand must still be applied.
+			wantNoHWUpdate: true,
+			wantInBand:     true,
 		},
 	}
 
@@ -738,6 +825,13 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 				if mock.updateOpts.PatchFrom == nil {
 					t.Fatal("expected PatchFrom to be set in UpdateOptions for merge-patch, but it was nil")
 				}
+			}
+			if tc.wantNoHWUpdate {
+				if mock.updatedHardware != nil {
+					t.Fatalf("expected no Hardware update, but UpdateHardware was called with %v", mock.updatedHardware.Name)
+				}
+			}
+			if tc.wantInBand {
 				if mock.appliedInBand == nil {
 					t.Fatal("expected status.attributes.inBand to be applied, but ApplyHardwareInBandAttributes was not called")
 				}
@@ -750,11 +844,8 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 				if mock.appliedInBand.CPU == nil || mock.appliedInBand.CPU.TotalCores != 4 {
 					t.Errorf("appliedInBand.CPU = %+v, want TotalCores=4", mock.appliedInBand.CPU)
 				}
-			}
-			if tc.wantNoHWUpdate {
-				if mock.updatedHardware != nil {
-					t.Fatalf("expected no Hardware update, but UpdateHardware was called with %v", mock.updatedHardware.Name)
-				}
+			} else if mock.appliedInBand != nil {
+				t.Errorf("expected status.attributes.inBand not to be applied, but it was: %+v", mock.appliedInBand)
 			}
 		})
 	}

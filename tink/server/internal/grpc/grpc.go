@@ -242,6 +242,14 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		}
 	}
 
+	// Applied independently of the legacy annotation above, and on whichever Task's first Action is
+	// currently being served (not just the Workflow's overall first Task): the Agent handling the
+	// Workflow's first Task is often an administrative Agent (e.g. for Netbox/network setup), not the
+	// Agent running on the target Hardware itself.
+	if isFirstAction(*task) {
+		h.resolveAndApplyInBandAttributes(ctx, log, hwRef, wf.Spec.HardwareRef, wf.Namespace, req.GetAgentId(), attrs)
+	}
+
 	if len(task.Actions) == 0 {
 		journal.Log(ctx, "no Actions found")
 		return nil, status.Error(codes.NotFound, "no Actions found")
@@ -460,18 +468,14 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 }
 
 // resolveAndAnnotateHardware resolves the Hardware object for a Workflow and persists agent attributes
-// as an annotation. This is only called on the very first action to avoid unnecessary backend reads.
+// as a legacy annotation. This is only called on the very first action of the Workflow's first Task to
+// avoid unnecessary backend reads; see updateHardwareWithAttributes for why the annotation, once set, is
+// never refreshed by later Workflow runs.
 func (h *Handler) resolveAndAnnotateHardware(ctx context.Context, log logr.Logger, hwRef *tinkerbell.Hardware, hardwareRef, namespace string, attrs *data.AgentAttributes) {
 	if attrs == nil {
 		return
 	}
-	if hwRef == nil && hardwareRef != "" {
-		hw, err := h.Backend.ReadHardware(ctx, hardwareRef, namespace)
-		if err != nil {
-			return
-		}
-		hwRef = hw
-	}
+	hwRef = h.resolveHardware(ctx, hwRef, hardwareRef, namespace)
 	if hwRef == nil {
 		return
 	}
@@ -512,16 +516,49 @@ func (h *Handler) updateHardwareWithAttributes(ctx context.Context, log logr.Log
 	journal.Log(ctx, "updated Hardware with attributes annotation", "hardware", hw.Name)
 	log.Info("updated Hardware with attributes annotation", "hardware", hw.Name)
 
-	if inBand := inBandAttributesFromAgent(attrs); inBand != nil {
-		inBand.CollectionMethod = "agent"
-		inBand.LastUpdated = &metav1.Time{Time: h.NowFunc()}
-		if err := h.Backend.ApplyHardwareInBandAttributes(ctx, hw.Name, hw.Namespace, inBand); err != nil {
-			journal.Log(ctx, "error applying Hardware status.attributes.inBand", "error", err)
-			log.Error(err, "error applying Hardware status.attributes.inBand")
-		}
-	}
-
 	return nil
+}
+
+// resolveAndApplyInBandAttributes resolves the Hardware object for a Workflow and applies the calling
+// Agent's attributes to status.attributes.inBand, but only when the calling Agent is the Hardware's own
+// Agent (hw.Spec.AgentID) - other Agents used by the Workflow (e.g. an administrative Agent handling
+// network or Netbox tasks) don't run on the target Hardware and would otherwise overwrite its in-band
+// attributes with unrelated data. Unlike the legacy annotation, this is applied every time a matching
+// Agent reports in, regardless of any existing value, so Hardware changes or a Tink Agent update are
+// reflected on the next report rather than being permanently masked by the first one ever recorded.
+func (h *Handler) resolveAndApplyInBandAttributes(ctx context.Context, log logr.Logger, hwRef *tinkerbell.Hardware, hardwareRef, namespace, agentID string, attrs *data.AgentAttributes) {
+	if attrs == nil {
+		return
+	}
+	hwRef = h.resolveHardware(ctx, hwRef, hardwareRef, namespace)
+	if hwRef == nil || hwRef.Spec.AgentID != agentID {
+		return
+	}
+	inBand := inBandAttributesFromAgent(attrs)
+	if inBand == nil {
+		return
+	}
+	inBand.CollectionMethod = "agent"
+	inBand.LastUpdated = &metav1.Time{Time: h.NowFunc()}
+	if err := h.Backend.ApplyHardwareInBandAttributes(ctx, hwRef.Name, hwRef.Namespace, inBand); err != nil {
+		journal.Log(ctx, "error applying Hardware status.attributes.inBand", "error", err)
+		log.Error(err, "error applying Hardware status.attributes.inBand")
+	}
+}
+
+// resolveHardware returns hwRef unchanged if already resolved, otherwise reads it from the backend.
+func (h *Handler) resolveHardware(ctx context.Context, hwRef *tinkerbell.Hardware, hardwareRef, namespace string) *tinkerbell.Hardware {
+	if hwRef != nil {
+		return hwRef
+	}
+	if hardwareRef == "" {
+		return nil
+	}
+	hw, err := h.Backend.ReadHardware(ctx, hardwareRef, namespace)
+	if err != nil {
+		return nil
+	}
+	return hw
 }
 
 func toPtr[T any](v T) *T {
