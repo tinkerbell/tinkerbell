@@ -27,21 +27,21 @@ func convert(pAttr *proto.AgentAttributes) *data.AgentAttributes {
 	}
 	// Memory
 	if pAttr.Memory != nil {
-		dAttr.Memory.Total = pAttr.Memory.Total
-		dAttr.Memory.Usable = pAttr.Memory.Usable
+		dAttr.Memory.TotalBytes = pAttr.Memory.TotalBytes
+		dAttr.Memory.UsableBytes = pAttr.Memory.UsableBytes
 	}
 	// BlockDevices
 	for _, block := range pAttr.Block {
 		dAttr.BlockDevices = append(dAttr.BlockDevices, &data.Block{
-			Name:              block.Name,
-			ControllerType:    block.ControllerType,
-			DriveType:         block.DriveType,
-			Size:              block.Size,
-			PhysicalBlockSize: block.PhysicalBlockSize,
-			Vendor:            block.Vendor,
-			Model:             block.Model,
-			WWN:               block.Wwn,
-			SerialNumber:      block.SerialNumber,
+			Name:                   block.Name,
+			ControllerType:         block.ControllerType,
+			DriveType:              block.DriveType,
+			SizeBytes:              block.SizeBytes,
+			PhysicalBlockSizeBytes: block.PhysicalBlockSizeBytes,
+			Vendor:                 block.Vendor,
+			Model:                  block.Model,
+			WWN:                    block.Wwn,
+			SerialNumber:           block.SerialNumber,
 		})
 	}
 	// NetworkInterfaces
@@ -49,7 +49,7 @@ func convert(pAttr *proto.AgentAttributes) *data.AgentAttributes {
 		dAttr.NetworkInterfaces = append(dAttr.NetworkInterfaces, &data.Network{
 			Name:                network.Name,
 			Mac:                 network.Mac,
-			Speed:               network.Speed,
+			SpeedMbps:           network.SpeedMbps,
 			EnabledCapabilities: network.EnabledCapabilities,
 		})
 	}

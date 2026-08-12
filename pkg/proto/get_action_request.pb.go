@@ -339,8 +339,8 @@ func (x *Processor) GetCapabilities() []string {
 
 type Memory struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Total         *string                `protobuf:"bytes,1,opt,name=total" json:"total,omitempty"`
-	Usable        *string                `protobuf:"bytes,2,opt,name=usable" json:"usable,omitempty"`
+	TotalBytes    *int64                 `protobuf:"varint,3,opt,name=total_bytes,json=totalBytes" json:"total_bytes,omitempty"`
+	UsableBytes   *int64                 `protobuf:"varint,4,opt,name=usable_bytes,json=usableBytes" json:"usable_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -375,33 +375,33 @@ func (*Memory) Descriptor() ([]byte, []int) {
 	return file_get_action_request_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *Memory) GetTotal() string {
-	if x != nil && x.Total != nil {
-		return *x.Total
+func (x *Memory) GetTotalBytes() int64 {
+	if x != nil && x.TotalBytes != nil {
+		return *x.TotalBytes
 	}
-	return ""
+	return 0
 }
 
-func (x *Memory) GetUsable() string {
-	if x != nil && x.Usable != nil {
-		return *x.Usable
+func (x *Memory) GetUsableBytes() int64 {
+	if x != nil && x.UsableBytes != nil {
+		return *x.UsableBytes
 	}
-	return ""
+	return 0
 }
 
 type Block struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Name              *string                `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	ControllerType    *string                `protobuf:"bytes,2,opt,name=controller_type,json=controllerType" json:"controller_type,omitempty"`
-	DriveType         *string                `protobuf:"bytes,3,opt,name=drive_type,json=driveType" json:"drive_type,omitempty"`
-	Size              *string                `protobuf:"bytes,4,opt,name=size" json:"size,omitempty"`
-	PhysicalBlockSize *string                `protobuf:"bytes,5,opt,name=physical_block_size,json=physicalBlockSize" json:"physical_block_size,omitempty"`
-	Vendor            *string                `protobuf:"bytes,6,opt,name=vendor" json:"vendor,omitempty"`
-	Model             *string                `protobuf:"bytes,7,opt,name=model" json:"model,omitempty"`
-	Wwn               *string                `protobuf:"bytes,8,opt,name=wwn" json:"wwn,omitempty"`
-	SerialNumber      *string                `protobuf:"bytes,9,opt,name=serial_number,json=serialNumber" json:"serial_number,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Name                   *string                `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	ControllerType         *string                `protobuf:"bytes,2,opt,name=controller_type,json=controllerType" json:"controller_type,omitempty"`
+	DriveType              *string                `protobuf:"bytes,3,opt,name=drive_type,json=driveType" json:"drive_type,omitempty"`
+	Vendor                 *string                `protobuf:"bytes,6,opt,name=vendor" json:"vendor,omitempty"`
+	Model                  *string                `protobuf:"bytes,7,opt,name=model" json:"model,omitempty"`
+	Wwn                    *string                `protobuf:"bytes,8,opt,name=wwn" json:"wwn,omitempty"`
+	SerialNumber           *string                `protobuf:"bytes,9,opt,name=serial_number,json=serialNumber" json:"serial_number,omitempty"`
+	SizeBytes              *int64                 `protobuf:"varint,10,opt,name=size_bytes,json=sizeBytes" json:"size_bytes,omitempty"`
+	PhysicalBlockSizeBytes *int64                 `protobuf:"varint,11,opt,name=physical_block_size_bytes,json=physicalBlockSizeBytes" json:"physical_block_size_bytes,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Block) Reset() {
@@ -455,20 +455,6 @@ func (x *Block) GetDriveType() string {
 	return ""
 }
 
-func (x *Block) GetSize() string {
-	if x != nil && x.Size != nil {
-		return *x.Size
-	}
-	return ""
-}
-
-func (x *Block) GetPhysicalBlockSize() string {
-	if x != nil && x.PhysicalBlockSize != nil {
-		return *x.PhysicalBlockSize
-	}
-	return ""
-}
-
 func (x *Block) GetVendor() string {
 	if x != nil && x.Vendor != nil {
 		return *x.Vendor
@@ -497,12 +483,26 @@ func (x *Block) GetSerialNumber() string {
 	return ""
 }
 
+func (x *Block) GetSizeBytes() int64 {
+	if x != nil && x.SizeBytes != nil {
+		return *x.SizeBytes
+	}
+	return 0
+}
+
+func (x *Block) GetPhysicalBlockSizeBytes() int64 {
+	if x != nil && x.PhysicalBlockSizeBytes != nil {
+		return *x.PhysicalBlockSizeBytes
+	}
+	return 0
+}
+
 type Network struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	Name                *string                `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	Mac                 *string                `protobuf:"bytes,2,opt,name=mac" json:"mac,omitempty"`
-	Speed               *string                `protobuf:"bytes,3,opt,name=speed" json:"speed,omitempty"`
 	EnabledCapabilities []string               `protobuf:"bytes,4,rep,name=enabled_capabilities,json=enabledCapabilities" json:"enabled_capabilities,omitempty"`
+	SpeedMbps           *uint32                `protobuf:"varint,5,opt,name=speed_mbps,json=speedMbps" json:"speed_mbps,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -551,18 +551,18 @@ func (x *Network) GetMac() string {
 	return ""
 }
 
-func (x *Network) GetSpeed() string {
-	if x != nil && x.Speed != nil {
-		return *x.Speed
-	}
-	return ""
-}
-
 func (x *Network) GetEnabledCapabilities() []string {
 	if x != nil {
 		return x.EnabledCapabilities
 	}
 	return nil
+}
+
+func (x *Network) GetSpeedMbps() uint32 {
+	if x != nil && x.SpeedMbps != nil {
+		return *x.SpeedMbps
+	}
+	return 0
 }
 
 type PCI struct {
@@ -977,26 +977,30 @@ const file_get_action_request_proto_rawDesc = "" +
 	"\athreads\x18\x03 \x01(\rR\athreads\x12\x16\n" +
 	"\x06vendor\x18\x04 \x01(\tR\x06vendor\x12\x14\n" +
 	"\x05model\x18\x05 \x01(\tR\x05model\x12\"\n" +
-	"\fcapabilities\x18\x06 \x03(\tR\fcapabilities\"6\n" +
-	"\x06Memory\x12\x14\n" +
-	"\x05total\x18\x01 \x01(\tR\x05total\x12\x16\n" +
-	"\x06usable\x18\x02 \x01(\tR\x06usable\"\x8c\x02\n" +
+	"\fcapabilities\x18\x06 \x03(\tR\fcapabilities\"g\n" +
+	"\x06Memory\x12\x1f\n" +
+	"\vtotal_bytes\x18\x03 \x01(\x03R\n" +
+	"totalBytes\x12!\n" +
+	"\fusable_bytes\x18\x04 \x01(\x03R\vusableBytesJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03R\x05totalR\x06usable\"\xc9\x02\n" +
 	"\x05Block\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12'\n" +
 	"\x0fcontroller_type\x18\x02 \x01(\tR\x0econtrollerType\x12\x1d\n" +
 	"\n" +
-	"drive_type\x18\x03 \x01(\tR\tdriveType\x12\x12\n" +
-	"\x04size\x18\x04 \x01(\tR\x04size\x12.\n" +
-	"\x13physical_block_size\x18\x05 \x01(\tR\x11physicalBlockSize\x12\x16\n" +
+	"drive_type\x18\x03 \x01(\tR\tdriveType\x12\x16\n" +
 	"\x06vendor\x18\x06 \x01(\tR\x06vendor\x12\x14\n" +
 	"\x05model\x18\a \x01(\tR\x05model\x12\x10\n" +
 	"\x03wwn\x18\b \x01(\tR\x03wwn\x12#\n" +
-	"\rserial_number\x18\t \x01(\tR\fserialNumber\"x\n" +
+	"\rserial_number\x18\t \x01(\tR\fserialNumber\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\n" +
+	" \x01(\x03R\tsizeBytes\x129\n" +
+	"\x19physical_block_size_bytes\x18\v \x01(\x03R\x16physicalBlockSizeBytesJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x04sizeR\x13physical_block_size\"\x8e\x01\n" +
 	"\aNetwork\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
-	"\x03mac\x18\x02 \x01(\tR\x03mac\x12\x14\n" +
-	"\x05speed\x18\x03 \x01(\tR\x05speed\x121\n" +
-	"\x14enabled_capabilities\x18\x04 \x03(\tR\x13enabledCapabilities\"e\n" +
+	"\x03mac\x18\x02 \x01(\tR\x03mac\x121\n" +
+	"\x14enabled_capabilities\x18\x04 \x03(\tR\x13enabledCapabilities\x12\x1d\n" +
+	"\n" +
+	"speed_mbps\x18\x05 \x01(\rR\tspeedMbpsJ\x04\b\x03\x10\x04R\x05speed\"e\n" +
 	"\x03PCI\x12\x16\n" +
 	"\x06vendor\x18\x01 \x01(\tR\x06vendor\x12\x18\n" +
 	"\aproduct\x18\x02 \x01(\tR\aproduct\x12\x14\n" +
