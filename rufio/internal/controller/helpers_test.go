@@ -92,18 +92,26 @@ func newClientBuilder() *fake.ClientBuilder {
 }
 
 type testProvider struct {
-	PName                 string
-	Proto                 string
-	Powerstate            string
-	PowerSetOK            bool
-	BootdeviceOK          bool
-	VirtualMediaOK        bool
-	ErrOpen               error
-	ErrClose              error
-	ErrPowerStateGet      error
-	ErrPowerStateSet      error
-	ErrBootDeviceSet      error
-	ErrVirtualMediaInsert error
+	PName                  string
+	Proto                  string
+	Powerstate             string
+	PowerSetOK             bool
+	BootdeviceOK           bool
+	VirtualMediaOK         bool
+	SecureBootEnabled      bool
+	ErrOpen                error
+	ErrClose               error
+	ErrPowerStateGet       error
+	ErrPowerStateSet       error
+	ErrBootDeviceSet       error
+	ErrVirtualMediaInsert  error
+	ErrGetSecureBoot       error
+	ErrSetSecureBoot       error
+	ErrResetSecureBootKeys error
+
+	// ResetSecureBootKeysCalledWith records the resetType passed to the last
+	// ResetSecureBootKeys call, so tests can assert it was forwarded correctly.
+	ResetSecureBootKeysCalledWith string
 
 	// InventoryDevice and ErrInventory control the Inventory() implementation
 	// below, used to test BMC inventory collection without a live BMC or a
@@ -136,6 +144,9 @@ func (t *testProvider) Features() registrar.Features {
 		providers.FeatureBootDeviceSet,
 		providers.FeatureVirtualMedia,
 		providers.FeatureInventoryRead,
+		providers.FeatureGetSecureBoot,
+		providers.FeatureSetSecureBoot,
+		providers.FeatureResetSecureBootKeys,
 	}
 }
 
@@ -169,6 +180,22 @@ func (t *testProvider) BootDeviceSet(_ context.Context, _ string, _, _ bool) (ok
 
 func (t *testProvider) SetVirtualMedia(_ context.Context, _ string, _ string) (ok bool, err error) {
 	return t.VirtualMediaOK, t.ErrVirtualMediaInsert
+}
+
+func (t *testProvider) GetSecureBoot(_ context.Context) (bool, error) {
+	return t.SecureBootEnabled, t.ErrGetSecureBoot
+}
+
+func (t *testProvider) SetSecureBoot(_ context.Context, enable bool) error {
+	if t.ErrSetSecureBoot == nil {
+		t.SecureBootEnabled = enable
+	}
+	return t.ErrSetSecureBoot
+}
+
+func (t *testProvider) ResetSecureBootKeys(_ context.Context, resetType string) error {
+	t.ResetSecureBootKeysCalledWith = resetType
+	return t.ErrResetSecureBootKeys
 }
 
 // newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc.

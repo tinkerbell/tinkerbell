@@ -247,6 +247,26 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 		return nil
 	}
 
+	if task.SecureBoot != nil {
+		if err := bmcClient.SetSecureBoot(ctx, task.SecureBoot.Enable); err != nil {
+			return fmt.Errorf("failed to perform SetSecureBoot: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("secure boot state set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "enable", task.SecureBoot.Enable)
+
+		return nil
+	}
+
+	if task.SecureBootResetKeys != nil {
+		if err := bmcClient.ResetSecureBootKeys(ctx, task.SecureBootResetKeys.ResetType); err != nil {
+			return fmt.Errorf("failed to perform ResetSecureBootKeys: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("secure boot keys reset successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "resetType", task.SecureBootResetKeys.ResetType)
+
+		return nil
+	}
+
 	logger.Info("no action specified in Task, nothing to do", "task", task)
 
 	return errors.New("no action specified in Task, nothing to do")
