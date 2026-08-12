@@ -1,8 +1,45 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"fmt"
+	"strings"
 	"testing"
+
+	"github.com/tinkerbell/tinkerbell/pkg/build"
 )
+
+func TestExecuteVersion(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var stdout bytes.Buffer
+	if err := executeWithOutput(ctx, cancel, []string{"--version"}, &stdout); err != nil {
+		t.Fatalf("executeWithOutput() error = %v", err)
+	}
+
+	want := fmt.Sprintf("tinkerbell %s\n", build.GitRevision())
+	if got := stdout.String(); got != want {
+		t.Fatalf("executeWithOutput() output = %q, want %q", got, want)
+	}
+}
+
+func TestVersionHelp(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var stdout bytes.Buffer
+	err := executeWithOutput(ctx, cancel, []string{"--help"}, &stdout)
+	if err == nil {
+		t.Fatal("executeWithOutput() error = nil, want help output")
+	}
+	for _, want := range []string{"--version", "Print the version and exit"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("executeWithOutput() help does not contain %q:\n%s", want, err)
+		}
+	}
+}
 
 func TestNormalizeURLPrefix(t *testing.T) {
 	tests := []struct {

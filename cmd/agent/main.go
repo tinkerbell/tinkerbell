@@ -76,6 +76,13 @@ func main() {
 		exitCode = 1
 		return
 	}
+	if c.PrintVersion {
+		if _, err := fmt.Fprintln(os.Stdout, name, build.GitRevision()); err != nil {
+			fmt.Fprintf(os.Stderr, "print version: %v\n", err)
+			exitCode = 1
+		}
+		return
+	}
 
 	// For legacy flags, we need to check the environment variables without the prefix.
 	SetFromEnvLegacy(c)

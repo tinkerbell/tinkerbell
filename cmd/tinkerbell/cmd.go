@@ -6,7 +6,9 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"net/netip"
+	"os"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -38,7 +40,12 @@ var (
 	embeddedKubeControllerManagerExecute func(context.Context, string) error
 )
 
-func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error { //nolint:cyclop // Will need to look into reducing the cyclomatic complexity.
+func Execute(ctx context.Context, cancel context.CancelFunc, args []string) error {
+	return executeWithOutput(ctx, cancel, args, os.Stdout)
+}
+
+// executeWithOutput allows command output to be captured in tests.
+func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []string, stdout io.Writer) error { //nolint:cyclop // Will need to look into reducing the cyclomatic complexity.
 	startTime := time.Now() // used in the HTTP healthcheck handler to report uptime.
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig:    kubeConfig(),
@@ -133,6 +140,8 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 	flag.RegisterSecondStarFlags(&flag.Set{FlagSet: ssfs}, ssc)
 	flag.RegisterUIFlags(&flag.Set{FlagSet: uifs}, uic)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
+	var printVersion bool
+	gfs.BoolVar(&printVersion, 0, "version", "Print the version and exit")
 	if embeddedApiserverExecute != nil && embeddedFlagSet != nil {
 		// This way the embedded flags only show up when the embedded services have been compiled in.
 		flag.RegisterEmbeddedGlobals(&flag.Set{FlagSet: gfs}, globals)
@@ -152,6 +161,12 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 		}
 
 		return e
+	}
+	if printVersion {
+		if _, err := fmt.Fprintln(stdout, "tinkerbell", build.GitRevision()); err != nil {
+			return fmt.Errorf("print version: %w", err)
+		}
+		return nil
 	}
 
 	log := getLogger(globals.LogLevel)
