@@ -100,19 +100,7 @@ func inBandAttributesFromAgent(attrs *data.AgentAttributes) *tinkerbell.Attribut
 		if n == nil {
 			continue
 		}
-		iface := tinkerbell.NetworkInterface{}
-		if n.Name != nil {
-			iface.Name = *n.Name
-		}
-		port := tinkerbell.NetworkPort{EnabledCapabilities: n.EnabledCapabilities}
-		if n.Mac != nil {
-			port.MAC = *n.Mac
-		}
-		if n.Speed != nil {
-			port.SpeedMbps = parseSpeedMbps(*n.Speed)
-		}
-		iface.Ports = []tinkerbell.NetworkPort{port}
-		out.NetworkInterfaces = append(out.NetworkInterfaces, iface)
+		out.NetworkInterfaces = append(out.NetworkInterfaces, networkInterfaceFromAgent(n))
 	}
 
 	for _, p := range attrs.PCIDevices {
@@ -170,7 +158,7 @@ func parseSpeedMbps(speed string) uint32 {
 		unit = digits[end:]
 		digits = digits[:end]
 	}
-	v, err := strconv.ParseUint(digits, 10, 32)
+	v, err := strconv.ParseUint(digits, 10, 64)
 	if err != nil {
 		return 0
 	}
@@ -181,6 +169,35 @@ func parseSpeedMbps(speed string) uint32 {
 		return math.MaxUint32
 	}
 	return uint32(v)
+}
+
+// networkInterfaceFromAgent maps a single Agent-reported interface, and the
+// one port the Agent synthesizes for it, into the shared schema's shape. Ports
+// is left empty rather than a single zero-value entry when the Agent reported
+// nothing beyond the interface name, so the UI's len(Ports)==0 "name-only"
+// check still works.
+func networkInterfaceFromAgent(n *data.Network) tinkerbell.NetworkInterface {
+	iface := tinkerbell.NetworkInterface{}
+	if n.Name != nil {
+		iface.Name = *n.Name
+	}
+	port := tinkerbell.NetworkPort{EnabledCapabilities: n.EnabledCapabilities}
+	var hasPort bool
+	if n.Mac != nil {
+		port.MAC = *n.Mac
+		hasPort = true
+	}
+	if n.Speed != nil {
+		port.SpeedMbps = parseSpeedMbps(*n.Speed)
+		hasPort = true
+	}
+	if len(n.EnabledCapabilities) > 0 {
+		hasPort = true
+	}
+	if hasPort {
+		iface.Ports = []tinkerbell.NetworkPort{port}
+	}
+	return iface
 }
 
 func chassisFromAgent(c *data.Chassis) *tinkerbell.Chassis {

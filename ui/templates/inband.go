@@ -9,7 +9,7 @@ import (
 
 // AgentAttributesFromInBand converts the shared Attributes schema, as reported
 // by the Tink Agent and stored at Hardware.status.attributes.inBand, into the
-// shape the "Agent Attributes" section of the Hardware detail page renders.
+// shape the "In-Band Attributes" section of the Hardware detail page renders.
 func AgentAttributesFromInBand(attrs *tinkv1alpha1.Attributes) *AgentAttributes {
 	if attrs == nil {
 		return nil

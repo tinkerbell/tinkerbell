@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"math"
 	"testing"
 
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -132,5 +133,27 @@ func TestParseSpeedMbps(t *testing.T) {
 		if got := parseSpeedMbps(input); got != want {
 			t.Errorf("parseSpeedMbps(%q) = %d, want %d", input, got, want)
 		}
+	}
+}
+
+func TestParseSpeedMbpsOverflowClamps(t *testing.T) {
+	// A value whose Gb/s-scaled result exceeds uint32 must clamp, not parse-error
+	// to 0: ParseUint(..., 64) succeeds where ParseUint(..., 32) would have
+	// returned ErrRange, so the math.MaxUint32 clamp below actually runs.
+	if got, want := parseSpeedMbps("5000000 Gb/s"), uint32(math.MaxUint32); got != want {
+		t.Errorf("parseSpeedMbps(overflow) = %d, want %d (clamped)", got, want)
+	}
+}
+
+func TestNetworkInterfaceFromAgentNameOnly(t *testing.T) {
+	// When the Agent reports nothing beyond the interface name, Ports must stay
+	// empty rather than a single zero-value entry: the UI treats len(Ports)==0
+	// as "name-only" and would otherwise render a blank MAC/speed row.
+	iface := networkInterfaceFromAgent(&data.Network{Name: ptr("eno1")})
+	if iface.Name != "eno1" {
+		t.Errorf("Name = %q, want eno1", iface.Name)
+	}
+	if len(iface.Ports) != 0 {
+		t.Errorf("Ports = %+v, want empty for a name-only interface", iface.Ports)
 	}
 }
