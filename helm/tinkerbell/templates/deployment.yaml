@@ -59,12 +59,16 @@ spec:
               value: {{ .Values.deployment.envs.rufio.enableLeaderElection | quote }}
             - name: TINKERBELL_RUFIO_CONTROLLER_LEADER_ELECTION_NAMESPACE
               value: {{ .Values.deployment.envs.rufio.leaderElectionNamespace | quote }}
-            - name: TINKERBELL_RUFIO_CONTROLLER_LOG_LEVEL
+            - name: TINKERBELL_RUFIO_LOG_LEVEL
               value: {{ .Values.deployment.envs.rufio.logLevel | quote }}
             - name: TINKERBELL_RUFIO_BMC_CONNECT_TIMEOUT
               value: {{ .Values.deployment.envs.rufio.bmcConnectTimeout | quote }}
             - name: TINKERBELL_RUFIO_POWER_CHECK_INTERVAL
               value: {{ .Values.deployment.envs.rufio.powerCheckInterval | quote }}
+            - name: TINKERBELL_RUFIO_INVENTORY_REFRESH_INTERVAL
+              value: {{ .Values.deployment.envs.rufio.inventoryRefreshInterval | quote }}
+            - name: TINKERBELL_RUFIO_ENABLE_INVENTORY_COLLECTION
+              value: {{ .Values.deployment.envs.rufio.enableInventoryCollection | quote }}
             - name: TINKERBELL_RUFIO_MAX_CONCURRENT_RECONCILES
               value: {{ .Values.deployment.envs.rufio.maxConcurrentReconciles | quote }}
           # TINK CONTROLLER
@@ -131,6 +135,8 @@ spec:
           # SMEE
             - name: TINKERBELL_DHCP_ENABLED
               value: {{ .Values.deployment.envs.smee.dhcpEnabled | quote }}
+            - name: TINKERBELL_DHCP_ENABLE_NETBOOT_OPTIONS
+              value: {{ .Values.deployment.envs.smee.dhcpEnableNetbootOptions | quote }}
             - name: TINKERBELL_DHCP_MODE
               value: {{ .Values.deployment.envs.smee.dhcpMode | quote }}
             - name: TINKERBELL_DHCP_BIND_ADDR
@@ -292,6 +298,8 @@ spec:
               value: {{ .Values.deployment.envs.globals.tlsCertFile | quote }}
             - name: TINKERBELL_TLS_KEY_FILE
               value: {{ .Values.deployment.envs.globals.tlsKeyFile | quote }}
+            - name: TINKERBELL_DISABLE_HTTP_TO_HTTPS_REDIRECT
+              value: {{ .Values.deployment.envs.globals.disableHttpToHttpsRedirect | quote }}
             - name: TINKERBELL_HTTP_PORT
               value: {{ .Values.deployment.envs.globals.httpPort | quote }}
             - name: TINKERBELL_HTTPS_PORT
