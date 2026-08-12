@@ -8,7 +8,7 @@ require (
 	github.com/a-h/templ v0.3.1020
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5
-	github.com/bmc-toolbox/common v0.0.0-20250112191656-b6de52e8303d
+	github.com/bmc-toolbox/common v0.0.1
 	github.com/ccoveille/go-safecast/v2 v2.0.1
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/containerd/containerd/v2 v2.3.3
