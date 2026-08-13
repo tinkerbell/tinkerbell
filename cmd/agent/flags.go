@@ -14,9 +14,10 @@ import (
 )
 
 type config struct {
-	AgentID  string
-	LogLevel int
-	Options  *agent.Options
+	AgentID      string
+	LogLevel     int
+	PrintVersion bool
+	Options      *agent.Options
 }
 
 func RegisterFlagsLegacy(c *config, fs *flag.FlagSet) {
@@ -102,6 +103,7 @@ func RegisterAllFlags(c *config) *ff.FlagSet {
 func RegisterRootFlags(c *config, fs *flag.FlagSet) {
 	fs.StringVar(&c.AgentID, "id", "", "ID of the agent")
 	fs.IntVar(&c.LogLevel, "log-level", 0, "Log level")
+	fs.BoolVar(&c.PrintVersion, "version", false, "Print the version and exit")
 	fs.Var(&c.Options.RuntimeSelected, "runtime", fmt.Sprintf("Container runtime used to run Actions, must be one of [%s, %s, %s]", agent.DockerRuntimeType, agent.ContainerdRuntimeType, agent.KubernetesRuntimeType))
 	fs.Var(&c.Options.TransportSelected, "transport", fmt.Sprintf("Transport used to receive Workflows/Actions and to send results, must be one of [%s, %s, %s]", agent.GRPCTransportType, agent.NATSTransportType, agent.FileTransportType))
 	fs.BoolVar(&c.Options.AttributeDetectionEnabled, "attribute-detection", true, "Enable attribute detection")
