@@ -34,7 +34,7 @@ func TestVersionHelp(t *testing.T) {
 	if err == nil {
 		t.Fatal("executeWithOutput() error = nil, want help output")
 	}
-	for _, want := range []string{"--version", "Print the version and exit"} {
+	for _, want := range []string{"--version", "print the version and exit"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("executeWithOutput() help does not contain %q:\n%s", want, err)
 		}

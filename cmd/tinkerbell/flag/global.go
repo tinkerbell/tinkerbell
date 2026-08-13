@@ -31,6 +31,7 @@ type GlobalConfig struct {
 	EmbeddedGlobalConfig EmbeddedGlobalConfig
 	BackendKubeOptions   BackendKubeOptions
 	TLS                  TLSConfig
+	PrintVersion         bool
 }
 
 type EmbeddedGlobalConfig struct {
@@ -75,6 +76,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(TLSKeyFile, ffval.NewValueDefault(&gc.TLS.KeyFile, gc.TLS.KeyFile))
 	fs.Register(DisableHTTPToHTTPSRedirect, ffval.NewValueDefault(&gc.TLS.DisableHTTPToHTTPSRedirect, gc.TLS.DisableHTTPToHTTPSRedirect))
 	fs.Register(TrustedProxies, &ntip.PrefixList{PrefixList: &gc.TrustedProxies})
+	fs.Register(PrintVersion, ffval.NewValueDefault(&gc.PrintVersion, gc.PrintVersion))
 }
 
 func RegisterEmbeddedGlobals(fs *Set, gc *GlobalConfig) {
@@ -222,4 +224,9 @@ var HTTPPort = Config{
 var HTTPSPort = Config{
 	Name:  "https-port",
 	Usage: "port for the HTTPS server, unused when no TLS cert and key are provided",
+}
+
+var PrintVersion = Config{
+	Name:  "version",
+	Usage: "print the version and exit",
 }
