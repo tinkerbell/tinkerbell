@@ -51,8 +51,8 @@ github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/bmc-toolbox/bmclib/v2 v2.3.5 h1:/C9Q1TfMDvol4bJPO0SeDWZ+KwVCaxnypuk3wHqJZ2k=
 github.com/bmc-toolbox/bmclib/v2 v2.3.5/go.mod h1:2tYJD9JtY1tJxLHhslICrFOZhxE9O4gYMb1nJ5BKI5w=
-github.com/bmc-toolbox/common v0.0.0-20250112191656-b6de52e8303d h1:5c0jhS9jNLm1t3GVEESsWv+p6recFRLGW90zp8HDIDs=
-github.com/bmc-toolbox/common v0.0.0-20250112191656-b6de52e8303d/go.mod h1:Cdnkm+edb6C0pVkyCrwh3JTXAe0iUF9diDG/DztPI9I=
+github.com/bmc-toolbox/common v0.0.1 h1:9Phffpmv1S0Qcfu/BD5j2rWoYMQ/tkA1sZs/9tmohsE=
+github.com/bmc-toolbox/common v0.0.1/go.mod h1:Cdnkm+edb6C0pVkyCrwh3JTXAe0iUF9diDG/DztPI9I=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
 github.com/bombsimon/logrusr/v2 v2.0.1/go.mod h1:ByVAX+vHdLGAfdroiMg6q0zgq2FODY2lc5YJvzmOJio=
 github.com/bytedance/gopkg v0.1.3 h1:TPBSwH8RsouGCBcMBktLt1AymVo2TVsBVCY4b6TnZ/M=
