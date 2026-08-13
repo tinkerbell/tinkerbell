@@ -91,6 +91,7 @@ deployment:
       ipxeHttpScriptRetries: 1
       ipxeHttpScriptRetryDelay: 1
       ipxeOverrideArchMapping: "" # a comma separated list of <arch>=<binary> pairs. See the iPXE Architecture Mapping documentation for more details.
+      ipxeScriptSyslogFqdn: ""
       ipxeScriptTinkServerAddrPort: ""
       ipxeScriptTinkServerInsecureTLS: false
       ipxeScriptTinkServerUseTLS: false

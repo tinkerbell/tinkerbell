@@ -174,6 +174,9 @@ type IPXEHTTPScriptServer struct {
 	ExtraKernelArgs []string
 	KernelName      string
 	InitrdName      string
+	// SyslogFQDN is the hostname/FQDN for the syslog server in iPXE scripts.
+	// If empty, it falls back to DHCP.SyslogIP.
+	SyslogFQDN string
 }
 
 type DHCP struct {
@@ -373,7 +376,7 @@ func (c *Config) ScriptHandler(log logr.Logger) http.Handler {
 		Backend:               c.Backend,
 		OSIEURL:               c.IPXE.HTTPScriptServer.OSIEURL.String(),
 		ExtraKernelParams:     c.IPXE.HTTPScriptServer.ExtraKernelArgs,
-		PublicSyslogFQDN:      c.DHCP.SyslogIP.String(),
+		PublicSyslogFQDN:      c.syslogHost(),
 		TinkServerTLS:         c.TinkServer.UseTLS,
 		TinkServerInsecureTLS: c.TinkServer.InsecureTLS,
 		TinkServerGRPCAddr:    c.TinkServer.AddrPort,
@@ -384,6 +387,16 @@ func (c *Config) ScriptHandler(log logr.Logger) http.Handler {
 		InitrdName:            c.IPXE.HTTPScriptServer.InitrdName,
 	}
 	return jh.HandlerFunc()
+}
+
+// syslogHost returns the host used for the syslog_host kernel parameter in iPXE scripts.
+// It prefers the configured SyslogFQDN (a hostname/FQDN) and falls back to the DHCP syslog IP
+// when no FQDN is set.
+func (c *Config) syslogHost() string {
+	if c.IPXE.HTTPScriptServer.SyslogFQDN != "" {
+		return c.IPXE.HTTPScriptServer.SyslogFQDN
+	}
+	return c.DHCP.SyslogIP.String()
 }
 
 // ISOHandler returns an http.Handler that serves patched ISO images.
@@ -398,7 +411,7 @@ func (c *Config) ISOHandler(log logr.Logger) (http.Handler, error) {
 		Patch: iso.Patch{
 			KernelParams: iso.KernelParams{
 				ExtraParams:        c.IPXE.HTTPScriptServer.ExtraKernelArgs,
-				Syslog:             c.DHCP.SyslogIP.String(),
+				Syslog:             c.syslogHost(),
 				TinkServerTLS:      c.TinkServer.UseTLS,
 				TinkServerGRPCAddr: c.TinkServer.AddrPort,
 			},
