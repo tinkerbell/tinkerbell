@@ -193,6 +193,8 @@ spec:
               value: {{ coalesce .Values.artifactsFileServer .Values.deployment.envs.smee.ipxeHttpScriptOsieURL | quote }}
             - name: TINKERBELL_IPXE_OVERRIDE_ARCH_MAPPING
               value: {{ .Values.deployment.envs.smee.ipxeOverrideArchMapping | quote }}
+            - name: TINKERBELL_IPXE_SCRIPT_SYSLOG_FQDN
+              value: {{ .Values.deployment.envs.smee.ipxeScriptSyslogFqdn | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT
               value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerAddrPort | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_USE_TLS

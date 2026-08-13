@@ -301,8 +301,10 @@ func TestDefaultScriptKernelParams(t *testing.T) {
 
 func TestStaticScript(t *testing.T) {
 	want := `#!ipxe
-
-set syslog 127.1.1.1
+# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog).
+# If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog variable.
+set check:ipv4 127.1.1.1 && set syslog 127.1.1.1 || nslookup syslog 127.1.1.1 || echo [WARN] Failed to resolve syslog host 127.1.1.1
+clear check
 echo Loading the static Tinkerbell iPXE script...
 
 set arch ${buildarch}
