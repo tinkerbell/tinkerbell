@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/netip"
 	"os"
 	"time"
 
@@ -47,9 +46,13 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 // executeWithOutput allows command output to be captured in tests.
 func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []string, stdout io.Writer) error { //nolint:cyclop // Will need to look into reducing the cyclomatic complexity.
 	startTime := time.Now() // used in the HTTP healthcheck handler to report uptime.
+	publicIP := detectPublicIPv4()
+	publicIPv6 := detectPublicIPv6()
 	globals := &flag.GlobalConfig{
-		BackendKubeConfig:    kubeConfig(),
-		PublicIP:             detectPublicIPv4(),
+		BackendKubeConfig: kubeConfig(),
+		PublicIP:          publicIP,
+		PublicIPv6:        publicIPv6,
+
 		EnableSmee:           true,
 		EnableTootles:        true,
 		EnableTinkServer:     true,
@@ -60,12 +63,6 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		EnableCRDMigrations:  true,
 		HTTPPort:             defaultHTTPPort,
 		HTTPSPort:            defaultHTTPSPort,
-		BindAddr: func() netip.Addr {
-			if addr := detectPublicIPv4(); addr.IsValid() {
-				return addr
-			}
-			return netip.MustParseAddr("0.0.0.0")
-		}(),
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
@@ -168,6 +165,12 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		}
 		return nil
 	}
+	if err := validatePublicAddressFamilies(globals.PublicIP, globals.PublicIPv6); err != nil {
+		return err
+	}
+	if !globals.BindAddr.IsValid() {
+		globals.BindAddr = defaultBindAddr(publicIP, publicIPv6)
+	}
 
 	log := getLogger(globals.LogLevel)
 
@@ -203,13 +206,14 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		"secondStarEnabled", globals.EnableSecondStar,
 		"uiEnabled", globals.EnableUI,
 		"publicIP", globals.PublicIP,
+		"publicIPv6", globals.PublicIPv6,
 		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
 		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
 		"globalBindAddress", globals.BindAddr,
 	)
 
 	// Smee
-	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.BindAddr, globals.HTTPPort)
+	s.Convert(&globals.TrustedProxies, globals.PublicIP, globals.PublicIPv6, globals.BindAddr, globals.HTTPPort)
 	if s.DHCPIPXEBinary.Port == 0 {
 		s.DHCPIPXEBinary.Port = globals.HTTPPort
 	}

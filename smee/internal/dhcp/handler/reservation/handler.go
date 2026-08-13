@@ -86,6 +86,11 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, p dhcp.Pack
 
 			return
 		}
+		if !hasIPv4Reservation(d) {
+			log.Info("ignoring DHCP packet: IPv4 reservation unavailable", "ipAddress", d.IPAddress.String(), "type", p.Pkt.MessageType().String())
+			span.SetStatus(codes.Ok, "IPv4 reservation unavailable")
+			return
+		}
 		log.Info("received DHCP packet", "type", p.Pkt.MessageType().String())
 		reply = h.updateMsg(ctx, p.Pkt, d, n, dhcpv4.MessageTypeOffer)
 		log = log.WithValues("type", dhcpv4.MessageTypeOffer.String())
@@ -104,6 +109,12 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, p dhcp.Pack
 		if d.Disabled {
 			log.Info("DHCP is disabled for this MAC address, no response sent", "type", p.Pkt.MessageType().String())
 			span.SetStatus(codes.Ok, "disabled DHCP response")
+
+			return
+		}
+		if !hasIPv4Reservation(d) {
+			log.Info("ignoring DHCP packet: IPv4 reservation unavailable", "ipAddress", d.IPAddress.String(), "type", p.Pkt.MessageType().String())
+			span.SetStatus(codes.Ok, "IPv4 reservation unavailable")
 
 			return
 		}
@@ -236,4 +247,8 @@ func hardwareNotFound(err error) bool {
 	}
 	te, ok := err.(hardwareNotFound)
 	return ok && te.NotFound()
+}
+
+func hasIPv4Reservation(d *dhcp.DHCP) bool {
+	return d != nil && d.IPAddress.Is4()
 }
