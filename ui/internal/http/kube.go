@@ -38,8 +38,8 @@ const (
 	groupBMC        = "bmc.tinkerbell.org"
 	verbList        = "list"
 
-	// Lowercase resource identifiers, used as RBAC resource names, search
-	// result types, and icon names.
+	// Lowercase resource identifiers used as search result types and icon
+	// names; some (hardware, tasks) also match Kubernetes RBAC resource names.
 	resourceHardware = "hardware"
 	resourceWorkflow = "workflow"
 	resourceTemplate = "template"

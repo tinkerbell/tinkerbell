@@ -44,11 +44,11 @@ import (
 // interval has elapsed since the last successful collection.
 const defaultInventoryRefreshInterval = 24 * time.Hour
 
-// refreshInventoryAnnotation, when set to trueString on a Machine, forces an immediate
+// refreshInventoryAnnotation, when set to "true" on a Machine, forces an immediate
 // inventory refresh regardless of the configured refresh interval.
 const refreshInventoryAnnotation = "tinkerbell.org/refresh-inventory"
 
-// disableOutOfBandInventoryAnnotation, when set to trueString on a Hardware, opts
+// disableOutOfBandInventoryAnnotation, when set to "true" on a Hardware, opts
 // that specific Hardware out of BMC (out-of-band) inventory collection — e.g.
 // for a BMC/firmware combination known to misbehave under Redfish inventory
 // queries — without disabling the feature fleet-wide.
