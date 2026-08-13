@@ -15,7 +15,7 @@ func TestGenerateTemplate(t *testing.T) {
 	}{
 		"no vlan": {
 			h: Hook{
-				Arch:              "x86_64",
+				Arch:              x8664Arch,
 				TinkGRPCAuthority: "1.2.3.4:42113",
 				TinkerbellTLS:     false,
 				WorkerID:          "3c:ec:ef:4c:4f:54",
@@ -79,7 +79,7 @@ exit
 		},
 		"with vlan": {
 			h: Hook{
-				Arch:              "x86_64",
+				Arch:              x8664Arch,
 				TinkGRPCAuthority: "1.2.3.4:42113",
 				TinkerbellTLS:     false,
 				WorkerID:          "3c:ec:ef:4c:4f:54",
@@ -144,7 +144,7 @@ exit
 		},
 		"hostname syslog host": {
 			h: Hook{
-				Arch:              "x86_64",
+				Arch:              x8664Arch,
 				TinkGRPCAuthority: "1.2.3.4:42113",
 				TinkerbellTLS:     false,
 				WorkerID:          "3c:ec:ef:4c:4f:54",

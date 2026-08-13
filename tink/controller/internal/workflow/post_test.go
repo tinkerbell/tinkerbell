@@ -105,7 +105,7 @@ func TestPostActions(t *testing.T) {
 						{
 							Type:    v1alpha1.ToggleAllowNetbootFalse,
 							Status:  metav1.ConditionTrue,
-							Reason:  "Complete",
+							Reason:  reasonComplete,
 							Message: "set allowPXE to false",
 						},
 					},
@@ -173,8 +173,8 @@ func TestPostActions(t *testing.T) {
 						{
 							Type:    v1alpha1.BootJobSetupComplete,
 							Status:  metav1.ConditionTrue,
-							Reason:  "Created",
-							Message: "job created",
+							Reason:  reasonCreated,
+							Message: messageJobCreated,
 						},
 					},
 				},
@@ -353,8 +353,8 @@ func TestPostActions(t *testing.T) {
 						{
 							Type:    v1alpha1.BootJobSetupComplete,
 							Status:  metav1.ConditionTrue,
-							Reason:  "Created",
-							Message: "job created",
+							Reason:  reasonCreated,
+							Message: messageJobCreated,
 						},
 					},
 				},

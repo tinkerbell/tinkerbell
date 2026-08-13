@@ -10,6 +10,14 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 )
 
+// Mount option strings. These live in the test package because the majority of
+// their occurrences are in tests; the production code uses string literals.
+const (
+	bindOption  = "bind"
+	rbindOption = "rbind"
+	roOption    = "ro"
+)
+
 func TestParseVolume(t *testing.T) {
 	log := logr.Discard()
 
@@ -20,46 +28,46 @@ func TestParseVolume(t *testing.T) {
 		"absolute source and destination with default options": {
 			volume: "/host/path:/container/path",
 			want: &specs.Mount{
-				Type:        "bind",
+				Type:        bindOption,
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "rw"},
+				Options:     []string{rbindOption, rwOption},
 			},
 		},
 		"read-only option": {
 			volume: "/host/path:/container/path:ro",
 			want: &specs.Mount{
-				Type:        "bind",
+				Type:        bindOption,
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "ro"},
+				Options:     []string{rbindOption, roOption},
 			},
 		},
 		"explicit read-write option": {
 			volume: "/host/path:/container/path:rw",
 			want: &specs.Mount{
-				Type:        "bind",
+				Type:        bindOption,
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "rw"},
+				Options:     []string{rbindOption, rwOption},
 			},
 		},
 		"multiple options": {
 			volume: "/host/path:/container/path:ro,noexec",
 			want: &specs.Mount{
-				Type:        "bind",
+				Type:        bindOption,
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "noexec", "ro"},
+				Options:     []string{rbindOption, "noexec", roOption},
 			},
 		},
 		"relative source with dot prefix": {
 			volume: "./relative:/container/path",
 			want: &specs.Mount{
-				Type:        "bind",
+				Type:        bindOption,
 				Source:      "./relative",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "rw"},
+				Options:     []string{rbindOption, rwOption},
 			},
 		},
 		"named volume skipped": {
@@ -85,46 +93,46 @@ func TestParseVolume(t *testing.T) {
 		"custom option without ro or rw gets rw appended": {
 			volume: "/host/path:/container/path:noexec",
 			want: &specs.Mount{
-				Type:        "bind",
+				Type:        bindOption,
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "noexec", "rw"},
+				Options:     []string{rbindOption, "noexec", rwOption},
 			},
 		},
 		"empty option parts are filtered": {
 			volume: "/host/path:/container/path:ro,",
 			want: &specs.Mount{
-				Type:        "bind",
+				Type:        bindOption,
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "ro"},
+				Options:     []string{rbindOption, roOption},
 			},
 		},
 		"options with whitespace trimmed": {
 			volume: "/host/path:/container/path: ro , noexec ",
 			want: &specs.Mount{
-				Type:        "bind",
+				Type:        bindOption,
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "noexec", "ro"},
+				Options:     []string{rbindOption, "noexec", roOption},
 			},
 		},
 		"conflicting ro and rw uses last wins": {
 			volume: "/host/path:/container/path:ro,rw",
 			want: &specs.Mount{
-				Type:        "bind",
+				Type:        bindOption,
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "rw"},
+				Options:     []string{rbindOption, rwOption},
 			},
 		},
 		"whitespace-only option is filtered": {
 			volume: "/host/path:/container/path: ",
 			want: &specs.Mount{
-				Type:        "bind",
+				Type:        bindOption,
 				Source:      "/host/path",
 				Destination: "/container/path",
-				Options:     []string{"rbind", "rw"},
+				Options:     []string{rbindOption, rwOption},
 			},
 		},
 	}

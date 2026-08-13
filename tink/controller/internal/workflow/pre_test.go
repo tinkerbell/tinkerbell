@@ -355,7 +355,7 @@ func TestPrepareWorkflow(t *testing.T) {
 						{
 							Type:    v1alpha1.ToggleAllowNetbootTrue,
 							Status:  metav1.ConditionTrue,
-							Reason:  "Complete",
+							Reason:  reasonComplete,
 							Message: "set allowPXE to true",
 						},
 					},
@@ -426,8 +426,8 @@ func TestPrepareWorkflow(t *testing.T) {
 						{
 							Type:    "BootJobSetupComplete",
 							Status:  "True",
-							Reason:  "Created",
-							Message: "job created",
+							Reason:  reasonCreated,
+							Message: messageJobCreated,
 						},
 					},
 				},
@@ -498,8 +498,8 @@ func TestPrepareWorkflow(t *testing.T) {
 						{
 							Type:    "BootJobSetupComplete",
 							Status:  "True",
-							Reason:  "Created",
-							Message: "job created",
+							Reason:  reasonCreated,
+							Message: messageJobCreated,
 						},
 					},
 				},
@@ -581,8 +581,8 @@ func TestPrepareWorkflow(t *testing.T) {
 						{
 							Type:    "BootJobSetupComplete",
 							Status:  "True",
-							Reason:  "Created",
-							Message: "job created",
+							Reason:  reasonCreated,
+							Message: messageJobCreated,
 						},
 					},
 				},
