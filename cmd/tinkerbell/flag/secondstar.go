@@ -47,7 +47,7 @@ var SecondStarIdleTimeout = Config{
 
 var SecondStarLogLevel = Config{
 	Name:  "secondstar-log-level",
-	Usage: "the higher the number the more verbose, level 0 inherits the global log level, a negative number disables logging",
+	Usage: logLevelUsage,
 }
 
 func (ssc *SecondStarConfig) Convert() error {

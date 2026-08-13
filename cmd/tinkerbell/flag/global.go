@@ -50,6 +50,10 @@ type TLSConfig struct {
 	DisableHTTPToHTTPSRedirect bool
 }
 
+const (
+	logLevelUsage = "the higher the number the more verbose, level 0 inherits the global log level, a negative number disables logging"
+)
+
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(BackendConfig, ffval.NewEnum(&gc.Backend, "kube", "file", "none"))
 	fs.Register(BackendFilePath, ffval.NewValueDefault(&gc.BackendFilePath, gc.BackendFilePath))

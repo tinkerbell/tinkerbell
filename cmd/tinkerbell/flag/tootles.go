@@ -29,7 +29,7 @@ var TootlesDebugMode = Config{
 
 var TootlesLogLevel = Config{
 	Name:  "tootles-log-level",
-	Usage: "the higher the number the more verbose, level 0 inherits the global log level, a negative number disables logging",
+	Usage: logLevelUsage,
 }
 
 var TootlesInstanceEndpoint = Config{
