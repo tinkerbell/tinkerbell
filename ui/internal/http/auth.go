@@ -47,13 +47,13 @@ func HandleLogin(c *gin.Context, log logr.Logger) {
 func HandleLoginValidate(c *gin.Context, log logr.Logger) {
 	token := c.PostForm("token")
 	if token == "" {
-		c.JSON(403, gin.H{"error": "Service account token is required"})
+		c.JSON(403, gin.H{jsonKeyError: "Service account token is required"})
 		return
 	}
 
 	apiServer := c.PostForm("apiServer")
 	if apiServer == "" {
-		c.JSON(403, gin.H{"error": "Kubernetes API server URL is required"})
+		c.JSON(403, gin.H{jsonKeyError: "Kubernetes API server URL is required"})
 		return
 	}
 
@@ -89,7 +89,7 @@ func HandleLoginValidate(c *gin.Context, log logr.Logger) {
 
 	testClient, err := NewKubeClientFromTokenAndServer(token, apiServer, insecureSkipVerify)
 	if err != nil {
-		c.JSON(403, gin.H{"error": fmt.Sprintf("Failed to create Kubernetes client: %v", err)})
+		c.JSON(403, gin.H{jsonKeyError: fmt.Sprintf("Failed to create Kubernetes client: %v", err)})
 		return
 	}
 
@@ -369,9 +369,9 @@ func validateTokenPermissions(ctx context.Context, client *KubeClient, namespace
 	sar := &authv1.SelfSubjectAccessReview{
 		Spec: authv1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authv1.ResourceAttributes{
-				Verb:      "list",
-				Group:     "tinkerbell.org",
-				Resource:  "hardware",
+				Verb:      verbList,
+				Group:     groupTinkerbell,
+				Resource:  resourceHardware,
 				Namespace: namespace, // Empty string means cluster-wide
 			},
 		},

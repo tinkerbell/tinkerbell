@@ -136,6 +136,9 @@ linters:
         text: "var-naming: avoid package names that conflict with Go standard library package names"
         path: (smee|tootles)/internal/http/
       - linters:
+          - goconst
+        path: smee/internal/metric/metric.go
+      - linters:
           - dupl
           - errcheck
           - forcetypeassert

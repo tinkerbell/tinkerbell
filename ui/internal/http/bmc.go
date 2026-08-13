@@ -21,6 +21,9 @@ const (
 	namePluralJob       = "Jobs"
 	nameSingularMachine = "Machine"
 	namePluralMachine   = "Machines"
+
+	// taskTypeBootDevice is the BMC task type for boot device actions.
+	taskTypeBootDevice = "BootDevice"
 )
 
 // HandleBMCMachineList handles the Machine list page route.
@@ -681,7 +684,7 @@ func bmcTaskType(action bmc.Action) string {
 		return "VirtualMedia"
 	}
 	if action.BootDevice != nil || action.OneTimeBootDeviceAction != nil { //nolint:staticcheck // OneTimeBootDeviceAction is deprecated but not removed yet, it's still necessary.
-		return "BootDevice"
+		return taskTypeBootDevice
 	}
 	if action.PowerAction != nil {
 		return "Power"

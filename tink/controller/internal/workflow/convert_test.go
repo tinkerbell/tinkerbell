@@ -42,7 +42,7 @@ func TestYAMLToStatus(t *testing.T) {
 									"/tmp/debug:/tmp/debug",
 								},
 								Environment: map[string]string{
-									"COMPRESSED": "true",
+									"COMPRESSED": valueTrue,
 									"DEST_DISK":  "/dev/nvme0n1",
 									"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 								},
@@ -72,7 +72,7 @@ func TestYAMLToStatus(t *testing.T) {
 								},
 								Pid: "host",
 								Environment: map[string]string{
-									"COMPRESSED": "true",
+									"COMPRESSED": valueTrue,
 									"DEST_DISK":  "/dev/nvme0n1",
 									"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 								},

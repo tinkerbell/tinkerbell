@@ -32,6 +32,25 @@ const (
 	htmxRequestTrue     = "true"
 	// ContextKeyBaseURL is the key used to store the URL prefix in Gin context.
 	ContextKeyBaseURL = "baseURL"
+
+	// Kubernetes API groups and RBAC identifiers for Tinkerbell resources.
+	groupTinkerbell = "tinkerbell.org"
+	groupBMC        = "bmc.tinkerbell.org"
+	verbList        = "list"
+
+	// Lowercase resource identifiers used as search result types and icon
+	// names; some (hardware, tasks) also match Kubernetes RBAC resource names.
+	resourceHardware = "hardware"
+	resourceWorkflow = "workflow"
+	resourceTemplate = "template"
+	resourceTasks    = "tasks"
+
+	// jsonKeyError is the JSON object key used for error messages in API responses.
+	jsonKeyError = "error"
+
+	// keyName is the conventional "name" identifier, used as a route parameter
+	// key, a structured-log field key, and a schema field name.
+	keyName = "name"
 )
 
 // ValidateItemsPerPage validates and normalizes the items per page value.

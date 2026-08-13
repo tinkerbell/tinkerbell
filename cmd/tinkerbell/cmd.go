@@ -140,8 +140,6 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	flag.RegisterSecondStarFlags(&flag.Set{FlagSet: ssfs}, ssc)
 	flag.RegisterUIFlags(&flag.Set{FlagSet: uifs}, uic)
 	flag.RegisterGlobal(&flag.Set{FlagSet: gfs}, globals)
-	var printVersion bool
-	gfs.BoolVar(&printVersion, 0, "version", "Print the version and exit")
 	if embeddedApiserverExecute != nil && embeddedFlagSet != nil {
 		// This way the embedded flags only show up when the embedded services have been compiled in.
 		flag.RegisterEmbeddedGlobals(&flag.Set{FlagSet: gfs}, globals)
@@ -162,7 +160,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 
 		return e
 	}
-	if printVersion {
+	if globals.PrintVersion {
 		if _, err := fmt.Fprintln(stdout, "tinkerbell", build.GitRevision()); err != nil {
 			return fmt.Errorf("print version: %w", err)
 		}

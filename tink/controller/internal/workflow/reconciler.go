@@ -35,6 +35,9 @@ const (
 	//
 	// Deprecated: use templateDataHardware instead. This key will be removed in a future release.
 	templateDataHardwareLegacy = "Hardware"
+
+	// reasonError is the condition Reason set when a workflow step fails.
+	reasonError = "Error"
 )
 
 type dynamicClient interface {
@@ -245,7 +248,7 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 			stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 				Type:    v1alpha1.TemplateRenderedSuccess,
 				Status:  metav1.ConditionFalse,
-				Reason:  "Error",
+				Reason:  reasonError,
 				Message: "template not found",
 				Time:    &metav1.Time{Time: metav1.Now().UTC()},
 			})
@@ -260,7 +263,7 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 		stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 			Type:    v1alpha1.TemplateRenderedSuccess,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Error",
+			Reason:  reasonError,
 			Message: err.Error(),
 			Time:    &metav1.Time{Time: metav1.Now().UTC()},
 		})
@@ -276,7 +279,7 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 		stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 			Type:    v1alpha1.TemplateRenderedSuccess,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Error",
+			Reason:  reasonError,
 			Message: fmt.Sprintf("error getting hardware: %v", err),
 			Time:    &metav1.Time{Time: metav1.Now().UTC()},
 		})
@@ -290,7 +293,7 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 		stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 			Type:    v1alpha1.TemplateRenderedSuccess,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Error",
+			Reason:  reasonError,
 			Message: fmt.Sprintf("hardware not found: %v", err),
 			Time:    &metav1.Time{Time: metav1.Now().UTC()},
 		})
@@ -363,7 +366,7 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 		stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 			Type:    v1alpha1.TemplateRenderedSuccess,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Error",
+			Reason:  reasonError,
 			Message: fmt.Sprintf("error rendering template: %v", errors.Join(refErr, err)),
 			Time:    &metav1.Time{Time: metav1.Now().UTC()},
 		})

@@ -32,7 +32,7 @@ var TinkControllerLeaderElectionNamespace = Config{
 
 var TinkControllerLogLevel = Config{
 	Name:  "tink-controller-log-level",
-	Usage: "the higher the number the more verbose, level 0 inherits the global log level, a negative number disables logging",
+	Usage: logLevelUsage,
 }
 
 var TinkControllerReferenceAllowListRules = Config{

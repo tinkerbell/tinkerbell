@@ -92,7 +92,7 @@ func hardwareBMCRefIndexFunc(obj ctrlclient.Object) []string {
 // inventoryJitterFraction), or a manual refresh was explicitly requested via
 // refreshInventoryAnnotation.
 func dueForInventoryRefresh(hw *tinkerbell.Hardware, bm *bmc.Machine, interval time.Duration) bool {
-	if bm.Annotations[refreshInventoryAnnotation] == "true" {
+	if bm.Annotations[refreshInventoryAnnotation] == trueString {
 		return true
 	}
 	inv := outOfBandAttributes(hw)
@@ -138,7 +138,7 @@ func outOfBandAttributes(hw *tinkerbell.Hardware) *tinkerbell.Attributes {
 // refresh doesn't keep forcing collection on every reconcile if the caller
 // forgets to remove the annotation themselves.
 func (r *MachineReconciler) clearRefreshInventoryAnnotation(ctx context.Context, logger logr.Logger, bm *bmc.Machine) {
-	if bm.Annotations[refreshInventoryAnnotation] != "true" {
+	if bm.Annotations[refreshInventoryAnnotation] != trueString {
 		return
 	}
 	patch := ctrlclient.MergeFrom(bm.DeepCopy())

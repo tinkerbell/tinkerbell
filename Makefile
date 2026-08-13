@@ -46,7 +46,7 @@ PROTOC_GEN_GO_GRPC_VER := v1.5.1  # must be in sync with the version in buf.gen.
 PROTOC_GEN_GO_VER      := v1.36.7 # must be in sync with the version in buf.gen.yaml
 UPX_VER 			   := 4.2.4
 GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
-GOLANGCI_LINT_VERSION  := v2.11.2
+GOLANGCI_LINT_VERSION  := v2.12.2
 GO_LICENSES_VER        := v2.0.1
 
 
@@ -423,7 +423,7 @@ GOLANGCI_LINT_BIN := $(LINT_ROOT)/out/linters/golangci-lint-$(GOLANGCI_LINT_VERS
 $(GOLANGCI_LINT_BIN):
 	mkdir -p $(LINT_ROOT)/out/linters
 	rm -rf $(LINT_ROOT)/out/linters/golangci-lint-*
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LINT_ROOT)/out/linters $(GOLANGCI_LINT_VERSION)
+	curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $(LINT_ROOT)/out/linters $(GOLANGCI_LINT_VERSION)
 	mv $(LINT_ROOT)/out/linters/golangci-lint $@
 
 LINTERS += golangci-lint-lint

@@ -33,6 +33,10 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 )
 
+const (
+	rwOption = "rw"
+)
+
 // parseVolumes converts action volumes to OCI runtime spec mounts.
 // Volume format: {SRC-HOST-DIR}:{TGT-CONTAINER-DIR}[:OPTIONS]
 // Options can include: ro (read-only), rw (read-write, default)
@@ -84,7 +88,7 @@ func parseVolume(log logr.Logger, volume string) *specs.Mount {
 	}
 
 	// Default options for bind mounts
-	options := []string{"rbind", "rw"}
+	options := []string{"rbind", rwOption}
 
 	// Parse options if provided
 	if len(parts) >= 3 {
@@ -97,8 +101,8 @@ func parseVolume(log logr.Logger, volume string) *specs.Mount {
 			switch trimmed {
 			case "ro":
 				rwMode = "ro"
-			case "rw":
-				rwMode = "rw"
+			case rwOption:
+				rwMode = rwOption
 			default:
 				// Pass through other options
 				if trimmed != "" {
@@ -108,7 +112,7 @@ func parseVolume(log logr.Logger, volume string) *specs.Mount {
 		}
 		// Default to rw if neither ro nor rw was specified.
 		if rwMode == "" {
-			rwMode = "rw"
+			rwMode = rwOption
 		}
 		options = append(options, rwMode)
 	}

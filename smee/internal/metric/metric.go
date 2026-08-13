@@ -28,18 +28,18 @@ func Init() {
 	DHCPTotal = factory.NewCounterVec(prometheus.CounterOpts{
 		Name: "dhcp_total",
 		Help: "Number of DHCP Requests handled.",
-	}, []string{"op", "type", "giaddr"})
+	}, []string{"op", "type"})
 
 	labelValues := []prometheus.Labels{
-		{"op": "recv", "type": "DHCPACK", "giaddr": "0.0.0.0"},
-		{"op": "recv", "type": "DHCPDECLINE", "giaddr": "0.0.0.0"},
-		{"op": "recv", "type": "DHCPDISCOVER", "giaddr": "0.0.0.0"},
-		{"op": "recv", "type": "DHCPINFORM", "giaddr": "0.0.0.0"},
-		{"op": "recv", "type": "DHCPNAK", "giaddr": "0.0.0.0"},
-		{"op": "recv", "type": "DHCPOFFER", "giaddr": "0.0.0.0"},
-		{"op": "recv", "type": "DHCPRELEASE", "giaddr": "0.0.0.0"},
-		{"op": "recv", "type": "DHCPREQUEST", "giaddr": "0.0.0.0"},
-		{"op": "send", "type": "DHCPOFFER", "giaddr": "0.0.0.0"},
+		{"op": "recv", "type": "DHCPACK"},
+		{"op": "recv", "type": "DHCPDECLINE"},
+		{"op": "recv", "type": "DHCPDISCOVER"},
+		{"op": "recv", "type": "DHCPINFORM"},
+		{"op": "recv", "type": "DHCPNAK"},
+		{"op": "recv", "type": "DHCPOFFER"},
+		{"op": "recv", "type": "DHCPRELEASE"},
+		{"op": "recv", "type": "DHCPREQUEST"},
+		{"op": "send", "type": "DHCPOFFER"},
 	}
 	initCounterLabels(DHCPTotal, labelValues)
 

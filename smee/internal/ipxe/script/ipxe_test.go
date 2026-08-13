@@ -14,6 +14,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const x8664Arch = "x86_64"
+
 func TestCustomScript(t *testing.T) {
 	tests := map[string]struct {
 		ipxeURL    string
@@ -139,11 +141,11 @@ exit
 	}{
 		"success with defaults": {
 			want: one,
-			d:    hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, VLANID: "1234", Facility: "onprem", Arch: "x86_64"},
+			d:    hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, VLANID: "1234", Facility: "onprem", Arch: x8664Arch},
 		},
 		"success with set agent id": {
 			want: two,
-			d:    hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, AgentID: "worker1", VLANID: "1234", Facility: "onprem", Arch: "x86_64"},
+			d:    hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, AgentID: "worker1", VLANID: "1234", Facility: "onprem", Arch: x8664Arch},
 		},
 	}
 	for name, tt := range tests {
@@ -187,7 +189,7 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 				KernelName:           "captain-kernel",
 				InitrdName:           "captain-rootfs",
 			},
-			d:          hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, Facility: "onprem", Arch: "x86_64"},
+			d:          hardware.Info{MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}, Facility: "onprem", Arch: x8664Arch},
 			wantKernel: "captain-kernel-x86_64",
 			wantInitrd: "captain-rootfs-x86_64",
 		},
@@ -216,7 +218,7 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 			d: hardware.Info{
 				MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
 				Facility:   "onprem",
-				Arch:       "x86_64",
+				Arch:       x8664Arch,
 				OSIE: hardware.OSIE{
 					Kernel: "hw-specific-kernel",
 					Initrd: "hw-specific-initrd",
@@ -237,7 +239,7 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 			d: hardware.Info{
 				MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
 				Facility:   "onprem",
-				Arch:       "x86_64",
+				Arch:       x8664Arch,
 				OSIE: hardware.OSIE{
 					Kernel: "hw-specific-kernel",
 				},
@@ -275,7 +277,7 @@ func TestDefaultScriptKernelParams(t *testing.T) {
 	}
 	hw := hardware.Info{
 		MACAddress: net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
-		Arch:       "x86_64",
+		Arch:       x8664Arch,
 		OSIE: hardware.OSIE{
 			KernelParams: []string{"perhw=1", "shared=perhw"},
 		},

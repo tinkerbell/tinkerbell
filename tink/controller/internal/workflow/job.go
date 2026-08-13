@@ -53,7 +53,7 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
 				Type:    v1alpha1.BootJobSetupFailed,
 				Status:  metav1.ConditionTrue,
-				Reason:  "Error",
+				Reason:  reasonError,
 				Message: fmt.Sprintf("error creating job: %v", err),
 				Time:    &metav1.Time{Time: metav1.Now().UTC()},
 			})
@@ -78,7 +78,7 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
 				Type:    v1alpha1.BootJobFailed,
 				Status:  metav1.ConditionTrue,
-				Reason:  "Error",
+				Reason:  reasonError,
 				Message: err.Error(),
 				Time:    &metav1.Time{Time: metav1.Now().UTC()},
 			})

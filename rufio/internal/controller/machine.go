@@ -219,7 +219,7 @@ func (r *MachineReconciler) reconcileInventoryIfDue(ctx context.Context, logger 
 		r.recorder.Eventf(bm, nil, corev1.EventTypeWarning, "HardwareLookupFailed", "FindLinkedHardware", "find linked Hardware: %v", err)
 		return
 	}
-	if hw == nil || hw.Annotations[disableOutOfBandInventoryAnnotation] == "true" || !dueForInventoryRefresh(hw, bm, r.inventoryRefreshInterval) {
+	if hw == nil || hw.Annotations[disableOutOfBandInventoryAnnotation] == trueString || !dueForInventoryRefresh(hw, bm, r.inventoryRefreshInterval) {
 		return
 	}
 	if err := r.reconcileInventory(ctx, bmcClient, hw); err != nil {

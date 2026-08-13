@@ -367,7 +367,7 @@ func TestClearRefreshInventoryAnnotationRetries(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-bm",
 			Namespace:   "test-namespace",
-			Annotations: map[string]string{refreshInventoryAnnotation: "true"},
+			Annotations: map[string]string{refreshInventoryAnnotation: trueString},
 		},
 	}
 
@@ -519,7 +519,7 @@ func TestDueForInventoryRefresh(t *testing.T) {
 		"fresh but refresh annotation forces it": {
 			hw: &tinkerbell.Hardware{Status: tinkerbell.HardwareStatus{Attributes: &tinkerbell.HardwareAttributes{OutOfBand: &tinkerbell.Attributes{LastUpdated: &fresh}}}},
 			bm: &bmc.Machine{ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{refreshInventoryAnnotation: "true"},
+				Annotations: map[string]string{refreshInventoryAnnotation: trueString},
 			}},
 			want: true,
 		},
