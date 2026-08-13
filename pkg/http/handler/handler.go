@@ -77,7 +77,9 @@ func RedirectToHTTPS(log logr.Logger, port int) http.Handler {
 		u.Host = net.JoinHostPort(parseHost(r.Host), fmt.Sprintf("%d", port))
 
 		log.V(2).Info("redirecting to HTTPS", "host", r.Host, "httpsURL", u.String(), "httpURL", r.URL.String())
-		http.Redirect(w, r, u.String(), http.StatusPermanentRedirect)
+		// TODO(jacobweinstock): Add a "Strict-Transport-Security" header to the response to tell browsers to always use HTTPS for this domain.
+		// TODO(jacobweinstock): Use a allow list of hosts to prevent open redirect attacks.
+		http.Redirect(w, r, u.String(), http.StatusPermanentRedirect) //nolint:gosec // same-origin HTTPS redirect, host not attacker-chosen, TODOs to address open redirect risk
 	})
 }
 
