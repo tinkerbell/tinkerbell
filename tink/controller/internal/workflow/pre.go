@@ -39,7 +39,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 					Type:    v1alpha1.BootJobSetupFailed,
 					Status:  metav1.ConditionFalse,
-					Reason:  "Error",
+					Reason:  reasonError,
 					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
 					Time:    &metav1.Time{Time: metav1.Now().UTC()},
 				})
@@ -96,7 +96,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 					Type:    v1alpha1.BootJobSetupComplete,
 					Status:  metav1.ConditionFalse,
-					Reason:  "Error",
+					Reason:  reasonError,
 					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
 					Time:    &metav1.Time{Time: metav1.Now().UTC()},
 				})
@@ -160,7 +160,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 					Type:    v1alpha1.BootJobSetupFailed,
 					Status:  metav1.ConditionFalse,
-					Reason:  "Error",
+					Reason:  reasonError,
 					Message: fmt.Sprintf("failed to get hardware: %s", err.Error()),
 					Time:    &metav1.Time{Time: metav1.Now().UTC()},
 				})
@@ -172,7 +172,7 @@ func (s *state) prepareWorkflow(ctx context.Context) (reconcile.Result, error) {
 				s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 					Type:    v1alpha1.BootJobSetupFailed,
 					Status:  metav1.ConditionFalse,
-					Reason:  "Error",
+					Reason:  reasonError,
 					Message: fmt.Sprintf("failed to template actions: %s", err.Error()),
 					Time:    &metav1.Time{Time: metav1.Now().UTC()},
 				})

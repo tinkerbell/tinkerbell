@@ -19,17 +19,17 @@ type TinkerbellResource struct {
 // TinkerbellResources defines all Tinkerbell CRD resources to check permissions for.
 // Exported so templates can access the list.
 var TinkerbellResources = []TinkerbellResource{
-	{"hardware", "tinkerbell.org"},
-	{"templates", "tinkerbell.org"},
-	{"workflows", "tinkerbell.org"},
-	{"workflowrulesets", "tinkerbell.org"},
-	{"machines", "bmc.tinkerbell.org"},
-	{"jobs", "bmc.tinkerbell.org"},
-	{"tasks", "bmc.tinkerbell.org"},
+	{resourceHardware, groupTinkerbell},
+	{"templates", groupTinkerbell},
+	{"workflows", groupTinkerbell},
+	{"workflowrulesets", groupTinkerbell},
+	{"machines", groupBMC},
+	{"jobs", groupBMC},
+	{resourceTasks, groupBMC},
 }
 
 // tinkerbellVerbs defines the verbs to check for each resource.
-var tinkerbellVerbs = []string{"get", "list", "watch", "create", "update", "patch", "delete"}
+var tinkerbellVerbs = []string{"get", verbList, "watch", "create", "update", "patch", "delete"}
 
 // HandlePermissions handles the permissions page showing user's Tinkerbell RBAC permissions.
 // The page loads immediately with loading indicators, then fetches each resource's permissions via HTMX.

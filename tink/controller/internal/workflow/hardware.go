@@ -108,7 +108,7 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 		s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 			Type:    v1alpha1.ToggleAllowNetbootTrue,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Error",
+			Reason:  reasonError,
 			Message: fmt.Sprintf("error getting hardware: %v", err),
 			Time:    &metav1.Time{Time: metav1.Now().UTC()},
 		})
@@ -124,7 +124,7 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 			s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 				Type:    v1alpha1.ToggleAllowNetbootTrue,
 				Status:  metav1.ConditionFalse,
-				Reason:  "Error",
+				Reason:  reasonError,
 				Message: fmt.Sprintf("error setting allowPXE to %v: %v", allowPXE, err),
 				Time:    &metav1.Time{Time: metav1.Now().UTC()},
 			})
@@ -148,7 +148,7 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 		s.workflow.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
 			Type:    v1alpha1.ToggleAllowNetbootFalse,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Error",
+			Reason:  reasonError,
 			Message: fmt.Sprintf("error setting allowPXE to %v: %v", allowPXE, err),
 			Time:    &metav1.Time{Time: metav1.Now().UTC()},
 		})

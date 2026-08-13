@@ -26,7 +26,7 @@ var UIDebugMode = Config{
 
 var UILogLevel = Config{
 	Name:  "ui-log-level",
-	Usage: "the higher the number the more verbose, level 0 inherits the global log level, a negative number disables logging",
+	Usage: logLevelUsage,
 }
 
 var UIURLPrefix = Config{

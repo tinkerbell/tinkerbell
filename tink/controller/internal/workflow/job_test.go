@@ -119,8 +119,8 @@ func TestHandleJob(t *testing.T) {
 					{
 						Type:    v1alpha1.BootJobSetupComplete,
 						Status:  metav1.ConditionTrue,
-						Reason:  "Created",
-						Message: "job created",
+						Reason:  reasonCreated,
+						Message: messageJobCreated,
 					},
 				},
 				BootOptions: v1alpha1.BootOptionsStatus{
@@ -172,7 +172,7 @@ func TestHandleJob(t *testing.T) {
 					{
 						Type:    v1alpha1.BootJobComplete,
 						Status:  metav1.ConditionTrue,
-						Reason:  "Complete",
+						Reason:  reasonComplete,
 						Message: "job completed",
 					},
 				},

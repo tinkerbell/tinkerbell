@@ -16,15 +16,23 @@ var (
 	crdParseOnce        sync.Once
 )
 
+// JSON schema type descriptors used when describing CRD fields.
+const (
+	schemaTypeString      = "string"
+	schemaTypeInteger     = "integer"
+	schemaTypeObject      = "object"
+	schemaTypeArrayString = "array[string]"
+)
+
 // kindToRoute maps CRD kinds to their web UI routes.
 var kindToRoute = map[string]string{
-	"Hardware":        "/hardware",
-	"Workflow":        "/workflows",
-	"Template":        "/templates",
-	"WorkflowRuleSet": "/workflows/rulesets",
-	"Job":             "/bmc/jobs",
-	"Machine":         "/bmc/machines",
-	"Task":            "/bmc/tasks",
+	nameSingularHardware: "/hardware",
+	nameSingularWorkflow: "/workflows",
+	nameSingularTemplate: "/templates",
+	"WorkflowRuleSet":    "/workflows/rulesets",
+	"Job":                "/bmc/jobs",
+	"Machine":            "/bmc/machines",
+	"Task":               "/bmc/tasks",
 }
 
 // kindDescriptions provides meaningful descriptions for each CRD kind, keyed by "version/kind".
@@ -208,7 +216,7 @@ func extractField(name string, prop apiv1.JSONSchemaProps, required bool, kind s
 	}
 
 	// Special handling for Template.spec.data - expand workflow structure
-	if kind == "Template" && name == "data" && prop.Type == "string" {
+	if kind == nameSingularTemplate && name == "data" && prop.Type == schemaTypeString {
 		field.Description = "Expand to see the typed structure that this string blob must follow."
 		field.Children = getWorkflowSchemaFields()
 		return field
@@ -228,12 +236,12 @@ func extractField(name string, prop apiv1.JSONSchemaProps, required bool, kind s
 	}
 
 	// Handle nested objects
-	if prop.Type == "object" && prop.Properties != nil {
+	if prop.Type == schemaTypeObject && prop.Properties != nil {
 		field.Children = extractFields(prop, getRequiredSet(prop.Required), kind)
 	}
 
 	// Handle objects with additionalProperties (maps with typed values)
-	if prop.Type == "object" && prop.AdditionalProperties != nil && prop.AdditionalProperties.Schema != nil {
+	if prop.Type == schemaTypeObject && prop.AdditionalProperties != nil && prop.AdditionalProperties.Schema != nil {
 		valueSchema := prop.AdditionalProperties.Schema
 		if valueSchema.Properties != nil {
 			// This is a map[string]object - show the value object's structure
@@ -249,7 +257,7 @@ func extractField(name string, prop apiv1.JSONSchemaProps, required bool, kind s
 	if prop.Type == "array" && prop.Items != nil {
 		if prop.Items.Schema != nil {
 			itemSchema := prop.Items.Schema
-			if itemSchema.Type == "object" && itemSchema.Properties != nil {
+			if itemSchema.Type == schemaTypeObject && itemSchema.Properties != nil {
 				field.Children = extractFields(*itemSchema, getRequiredSet(itemSchema.Required), kind)
 			} else {
 				// Simple array type - show the item type
@@ -278,44 +286,44 @@ func getRequiredSet(required []string) map[string]bool {
 func getWorkflowSchemaFields() []templates.SchemaField {
 	return []templates.SchemaField{
 		{
-			Name:        "name",
-			Type:        "string",
+			Name:        keyName,
+			Type:        schemaTypeString,
 			Description: "Workflow name",
 			Required:    true,
 		},
 		{
 			Name:        "id",
-			Type:        "string",
+			Type:        schemaTypeString,
 			Description: "Unique workflow identifier",
 			Required:    false,
 		},
 		{
 			Name:        "global_timeout",
-			Type:        "integer",
+			Type:        schemaTypeInteger,
 			Description: "Global timeout in seconds for the entire workflow",
 			Required:    false,
 		},
 		{
-			Name:        "tasks",
+			Name:        resourceTasks,
 			Type:        "array[object]",
 			Description: "List of tasks to execute in sequence",
 			Required:    true,
 			Children: []templates.SchemaField{
 				{
-					Name:        "name",
-					Type:        "string",
+					Name:        keyName,
+					Type:        schemaTypeString,
 					Description: "Task name",
 					Required:    true,
 				},
 				{
 					Name:        "worker",
-					Type:        "string",
+					Type:        schemaTypeString,
 					Description: "Worker address (supports template variables like {{.device_1}})",
 					Required:    true,
 				},
 				{
 					Name:        "volumes",
-					Type:        "array[string]",
+					Type:        schemaTypeArrayString,
 					Description: "Volume mounts for all actions in this task",
 					Required:    false,
 				},
@@ -332,44 +340,44 @@ func getWorkflowSchemaFields() []templates.SchemaField {
 					Required:    true,
 					Children: []templates.SchemaField{
 						{
-							Name:        "name",
-							Type:        "string",
+							Name:        keyName,
+							Type:        schemaTypeString,
 							Description: "Action name",
 							Required:    true,
 						},
 						{
 							Name:        "image",
-							Type:        "string",
+							Type:        schemaTypeString,
 							Description: "Container image to execute",
 							Required:    true,
 						},
 						{
 							Name:        "timeout",
-							Type:        "integer",
+							Type:        schemaTypeInteger,
 							Description: "Action timeout in seconds",
 							Required:    false,
 						},
 						{
 							Name:        "command",
-							Type:        "array[string]",
+							Type:        schemaTypeArrayString,
 							Description: "Command to execute in the container",
 							Required:    false,
 						},
 						{
 							Name:        "on-timeout",
-							Type:        "array[string]",
+							Type:        schemaTypeArrayString,
 							Description: "Commands to run if the action times out",
 							Required:    false,
 						},
 						{
 							Name:        "on-failure",
-							Type:        "array[string]",
+							Type:        schemaTypeArrayString,
 							Description: "Commands to run if the action fails",
 							Required:    false,
 						},
 						{
 							Name:        "volumes",
-							Type:        "array[string]",
+							Type:        schemaTypeArrayString,
 							Description: "Volume mounts for this action",
 							Required:    false,
 						},
@@ -381,7 +389,7 @@ func getWorkflowSchemaFields() []templates.SchemaField {
 						},
 						{
 							Name:        "pid",
-							Type:        "string",
+							Type:        schemaTypeString,
 							Description: "PID namespace mode (e.g., 'host')",
 							Required:    false,
 						},

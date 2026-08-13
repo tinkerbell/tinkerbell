@@ -53,7 +53,7 @@ var RufioEnableInventoryCollection = Config{
 
 var RufioLogLevel = Config{
 	Name:  "rufio-log-level",
-	Usage: "the higher the number the more verbose, level 0 inherits the global log level, a negative number disables logging",
+	Usage: logLevelUsage,
 }
 
 var RufioMaxConcurrentReconciles = Config{

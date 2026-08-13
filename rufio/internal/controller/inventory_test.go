@@ -22,6 +22,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const trueString = "true"
+
 // newInventoryTestClient builds a fake client that keeps controller-runtime's
 // default FieldManagedObjectTracker (unlike newClientBuilder() above, which
 // swaps in a basic ObjectTracker specifically to work around a MergeFrom+Machine
@@ -122,7 +124,7 @@ func TestReconcileInventoryIfDue_Success(t *testing.T) {
 // collection on every reconcile if the caller forgets to remove it themselves.
 func TestReconcileInventoryIfDue_ClearsRefreshAnnotationOnSuccess(t *testing.T) {
 	bm := createMachine()
-	bm.Annotations = map[string]string{"tinkerbell.org/refresh-inventory": "true"}
+	bm.Annotations = map[string]string{"tinkerbell.org/refresh-inventory": trueString}
 	hw := createHardwareForMachine(bm.Name)
 	provider := &testProvider{
 		InventoryDevice: &common.Device{
@@ -271,7 +273,7 @@ func TestReconcileInventoryIfDue_CollectionDisabledFleetWide(t *testing.T) {
 func TestReconcileInventoryIfDue_DisabledForSpecificHardware(t *testing.T) {
 	bm := createMachine()
 	hw := createHardwareForMachine(bm.Name)
-	hw.Annotations = map[string]string{"tinkerbell.org/disable-outofband-inventory": "true"}
+	hw.Annotations = map[string]string{"tinkerbell.org/disable-outofband-inventory": trueString}
 	provider := &testProvider{
 		InventoryDevice: &common.Device{
 			BIOS: &common.BIOS{Common: common.Common{Vendor: "Dell Inc."}},

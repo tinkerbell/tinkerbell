@@ -16,6 +16,10 @@ import (
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
+const (
+	trueString = "true"
+)
+
 var schemeBuilder = runtime.NewSchemeBuilder(
 	scheme.AddToScheme,
 	bmc.AddToScheme,

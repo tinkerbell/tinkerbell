@@ -373,7 +373,7 @@ func TestReconcile(t *testing.T) {
 					GlobalTimeout:     1800,
 					TemplateRendering: "successful",
 					Conditions: []v1alpha1.WorkflowCondition{
-						{Type: v1alpha1.TemplateRenderedSuccess, Status: metav1.ConditionTrue, Reason: "Complete", Message: "template rendered successfully"},
+						{Type: v1alpha1.TemplateRenderedSuccess, Status: metav1.ConditionTrue, Reason: reasonComplete, Message: "template rendered successfully"},
 					},
 					Tasks: []v1alpha1.Task{
 						{
@@ -391,7 +391,7 @@ func TestReconcile(t *testing.T) {
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
 									Timeout: 600,
 									Environment: map[string]string{
-										"COMPRESSED": "true",
+										"COMPRESSED": valueTrue,
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
@@ -517,7 +517,7 @@ tasks:
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
 									Timeout: 600,
 									Environment: map[string]string{
-										"COMPRESSED": "true",
+										"COMPRESSED": valueTrue,
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
@@ -662,7 +662,7 @@ tasks:
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
 									Timeout: 10,
 									Environment: map[string]string{
-										"COMPRESSED": "true",
+										"COMPRESSED": valueTrue,
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
@@ -750,7 +750,7 @@ tasks:
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
 									Timeout: 10,
 									Environment: map[string]string{
-										"COMPRESSED": "true",
+										"COMPRESSED": valueTrue,
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
@@ -842,7 +842,7 @@ tasks:
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
 									Timeout: 600,
 									Environment: map[string]string{
-										"COMPRESSED": "true",
+										"COMPRESSED": valueTrue,
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},
@@ -967,7 +967,7 @@ tasks:
 					GlobalTimeout:     1800,
 					TemplateRendering: "successful",
 					Conditions: []v1alpha1.WorkflowCondition{
-						{Type: v1alpha1.TemplateRenderedSuccess, Status: metav1.ConditionTrue, Reason: "Complete", Message: "template rendered successfully"},
+						{Type: v1alpha1.TemplateRenderedSuccess, Status: metav1.ConditionTrue, Reason: reasonComplete, Message: "template rendered successfully"},
 					},
 					Tasks: []v1alpha1.Task{
 						{
@@ -985,7 +985,7 @@ tasks:
 									Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
 									Timeout: 600,
 									Environment: map[string]string{
-										"COMPRESSED": "true",
+										"COMPRESSED": valueTrue,
 										"DEST_DISK":  "/dev/nvme0n1",
 										"IMG_URL":    "http://10.1.1.11:8080/debian-10-openstack-amd64.raw.gz",
 									},

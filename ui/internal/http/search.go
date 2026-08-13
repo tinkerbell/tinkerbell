@@ -46,7 +46,7 @@ func HandleGlobalSearch(c *gin.Context, log logr.Logger) {
 		if HandleAuthError(c, err, log) {
 			return
 		}
-		c.JSON(500, gin.H{"error": "Internal server error"})
+		c.JSON(500, gin.H{jsonKeyError: "Internal server error"})
 		return
 	}
 
@@ -107,10 +107,10 @@ func searchHardware(c *gin.Context, kubeClient *KubeClient, query, namespace str
 		results = append(results, SearchResult{
 			Name:      hw.Name,
 			Namespace: hw.Namespace,
-			Type:      "hardware",
-			TypeLabel: "Hardware",
+			Type:      resourceHardware,
+			TypeLabel: nameSingularHardware,
 			URL:       "/hardware/" + hw.Namespace + "/" + hw.Name,
-			Icon:      "hardware",
+			Icon:      resourceHardware,
 		})
 
 		// Limit results per type (QUAL-1)
@@ -149,10 +149,10 @@ func searchWorkflows(c *gin.Context, kubeClient *KubeClient, query, namespace st
 		results = append(results, SearchResult{
 			Name:      wf.Name,
 			Namespace: wf.Namespace,
-			Type:      "workflow",
-			TypeLabel: "Workflow",
+			Type:      resourceWorkflow,
+			TypeLabel: nameSingularWorkflow,
 			URL:       "/workflows/" + wf.Namespace + "/" + wf.Name,
-			Icon:      "workflow",
+			Icon:      resourceWorkflow,
 		})
 
 		if len(results) >= MaxSearchResultsPerType {
@@ -190,10 +190,10 @@ func searchTemplates(c *gin.Context, kubeClient *KubeClient, query, namespace st
 		results = append(results, SearchResult{
 			Name:      tmpl.Name,
 			Namespace: tmpl.Namespace,
-			Type:      "template",
-			TypeLabel: "Template",
+			Type:      resourceTemplate,
+			TypeLabel: nameSingularTemplate,
 			URL:       "/templates/" + tmpl.Namespace + "/" + tmpl.Name,
-			Icon:      "template",
+			Icon:      resourceTemplate,
 		})
 
 		if len(results) >= MaxSearchResultsPerType {
