@@ -144,6 +144,7 @@ func RegisterContainerdRuntimeFlags(c *config, fs *flag.FlagSet) {
 	fs.StringVar(&c.Options.Runtime.Containerd.Namespace, "containerd-namespace", "tinkerbell", "Containerd namespace")
 	fs.StringVar(&c.Options.Runtime.Containerd.SocketPath, "containerd-socket", "/run/containerd/containerd.sock", "Containerd socket path")
 	fs.StringVar(&c.Options.Runtime.Containerd.DataRoot, "containerd-data-root", "/var/lib/nerdctl", "Root directory for nerdctl-compatible per-container state (json-file logs read by `nerdctl logs`)")
+	fs.StringVar(&c.Options.Runtime.Containerd.RegistryConfigPath, "containerd-registry-config-path", "/etc/containerd/certs.d", "Root directory containing containerd registry hosts.toml and certificate configuration")
 }
 
 func RegisterKubernetesRuntimeFlags(c *config, fs *flag.FlagSet) {
