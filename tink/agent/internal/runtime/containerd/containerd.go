@@ -250,8 +250,9 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	image, err := c.Client.GetImage(ctx, imageName)
 	if err != nil {
 		// if the image isn't already in our namespaced context, then pull it
+		resolver := newResolver(ctx, c.RegistryConfigPath)
 		pullImage := func() error {
-			image, err = c.Client.Pull(ctx, imageName, containerd.WithPullUnpack, containerd.WithResolver(newResolver(ctx, c.RegistryConfigPath)))
+			image, err = c.Client.Pull(ctx, imageName, containerd.WithPullUnpack, containerd.WithResolver(resolver))
 			if err != nil {
 				return fmt.Errorf("error pulling image: %w", err)
 			}
