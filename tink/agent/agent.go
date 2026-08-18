@@ -256,6 +256,8 @@ type ContainerdRuntime struct {
 	Namespace  string
 	SocketPath string
 	DataRoot   string
+	// RegistryConfigPath is the root directory containing per-registry hosts.toml and certificate configuration.
+	RegistryConfigPath string
 }
 type KubernetesRuntime struct {
 	Namespace          string
@@ -345,6 +347,9 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 		}
 		if o.Runtime.Containerd.DataRoot != "" {
 			opts = append(opts, containerd.WithDataRoot(o.Runtime.Containerd.DataRoot))
+		}
+		if o.Runtime.Containerd.RegistryConfigPath != "" {
+			opts = append(opts, containerd.WithRegistryConfigPath(o.Runtime.Containerd.RegistryConfigPath))
 		}
 		cd, err := containerd.NewConfig(log, opts...)
 		if err != nil {

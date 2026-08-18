@@ -45,3 +45,36 @@ func TestVersionFlagHelp(t *testing.T) {
 		}
 	}
 }
+
+func TestContainerdRegistryConfigPathFlag(t *testing.T) {
+	tests := map[string]struct {
+		args []string
+		want string
+	}{
+		"default": {
+			want: "/etc/containerd/certs.d",
+		},
+		"custom path": {
+			args: []string{"-containerd-registry-config-path", "/custom/registry-config"},
+			want: "/custom/registry-config",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			c := &config{Options: &agent.Options{}}
+			command := &ff.Command{
+				Name:  name,
+				Usage: "tink-agent [flags]",
+				Flags: RegisterAllFlags(c),
+			}
+
+			if err := command.Parse(tt.args); err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+			if got := c.Options.Runtime.Containerd.RegistryConfigPath; got != tt.want {
+				t.Errorf("RegistryConfigPath = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
