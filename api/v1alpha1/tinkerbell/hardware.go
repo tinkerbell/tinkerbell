@@ -433,26 +433,28 @@ type HardwareStatus struct {
 // HardwareAttributes holds hardware attribute subtrees, one per collection path.
 // Each subtree is written by a single owner and the owners touch disjoint paths,
 // so no merge keys or per-field precedence rules are needed.
-//
-// Only OutOfBand exists today. An InBand sibling, written by tink-server from the
-// Agent-reported attributes that currently land in the
-// "tinkerbell.org/agent-attributes" annotation, is the intended next step — it
-// shares the Attributes type below, and adding it is a purely additive change.
 type HardwareAttributes struct {
 	// OutOfBand holds attributes collected via the BMC (Redfish or vendor API).
 	// Available before the machine boots. IPMI-only BMCs cannot provide this data
 	// and will not populate this field.
 	//+optional
 	OutOfBand *Attributes `json:"outOfBand,omitempty"`
+
+	// InBand holds attributes reported by the Tink Agent from within the running
+	// OS. Only available once the machine has booted and the Agent has checked
+	// in; unlike OutOfBand, it cannot see hardware the OS doesn't expose (e.g. the
+	// BMC's own firmware, PSUs) but can see hardware the BMC doesn't (e.g. the PCI
+	// bus, loaded drivers).
+	//+optional
+	InBand *Attributes `json:"inBand,omitempty"`
 }
 
-// Attributes is a source-agnostic description of a machine's hardware, intended to
-// be shared by both the out-of-band and the (not yet implemented) in-band
-// collection paths. It is the superset of what either can report: every field is
-// optional, and an absent field means the producing source did not report it, not
-// an error. Field coverage varies by source, and for the out-of-band path also by
-// BMC vendor/protocol. Fields only one source can ever populate are marked as such;
-// those noted "in-band only" are unset until that collector exists.
+// Attributes is a source-agnostic description of a machine's hardware, shared by
+// both the out-of-band and in-band collection paths. It is the superset of what
+// either can report: every field is optional, and an absent field means the
+// producing source did not report it, not an error. Field coverage varies by
+// source, and for the out-of-band path also by BMC vendor/protocol. Fields only
+// one source can populate are marked as such.
 type Attributes struct {
 	// LastUpdated is the time at which this subtree was last refreshed.
 	//+optional

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	tinkv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 )
 
 func TestHandleHardwareList_Empty(t *testing.T) {
@@ -143,6 +144,72 @@ func TestHandleHardwareDetail_NotFound(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
+
+func TestHandleHardwareDetail_WithInBandAttributes(t *testing.T) {
+	hw := newTestHardware("hw-1", "default", "aa:bb:cc:dd:ee:01", "192.168.1.1")
+	hw.Status.Attributes = &tinkv1alpha1.HardwareAttributes{
+		InBand: &tinkv1alpha1.Attributes{
+			CollectionMethod: "agent",
+			CPU: &tinkv1alpha1.CPU{
+				TotalCores:   8,
+				TotalThreads: 16,
+			},
+			Product: &tinkv1alpha1.Product{
+				Name:   "PowerEdge R750",
+				Vendor: "Dell Inc.",
+			},
+		},
+	}
+	kubeClient := newFakeKubeClient(
+		newTestNamespace("default"),
+		hw,
+	)
+
+	c, w := setupTestContext("/hardware/default/hw-1", kubeClient)
+	c.Params = gin.Params{
+		{Key: "namespace", Value: "default"},
+		{Key: "name", Value: "hw-1"},
+	}
+
+	HandleHardwareDetail(c, testLog)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	body := w.Body.String()
+	if !contains(body, "System Overview") {
+		t.Error("response should contain the In-Band Attributes section content")
+	}
+	if !contains(body, "PowerEdge R750") {
+		t.Error("response should contain the in-band Product.Name")
+	}
+	if !contains(body, "8 cores") {
+		t.Error("response should contain the in-band CPU core count")
+	}
+}
+
+func TestHandleHardwareDetail_WithoutInBandAttributes(t *testing.T) {
+	kubeClient := newFakeKubeClient(
+		newTestNamespace("default"),
+		newTestHardware("hw-1", "default", "aa:bb:cc:dd:ee:01", "192.168.1.1"),
+	)
+
+	c, w := setupTestContext("/hardware/default/hw-1", kubeClient)
+	c.Params = gin.Params{
+		{Key: "namespace", Value: "default"},
+		{Key: "name", Value: "hw-1"},
+	}
+
+	HandleHardwareDetail(c, testLog)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	body := w.Body.String()
+	if contains(body, "System Overview") {
+		t.Error("response should not contain the In-Band Attributes section content when status.attributes is unset")
 	}
 }
 

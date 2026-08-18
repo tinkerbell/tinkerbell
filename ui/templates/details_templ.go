@@ -128,7 +128,7 @@ func HardwareDetailContent(hw HardwareDetail, baseURL string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<!-- Agent Attributes -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<!-- In-Band Attributes -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1008,7 +1008,7 @@ func HardwareDetailContent(hw HardwareDetail, baseURL string) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = SectionBoxCollapsible("Agent Attributes", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = SectionBoxCollapsible("In-Band Attributes", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
