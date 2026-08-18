@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/ui/templates"
 	"sigs.k8s.io/yaml"
 )
@@ -229,10 +230,11 @@ func HandleHardwareDetail(c *gin.Context, log logr.Logger) {
 
 	var agentAttrs *templates.AgentAttributes
 	if attrJSON, ok := hw.Annotations[constant.AttributesAnnotation]; ok && attrJSON != "" {
-		agentAttrs = &templates.AgentAttributes{}
-		if err := json.Unmarshal([]byte(attrJSON), agentAttrs); err != nil {
+		collected := &data.AgentAttributes{}
+		if err := json.Unmarshal([]byte(attrJSON), collected); err != nil {
 			log.Error(err, "Failed to parse agent-attributes", "namespace", namespace, "name", name)
-			agentAttrs = nil
+		} else {
+			agentAttrs = templates.AgentAttributesFromData(collected)
 		}
 	}
 

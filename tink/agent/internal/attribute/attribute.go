@@ -1,8 +1,9 @@
 package attribute
 
 import (
-	"fmt"
 	"math"
+	"strconv"
+	"strings"
 
 	"github.com/ccoveille/go-safecast/v2"
 	"github.com/go-logr/logr"
@@ -72,8 +73,8 @@ func DiscoverMemory(l logr.Logger) *data.Memory {
 	}
 
 	return &data.Memory{
-		Total:  toPtr(humanReadable(memory.TotalPhysicalBytes)),
-		Usable: toPtr(humanReadable(memory.TotalUsableBytes)),
+		TotalBytes:  toPtr(memory.TotalPhysicalBytes),
+		UsableBytes: toPtr(memory.TotalUsableBytes),
 	}
 }
 
@@ -89,16 +90,18 @@ func DiscoverBlockDevices(l logr.Logger) []*data.Block {
 			continue
 		}
 		if d.StorageController != block.StorageControllerLoop && d.StorageController != block.StorageControllerUnknown {
+			sizeBytes, _ := safecast.Convert[int64](d.SizeBytes)
+			physicalBlockSizeBytes, _ := safecast.Convert[int64](d.PhysicalBlockSizeBytes)
 			blockDevices = append(blockDevices, &data.Block{
-				Name:              toPtr(d.Name),
-				ControllerType:    toPtr(d.StorageController.String()),
-				DriveType:         toPtr(d.DriveType.String()),
-				Size:              toPtr(humanReadable(d.SizeBytes)),
-				PhysicalBlockSize: toPtr(humanReadable(d.PhysicalBlockSizeBytes)),
-				Vendor:            toPtr(d.Vendor),
-				Model:             toPtr(d.Model),
-				WWN:               toPtr(d.WWN),
-				SerialNumber:      toPtr(d.SerialNumber),
+				Name:                   toPtr(d.Name),
+				ControllerType:         toPtr(d.StorageController.String()),
+				DriveType:              toPtr(d.DriveType.String()),
+				SizeBytes:              toPtr(sizeBytes),
+				PhysicalBlockSizeBytes: toPtr(physicalBlockSizeBytes),
+				Vendor:                 toPtr(d.Vendor),
+				Model:                  toPtr(d.Model),
+				WWN:                    toPtr(d.WWN),
+				SerialNumber:           toPtr(d.SerialNumber),
 			})
 		}
 	}
@@ -117,9 +120,9 @@ func DiscoverNetworks(l logr.Logger) []*data.Network {
 			continue
 		}
 		nics = append(nics, &data.Network{
-			Name:  toPtr(n.Name),
-			Mac:   toPtr(n.MACAddress),
-			Speed: toPtr(n.Speed),
+			Name:      toPtr(n.Name),
+			Mac:       toPtr(n.MACAddress),
+			SpeedMbps: toPtr(parseSpeedMbps(n.Speed)),
 			EnabledCapabilities: func() []string {
 				var capabilities []string
 				for _, c := range n.Capabilities {
@@ -281,56 +284,40 @@ func toPtr[T any](v T) *T {
 	return &v
 }
 
-type byteSize interface {
-	~uint64 | ~int64
-}
-
-// humanReadable is a function to convert bytes to a human readable format.
-// 512 -> 512B, 1024 -> 1KB, 1024*1024 -> 1MB, etc.
-func humanReadable[T byteSize](byts T) string {
-	var tpbs string
-	if byts > 0 {
-		tpb := int64(byts)
-		unit, unitString := amountString(tpb)
-		tpb = int64(math.Ceil(float64(byts) / float64(unit)))
-		t, err := safecast.Convert[uint64](tpb)
-		if err != nil {
-			t = uint64(0)
-		}
-		tpbs = fmt.Sprintf("%v%s", t, unitString)
+// parseSpeedMbps extracts a leading integer Mbps value from a ghw-reported
+// speed string, which varies in format depending on how ghw collected it
+// (e.g. "1000" from sysfs, "1000Mb/s" from ethtool, or "-1" from sysfs when
+// the link speed is unknown/down). Returns 0 if no leading digits are
+// present, or if speed is negative (sysfs's unknown-speed sentinel - a plain
+// digit-strip would otherwise turn "-1" into a fabricated 1). Values that
+// overflow uint32 after unit scaling clamp to math.MaxUint32 rather than
+// wrapping.
+func parseSpeedMbps(speed string) uint32 {
+	trimmed := strings.TrimSpace(speed)
+	if strings.HasPrefix(trimmed, "-") {
+		return 0
 	}
-
-	return tpbs
-}
-
-var (
-	kb int64 = 1024
-	mb       = kb * 1024
-	gb       = mb * 1024
-	tb       = gb * 1024
-	pb       = tb * 1024
-	eb       = pb * 1024
-)
-
-// amountString returns a string representation of the
-// amount with an amount suffix corresponding to the nearest kibibit.
-//
-// For example, amountString(1022) == "1022". amountString(1024) == "1KB", etc.
-func amountString(size int64) (int64, string) {
+	end := strings.IndexFunc(trimmed, func(r rune) bool { return r < '0' || r > '9' })
+	digits, unit := trimmed, ""
+	if end != -1 {
+		digits, unit = trimmed[:end], trimmed[end:]
+	}
+	v, err := strconv.ParseUint(digits, 10, 64)
+	if err != nil {
+		return 0
+	}
 	switch {
-	case size < kb:
-		return 1, "B"
-	case size < mb:
-		return kb, "KB"
-	case size < gb:
-		return mb, "MB"
-	case size < tb:
-		return gb, "GB"
-	case size < pb:
-		return tb, "TB"
-	case size < eb:
-		return pb, "PB"
-	default:
-		return eb, "EB"
+	case strings.Contains(unit, "GB"):
+		// Gigabytes/sec (case-sensitive: "GB", not "Gb") - 8 bits per byte.
+		v *= 8000
+	case strings.Contains(unit, "MB"):
+		v *= 8
+	case strings.Contains(strings.ToLower(unit), "gb"):
+		// Gigabits/sec, e.g. ethtool's "10 Gb/s".
+		v *= 1000
 	}
+	if v > math.MaxUint32 {
+		return math.MaxUint32
+	}
+	return uint32(v)
 }
