@@ -38,7 +38,9 @@ import (
 	"github.com/containerd/containerd/v2/core/containers"
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images"
+	"github.com/containerd/containerd/v2/core/remotes"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
+	dockerconfig "github.com/containerd/containerd/v2/core/remotes/docker/config"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/containerd/containerd/v2/pkg/oci"
@@ -56,8 +58,9 @@ const (
 	defaultCNIBinDir  = "/opt/cni/bin"
 	defaultCNIConfDir = "/etc/cni/net.d"
 
-	defaultNamespace  = "tinkerbell"
-	defaultSocketPath = "/run/containerd/containerd.sock"
+	defaultNamespace          = "tinkerbell"
+	defaultSocketPath         = "/run/containerd/containerd.sock"
+	defaultRegistryConfigPath = "/etc/containerd/certs.d"
 
 	// Fallback bridge network configuration for tink-agent containers.
 	// Only used if no CNI configs exist in /etc/cni/net.d/.
@@ -110,12 +113,29 @@ const (
     }`
 )
 
+func newRegistryHosts(ctx context.Context, configPath string) docker.RegistryHosts {
+	opts := dockerconfig.HostOptions{}
+	if configPath != "" {
+		opts.HostDir = dockerconfig.HostDirFromRoot(configPath)
+	}
+
+	return dockerconfig.ConfigureHosts(ctx, opts)
+}
+
+func newResolver(ctx context.Context, configPath string) remotes.Resolver {
+	return docker.NewResolver(docker.ResolverOptions{
+		Hosts: newRegistryHosts(ctx, configPath),
+	})
+}
+
 type Config struct {
 	Namespace  string
 	Client     *containerd.Client
 	Log        logr.Logger
 	SocketPath string
-	CNI        gocni.CNI
+	// RegistryConfigPath is the root directory containing per-registry hosts.toml and certificate configuration.
+	RegistryConfigPath string
+	CNI                gocni.CNI
 	// DataRoot is the on-disk root used for nerdctl-compatible per-container
 	// state (the json-file logs that `nerdctl logs` reads).
 	DataRoot string
@@ -147,12 +167,19 @@ func WithDataRoot(dataRoot string) Opt {
 	}
 }
 
+func WithRegistryConfigPath(registryConfigPath string) Opt {
+	return func(c *Config) {
+		c.RegistryConfigPath = registryConfigPath
+	}
+}
+
 func NewConfig(log logr.Logger, opts ...Opt) (*Config, error) {
 	c := &Config{
-		Log:        log,
-		Namespace:  defaultNamespace,
-		SocketPath: defaultSocketPath,
-		DataRoot:   defaultDataRoot,
+		Log:                log,
+		Namespace:          defaultNamespace,
+		SocketPath:         defaultSocketPath,
+		DataRoot:           defaultDataRoot,
+		RegistryConfigPath: defaultRegistryConfigPath,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -223,8 +250,9 @@ func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	image, err := c.Client.GetImage(ctx, imageName)
 	if err != nil {
 		// if the image isn't already in our namespaced context, then pull it
+		resolver := newResolver(ctx, c.RegistryConfigPath)
 		pullImage := func() error {
-			image, err = c.Client.Pull(ctx, imageName, containerd.WithPullUnpack, containerd.WithResolver(docker.NewResolver(docker.ResolverOptions{})))
+			image, err = c.Client.Pull(ctx, imageName, containerd.WithPullUnpack, containerd.WithResolver(resolver))
 			if err != nil {
 				return fmt.Errorf("error pulling image: %w", err)
 			}
