@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	tinkv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestHandleHardwareList_Empty(t *testing.T) {
@@ -125,6 +127,76 @@ func TestHandleHardwareDetail_Found(t *testing.T) {
 	body := w.Body.String()
 	if !contains(body, "hw-1") {
 		t.Error("response should contain hw-1")
+	}
+}
+
+func TestHandleHardwareDetail_WithOutOfBandAttributes(t *testing.T) {
+	hw := newTestHardware("hw-1", "default", "aa:bb:cc:dd:ee:01", "192.168.1.1")
+	hw.Status.Attributes = &tinkv1alpha1.HardwareAttributes{
+		OutOfBand: &tinkv1alpha1.Attributes{
+			LastUpdated:      &metav1.Time{},
+			CollectionMethod: "redfish",
+			BIOS: &tinkv1alpha1.BIOS{
+				Vendor:          "Dell Inc.",
+				FirmwareVersion: "2.10.2",
+			},
+			PSUs: []tinkv1alpha1.PSU{
+				{
+					Vendor: "Dell",
+					Status: &tinkv1alpha1.ComponentStatus{Health: "OK"},
+				},
+			},
+		},
+	}
+
+	kubeClient := newFakeKubeClient(
+		newTestNamespace("default"),
+		hw,
+	)
+
+	c, w := setupTestContext("/hardware/default/hw-1", kubeClient)
+	c.Params = gin.Params{
+		{Key: "namespace", Value: "default"},
+		{Key: "name", Value: "hw-1"},
+	}
+
+	HandleHardwareDetail(c, testLog)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	body := w.Body.String()
+	if !contains(body, "Out-of-Band Attributes") {
+		t.Error("response should contain the Out-of-Band Attributes section")
+	}
+	if !contains(body, "Dell Inc.") {
+		t.Error("response should contain the BIOS vendor")
+	}
+	if !contains(body, "2.10.2") {
+		t.Error("response should contain the BIOS firmware version")
+	}
+}
+
+func TestHandleHardwareDetail_WithoutOutOfBandAttributes(t *testing.T) {
+	kubeClient := newFakeKubeClient(
+		newTestNamespace("default"),
+		newTestHardware("hw-1", "default", "aa:bb:cc:dd:ee:01", "192.168.1.1"),
+	)
+
+	c, w := setupTestContext("/hardware/default/hw-1", kubeClient)
+	c.Params = gin.Params{
+		{Key: "namespace", Value: "default"},
+		{Key: "name", Value: "hw-1"},
+	}
+
+	HandleHardwareDetail(c, testLog)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	body := w.Body.String()
+	if contains(body, "Out-of-Band Attributes") {
+		t.Error("response should not contain the Out-of-Band Attributes section when unset")
 	}
 }
 
