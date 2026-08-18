@@ -59,6 +59,12 @@ type Action struct {
 
 	// VirtualMediaAction represents a baseboard management virtual media insert/eject.
 	VirtualMediaAction *VirtualMediaAction `json:"virtualMediaAction,omitempty"`
+
+	// SecureBoot represents enabling or disabling UEFI Secure Boot.
+	SecureBoot *SecureBootAction `json:"secureBoot,omitempty"`
+
+	// SecureBootResetKeys represents resetting the UEFI Secure Boot key databases.
+	SecureBootResetKeys *SecureBootResetKeysAction `json:"secureBootResetKeys,omitempty"`
 }
 
 // TaskStatus defines the observed state of Task.

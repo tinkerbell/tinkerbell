@@ -120,6 +120,31 @@ spec:
                       - cycle
                       - reset
                       type: string
+                    secureBoot:
+                      description: SecureBoot represents enabling or disabling UEFI
+                        Secure Boot.
+                      properties:
+                        enable:
+                          description: Enable indicates whether Secure Boot should
+                            be enabled or disabled.
+                          type: boolean
+                      required:
+                      - enable
+                      type: object
+                    secureBootResetKeys:
+                      description: SecureBootResetKeys represents resetting the UEFI
+                        Secure Boot key databases.
+                      properties:
+                        resetType:
+                          description: ResetType is the type of key reset to perform.
+                          enum:
+                          - ResetAllKeysToDefault
+                          - DeleteAllKeys
+                          - DeletePK
+                          type: string
+                      required:
+                      - resetType
+                      type: object
                     virtualMediaAction:
                       description: VirtualMediaAction represents a baseboard management
                         virtual media insert/eject.

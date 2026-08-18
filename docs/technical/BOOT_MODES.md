@@ -172,6 +172,51 @@ This configuration will:
 5. Set boot device back to disk persistently
 6. Power on the machine to boot from disk
 
+#### Example: UEFI Secure Boot around a PXE boot
+
+HookOS and iPXE are typically unsigned, so a Machine with Secure Boot enforced can't network boot at all. The `secureBoot` and `secureBootResetKeys` actions let a Workflow disable Secure Boot and reset its key databases before netbooting, then re-enable it once a trusted key has been enrolled into the installed OS's `db` (for example by a Template Action that writes the `db` EFI variable while the firmware is in Setup Mode):
+
+```yaml
+apiVersion: "tinkerbell.org/v1alpha1"
+kind: Workflow
+metadata:
+  name: example-secureboot
+spec:
+  templateRef: example
+  hardwareRef: example
+  bootOptions:
+    bootMode: customboot
+    custombootConfig:
+      preparingActions:
+      - powerAction: "off"
+      - secureBoot:
+          enable: false
+      - secureBootResetKeys:
+          resetType: DeletePK
+      - bootDevice:
+          device: "pxe"
+          efiBoot: true
+      - powerAction: "on"
+      postActions:
+      - bootDevice:
+          device: "disk"
+          persistent: true
+          efiBoot: true
+      - secureBoot:
+          enable: true
+      - powerAction: "cycle"
+```
+
+This configuration will:
+1. Power off the machine
+2. Disable Secure Boot, since the netboot chain below isn't signed
+3. Reset the Secure Boot key databases, returning the firmware to Setup Mode - the state a Template Action needs to enroll new keys into `db`/`KEK`/`PK`
+4. Set the next boot device to PXE and power on
+5. After the Template has installed the OS and enrolled a trusted key, set the boot device back to disk persistently
+6. Re-enable Secure Boot and power-cycle so the firmware picks it up on the next boot
+
+`resetType` accepts `ResetAllKeysToDefault`, `DeleteAllKeys`, or `DeletePK`. `ResetAllKeysToDefault` alone restores the platform's default keys but leaves a PK in place, so the firmware stays out of Setup Mode - `DeletePK` is what actually returns it to Setup Mode.
+
 ### Templating in customboot
 
 The `customboot` mode supports Go template syntax in action fields, enabling dynamic configuration based on Hardware specifications. This is particularly useful for virtual media URLs that need to include the Machine's MAC address.

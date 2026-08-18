@@ -47,6 +47,19 @@ type VirtualMediaAction struct {
 	Kind VirtualMediaKind `json:"kind"`
 }
 
+// SecureBootAction represents enabling or disabling UEFI Secure Boot.
+type SecureBootAction struct {
+	// Enable indicates whether Secure Boot should be enabled or disabled.
+	Enable bool `json:"enable"`
+}
+
+// SecureBootResetKeysAction represents resetting the UEFI Secure Boot key databases.
+type SecureBootResetKeysAction struct {
+	// ResetType is the type of key reset to perform.
+	// +kubebuilder:validation:Enum=ResetAllKeysToDefault;DeleteAllKeys;DeletePK
+	ResetType string `json:"resetType"`
+}
+
 // BootDeviceConfig represents the configuration for setting a boot device.
 type BootDeviceConfig struct {
 	// Device is the name of the device to set as the first boot device.

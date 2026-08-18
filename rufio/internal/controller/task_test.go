@@ -121,6 +121,28 @@ func TestTaskReconcile(t *testing.T) {
 			task:      createTask("PowerOn", getAction("PowerOn"), &corev1.Secret{}),
 			shouldErr: true,
 		},
+		"success secure boot enable": {
+			taskName: "secure boot enable",
+			action:   bmc.Action{SecureBoot: &bmc.SecureBootAction{Enable: true}},
+			provider: &testProvider{},
+		},
+		"failure on secure boot enable": {
+			taskName:  "secure boot enable",
+			action:    bmc.Action{SecureBoot: &bmc.SecureBootAction{Enable: true}},
+			provider:  &testProvider{ErrSetSecureBoot: errors.New("failed to set secure boot")},
+			shouldErr: true,
+		},
+		"success secure boot reset keys": {
+			taskName: "secure boot reset keys",
+			action:   bmc.Action{SecureBootResetKeys: &bmc.SecureBootResetKeysAction{ResetType: "DeleteAllKeys"}},
+			provider: &testProvider{},
+		},
+		"failure on secure boot reset keys": {
+			taskName:  "secure boot reset keys",
+			action:    bmc.Action{SecureBootResetKeys: &bmc.SecureBootResetKeysAction{ResetType: "DeleteAllKeys"}},
+			provider:  &testProvider{ErrResetSecureBootKeys: errors.New("failed to reset secure boot keys")},
+			shouldErr: true,
+		},
 		"success with boot device": {
 			taskName: "boot device pxe",
 			action: bmc.Action{
@@ -203,6 +225,13 @@ func TestTaskReconcile(t *testing.T) {
 			}
 			if len(retrieved.Status.Conditions) != 0 {
 				t.Fatalf("expected no conditions, got: %v", retrieved.Status.Conditions)
+			}
+
+			if tt.action.SecureBootResetKeys != nil {
+				want := tt.action.SecureBootResetKeys.ResetType
+				if got := tt.provider.ResetSecureBootKeysCalledWith; got != want {
+					t.Fatalf("expected ResetSecureBootKeys called with %q, got %q", want, got)
+				}
 			}
 
 			// Timeout check
