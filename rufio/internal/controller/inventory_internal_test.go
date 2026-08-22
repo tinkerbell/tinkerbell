@@ -130,7 +130,7 @@ func TestAttributesFromDevice(t *testing.T) {
 		},
 	}
 
-	got := attributesFromDevice(device, "redfish", &now)
+	got := attributesFromDevice(device, "redfish", &now, logr.Discard())
 
 	if got.CollectionMethod != "redfish" {
 		t.Errorf("CollectionMethod = %q, want %q", got.CollectionMethod, "redfish")
@@ -200,7 +200,7 @@ func TestAttributesFromDevice(t *testing.T) {
 }
 
 func TestAttributesFromDeviceNil(t *testing.T) {
-	if got := attributesFromDevice(nil, "redfish", nil); got != nil {
+	if got := attributesFromDevice(nil, "redfish", nil, logr.Discard()); got != nil {
 		t.Errorf("attributesFromDevice(nil, ...) = %+v, want nil", got)
 	}
 }
@@ -217,7 +217,7 @@ func TestProductStatusPostCode(t *testing.T) {
 		},
 	}
 
-	got := attributesFromDevice(device, "asrockrack", nil)
+	got := attributesFromDevice(device, "asrockrack", nil, logr.Discard())
 
 	if got.Product == nil || got.Product.Status == nil {
 		t.Fatalf("Product.Status = %+v, want POST diagnostics mapped", got.Product)
@@ -245,7 +245,7 @@ func TestProductStatusPostCodeWithNoIdentityFields(t *testing.T) {
 		},
 	}
 
-	got := attributesFromDevice(device, "asrockrack", nil)
+	got := attributesFromDevice(device, "asrockrack", nil, logr.Discard())
 
 	if got.Product == nil || got.Product.Status == nil {
 		t.Fatalf("Product.Status = %+v, want POST diagnostics mapped even with no identity fields set", got.Product)
@@ -265,7 +265,7 @@ func TestComponentStatusOmitsPostCode(t *testing.T) {
 		},
 	}
 
-	got := attributesFromDevice(device, "redfish", nil)
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
 
 	if got.BIOS == nil || got.BIOS.Status == nil {
 		t.Fatalf("BIOS.Status = %+v, want health/state mapped", got.BIOS)
@@ -297,7 +297,7 @@ func TestApplyOutOfBandAttributesNilDeviceNoPanic(t *testing.T) {
 		Build()
 
 	r := &MachineReconciler{client: fakeClient}
-	if err := r.applyOutOfBandAttributes(context.Background(), hw, inventoryResult{collectionMethod: "redfish"}); err != nil {
+	if err := r.applyOutOfBandAttributes(context.Background(), logr.Discard(), hw, inventoryResult{collectionMethod: "redfish"}); err != nil {
 		t.Fatalf("applyOutOfBandAttributes(nil device) error = %v, want nil", err)
 	}
 
@@ -341,7 +341,7 @@ func TestApplyOutOfBandAttributesNilDevicePreservesExisting(t *testing.T) {
 		Build()
 
 	r := &MachineReconciler{client: fakeClient}
-	if err := r.applyOutOfBandAttributes(context.Background(), hw, inventoryResult{collectionMethod: "redfish"}); err != nil {
+	if err := r.applyOutOfBandAttributes(context.Background(), logr.Discard(), hw, inventoryResult{collectionMethod: "redfish"}); err != nil {
 		t.Fatalf("applyOutOfBandAttributes(nil device) error = %v, want nil", err)
 	}
 
@@ -416,8 +416,8 @@ func TestSortDeviceDeterminism(t *testing.T) {
 	sortDevice(a)
 	sortDevice(b)
 
-	invA := attributesFromDevice(a, "redfish", nil)
-	invB := attributesFromDevice(b, "redfish", nil)
+	invA := attributesFromDevice(a, "redfish", nil, logr.Discard())
+	invB := attributesFromDevice(b, "redfish", nil, logr.Discard())
 
 	if diff := cmp.Diff(invA, invB); diff != "" {
 		t.Errorf("sorted inventories differ despite same logical content (-a +b):\n%s", diff)
@@ -450,8 +450,8 @@ func TestSortDeviceDeterminism_GPUsAndBMCNIC(t *testing.T) {
 	sortDevice(a)
 	sortDevice(b)
 
-	invA := attributesFromDevice(a, "redfish", nil)
-	invB := attributesFromDevice(b, "redfish", nil)
+	invA := attributesFromDevice(a, "redfish", nil, logr.Discard())
+	invB := attributesFromDevice(b, "redfish", nil, logr.Discard())
 
 	if diff := cmp.Diff(invA, invB); diff != "" {
 		t.Errorf("sorted inventories differ despite same logical content (-a +b):\n%s", diff)
@@ -480,8 +480,8 @@ func TestSortDeviceDeterminism_TiedKeys(t *testing.T) {
 	sortDevice(a)
 	sortDevice(b)
 
-	invA := attributesFromDevice(a, "redfish", nil)
-	invB := attributesFromDevice(b, "redfish", nil)
+	invA := attributesFromDevice(a, "redfish", nil, logr.Discard())
+	invB := attributesFromDevice(b, "redfish", nil, logr.Discard())
 
 	if diff := cmp.Diff(invA, invB); diff != "" {
 		t.Errorf("sorted inventories differ despite same logical content with tied keys (-a +b):\n%s", diff)
