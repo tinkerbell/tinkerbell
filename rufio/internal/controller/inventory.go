@@ -34,7 +34,6 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -242,20 +241,15 @@ func (r *MachineReconciler) applyOutOfBandAttributes(ctx context.Context, logger
 		return r.applyHardwareOutOfBand(ctx, hw, newInventory)
 	}
 
-	// Idempotency guard: compare everything except LastUpdated (which always
-	// differs) and skip the write if nothing actually changed. Combined with
-	// sortDevice above, this avoids hot-looping the reconciler when a BMC
-	// returns the same logical inventory in a different list order.
-	existing := outOfBandAttributes(hw).DeepCopy()
-	if existing != nil {
-		existing.LastUpdated = nil
-	}
-	newComparable := newInventory.DeepCopy()
-	newComparable.LastUpdated = nil
-	if equality.Semantic.DeepEqual(existing, newComparable) {
-		return nil
-	}
-
+	// LastUpdated must advance on every successful collection, even when the
+	// freshly-collected inventory is byte-identical to what's stored (common,
+	// since sortDevice canonicalizes the non-deterministic list order BMCs
+	// return). dueForInventoryRefresh is keyed off LastUpdated, so skipping the
+	// write on unchanged content would leave this Hardware perpetually due and
+	// re-collect (a 5-30s BMC round-trip) on every reconcile instead of waiting
+	// a full interval. The write itself is idempotent under Server-Side Apply,
+	// and it only happens once per refresh interval, so there is no reconcile
+	// hot-loop to guard against.
 	return r.applyHardwareOutOfBand(ctx, hw, newInventory)
 }
 
@@ -658,26 +652,34 @@ func firmwareVersion(f *common.Firmware) string {
 
 // statusFromCommon maps component health/state. PostCode is not mapped here: it is
 // a device-level POST diagnostic, not a per-component field, and mapping it would
-// emit a meaningless postCode on every component.
+// emit a meaningless postCode on every component. nilIfZero drops the result when
+// Health and State are both empty, so a source-reported but content-less Status
+// doesn't serialize as an empty {} object or block nilIfZero from dropping a
+// component that has no other data either.
 func statusFromCommon(s *common.Status) *tinkerbell.ComponentStatus {
 	if s == nil {
 		return nil
 	}
-	return &tinkerbell.ComponentStatus{
+	return nilIfZero(&tinkerbell.ComponentStatus{
 		Health: s.Health,
 		State:  s.State,
-	}
+	})
 }
 
 // postStatusFromCommon is statusFromCommon plus the POST diagnostics, for the
 // device-level status only. PostCode is a pointer so that 0 — a successful POST —
-// survives serialization instead of being dropped by omitempty.
+// survives serialization instead of being dropped by omitempty. PostCode is
+// attached independently of statusFromCommon's result so a device reporting POST
+// diagnostics without health/state still keeps them.
 func postStatusFromCommon(s *common.Status, logger logr.Logger) *tinkerbell.ComponentStatus {
-	cs := statusFromCommon(s)
-	if cs == nil {
+	if s == nil {
 		return nil
 	}
+	cs := statusFromCommon(s)
 	if s.PostCodeStatus != "" {
+		if cs == nil {
+			cs = &tinkerbell.ComponentStatus{}
+		}
 		postCode := convertOrZero[int32](logger, "status.postCode", s.PostCode)
 		cs.PostCode = &postCode
 		cs.PostCodeStatus = s.PostCodeStatus

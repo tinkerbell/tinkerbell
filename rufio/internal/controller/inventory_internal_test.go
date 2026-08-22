@@ -277,11 +277,10 @@ func TestComponentStatusOmitsPostCode(t *testing.T) {
 
 // TestApplyOutOfBandAttributesNilDeviceNoPanic is a regression test: a provider
 // implementation that returns (nil, nil) from Inventory() — no error, but also
-// no device — must not panic applyOutOfBandAttributes's idempotency-guard
-// comparison, and must still record LastUpdated. Without that,
-// dueForInventoryRefresh treats this Hardware as never collected forever and
-// retries the slow BMC round-trip on every subsequent reconcile instead of
-// respecting inventoryRefreshInterval.
+// no device — must not panic applyOutOfBandAttributes, and must still record
+// LastUpdated. Without that, dueForInventoryRefresh treats this Hardware as
+// never collected forever and retries the slow BMC round-trip on every
+// subsequent reconcile instead of respecting inventoryRefreshInterval.
 func TestApplyOutOfBandAttributesNilDeviceNoPanic(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := tinkerbell.AddToScheme(scheme); err != nil {
@@ -351,6 +350,55 @@ func TestApplyOutOfBandAttributesNilDevicePreservesExisting(t *testing.T) {
 	}
 	if got.LastUpdated == nil || !got.LastUpdated.After(collected.Time) {
 		t.Errorf("outOfBand.LastUpdated = %v, want it advanced past the previous %v", got.LastUpdated, collected)
+	}
+}
+
+// TestApplyOutOfBandAttributesUnchangedAdvancesTimestamp is a regression test: a
+// collection that yields inventory byte-identical to what's already stored must
+// still advance LastUpdated. dueForInventoryRefresh is keyed off LastUpdated, so
+// leaving it stale on unchanged content would keep this Hardware perpetually due
+// and re-collect (a 5-30s BMC round-trip) on every reconcile.
+func TestApplyOutOfBandAttributesUnchangedAdvancesTimestamp(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := tinkerbell.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to build scheme: %v", err)
+	}
+	collected := metav1.NewTime(metav1.Now().Add(-25 * time.Hour))
+	hw := &tinkerbell.Hardware{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-hw", Namespace: "test-namespace"},
+		Status: tinkerbell.HardwareStatus{
+			Attributes: &tinkerbell.HardwareAttributes{
+				OutOfBand: &tinkerbell.Attributes{
+					LastUpdated:      &collected,
+					CollectionMethod: "redfish",
+					Product:          &tinkerbell.Product{SerialNumber: "SYS-SERIAL-1"},
+				},
+			},
+		},
+	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&tinkerbell.Hardware{}).
+		WithObjects(hw).
+		Build()
+
+	// A device whose mapping reproduces the stored inventory exactly.
+	device := &common.Device{Common: common.Common{ProductName: "", Serial: "SYS-SERIAL-1"}}
+
+	r := &MachineReconciler{client: fakeClient}
+	if err := r.applyOutOfBandAttributes(context.Background(), logr.Discard(), hw, inventoryResult{device: device, collectionMethod: "redfish"}); err != nil {
+		t.Fatalf("applyOutOfBandAttributes error = %v, want nil", err)
+	}
+
+	got := outOfBandAttributes(hw)
+	if got == nil || got.Product == nil || got.Product.SerialNumber != "SYS-SERIAL-1" {
+		t.Fatalf("outOfBand = %+v, want the same inventory preserved", got)
+	}
+	if got.LastUpdated == nil || !got.LastUpdated.After(collected.Time) {
+		t.Errorf("outOfBand.LastUpdated = %v, want it advanced past the previous %v even though content is unchanged", got.LastUpdated, collected)
+	}
+	if dueForInventoryRefresh(hw, &bmc.Machine{}, defaultInventoryRefreshInterval) {
+		t.Error("dueForInventoryRefresh() = true right after an unchanged collection, want false")
 	}
 }
 
@@ -589,6 +637,47 @@ func TestAttributesFromDevice_emptyComponentsOmitted(t *testing.T) {
 	}
 	if got.Baseboard != nil {
 		t.Errorf("Baseboard = %+v, want nil (empty component must be omitted)", got.Baseboard)
+	}
+}
+
+// TestAttributesFromDevice_emptyStatusOmitted is a regression test: a non-nil
+// but content-less common.Status (Health and State both "") must map to a nil
+// ComponentStatus rather than an empty {} object, and — since BIOS has no other
+// fields set here — must not block nilIfZero from dropping the whole component.
+func TestAttributesFromDevice_emptyStatusOmitted(t *testing.T) {
+	device := &common.Device{
+		BIOS: &common.BIOS{
+			Common: common.Common{Status: &common.Status{}},
+		},
+	}
+
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
+
+	if got.BIOS != nil {
+		t.Errorf("BIOS = %+v, want nil (empty status must not block empty-component omission)", got.BIOS)
+	}
+}
+
+// TestAttributesFromDevice_postCodeWithoutHealthState verifies that POST
+// diagnostics reported without Health/State still surface a Status with the
+// POST code, rather than being dropped alongside the empty health/state.
+func TestAttributesFromDevice_postCodeWithoutHealthState(t *testing.T) {
+	device := &common.Device{
+		Common: common.Common{
+			Status: &common.Status{PostCode: 7, PostCodeStatus: "boot complete"},
+		},
+	}
+
+	got := attributesFromDevice(device, "asrockrack", nil, logr.Discard())
+
+	if got.Product == nil || got.Product.Status == nil {
+		t.Fatalf("Product.Status = %+v, want POST diagnostics mapped even with no health/state", got.Product)
+	}
+	if got.Product.Status.Health != "" || got.Product.Status.State != "" {
+		t.Errorf("Product.Status = %+v, want empty Health/State", got.Product.Status)
+	}
+	if got.Product.Status.PostCode == nil || *got.Product.Status.PostCode != 7 {
+		t.Errorf("Product.Status.PostCode = %v, want a pointer to 7", got.Product.Status.PostCode)
 	}
 }
 
