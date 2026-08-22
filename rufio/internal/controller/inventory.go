@@ -21,7 +21,9 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -32,7 +34,6 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -176,29 +177,47 @@ func (r *MachineReconciler) findLinkedHardware(ctx context.Context, bm *bmc.Mach
 	return &hwList.Items[0], nil
 }
 
+// inventoryResult pairs a collected device with the provenance needed to
+// interpret it (the bmclib driver that produced it). bmclib exposes the winning
+// driver only via the client's mutable metadata, which any later BMC call on the
+// same client overwrites; capturing the two together here keeps the result
+// self-describing so downstream code never has to reach back into client state.
+type inventoryResult struct {
+	device           *common.Device
+	collectionMethod string
+}
+
+// collectInventory runs BMC inventory on the already-open bmcClient and captures
+// the winning driver's name atomically with the device, before any subsequent
+// BMC call can clobber bmcClient.GetMetadata().
+func collectInventory(ctx context.Context, bmcClient *bmclib.Client) (inventoryResult, error) {
+	device, err := bmcClient.Inventory(ctx)
+	if err != nil {
+		return inventoryResult{}, fmt.Errorf("get BMC inventory: %w", err)
+	}
+	return inventoryResult{device: device, collectionMethod: bmcClient.GetMetadata().SuccessfulProvider}, nil
+}
+
 // reconcileInventory collects BMC inventory using the already-open bmcClient
 // (reused from the power-polling step in doReconcile — no second BMC connection is
 // opened) and writes it to the linked Hardware's status.
-func (r *MachineReconciler) reconcileInventory(ctx context.Context, bmcClient *bmclib.Client, hw *tinkerbell.Hardware) error {
-	device, err := bmcClient.Inventory(ctx)
+func (r *MachineReconciler) reconcileInventory(ctx context.Context, logger logr.Logger, bmcClient *bmclib.Client, hw *tinkerbell.Hardware) error {
+	inv, err := collectInventory(ctx, bmcClient)
 	if err != nil {
-		return fmt.Errorf("get BMC inventory: %w", err)
+		return err
 	}
-	sortDevice(device)
+	sortDevice(inv.device)
 
-	// bmcClient.GetMetadata().SuccessfulProvider tells us which bmclib driver
-	// actually produced this inventory (e.g. "redfish", "dell", "asrockrack") —
-	// already public API, no upstream bmclib change needed.
-	return r.applyOutOfBandAttributes(ctx, hw, device, bmcClient.GetMetadata().SuccessfulProvider)
+	return r.applyOutOfBandAttributes(ctx, logger, hw, inv)
 }
 
 // applyOutOfBandAttributes patches Hardware.status.attributes.outOfBand via
 // Server-Side Apply under a dedicated field manager ("machine-controller"), so a
 // future sibling subtree written by another controller stays a disjoint path and
 // the two writers cannot conflict.
-func (r *MachineReconciler) applyOutOfBandAttributes(ctx context.Context, hw *tinkerbell.Hardware, device *common.Device, collectionMethod string) error {
+func (r *MachineReconciler) applyOutOfBandAttributes(ctx context.Context, logger logr.Logger, hw *tinkerbell.Hardware, inv inventoryResult) error {
 	now := metav1.Now()
-	newInventory := attributesFromDevice(device, collectionMethod, &now)
+	newInventory := attributesFromDevice(inv.device, inv.collectionMethod, &now, logger)
 
 	if newInventory == nil {
 		// A provider that returns (nil, nil) from Inventory() has nothing new
@@ -213,29 +232,24 @@ func (r *MachineReconciler) applyOutOfBandAttributes(ctx context.Context, hw *ti
 		// advance the timestamp, not to reflect a content change.
 		existing := outOfBandAttributes(hw)
 		if existing == nil {
-			newInventory = &tinkerbell.Attributes{LastUpdated: &now, CollectionMethod: collectionMethod}
+			newInventory = &tinkerbell.Attributes{LastUpdated: &now, CollectionMethod: inv.collectionMethod}
 		} else {
 			newInventory = existing.DeepCopy()
 			newInventory.LastUpdated = &now
-			newInventory.CollectionMethod = collectionMethod
+			newInventory.CollectionMethod = inv.collectionMethod
 		}
 		return r.applyHardwareOutOfBand(ctx, hw, newInventory)
 	}
 
-	// Idempotency guard: compare everything except LastUpdated (which always
-	// differs) and skip the write if nothing actually changed. Combined with
-	// sortDevice above, this avoids hot-looping the reconciler when a BMC
-	// returns the same logical inventory in a different list order.
-	existing := outOfBandAttributes(hw).DeepCopy()
-	if existing != nil {
-		existing.LastUpdated = nil
-	}
-	newComparable := newInventory.DeepCopy()
-	newComparable.LastUpdated = nil
-	if equality.Semantic.DeepEqual(existing, newComparable) {
-		return nil
-	}
-
+	// LastUpdated must advance on every successful collection, even when the
+	// freshly-collected inventory is byte-identical to what's stored (common,
+	// since sortDevice canonicalizes the non-deterministic list order BMCs
+	// return). dueForInventoryRefresh is keyed off LastUpdated, so skipping the
+	// write on unchanged content would leave this Hardware perpetually due and
+	// re-collect (a 5-30s BMC round-trip) on every reconcile instead of waiting
+	// a full interval. The write itself is idempotent under Server-Side Apply,
+	// and it only happens once per refresh interval, so there is no reconcile
+	// hot-loop to guard against.
 	return r.applyHardwareOutOfBand(ctx, hw, newInventory)
 }
 
@@ -436,7 +450,7 @@ func gpuKey(g *common.GPU) string {
 // Fields on Attributes that only the in-band collector can fill (PCIDevices,
 // Memory.UsableBytes, per-port EnabledCapabilities, OS-visible names) are left
 // unset here by design.
-func attributesFromDevice(device *common.Device, collectionMethod string, t *metav1.Time) *tinkerbell.Attributes {
+func attributesFromDevice(device *common.Device, collectionMethod string, t *metav1.Time, logger logr.Logger) *tinkerbell.Attributes {
 	if device == nil {
 		return nil
 	}
@@ -444,9 +458,9 @@ func attributesFromDevice(device *common.Device, collectionMethod string, t *met
 	attrs := &tinkerbell.Attributes{
 		LastUpdated:      t,
 		CollectionMethod: collectionMethod,
-		Product:          productFromCommon(device.Common),
+		Product:          productFromCommon(device.Common, logger),
 		BIOS:             biosFromCommon(device.BIOS),
-		BMC:              bmcFromCommon(device.BMC),
+		BMC:              bmcFromCommon(device.BMC, logger),
 		Baseboard:        baseboardFromMainboard(device.Mainboard),
 	}
 
@@ -455,9 +469,9 @@ func attributesFromDevice(device *common.Device, collectionMethod string, t *met
 		if c == nil {
 			continue
 		}
-		cores, _ := safecast.Convert[uint32](c.Cores)
-		threads, _ := safecast.Convert[uint32](c.Threads)
-		clockSpeedMHz, _ := safecast.Convert[uint32](c.ClockSpeedHz / 1_000_000)
+		cores := convertOrZero[uint32](logger, "cpu.cores", c.Cores)
+		threads := convertOrZero[uint32](logger, "cpu.threads", c.Threads)
+		clockSpeedMHz := convertOrZero[uint32](logger, "cpu.clockSpeedMHz", c.ClockSpeedHz/1_000_000)
 		sockets = append(sockets, tinkerbell.CPUSocket{
 			Slot:            c.Slot,
 			Vendor:          c.Vendor,
@@ -482,7 +496,7 @@ func attributesFromDevice(device *common.Device, collectionMethod string, t *met
 		if m == nil {
 			continue
 		}
-		speedMHz, _ := safecast.Convert[uint32](m.ClockSpeedHz / 1_000_000)
+		speedMHz := convertOrZero[uint32](logger, "memory.speedMHz", m.ClockSpeedHz/1_000_000)
 		modules = append(modules, tinkerbell.MemoryModule{
 			Slot:            m.Slot,
 			Vendor:          m.Vendor,
@@ -501,7 +515,7 @@ func attributesFromDevice(device *common.Device, collectionMethod string, t *met
 	}
 
 	for _, n := range device.NICs {
-		if nic := networkInterfaceFromCommon(n); nic != nil {
+		if nic := networkInterfaceFromCommon(n, logger); nic != nil {
 			attrs.NetworkInterfaces = append(attrs.NetworkInterfaces, *nic)
 		}
 	}
@@ -583,23 +597,50 @@ func attributesFromDevice(device *common.Device, collectionMethod string, t *met
 	return attrs
 }
 
+// nilIfZero returns nil when the pointed-to value is its zero value, so that
+// bmclib's pre-allocated but unpopulated component structs (see NewDevice) do not
+// serialize as empty {} objects. That keeps a component the source never reported
+// distinguishable from one reported empty, which is how the Attributes type
+// describes an absent field ("the producing source did not report it").
+// It is used by the pointer-valued component mappers (product, BIOS, BMC,
+// baseboard, NIC), where it also collapses nested empties bottom-up: a mapper's
+// children return nil first, leaving the parent zero and thus dropped.
+func nilIfZero[T any](p *T) *T {
+	if p == nil || reflect.ValueOf(*p).IsZero() {
+		return nil
+	}
+	return p
+}
+
+// convertOrZero narrows orig to NumOut, returning the zero value (and logging)
+// when it does not fit. safecast.Convert yields the wrapped, out-of-range value
+// on overflow, so discarding its error would silently store garbage; every field
+// mapped through here (core/thread counts, clock/link speeds, POST code) is
+// expected to fit its target type, so an overflow signals corrupt BMC data and
+// zero is the safe stand-in rather than a wrapped value.
+func convertOrZero[NumOut, NumIn safecast.Number](logger logr.Logger, field string, orig NumIn) NumOut {
+	v, err := safecast.Convert[NumOut](orig)
+	if err != nil {
+		logger.Error(err, "hardware inventory value out of range, using zero", "field", field, "value", orig)
+		var zero NumOut
+		return zero
+	}
+	return v
+}
+
 // productFromCommon maps the top-level Device.Common fields — the machine's own
 // identity (e.g. the Redfish "System" resource) — separate from any individual
 // component like the Baseboard or BMC. POST code lives on the device-level status
 // in bmclib (only the asrockrack driver populates it), so it is mapped here rather
 // than onto BIOS.
-func productFromCommon(c common.Common) *tinkerbell.Product {
-	status := postStatusFromCommon(c.Status)
-	if c.Vendor == "" && c.Model == "" && c.ProductName == "" && c.Serial == "" && status == nil {
-		return nil
-	}
-	return &tinkerbell.Product{
+func productFromCommon(c common.Common, logger logr.Logger) *tinkerbell.Product {
+	return nilIfZero(&tinkerbell.Product{
 		Name:         c.ProductName,
 		Vendor:       c.Vendor,
 		Model:        c.Model,
 		SerialNumber: c.Serial,
-		Status:       status,
-	}
+		Status:       postStatusFromCommon(c.Status, logger),
+	})
 }
 
 func firmwareVersion(f *common.Firmware) string {
@@ -611,27 +652,35 @@ func firmwareVersion(f *common.Firmware) string {
 
 // statusFromCommon maps component health/state. PostCode is not mapped here: it is
 // a device-level POST diagnostic, not a per-component field, and mapping it would
-// emit a meaningless postCode on every component.
+// emit a meaningless postCode on every component. nilIfZero drops the result when
+// Health and State are both empty, so a source-reported but content-less Status
+// doesn't serialize as an empty {} object or block nilIfZero from dropping a
+// component that has no other data either.
 func statusFromCommon(s *common.Status) *tinkerbell.ComponentStatus {
 	if s == nil {
 		return nil
 	}
-	return &tinkerbell.ComponentStatus{
+	return nilIfZero(&tinkerbell.ComponentStatus{
 		Health: s.Health,
 		State:  s.State,
-	}
+	})
 }
 
 // postStatusFromCommon is statusFromCommon plus the POST diagnostics, for the
 // device-level status only. PostCode is a pointer so that 0 — a successful POST —
-// survives serialization instead of being dropped by omitempty.
-func postStatusFromCommon(s *common.Status) *tinkerbell.ComponentStatus {
-	cs := statusFromCommon(s)
-	if cs == nil {
+// survives serialization instead of being dropped by omitempty. PostCode is
+// attached independently of statusFromCommon's result so a device reporting POST
+// diagnostics without health/state still keeps them.
+func postStatusFromCommon(s *common.Status, logger logr.Logger) *tinkerbell.ComponentStatus {
+	if s == nil {
 		return nil
 	}
+	cs := statusFromCommon(s)
 	if s.PostCodeStatus != "" {
-		postCode, _ := safecast.Convert[int32](s.PostCode)
+		if cs == nil {
+			cs = &tinkerbell.ComponentStatus{}
+		}
+		postCode := convertOrZero[int32](logger, "status.postCode", s.PostCode)
 		cs.PostCode = &postCode
 		cs.PostCodeStatus = s.PostCodeStatus
 	}
@@ -642,33 +691,33 @@ func biosFromCommon(b *common.BIOS) *tinkerbell.BIOS {
 	if b == nil {
 		return nil
 	}
-	return &tinkerbell.BIOS{
+	return nilIfZero(&tinkerbell.BIOS{
 		Vendor:          b.Vendor,
 		Model:           b.Model,
 		SerialNumber:    b.Serial,
 		FirmwareVersion: firmwareVersion(b.Firmware),
 		Status:          statusFromCommon(b.Status),
-	}
+	})
 }
 
-func bmcFromCommon(bmcComp *common.BMC) *tinkerbell.BMC {
+func bmcFromCommon(bmcComp *common.BMC, logger logr.Logger) *tinkerbell.BMC {
 	if bmcComp == nil {
 		return nil
 	}
-	return &tinkerbell.BMC{
+	return nilIfZero(&tinkerbell.BMC{
 		Vendor:          bmcComp.Vendor,
 		Model:           bmcComp.Model,
 		SerialNumber:    bmcComp.Serial,
 		FirmwareVersion: firmwareVersion(bmcComp.Firmware),
-		NIC:             networkInterfaceFromCommon(bmcComp.NIC),
+		NIC:             networkInterfaceFromCommon(bmcComp.NIC, logger),
 		Status:          statusFromCommon(bmcComp.Status),
-	}
+	})
 }
 
 // networkInterfaceFromCommon converts a bmclib NIC (used for both the host's NICs
 // and the BMC's own out-of-band management NIC) into its Tinkerbell API
 // representation.
-func networkInterfaceFromCommon(n *common.NIC) *tinkerbell.NetworkInterface {
+func networkInterfaceFromCommon(n *common.NIC, logger logr.Logger) *tinkerbell.NetworkInterface {
 	if n == nil {
 		return nil
 	}
@@ -682,29 +731,29 @@ func networkInterfaceFromCommon(n *common.NIC) *tinkerbell.NetworkInterface {
 		if p == nil {
 			continue
 		}
-		speedMbps, _ := safecast.Convert[uint32](p.SpeedBits / 1_000_000)
-		mtu, _ := safecast.Convert[uint32](p.MTUSize)
+		speedMbps := convertOrZero[uint32](logger, "networkInterface.port.speedMbps", p.SpeedBits/1_000_000)
+		mtu := convertOrZero[uint32](logger, "networkInterface.port.mtu", p.MTUSize)
 		nic.Ports = append(nic.Ports, tinkerbell.NetworkPort{
 			PortID:     cmp.Or(p.PhysicalID, p.ID),
-			MAC:        p.MacAddress,
+			MAC:        strings.ToLower(p.MacAddress),
 			SpeedMbps:  speedMbps,
 			MTU:        mtu,
 			LinkStatus: p.LinkStatus,
 		})
 	}
-	return nic
+	return nilIfZero(nic)
 }
 
 func baseboardFromMainboard(m *common.Mainboard) *tinkerbell.Baseboard {
 	if m == nil {
 		return nil
 	}
-	return &tinkerbell.Baseboard{
+	return nilIfZero(&tinkerbell.Baseboard{
 		Vendor:          m.Vendor,
 		Model:           m.Model,
 		SerialNumber:    m.Serial,
 		Description:     m.Description,
 		FirmwareVersion: firmwareVersion(m.Firmware),
 		Status:          statusFromCommon(m.Status),
-	}
+	})
 }

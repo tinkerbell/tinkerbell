@@ -130,7 +130,7 @@ func TestAttributesFromDevice(t *testing.T) {
 		},
 	}
 
-	got := attributesFromDevice(device, "redfish", &now)
+	got := attributesFromDevice(device, "redfish", &now, logr.Discard())
 
 	if got.CollectionMethod != "redfish" {
 		t.Errorf("CollectionMethod = %q, want %q", got.CollectionMethod, "redfish")
@@ -200,7 +200,7 @@ func TestAttributesFromDevice(t *testing.T) {
 }
 
 func TestAttributesFromDeviceNil(t *testing.T) {
-	if got := attributesFromDevice(nil, "redfish", nil); got != nil {
+	if got := attributesFromDevice(nil, "redfish", nil, logr.Discard()); got != nil {
 		t.Errorf("attributesFromDevice(nil, ...) = %+v, want nil", got)
 	}
 }
@@ -217,7 +217,7 @@ func TestProductStatusPostCode(t *testing.T) {
 		},
 	}
 
-	got := attributesFromDevice(device, "asrockrack", nil)
+	got := attributesFromDevice(device, "asrockrack", nil, logr.Discard())
 
 	if got.Product == nil || got.Product.Status == nil {
 		t.Fatalf("Product.Status = %+v, want POST diagnostics mapped", got.Product)
@@ -245,7 +245,7 @@ func TestProductStatusPostCodeWithNoIdentityFields(t *testing.T) {
 		},
 	}
 
-	got := attributesFromDevice(device, "asrockrack", nil)
+	got := attributesFromDevice(device, "asrockrack", nil, logr.Discard())
 
 	if got.Product == nil || got.Product.Status == nil {
 		t.Fatalf("Product.Status = %+v, want POST diagnostics mapped even with no identity fields set", got.Product)
@@ -265,7 +265,7 @@ func TestComponentStatusOmitsPostCode(t *testing.T) {
 		},
 	}
 
-	got := attributesFromDevice(device, "redfish", nil)
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
 
 	if got.BIOS == nil || got.BIOS.Status == nil {
 		t.Fatalf("BIOS.Status = %+v, want health/state mapped", got.BIOS)
@@ -277,11 +277,10 @@ func TestComponentStatusOmitsPostCode(t *testing.T) {
 
 // TestApplyOutOfBandAttributesNilDeviceNoPanic is a regression test: a provider
 // implementation that returns (nil, nil) from Inventory() — no error, but also
-// no device — must not panic applyOutOfBandAttributes's idempotency-guard
-// comparison, and must still record LastUpdated. Without that,
-// dueForInventoryRefresh treats this Hardware as never collected forever and
-// retries the slow BMC round-trip on every subsequent reconcile instead of
-// respecting inventoryRefreshInterval.
+// no device — must not panic applyOutOfBandAttributes, and must still record
+// LastUpdated. Without that, dueForInventoryRefresh treats this Hardware as
+// never collected forever and retries the slow BMC round-trip on every
+// subsequent reconcile instead of respecting inventoryRefreshInterval.
 func TestApplyOutOfBandAttributesNilDeviceNoPanic(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := tinkerbell.AddToScheme(scheme); err != nil {
@@ -297,7 +296,7 @@ func TestApplyOutOfBandAttributesNilDeviceNoPanic(t *testing.T) {
 		Build()
 
 	r := &MachineReconciler{client: fakeClient}
-	if err := r.applyOutOfBandAttributes(context.Background(), hw, nil, "redfish"); err != nil {
+	if err := r.applyOutOfBandAttributes(context.Background(), logr.Discard(), hw, inventoryResult{collectionMethod: "redfish"}); err != nil {
 		t.Fatalf("applyOutOfBandAttributes(nil device) error = %v, want nil", err)
 	}
 
@@ -341,7 +340,7 @@ func TestApplyOutOfBandAttributesNilDevicePreservesExisting(t *testing.T) {
 		Build()
 
 	r := &MachineReconciler{client: fakeClient}
-	if err := r.applyOutOfBandAttributes(context.Background(), hw, nil, "redfish"); err != nil {
+	if err := r.applyOutOfBandAttributes(context.Background(), logr.Discard(), hw, inventoryResult{collectionMethod: "redfish"}); err != nil {
 		t.Fatalf("applyOutOfBandAttributes(nil device) error = %v, want nil", err)
 	}
 
@@ -351,6 +350,55 @@ func TestApplyOutOfBandAttributesNilDevicePreservesExisting(t *testing.T) {
 	}
 	if got.LastUpdated == nil || !got.LastUpdated.After(collected.Time) {
 		t.Errorf("outOfBand.LastUpdated = %v, want it advanced past the previous %v", got.LastUpdated, collected)
+	}
+}
+
+// TestApplyOutOfBandAttributesUnchangedAdvancesTimestamp is a regression test: a
+// collection that yields inventory byte-identical to what's already stored must
+// still advance LastUpdated. dueForInventoryRefresh is keyed off LastUpdated, so
+// leaving it stale on unchanged content would keep this Hardware perpetually due
+// and re-collect (a 5-30s BMC round-trip) on every reconcile.
+func TestApplyOutOfBandAttributesUnchangedAdvancesTimestamp(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := tinkerbell.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to build scheme: %v", err)
+	}
+	collected := metav1.NewTime(metav1.Now().Add(-25 * time.Hour))
+	hw := &tinkerbell.Hardware{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-hw", Namespace: "test-namespace"},
+		Status: tinkerbell.HardwareStatus{
+			Attributes: &tinkerbell.HardwareAttributes{
+				OutOfBand: &tinkerbell.Attributes{
+					LastUpdated:      &collected,
+					CollectionMethod: "redfish",
+					Product:          &tinkerbell.Product{SerialNumber: "SYS-SERIAL-1"},
+				},
+			},
+		},
+	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&tinkerbell.Hardware{}).
+		WithObjects(hw).
+		Build()
+
+	// A device whose mapping reproduces the stored inventory exactly.
+	device := &common.Device{Common: common.Common{ProductName: "", Serial: "SYS-SERIAL-1"}}
+
+	r := &MachineReconciler{client: fakeClient}
+	if err := r.applyOutOfBandAttributes(context.Background(), logr.Discard(), hw, inventoryResult{device: device, collectionMethod: "redfish"}); err != nil {
+		t.Fatalf("applyOutOfBandAttributes error = %v, want nil", err)
+	}
+
+	got := outOfBandAttributes(hw)
+	if got == nil || got.Product == nil || got.Product.SerialNumber != "SYS-SERIAL-1" {
+		t.Fatalf("outOfBand = %+v, want the same inventory preserved", got)
+	}
+	if got.LastUpdated == nil || !got.LastUpdated.After(collected.Time) {
+		t.Errorf("outOfBand.LastUpdated = %v, want it advanced past the previous %v even though content is unchanged", got.LastUpdated, collected)
+	}
+	if dueForInventoryRefresh(hw, &bmc.Machine{}, defaultInventoryRefreshInterval) {
+		t.Error("dueForInventoryRefresh() = true right after an unchanged collection, want false")
 	}
 }
 
@@ -416,8 +464,8 @@ func TestSortDeviceDeterminism(t *testing.T) {
 	sortDevice(a)
 	sortDevice(b)
 
-	invA := attributesFromDevice(a, "redfish", nil)
-	invB := attributesFromDevice(b, "redfish", nil)
+	invA := attributesFromDevice(a, "redfish", nil, logr.Discard())
+	invB := attributesFromDevice(b, "redfish", nil, logr.Discard())
 
 	if diff := cmp.Diff(invA, invB); diff != "" {
 		t.Errorf("sorted inventories differ despite same logical content (-a +b):\n%s", diff)
@@ -450,8 +498,8 @@ func TestSortDeviceDeterminism_GPUsAndBMCNIC(t *testing.T) {
 	sortDevice(a)
 	sortDevice(b)
 
-	invA := attributesFromDevice(a, "redfish", nil)
-	invB := attributesFromDevice(b, "redfish", nil)
+	invA := attributesFromDevice(a, "redfish", nil, logr.Discard())
+	invB := attributesFromDevice(b, "redfish", nil, logr.Discard())
 
 	if diff := cmp.Diff(invA, invB); diff != "" {
 		t.Errorf("sorted inventories differ despite same logical content (-a +b):\n%s", diff)
@@ -480,8 +528,8 @@ func TestSortDeviceDeterminism_TiedKeys(t *testing.T) {
 	sortDevice(a)
 	sortDevice(b)
 
-	invA := attributesFromDevice(a, "redfish", nil)
-	invB := attributesFromDevice(b, "redfish", nil)
+	invA := attributesFromDevice(a, "redfish", nil, logr.Discard())
+	invB := attributesFromDevice(b, "redfish", nil, logr.Discard())
 
 	if diff := cmp.Diff(invA, invB); diff != "" {
 		t.Errorf("sorted inventories differ despite same logical content with tied keys (-a +b):\n%s", diff)
@@ -565,5 +613,157 @@ func TestInventoryJitter(t *testing.T) {
 
 	if got := inventoryJitter(&bmc.Machine{}, 0); got != 0 {
 		t.Errorf("inventoryJitter with zero interval = %v, want 0", got)
+	}
+}
+
+// TestAttributesFromDevice_emptyComponentsOmitted verifies that a component bmclib
+// hands back as a non-nil but empty struct (as NewDevice pre-allocates) is
+// dropped rather than surfaced as an empty {} object, and that the collapse runs
+// bottom-up through a nested empty NIC.
+func TestAttributesFromDevice_emptyComponentsOmitted(t *testing.T) {
+	device := &common.Device{
+		BIOS:      &common.BIOS{},
+		BMC:       &common.BMC{NIC: &common.NIC{}},
+		Mainboard: &common.Mainboard{},
+	}
+
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
+
+	if got.BIOS != nil {
+		t.Errorf("BIOS = %+v, want nil (empty component must be omitted)", got.BIOS)
+	}
+	if got.BMC != nil {
+		t.Errorf("BMC = %+v, want nil (empty component with nested empty NIC must be omitted)", got.BMC)
+	}
+	if got.Baseboard != nil {
+		t.Errorf("Baseboard = %+v, want nil (empty component must be omitted)", got.Baseboard)
+	}
+}
+
+// TestAttributesFromDevice_emptyStatusOmitted is a regression test: a non-nil
+// but content-less common.Status (Health and State both "") must map to a nil
+// ComponentStatus rather than an empty {} object, and — since BIOS has no other
+// fields set here — must not block nilIfZero from dropping the whole component.
+func TestAttributesFromDevice_emptyStatusOmitted(t *testing.T) {
+	device := &common.Device{
+		BIOS: &common.BIOS{
+			Common: common.Common{Status: &common.Status{}},
+		},
+	}
+
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
+
+	if got.BIOS != nil {
+		t.Errorf("BIOS = %+v, want nil (empty status must not block empty-component omission)", got.BIOS)
+	}
+}
+
+// TestAttributesFromDevice_postCodeWithoutHealthState verifies that POST
+// diagnostics reported without Health/State still surface a Status with the
+// POST code, rather than being dropped alongside the empty health/state.
+func TestAttributesFromDevice_postCodeWithoutHealthState(t *testing.T) {
+	device := &common.Device{
+		Common: common.Common{
+			Status: &common.Status{PostCode: 7, PostCodeStatus: "boot complete"},
+		},
+	}
+
+	got := attributesFromDevice(device, "asrockrack", nil, logr.Discard())
+
+	if got.Product == nil || got.Product.Status == nil {
+		t.Fatalf("Product.Status = %+v, want POST diagnostics mapped even with no health/state", got.Product)
+	}
+	if got.Product.Status.Health != "" || got.Product.Status.State != "" {
+		t.Errorf("Product.Status = %+v, want empty Health/State", got.Product.Status)
+	}
+	if got.Product.Status.PostCode == nil || *got.Product.Status.PostCode != 7 {
+		t.Errorf("Product.Status.PostCode = %v, want a pointer to 7", got.Product.Status.PostCode)
+	}
+}
+
+// TestAttributesFromDevice_nilStatusOmitted verifies that a populated component whose
+// source Status is nil maps to a nil ComponentStatus, so no empty status object
+// is emitted alongside real data.
+func TestAttributesFromDevice_nilStatusOmitted(t *testing.T) {
+	device := &common.Device{
+		BIOS: &common.BIOS{
+			Common: common.Common{Firmware: &common.Firmware{Installed: "1.2.3"}},
+		},
+	}
+
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
+
+	if got.BIOS == nil {
+		t.Fatalf("BIOS = nil, want a populated component")
+	}
+	if got.BIOS.Status != nil {
+		t.Errorf("BIOS.Status = %+v, want nil (no empty status object)", got.BIOS.Status)
+	}
+}
+
+// TestAttributesFromDevice_macLowercased verifies host and BMC NIC MAC addresses
+// are normalized to lower case, so the two are consistent regardless of the
+// casing a given BMC reports each in.
+func TestAttributesFromDevice_macLowercased(t *testing.T) {
+	device := &common.Device{
+		BMC: &common.BMC{
+			NIC: &common.NIC{NICPorts: []*common.NICPort{{ID: "1", MacAddress: "3C:EC:EF:DA:75:8E"}}},
+		},
+		NICs: []*common.NIC{
+			{ID: "NIC.1", NICPorts: []*common.NICPort{{ID: "1", MacAddress: "AA:BB:CC:DD:EE:FF"}}},
+		},
+	}
+
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
+
+	if got.BMC == nil || got.BMC.NIC == nil || len(got.BMC.NIC.Ports) != 1 {
+		t.Fatalf("BMC NIC = %+v, want one port", got.BMC)
+	}
+	if mac := got.BMC.NIC.Ports[0].MAC; mac != "3c:ec:ef:da:75:8e" {
+		t.Errorf("BMC NIC MAC = %q, want lower-case 3c:ec:ef:da:75:8e", mac)
+	}
+	if len(got.NetworkInterfaces) != 1 || len(got.NetworkInterfaces[0].Ports) != 1 {
+		t.Fatalf("NetworkInterfaces = %+v, want one interface with one port", got.NetworkInterfaces)
+	}
+	if mac := got.NetworkInterfaces[0].Ports[0].MAC; mac != "aa:bb:cc:dd:ee:ff" {
+		t.Errorf("host NIC MAC = %q, want lower-case aa:bb:cc:dd:ee:ff", mac)
+	}
+}
+
+// TestAttributesFromDevice_outOfRangeZeroed verifies that a numeric field
+// that doesn't fit its target type maps to 0 rather than the wrapped value
+// safecast.Convert returns on overflow.
+func TestAttributesFromDevice_outOfRangeZeroed(t *testing.T) {
+	device := &common.Device{
+		CPUs: []*common.CPU{
+			{
+				Common: common.Common{Model: "test"},
+				Cores:  -1, // negative cannot fit uint32
+			},
+		},
+		NICs: []*common.NIC{
+			{
+				ID: "NIC.1",
+				NICPorts: []*common.NICPort{
+					// 5e15 bits/s / 1e6 = 5e9 Mbps, above uint32's ~4.29e9 max
+					{ID: "1", MacAddress: "aa:bb:cc:dd:ee:ff", SpeedBits: 5_000_000_000_000_000},
+				},
+			},
+		},
+	}
+
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
+
+	if got.CPU == nil || len(got.CPU.Sockets) != 1 {
+		t.Fatalf("CPU = %+v, want one socket", got.CPU)
+	}
+	if got.CPU.Sockets[0].Cores != 0 {
+		t.Errorf("CPU.Sockets[0].Cores = %d, want 0 (out-of-range value must not wrap)", got.CPU.Sockets[0].Cores)
+	}
+	if len(got.NetworkInterfaces) != 1 || len(got.NetworkInterfaces[0].Ports) != 1 {
+		t.Fatalf("NetworkInterfaces = %+v, want one interface with one port", got.NetworkInterfaces)
+	}
+	if speed := got.NetworkInterfaces[0].Ports[0].SpeedMbps; speed != 0 {
+		t.Errorf("NetworkInterfaces[0].Ports[0].SpeedMbps = %d, want 0 (out-of-range value must not wrap)", speed)
 	}
 }

@@ -840,8 +840,9 @@ type StorageController struct {
 }
 
 // ComponentStatus is health/state information reported for an individual
-// component. PostCode and PostCodeStatus are POST diagnostics and are only
-// meaningful on BIOS.
+// component. PostCode and PostCodeStatus are device-level POST diagnostics and
+// are only populated on Product (the machine's own identity), never on a
+// per-component status.
 type ComponentStatus struct {
 	//+optional
 	Health string `json:"health,omitempty"`
