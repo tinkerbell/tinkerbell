@@ -605,9 +605,12 @@ func attributesFromDevice(device *common.Device, collectionMethod string, t *met
 
 // nilIfZero returns nil when the pointed-to value is its zero value, so that
 // bmclib's pre-allocated but unpopulated component structs (see NewDevice) do not
-// serialize as empty {} objects and blur the "absent means not reported" contract.
-// Applied in every component mapper, it also collapses nested empties bottom-up:
-// a mapper's children return nil first, leaving the parent zero and thus dropped.
+// serialize as empty {} objects. That keeps a component the source never reported
+// distinguishable from one reported empty, which is how the Attributes type
+// describes an absent field ("the producing source did not report it").
+// It is used by the pointer-valued component mappers (product, BIOS, BMC,
+// baseboard, NIC), where it also collapses nested empties bottom-up: a mapper's
+// children return nil first, leaving the parent zero and thus dropped.
 func nilIfZero[T any](p *T) *T {
 	if p == nil || reflect.ValueOf(*p).IsZero() {
 		return nil

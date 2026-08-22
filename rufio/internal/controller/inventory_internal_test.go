@@ -567,3 +567,114 @@ func TestInventoryJitter(t *testing.T) {
 		t.Errorf("inventoryJitter with zero interval = %v, want 0", got)
 	}
 }
+
+// TestAttributesFromDevice_emptyComponentsOmitted verifies that a component bmclib
+// hands back as a non-nil but empty struct (as NewDevice pre-allocates) is
+// dropped rather than surfaced as an empty {} object, and that the collapse runs
+// bottom-up through a nested empty NIC.
+func TestAttributesFromDevice_emptyComponentsOmitted(t *testing.T) {
+	device := &common.Device{
+		BIOS:      &common.BIOS{},
+		BMC:       &common.BMC{NIC: &common.NIC{}},
+		Mainboard: &common.Mainboard{},
+	}
+
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
+
+	if got.BIOS != nil {
+		t.Errorf("BIOS = %+v, want nil (empty component must be omitted)", got.BIOS)
+	}
+	if got.BMC != nil {
+		t.Errorf("BMC = %+v, want nil (empty component with nested empty NIC must be omitted)", got.BMC)
+	}
+	if got.Baseboard != nil {
+		t.Errorf("Baseboard = %+v, want nil (empty component must be omitted)", got.Baseboard)
+	}
+}
+
+// TestAttributesFromDevice_nilStatusOmitted verifies that a populated component whose
+// source Status is nil maps to a nil ComponentStatus, so no empty status object
+// is emitted alongside real data.
+func TestAttributesFromDevice_nilStatusOmitted(t *testing.T) {
+	device := &common.Device{
+		BIOS: &common.BIOS{
+			Common: common.Common{Firmware: &common.Firmware{Installed: "1.2.3"}},
+		},
+	}
+
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
+
+	if got.BIOS == nil {
+		t.Fatalf("BIOS = nil, want a populated component")
+	}
+	if got.BIOS.Status != nil {
+		t.Errorf("BIOS.Status = %+v, want nil (no empty status object)", got.BIOS.Status)
+	}
+}
+
+// TestAttributesFromDevice_macLowercased verifies host and BMC NIC MAC addresses
+// are normalized to lower case, so the two are consistent regardless of the
+// casing a given BMC reports each in.
+func TestAttributesFromDevice_macLowercased(t *testing.T) {
+	device := &common.Device{
+		BMC: &common.BMC{
+			NIC: &common.NIC{NICPorts: []*common.NICPort{{ID: "1", MacAddress: "3C:EC:EF:DA:75:8E"}}},
+		},
+		NICs: []*common.NIC{
+			{ID: "NIC.1", NICPorts: []*common.NICPort{{ID: "1", MacAddress: "AA:BB:CC:DD:EE:FF"}}},
+		},
+	}
+
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
+
+	if got.BMC == nil || got.BMC.NIC == nil || len(got.BMC.NIC.Ports) != 1 {
+		t.Fatalf("BMC NIC = %+v, want one port", got.BMC)
+	}
+	if mac := got.BMC.NIC.Ports[0].MAC; mac != "3c:ec:ef:da:75:8e" {
+		t.Errorf("BMC NIC MAC = %q, want lower-case 3c:ec:ef:da:75:8e", mac)
+	}
+	if len(got.NetworkInterfaces) != 1 || len(got.NetworkInterfaces[0].Ports) != 1 {
+		t.Fatalf("NetworkInterfaces = %+v, want one interface with one port", got.NetworkInterfaces)
+	}
+	if mac := got.NetworkInterfaces[0].Ports[0].MAC; mac != "aa:bb:cc:dd:ee:ff" {
+		t.Errorf("host NIC MAC = %q, want lower-case aa:bb:cc:dd:ee:ff", mac)
+	}
+}
+
+// TestAttributesFromDevice_outOfRangeZeroed verifies that a numeric field
+// that doesn't fit its target type maps to 0 rather than the wrapped value
+// safecast.Convert returns on overflow.
+func TestAttributesFromDevice_outOfRangeZeroed(t *testing.T) {
+	device := &common.Device{
+		CPUs: []*common.CPU{
+			{
+				Common: common.Common{Model: "test"},
+				Cores:  -1, // negative cannot fit uint32
+			},
+		},
+		NICs: []*common.NIC{
+			{
+				ID: "NIC.1",
+				NICPorts: []*common.NICPort{
+					// 5e15 bits/s / 1e6 = 5e9 Mbps, above uint32's ~4.29e9 max
+					{ID: "1", MacAddress: "aa:bb:cc:dd:ee:ff", SpeedBits: 5_000_000_000_000_000},
+				},
+			},
+		},
+	}
+
+	got := attributesFromDevice(device, "redfish", nil, logr.Discard())
+
+	if got.CPU == nil || len(got.CPU.Sockets) != 1 {
+		t.Fatalf("CPU = %+v, want one socket", got.CPU)
+	}
+	if got.CPU.Sockets[0].Cores != 0 {
+		t.Errorf("CPU.Sockets[0].Cores = %d, want 0 (out-of-range value must not wrap)", got.CPU.Sockets[0].Cores)
+	}
+	if len(got.NetworkInterfaces) != 1 || len(got.NetworkInterfaces[0].Ports) != 1 {
+		t.Fatalf("NetworkInterfaces = %+v, want one interface with one port", got.NetworkInterfaces)
+	}
+	if speed := got.NetworkInterfaces[0].Ports[0].SpeedMbps; speed != 0 {
+		t.Errorf("NetworkInterfaces[0].Ports[0].SpeedMbps = %d, want 0 (out-of-range value must not wrap)", speed)
+	}
+}
