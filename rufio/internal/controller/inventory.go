@@ -177,29 +177,47 @@ func (r *MachineReconciler) findLinkedHardware(ctx context.Context, bm *bmc.Mach
 	return &hwList.Items[0], nil
 }
 
+// inventoryResult pairs a collected device with the provenance needed to
+// interpret it (the bmclib driver that produced it). bmclib exposes the winning
+// driver only via the client's mutable metadata, which any later BMC call on the
+// same client overwrites; capturing the two together here keeps the result
+// self-describing so downstream code never has to reach back into client state.
+type inventoryResult struct {
+	device           *common.Device
+	collectionMethod string
+}
+
+// collectInventory runs BMC inventory on the already-open bmcClient and captures
+// the winning driver's name atomically with the device, before any subsequent
+// BMC call can clobber bmcClient.GetMetadata().
+func collectInventory(ctx context.Context, bmcClient *bmclib.Client) (inventoryResult, error) {
+	device, err := bmcClient.Inventory(ctx)
+	if err != nil {
+		return inventoryResult{}, fmt.Errorf("get BMC inventory: %w", err)
+	}
+	return inventoryResult{device: device, collectionMethod: bmcClient.GetMetadata().SuccessfulProvider}, nil
+}
+
 // reconcileInventory collects BMC inventory using the already-open bmcClient
 // (reused from the power-polling step in doReconcile — no second BMC connection is
 // opened) and writes it to the linked Hardware's status.
 func (r *MachineReconciler) reconcileInventory(ctx context.Context, bmcClient *bmclib.Client, hw *tinkerbell.Hardware) error {
-	device, err := bmcClient.Inventory(ctx)
+	inv, err := collectInventory(ctx, bmcClient)
 	if err != nil {
-		return fmt.Errorf("get BMC inventory: %w", err)
+		return err
 	}
-	sortDevice(device)
+	sortDevice(inv.device)
 
-	// bmcClient.GetMetadata().SuccessfulProvider tells us which bmclib driver
-	// actually produced this inventory (e.g. "redfish", "dell", "asrockrack") —
-	// already public API, no upstream bmclib change needed.
-	return r.applyOutOfBandAttributes(ctx, hw, device, bmcClient.GetMetadata().SuccessfulProvider)
+	return r.applyOutOfBandAttributes(ctx, hw, inv)
 }
 
 // applyOutOfBandAttributes patches Hardware.status.attributes.outOfBand via
 // Server-Side Apply under a dedicated field manager ("machine-controller"), so a
 // future sibling subtree written by another controller stays a disjoint path and
 // the two writers cannot conflict.
-func (r *MachineReconciler) applyOutOfBandAttributes(ctx context.Context, hw *tinkerbell.Hardware, device *common.Device, collectionMethod string) error {
+func (r *MachineReconciler) applyOutOfBandAttributes(ctx context.Context, hw *tinkerbell.Hardware, inv inventoryResult) error {
 	now := metav1.Now()
-	newInventory := attributesFromDevice(device, collectionMethod, &now)
+	newInventory := attributesFromDevice(inv.device, inv.collectionMethod, &now)
 
 	if newInventory == nil {
 		// A provider that returns (nil, nil) from Inventory() has nothing new
@@ -214,11 +232,11 @@ func (r *MachineReconciler) applyOutOfBandAttributes(ctx context.Context, hw *ti
 		// advance the timestamp, not to reflect a content change.
 		existing := outOfBandAttributes(hw)
 		if existing == nil {
-			newInventory = &tinkerbell.Attributes{LastUpdated: &now, CollectionMethod: collectionMethod}
+			newInventory = &tinkerbell.Attributes{LastUpdated: &now, CollectionMethod: inv.collectionMethod}
 		} else {
 			newInventory = existing.DeepCopy()
 			newInventory.LastUpdated = &now
-			newInventory.CollectionMethod = collectionMethod
+			newInventory.CollectionMethod = inv.collectionMethod
 		}
 		return r.applyHardwareOutOfBand(ctx, hw, newInventory)
 	}

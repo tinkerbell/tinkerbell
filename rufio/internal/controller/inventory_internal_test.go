@@ -297,7 +297,7 @@ func TestApplyOutOfBandAttributesNilDeviceNoPanic(t *testing.T) {
 		Build()
 
 	r := &MachineReconciler{client: fakeClient}
-	if err := r.applyOutOfBandAttributes(context.Background(), hw, nil, "redfish"); err != nil {
+	if err := r.applyOutOfBandAttributes(context.Background(), hw, inventoryResult{collectionMethod: "redfish"}); err != nil {
 		t.Fatalf("applyOutOfBandAttributes(nil device) error = %v, want nil", err)
 	}
 
@@ -341,7 +341,7 @@ func TestApplyOutOfBandAttributesNilDevicePreservesExisting(t *testing.T) {
 		Build()
 
 	r := &MachineReconciler{client: fakeClient}
-	if err := r.applyOutOfBandAttributes(context.Background(), hw, nil, "redfish"); err != nil {
+	if err := r.applyOutOfBandAttributes(context.Background(), hw, inventoryResult{collectionMethod: "redfish"}); err != nil {
 		t.Fatalf("applyOutOfBandAttributes(nil device) error = %v, want nil", err)
 	}
 
