@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"reflect"
 	"sort"
 	"time"
 
@@ -583,23 +584,31 @@ func attributesFromDevice(device *common.Device, collectionMethod string, t *met
 	return attrs
 }
 
+// nilIfZero returns nil when the pointed-to value is its zero value, so that
+// bmclib's pre-allocated but unpopulated component structs (see NewDevice) do not
+// serialize as empty {} objects and blur the "absent means not reported" contract.
+// Applied in every component mapper, it also collapses nested empties bottom-up:
+// a mapper's children return nil first, leaving the parent zero and thus dropped.
+func nilIfZero[T any](p *T) *T {
+	if p == nil || reflect.ValueOf(*p).IsZero() {
+		return nil
+	}
+	return p
+}
+
 // productFromCommon maps the top-level Device.Common fields — the machine's own
 // identity (e.g. the Redfish "System" resource) — separate from any individual
 // component like the Baseboard or BMC. POST code lives on the device-level status
 // in bmclib (only the asrockrack driver populates it), so it is mapped here rather
 // than onto BIOS.
 func productFromCommon(c common.Common) *tinkerbell.Product {
-	status := postStatusFromCommon(c.Status)
-	if c.Vendor == "" && c.Model == "" && c.ProductName == "" && c.Serial == "" && status == nil {
-		return nil
-	}
-	return &tinkerbell.Product{
+	return nilIfZero(&tinkerbell.Product{
 		Name:         c.ProductName,
 		Vendor:       c.Vendor,
 		Model:        c.Model,
 		SerialNumber: c.Serial,
-		Status:       status,
-	}
+		Status:       postStatusFromCommon(c.Status),
+	})
 }
 
 func firmwareVersion(f *common.Firmware) string {
@@ -642,27 +651,27 @@ func biosFromCommon(b *common.BIOS) *tinkerbell.BIOS {
 	if b == nil {
 		return nil
 	}
-	return &tinkerbell.BIOS{
+	return nilIfZero(&tinkerbell.BIOS{
 		Vendor:          b.Vendor,
 		Model:           b.Model,
 		SerialNumber:    b.Serial,
 		FirmwareVersion: firmwareVersion(b.Firmware),
 		Status:          statusFromCommon(b.Status),
-	}
+	})
 }
 
 func bmcFromCommon(bmcComp *common.BMC) *tinkerbell.BMC {
 	if bmcComp == nil {
 		return nil
 	}
-	return &tinkerbell.BMC{
+	return nilIfZero(&tinkerbell.BMC{
 		Vendor:          bmcComp.Vendor,
 		Model:           bmcComp.Model,
 		SerialNumber:    bmcComp.Serial,
 		FirmwareVersion: firmwareVersion(bmcComp.Firmware),
 		NIC:             networkInterfaceFromCommon(bmcComp.NIC),
 		Status:          statusFromCommon(bmcComp.Status),
-	}
+	})
 }
 
 // networkInterfaceFromCommon converts a bmclib NIC (used for both the host's NICs
@@ -692,19 +701,19 @@ func networkInterfaceFromCommon(n *common.NIC) *tinkerbell.NetworkInterface {
 			LinkStatus: p.LinkStatus,
 		})
 	}
-	return nic
+	return nilIfZero(nic)
 }
 
 func baseboardFromMainboard(m *common.Mainboard) *tinkerbell.Baseboard {
 	if m == nil {
 		return nil
 	}
-	return &tinkerbell.Baseboard{
+	return nilIfZero(&tinkerbell.Baseboard{
 		Vendor:          m.Vendor,
 		Model:           m.Model,
 		SerialNumber:    m.Serial,
 		Description:     m.Description,
 		FirmwareVersion: firmwareVersion(m.Firmware),
 		Status:          statusFromCommon(m.Status),
-	}
+	})
 }
