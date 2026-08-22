@@ -50,7 +50,7 @@ Use this template in the [Adopters List](#adopters-list) section:
   - [GitHub](https://github.com/konstructio/colony)
   - [Documentation](https://colony.konstruct.io/docs/)
 - **Contacts**:
-  - CNCF Slack: @John Dietz, @Jared Edwards 
+  - CNCF Slack: @John Dietz, @Jared Edwards
 
 ### EKS Anywhere
 
@@ -72,3 +72,14 @@ Use this template in the [Adopters List](#adopters-list) section:
   - [API Documentation](https://rackdog.readme.io/reference/poweron)
 - **Contacts**:
   - CNCF Slack: @Burke Butler
+
+### Ingenuity Cloud Services
+
+- **Description**: Bare metal hosting provider with presence in 35 global locations
+- **Usage**: Using components of the tinkerbell stack to automate ~12,000 bare metal deployments globally.
+- **Links**:
+  - [Website](https://www.ingenuitycloudservices.com/)
+  - [Docs](https://docs.ingenuitycloudservices.com/)
+- **Contacts**:
+  - GitHub: @jasonyates
+  - CNCF Slack: @Jason Y
