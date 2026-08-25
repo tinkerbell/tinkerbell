@@ -247,7 +247,9 @@ type AgentProduct struct {
 	SerialNumber string `json:"serialNumber"`
 }
 
-// AgentAttributes represents the agent-attributes annotation data.
+// AgentAttributes is the shape the "In-Band Attributes" section of the
+// Hardware detail page renders, built from Hardware.status.attributes.inBand
+// by AgentAttributesFromInBand.
 type AgentAttributes struct {
 	CPU               AgentCPU                `json:"cpu"`
 	Memory            AgentMemory             `json:"memory"`

@@ -248,15 +248,15 @@ func (r *MachineReconciler) applyHardwareOutOfBand(ctx context.Context, hw *tink
 	kind := "Hardware"
 	name := hw.Name
 	namespace := hw.Namespace
-	applyConfig := &hardwareStatusApplyConfiguration{
+	applyConfig := &tinkerbell.HardwareApplyConfiguration{
 		Kind:       &kind,
 		APIVersion: &apiVersion,
-		Metadata: hardwareApplyMetadata{
+		Metadata: tinkerbell.HardwareApplyMetadata{
 			Name:      &name,
 			Namespace: &namespace,
 		},
-		Status: &hardwareStatusApplyConfigurationStatus{
-			Attributes: &hardwareAttributesApplyConfiguration{
+		Status: &tinkerbell.HardwareStatusApplyConfiguration{
+			Attributes: &tinkerbell.HardwareAttributesApplyConfiguration{
 				OutOfBand: newInventory,
 			},
 		},
@@ -275,50 +275,9 @@ func (r *MachineReconciler) applyHardwareOutOfBand(ctx context.Context, hw *tink
 	return nil
 }
 
-// hardwareStatusApplyConfiguration is a minimal hand-written implementation of
-// runtime.ApplyConfiguration for Hardware, sufficient for the Server-Side Apply
-// patch to status.attributes.outOfBand above. controller-runtime's client.Apply /
-// SubResourceWriter.Apply want an object satisfying an internal
-// "applyConfiguration" interface (GetName/GetNamespace/GetKind/GetAPIVersion,
-// all returning *string) — the shape client-gen's apply-configuration-gen
-// produces for built-in types (e.g. corev1.SecretApplyConfiguration). This repo
-// has no such codegen wired up for its custom CRDs, and generating a full one
-// for Hardware is out of scope for the single field this controller writes, so
-// this is hand-written instead.
-type hardwareStatusApplyConfiguration struct {
-	Kind       *string                                 `json:"kind,omitempty"`
-	APIVersion *string                                 `json:"apiVersion,omitempty"`
-	Metadata   hardwareApplyMetadata                   `json:"metadata,omitempty"`
-	Status     *hardwareStatusApplyConfigurationStatus `json:"status,omitempty"`
-}
-
-type hardwareApplyMetadata struct {
-	Name      *string `json:"name,omitempty"`
-	Namespace *string `json:"namespace,omitempty"`
-}
-
-// hardwareStatusApplyConfigurationStatus only carries the one path this controller
-// owns. status.attributes is modeled one level deeper than the leaf so the applied
-// patch names only outOfBand: SSA merges maps by key, so a sibling subtree added
-// later stays owned by its own writer rather than being pruned by this one.
-type hardwareStatusApplyConfigurationStatus struct {
-	Attributes *hardwareAttributesApplyConfiguration `json:"attributes,omitempty"`
-}
-
-// hardwareAttributesApplyConfiguration carries only the out-of-band subtree.
-// OutOfBand is the concrete API type (not a further apply-configuration wrapper):
-// this controller always applies the whole sub-object atomically, never a partial
-// deep-merge within it, so the extra per-field apply modeling generated types use
-// isn't needed here.
-type hardwareAttributesApplyConfiguration struct {
-	OutOfBand *tinkerbell.Attributes `json:"outOfBand,omitempty"`
-}
-
-func (h *hardwareStatusApplyConfiguration) IsApplyConfiguration()  {}
-func (h *hardwareStatusApplyConfiguration) GetKind() *string       { return h.Kind }
-func (h *hardwareStatusApplyConfiguration) GetAPIVersion() *string { return h.APIVersion }
-func (h *hardwareStatusApplyConfiguration) GetName() *string       { return h.Metadata.Name }
-func (h *hardwareStatusApplyConfiguration) GetNamespace() *string  { return h.Metadata.Namespace }
+// The HardwareApplyConfiguration family of types used above is defined in
+// api/v1alpha1/tinkerbell, shared with tink-server's equivalent writer for
+// status.attributes.inBand.
 
 // sortDevice sorts every slice field on device by a stable per-component key.
 // BMCs return list fields (NICs, drives, CPUs, memory, PSUs, etc.) in
