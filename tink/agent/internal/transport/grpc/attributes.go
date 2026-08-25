@@ -30,22 +30,22 @@ func ToProto(a *data.AgentAttributes) *proto.AgentAttributes {
 
 	if a.Memory != nil {
 		result.Memory = &proto.Memory{
-			Total:  a.Memory.Total,
-			Usable: a.Memory.Usable,
+			TotalBytes:  a.Memory.TotalBytes,
+			UsableBytes: a.Memory.UsableBytes,
 		}
 	}
 
 	for _, block := range a.BlockDevices {
 		result.Block = append(result.Block, &proto.Block{
-			Name:              block.Name,
-			ControllerType:    block.ControllerType,
-			DriveType:         block.DriveType,
-			Size:              block.Size,
-			PhysicalBlockSize: block.PhysicalBlockSize,
-			Vendor:            block.Vendor,
-			Model:             block.Model,
-			Wwn:               block.WWN,
-			SerialNumber:      block.SerialNumber,
+			Name:                   block.Name,
+			ControllerType:         block.ControllerType,
+			DriveType:              block.DriveType,
+			SizeBytes:              block.SizeBytes,
+			PhysicalBlockSizeBytes: block.PhysicalBlockSizeBytes,
+			Vendor:                 block.Vendor,
+			Model:                  block.Model,
+			Wwn:                    block.WWN,
+			SerialNumber:           block.SerialNumber,
 		})
 	}
 
@@ -53,7 +53,7 @@ func ToProto(a *data.AgentAttributes) *proto.AgentAttributes {
 		result.Network = append(result.Network, &proto.Network{
 			Name:                nic.Name,
 			Mac:                 nic.Mac,
-			Speed:               nic.Speed,
+			SpeedMbps:           nic.SpeedMbps,
 			EnabledCapabilities: nic.EnabledCapabilities,
 		})
 	}

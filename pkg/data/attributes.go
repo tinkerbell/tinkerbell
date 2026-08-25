@@ -29,27 +29,30 @@ type Processor struct {
 	Capabilities []string `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
 }
 
+// Memory carries exact byte counts, not pre-formatted strings, so consumers
+// (the Hardware annotation/status writers, the UI) can format them however
+// they need rather than being stuck with whatever units the Agent chose.
 type Memory struct {
-	Total  *string `json:"total,omitempty" yaml:"total,omitempty"`
-	Usable *string `json:"usable,omitempty" yaml:"usable,omitempty"`
+	TotalBytes  *int64 `json:"totalBytes,omitempty" yaml:"totalBytes,omitempty"`
+	UsableBytes *int64 `json:"usableBytes,omitempty" yaml:"usableBytes,omitempty"`
 }
 
 type Block struct {
-	Name              *string `json:"name,omitempty" yaml:"name,omitempty"`
-	ControllerType    *string `json:"controllerType,omitempty" yaml:"controllerType,omitempty"`
-	DriveType         *string `json:"driveType,omitempty" yaml:"driveType,omitempty"`
-	Size              *string `json:"size,omitempty" yaml:"size,omitempty"`
-	PhysicalBlockSize *string `json:"physicalBlockSize,omitempty" yaml:"physicalBlockSize,omitempty"`
-	Vendor            *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
-	Model             *string `json:"model,omitempty" yaml:"model,omitempty"`
-	WWN               *string `json:"wwn,omitempty" yaml:"wwn,omitempty"`
-	SerialNumber      *string `json:"serialNumber,omitempty" yaml:"serialNumber,omitempty"`
+	Name                   *string `json:"name,omitempty" yaml:"name,omitempty"`
+	ControllerType         *string `json:"controllerType,omitempty" yaml:"controllerType,omitempty"`
+	DriveType              *string `json:"driveType,omitempty" yaml:"driveType,omitempty"`
+	SizeBytes              *int64  `json:"sizeBytes,omitempty" yaml:"sizeBytes,omitempty"`
+	PhysicalBlockSizeBytes *int64  `json:"physicalBlockSizeBytes,omitempty" yaml:"physicalBlockSizeBytes,omitempty"`
+	Vendor                 *string `json:"vendor,omitempty" yaml:"vendor,omitempty"`
+	Model                  *string `json:"model,omitempty" yaml:"model,omitempty"`
+	WWN                    *string `json:"wwn,omitempty" yaml:"wwn,omitempty"`
+	SerialNumber           *string `json:"serialNumber,omitempty" yaml:"serialNumber,omitempty"`
 }
 
 type Network struct {
 	Name                *string  `json:"name,omitempty" yaml:"name,omitempty"`
 	Mac                 *string  `json:"mac,omitempty" yaml:"mac,omitempty"`
-	Speed               *string  `json:"speed,omitempty" yaml:"speed,omitempty"`
+	SpeedMbps           *uint32  `json:"speedMbps,omitempty" yaml:"speedMbps,omitempty"`
 	EnabledCapabilities []string `json:"enabledCapabilities,omitempty" yaml:"enabledCapabilities,omitempty"`
 }
 

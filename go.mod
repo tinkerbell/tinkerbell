@@ -16,6 +16,7 @@ require (
 	github.com/containers/image/v5 v5.36.2
 	github.com/diskfs/go-diskfs v1.9.4
 	github.com/distribution/reference v0.6.0
+	github.com/dustin/go-humanize v1.0.1
 	github.com/felixge/httpsnoop v1.1.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-gonic/gin v1.12.0
@@ -118,7 +119,6 @@ require (
 	github.com/djherbis/times v1.6.0 // indirect
 	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/elliotwutingfeng/asciiset v0.0.0-20260129054604-cfde2086bc57 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/euank/go-kmsg-parser v2.0.0+incompatible // indirect

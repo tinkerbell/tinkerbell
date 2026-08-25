@@ -37,8 +37,8 @@ func TestHandlerDiscover(t *testing.T) {
 					TotalThreads: toPtr(uint32(8)),
 				},
 				Memory: &data.Memory{
-					Total:  toPtr("8GB"),
-					Usable: toPtr("7GB"),
+					TotalBytes:  toPtr(int64(8_000_000_000)),
+					UsableBytes: toPtr(int64(7_000_000_000)),
 				},
 				NetworkInterfaces: []*data.Network{
 					{
@@ -69,7 +69,7 @@ func TestHandlerDiscover(t *testing.T) {
 					Namespace: "test-namespace",
 					Labels:    map[string]string{"tinkerbell.org/auto-discovered": "true"},
 					Annotations: map[string]string{
-						constant.AttributesAnnotation: `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
+						constant.AttributesAnnotation: `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"totalBytes":8000000000,"usableBytes":7000000000},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
 					},
 					ResourceVersion: "1",
 				},
@@ -144,8 +144,8 @@ func TestHandlerDiscover(t *testing.T) {
 					TotalThreads: toPtr(uint32(8)),
 				},
 				Memory: &data.Memory{
-					Total:  toPtr("8GB"),
-					Usable: toPtr("7GB"),
+					TotalBytes:  toPtr(int64(8_000_000_000)),
+					UsableBytes: toPtr(int64(7_000_000_000)),
 				},
 				NetworkInterfaces: []*data.Network{
 					{
@@ -180,7 +180,7 @@ func TestHandlerDiscover(t *testing.T) {
 					Namespace: "test-namespace",
 					Labels:    map[string]string{"tinkerbell.org/auto-discovered": "true"},
 					Annotations: map[string]string{
-						constant.AttributesAnnotation: `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"total":"8GB","usable":"7GB"},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"},{"name":"tunl0","mac":"00:00:00:00"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
+						constant.AttributesAnnotation: `{"cpu":{"totalCores":4,"totalThreads":8},"memory":{"totalBytes":8000000000,"usableBytes":7000000000},"blockDevices":[{"name":"sda"}],"networkInterfaces":[{"name":"eth0","mac":"00:11:22:33:44:55"},{"name":"tunl0","mac":"00:00:00:00"}],"chassis":{"serial":"TestType","vendor":"TestManufacturer"},"bios":{"vendor":"TestVendor","version":"1.0.0"}}`,
 					},
 					ResourceVersion: "1",
 				},

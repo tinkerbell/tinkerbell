@@ -43,27 +43,41 @@ message Processor {
 }
 
 message Memory {
-    string total = 1;
-    string usable = 2;
+    // Fields 1, 2 (total, usable) previously carried pre-formatted human
+    // strings (e.g. "32GB") that couldn't be losslessly converted back into
+    // exact byte counts. Replaced by the byte-count fields below.
+    reserved 1, 2;
+    reserved total, usable;
+    int64 total_bytes = 3;
+    int64 usable_bytes = 4;
 }
 
 message Block {
     string name = 1;
     string controller_type = 2;
     string drive_type = 3;
-    string size = 4;
-    string physical_block_size = 5;
+    // Fields 4, 5 (size, physical_block_size) previously carried
+    // pre-formatted human strings; replaced by the byte-count fields below.
+    reserved 4, 5;
+    reserved size, physical_block_size;
     string vendor = 6;
     string model = 7;
     string wwn = 8;
     string serial_number = 9;
+    int64 size_bytes = 10;
+    int64 physical_block_size_bytes = 11;
 }
 
 message Network {
     string name = 1;
     string mac = 2;
-    string speed = 3;
+    // Field 3 (speed) previously carried a pre-formatted, inconsistently
+    // shaped string (e.g. "1000Mb/s" from ethtool or "1000" from sysfs);
+    // replaced by speed_mbps below.
+    reserved 3;
+    reserved speed;
     repeated string enabled_capabilities = 4;
+    uint32 speed_mbps = 5;
 }
 
 message PCI {

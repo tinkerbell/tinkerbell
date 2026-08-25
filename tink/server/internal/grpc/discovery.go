@@ -116,7 +116,7 @@ func updateHardware(ctx context.Context, hw *v1alpha1.Hardware, attrs *data.Agen
 	// Add disks if they exist in the attributes
 	for _, disk := range attrs.BlockDevices {
 		if disk != nil {
-			if disk.Size != nil && *disk.Size != "" {
+			if disk.SizeBytes != nil && *disk.SizeBytes > 0 {
 				hw.Spec.Disks = append(hw.Spec.Disks, v1alpha1.Disk{
 					Device: fmt.Sprintf("/dev/%s", *disk.Name),
 				})
