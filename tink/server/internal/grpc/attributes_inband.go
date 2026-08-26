@@ -185,32 +185,23 @@ func gpuDeviceFromAgent(g *data.GPU) tinkerbell.GPUDevice {
 	return dev
 }
 
-// networkInterfaceFromAgent maps a single Agent-reported interface, and the
-// one port the Agent synthesizes for it, into the shared schema's shape. Ports
-// is left empty rather than a single zero-value entry when the Agent reported
-// nothing beyond the interface name, so the UI's len(Ports)==0 "name-only"
-// check still works.
+// networkInterfaceFromAgent maps a single Agent-reported interface and its one
+// synthesized port verbatim; the caller's PruneEmpty drops the port when it
+// ends up empty (e.g. a name-only interface, so len(Ports)==0 still marks
+// name-only), while a reported null "00:00:..." MAC is non-empty and preserved.
 func networkInterfaceFromAgent(n *data.Network) tinkerbell.NetworkInterface {
 	iface := tinkerbell.NetworkInterface{}
 	if n.Name != nil {
 		iface.Name = *n.Name
 	}
 	port := tinkerbell.NetworkPort{EnabledCapabilities: n.EnabledCapabilities}
-	var hasPort bool
 	if n.Mac != nil {
 		port.MAC = *n.Mac
-		hasPort = true
 	}
 	if n.SpeedMbps != nil {
 		port.SpeedMbps = *n.SpeedMbps
-		hasPort = true
 	}
-	if len(n.EnabledCapabilities) > 0 {
-		hasPort = true
-	}
-	if hasPort {
-		iface.Ports = []tinkerbell.NetworkPort{port}
-	}
+	iface.Ports = []tinkerbell.NetworkPort{port}
 	return iface
 }
 

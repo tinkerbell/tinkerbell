@@ -542,6 +542,8 @@ func (h *Handler) resolveAndApplyInBandAttributes(ctx context.Context, log logr.
 	// inBandAttributesFromAgent(attrs) only returns nil when attrs is nil, already
 	// ruled out by the guard above, so inBand is always non-nil here.
 	inBand := inBandAttributesFromAgent(attrs)
+	// Convert first, normalize second. This removes empty '{}' components from showing up in the Kubernetes API, which would otherwise be serialized as present but empty rather than absent.
+	inBand.PruneEmpty()
 	inBand.CollectionMethod = "agent"
 	inBand.LastUpdated = &metav1.Time{Time: h.NowFunc()}
 	if err := h.Backend.ApplyHardwareInBandAttributes(ctx, hwRef.Name, hwRef.Namespace, inBand); err != nil {

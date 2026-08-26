@@ -222,7 +222,7 @@ func (r *MachineReconciler) reconcileInventoryIfDue(ctx context.Context, logger 
 	if hw == nil || hw.Annotations[disableOutOfBandInventoryAnnotation] == trueString || !dueForInventoryRefresh(hw, bm, r.inventoryRefreshInterval) {
 		return
 	}
-	if err := r.reconcileInventory(ctx, bmcClient, hw); err != nil {
+	if err := r.reconcileInventory(ctx, logger, bmcClient, hw); err != nil {
 		logger.Error(err, "BMC inventory collection failed", "host", bm.Spec.Connection.Host)
 		r.recorder.Eventf(bm, nil, corev1.EventTypeWarning, "InventoryUnreachable", "GetInventory", "get BMC inventory: %v", err)
 		return

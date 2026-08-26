@@ -129,15 +129,40 @@ func TestInBandAttributesFromAgentEmpty(t *testing.T) {
 // now reports SpeedMbps as a number, so this package no longer parses speed
 // strings. See attribute_test.go there for its tests.
 
-func TestNetworkInterfaceFromAgentNameOnly(t *testing.T) {
-	// When the Agent reports nothing beyond the interface name, Ports must stay
-	// empty rather than a single zero-value entry: the UI treats len(Ports)==0
-	// as "name-only" and would otherwise render a blank MAC/speed row.
-	iface := networkInterfaceFromAgent(&data.Network{Name: ptr("eno1")})
-	if iface.Name != "eno1" {
-		t.Errorf("Name = %q, want eno1", iface.Name)
+func TestInBandAttributesFromAgentDropsEmptyPorts(t *testing.T) {
+	// The mapper emits one port per interface verbatim; the caller's PruneEmpty
+	// then drops structurally-empty ports. A name-only interface and one with an
+	// empty MAC collapse to len(Ports)==0 (which the UI treats as "name-only"),
+	// while a reported null "00:00:..." MAC is non-empty and kept verbatim.
+	attrs := &data.AgentAttributes{
+		NetworkInterfaces: []*data.Network{
+			{Name: ptr("enp1s0"), Mac: ptr("52:54:00:41:05:c6")},
+			{Name: ptr("ip6tnl0"), Mac: ptr("")},
+			{Name: ptr("tunl0"), Mac: ptr("00:00:00:00")},
+			{Name: ptr("lo")},
+		},
 	}
-	if len(iface.Ports) != 0 {
-		t.Errorf("Ports = %+v, want empty for a name-only interface", iface.Ports)
+
+	got := inBandAttributesFromAgent(attrs)
+	got.PruneEmpty()
+
+	if len(got.NetworkInterfaces) != 4 {
+		t.Fatalf("NetworkInterfaces = %+v, want 4", got.NetworkInterfaces)
+	}
+	for _, nic := range got.NetworkInterfaces {
+		switch nic.Name {
+		case "enp1s0":
+			if len(nic.Ports) != 1 || nic.Ports[0].MAC != "52:54:00:41:05:c6" {
+				t.Errorf("enp1s0 Ports = %+v, want one port with the real MAC", nic.Ports)
+			}
+		case "tunl0":
+			if len(nic.Ports) != 1 || nic.Ports[0].MAC != "00:00:00:00" {
+				t.Errorf("tunl0 Ports = %+v, want the null MAC preserved", nic.Ports)
+			}
+		case "ip6tnl0", "lo":
+			if len(nic.Ports) != 0 {
+				t.Errorf("%s Ports = %+v, want no ports", nic.Name, nic.Ports)
+			}
+		}
 	}
 }
