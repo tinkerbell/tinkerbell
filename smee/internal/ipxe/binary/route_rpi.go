@@ -24,9 +24,10 @@ import (
 //     OSIE.KernelParams for cmdline.txt) or rewrites the path's serial
 //     prefix to FirmwarePath and streams the file from AssetDir.
 //
-// Returns handled=false when there's no Hardware match, no RPI config on
-// the Hardware, no AssetDir, the path doesn't have the serial prefix, or
-// the rewritten on-disk file does not exist.
+// Returns handled=false when there's no Hardware match, netboot is not
+// allowed for it, no RPI config on the Hardware, no AssetDir, the path
+// doesn't have the serial prefix, or the rewritten on-disk file does not
+// exist.
 type RPiNetbootRoute struct {
 	Log      logr.Logger
 	Resolver hardware.Resolver
@@ -48,6 +49,20 @@ func (r RPiNetbootRoute) TryServe(ctx context.Context, req Request, w io.ReaderF
 		// route is tried for every client), not a fatal error; log quietly so
 		// routine misses don't spam error logs or trip alerting.
 		log.V(1).Info("failed to get hardware by IP; skipping", "err", err)
+		return false, nil
+	}
+
+	// Netboot has to be allowed, the same gate the iPXE script handler
+	// applies. AllowNetboot is what the Hardware's netboot.allowPXE becomes
+	// once dhcp.Convert* has translated it into hardware.Info.
+	//
+	// Without this the route serves boot files forever: a machine that has
+	// just been provisioned reboots, the Workflow controller clears allowPXE
+	// (bootOptions.toggleAllowNetboot), and this route hands it the OSIE again
+	// instead of letting it fall through its BOOT_ORDER to the disk it was
+	// just installed to. It never boots the installed OS.
+	if !hw.AllowNetboot {
+		log.V(1).Info("hardware does not allow netboot; skipping")
 		return false, nil
 	}
 

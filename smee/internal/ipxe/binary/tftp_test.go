@@ -290,6 +290,7 @@ func TestRPiNetbootRoute(t *testing.T) {
 	const rewrite = "rpi4b"
 
 	hwWithRPi := hardware.Info{
+		AllowNetboot: true,
 		RPI: hardware.RPI{
 			SerialNum:    serial,
 			FirmwarePath: rewrite,
@@ -299,6 +300,11 @@ func TestRPiNetbootRoute(t *testing.T) {
 			KernelParams: []string{"console=tty1", "rw"},
 		},
 	}
+
+	// The same hardware with netboot disabled, which is the state the Workflow
+	// controller leaves a machine in once provisioning has succeeded.
+	hwNetbootDisabled := hwWithRPi
+	hwNetbootDisabled.AllowNetboot = false
 
 	// Set up an asset dir with a known file
 	assetDir := t.TempDir()
@@ -329,11 +335,33 @@ func TestRPiNetbootRoute(t *testing.T) {
 			resolver:    &fakeResolver{},
 			wantHandled: false,
 		},
+		// AllowNetboot must be set here or the netboot gate short-circuits
+		// before the RPI check and this case stops testing what it names.
 		"hardware without RPi config passes through": {
 			filename: serial + "/config.txt",
 			assetDir: assetDir,
 			resolver: &fakeResolver{byIP: map[string]hardware.Info{
-				clientIP.String(): {},
+				clientIP.String(): {AllowNetboot: true},
+			}},
+			wantHandled: false,
+		},
+		// Without this the route keeps handing a freshly provisioned machine
+		// the OSIE after the Workflow controller has cleared AllowNetboot (the
+		// Hardware's netboot.allowPXE), and it never boots the disk it was
+		// just installed to.
+		"netboot not allowed passes through": {
+			filename: serial + "/config.txt",
+			assetDir: assetDir,
+			resolver: &fakeResolver{byIP: map[string]hardware.Info{
+				clientIP.String(): hwNetbootDisabled,
+			}},
+			wantHandled: false,
+		},
+		"netboot not allowed passes through for rewritten assets too": {
+			filename: serial + "/start.elf",
+			assetDir: assetDir,
+			resolver: &fakeResolver{byIP: map[string]hardware.Info{
+				clientIP.String(): hwNetbootDisabled,
 			}},
 			wantHandled: false,
 		},
@@ -361,7 +389,10 @@ func TestRPiNetbootRoute(t *testing.T) {
 			filename: serial + "/cmdline.txt",
 			assetDir: assetDir,
 			resolver: &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): {
-				RPI: hardware.RPI{SerialNum: serial, FirmwarePath: rewrite},
+				// As above, AllowNetboot has to be set for the case to reach
+				// the cmdline.txt branch at all.
+				AllowNetboot: true,
+				RPI:          hardware.RPI{SerialNum: serial, FirmwarePath: rewrite},
 				// no KernelParams
 			}}},
 			wantHandled: false,
