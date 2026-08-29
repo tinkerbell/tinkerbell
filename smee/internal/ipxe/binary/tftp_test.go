@@ -316,6 +316,17 @@ func TestRPiNetbootRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// A second asset dir holding <rewrite>/etc/passwd: the file an escaping
+	// traversal would land on if the suffix were cleaned before openAsset saw
+	// it. Kept separate so the ordinary cases above cannot reach it.
+	assetDirWithDecoy := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(assetDirWithDecoy, rewrite, "etc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(assetDirWithDecoy, rewrite, "etc", "passwd"), []byte("root:x:0:0"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	tests := map[string]struct {
 		filename    string
 		assetDir    string
@@ -413,6 +424,51 @@ func TestRPiNetbootRoute(t *testing.T) {
 		"traversal in suffix is rejected": {
 			filename:    serial + "/../../../etc/passwd",
 			assetDir:    assetDir,
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: false,
+		},
+		// The bootloader asks for config.txt and cmdline.txt twice, the second
+		// time with a doubled slash, and it is the second answer the firmware
+		// acts on. Matching only the single-slash form made the Pi discard the
+		// config it had just been served and loop on the default kernel names.
+		"config.txt with a doubled slash served from ConfigTxt": {
+			filename:    serial + "//config.txt",
+			assetDir:    assetDir,
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: true,
+			wantBody:    "config-txt-body",
+		},
+		"cmdline.txt with a doubled slash served from joined OSIE.KernelParams": {
+			filename:    serial + "//cmdline.txt",
+			assetDir:    assetDir,
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: true,
+			wantBody:    "console=tty1 rw",
+		},
+		// Real files already tolerated the doubled slash before this route
+		// normalised anything -- os.OpenRoot resolves it -- which is why only
+		// the two inline files ever broke. Pinned so a future rewrite of the
+		// path handling does not quietly lose it.
+		"doubled slash on a rewritten asset still served from disk": {
+			filename:    serial + "//start.elf",
+			assetDir:    assetDir,
+			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
+			wantHandled: true,
+			wantBody:    assetBody,
+		},
+		// The doubled-slash fix normalises the path used to PICK the inline
+		// files. It must not also normalise the one handed to openAsset.
+		//
+		// os.OpenRoot rejects a path that escapes the root, and
+		// "rpi4b/../../../etc/passwd" does. path.Clean would rewrite that same
+		// request to "/etc/passwd" first, making the rewritten path
+		// "rpi4b/etc/passwd" -- inside the root, and served, because the file
+		// below exists. So this is the case where cleaning the suffix would
+		// change the answer from refused to served, which is why the rewrite
+		// path keeps the raw suffix.
+		"escaping traversal is refused even when the cleaned path would resolve": {
+			filename:    serial + "/../../../etc/passwd",
+			assetDir:    assetDirWithDecoy,
 			resolver:    &fakeResolver{byIP: map[string]hardware.Info{clientIP.String(): hwWithRPi}},
 			wantHandled: false,
 		},

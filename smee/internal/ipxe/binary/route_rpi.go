@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"path"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -23,6 +24,9 @@ import (
 //     serves an inline value (RPI.ConfigTxt for config.txt; the joined
 //     OSIE.KernelParams for cmdline.txt) or rewrites the path's serial
 //     prefix to FirmwarePath and streams the file from AssetDir.
+//   - Matches the inline files on the cleaned path, so the doubled-slash
+//     form the bootloader also asks for ("<SerialNum>//config.txt") is
+//     answered as well as the single-slash one.
 //
 // Returns handled=false when there's no Hardware match, netboot is not
 // allowed for it, no RPI config on the Hardware, no AssetDir, the path
@@ -79,20 +83,52 @@ func (r RPiNetbootRoute) TryServe(ctx context.Context, req Request, w io.ReaderF
 		return false, nil
 	}
 
-	switch req.Filename {
-	case rpi.SerialNum + "/config.txt":
+	suffix := req.Filename[len(rpi.SerialNum):]
+
+	// Compared cleaned, because the Raspberry Pi 5 bootloader asks for each of
+	// these TWICE: once as "<serial>/config.txt" and again as
+	// "<serial>//config.txt", with a doubled slash. Both are the same request.
+	// An exact match on req.Filename answers only the first, and it is the
+	// second that the firmware acts on -- when it misses, the Pi discards the
+	// config it was just served, probes the default kernel names
+	// (kernel_2712.img, kernel8.img, kernel8_rt.img), finds nothing and loops
+	// forever.
+	//
+	// This is observed behaviour of the Pi 5 bootloader specifically, seen on a
+	// Pi 5 booting a custom OSIE. It has not been observed on other models, and
+	// no such behaviour is documented by Raspberry Pi. Cleaning the comparison
+	// is a no-op for a client that only ever sends the single-slash form, so
+	// the route behaves identically for models that do not do this.
+	//
+	// The miss is close to invisible: this route simply returns handled=false,
+	// the router falls through, and the client gets a 404 for a file it has
+	// already been told exists. What it looks like from outside is a Pi that
+	// fetched a few files and then went quiet.
+	//
+	// Only the comparison is normalised. The rewritten path below keeps the raw
+	// suffix, for a reason worth spelling out: os.OpenRoot already resolves the
+	// doubled slash for real files, so cleaning buys nothing there -- but it
+	// costs something. OpenRoot refuses a path that escapes the root, and
+	// "<FirmwarePath>/../../../etc/passwd" does. Cleaning the suffix first
+	// rewrites that request to "/etc/passwd", making the rewritten path
+	// "<FirmwarePath>/etc/passwd", which is inside the root and served if it
+	// happens to exist. Normalising here would convert a refusal into a hit.
+	switch path.Clean(suffix) {
+	case "/config.txt":
 		log.Info("serving RPI ConfigTxt")
 		return serveTemplate(w, log, span, req.Filename, rpi.ConfigTxt)
-	case rpi.SerialNum + "/cmdline.txt":
+	case "/cmdline.txt":
 		cmdline := strings.Join(hw.OSIE.KernelParams, " ")
 		log.Info("serving cmdline.txt from OSIE.KernelParams", "params", hw.OSIE.KernelParams)
 		return serveTemplate(w, log, span, req.Filename, cmdline)
 	}
 
 	// The rewritten path mixes hardware-supplied FirmwarePath with the
-	// client-supplied suffix; openAsset confines it to AssetDir and rejects
-	// absolute paths and ".." traversal so neither can escape the directory.
-	rewritten := rpi.FirmwarePath + req.Filename[len(rpi.SerialNum):]
+	// client-supplied suffix; openAsset confines it to AssetDir via os.OpenRoot,
+	// so neither can escape the directory. Note OpenRoot refuses a path that
+	// leaves the root, not every ".." -- one that resolves back inside is served
+	// -- which is the distinction the comment above depends on.
+	rewritten := rpi.FirmwarePath + suffix
 	log.V(1).Info("attempting to load rewritten file from asset dir", "rewritten", rewritten, "assetDir", r.AssetDir)
 
 	file, err := openAsset(r.AssetDir, rewritten)
