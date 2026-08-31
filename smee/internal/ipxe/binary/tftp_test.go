@@ -228,10 +228,19 @@ func TestPXELinuxMACRoute(t *testing.T) {
 		"valid path, template served": {
 			filename: "pxelinux.cfg/01-" + dashed,
 			resolver: &fakeResolver{byMAC: map[string]hardware.Info{
-				mac.String(): {PXELINUX: hardware.PXELINUX{Config: "PROMPT 0\nDEFAULT linux"}},
+				mac.String(): {AllowNetboot: true, PXELINUX: hardware.PXELINUX{Config: "PROMPT 0\nDEFAULT linux"}},
 			}},
 			wantHandled:    true,
 			wantBytesMatch: "PROMPT 0\nDEFAULT linux",
+		},
+		// AllowNetboot is netboot.allowPXE after dhcp.Convert*; the Workflow
+		// controller clears it once a machine is provisioned.
+		"netboot not allowed passes through": {
+			filename: "pxelinux.cfg/01-" + dashed,
+			resolver: &fakeResolver{byMAC: map[string]hardware.Info{
+				mac.String(): {AllowNetboot: false, PXELINUX: hardware.PXELINUX{Config: "PROMPT 0\nDEFAULT linux"}},
+			}},
+			wantHandled: false,
 		},
 		"wrong length passes through": {
 			filename:    "pxelinux.cfg/01-short",
@@ -253,10 +262,12 @@ func TestPXELinuxMACRoute(t *testing.T) {
 			resolver:    &fakeResolver{},
 			wantHandled: false,
 		},
+		// AllowNetboot set so the gate above doesn't short-circuit the case
+		// this is actually testing.
 		"empty template passes through": {
 			filename: "pxelinux.cfg/01-" + dashed,
 			resolver: &fakeResolver{byMAC: map[string]hardware.Info{
-				mac.String(): {PXELINUX: hardware.PXELINUX{Config: ""}},
+				mac.String(): {AllowNetboot: true, PXELINUX: hardware.PXELINUX{Config: ""}},
 			}},
 			wantHandled: false,
 		},

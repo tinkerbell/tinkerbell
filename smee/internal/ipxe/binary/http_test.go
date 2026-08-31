@@ -31,7 +31,7 @@ func TestHTTPHandler(t *testing.T) {
 	}
 	const pxeConfig = "PROMPT 0\nDEFAULT linux"
 	resolver := &fakeResolver{byMAC: map[string]hardware.Info{
-		mac.String(): {PXELINUX: hardware.PXELINUX{Config: pxeConfig}},
+		mac.String(): {AllowNetboot: true, PXELINUX: hardware.PXELINUX{Config: pxeConfig}},
 	}}
 
 	dir := t.TempDir()

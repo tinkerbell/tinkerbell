@@ -19,9 +19,10 @@ import (
 // and the Hardware's PXELINUX.Config is served.
 //
 // The route returns handled=false when the path doesn't have that exact
-// shape, when MAC parsing fails, when the Hardware lookup fails, or when
-// the matched Hardware has no PXELINUX.Config. In all of those cases
-// the next Route in the Router gets a chance.
+// shape, when MAC parsing fails, when the Hardware lookup fails, when
+// netboot is not allowed for the matched Hardware, or when it has no
+// PXELINUX.Config. In all of those cases the next Route in the Router
+// gets a chance.
 type PXELinuxMACRoute struct {
 	Log      logr.Logger
 	Resolver hardware.Resolver
@@ -54,6 +55,21 @@ func (r PXELinuxMACRoute) TryServe(ctx context.Context, req Request, w io.Reader
 	hw, err := r.Resolver.ByMAC(ctx, mac)
 	if err != nil {
 		log.Error(err, "failed to get hardware by MAC", "mac", mac.String())
+		return false, nil
+	}
+
+	// Netboot has to be allowed, the same gate the iPXE script handler and
+	// the Raspberry Pi netboot route apply. AllowNetboot is what the
+	// Hardware's netboot.allowPXE becomes once dhcp.Convert* has translated
+	// it into hardware.Info.
+	//
+	// Without this the route serves the pxelinux.cfg forever: a machine that
+	// has just been provisioned reboots, the Workflow controller clears
+	// allowPXE (bootOptions.toggleAllowNetboot), and u-boot is handed the
+	// OSIE again instead of falling through to the disk it was just
+	// installed to. It never boots the installed OS.
+	if !hw.AllowNetboot {
+		log.V(1).Info("hardware does not allow netboot; skipping", "mac", mac.String())
 		return false, nil
 	}
 
