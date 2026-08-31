@@ -21,7 +21,7 @@ type TinkerbellResource struct {
 var TinkerbellResources = []TinkerbellResource{
 	{resourceHardware, groupTinkerbell},
 	{"templates", groupTinkerbell},
-	{"workflows", groupTinkerbell},
+	{resourceWorkflows, groupTinkerbell},
 	{"workflowrulesets", groupTinkerbell},
 	{"machines", groupBMC},
 	{"jobs", groupBMC},
@@ -65,6 +65,17 @@ func HandlePermissions(c *gin.Context, log logr.Logger) {
 	RenderComponent(ctx, c.Writer, component, log)
 }
 
+// getSANamespace returns the service account namespace stored in the gin
+// context by the auth middleware, or "" if not set.
+func getSANamespace(c *gin.Context) string {
+	if ns, exists := c.Get(cookieNameSANamespace); exists {
+		if nsStr, ok := ns.(string); ok {
+			return nsStr
+		}
+	}
+	return ""
+}
+
 // HandlePermissionCheck handles checking permissions for a single resource.
 // Called via HTMX to progressively load permission status for each resource.
 func HandlePermissionCheck(c *gin.Context, log logr.Logger) {
@@ -82,16 +93,8 @@ func HandlePermissionCheck(c *gin.Context, log logr.Logger) {
 	resource := c.Param("resource")
 	group := c.Query("group")
 
-	// Get service account namespace for namespace-scoped permission checks
-	var saNamespace string
-	if ns, exists := c.Get(cookieNameSANamespace); exists {
-		if nsStr, ok := ns.(string); ok {
-			saNamespace = nsStr
-		}
-	}
-
 	// Check permissions for this resource
-	perm := getResourcePermissions(ctx, client, log, resource, group, saNamespace)
+	perm := getResourcePermissions(ctx, client, log, resource, group, getSANamespace(c))
 
 	component := templates.PermissionRow(perm)
 	c.Header("Content-Type", "text/html")
@@ -104,41 +107,13 @@ func getResourcePermissions(ctx context.Context, client *KubeClient, log logr.Lo
 	permNamespace := "" // Will be set to namespace if only namespace-scoped access is allowed
 
 	for _, verb := range tinkerbellVerbs {
-		// First try cluster-wide permission
-		sar := &authv1.SelfSubjectAccessReview{
-			Spec: authv1.SelfSubjectAccessReviewSpec{
-				ResourceAttributes: &authv1.ResourceAttributes{
-					Verb:     verb,
-					Group:    group,
-					Resource: resource,
-				},
-			},
-		}
-
-		result, err := client.clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-		if err != nil {
-			log.V(1).Info("Failed to check permission", "resource", resource, "verb", verb, "error", err)
+		allowed, scoped := hasNamespacedPermission(ctx, client, log, resource, group, verb, namespace)
+		if !allowed {
 			continue
 		}
-
-		if result.Status.Allowed {
-			allowedVerbs = append(allowedVerbs, verb)
-			continue
-		}
-
-		// If cluster-wide not allowed and we have a namespace, try namespace-scoped
-		if namespace != "" {
-			sar.Spec.ResourceAttributes.Namespace = namespace
-			result, err = client.clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-			if err != nil {
-				log.V(1).Info("Failed to check namespace-scoped permission", "resource", resource, "verb", verb, "namespace", namespace, "error", err)
-				continue
-			}
-
-			if result.Status.Allowed {
-				allowedVerbs = append(allowedVerbs, verb)
-				permNamespace = namespace // Mark as namespace-scoped
-			}
+		allowedVerbs = append(allowedVerbs, verb)
+		if scoped {
+			permNamespace = namespace // Mark as namespace-scoped
 		}
 	}
 
@@ -148,4 +123,59 @@ func getResourcePermissions(ctx context.Context, client *KubeClient, log logr.Lo
 		Namespace: permNamespace,
 		Verbs:     allowedVerbs,
 	}
+}
+
+// hasNamespacedPermission reports whether the current user can perform verb
+// on resource/group, checking cluster-wide access first and falling back to
+// namespace-scoped access within namespace. The second return value reports
+// whether access was granted via the namespace-scoped fallback rather than
+// cluster-wide.
+func hasNamespacedPermission(ctx context.Context, client *KubeClient, log logr.Logger, resource, group, verb, namespace string) (allowed, namespaceScoped bool) {
+	if client.clientset == nil {
+		// Fail closed: no clientset (e.g. a test double lacking one) means we
+		// can't confirm access, so don't offer an action that would 403.
+		return false, false
+	}
+
+	sar := &authv1.SelfSubjectAccessReview{
+		Spec: authv1.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &authv1.ResourceAttributes{
+				Verb:     verb,
+				Group:    group,
+				Resource: resource,
+			},
+		},
+	}
+
+	result, err := client.clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+	if err != nil {
+		log.V(1).Info("Failed to check permission", "resource", resource, "verb", verb, "error", err)
+		return false, false
+	}
+	if result.Status.Allowed {
+		return true, false
+	}
+	if namespace == "" {
+		return false, false
+	}
+
+	sar.Spec.ResourceAttributes.Namespace = namespace
+	result, err = client.clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+	if err != nil {
+		log.V(1).Info("Failed to check namespace-scoped permission", "resource", resource, "verb", verb, "namespace", namespace, "error", err)
+		return false, false
+	}
+	return result.Status.Allowed, result.Status.Allowed
+}
+
+// canPatchWorkflows reports whether the current user can patch
+// workflows.tinkerbell.org in namespace, checking cluster-wide access first
+// and falling back to namespace-scoped access. Used to disable the Enable
+// action proactively instead of letting it fail with a 403 on click.
+// Checks "patch" rather than "update" because EnableWorkflow (kube.go) enables
+// a Workflow via a merge patch, which Kubernetes RBAC authorizes separately
+// from the "update" verb.
+func canPatchWorkflows(ctx context.Context, client *KubeClient, log logr.Logger, namespace string) bool {
+	allowed, _ := hasNamespacedPermission(ctx, client, log, resourceWorkflows, groupTinkerbell, "patch", namespace)
+	return allowed
 }

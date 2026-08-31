@@ -214,6 +214,13 @@ templ StatusBadge(status string) {
 			</svg>
 			{ status }
 		</span>
+	} else if status == "Disabled" {
+		<span class="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+			<svg class="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+				<circle cx="4" cy="4" r="3"/>
+			</svg>
+			{ status }
+		</span>
 	} else if status == "Offline" || status == "FAILED" || status == "Failed" || status == "off" || status == "False" || status == "Error" || status == "Critical" {
 		<span class="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100">
 			<svg class="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 8 8">

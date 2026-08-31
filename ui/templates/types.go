@@ -35,10 +35,14 @@ type Workflow struct {
 	Namespace   string
 	TemplateRef string
 	State       string
-	Task        string
-	Action      string
-	Agent       string
-	CreatedAt   string
+	Disabled    bool
+	// CanUpdate reports whether the current user has permission to enable
+	// this Workflow. Checked once per list render, not per row.
+	CanUpdate bool
+	Task      string
+	Action    string
+	Agent     string
+	CreatedAt string
 }
 
 // WorkflowRuleSet represents a workflowruleset resource in the list view.
@@ -477,11 +481,15 @@ type OutOfBandAttributes struct {
 
 // WorkflowDetail is the data for the workflow detail page.
 type WorkflowDetail struct {
-	Name              string
-	Namespace         string
-	TemplateRef       string
-	HardwareRef       string
-	State             string
+	Name        string
+	Namespace   string
+	TemplateRef string
+	HardwareRef string
+	State       string
+	Disabled    bool
+	// CanUpdate reports whether the current user has permission to enable
+	// this Workflow.
+	CanUpdate         bool
 	Task              string
 	Action            string
 	Agent             string

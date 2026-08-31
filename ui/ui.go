@@ -265,6 +265,9 @@ func (c *Config) Handler(log logr.Logger) (http.Handler, error) {
 		protected.GET("/workflows/:namespace/:name", func(c *gin.Context) {
 			webhttp.HandleWorkflowDetail(c, log)
 		})
+		protected.POST("/workflows/:namespace/:name/enable", func(c *gin.Context) {
+			webhttp.HandleWorkflowEnable(c, log)
+		})
 
 		// Template routes
 		protected.GET("/templates", func(c *gin.Context) {

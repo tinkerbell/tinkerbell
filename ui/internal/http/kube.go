@@ -34,9 +34,10 @@ const (
 	ContextKeyBaseURL = "baseURL"
 
 	// Kubernetes API groups and RBAC identifiers for Tinkerbell resources.
-	groupTinkerbell = "tinkerbell.org"
-	groupBMC        = "bmc.tinkerbell.org"
-	verbList        = "list"
+	groupTinkerbell   = "tinkerbell.org"
+	groupBMC          = "bmc.tinkerbell.org"
+	verbList          = "list"
+	resourceWorkflows = "workflows" // plural Kubernetes RBAC resource name
 
 	// Lowercase resource identifiers used as search result types and icon
 	// names; some (hardware, tasks) also match Kubernetes RBAC resource names.
@@ -184,6 +185,21 @@ func (k *KubeClient) GetWorkflow(ctx context.Context, namespace, name string) (*
 		return nil, fmt.Errorf("failed to get workflow: %w", err)
 	}
 	return &wf, nil
+}
+
+// EnableWorkflow sets spec.disabled to false on a workflow resource and returns the updated object.
+func (k *KubeClient) EnableWorkflow(ctx context.Context, namespace, name string) (*tinkv1alpha1.Workflow, error) {
+	wf, err := k.GetWorkflow(ctx, namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	patch := client.MergeFrom(wf.DeepCopy())
+	enabled := false
+	wf.Spec.Disabled = &enabled
+	if err := k.Patch(ctx, wf, patch); err != nil {
+		return nil, fmt.Errorf("failed to patch workflow: %w", err)
+	}
+	return wf, nil
 }
 
 // ListTemplates returns all template resources, optionally filtered by namespace.
