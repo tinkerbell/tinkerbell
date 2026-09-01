@@ -1348,3 +1348,123 @@ func actionStatusRequest(actionState proto.ActionStatusRequest_StateType) *proto
 		Message:           &proto.ActionMessage{Message: toPtr("late report")},
 	}
 }
+
+// terminalWorkflowFixture returns a completed Workflow that still carries the
+// agent's ID, so it remains in the agent-ID index alongside newer Workflows.
+func terminalWorkflowFixture(name string) tinkerbell.Workflow {
+	return tinkerbell.Workflow{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+		Status: tinkerbell.WorkflowStatus{
+			AgentID: "machine-mac-1",
+			State:   tinkerbell.WorkflowStateSuccess,
+			Tasks: []tinkerbell.Task{
+				{
+					Name:    "provision",
+					AgentID: "machine-mac-1",
+					ID:      "provision",
+					Actions: []tinkerbell.Action{{
+						Name:  "stream",
+						Image: "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+						State: tinkerbell.WorkflowStateSuccess,
+						ID:    "stream",
+					}},
+				},
+			},
+		},
+	}
+}
+
+// activeWorkflowFixture returns a running Workflow whose first Action is servable.
+func activeWorkflowFixture(name string) tinkerbell.Workflow {
+	return tinkerbell.Workflow{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+		Status: tinkerbell.WorkflowStatus{
+			AgentID:       "machine-mac-1",
+			State:         tinkerbell.WorkflowStateRunning,
+			GlobalTimeout: 600,
+			Tasks: []tinkerbell.Task{
+				{
+					Name:    "provision",
+					AgentID: "machine-mac-1",
+					Actions: []tinkerbell.Action{{
+						Name:    "stream",
+						Image:   "quay.io/tinkerbell-actions/image2disk:v1.0.0",
+						Timeout: 300,
+						State:   tinkerbell.WorkflowStatePending,
+					}},
+				},
+			},
+		},
+	}
+}
+
+// TestGetActionTerminalDoesNotShadowActive verifies that a terminal Workflow
+// left in the agent-ID index does not prevent a co-listed pending/running
+// Workflow for the same agent from being served, regardless of list order.
+func TestGetActionTerminalDoesNotShadowActive(t *testing.T) {
+	t.Run("terminal listed before active still serves active", func(t *testing.T) {
+		backend := &mockBackendReadWriter{}
+		backend.listWorkflowsFunc = func() ([]tinkerbell.Workflow, error) {
+			return []tinkerbell.Workflow{terminalWorkflowFixture("machine0"), activeWorkflowFixture("machine1")}, nil
+		}
+		handler := &Handler{
+			Logger:       logr.Discard(),
+			Backend:      backend,
+			NowFunc:      func() time.Time { return time.Time{} },
+			RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
+		}
+
+		resp, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("machine-mac-1")})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.GetName() != "stream" || resp.GetWorkflowId() != "default/machine1" {
+			t.Fatalf("expected active Workflow's action to be served, got workflow %q action %q", resp.GetWorkflowId(), resp.GetName())
+		}
+	})
+
+	t.Run("active listed before terminal still serves active", func(t *testing.T) {
+		backend := &mockBackendReadWriter{}
+		backend.listWorkflowsFunc = func() ([]tinkerbell.Workflow, error) {
+			return []tinkerbell.Workflow{activeWorkflowFixture("machine1"), terminalWorkflowFixture("machine0")}, nil
+		}
+		handler := &Handler{
+			Logger:       logr.Discard(),
+			Backend:      backend,
+			NowFunc:      func() time.Time { return time.Time{} },
+			RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
+		}
+
+		resp, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("machine-mac-1")})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.GetName() != "stream" || resp.GetWorkflowId() != "default/machine1" {
+			t.Fatalf("expected active Workflow's action to be served, got workflow %q action %q", resp.GetWorkflowId(), resp.GetName())
+		}
+	})
+
+	t.Run("all terminal fails permanently without retrying", func(t *testing.T) {
+		backend := &mockBackendReadWriter{}
+		backend.listWorkflowsFunc = func() ([]tinkerbell.Workflow, error) {
+			return []tinkerbell.Workflow{terminalWorkflowFixture("machine0"), terminalWorkflowFixture("machine2")}, nil
+		}
+		handler := &Handler{
+			Logger:  logr.Discard(),
+			Backend: backend,
+			NowFunc: func() time.Time { return time.Time{} },
+			RetryOptions: []backoff.RetryOption{
+				backoff.WithMaxTries(3),
+				backoff.WithBackOff(backoff.NewConstantBackOff(0)),
+			},
+		}
+
+		_, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("machine-mac-1")})
+		if status.Code(err) != codes.FailedPrecondition {
+			t.Fatalf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.FailedPrecondition, err)
+		}
+		if backend.workflowLists != 1 {
+			t.Fatalf("expected a permanent error to stop retrying after one list, got %d lists", backend.workflowLists)
+		}
+	})
+}

@@ -199,6 +199,12 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 
 	journal.Log(ctx, "found Workflows", "workflows", len(wfs))
 	var wf tinkerbell.Workflow
+	// Scan every Workflow for this agent instead of returning on the first
+	// ineligible one. Terminal Workflows keep their Status.AgentID and so remain
+	// in the agent-ID index indefinitely; returning early would let one of them
+	// permanently shadow a later pending/running Workflow assigned to the same
+	// agent, so its Action would never be served.
+	var found, preparing, terminal, otherNotRunning bool
 	for _, w := range wfs {
 		if len(w.Status.Tasks) == 0 {
 			continue
@@ -207,23 +213,38 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		// This is to prevent the Agent from starting Actions before Workflow boot options are performed.
 		if w.Spec.BootOptions.BootMode != "" && w.Status.State == tinkerbell.WorkflowStatePreparing {
 			journal.Log(ctx, "Workflow is in preparing state")
-			return nil, status.Error(codes.FailedPrecondition, "Workflow is in preparing state")
+			preparing = true
+			continue
 		}
 		if w.Status.State != tinkerbell.WorkflowStatePending && w.Status.State != tinkerbell.WorkflowStateRunning {
 			journal.Log(ctx, "Workflow not in pending or running state")
-			err := status.Error(codes.FailedPrecondition, "Workflow not in pending or running state")
 			if isAgentTerminalWorkflowState(w.Status.State) {
-				return nil, backoff.Permanent(err)
+				terminal = true
+			} else {
+				otherNotRunning = true
 			}
-			return nil, err
+			continue
 		}
 		wf = w
+		found = true
 		journal.Log(ctx, "found Workflow", "workflow", wf.Name)
 		break
 	}
-	if len(wf.Status.Tasks) == 0 {
-		journal.Log(ctx, "no Tasks found in Workflow")
-		return nil, status.Error(codes.NotFound, "no Tasks found in Workflow")
+	if !found {
+		switch {
+		case preparing:
+			// Preparing is transient, so keep the error retryable.
+			return nil, status.Error(codes.FailedPrecondition, "Workflow is in preparing state")
+		case otherNotRunning:
+			return nil, status.Error(codes.FailedPrecondition, "Workflow not in pending or running state")
+		case terminal:
+			// Every candidate is terminal and terminal state never changes, so stop
+			// the server-side retry loop instead of retrying for the full timeout.
+			return nil, backoff.Permanent(status.Error(codes.FailedPrecondition, "Workflow not in pending or running state"))
+		default:
+			journal.Log(ctx, "no Tasks found in Workflow")
+			return nil, status.Error(codes.NotFound, "no Tasks found in Workflow")
+		}
 	}
 
 	var task *tinkerbell.Task
