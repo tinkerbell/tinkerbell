@@ -211,7 +211,11 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		}
 		if w.Status.State != tinkerbell.WorkflowStatePending && w.Status.State != tinkerbell.WorkflowStateRunning {
 			journal.Log(ctx, "Workflow not in pending or running state")
-			return nil, status.Error(codes.FailedPrecondition, "Workflow not in pending or running state")
+			err := status.Error(codes.FailedPrecondition, "Workflow not in pending or running state")
+			if isAgentTerminalWorkflowState(w.Status.State) {
+				return nil, backoff.Permanent(err)
+			}
+			return nil, err
 		}
 		wf = w
 		journal.Log(ctx, "found Workflow", "workflow", wf.Name)
@@ -393,6 +397,19 @@ func isTaskSuccessful(t tinkerbell.Task) bool {
 	return false
 }
 
+// isAgentTerminalWorkflowState reports whether a workflow has finished its agent-driven execution.
+func isAgentTerminalWorkflowState(state tinkerbell.WorkflowState) bool {
+	switch state {
+	case tinkerbell.WorkflowStatePost,
+		tinkerbell.WorkflowStateSuccess,
+		tinkerbell.WorkflowStateFailed,
+		tinkerbell.WorkflowStateTimeout:
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
 	operation := func() (*proto.ActionStatusResponse, error) {
 		return h.doReportActionStatus(ctx, req)
@@ -435,6 +452,19 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 		for ai, action := range task.Actions {
 			// action IDs match or this is the first action in a task
 			if action.ID == req.GetActionId() && task.AgentID == req.GetAgentId() {
+				if isAgentTerminalWorkflowState(wf.Status.State) {
+					switch req.GetActionState() {
+					case proto.ActionStatusRequest_SUCCESS, proto.ActionStatusRequest_FAILED, proto.ActionStatusRequest_TIMEOUT:
+						return &proto.ActionStatusResponse{}, nil
+					default:
+						return nil, backoff.Permanent(status.Errorf(
+							codes.FailedPrecondition,
+							"Workflow is in %s state",
+							wf.Status.State,
+						))
+					}
+				}
+
 				wf.Status.Tasks[ti].Actions[ai].State = tinkerbell.WorkflowState(req.GetActionState().String())
 				wf.Status.Tasks[ti].Actions[ai].ExecutionStart = &metav1.Time{Time: req.GetExecutionStart().AsTime()}
 				wf.Status.Tasks[ti].Actions[ai].ExecutionStop = &metav1.Time{Time: req.GetExecutionStop().AsTime()}

@@ -20,7 +20,9 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestGetAction(t *testing.T) {
@@ -508,6 +510,13 @@ type mockBackendReadWriter struct {
 	hardware    *tinkerbell.Hardware
 	hardwareErr error
 
+	readWorkflowFunc   func() (*tinkerbell.Workflow, error)
+	listWorkflowsFunc  func() ([]tinkerbell.Workflow, error)
+	updateWorkflowFunc func(*tinkerbell.Workflow) error
+	workflowReads      int
+	workflowLists      int
+	workflowUpdates    int
+
 	updatedHardware *tinkerbell.Hardware // captures the hardware passed to UpdateHardware
 	updateOpts      data.UpdateOptions   // captures the options passed to UpdateHardware
 
@@ -517,6 +526,10 @@ type mockBackendReadWriter struct {
 }
 
 func (m *mockBackendReadWriter) ReadWorkflow(_ context.Context, _ string, _ string) (*tinkerbell.Workflow, error) {
+	m.workflowReads++
+	if m.readWorkflowFunc != nil {
+		return m.readWorkflowFunc()
+	}
 	if m.workflow == nil {
 		return nil, errors.New("workflow not found")
 	}
@@ -524,13 +537,21 @@ func (m *mockBackendReadWriter) ReadWorkflow(_ context.Context, _ string, _ stri
 }
 
 func (m *mockBackendReadWriter) ListWorkflows(_ context.Context, _ data.WorkflowFilter) ([]tinkerbell.Workflow, error) {
+	m.workflowLists++
+	if m.listWorkflowsFunc != nil {
+		return m.listWorkflowsFunc()
+	}
 	if m.workflow != nil {
 		return []tinkerbell.Workflow{*m.workflow}, nil
 	}
 	return []tinkerbell.Workflow{}, nil
 }
 
-func (m *mockBackendReadWriter) UpdateWorkflow(_ context.Context, _ *tinkerbell.Workflow, _ data.UpdateOptions) error {
+func (m *mockBackendReadWriter) UpdateWorkflow(_ context.Context, wf *tinkerbell.Workflow, _ data.UpdateOptions) error {
+	m.workflowUpdates++
+	if m.updateWorkflowFunc != nil {
+		return m.updateWorkflowFunc(wf)
+	}
 	return m.writeErr
 }
 
@@ -1028,5 +1049,302 @@ func TestReportActionStatus(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestTerminalWorkflowFence(t *testing.T) {
+	terminalWorkflowStates := []tinkerbell.WorkflowState{
+		tinkerbell.WorkflowStatePost,
+		tinkerbell.WorkflowStateSuccess,
+		tinkerbell.WorkflowStateFailed,
+		tinkerbell.WorkflowStateTimeout,
+	}
+	for _, workflowState := range terminalWorkflowStates {
+		t.Run("GetAction "+string(workflowState)+" is rejected without a status write", func(t *testing.T) {
+			workflow := failedWorkflowFixture()
+			workflow.Status.State = workflowState
+			before := workflow.DeepCopy()
+			backend := &mockBackendReadWriter{workflow: workflow}
+			handler := &Handler{
+				Logger:  logr.Discard(),
+				Backend: backend,
+				RetryOptions: []backoff.RetryOption{
+					backoff.WithMaxTries(3),
+					backoff.WithBackOff(backoff.NewConstantBackOff(0)),
+				},
+			}
+
+			resp, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("agent-1")})
+			if status.Code(err) != codes.FailedPrecondition {
+				t.Fatalf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.FailedPrecondition, err)
+			}
+			if resp != nil {
+				t.Fatalf("expected no action, got %+v", resp)
+			}
+			if backend.workflowLists != 1 {
+				t.Fatalf("expected one workflow list, got %d", backend.workflowLists)
+			}
+			if backend.workflowUpdates != 0 {
+				t.Fatalf("expected zero workflow updates, got %d", backend.workflowUpdates)
+			}
+			if diff := cmp.Diff(before, backend.workflow); diff != "" {
+				t.Fatalf("terminal workflow changed (-want +got):\n%s", diff)
+			}
+		})
+	}
+
+	for _, workflowState := range terminalWorkflowStates {
+		t.Run("ReportActionStatus "+string(workflowState), func(t *testing.T) {
+			testTerminalWorkflowReports(t, workflowState)
+		})
+	}
+
+	unknownAction := actionStatusRequest(proto.ActionStatusRequest_SUCCESS)
+	unknownAction.ActionId = toPtr("unknown-action")
+	wrongAgent := actionStatusRequest(proto.ActionStatusRequest_SUCCESS)
+	wrongAgent.AgentId = toPtr("wrong-agent")
+	for _, tc := range []struct {
+		name    string
+		request *proto.ActionStatusRequest
+	}{
+		{name: "unknown action returns NotFound", request: unknownAction},
+		{name: "wrong agent returns NotFound", request: wrongAgent},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			workflow := failedWorkflowFixture()
+			before := workflow.DeepCopy()
+			backend := &mockBackendReadWriter{workflow: workflow}
+			handler := &Handler{
+				Backend:      backend,
+				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
+			}
+
+			resp, err := handler.ReportActionStatus(context.Background(), tc.request)
+			if status.Code(err) != codes.NotFound {
+				t.Fatalf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.NotFound, err)
+			}
+			if resp != nil {
+				t.Fatalf("expected no response, got %+v", resp)
+			}
+			if backend.workflowReads != 1 {
+				t.Fatalf("expected one workflow read, got %d", backend.workflowReads)
+			}
+			if backend.workflowUpdates != 0 {
+				t.Fatalf("expected zero workflow updates, got %d", backend.workflowUpdates)
+			}
+			if diff := cmp.Diff(before, backend.workflow); diff != "" {
+				t.Fatalf("failed workflow changed (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func testTerminalWorkflowReports(t *testing.T, workflowState tinkerbell.WorkflowState) {
+	t.Helper()
+
+	for _, actionState := range []proto.ActionStatusRequest_StateType{
+		proto.ActionStatusRequest_RUNNING,
+		proto.ActionStatusRequest_SUCCESS,
+		proto.ActionStatusRequest_FAILED,
+		proto.ActionStatusRequest_TIMEOUT,
+	} {
+		t.Run(actionState.String(), func(t *testing.T) {
+			workflow := failedWorkflowFixture()
+			workflow.Status.State = workflowState
+			before := workflow.DeepCopy()
+			backend := &mockBackendReadWriter{workflow: workflow}
+			handler := &Handler{
+				Backend: backend,
+				RetryOptions: []backoff.RetryOption{
+					backoff.WithMaxTries(3),
+					backoff.WithBackOff(backoff.NewConstantBackOff(0)),
+				},
+			}
+
+			resp, err := handler.ReportActionStatus(context.Background(), actionStatusRequest(actionState))
+			if actionState == proto.ActionStatusRequest_RUNNING {
+				if status.Code(err) != codes.FailedPrecondition {
+					t.Fatalf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.FailedPrecondition, err)
+				}
+				if resp != nil {
+					t.Fatalf("expected no response, got %+v", resp)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("completion report returned an error: %v", err)
+				}
+				if resp == nil {
+					t.Fatal("expected completion report to be acknowledged")
+				}
+			}
+			if backend.workflowReads != 1 {
+				t.Fatalf("expected one workflow read, got %d", backend.workflowReads)
+			}
+			if backend.workflowUpdates != 0 {
+				t.Fatalf("expected zero workflow updates, got %d", backend.workflowUpdates)
+			}
+			if diff := cmp.Diff(before, backend.workflow); diff != "" {
+				t.Fatalf("terminal workflow changed (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTerminalWorkflowFenceWinsUpdateConflict(t *testing.T) {
+	t.Run("GetAction retry cannot replace cancellation", func(t *testing.T) {
+		workflow := failedWorkflowFixture()
+		workflow.Status.State = tinkerbell.WorkflowStateRunning
+		workflow.Status.CurrentState = nil
+		workflow.Status.Tasks[0].Actions[0].State = tinkerbell.WorkflowStatePending
+
+		cancelled := workflow.DeepCopy()
+		cancelled.Status.State = tinkerbell.WorkflowStateFailed
+		cancelled.Annotations["tinkerbell.org/cancellation"] = "committed"
+
+		backend := &mockBackendReadWriter{workflow: workflow.DeepCopy()}
+		backend.listWorkflowsFunc = func() ([]tinkerbell.Workflow, error) {
+			return []tinkerbell.Workflow{*backend.workflow.DeepCopy()}, nil
+		}
+		backend.updateWorkflowFunc = func(_ *tinkerbell.Workflow) error {
+			backend.workflow = cancelled.DeepCopy()
+			return kerrors.NewConflict(schema.GroupResource{Group: "tinkerbell.org", Resource: "workflows"}, workflow.Name, errors.New("cancellation won"))
+		}
+		handler := &Handler{
+			Logger:  logr.Discard(),
+			Backend: backend,
+			RetryOptions: []backoff.RetryOption{
+				backoff.WithMaxTries(2),
+				backoff.WithBackOff(backoff.NewConstantBackOff(0)),
+			},
+		}
+
+		_, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("agent-1")})
+		if status.Code(err) != codes.FailedPrecondition {
+			t.Fatalf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.FailedPrecondition, err)
+		}
+		if backend.workflowLists != 2 {
+			t.Fatalf("expected retry to read cancellation, got %d workflow lists", backend.workflowLists)
+		}
+		if backend.workflowUpdates != 1 {
+			t.Fatalf("expected no update after cancellation was read, got %d updates", backend.workflowUpdates)
+		}
+		if diff := cmp.Diff(cancelled, backend.workflow); diff != "" {
+			t.Fatalf("committed cancellation changed (-want +got):\n%s", diff)
+		}
+	})
+
+	for _, workflowState := range []tinkerbell.WorkflowState{
+		tinkerbell.WorkflowStatePost,
+		tinkerbell.WorkflowStateSuccess,
+		tinkerbell.WorkflowStateFailed,
+		tinkerbell.WorkflowStateTimeout,
+	} {
+		t.Run("completion retry is acknowledged and discarded after "+string(workflowState), func(t *testing.T) {
+			testCompletionRetryAfterTerminalWorkflowUpdateConflict(t, workflowState)
+		})
+	}
+}
+
+func testCompletionRetryAfterTerminalWorkflowUpdateConflict(t *testing.T, workflowState tinkerbell.WorkflowState) {
+	t.Helper()
+
+	workflow := failedWorkflowFixture()
+	workflow.Status.State = tinkerbell.WorkflowStateRunning
+
+	committed := workflow.DeepCopy()
+	committed.Status.State = workflowState
+	committed.Annotations["tinkerbell.org/terminal-state"] = "committed"
+
+	backend := &mockBackendReadWriter{workflow: workflow.DeepCopy()}
+	backend.readWorkflowFunc = func() (*tinkerbell.Workflow, error) {
+		return backend.workflow.DeepCopy(), nil
+	}
+	backend.updateWorkflowFunc = func(_ *tinkerbell.Workflow) error {
+		backend.workflow = committed.DeepCopy()
+		return kerrors.NewConflict(schema.GroupResource{Group: "tinkerbell.org", Resource: "workflows"}, workflow.Name, errors.New("terminal state won"))
+	}
+	handler := &Handler{
+		Backend: backend,
+		RetryOptions: []backoff.RetryOption{
+			backoff.WithMaxTries(3),
+			backoff.WithBackOff(backoff.NewConstantBackOff(0)),
+		},
+	}
+
+	resp, err := handler.ReportActionStatus(context.Background(), actionStatusRequest(proto.ActionStatusRequest_SUCCESS))
+	if err != nil {
+		t.Fatalf("completion report returned an error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected completion report to be acknowledged")
+	}
+	if backend.workflowReads != 2 {
+		t.Fatalf("expected retry to read terminal workflow, got %d workflow reads", backend.workflowReads)
+	}
+	if backend.workflowUpdates != 1 {
+		t.Fatalf("expected no update after terminal workflow was read, got %d updates", backend.workflowUpdates)
+	}
+	if diff := cmp.Diff(committed, backend.workflow); diff != "" {
+		t.Fatalf("committed terminal workflow changed (-want +got):\n%s", diff)
+	}
+}
+
+func failedWorkflowFixture() *tinkerbell.Workflow {
+	executionStart := metav1.NewTime(time.Unix(1_700_000_000, 0).UTC())
+	return &tinkerbell.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "workflow-1",
+			Namespace:       "default",
+			ResourceVersion: "7",
+			Annotations: map[string]string{
+				"tinkerbell.org/internal": "preserve-me",
+			},
+		},
+		Status: tinkerbell.WorkflowStatus{
+			AgentID:       "agent-1",
+			State:         tinkerbell.WorkflowStateFailed,
+			GlobalTimeout: 600,
+			CurrentState: &tinkerbell.CurrentState{
+				AgentID:    "agent-1",
+				TaskID:     "task-1",
+				ActionID:   "action-1",
+				State:      tinkerbell.WorkflowStateRunning,
+				ActionName: "install",
+				TaskName:   "provision",
+			},
+			Tasks: []tinkerbell.Task{
+				{
+					ID:      "task-1",
+					Name:    "provision",
+					AgentID: "agent-1",
+					Actions: []tinkerbell.Action{
+						{
+							ID:                "action-1",
+							Name:              "install",
+							Image:             "example/install:latest",
+							State:             tinkerbell.WorkflowStateRunning,
+							ExecutionStart:    &executionStart,
+							ExecutionDuration: "10s",
+							Message:           "still running when cancelled",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func actionStatusRequest(actionState proto.ActionStatusRequest_StateType) *proto.ActionStatusRequest {
+	return &proto.ActionStatusRequest{
+		WorkflowId:        toPtr("default/workflow-1"),
+		AgentId:           toPtr("agent-1"),
+		TaskId:            toPtr("task-1"),
+		ActionId:          toPtr("action-1"),
+		ActionName:        toPtr("install"),
+		ActionState:       toPtr(actionState),
+		ExecutionStart:    timestamppb.New(time.Unix(1_700_000_000, 0).UTC()),
+		ExecutionStop:     timestamppb.New(time.Unix(1_700_000_030, 0).UTC()),
+		ExecutionDuration: toPtr("30s"),
+		Message:           &proto.ActionMessage{Message: toPtr("late report")},
 	}
 }

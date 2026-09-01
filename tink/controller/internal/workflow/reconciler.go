@@ -230,7 +230,8 @@ func mergePatchStatus(ctx context.Context, cc ctrlclient.Client, original, updat
 	// Patch any changes, regardless of errors
 	if !equality.Semantic.DeepEqual(updated.Status, original.Status) {
 		journal.Log(ctx, "patching status")
-		if err := cc.Status().Patch(ctx, updated, ctrlclient.MergeFrom(original)); err != nil {
+		patch := ctrlclient.MergeFromWithOptions(original, ctrlclient.MergeFromWithOptimisticLock{})
+		if err := cc.Status().Patch(ctx, updated, patch); err != nil {
 			return fmt.Errorf("error patching status of workflow: %s, error: %w", updated.Name, err)
 		}
 	}

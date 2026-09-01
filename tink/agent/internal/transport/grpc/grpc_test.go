@@ -5,10 +5,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type mockWorkflowServiceClient struct {
@@ -170,13 +173,18 @@ func TestRead(t *testing.T) {
 
 func TestWrite(t *testing.T) {
 	tests := map[string]struct {
-		expectedError error
+		expectedError     error
+		expectedPermanent bool
 	}{
 		"Success": {
 			expectedError: nil,
 		},
 		"Error": {
 			expectedError: errors.New("failed to report action"),
+		},
+		"FailedPrecondition is permanent": {
+			expectedError:     status.Error(codes.FailedPrecondition, "workflow is failed"),
+			expectedPermanent: true,
 		},
 	}
 
@@ -203,6 +211,10 @@ func TestWrite(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error, got: %v", err)
 				}
+			}
+			var permanent *backoff.PermanentError
+			if got := errors.As(err, &permanent); got != test.expectedPermanent {
+				t.Fatalf("permanent error = %v, want %v", got, test.expectedPermanent)
 			}
 		})
 	}

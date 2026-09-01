@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -2058,5 +2059,102 @@ func TestReconcileWithMultipleTasksAndAgents(t *testing.T) {
 				t.Errorf("unexpected difference:\n%v\nDescription: %s", diff, tc.description)
 			}
 		})
+	}
+}
+
+func TestReconcileFailedWorkflowWinsStalePatch(t *testing.T) {
+	future := metav1.NewTime(TestTime.AfterSec(600))
+	workflow := &v1alpha1.Workflow{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Workflow",
+			APIVersion: "tinkerbell.org/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "cancelled-during-reconcile",
+			Namespace:       "default",
+			ResourceVersion: "1000",
+			Annotations: map[string]string{
+				"tinkerbell.org/internal": "preserve-me",
+			},
+		},
+		Status: v1alpha1.WorkflowStatus{
+			State:               v1alpha1.WorkflowStateRunning,
+			AgentID:             "agent-1",
+			GlobalExecutionStop: &future,
+			CurrentState: &v1alpha1.CurrentState{
+				AgentID:  "agent-1",
+				TaskID:   "task-1",
+				ActionID: "action-1",
+				State:    v1alpha1.WorkflowStateSuccess,
+			},
+			Tasks: []v1alpha1.Task{
+				{
+					ID:      "task-1",
+					Name:    "first",
+					AgentID: "agent-1",
+					Actions: []v1alpha1.Action{{ID: "action-1", State: v1alpha1.WorkflowStateSuccess}},
+				},
+				{
+					ID:      "task-2",
+					Name:    "second",
+					AgentID: "agent-2",
+					Actions: []v1alpha1.Action{{ID: "action-2", State: v1alpha1.WorkflowStatePending}},
+				},
+			},
+		},
+	}
+
+	base := GetFakeClientBuilder().WithObjects(workflow).WithStatusSubresource(workflow).Build()
+	patchCalls := 0
+	var committed *v1alpha1.Workflow
+	cc := interceptor.NewClient(base, interceptor.Funcs{
+		SubResourcePatch: func(ctx context.Context, c client.Client, subResource string, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
+			patchCalls++
+			if patchCalls == 1 {
+				cancelled := &v1alpha1.Workflow{}
+				if err := c.Get(ctx, client.ObjectKeyFromObject(workflow), cancelled); err != nil {
+					return err
+				}
+				cancelled.Status.State = v1alpha1.WorkflowStateFailed
+				if err := c.Status().Update(ctx, cancelled); err != nil {
+					return err
+				}
+				committed = cancelled.DeepCopy()
+				committed.TypeMeta = workflow.TypeMeta
+			}
+
+			return c.SubResource(subResource).Patch(ctx, obj, patch, opts...)
+		},
+	})
+	controller := &Reconciler{
+		client:        cc,
+		nowFunc:       TestTime.Now,
+		dynamicClient: &fakeDynamicClient{},
+	}
+	req := reconcile.Request{NamespacedName: client.ObjectKeyFromObject(workflow)}
+
+	if _, err := controller.Reconcile(context.Background(), req); !kerrors.IsConflict(err) {
+		t.Fatalf("expected stale status patch conflict, got %v", err)
+	}
+	if committed == nil {
+		t.Fatal("expected cancellation to be committed before the stale patch")
+	}
+	if patchCalls != 1 {
+		t.Fatalf("expected one stale patch attempt, got %d", patchCalls)
+	}
+
+	if _, err := controller.Reconcile(context.Background(), req); err != nil {
+		t.Fatalf("reconcile from FAILED returned an error: %v", err)
+	}
+	if patchCalls != 1 {
+		t.Fatalf("expected FAILED reconcile to be a no-op, got %d patch attempts", patchCalls)
+	}
+
+	got := &v1alpha1.Workflow{}
+	if err := cc.Get(context.Background(), client.ObjectKeyFromObject(workflow), got); err != nil {
+		t.Fatalf("get committed workflow: %v", err)
+	}
+	if diff := cmp.Diff(committed, got); diff != "" {
+		t.Fatalf("committed FAILED workflow changed (-want +got):\n%s", diff)
 	}
 }
