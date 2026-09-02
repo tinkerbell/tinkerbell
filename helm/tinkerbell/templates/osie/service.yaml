@@ -71,6 +71,13 @@ spec:
   {{- end }}
   externalTrafficPolicy: Local
   {{- end }}
+  {{- if .Values.optional.osie.service.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.optional.osie.service.ipFamilyPolicy }}
+  {{- end }}
+  {{- with .Values.optional.osie.service.ipFamilies }}
+  ipFamilies:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
   ports:
   - name: {{ include "tinkerbell.osie.name" . }}
     port: {{ include "tinkerbell.osie.port" . }}

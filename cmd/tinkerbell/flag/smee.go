@@ -140,6 +140,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(IPXEHTTPScriptOSIEURL, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURL})
 	fs.Register(IPXEHTTPScriptOSIEURLv6, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURLv6})
 	fs.Register(IPXEScriptSyslogFQDN, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.SyslogFQDN, sc.Config.IPXE.HTTPScriptServer.SyslogFQDN))
+	fs.Register(IPXEScriptSyslogFQDNV6, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.SyslogFQDNV6, sc.Config.IPXE.HTTPScriptServer.SyslogFQDNV6))
 	fs.Register(IPXEBinaryInjectMacAddrFormat, &ffval.Enum[constant.MACFormat]{
 		ParseFunc: macAddrFormatParser,
 		Valid:     []constant.MACFormat{constant.MacAddrFormatColon, constant.MacAddrFormatDot, constant.MacAddrFormatDash, constant.MacAddrFormatNoDelimiter},
@@ -186,10 +187,11 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP, publicIPv
 	s.Config.IPXE.HTTPScriptServer.TrustedProxies = ntip.ToPrefixList(trustedProxies).Slice()
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = s.advertisedHost(s.DHCPIPXEScript, publicIP, defaultPort)
 	s.Config.DHCP.IPXEHTTPBinaryURL.Host = s.advertisedHost(s.DHCPIPXEBinary, publicIP, defaultPort)
-	if publicIPv6.IsValid() && !publicIPv6.IsUnspecified() || s.DHCPv6IPXEScript.Host != "" || s.DHCPv6IPXEScript.Port != 0 {
+	hasPublicIPv6 := publicIPv6.IsValid() && !publicIPv6.IsUnspecified()
+	if hasPublicIPv6 || s.DHCPv6IPXEScript.Host != "" || s.DHCPv6IPXEScript.Port != 0 {
 		s.Config.DHCPv6.IPXEHTTPScript.URL.Host = s.advertisedHost(s.DHCPv6IPXEScript, publicIPv6, defaultPort)
 	}
-	if publicIPv6.IsValid() && !publicIPv6.IsUnspecified() || s.DHCPv6IPXEBinary.Host != "" || s.DHCPv6IPXEBinary.Port != 0 {
+	if hasPublicIPv6 || s.DHCPv6IPXEBinary.Host != "" || s.DHCPv6IPXEBinary.Port != 0 {
 		s.Config.DHCPv6.IPXEHTTPBinaryURL.Host = s.advertisedHost(s.DHCPv6IPXEBinary, publicIPv6, defaultPort)
 	}
 
@@ -223,7 +225,7 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP, publicIPv
 	}
 
 	// publicIPv6 is used to set v6 SyslogIP, TFTPIP, IPXEHTTPBinaryURL.Host, and IPXEHTTPScript.URL.Host.
-	if publicIPv6.IsValid() && !publicIPv6.IsUnspecified() {
+	if hasPublicIPv6 {
 		if s.Config.DHCPv6.SyslogIP.IsUnspecified() || !s.Config.DHCPv6.SyslogIP.IsValid() {
 			s.Config.DHCPv6.SyslogIP = publicIPv6
 		}
@@ -234,25 +236,20 @@ func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP, publicIPv
 }
 
 func (s *SmeeConfig) advertisedHost(builder URLBuilder, publicIP netip.Addr, defaultPort int) string {
-	return func() string {
-		var addr string                        // Defaults
-		port := fmt.Sprintf("%d", defaultPort) // Defaults
-		if !publicIP.IsUnspecified() && publicIP.IsValid() {
-			addr = publicIP.String()
-		}
-		// CLI flag
-		if builder.Host != "" {
-			addr = builder.Host
-		}
-		if builder.Port != 0 {
-			port = fmt.Sprintf("%d", builder.Port)
-		}
+	var addr string                        // Defaults
+	port := fmt.Sprintf("%d", defaultPort) // Defaults
+	if !publicIP.IsUnspecified() && publicIP.IsValid() {
+		addr = publicIP.String()
+	}
+	// CLI flag
+	if builder.Host != "" {
+		addr = builder.Host
+	}
+	if builder.Port != 0 {
+		port = fmt.Sprintf("%d", builder.Port)
+	}
 
-		if port != "" {
-			return joinHostPort(addr, port)
-		}
-		return addr
-	}()
+	return joinHostPort(addr, port)
 }
 
 func advertisedAddrPort(addrPort string, publicIP netip.Addr) string {
@@ -566,7 +563,12 @@ var IPXEHTTPScriptRetryDelay = Config{
 
 var IPXEScriptSyslogFQDN = Config{
 	Name:  "ipxe-script-syslog-fqdn",
-	Usage: "[ipxe] syslog server hostname/FQDN for iPXE scripts (if empty, falls back to --dhcp-syslog-ip)",
+	Usage: "[ipxe] syslog server hostname/FQDN for IPv4 iPXE scripts, resolved by iPXE at boot (if empty, falls back to --dhcp-syslog-ip)",
+}
+
+var IPXEScriptSyslogFQDNV6 = Config{
+	Name:  "ipxe-script-syslog-fqdn-v6",
+	Usage: "[ipxe] syslog server hostname or IPv6 address for DHCPv6 iPXE scripts, resolved by iPXE at boot (if empty, falls back to --dhcpv6-syslog-ip)",
 }
 
 // iPXE HTTP binary flags.

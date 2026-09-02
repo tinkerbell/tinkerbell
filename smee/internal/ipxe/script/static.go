@@ -3,20 +3,7 @@ package script
 // StaticScript is the iPXE script used when in the auto-proxy mode.
 // It is built to be generic enough for all hardware to use.
 var StaticScript = `#!ipxe
-{{- if .SyslogHost }}
-{{- if eq .SyslogIPXEConfigName "syslog6" }}
-# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog6).
-# If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog6 variable.
-set check:ipv6 {{ .SyslogHost }} && set syslog6 {{ .SyslogHost }} || nslookup syslog6 {{ .SyslogHost }} || echo [WARN] Failed to resolve syslog6 host {{ .SyslogHost }}
-clear check
-{{- else }}
-# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog).
-# If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog variable.
-set check:ipv4 {{ .SyslogHost }} && set syslog {{ .SyslogHost }} || nslookup syslog {{ .SyslogHost }} || echo [WARN] Failed to resolve syslog host {{ .SyslogHost }}
-clear check
-{{- end }}
-{{- end}}
-echo Loading the static Tinkerbell iPXE script...
+` + syslogScript + `echo Loading the static Tinkerbell iPXE script...
 
 set arch ${buildarch}
 # Tinkerbell only supports 64 bit architectures.
@@ -34,12 +21,12 @@ set retry_delay:int32 {{ .RetryDelay }}
 
 set worker_id ${mac}
 set grpc_authority {{ .TinkGRPCAuthority }}
-set syslog_host {{ .SyslogHost }}
+set syslog_host {{ .SelectedSyslogHost }}
 set tinkerbell_tls {{ .TinkerbellTLS }}
 
 echo worker_id=${mac}
 echo grpc_authority={{ .TinkGRPCAuthority }}
-echo syslog_host={{ .SyslogHost }}
+echo syslog_host={{ .SelectedSyslogHost }}
 echo tinkerbell_tls={{ .TinkerbellTLS }}
 
 set idx:int32 0

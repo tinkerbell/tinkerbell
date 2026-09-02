@@ -5,15 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/netip"
-	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv6"
-	"github.com/insomniacslk/dhcp/iana"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	tbotel "github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
@@ -30,6 +26,7 @@ const clientEnterpriseNumber = v6.ClientEnterpriseNumber
 
 const (
 	defaultInformationRefreshTime = 4 * time.Hour
+	minInformationRefreshTime     = 600 * time.Second // IRT_MINIMUM, required by RFC 9915, Section 21.23.
 	maxInformationRefreshTime     = time.Duration(1<<32-1) * time.Second
 )
 
@@ -38,67 +35,90 @@ type BackendReader interface {
 	FilterHardware(ctx context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error)
 }
 
-// Handler holds the configuration details for the running DHCPv6 server.
-type Handler struct {
-	// Backend is the backend to use for getting DHCP data.
+// BootURLSource supplies DHCPv6 request parsing options and boot URLs.
+// The handler package owns this interface because it consumes the behavior.
+type BootURLSource interface {
+	InfoOptions() []v6.InfoOption
+	BootURL(info v6.Info, hardware *dhcp.Netboot, traceparent string) (string, error)
+}
+
+// Config contains the dependencies and behavior used by a Handler.
+type Config struct {
+	// Backend is required and looks up Hardware by the client's MAC address,
+	// including when AutoStatelessEnabled is true.
 	Backend BackendReader
-
-	// DNSDefaults are used when Hardware does not provide usable DNS settings.
+	// DNSDefaults supplies fallback DNS servers and domain search domains when
+	// Hardware does not provide usable values. Only IPv6 DNS addresses are used.
 	DNSDefaults v6.DNSDefaults
-
-	// Log is used to log messages.
-	// `logr.Discard()` can be used if no logging is desired.
+	// Log records request handling and errors. Use logr.Discard() to disable logging.
 	Log logr.Logger
-
-	// Netboot configuration
-	Netboot Netboot
-
-	// OTELEnabled is used to determine if netboot options include otel naming.
-	// When true, the netboot filename will be appended with otel information.
-	// For example, the filename will be "snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01".
-	// <original filename>-00-<trace id>-<span id>-<trace flags>
+	// BootURLSource is required and supplies request parsing options and boot URLs.
+	// Use v6.DisabledNetboot{} to omit netboot options.
+	BootURLSource BootURLSource
+	// OTELEnabled appends an available traceparent to iPXE binary filenames,
+	// producing <filename>-00-<trace ID>-<span ID>-<trace flags>.
+	// It does not control whether request tracing is enabled.
 	OTELEnabled bool
-
-	// AutoStatelessEnabled allows replies for unknown hardware, using default
-	// boot settings when the client requests them.
+	// AutoStatelessEnabled allows replies using defaults when Hardware is not found.
+	// It does not bypass other backend errors, unusable Hardware, or disabled DHCP.
 	AutoStatelessEnabled bool
-
-	// ServerID is the DHCPv6 server identifier included in replies.
+	// ServerID is required and identifies this server in replies. Requests carrying
+	// a different server ID are ignored.
 	ServerID dhcpv6.DUID
-	// InformationRefreshTime controls how long clients wait before refreshing stateless configuration.
+	// InformationRefreshTime tells clients when to refresh stateless configuration.
+	// New uses four hours for zero or negative values and clamps positive values
+	// to the range from 600 to 2^32-1 seconds.
 	InformationRefreshTime time.Duration
 }
 
-// Netboot holds the netboot configuration details used in running a DHCP server.
-type Netboot struct {
-	// iPXE binary server IP:Port serving via TFTP.
-	IPXEBinServerTFTP netip.AddrPort
+// Handler responds to stateless DHCPv6 requests.
+// Its invariants are established by New.
+type Handler struct {
+	backend                BackendReader
+	dnsDefaults            v6.DNSDefaults
+	log                    logr.Logger
+	bootURLSource          BootURLSource
+	otelEnabled            bool
+	autoStatelessEnabled   bool
+	serverID               dhcpv6.DUID
+	informationRefreshTime time.Duration
+	infoOptions            []v6.InfoOption
+}
 
-	// IPXEBinServerHTTP is the URL to the IPXE binary server serving via HTTP(s).
-	IPXEBinServerHTTP *url.URL
+// New validates config and constructs a stateless DHCPv6 handler.
+func New(config Config) (*Handler, error) {
+	if config.Backend == nil {
+		return nil, errors.New("DHCPv6 backend is required")
+	}
+	if config.ServerID == nil {
+		return nil, errors.New("DHCPv6 server ID is required")
+	}
+	if config.BootURLSource == nil {
+		return nil, errors.New("DHCPv6 boot URL source is required")
+	}
 
-	// IPXEScriptURL is the URL to the IPXE script to use.
-	IPXEScriptURL func(net.HardwareAddr) *url.URL
+	infoOptions := []v6.InfoOption{v6.WithLogger(config.Log)}
+	infoOptions = append(infoOptions, config.BootURLSource.InfoOptions()...)
+	infoOptions = append(infoOptions, v6.WithAllowedMessageTypes(dhcpv6.MessageTypeInformationRequest))
 
-	// Enabled is whether to enable sending netboot DHCP options.
-	Enabled bool
-
-	// InjectMacAddrFormat is the format to use when injecting the mac address into the iPXE binary URL.
-	InjectMacAddrFormat constant.MACFormat
-
-	// IPXEArchMapping will override the default architecture to binary mapping.
-	IPXEArchMapping map[iana.Arch]constant.IPXEBinary
+	return &Handler{
+		backend:                config.Backend,
+		dnsDefaults:            config.DNSDefaults,
+		log:                    config.Log,
+		bootURLSource:          config.BootURLSource,
+		otelEnabled:            config.OTELEnabled,
+		autoStatelessEnabled:   config.AutoStatelessEnabled,
+		serverID:               config.ServerID,
+		informationRefreshTime: informationRefreshTime(config.InformationRefreshTime),
+		infoOptions:            infoOptions,
+	}, nil
 }
 
 // Handle responds to DHCPv6 INFORMATION-REQUEST messages with stateless configuration.
 func (h *Handler) Handle(ctx context.Context, conn net.PacketConn, peer net.Addr, packet dhcpv6.DHCPv6) {
-	// Validations
+	// Validate per-call inputs: receiver configuration was validated by New.
 	if conn == nil || packet == nil || peer == nil {
-		h.Log.Error(errors.New("invalid DHCPv6 handler input"), "not able to respond to DHCPv6 packet", "connectionNil", conn == nil, "packetNil", packet == nil, "peerNil", peer == nil)
-		return
-	}
-	if h.Backend == nil || h.ServerID == nil {
-		h.Log.Error(errors.New("invalid DHCPv6 handler configuration"), "not able to respond to DHCPv6 packet", "backendNil", h.Backend == nil, "serverIDNil", h.ServerID == nil)
+		h.log.Error(errors.New("invalid DHCPv6 handler input"), "not able to respond to DHCPv6 packet", "connectionNil", conn == nil, "packetNil", packet == nil, "peerNil", peer == nil)
 		return
 	}
 
@@ -112,28 +132,17 @@ func (h *Handler) Handle(ctx context.Context, conn net.PacketConn, peer net.Addr
 	)
 	defer span.End()
 
-	informationRefreshTime := informationRefreshTime(h.InformationRefreshTime)
-
-	i, err := v6.NewInfo(
-		peer,
-		packet,
-		v6.WithLogger(h.Log),
-		v6.WithMacAddrFormat(h.Netboot.InjectMacAddrFormat),
-		v6.WithArchMappingOverride(h.Netboot.IPXEArchMapping),
-		v6.WithAllowedMessageTypes(
-			dhcpv6.MessageTypeInformationRequest,
-		),
-	)
+	i, err := v6.NewInfo(peer, packet, h.infoOptions...)
 	if err != nil {
-		h.Log.Info("ignoring DHCPv6 packet: invalid request", "peer", peer.String(), "error", err.Error())
+		h.log.Info("ignoring DHCPv6 packet: invalid request", "peer", peer.String(), "error", err.Error())
 		span.SetStatus(codes.Ok, fmt.Sprintf("ignoring DHCPv6 packet: invalid request: %s", err.Error()))
 		return
 	}
 
-	log := h.Log.WithValues("mac", i.Mac.String(), "xid", i.Msg.TransactionID.String(), "peer", peer.String(), "messageType", i.Msg.Type().String())
+	log := h.log.WithValues("mac", i.Mac.String(), "xid", i.Msg.TransactionID.String(), "peer", peer.String(), "messageType", i.Msg.Type().String())
 	log.Info("received DHCPv6 stateless packet")
 
-	if serverID := i.Msg.Options.ServerID(); serverID != nil && !serverID.Equal(h.ServerID) {
+	if serverID := i.Msg.Options.ServerID(); serverID != nil && !serverID.Equal(h.serverID) {
 		log.Info("ignoring DHCPv6 packet: addressed to another server", "serverID", serverID.String())
 		span.SetStatus(codes.Ok, "addressed to another server")
 		return
@@ -146,8 +155,8 @@ func (h *Handler) Handle(ctx context.Context, conn net.PacketConn, peer net.Addr
 
 	// Craft reply message
 	reply, err := dhcpv6.NewReplyFromMessage(i.Msg,
-		dhcpv6.WithServerID(h.ServerID),
-		dhcpv6.WithInformationRefreshTime(informationRefreshTime),
+		dhcpv6.WithServerID(h.serverID),
+		dhcpv6.WithInformationRefreshTime(h.informationRefreshTime),
 	)
 	if err != nil {
 		log.Error(err, "failed to create DHCPv6 reply")
@@ -168,7 +177,7 @@ func (h *Handler) Handle(ctx context.Context, conn net.PacketConn, peer net.Addr
 	}
 	v6.ApplyBootOptions(reply, i, bootURL)
 
-	v6.ApplyRequestedStatelessOptions(reply, i, hw.DHCP, h.DNSDefaults)
+	v6.ApplyRequestedStatelessOptions(reply, i, hw.DHCP, h.dnsDefaults)
 
 	response, err := v6.WriteReply(conn, peer, i.Relay, reply)
 	if err != nil {
@@ -183,10 +192,10 @@ func (h *Handler) Handle(ctx context.Context, conn net.PacketConn, peer net.Addr
 }
 
 func (h *Handler) resolveHardware(ctx context.Context, i v6.Info, log logr.Logger, span trace.Span) (dhcp.Hardware, bool) {
-	spec, lookupErr := h.Backend.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: i.Mac.String()})
+	spec, lookupErr := h.backend.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: i.Mac.String()})
 	if lookupErr != nil {
 		if v6.HardwareNotFound(lookupErr) {
-			if h.AutoStatelessEnabled {
+			if h.autoStatelessEnabled {
 				log.Info("DHCPv6 hardware not found, proceeding with auto-stateless defaults", "error", lookupErr.Error())
 				return dhcp.Hardware{}, true
 			}
@@ -202,7 +211,7 @@ func (h *Handler) resolveHardware(ctx context.Context, i v6.Info, log logr.Logge
 
 	hw, err := dhcp.ConvertByMac(ctx, i.Mac, spec)
 	if err != nil {
-		if h.AutoStatelessEnabled {
+		if h.autoStatelessEnabled {
 			log.Error(err, "ignoring DHCPv6 packet: hardware is unusable")
 		} else {
 			log.Info("ignoring DHCPv6 packet: netboot unavailable", "mac", i.Mac.String(), "error", errString(err))
@@ -227,22 +236,16 @@ func (h *Handler) resolveHardware(ctx context.Context, i v6.Info, log logr.Logge
 }
 
 func (h *Handler) bootURL(ctx context.Context, i v6.Info, hw dhcp.Hardware) (string, error) {
-	if !h.Netboot.Enabled || !i.IsBootfileURLOptionRequested() {
+	if !i.IsBootfileURLOptionRequested() {
 		return "", nil
 	}
 
 	var traceparent string
-	if h.OTELEnabled {
+	if h.otelEnabled {
 		traceparent = tbotel.TraceparentStringFromContext(ctx)
 	}
 
-	bootURL, err := i.BootURL(v6.BootURLConfig{
-		HardwareNetboot:   hw.Netboot,
-		IPXEBinServerTFTP: h.Netboot.IPXEBinServerTFTP,
-		IPXEBinServerHTTP: h.Netboot.IPXEBinServerHTTP,
-		IPXEScriptURL:     h.Netboot.IPXEScriptURL,
-		Traceparent:       traceparent,
-	})
+	bootURL, err := h.bootURLSource.BootURL(i, hw.Netboot, traceparent)
 	if err != nil {
 		return "", err
 	}
@@ -260,6 +263,9 @@ func errString(err error) string {
 func informationRefreshTime(configured time.Duration) time.Duration {
 	if configured <= 0 {
 		return defaultInformationRefreshTime
+	}
+	if configured < minInformationRefreshTime {
+		return minInformationRefreshTime
 	}
 	if configured > maxInformationRefreshTime {
 		return maxInformationRefreshTime

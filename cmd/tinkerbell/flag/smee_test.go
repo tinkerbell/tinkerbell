@@ -286,6 +286,8 @@ func TestRegisterSmeeFlagsV6(t *testing.T) {
 
 	err := cmd.Parse([]string{
 		"--ipxe-http-script-osie-url-v6", "http://[2001:db8::20]/hook",
+		"--ipxe-script-syslog-fqdn", "logs-v4.example.com",
+		"--ipxe-script-syslog-fqdn-v6", "logs-v6.example.com",
 		"--ipxe-script-tink-server-addr-port-v6", "[2001:db8::30]:42113",
 		"--dhcpv6-enable-netboot-options=false",
 		"--dhcpv6-server-duid", "00:04:12:34:56:78:12:34:56:78:90:ab:cd:ef:12:34:56:78",
@@ -299,6 +301,12 @@ func TestRegisterSmeeFlagsV6(t *testing.T) {
 
 	if got, want := cfg.Config.IPXE.HTTPScriptServer.OSIEURLv6.String(), "http://[2001:db8::20]/hook"; got != want {
 		t.Errorf("OSIEURLv6 = %q, want %q", got, want)
+	}
+	if got, want := cfg.Config.IPXE.HTTPScriptServer.SyslogFQDNV6, "logs-v6.example.com"; got != want {
+		t.Errorf("SyslogFQDNV6 = %q, want %q", got, want)
+	}
+	if got, want := cfg.Config.IPXE.HTTPScriptServer.SyslogFQDN, "logs-v4.example.com"; got != want {
+		t.Errorf("SyslogFQDN = %q, want %q", got, want)
 	}
 	if got, want := cfg.Config.TinkServer.AddrPortV6, "[2001:db8::30]:42113"; got != want {
 		t.Errorf("TinkServer.AddrPortV6 = %q, want %q", got, want)

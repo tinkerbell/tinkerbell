@@ -38,8 +38,9 @@ helm upgrade --install tinkerbell . \
   --set "deployment.imageTag=latest"
 ```
 
-For IPv6-only installs, replace `--set "publicIP=$LB_IPV4"` with
-`--set "publicIPv6=$LB_IPV6"`.
+For IPv6-only installs, use `publicIPv6` and `artifactsFileServerV6` instead of
+their IPv4 counterparts. Configure the [Service IP families](#service-ip-families)
+and [bind addresses](#bind-address-behavior) for IPv6 reachability.
 
 > [!NOTE]  
 > The `--set "deployment.agentImageTag=latest"` and `--set "deployment.imageTag=latest"` are only needed when doing a `helm install` from the file location.
@@ -77,8 +78,9 @@ helm install tinkerbell oci://ghcr.io/tinkerbell/charts/tinkerbell \
   --set "artifactsFileServerV6=$ARTIFACTS_FILE_SERVER_V6"
 ```
 
-For IPv6-only installs, replace `--set "publicIP=$LB_IPV4"` with
-`--set "publicIPv6=$LB_IPV6"`.
+For IPv6-only installs, use `publicIPv6` and `artifactsFileServerV6` instead of
+their IPv4 counterparts. Configure the [Service IP families](#service-ip-families)
+and [bind addresses](#bind-address-behavior) for IPv6 reachability.
 
 ### Optional Components
 
@@ -106,15 +108,107 @@ optional:
     image: ghcr.io/kube-vip/kube-vip:v0.9.1
 ```
 
-When one or more service IPs are configured, the chart automatically emits the
-`kube-vip.io/loadbalancerIPs` Service annotation for kube-vip. To override the
-generated value, set the annotation explicitly:
+For both the main and OSIE Services, when the Service type is `LoadBalancer`
+and one or more load balancer IPs are configured, the chart automatically emits
+the `kube-vip.io/loadbalancerIPs` annotation for kube-vip. This applies to
+IPv4-only, IPv6-only, and dual-stack configurations. To override a generated
+value, set the annotation explicitly in `service.annotations` or
+`optional.osie.service.annotations`:
 
 ```yaml
 service:
   annotations:
     kube-vip.io/loadbalancerIPs: "192.0.2.10,2001:db8::10"
 ```
+
+## Service IP Families
+
+The main Tinkerbell Service and the OSIE artifact Service have independent
+IP-family settings. Configure both when boot clients need to reach Tinkerbell
+and download kernel/initramfs artifacts over the same families. OSIE does not
+inherit the main Service's settings.
+
+| Value | Main Service | OSIE artifact Service |
+|-------|--------------|-----------------------|
+| Family policy | `service.ipFamilyPolicy` | `optional.osie.service.ipFamilyPolicy` |
+| Family selection and order | `service.ipFamilies` | `optional.osie.service.ipFamilies` |
+
+The defaults are `ipFamilyPolicy: ""` and `ipFamilies: []`. Helm omits both
+fields, preserving Kubernetes' default behavior for new Services:
+
+| Kubernetes cluster | Service created with the defaults |
+|--------------------|-----------------------------------|
+| IPv4-only | Single-stack IPv4 |
+| IPv6-only | Single-stack IPv6 |
+| Dual-stack | Single-stack, using the cluster's primary Service IP family |
+
+**A dual-stack cluster does not make these Services dual-stack automatically.**
+Setting both `publicIP` and `publicIPv6`, both artifact URLs, or two addresses
+in the kube-vip annotation does not change the Service's family policy.
+
+### Adapt to the cluster
+
+To use both families where the cluster supports them and fall back to one on
+single-stack clusters, set `PreferDualStack` on both Services. Leave
+`ipFamilies` unset so Kubernetes selects the available families and their order:
+
+```yaml
+service:
+  ipFamilyPolicy: PreferDualStack
+optional:
+  osie:
+    service:
+      ipFamilyPolicy: PreferDualStack
+```
+
+### Require dual-stack
+
+Use `RequireDualStack` when both families are mandatory. Kubernetes rejects
+the Service if the cluster does not support dual-stack. This example selects
+IPv4 as the primary family; omit `ipFamilies` to keep the cluster's order:
+
+```yaml
+service:
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies: [IPv4, IPv6]
+optional:
+  osie:
+    service:
+      ipFamilyPolicy: RequireDualStack
+      ipFamilies: [IPv4, IPv6]
+```
+
+### Select IPv6 only
+
+On an IPv6-only cluster, the empty defaults already select IPv6. To explicitly
+select IPv6 on a dual-stack cluster, including one whose primary family is
+IPv4, configure both Services as follows:
+
+```yaml
+service:
+  ipFamilyPolicy: SingleStack
+  ipFamilies: [IPv6]
+optional:
+  osie:
+    service:
+      ipFamilyPolicy: SingleStack
+      ipFamilies: [IPv6]
+```
+
+Use `[IPv4]` instead to explicitly select IPv4. The selected family must be
+supported by the cluster. When upgrading an existing Service, retain its
+primary family: Kubernetes allows adding or removing a secondary family but
+does not allow changing the primary family in place. See the
+[Kubernetes dual-stack Service documentation](https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services).
+
+These examples configure Service IP allocation. Also configure the matching
+public addresses and artifact URLs in [Required Values](#required-values),
+IPv6-capable listeners as described in [Bind Address Behavior](#bind-address-behavior),
+and cluster networking and a load balancer that support the requested families.
+Service family settings do not enable DHCPv6; if Smee provides DHCPv6, set
+`deployment.envs.smee.dhcpv6Enabled: true` separately. The OSIE Service settings
+apply only when the chart creates that Service; no OSIE Service is created
+when its artifact server uses host networking.
 
 ## Required Values
 
@@ -133,6 +227,19 @@ make IPv6 clients work; the IPv6 iPXE path uses the IPv6-specific values.
 `publicIP` and `publicIPv6` must contain addresses of their named family;
 IPv4-mapped IPv6 values such as `::ffff:192.0.2.10` are IPv4 and are not valid
 for `publicIPv6`.
+
+`deployment.envs.smee.ipxeScriptSyslogFqdnV6` sets the syslog hostname or IPv6
+address for DHCPv6 boot scripts (`auto6.ipxe`). When empty, it uses
+`deployment.envs.smee.dhcpv6SyslogIP`. IPv4 scripts continue to use
+`ipxeScriptSyslogFqdn`, falling back to `dhcpSyslogIP`. iPXE resolves the selected
+hostname on the booting client each time the script runs, so DNS changes take
+effect without regenerating the script. Resolution failures emit a warning and
+do not prevent booting.
+
+Use an A-only hostname for IPv4 and an AAAA-only hostname for IPv6. The bundled
+iPXE resolver prefers AAAA when IPv6 DNS is configured and cannot explicitly
+request an address family. An answer from the wrong family is rejected without
+changing syslog settings.
 
 For DHCPv6, `deployment.envs.smee.dhcpv6ServerDUID` can be set to a stable
 server DUID encoded as raw hex bytes with optional `:` or `-` separators. For

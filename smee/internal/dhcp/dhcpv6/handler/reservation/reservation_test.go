@@ -41,6 +41,20 @@ func (r *recordingPacketConn) SetDeadline(time.Time) error      { return nil }
 func (r *recordingPacketConn) SetReadDeadline(time.Time) error  { return nil }
 func (r *recordingPacketConn) SetWriteDeadline(time.Time) error { return nil }
 
+type recordingInformationRequestHandler struct {
+	calls  int
+	conn   net.PacketConn
+	peer   net.Addr
+	packet dhcpv6.DHCPv6
+}
+
+func (r *recordingInformationRequestHandler) Handle(_ context.Context, conn net.PacketConn, peer net.Addr, packet dhcpv6.DHCPv6) {
+	r.calls++
+	r.conn = conn
+	r.peer = peer
+	r.packet = packet
+}
+
 type mockBackend struct {
 	hardware map[string]*tinkerbell.Hardware
 	err      error
@@ -60,6 +74,28 @@ func (m *mockBackend) FilterHardware(_ context.Context, opts data.HardwareFilter
 		return nil, hardwareNotFoundError{}
 	}
 	return hw, nil
+}
+
+func TestNewRejectsInvalidConfig(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*Config)
+	}{
+		{name: "missing backend", mutate: func(config *Config) { config.Backend = nil }},
+		{name: "missing server ID", mutate: func(config *Config) { config.ServerID = nil }},
+		{name: "missing boot URL source", mutate: func(config *Config) { config.BootURLSource = nil }},
+		{name: "missing information-request handler", mutate: func(config *Config) { config.InformationRequestHandler = nil }},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := newHandlerConfig(t, &mockBackend{})
+			test.mutate(&config)
+			if _, err := New(config); err == nil {
+				t.Fatal("expected invalid handler configuration to fail")
+			}
+		})
+	}
 }
 
 func TestHandleSolicitReturnsAdvertiseWithReservation(t *testing.T) {
@@ -84,7 +120,7 @@ func TestHandleSolicitReturnsAdvertiseWithReservation(t *testing.T) {
 
 	reply := requireSingleMessage(t, conn, dhcpv6.MessageTypeAdvertise)
 	requireReservation(t, reply, [4]byte{9, 8, 7, 6}, net.ParseIP("2001:db8::100"), time.Hour, 2*time.Hour)
-	requireIANATimers(t, reply, time.Hour, 96*time.Minute)
+	requireIANATimers(t, reply, 30*time.Minute, 48*time.Minute)
 	if diff := cmp.Diff([]net.IP{net.ParseIP("2001:db8::53")}, reply.Options.DNS()); diff != "" {
 		t.Fatalf("unexpected DNS diff (-want +got):\n%s", diff)
 	}
@@ -101,7 +137,7 @@ func TestHandleSolicitUsesDNSDefaults(t *testing.T) {
 	hardware := hardwareForMAC(mac, "2001:db8::100", "", true)
 	hardware.Spec.Interfaces[0].DHCP.NameServers = []string{"192.0.2.99"}
 	handler := newHandler(t, map[string]*tinkerbell.Hardware{mac.String(): hardware})
-	handler.DNSDefaults = v6.DNSDefaults{
+	handler.dnsDefaults = v6.DNSDefaults{
 		NameServers:  []net.IP{net.ParseIP("192.0.2.53"), net.ParseIP("2001:db8::53")},
 		DomainSearch: []string{"default.example.com"},
 	}
@@ -163,12 +199,28 @@ func TestHandleSolicitReturnsReservationForOneIANA(t *testing.T) {
 	requireIANAStatusForIAID(t, reply, [4]byte{2, 2, 2, 2}, iana.StatusNoAddrsAvail)
 }
 
-func TestHandleSolicitClampsTinyLeaseTimes(t *testing.T) {
+func TestHandleSolicitLeaseLifetimes(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	for _, leaseTime := range []int64{1, 2, 3} {
-		t.Run(fmt.Sprintf("%ds", leaseTime), func(t *testing.T) {
+	tests := []struct {
+		leaseTime int64
+		preferred time.Duration
+		valid     time.Duration
+		t1        time.Duration
+		t2        time.Duration
+	}{
+		{0, 84 * time.Hour, 168 * time.Hour, 42 * time.Hour, 4032 * time.Minute},
+		{1, 30 * time.Second, time.Minute, 15 * time.Second, 24 * time.Second},
+		{2, 30 * time.Second, time.Minute, 15 * time.Second, 24 * time.Second},
+		{3, 30 * time.Second, time.Minute, 15 * time.Second, 24 * time.Second},
+		{60, 30 * time.Second, time.Minute, 15 * time.Second, 24 * time.Second},
+		{63, 31 * time.Second, 63 * time.Second, 15 * time.Second, 24 * time.Second},
+		{7200, time.Hour, 2 * time.Hour, 30 * time.Minute, 48 * time.Minute},
+		{1<<32 - 1, 2147483647 * time.Second, (1<<32 - 1) * time.Second, 1073741823 * time.Second, 1717986917 * time.Second},
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%ds", test.leaseTime), func(t *testing.T) {
 			hardware := hardwareForMAC(mac, "2001:db8::100", "", true)
-			hardware.Spec.Interfaces[0].DHCP.LeaseTime = leaseTime
+			hardware.Spec.Interfaces[0].DHCP.LeaseTime = test.leaseTime
 			handler := newHandler(t, map[string]*tinkerbell.Hardware{mac.String(): hardware})
 			conn := &recordingPacketConn{}
 			msg := messageWithMAC(t, mac, dhcpv6.MessageTypeSolicit)
@@ -178,8 +230,8 @@ func TestHandleSolicitClampsTinyLeaseTimes(t *testing.T) {
 			handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
 			reply := requireSingleMessage(t, conn, dhcpv6.MessageTypeAdvertise)
-			requireReservation(t, reply, [4]byte{9, 8, 7, 6}, net.ParseIP("2001:db8::100"), 30*time.Second, time.Minute)
-			requireIANATimers(t, reply, 30*time.Second, 48*time.Second)
+			requireReservation(t, reply, [4]byte{9, 8, 7, 6}, net.ParseIP("2001:db8::100"), test.preferred, test.valid)
+			requireIANATimers(t, reply, test.t1, test.t2)
 		})
 	}
 }
@@ -250,7 +302,7 @@ func TestHandleStatefulMessageWithoutIANAIgnored(t *testing.T) {
 		name        string
 		messageType dhcpv6.MessageType
 		hardware    *tinkerbell.Hardware
-		configure   func(*Handler)
+		derived     bool
 	}{
 		{
 			name:        "reservation solicit",
@@ -276,20 +328,16 @@ func TestHandleStatefulMessageWithoutIANAIgnored(t *testing.T) {
 			name:        "derived solicit",
 			messageType: dhcpv6.MessageTypeSolicit,
 			hardware:    hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-			configure: func(handler *Handler) {
-				handler.Derived = true
-				handler.DerivedDirectAddressPool = pool
-			},
+			derived:     true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handler := newHandler(t, map[string]*tinkerbell.Hardware{
-				mac.String(): test.hardware,
-			})
-			if test.configure != nil {
-				test.configure(handler)
+			hardware := map[string]*tinkerbell.Hardware{mac.String(): test.hardware}
+			handler := newHandler(t, hardware)
+			if test.derived {
+				handler = newDerivedHandler(t, hardware, pool, 64)
 			}
 			conn := &recordingPacketConn{}
 			msg := messageWithMAC(t, mac, test.messageType)
@@ -440,7 +488,9 @@ func TestHandleRenewRebindReturnOneReservationForDuplicateMatchingIANAs(t *testi
 			})
 			conn := &recordingPacketConn{}
 			msg := messageWithMAC(t, mac, messageType)
-			withHandlerServerID(handler)(msg)
+			if requiresServerID(messageType) {
+				withHandlerServerID(handler)(msg)
+			}
 			addIANA(t, msg, [4]byte{1, 1, 1, 1}, net.ParseIP("2001:db8::100"))
 			addIANA(t, msg, [4]byte{2, 2, 2, 2}, net.ParseIP("2001:db8::100"))
 
@@ -450,6 +500,48 @@ func TestHandleRenewRebindReturnOneReservationForDuplicateMatchingIANAs(t *testi
 			requireReservationForIAID(t, reply, [4]byte{1, 1, 1, 1}, net.ParseIP("2001:db8::100"))
 			requireIANAStatusForIAID(t, reply, [4]byte{2, 2, 2, 2}, iana.StatusNoBinding)
 		})
+	}
+}
+
+func TestHandleSolicitRebindRejectAnyServerID(t *testing.T) {
+	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
+	for _, messageType := range []dhcpv6.MessageType{dhcpv6.MessageTypeSolicit, dhcpv6.MessageTypeRebind} {
+		for _, relayed := range []bool{false, true} {
+			for _, server := range []string{"none", "ours", "another"} {
+				t.Run(fmt.Sprintf("%s/relayed=%t/server=%s", messageType, relayed, server), func(t *testing.T) {
+					handler := newHandler(t, map[string]*tinkerbell.Hardware{
+						mac.String(): hardwareForMAC(mac, "2001:db8::100", "", true),
+					})
+					msg := messageWithMAC(t, mac, messageType)
+					addIANA(t, msg, [4]byte{1, 2, 3, 4}, net.ParseIP("2001:db8::100"))
+					switch server {
+					case "ours":
+						withHandlerServerID(handler)(msg)
+					case "another":
+						dhcpv6.WithServerID(&dhcpv6.DUIDLL{
+							HWType:        iana.HWTypeEthernet,
+							LinkLayerAddr: net.HardwareAddr{0xde, 0xad, 0xbe, 0xef, 0, 1},
+						})(msg)
+					}
+					packet := dhcpv6.DHCPv6(msg)
+					peer := &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}
+					if relayed {
+						packet = relayRequest(t, msg, mac)
+						peer.Port = dhcpv6.DefaultServerPort
+					}
+					conn := &recordingPacketConn{}
+					handler.Handle(context.Background(), conn, peer, packet)
+
+					wantReplies := 0
+					if server == "none" {
+						wantReplies = 1
+					}
+					if len(conn.writes) != wantReplies {
+						t.Fatalf("unexpected reply count: got %d want %d", len(conn.writes), wantReplies)
+					}
+				})
+			}
+		}
 	}
 }
 
@@ -552,11 +644,9 @@ func TestHandleReservationIgnoresHardwareWithNoIPv6(t *testing.T) {
 func TestHandleDerivedUsesDirectPoolWhenReservationHasNoIPv6(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
 	pool := netip.MustParsePrefix("2001:db8:abcd::/64")
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
+	handler := newDerivedHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-	})
-	handler.Derived = true
-	handler.DerivedDirectAddressPool = pool
+	}, pool, 64)
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeSolicit)
 	addIANA(t, msg, [4]byte{2, 3, 4, 5})
@@ -569,10 +659,9 @@ func TestHandleDerivedUsesDirectPoolWhenReservationHasNoIPv6(t *testing.T) {
 
 func TestHandleDerivedIgnoresDirectRequestWithoutPool(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
+	handler := newDerivedHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-	})
-	handler.Derived = true
+	}, netip.Prefix{}, 64)
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeSolicit)
 	addIANA(t, msg, [4]byte{2, 3, 4, 5})
@@ -584,7 +673,7 @@ func TestHandleDerivedIgnoresDirectRequestWithoutPool(t *testing.T) {
 	}
 }
 
-func TestHandleDerivedIgnoresUnusableDirectPools(t *testing.T) {
+func TestNewRejectsUnusableDerivedDirectPools(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		pool netip.Prefix
@@ -595,20 +684,10 @@ func TestHandleDerivedIgnoresUnusableDirectPools(t *testing.T) {
 		{name: "IPv4 mapped", pool: netip.MustParsePrefix("::ffff:0:0/96")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-			handler := newHandler(t, map[string]*tinkerbell.Hardware{
-				mac.String(): hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-			})
-			handler.Derived = true
-			handler.DerivedDirectAddressPool = tc.pool
-			conn := &recordingPacketConn{}
-			msg := messageWithMAC(t, mac, dhcpv6.MessageTypeSolicit)
-			addIANA(t, msg, [4]byte{2, 3, 4, 5})
-
-			handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
-
-			if len(conn.writes) != 0 {
-				t.Fatalf("expected no reply, got %d", len(conn.writes))
+			config := newHandlerConfig(t, &mockBackend{})
+			config.Derived = &DerivedConfig{DirectAddressPool: tc.pool, RelayAddressPrefix: 64}
+			if _, err := New(config); err == nil {
+				t.Fatal("expected unusable direct address pool to fail construction")
 			}
 		})
 	}
@@ -633,11 +712,9 @@ func TestDerivedAddressAvoidsSubnetRouterAnycast(t *testing.T) {
 
 func TestHandleDerivedUsesHardwareIPv6BeforeDerivedPool(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
+	handler := newDerivedHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, "2001:db8::100", "", true),
-	})
-	handler.Derived = true
-	handler.DerivedDirectAddressPool = netip.MustParsePrefix("2001:db8:abcd::/64")
+	}, netip.MustParsePrefix("2001:db8:abcd::/64"), 64)
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeSolicit)
 	addIANA(t, msg, [4]byte{2, 3, 4, 5})
@@ -667,76 +744,101 @@ func TestHandleRapidCommitSolicitReturnsReply(t *testing.T) {
 	requireReservation(t, reply, [4]byte{2, 3, 4, 5}, net.ParseIP("2001:db8::100"), 84*time.Hour, 168*time.Hour)
 }
 
-func TestHandleInformationRequestDelegatesToStateless(t *testing.T) {
-	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
-		mac.String(): hardwareForMAC(mac, "2001:db8::100", "", true),
-	})
-	conn := &recordingPacketConn{}
-	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest)
-	requestBootURL(msg)
+func TestHandleInformationRequestDelegates(t *testing.T) {
+	for _, netbootAllowed := range []bool{true, false} {
+		t.Run(fmt.Sprintf("netboot allowed %t", netbootAllowed), func(t *testing.T) {
+			mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
+			delegate := &recordingInformationRequestHandler{}
+			handler := newHandlerWithInformationRequestHandler(t, map[string]*tinkerbell.Hardware{
+				mac.String(): hardwareForMAC(mac, "2001:db8::100", "", netbootAllowed),
+			}, delegate)
+			conn := &recordingPacketConn{}
+			peer := &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}
+			msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest)
+			requestBootURL(msg)
 
-	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
+			handler.Handle(context.Background(), conn, peer, msg)
 
-	reply := requireSingleMessage(t, conn, dhcpv6.MessageTypeReply)
-	if got := reply.Options.BootFileURL(); got != "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi" {
-		t.Fatalf("unexpected boot file URL: %s", got)
-	}
-	if got := reply.Options.VendorClass(clientEnterpriseNumber); len(got) != 0 {
-		t.Fatalf("unexpected vendor class: %q", got)
-	}
-	if reply.Options.OneIANA() != nil {
-		t.Fatal("information-request reply should not include IA_NA")
-	}
-}
-
-func TestHandleInformationRequestRepliesWithStatelessConfigWhenNetbootDisallowed(t *testing.T) {
-	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	hardware := hardwareForMAC(mac, "2001:db8::100", "", false)
-	hardware.Spec.Interfaces[0].DHCP.NameServers = []string{"2001:db8::53"}
-	hardware.Spec.Interfaces[0].DHCP.DomainName = "example.com"
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
-		mac.String(): hardware,
-	})
-	conn := &recordingPacketConn{}
-	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest)
-	dhcpv6.WithRequestedOptions(dhcpv6.OptionDNSRecursiveNameServer, dhcpv6.OptionDomainSearchList)(msg)
-
-	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
-
-	reply := requireSingleMessage(t, conn, dhcpv6.MessageTypeReply)
-	if got := reply.Options.BootFileURL(); got != "" {
-		t.Fatalf("expected no boot file URL, got %q", got)
-	}
-	if diff := cmp.Diff([]net.IP{net.ParseIP("2001:db8::53")}, reply.Options.DNS()); diff != "" {
-		t.Fatalf("unexpected DNS diff (-want +got):\n%s", diff)
-	}
-	if diff := cmp.Diff([]string{"example.com"}, reply.Options.DomainSearchList().Labels); diff != "" {
-		t.Fatalf("unexpected domain search diff (-want +got):\n%s", diff)
+			if delegate.calls != 1 {
+				t.Fatalf("unexpected delegation count: got %d want 1", delegate.calls)
+			}
+			if delegate.conn != conn || delegate.peer != peer || delegate.packet != msg {
+				t.Fatal("information-request was not delegated with the original inputs")
+			}
+		})
 	}
 }
 
-func TestHandleInformationRequestIgnoresIPv4Reservation(t *testing.T) {
+func TestHandleInformationRequestDelegatesWithoutIPv6Reservation(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
+	delegate := &recordingInformationRequestHandler{}
+	handler := newHandlerWithInformationRequestHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-	})
+	}, delegate)
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest)
 	requestBootURL(msg)
 
 	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
-	if len(conn.writes) != 0 {
-		t.Fatalf("expected no reply, got %d", len(conn.writes))
+	if delegate.calls != 1 {
+		t.Fatalf("unexpected delegation count: got %d want 1", delegate.calls)
+	}
+}
+
+func TestHandleInformationRequestIAOptionsDelegation(t *testing.T) {
+	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
+	tests := []struct {
+		name      string
+		options   []dhcpv6.Option
+		wantCalls int
+	}{
+		{name: "no IA", wantCalls: 1},
+		{name: "IA_NA", options: []dhcpv6.Option{&dhcpv6.OptIANA{}}},
+		{name: "IA_PD", options: []dhcpv6.Option{&dhcpv6.OptIAPD{}}},
+		// Obsolete IA_TA must not prevent delegation to the stateless handler.
+		{name: "IA_TA", options: []dhcpv6.Option{&dhcpv6.OptIATA{}}, wantCalls: 1},
+		{name: "IA_TA and IA_NA", options: []dhcpv6.Option{&dhcpv6.OptIATA{}, &dhcpv6.OptIANA{}}},
+		{name: "IA_TA and IA_PD", options: []dhcpv6.Option{&dhcpv6.OptIATA{}, &dhcpv6.OptIAPD{}}},
+	}
+	for _, test := range tests {
+		for _, relayed := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/relayed=%t", test.name, relayed), func(t *testing.T) {
+				delegate := &recordingInformationRequestHandler{}
+				handler := newHandlerWithInformationRequestHandler(t, map[string]*tinkerbell.Hardware{
+					mac.String(): hardwareForMAC(mac, "2001:db8::100", "", true),
+				}, delegate)
+				msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest)
+				withHandlerServerID(handler)(msg)
+				for _, option := range test.options {
+					msg.AddOption(option)
+				}
+				packet := dhcpv6.DHCPv6(msg)
+				peer := &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}
+				if relayed {
+					packet = relayRequest(t, msg, mac)
+					peer.Port = dhcpv6.DefaultServerPort
+				}
+				conn := &recordingPacketConn{}
+				handler.Handle(context.Background(), conn, peer, packet)
+
+				if delegate.calls != test.wantCalls {
+					t.Fatalf("unexpected delegation count: got %d want %d", delegate.calls, test.wantCalls)
+				}
+				if len(conn.writes) != 0 {
+					t.Fatalf("expected no reply, got %d", len(conn.writes))
+				}
+			})
+		}
 	}
 }
 
 func TestHandleInformationRequestAddressedToAnotherServerNotDelegated(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
+	delegate := &recordingInformationRequestHandler{}
+	handler := newHandlerWithInformationRequestHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, "2001:db8::100", "", true),
-	})
+	}, delegate)
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest)
 	dhcpv6.WithServerID(&dhcpv6.DUIDLL{
@@ -749,6 +851,9 @@ func TestHandleInformationRequestAddressedToAnotherServerNotDelegated(t *testing
 
 	if len(conn.writes) != 0 {
 		t.Fatalf("expected no reply, got %d", len(conn.writes))
+	}
+	if delegate.calls != 0 {
+		t.Fatalf("unexpected delegation count: got %d want 0", delegate.calls)
 	}
 }
 
@@ -765,7 +870,7 @@ func TestHandleReservationPXEBootURLDoesNotSendPXEClientVendorClass(t *testing.T
 	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
 	reply := requireSingleMessage(t, conn, dhcpv6.MessageTypeAdvertise)
-	if got := reply.Options.BootFileURL(); got != "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi" {
+	if got := reply.Options.BootFileURL(); got != "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi" {
 		t.Fatalf("unexpected boot file URL: %s", got)
 	}
 	if diff := cmp.Diff(iana.Archs{iana.EFI_X86_64}, reply.Options.ArchTypes()); diff != "" {
@@ -818,7 +923,7 @@ func TestHandleReservationAppendsTraceparentToBootURL(t *testing.T) {
 	handler := newHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, "2001:db8::100", "", true),
 	})
-	handler.OTELEnabled = true
+	handler.otelEnabled = true
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeSolicit)
 	dhcpv6.WithIANA()(msg)
@@ -828,7 +933,7 @@ func TestHandleReservationAppendsTraceparentToBootURL(t *testing.T) {
 	handler.Handle(ctx, conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
 	reply := requireSingleMessage(t, conn, dhcpv6.MessageTypeAdvertise)
-	if got, want := reply.Options.BootFileURL(), "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi-"+traceparent; got != want {
+	if got, want := reply.Options.BootFileURL(), "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi-"+traceparent; got != want {
 		t.Fatalf("unexpected boot file URL: got %q want %q", got, want)
 	}
 }
@@ -1028,7 +1133,7 @@ func TestHandleReleaseFromTcpdumpReturnsReply(t *testing.T) {
 	handler := newHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, "fd8a:3f4b:7c91:1::99", "", true),
 	})
-	handler.ServerID = serverID
+	handler.serverID = serverID
 	conn := &recordingPacketConn{}
 	msg, err := dhcpv6.NewMessage(
 		dhcpv6.WithClientID(&dhcpv6.DUIDLLT{
@@ -1123,11 +1228,9 @@ func TestHandleDerivedRelayUsesLinkAddressPrefix(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
 	linkAddr := netip.MustParseAddr("2001:db8:abcd:1234::1")
 	pool := netip.PrefixFrom(linkAddr, 64)
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
+	handler := newDerivedHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-	})
-	handler.Derived = true
-	handler.DerivedRelayAddressPrefix = 64
+	}, netip.Prefix{}, 64)
 	conn := &recordingPacketConn{}
 	msg := messageWithDUIDEN(t, dhcpv6.MessageTypeSolicit)
 	addIANA(t, msg, [4]byte{2, 3, 4, 5})
@@ -1147,11 +1250,9 @@ func TestHandleDerivedRelayHonorsCustomPrefix(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
 	linkAddr := netip.MustParseAddr("2001:db8:abcd:1234::1")
 	pool := netip.PrefixFrom(linkAddr, 56)
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
+	handler := newDerivedHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-	})
-	handler.Derived = true
-	handler.DerivedRelayAddressPrefix = 56
+	}, netip.Prefix{}, 56)
 	conn := &recordingPacketConn{}
 	msg := messageWithDUIDEN(t, dhcpv6.MessageTypeSolicit)
 	addIANA(t, msg, [4]byte{2, 3, 4, 5})
@@ -1167,41 +1268,19 @@ func TestHandleDerivedRelayHonorsCustomPrefix(t *testing.T) {
 	requireReservation(t, inner, [4]byte{2, 3, 4, 5}, net.IP(derivedAddress(pool, mac).AsSlice()), 84*time.Hour, 168*time.Hour)
 }
 
-func TestHandleDerivedRelayIgnoresNarrowPrefix(t *testing.T) {
-	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
-		mac.String(): hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-	})
-	handler.Derived = true
-	handler.DerivedRelayAddressPrefix = 65
-	conn := &recordingPacketConn{}
-	msg := messageWithDUIDEN(t, dhcpv6.MessageTypeSolicit)
-	addIANA(t, msg, [4]byte{2, 3, 4, 5})
-	relay := relayRequestWithLinkAddress(t, msg, mac, netip.MustParseAddr("2001:db8:abcd:1234::1"))
-
-	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::abcd"), Port: dhcpv6.DefaultServerPort}, relay)
-
-	if len(conn.writes) != 0 {
-		t.Fatalf("expected no reply, got %d", len(conn.writes))
+func TestNewRejectsNarrowDerivedRelayPrefix(t *testing.T) {
+	config := newHandlerConfig(t, &mockBackend{})
+	config.Derived = &DerivedConfig{RelayAddressPrefix: 65}
+	if _, err := New(config); err == nil {
+		t.Fatal("expected narrow relay address prefix to fail construction")
 	}
 }
 
-func TestHandleDerivedRelayIgnoresZeroPrefix(t *testing.T) {
-	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
-		mac.String(): hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-	})
-	handler.Derived = true
-	handler.DerivedRelayAddressPrefix = 0
-	conn := &recordingPacketConn{}
-	msg := messageWithDUIDEN(t, dhcpv6.MessageTypeSolicit)
-	addIANA(t, msg, [4]byte{2, 3, 4, 5})
-	relay := relayRequestWithLinkAddress(t, msg, mac, netip.MustParseAddr("2001:db8:abcd:1234::1"))
-
-	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::abcd"), Port: dhcpv6.DefaultServerPort}, relay)
-
-	if len(conn.writes) != 0 {
-		t.Fatalf("expected no reply, got %d", len(conn.writes))
+func TestNewRejectsZeroDerivedRelayPrefix(t *testing.T) {
+	config := newHandlerConfig(t, &mockBackend{})
+	config.Derived = &DerivedConfig{RelayAddressPrefix: 0}
+	if _, err := New(config); err == nil {
+		t.Fatal("expected zero relay address prefix to fail construction")
 	}
 }
 
@@ -1215,11 +1294,9 @@ func TestHandleDerivedRelayIgnoresUnusableLinkAddress(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-			handler := newHandler(t, map[string]*tinkerbell.Hardware{
+			handler := newDerivedHandler(t, map[string]*tinkerbell.Hardware{
 				mac.String(): hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-			})
-			handler.Derived = true
-			handler.DerivedRelayAddressPrefix = 64
+			}, netip.Prefix{}, 64)
 			conn := &recordingPacketConn{}
 			msg := messageWithDUIDEN(t, dhcpv6.MessageTypeSolicit)
 			addIANA(t, msg, [4]byte{2, 3, 4, 5})
@@ -1236,9 +1313,7 @@ func TestHandleDerivedRelayIgnoresUnusableLinkAddress(t *testing.T) {
 
 func TestHandleDerivedIgnoresUnknownHardware(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{})
-	handler.Derived = true
-	handler.DerivedDirectAddressPool = netip.MustParsePrefix("2001:db8:abcd::/64")
+	handler := newDerivedHandler(t, map[string]*tinkerbell.Hardware{}, netip.MustParsePrefix("2001:db8:abcd::/64"), 64)
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeSolicit)
 	addIANA(t, msg, [4]byte{2, 3, 4, 5})
@@ -1255,11 +1330,9 @@ func TestHandleDerivedNestedRelayUsesInnermostLinkAddressPrefix(t *testing.T) {
 	innerLinkAddr := netip.MustParseAddr("2001:db8:1111:2222::1")
 	outerLinkAddr := netip.MustParseAddr("2001:db8:aaaa:bbbb::1")
 	pool := netip.PrefixFrom(innerLinkAddr, 64)
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
+	handler := newDerivedHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, "192.0.2.100", "255.255.255.0", true),
-	})
-	handler.Derived = true
-	handler.DerivedRelayAddressPrefix = 64
+	}, netip.Prefix{}, 64)
 	conn := &recordingPacketConn{}
 	msg := messageWithDUIDEN(t, dhcpv6.MessageTypeSolicit)
 	addIANA(t, msg, [4]byte{2, 3, 4, 5})
@@ -1316,28 +1389,69 @@ func newHandler(t *testing.T, hardware map[string]*tinkerbell.Hardware) *Handler
 	return newHandlerWithBackend(t, &mockBackend{hardware: hardware})
 }
 
+func newHandlerWithInformationRequestHandler(t *testing.T, hardware map[string]*tinkerbell.Hardware, informationRequestHandler InformationRequestHandler) *Handler {
+	t.Helper()
+	config := newHandlerConfig(t, &mockBackend{hardware: hardware})
+	config.InformationRequestHandler = informationRequestHandler
+	handler, err := New(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return handler
+}
+
 func newHandlerWithBackend(t *testing.T, backend *mockBackend) *Handler {
+	t.Helper()
+	handler, err := New(newHandlerConfig(t, backend))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return handler
+}
+
+func newDerivedHandler(t *testing.T, hardware map[string]*tinkerbell.Hardware, directPool netip.Prefix, relayPrefix int) *Handler {
+	t.Helper()
+	config := newHandlerConfig(t, &mockBackend{hardware: hardware})
+	config.Derived = &DerivedConfig{
+		DirectAddressPool:  directPool,
+		RelayAddressPrefix: relayPrefix,
+	}
+	handler, err := New(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return handler
+}
+
+func newHandlerConfig(t *testing.T, backend *mockBackend) Config {
 	t.Helper()
 	httpBinaryURL, err := url.Parse("http://boot.example/ipxe/binary")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &Handler{
-		Backend: backend,
-		ServerID: &dhcpv6.DUIDLL{
-			HWType:        iana.HWTypeEthernet,
-			LinkLayerAddr: net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
-		},
-		Netboot: Netboot{
-			IPXEBinServerTFTP: netip.MustParseAddrPort("192.0.2.1:69"),
-			IPXEBinServerHTTP: httpBinaryURL,
-			IPXEScriptURL: func(mac net.HardwareAddr) *url.URL {
-				u, _ := url.Parse("http://boot.example/ipxe/script/" + mac.String() + "/auto6.ipxe")
-				return u
-			},
-			Enabled:             true,
-			InjectMacAddrFormat: constant.MacAddrFormatColon,
-		},
+	httpScriptURL, err := url.Parse("http://boot.example/ipxe/script/auto6.ipxe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	netboot, err := v6.NewNetboot(v6.NetbootConfig{
+		IPXEBinServerTFTP:   netip.MustParseAddrPort("[2001:db8::1]:69"),
+		IPXEBinServerHTTP:   httpBinaryURL,
+		IPXEScriptURL:       httpScriptURL,
+		InjectMacAddress:    true,
+		InjectMacAddrFormat: constant.MacAddrFormatColon,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverID := &dhcpv6.DUIDLL{
+		HWType:        iana.HWTypeEthernet,
+		LinkLayerAddr: net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+	}
+	return Config{
+		Backend:                   backend,
+		ServerID:                  serverID,
+		BootURLSource:             netboot,
+		InformationRequestHandler: &recordingInformationRequestHandler{},
 	}
 }
 
@@ -1387,7 +1501,7 @@ func requestBootURL(msg *dhcpv6.Message) {
 }
 
 func withHandlerServerID(handler *Handler) dhcpv6.Modifier {
-	return dhcpv6.WithServerID(handler.ServerID)
+	return dhcpv6.WithServerID(handler.serverID)
 }
 
 func addIANAAddresses(msg *dhcpv6.Message, addresses ...net.IP) {

@@ -276,16 +276,49 @@ helm-lint: ## Lint the Helm chart
 helm-template: ## Helm template for Tinkerbell
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" 2>&1 >/dev/null
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" --set "deployment.envs.globals.bindAddr=192.0.2.10" | grep -A1 "name: TINKERBELL_BIND_ADDRESS" | grep -F -q 'value: "192.0.2.10"'
-	! helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" 2>&1 >/dev/null
-	! helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set 'artifactsFileServer=http://[2001:db8:100::102]:717' 2>&1 >/dev/null
-	! helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=1.1.1.1" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:717' 2>&1 >/dev/null
-	! helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "artifactsFileServerV6=http://2.2.2.2:717" 2>&1 >/dev/null
-	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" | grep -F -q 'kube-vip.io/loadbalancerIPs: "1.1.1.1"'
-	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "service.loadBalancerIP=1.1.1.2" --set "artifactsFileServer=http://2.2.2.2" | grep -F -q 'kube-vip.io/loadbalancerIPs: "1.1.1.2"'
+	if helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" >/dev/null 2>&1; then
+		echo "FAIL: expected Helm to reject IPv6 publicIP" >&2
+		exit 1
+	fi
+	if helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set 'artifactsFileServer=http://[2001:db8:100::102]:717' >/dev/null 2>&1; then
+		echo "FAIL: expected Helm to reject IPv6 artifactsFileServer" >&2
+		exit 1
+	fi
+	if helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=1.1.1.1" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:717' >/dev/null 2>&1; then
+		echo "FAIL: expected Helm to reject IPv4 publicIPv6" >&2
+		exit 1
+	fi
+	if helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "artifactsFileServerV6=http://2.2.2.2:717" >/dev/null 2>&1; then
+		echo "FAIL: expected Helm to reject IPv4 artifactsFileServerV6" >&2
+		exit 1
+	fi
+	for lb_ip in "" "1.1.1.2"; do
+		main_service=$$(helm template test helm/tinkerbell --show-only templates/service.yaml --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "service.loadBalancerIP=$$lb_ip" --set "artifactsFileServer=http://2.2.2.2")
+		grep -Fx -q "  loadBalancerIP: $${lb_ip:-1.1.1.1}" <<< "$$main_service"
+		grep -Fx -q "    kube-vip.io/loadbalancerIPs: \"$${lb_ip:-1.1.1.1}\"" <<< "$$main_service"
+	done
+	main_service=$$(helm template test helm/tinkerbell --show-only templates/service.yaml --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "publicIPv6=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" --set 'service.annotations.kube-vip\.io/loadbalancerIPs=2001:db8::16')
+	grep -Fx -q '    kube-vip.io/loadbalancerIPs: 2001:db8::16' <<< "$$main_service"
+	test "$$(grep -F -c 'kube-vip.io/loadbalancerIPs:' <<< "$$main_service")" = 1
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" | grep -F -q 'kube-vip.io/loadbalancerIPs: "2001:db8::15"'
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "publicIPv6=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" | grep -F -q 'kube-vip.io/loadbalancerIPs: "1.1.1.1,2001:db8::15"'
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "deployment.envs.globals.publicIPv6=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" | grep -F -q 'kube-vip.io/loadbalancerIPs: "2001:db8::15"'
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2:7173" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:7173' | grep -F -q 'kube-vip.io/loadbalancerIPs: "2.2.2.2,2001:db8:100::102"'
+	for service_template in templates/service.yaml templates/osie/service.yaml; do
+		service=$$(helm template test helm/tinkerbell --show-only "$$service_template" --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2")
+		if grep -E -q '^  ipFamil(yPolicy|ies):' <<< "$$service"; then
+			echo "FAIL: default Service must omit IP-family fields ($$service_template)" >&2
+			exit 1
+		fi
+	done
+	for service_type in LoadBalancer ClusterIP; do
+		osie_service=$$(helm template test helm/tinkerbell --show-only templates/osie/service.yaml --set "trustedProxies={127.0.0.1/24}" --set "artifactsFileServer=http://2.2.2.2:7173" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:7173' --set "optional.osie.service.type=$$service_type" --set "optional.osie.service.ipFamilyPolicy=RequireDualStack" --set 'optional.osie.service.ipFamilies={IPv4,IPv6}')
+		grep -Fx -q '  ipFamilyPolicy: RequireDualStack' <<< "$$osie_service"
+		test "$$(grep -A2 '^  ipFamilies:' <<< "$$osie_service")" = "$$(printf '%s\n' '  ipFamilies:' '    - IPv4' '    - IPv6')"
+	done
+	osie_service=$$(helm template test helm/tinkerbell --show-only templates/osie/service.yaml --set "trustedProxies={127.0.0.1/24}" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:7173' --set "optional.osie.service.ipFamilyPolicy=SingleStack" --set 'optional.osie.service.ipFamilies={IPv6}')
+	grep -Fx -q '  ipFamilyPolicy: SingleStack' <<< "$$osie_service"
+	test "$$(grep -A1 '^  ipFamilies:' <<< "$$osie_service")" = "$$(printf '%s\n' '  ipFamilies:' '    - IPv6')"
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "artifactsFileServer=http://2.2.2.2:7173" --set 'optional.hookos.service.annotations.kube-vip\.io/loadbalancerIPs=2.2.2.3' | grep -F -q '2.2.2.3'
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "artifactsFileServer=http://2.2.2.2:7173" --set 'optional.hookos.service.annotations.kube-vip\.io/loadbalancerIPs=2.2.2.3' | grep -F -c 'kube-vip.io/loadbalancerIPs:' | grep -x -q '1'
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set 'artifactsFileServerV6=http://[2001:db8:100::102]:717' | grep -A1 "name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL_V6" | grep -F -q 'value: "http://[2001:db8:100::102]:717"'

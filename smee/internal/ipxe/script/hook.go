@@ -1,32 +1,8 @@
 package script
 
-import (
-	"net"
-	"net/netip"
-)
-
-const (
-	syslogIPXEConfigNameIPv4 = "syslog"
-	syslogIPXEConfigNameIPv6 = "syslog6"
-)
-
 // HookScript is the default iPXE script for loading Hook.
 var HookScript = `#!ipxe
-
-{{- if .SyslogHost }}
-{{- if eq .SyslogIPXEConfigName "syslog6" }}
-# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog6).
-# If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog6 variable.
-set check:ipv6 {{ .SyslogHost }} && set syslog6 {{ .SyslogHost }} || nslookup syslog6 {{ .SyslogHost }} || echo [WARN] Failed to resolve syslog6 host {{ .SyslogHost }}
-clear check
-{{- else }}
-# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog).
-# If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog variable.
-set check:ipv4 {{ .SyslogHost }} && set syslog {{ .SyslogHost }} || nslookup syslog {{ .SyslogHost }} || echo [WARN] Failed to resolve syslog host {{ .SyslogHost }}
-clear check
-{{- end }}
-{{- end}}
-
+` + syslogScript + `
 echo Loading the Tinkerbell Hook iPXE script...
 {{- if .TraceID }}
 echo Debug TraceID: {{ .TraceID }}
@@ -42,7 +18,7 @@ set retry_delay:int32 {{ .RetryDelay }}
 set idx:int32 0
 :retry_kernel
 kernel ${download-url}/${kernel} {{- if ne .VLANID "" }} vlan_id={{ .VLANID }} {{- end }} \
-facility={{ .Facility }} syslog_host={{ .SyslogHost }} grpc_authority={{ .TinkGRPCAuthority }} tinkerbell_tls={{ .TinkerbellTLS }} tinkerbell_insecure_tls={{ .TinkerbellInsecureTLS }} worker_id={{ .WorkerID }} hw_addr={{ .HWAddr }} \
+facility={{ .Facility }} syslog_host={{ .SelectedSyslogHost }} grpc_authority={{ .TinkGRPCAuthority }} tinkerbell_tls={{ .TinkerbellTLS }} tinkerbell_insecure_tls={{ .TinkerbellInsecureTLS }} worker_id={{ .WorkerID }} hw_addr={{ .HWAddr }} \
 modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=${initrd} console=tty0 console=ttyS1,115200 {{- range .ExtraKernelParams}} {{.}} {{- end}} && goto download_initrd || iseq ${idx} ${retries} && goto kernel-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_kernel
 
 :download_initrd
@@ -73,13 +49,15 @@ exit
 
 // Hook holds the values used to generate the iPXE script that loads the Hook OS.
 type Hook struct {
-	Arch                  string   // example x86_64
-	Console               string   // example ttyS1,115200
-	DownloadURL           string   // example https://location:8080/to/kernel/and/initrd
-	ExtraKernelParams     []string // example tink_worker_image=quay.io/tinkerbell/tink-worker:v0.8.0
+	AddressFamily         addressFamily // selected from the requested boot script
+	Arch                  string        // example x86_64
+	Console               string        // example ttyS1,115200
+	DownloadURL           string        // example https://location:8080/to/kernel/and/initrd
+	ExtraKernelParams     []string      // example tink_worker_image=quay.io/tinkerbell/tink-worker:v0.8.0
 	Facility              string
 	HWAddr                string // example 3c:ec:ef:4c:4f:54
 	SyslogHost            string
+	SyslogHostV6          string // used only by the DHCPv6 boot script
 	TinkerbellTLS         bool
 	TinkerbellInsecureTLS bool
 	TinkGRPCAuthority     string // example 192.168.2.111:42113
@@ -90,47 +68,4 @@ type Hook struct {
 	RetryDelay            int    // number of seconds to wait between retries
 	KernelName            string // name of the kernel file
 	InitrdName            string // name of the initrd file
-
-	lookupHost func(string) ([]string, error) // for testing only
-}
-
-// SyslogIPXEConfigName returns the iPXE setting that matches the syslog host address family.
-func (h Hook) SyslogIPXEConfigName() string {
-	if addr, err := netip.ParseAddr(h.SyslogHost); err == nil {
-		if addr.Is6() {
-			return syslogIPXEConfigNameIPv6
-		}
-		return syslogIPXEConfigNameIPv4
-	}
-	if addrPort, err := netip.ParseAddrPort(h.SyslogHost); err == nil {
-		if addrPort.Addr().Is6() {
-			return syslogIPXEConfigNameIPv6
-		}
-		return syslogIPXEConfigNameIPv4
-	}
-
-	host := h.SyslogHost
-	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
-		host = parsedHost
-	}
-	if host == "" {
-		return syslogIPXEConfigNameIPv4
-	}
-
-	lookupHost := h.lookupHost
-	if lookupHost == nil {
-		lookupHost = net.LookupHost
-	}
-	addrs, err := lookupHost(host)
-	if err != nil {
-		return syslogIPXEConfigNameIPv4
-	}
-	for _, rawAddr := range addrs {
-		addr, err := netip.ParseAddr(rawAddr)
-		if err == nil && addr.Is6() {
-			return syslogIPXEConfigNameIPv6
-		}
-	}
-
-	return syslogIPXEConfigNameIPv4
 }

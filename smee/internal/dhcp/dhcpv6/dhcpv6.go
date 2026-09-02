@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -231,99 +230,6 @@ func IsHTTPBootArch(arch iana.Arch) bool {
 	}
 }
 
-// BootURLConfig holds the inputs needed to build a DHCPv6 boot file URL.
-type BootURLConfig struct {
-	HardwareNetboot   *dhcp.Netboot
-	IPXEBinServerTFTP netip.AddrPort
-	IPXEBinServerHTTP *url.URL
-	IPXEScriptURL     func(net.HardwareAddr) *url.URL
-	Traceparent       string
-}
-
-// BootURL returns the DHCPv6 boot file URL for the request.
-func (i *Info) BootURL(config BootURLConfig) (string, error) {
-	// Netboot is not allowed
-	if config.HardwareNetboot != nil && !config.HardwareNetboot.AllowNetboot {
-		return i.notAllowedBootURL(config.IPXEScriptURL)
-	}
-
-	// Break the iPXE boot loop with iPXE script
-	if i.hasUserClass(dhcp.Tinkerbell) || i.hasUserClass(dhcp.IPXE) {
-		if config.HardwareNetboot != nil && config.HardwareNetboot.IPXEScriptURL != nil {
-			return config.HardwareNetboot.IPXEScriptURL.String(), nil
-		}
-
-		if config.IPXEScriptURL == nil {
-			return "", fmt.Errorf("%w: missing iPXE script URL builder", ErrNoBootURL)
-		}
-
-		scriptURL := config.IPXEScriptURL(i.Mac)
-		if scriptURL == nil {
-			return "", fmt.Errorf("%w: iPXE script URL builder returned nil", ErrNoBootURL)
-		}
-
-		return scriptURL.String(), nil
-	}
-
-	binary := i.IPXEBinary
-	if config.HardwareNetboot != nil && config.HardwareNetboot.IPXEBinary != "" {
-		binary = config.HardwareNetboot.IPXEBinary
-	}
-
-	if binary == "" {
-		return "", fmt.Errorf("%w: missing iPXE binary", ErrNoBootURL)
-	}
-
-	if config.Traceparent != "" {
-		binary = fmt.Sprintf("%s-%v", binary, config.Traceparent)
-	}
-
-	if i.IsHTTPBootClient() {
-		bootURL := dhcp.HTTPBootURL(config.IPXEBinServerHTTP, i.Mac, i.MacAddrFormat, binary)
-		if bootURL == "" {
-			return "", fmt.Errorf("%w: missing HTTP iPXE binary server", ErrNoBootURL)
-		}
-		return bootURL, nil
-	}
-
-	// The default is to return TFTP link
-	bootTFTPUrl := dhcp.TFTPBootURL(config.IPXEBinServerTFTP, i.Mac, i.MacAddrFormat, binary)
-	if bootTFTPUrl == "" {
-		return "", fmt.Errorf("%w: missing TFTP iPXE binary server", ErrNoBootURL)
-	}
-	// Based upon RFC 5970 and UEFI 2.6, bootfile-url format can be
-	// tftp://[SERVER_ADDRESS]/BOOTFILE_NAME or tftp://domain_name/BOOTFILE_NAME
-	// As an example where the BOOTFILE_NAME is the EFI loader and
-	// SERVER_ADDRESS is the ASCII encoding of an IPV6 address.
-	//
-	// If the port is default, removing it
-	return strings.Replace(bootTFTPUrl, "]:69/", "]/", 1), nil
-}
-
-func (i *Info) notAllowedBootURL(smeeIPXEScriptURL func(net.HardwareAddr) *url.URL) (string, error) {
-	if smeeIPXEScriptURL == nil {
-		return "", fmt.Errorf("%w: missing iPXE script URL builder for not-allowed URL", ErrNoBootURL)
-	}
-
-	u := smeeIPXEScriptURL(i.Mac)
-	if u == nil {
-		return "", fmt.Errorf("%w: iPXE script URL builder returned nil for not-allowed URL", ErrNoBootURL)
-	}
-
-	notAllowed := *u
-	path := notAllowed.Path
-	if idx := strings.LastIndex(path, "/"); idx >= 0 {
-		path = path[:idx+1] + "netboot-not-allowed"
-	} else {
-		path = "netboot-not-allowed"
-	}
-	notAllowed.Path = path
-	notAllowed.RawPath = ""
-	notAllowed.RawQuery = ""
-	notAllowed.Fragment = ""
-	return notAllowed.String(), nil
-}
-
 // ApplyBootOptions adds DHCPv6 netboot reply options for a resolved boot URL.
 func ApplyBootOptions(reply dhcpv6.DHCPv6, i Info, bootURL string) {
 	if bootURL == "" {
@@ -500,12 +406,14 @@ func HardwareNotFound(err error) bool {
 }
 
 func parseDHCPv6Request(packet dhcpv6.DHCPv6, allowed map[dhcpv6.MessageType]struct{}) (*dhcpv6.Message, *dhcpv6.RelayMessage, error) {
+	var msg *dhcpv6.Message
+	var relay *dhcpv6.RelayMessage
 	switch pkt := packet.(type) {
 	case *dhcpv6.Message:
 		if _, ok := allowed[pkt.Type()]; !ok {
 			return nil, nil, errors.New("unsupported message type")
 		}
-		return pkt, nil, nil
+		msg = pkt
 	case *dhcpv6.RelayMessage:
 		if pkt.Type() != dhcpv6.MessageTypeRelayForward {
 			return nil, nil, errors.New("unsupported relay type")
@@ -517,10 +425,31 @@ func parseDHCPv6Request(packet dhcpv6.DHCPv6, allowed map[dhcpv6.MessageType]str
 		if _, ok := allowed[inner.Type()]; !ok {
 			return nil, nil, errors.New("unsupported relay inner message type")
 		}
-		return inner, pkt, nil
+		msg, relay = inner, pkt
 	default:
 		return nil, nil, errors.New("unsupported packet type")
 	}
+
+	switch msg.Type() {
+	case dhcpv6.MessageTypeSolicit, dhcpv6.MessageTypeRebind:
+		// RFC 9915 sections 16.2 and 16.7 forbid any Server Identifier,
+		// including one that identifies this server.
+		if msg.GetOneOption(dhcpv6.OptionServerID) != nil {
+			return nil, nil, errors.New("solicit or rebind includes a server ID")
+		}
+	case dhcpv6.MessageTypeInformationRequest:
+		// RFC 9915 section 16.12 forbids IA options in Information-request.
+		// Section 21.5 obsoletes IA_TA and recommends ignoring it while
+		// continuing message processing, so only IA_NA and IA_PD cause rejection.
+		for _, code := range []dhcpv6.OptionCode{dhcpv6.OptionIANA, dhcpv6.OptionIAPD} {
+			if msg.GetOneOption(code) != nil {
+				return nil, nil, errors.New("information-request includes an IA option")
+			}
+		}
+	default:
+	}
+
+	return msg, relay, nil
 }
 
 func macFromPacket(packet dhcpv6.DHCPv6, peer net.Addr, log logr.Logger) (net.HardwareAddr, error) {
@@ -594,11 +523,12 @@ func extractMAC(packet dhcpv6.DHCPv6, log logr.Logger) (net.HardwareAddr, error)
 			return mac, nil
 		}
 		log.V(1).Info("DHCPv6 relay client link-layer address option (79) not present")
-		if mac, err := dhcpv6.GetMacAddressFromEUI64(relay.PeerAddr); err == nil {
+		mac, euiErr := dhcpv6.GetMacAddressFromEUI64(relay.PeerAddr)
+		if euiErr == nil {
 			log.V(1).Info("DHCPv6 MAC extracted from relay peer EUI-64 address", "mac", mac.String(), "peerAddr", relay.PeerAddr.String())
 			return mac, nil
 		}
-		log.V(1).Info("DHCPv6 MAC extraction failed from relay peer EUI-64 address", "peerAddr", relay.PeerAddr.String(), "error", err)
+		log.V(1).Info("DHCPv6 MAC extraction failed from relay peer EUI-64 address", "peerAddr", relay.PeerAddr.String(), "error", euiErr)
 
 		msg, err = relay.GetInnerMessage()
 		if err != nil {

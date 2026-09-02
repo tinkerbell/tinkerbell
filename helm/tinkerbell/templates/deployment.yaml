@@ -264,6 +264,8 @@ spec:
               value: {{ .Values.deployment.envs.smee.ipxeOverrideArchMapping | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_SYSLOG_FQDN
               value: {{ .Values.deployment.envs.smee.ipxeScriptSyslogFqdn | quote }}
+            - name: TINKERBELL_IPXE_SCRIPT_SYSLOG_FQDN_V6
+              value: {{ .Values.deployment.envs.smee.ipxeScriptSyslogFqdnV6 | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT
               value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerAddrPort | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT_V6

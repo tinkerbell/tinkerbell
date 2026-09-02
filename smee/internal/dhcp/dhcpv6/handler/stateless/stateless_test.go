@@ -3,6 +3,7 @@ package stateless
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/netip"
 	"net/url"
@@ -61,6 +62,35 @@ func (m *mockBackend) FilterHardware(_ context.Context, opts data.HardwareFilter
 	return hw, nil
 }
 
+func TestNewRejectsInvalidConfig(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*Config)
+	}{
+		{name: "missing backend", mutate: func(config *Config) { config.Backend = nil }},
+		{name: "missing server ID", mutate: func(config *Config) { config.ServerID = nil }},
+		{name: "missing boot URL source", mutate: func(config *Config) { config.BootURLSource = nil }},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := newHandlerConfig(t, &mockBackend{}, false)
+			test.mutate(&config)
+			if _, err := New(config); err == nil {
+				t.Fatal("expected invalid handler configuration to fail")
+			}
+		})
+	}
+}
+
+func TestNewAcceptsDisabledNetboot(t *testing.T) {
+	config := newHandlerConfig(t, &mockBackend{}, false)
+	config.BootURLSource = v6.DisabledNetboot{}
+	if _, err := New(config); err != nil {
+		t.Fatalf("expected disabled netboot source to be valid: %v", err)
+	}
+}
+
 func TestHandleIgnoresUnsupportedMessageTypes(t *testing.T) {
 	handler := newHandler(t, map[string]*tinkerbell.Hardware{})
 	conn := &recordingPacketConn{}
@@ -86,7 +116,7 @@ func TestHandleDirectInformationRequestUsesExtractedMAC(t *testing.T) {
 	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
 	reply := requireSingleMessageReply(t, conn)
-	if got := reply.Options.BootFileURL(); got != "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi" {
+	if got := reply.Options.BootFileURL(); got != "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi" {
 		t.Fatalf("unexpected boot file URL: %s", got)
 	}
 	if got := reply.Options.InformationRefreshTime(0); got != defaultInformationRefreshTime {
@@ -100,6 +130,72 @@ func TestHandleDirectInformationRequestUsesExtractedMAC(t *testing.T) {
 	}
 	if diff := cmp.Diff([]string{"example.com"}, reply.Options.DomainSearchList().Labels); diff != "" {
 		t.Fatalf("unexpected domain search diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestHandleInformationRequestIAOptions(t *testing.T) {
+	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
+	tests := []struct {
+		name        string
+		options     []dhcpv6.Option
+		wantReplies int
+	}{
+		{name: "no IA", wantReplies: 1},
+		{name: "IA_NA", options: []dhcpv6.Option{&dhcpv6.OptIANA{}}},
+		{name: "IA_PD", options: []dhcpv6.Option{&dhcpv6.OptIAPD{}}},
+		// RFC 9915 section 21.5 obsoletes IA_TA: ignore it and still return configuration.
+		{name: "IA_TA", options: []dhcpv6.Option{&dhcpv6.OptIATA{}}, wantReplies: 1},
+		// Ignoring IA_TA must not bypass validation of other options in the message.
+		{name: "IA_TA and IA_NA", options: []dhcpv6.Option{&dhcpv6.OptIATA{}, &dhcpv6.OptIANA{}}},
+		{name: "IA_TA and IA_PD", options: []dhcpv6.Option{&dhcpv6.OptIATA{}, &dhcpv6.OptIAPD{}}},
+	}
+	for _, test := range tests {
+		for _, relayed := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/relayed=%t", test.name, relayed), func(t *testing.T) {
+				handler := newHandler(t, map[string]*tinkerbell.Hardware{
+					mac.String(): hardwareForMAC(mac, true, "", "", []string{"2001:db8::53"}, "example.com"),
+				})
+				msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest, nil, iana.EFI_X86_64)
+				dhcpv6.WithServerID(handler.serverID)(msg)
+				requestBootURL(msg)
+				requestStatelessConfig(msg)
+				for _, option := range test.options {
+					msg.AddOption(option)
+				}
+				packet := dhcpv6.DHCPv6(msg)
+				peer := &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}
+				if relayed {
+					packet = relayRequest(t, msg, mac)
+					peer.Port = dhcpv6.DefaultServerPort
+				}
+				conn := &recordingPacketConn{}
+				handler.Handle(context.Background(), conn, peer, packet)
+
+				if len(conn.writes) != test.wantReplies {
+					t.Fatalf("unexpected reply count: got %d want %d", len(conn.writes), test.wantReplies)
+				}
+				if test.wantReplies == 0 {
+					return
+				}
+				response, err := dhcpv6.FromBytes(conn.writes[0])
+				if err != nil {
+					t.Fatal(err)
+				}
+				reply, err := response.GetInnerMessage()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := reply.Options.BootFileURL(); got != "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi" {
+					t.Fatalf("unexpected boot file URL: %s", got)
+				}
+				if diff := cmp.Diff([]net.IP{net.ParseIP("2001:db8::53")}, reply.Options.DNS()); diff != "" {
+					t.Fatalf("unexpected DNS diff (-want +got):\n%s", diff)
+				}
+				if reply.GetOneOption(dhcpv6.OptionIATA) != nil {
+					t.Fatal("obsolete IA_TA option must not be echoed in the reply")
+				}
+			})
+		}
 	}
 }
 
@@ -128,7 +224,6 @@ func TestHandleDefaultInformationRefreshTimeDoesNotMutateHandler(t *testing.T) {
 	handler := newHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, true, "", "", nil, ""),
 	})
-	handler.InformationRefreshTime = 0
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest, nil, iana.EFI_X86_64)
 	requestBootURL(msg)
@@ -136,8 +231,8 @@ func TestHandleDefaultInformationRefreshTimeDoesNotMutateHandler(t *testing.T) {
 
 	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
-	if handler.InformationRefreshTime != 0 {
-		t.Fatalf("handler InformationRefreshTime was mutated: %v", handler.InformationRefreshTime)
+	if handler.informationRefreshTime != defaultInformationRefreshTime {
+		t.Fatalf("unexpected normalized InformationRefreshTime: %v", handler.informationRefreshTime)
 	}
 	reply := requireSingleMessageReply(t, conn)
 	if got := reply.Options.InformationRefreshTime(0); got != defaultInformationRefreshTime {
@@ -158,6 +253,16 @@ func TestHandleInformationRefreshTimeBounds(t *testing.T) {
 			want:       defaultInformationRefreshTime,
 		},
 		{
+			name:       "positive value below minimum is clamped",
+			configured: minInformationRefreshTime - time.Second,
+			want:       minInformationRefreshTime,
+		},
+		{
+			name:       "minimum value is preserved",
+			configured: minInformationRefreshTime,
+			want:       minInformationRefreshTime,
+		},
+		{
 			name:       "custom positive value is preserved",
 			configured: 30 * time.Minute,
 			want:       30 * time.Minute,
@@ -171,10 +276,14 @@ func TestHandleInformationRefreshTimeBounds(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			handler := newHandler(t, map[string]*tinkerbell.Hardware{
+			config := newHandlerConfig(t, &mockBackend{hardware: map[string]*tinkerbell.Hardware{
 				mac.String(): hardwareForMAC(mac, true, "", "", nil, ""),
-			})
-			handler.InformationRefreshTime = tc.configured
+			}}, false)
+			config.InformationRefreshTime = tc.configured
+			handler, err := New(config)
+			if err != nil {
+				t.Fatal(err)
+			}
 			conn := &recordingPacketConn{}
 			msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest, nil, iana.EFI_X86_64)
 			requestBootURL(msg)
@@ -264,10 +373,14 @@ func TestHandleNetbootDisabledOnlyOmitsBootURL(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
 	hardware := hardwareForMAC(mac, true, "", "", []string{"2001:db8::53"}, "example.com")
 	hardware.Spec.Interfaces[0].DHCP.TimeServers = []string{"2001:db8::123"}
-	handler := newHandler(t, map[string]*tinkerbell.Hardware{
+	config := newHandlerConfig(t, &mockBackend{hardware: map[string]*tinkerbell.Hardware{
 		mac.String(): hardware,
-	})
-	handler.Netboot.Enabled = false
+	}}, false)
+	config.BootURLSource = v6.DisabledNetboot{}
+	handler, err := New(config)
+	if err != nil {
+		t.Fatal(err)
+	}
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest, nil, iana.EFI_X86_64)
 	requestBootURL(msg)
@@ -313,7 +426,7 @@ func TestHandleDirectInformationRequestFallsBackToPeerEUI64(t *testing.T) {
 	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::211:22ff:fe33:4455"), Port: dhcpv6.DefaultClientPort}, msg)
 
 	reply := requireSingleMessageReply(t, conn)
-	if got := reply.Options.BootFileURL(); got != "tftp://192.0.2.1:69/00:11:22:33:44:55/ipxe.efi" {
+	if got := reply.Options.BootFileURL(); got != "tftp://[2001:db8::1]/00:11:22:33:44:55/ipxe.efi" {
 		t.Fatalf("unexpected boot file URL: %s", got)
 	}
 }
@@ -335,7 +448,7 @@ func TestHandleRelayInformationRequestFallsBackToDUIDMAC(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inner.Options.BootFileURL() != "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi" {
+	if inner.Options.BootFileURL() != "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi" {
 		t.Fatalf("unexpected boot file URL: %s", inner.Options.BootFileURL())
 	}
 }
@@ -345,10 +458,7 @@ func TestHandleRelayInformationRequestFallsBackToPeerEUI64(t *testing.T) {
 	handler := newHandler(t, map[string]*tinkerbell.Hardware{
 		mac.String(): hardwareForMAC(mac, true, "", "", nil, ""),
 	})
-	handler.Netboot.IPXEScriptURL = func(mac net.HardwareAddr) *url.URL {
-		u, _ := url.Parse("http://[fd8a:3f4b:7c91:1::201]:7080/ipxe/script/" + mac.String() + "/auto6.ipxe")
-		return u
-	}
+	handler.bootURLSource = newTestNetboot(t, "http://[fd8a:3f4b:7c91:1::201]:7080/ipxe/script/auto6.ipxe")
 	conn := &recordingPacketConn{}
 	msg, err := dhcpv6.NewMessage(dhcpv6.WithClientID(&dhcpv6.DUIDUUID{}))
 	if err != nil {
@@ -392,7 +502,7 @@ func TestHandleRelayInformationRequestReplyWrapped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inner.Options.BootFileURL() != "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi" {
+	if inner.Options.BootFileURL() != "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi" {
 		t.Fatalf("unexpected boot file URL: %s", inner.Options.BootFileURL())
 	}
 	if got := inner.Options.VendorClass(clientEnterpriseNumber); len(got) != 0 {
@@ -440,7 +550,7 @@ func TestHandleNestedRelayInformationRequestUsesInnermostRelayMAC(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inner.Options.BootFileURL() != "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi" {
+	if inner.Options.BootFileURL() != "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi" {
 		t.Fatalf("unexpected boot file URL: %s", inner.Options.BootFileURL())
 	}
 }
@@ -520,7 +630,7 @@ func TestHandleAutoStatelessUnknownHardwareReturnsDefaultBinary(t *testing.T) {
 	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
 	reply := requireSingleMessageReply(t, conn)
-	if got := reply.Options.BootFileURL(); got != "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi" {
+	if got := reply.Options.BootFileURL(); got != "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi" {
 		t.Fatalf("unexpected boot file URL: %s", got)
 	}
 	if got := reply.Options.VendorClass(clientEnterpriseNumber); len(got) != 0 {
@@ -537,7 +647,7 @@ func TestHandleAutoStatelessUnknownHardwareReturnsDefaultBinary(t *testing.T) {
 func TestHandleAutoStatelessUnknownHardwareUsesDNSDefaults(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
 	handler := newAutoHandler(t, map[string]*tinkerbell.Hardware{})
-	handler.DNSDefaults = v6.DNSDefaults{
+	handler.dnsDefaults = v6.DNSDefaults{
 		NameServers:  []net.IP{net.ParseIP("192.0.2.53"), net.ParseIP("2001:db8::53")},
 		DomainSearch: []string{"default.example.com"},
 	}
@@ -592,7 +702,7 @@ func TestHandleAutoStatelessAppendsTraceparentToBootURL(t *testing.T) {
 	const traceparent = "00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01"
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
 	handler := newAutoHandler(t, map[string]*tinkerbell.Hardware{})
-	handler.OTELEnabled = true
+	handler.otelEnabled = true
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest, nil, iana.EFI_X86_64)
 	requestBootURL(msg)
@@ -601,7 +711,7 @@ func TestHandleAutoStatelessAppendsTraceparentToBootURL(t *testing.T) {
 	handler.Handle(ctx, conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
 	reply := requireSingleMessageReply(t, conn)
-	if got, want := reply.Options.BootFileURL(), "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi-"+traceparent; got != want {
+	if got, want := reply.Options.BootFileURL(), "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi-"+traceparent; got != want {
 		t.Fatalf("unexpected boot file URL: got %q want %q", got, want)
 	}
 }
@@ -641,7 +751,7 @@ func TestHandleNetbootReplyEchoesSelectedClientArch(t *testing.T) {
 	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
 	reply := requireSingleMessageReply(t, conn)
-	if got := reply.Options.BootFileURL(); got != "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi" {
+	if got := reply.Options.BootFileURL(); got != "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi" {
 		t.Fatalf("unexpected boot file URL: %s", got)
 	}
 	if diff := cmp.Diff(iana.Archs{iana.EFI_X86_64}, reply.Options.ArchTypes()); diff != "" {
@@ -705,10 +815,7 @@ func TestHandleAutoStatelessUnknownHardwareReturnsStaticScript(t *testing.T) {
 func TestHandleAutoStatelessIPv6ScriptURLKeepsSchemeAndHost(t *testing.T) {
 	mac := net.HardwareAddr{0x08, 0x00, 0x27, 0x9e, 0xf5, 0x3a}
 	handler := newAutoHandler(t, map[string]*tinkerbell.Hardware{})
-	handler.Netboot.IPXEScriptURL = func(mac net.HardwareAddr) *url.URL {
-		u, _ := url.Parse("http://[fd8a:3f4b:7c91:1::201]:7080/ipxe/script/" + mac.String() + "/auto6.ipxe")
-		return u
-	}
+	handler.bootURLSource = newTestNetboot(t, "http://[fd8a:3f4b:7c91:1::201]:7080/ipxe/script/auto6.ipxe")
 	conn := &recordingPacketConn{}
 	msg := messageWithMAC(t, mac, dhcpv6.MessageTypeInformationRequest, []byte("iPXE"), iana.EFI_X86_64)
 	requestBootURL(msg)
@@ -854,7 +961,7 @@ func TestHandleUsesCustomIPXEBinaryOverride(t *testing.T) {
 	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
 	reply := requireSingleMessageReply(t, conn)
-	if got := reply.Options.BootFileURL(); got != "tftp://192.0.2.1:69/00:01:02:03:04:05/snp-x86_64.efi" {
+	if got := reply.Options.BootFileURL(); got != "tftp://[2001:db8::1]/00:01:02:03:04:05/snp-x86_64.efi" {
 		t.Fatalf("unexpected boot file URL: %s", got)
 	}
 }
@@ -871,7 +978,7 @@ func TestHandleRequestArchTakesPrecedenceOverHardwareArch(t *testing.T) {
 	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
 	reply := requireSingleMessageReply(t, conn)
-	if got := reply.Options.BootFileURL(); got != "tftp://192.0.2.1:69/00:01:02:03:04:05/ipxe.efi" {
+	if got := reply.Options.BootFileURL(); got != "tftp://[2001:db8::1]/00:01:02:03:04:05/ipxe.efi" {
 		t.Fatalf("unexpected boot file URL: %s", got)
 	}
 }
@@ -888,7 +995,7 @@ func TestHandleCustomIPXEBinaryOverrideTakesPrecedenceOverHardwareArch(t *testin
 	handler.Handle(context.Background(), conn, &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: dhcpv6.DefaultClientPort}, msg)
 
 	reply := requireSingleMessageReply(t, conn)
-	if got := reply.Options.BootFileURL(); got != "tftp://192.0.2.1:69/00:01:02:03:04:05/snp-x86_64.efi" {
+	if got := reply.Options.BootFileURL(); got != "tftp://[2001:db8::1]/00:01:02:03:04:05/snp-x86_64.efi" {
 		t.Fatalf("unexpected boot file URL: %s", got)
 	}
 }
@@ -905,32 +1012,47 @@ func newAutoHandler(t *testing.T, hardware map[string]*tinkerbell.Hardware) *Han
 
 func newHandlerWithBackend(t *testing.T, backend *mockBackend, auto bool) *Handler {
 	t.Helper()
-	httpBinaryURL, err := url.Parse("http://boot.example/ipxe/binary")
+	handler, err := New(newHandlerConfig(t, backend, auto))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &Handler{
+	return handler
+}
+
+func newHandlerConfig(t *testing.T, backend *mockBackend, auto bool) Config {
+	t.Helper()
+	return Config{
 		Backend: backend,
 		ServerID: &dhcpv6.DUIDLL{
 			HWType:        iana.HWTypeEthernet,
 			LinkLayerAddr: net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
 		},
-		Netboot: Netboot{
-			IPXEBinServerTFTP: netip.MustParseAddrPort("192.0.2.1:69"),
-			IPXEBinServerHTTP: httpBinaryURL,
-			IPXEScriptURL: func(mac net.HardwareAddr) *url.URL {
-				scriptURL := "http://boot.example/ipxe/script/auto6.ipxe"
-				if mac != nil {
-					scriptURL = "http://boot.example/ipxe/script/" + mac.String() + "/auto6.ipxe"
-				}
-				u, _ := url.Parse(scriptURL)
-				return u
-			},
-			Enabled:             true,
-			InjectMacAddrFormat: constant.MacAddrFormatColon,
-		},
+		BootURLSource:        newTestNetboot(t, "http://boot.example/ipxe/script/auto6.ipxe"),
 		AutoStatelessEnabled: auto,
 	}
+}
+
+func newTestNetboot(t *testing.T, script string) BootURLSource {
+	t.Helper()
+	httpBinaryURL, err := url.Parse("http://boot.example/ipxe/binary")
+	if err != nil {
+		t.Fatal(err)
+	}
+	httpScriptURL, err := url.Parse(script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	netboot, err := v6.NewNetboot(v6.NetbootConfig{
+		IPXEBinServerTFTP:   netip.MustParseAddrPort("[2001:db8::1]:69"),
+		IPXEBinServerHTTP:   httpBinaryURL,
+		IPXEScriptURL:       httpScriptURL,
+		InjectMacAddress:    true,
+		InjectMacAddrFormat: constant.MacAddrFormatColon,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return netboot
 }
 
 func messageWithMAC(t *testing.T, mac net.HardwareAddr, messageType dhcpv6.MessageType, userClass []byte, arch iana.Arch) *dhcpv6.Message {

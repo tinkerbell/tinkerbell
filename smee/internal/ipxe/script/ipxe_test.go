@@ -173,7 +173,7 @@ exit
 				InitrdName:            "initramfs",
 			}
 			sp := trace.SpanFromContext(context.Background())
-			got, err := h.defaultScript(sp, tt.d, false)
+			got, err := h.defaultScript(sp, tt.d, h.settingsFor(ipv4))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -263,7 +263,7 @@ func TestDefaultScriptCustomKernelInitrd(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			sp := trace.SpanFromContext(context.Background())
-			got, err := tt.handler.defaultScript(sp, tt.d, false)
+			got, err := tt.handler.defaultScript(sp, tt.d, tt.handler.settingsFor(ipv4))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -296,7 +296,7 @@ func TestDefaultScriptKernelParams(t *testing.T) {
 	}
 
 	sp := trace.SpanFromContext(context.Background())
-	got, err := h.defaultScript(sp, hw, false)
+	got, err := h.defaultScript(sp, hw, h.settingsFor(ipv4))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,10 +315,11 @@ func TestDefaultScriptKernelParams(t *testing.T) {
 
 func TestStaticScript(t *testing.T) {
 	want := `#!ipxe
-# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog).
-# If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog variable.
-set check:ipv4 127.1.1.1 && set syslog 127.1.1.1 || nslookup syslog 127.1.1.1 || echo [WARN] Failed to resolve syslog host 127.1.1.1
-clear check
+# Try an IP literal first so it works even when nslookup is unavailable.
+# Leave the nslookup destination untyped to preserve the resolved address's type.
+clear syslog-address
+set syslog-address:ipv4 127.1.1.1 || nslookup syslog-address 127.1.1.1 && set syslog ${syslog-address} || echo [WARN] Failed to configure syslog host 127.1.1.1: resolution failed or expected ipv4 address
+clear syslog-address
 echo Loading the static Tinkerbell iPXE script...
 
 set arch ${buildarch}
@@ -406,7 +407,7 @@ func TestStaticScriptIPv6ScriptRoute(t *testing.T) {
 	metric.JobsInProgress = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "test_jobs_in_progress"}, []string{"from", "op"})
 	h := &Handler{
 		OSIEURLv6:            "http://[2001:db8::2]",
-		PublicSyslogFQDNv6:   "2001:db8::3",
+		PublicSyslogFQDNV6:   "2001:db8::3",
 		TinkServerGRPCAddrV6: "[2001:db8::4]:42113",
 		StaticIPXEV6Enabled:  true,
 		KernelName:           "vmlinuz",
@@ -453,7 +454,7 @@ func TestHandlerServesIPv6SettingsForAuto6ScriptRoute(t *testing.T) {
 		OSIEURL:               "http://192.0.2.2",
 		OSIEURLv6:             "http://[2001:db8::2]",
 		PublicSyslogFQDN:      "192.0.2.3",
-		PublicSyslogFQDNv6:    "2001:db8::3",
+		PublicSyslogFQDNV6:    "2001:db8::3",
 		TinkServerGRPCAddr:    "192.0.2.4:42113",
 		TinkServerGRPCAddrV6:  "[2001:db8::4]:42113",
 		IPXEScriptRetries:     1,
@@ -473,7 +474,7 @@ func TestHandlerServesIPv6SettingsForAuto6ScriptRoute(t *testing.T) {
 	body := writer.Body.String()
 	for _, want := range []string{
 		"set download-url http://[2001:db8::2]",
-		"set syslog6 2001:db8::3",
+		"set syslog-address:ipv6 2001:db8::3",
 		"grpc_authority=[2001:db8::4]:42113",
 		"tinkerbell_tls=true",
 		"tinkerbell_insecure_tls=true",
@@ -484,7 +485,7 @@ func TestHandlerServesIPv6SettingsForAuto6ScriptRoute(t *testing.T) {
 	}
 	for _, notWant := range []string{
 		"set download-url http://192.0.2.2",
-		"set syslog 192.0.2.3",
+		"set syslog-address:ipv4 192.0.2.3",
 		"grpc_authority=192.0.2.4:42113",
 	} {
 		if strings.Contains(body, notWant) {

@@ -119,6 +119,8 @@ deployment:
       ipxeHttpScriptRetryDelay: 1
       ipxeOverrideArchMapping: "" # a comma separated list of <arch>=<binary> pairs. See the iPXE Architecture Mapping documentation for more details.
       ipxeScriptSyslogFqdn: ""
+      # -- Syslog hostname or IPv6 address for DHCPv6 boot scripts. Hostnames resolve in iPXE at boot; defaults to dhcpv6SyslogIP.
+      ipxeScriptSyslogFqdnV6: ""
       ipxeScriptTinkServerAddrPort: ""
       ipxeScriptTinkServerAddrPortV6: ""
       ipxeScriptTinkServerInsecureTLS: false
@@ -229,7 +231,11 @@ service:
   annotations: {}
   labels:
     app: tinkerbell
+  # Optional family selection/order, e.g. [IPv6] or [IPv4, IPv6]. Empty lets Kubernetes choose.
   ipFamilies: []
+  # Empty omits the field: Kubernetes defaults new Services to SingleStack, even on dual-stack clusters.
+  # PreferDualStack uses both families where supported and falls back to one otherwise.
+  # Configure optional.osie.service separately; see README.md "Service IP Families".
   ipFamilyPolicy: ""
   lbClass: "kube-vip.io/kube-vip-class"
   loadBalancerIP: ""
@@ -296,6 +302,11 @@ optional:
     service:
       annotations: {}
       labels: {}
+      # Optional family selection/order. Empty lets Kubernetes choose.
+      ipFamilies: []
+      # Empty defaults new Services to SingleStack, even on dual-stack clusters.
+      # Set PreferDualStack to use both families where supported. Does not inherit service.ipFamilyPolicy.
+      ipFamilyPolicy: ""
       lbClass: "kube-vip.io/kube-vip-class"
       loadBalancerIP: ""
       type: LoadBalancer

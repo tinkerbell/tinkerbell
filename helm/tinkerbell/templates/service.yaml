@@ -27,7 +27,7 @@ metadata:
     {{- with .Values.service.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    {{- if and (eq .Values.service.type "LoadBalancer") (gt (len $loadBalancerIPs) 0) (not $hasKubeVIPLoadBalancerIPsAnnotation) }}
+    {{- if and (eq .Values.service.type "LoadBalancer") (not (empty $loadBalancerIPs)) (not $hasKubeVIPLoadBalancerIPsAnnotation) }}
     kube-vip.io/loadbalancerIPs: {{ join "," $loadBalancerIPs | quote }}
     {{- end }}
   labels:

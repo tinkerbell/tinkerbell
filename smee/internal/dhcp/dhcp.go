@@ -331,11 +331,27 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 	// If a machine is in an ipxe boot loop, it is likely to be that we aren't matching on IPXE or Tinkerbell userclass (option 77).
 	switch { // order matters here.
 	case i.UserClass == Tinkerbell, (customUC != "" && i.UserClass == customUC): // this case gets us out of an ipxe boot loop.
-		bootfile = ScriptURL(ipxeScript)
+		if ipxeScript != nil {
+			bootfile = ipxeScript.String()
+		}
 	case i.ClientType == HTTPClient: // Check the client type from option 60.
-		bootfile = HTTPBootURL(ipxeHTTPBinServer, i.Mac, i.MacAddrFormat, i.IPXEBinary)
+		if ipxeHTTPBinServer != nil {
+			paths := []string{i.IPXEBinary}
+			if i.Mac != nil {
+				paths = append([]string{FormatMACAddr(i.Mac, i.MacAddrFormat)}, paths...)
+			}
+			bootfile = ipxeHTTPBinServer.JoinPath(paths...).String()
+		}
 	case i.UserClass == IPXE: // if the "iPXE" user class is found it means we aren't in our custom version of ipxe, but because of the option 43 we're setting we need to give a full tftp url from which to boot.
-		bootfile = TFTPBootURL(ipxeTFTPBinServer, i.Mac, i.MacAddrFormat, i.IPXEBinary)
+		t := url.URL{
+			Scheme: "tftp",
+			Host:   ipxeTFTPBinServer.String(),
+		}
+		paths := []string{i.IPXEBinary}
+		if i.Mac != nil {
+			paths = append([]string{FormatMACAddr(i.Mac, i.MacAddrFormat)}, paths...)
+		}
+		bootfile = t.JoinPath(paths...).String()
 	default:
 		if i.IPXEBinary != "" {
 			bootfile = i.IPXEBinary
@@ -343,61 +359,6 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 	}
 
 	return bootfile
-}
-
-func ScriptURL(ipxeScript *url.URL) string {
-	if ipxeScript == nil {
-		return "/no-ipxe-script-defined"
-	}
-
-	return ipxeScript.String()
-}
-
-func HTTPBootURL(ipxeHTTPBinServer *url.URL, mac net.HardwareAddr, format constant.MACFormat, binary string) string {
-	if ipxeHTTPBinServer == nil || binary == "" {
-		return ""
-	}
-
-	paths := []string{binary}
-	if mac != nil {
-		paths = append([]string{macAddrFormat(mac, format)}, paths...)
-	}
-
-	return ipxeHTTPBinServer.JoinPath(paths...).String()
-}
-
-func TFTPBootURL(ipxeTFTPBinServer netip.AddrPort, mac net.HardwareAddr, format constant.MACFormat, binary string) string {
-	if !ipxeTFTPBinServer.IsValid() || binary == "" {
-		return ""
-	}
-
-	t := url.URL{
-		Scheme: "tftp",
-		Host:   ipxeTFTPBinServer.String(),
-	}
-	paths := []string{binary}
-	if mac != nil {
-		paths = append([]string{macAddrFormat(mac, format)}, paths...)
-	}
-
-	return t.JoinPath(paths...).String()
-}
-
-func macAddrFormat(mac net.HardwareAddr, f constant.MACFormat) string {
-	switch f {
-	case constant.MacAddrFormatColon:
-		return mac.String()
-	case constant.MacAddrFormatDot:
-		return dotNotation(mac)
-	case constant.MacAddrFormatDash:
-		return dashNotation(mac)
-	case constant.MacAddrFormatNoDelimiter:
-		return noDelimiter(mac)
-	case constant.MacAddrFormatEmpty:
-		return ""
-	default:
-		return mac.String() // default is colon delimited
-	}
 }
 
 // NextServer returns the calculated dhcp header (ServerIPAddr): "siaddr" value. see https://datatracker.ietf.org/doc/html/rfc2131#section-2 .

@@ -3,7 +3,6 @@ package dhcpv6
 import (
 	"errors"
 	"net"
-	"net/netip"
 	"net/url"
 	"testing"
 	"time"
@@ -76,6 +75,26 @@ func TestMacFromPacketRelayDoesNotFallBackToUDPPeerEUI64(t *testing.T) {
 	}
 }
 
+func TestExtractMACLogsRelayPeerEUI64Error(t *testing.T) {
+	msg := messageWithDUIDEN(t, dhcpv6.MessageTypeInformationRequest)
+	relay, err := dhcpv6.EncapsulateRelay(
+		msg,
+		dhcpv6.MessageTypeRelayForward,
+		net.ParseIP("2001:db8::1"),
+		net.ParseIP("2001:db8::2"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sink := &macExtractionLogSink{}
+
+	_, _ = extractMAC(relay, logr.New(sink))
+
+	if sink.relayPeerError == nil {
+		t.Fatal("expected relay peer EUI-64 extraction failure to log its error")
+	}
+}
+
 func TestArchFromVendorClassHTTPBootArchitectures(t *testing.T) {
 	tests := map[int]iana.Arch{
 		7:  iana.EFI_X86_64,
@@ -108,54 +127,40 @@ func TestBootURLDisallowedNetbootNotAllowedURL(t *testing.T) {
 	disallowedNetboot := &dhcp.Netboot{AllowNetboot: false}
 
 	tests := map[string]struct {
-		scriptURL func(net.HardwareAddr) *url.URL
-		want      string
-		wantErr   bool
+		scriptURL        string
+		injectMacAddress bool
+		want             string
 	}{
-		"nil builder": {
-			scriptURL: nil,
-			wantErr:   true,
-		},
-		"builder returns nil": {
-			scriptURL: func(net.HardwareAddr) *url.URL {
-				return nil
-			},
-			wantErr: true,
-		},
 		"injected MAC path": {
-			scriptURL: scriptURLBuilder(t, "http://boot.example/ipxe/script/"+mac.String()+"/auto6.ipxe"),
-			want:      "http://boot.example/ipxe/script/00:01:02:03:04:05/netboot-not-allowed",
+			scriptURL:        "http://boot.example/ipxe/script/auto6.ipxe",
+			injectMacAddress: true,
+			want:             "http://boot.example/ipxe/script/00:01:02:03:04:05/netboot-not-allowed",
 		},
 		"non injected MAC path": {
-			scriptURL: scriptURLBuilder(t, "https://boot.example/custom/auto6.ipxe"),
+			scriptURL: "https://boot.example/custom/auto6.ipxe",
 			want:      "https://boot.example/custom/netboot-not-allowed",
 		},
 		"query and fragment are stripped": {
-			scriptURL: scriptURLBuilder(t, "https://boot.example/custom/auto6.ipxe?token=secret#section"),
+			scriptURL: "https://boot.example/custom/auto6.ipxe?token=secret#section",
 			want:      "https://boot.example/custom/netboot-not-allowed",
 		},
-		"trailing slash path": {
-			scriptURL: scriptURLBuilder(t, "http://boot.example/ipxe/script/"+mac.String()+"/"),
-			want:      "http://boot.example/ipxe/script/00:01:02:03:04:05/netboot-not-allowed",
-		},
 		"IPv6 host": {
-			scriptURL: scriptURLBuilder(t, "http://[fd8a:3f4b:7c91:1::201]:7080/ipxe/script/"+mac.String()+"/auto6.ipxe"),
-			want:      "http://[fd8a:3f4b:7c91:1::201]:7080/ipxe/script/00:01:02:03:04:05/netboot-not-allowed",
+			scriptURL:        "http://[fd8a:3f4b:7c91:1::201]:7080/ipxe/script/auto6.ipxe",
+			injectMacAddress: true,
+			want:             "http://[fd8a:3f4b:7c91:1::201]:7080/ipxe/script/00:01:02:03:04:05/netboot-not-allowed",
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := info.BootURL(BootURLConfig{
-				HardwareNetboot: disallowedNetboot,
-				IPXEScriptURL:   tt.scriptURL,
-			})
-			if tt.wantErr {
-				if !errors.Is(err, ErrNoBootURL) {
-					t.Fatalf("expected ErrNoBootURL, got %v", err)
-				}
-				return
+			config := validNetbootConfig(t)
+			config.IPXEScriptURL = mustParseURL(t, tt.scriptURL)
+			config.InjectMacAddress = tt.injectMacAddress
+			netboot, err := NewNetboot(config)
+			if err != nil {
+				t.Fatal(err)
 			}
+			got, err := netboot.BootURL(info, disallowedNetboot, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -168,89 +173,17 @@ func TestBootURLDisallowedNetbootNotAllowedURL(t *testing.T) {
 
 func TestBootURLReturnsErrNoBootURL(t *testing.T) {
 	mac := net.HardwareAddr{0, 1, 2, 3, 4, 5}
-	httpBinaryURL := mustParseURL(t, "http://boot.example/ipxe/binary")
-	tftpServer := netip.MustParseAddrPort("192.0.2.1:69")
-
-	tests := map[string]struct {
-		info   Info
-		config BootURLConfig
-	}{
-		"missing iPXE binary": {
-			info: Info{Mac: mac},
-			config: BootURLConfig{
-				IPXEBinServerTFTP: tftpServer,
-			},
-		},
-		"missing default script URL builder": {
-			info: Info{
-				Mac:         mac,
-				UserClasses: []dhcp.UserClass{dhcp.IPXE},
-			},
-		},
-		"nil generated script URL": {
-			info: Info{
-				Mac:         mac,
-				UserClasses: []dhcp.UserClass{dhcp.IPXE},
-			},
-			config: BootURLConfig{
-				IPXEScriptURL: func(net.HardwareAddr) *url.URL {
-					return nil
-				},
-			},
-		},
-		"missing HTTP binary server": {
-			info: Info{
-				Mac:        mac,
-				Arch:       iana.EFI_X86_64_HTTP,
-				IPXEBinary: "ipxe.efi",
-			},
-		},
-		"invalid TFTP binary server": {
-			info: Info{
-				Mac:        mac,
-				Arch:       iana.EFI_X86_64,
-				IPXEBinary: "ipxe.efi",
-			},
-		},
-		"hardware binary override with missing HTTP binary server": {
-			info: Info{
-				Mac:  mac,
-				Arch: iana.EFI_X86_64_HTTP,
-			},
-			config: BootURLConfig{
-				HardwareNetboot: &dhcp.Netboot{AllowNetboot: true, IPXEBinary: "custom.efi"},
-			},
-		},
-		"hardware binary override with invalid TFTP binary server": {
-			info: Info{
-				Mac:  mac,
-				Arch: iana.EFI_X86_64,
-			},
-			config: BootURLConfig{
-				HardwareNetboot: &dhcp.Netboot{AllowNetboot: true, IPXEBinary: "custom.efi"},
-			},
-		},
-		"missing binary checked before valid HTTP server": {
-			info: Info{
-				Mac:  mac,
-				Arch: iana.EFI_X86_64_HTTP,
-			},
-			config: BootURLConfig{
-				IPXEBinServerHTTP: httpBinaryURL,
-			},
-		},
+	netboot, err := NewNetboot(validNetbootConfig(t))
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			got, err := tt.info.BootURL(tt.config)
-			if got != "" {
-				t.Fatalf("expected empty boot URL, got %q", got)
-			}
-			if !errors.Is(err, ErrNoBootURL) {
-				t.Fatalf("expected ErrNoBootURL, got %v", err)
-			}
-		})
+	got, err := netboot.BootURL(Info{Mac: mac}, nil, "")
+	if got != "" {
+		t.Fatalf("expected empty boot URL, got %q", got)
+	}
+	if !errors.Is(err, ErrNoBootURL) {
+		t.Fatalf("expected ErrNoBootURL, got %v", err)
 	}
 }
 
@@ -258,12 +191,14 @@ func TestBootURLDisallowedNetbootDoesNotMutateScriptURL(t *testing.T) {
 	info := Info{Mac: net.HardwareAddr{0, 1, 2, 3, 4, 5}}
 	u := mustParseURL(t, "https://boot.example/custom/auto6.ipxe?token=secret#section")
 
-	got, err := info.BootURL(BootURLConfig{
-		HardwareNetboot: &dhcp.Netboot{AllowNetboot: false},
-		IPXEScriptURL: func(net.HardwareAddr) *url.URL {
-			return u
-		},
-	})
+	config := validNetbootConfig(t)
+	config.IPXEScriptURL = u
+	config.InjectMacAddress = false
+	netboot, err := NewNetboot(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := netboot.BootURL(info, &dhcp.Netboot{AllowNetboot: false}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -459,6 +394,26 @@ func (r *recordingPacketConn) SetDeadline(time.Time) error      { return nil }
 func (r *recordingPacketConn) SetReadDeadline(time.Time) error  { return nil }
 func (r *recordingPacketConn) SetWriteDeadline(time.Time) error { return nil }
 
+type macExtractionLogSink struct {
+	relayPeerError error
+}
+
+func (s *macExtractionLogSink) Init(logr.RuntimeInfo) {}
+func (s *macExtractionLogSink) Enabled(int) bool      { return true }
+func (s *macExtractionLogSink) Info(_ int, message string, keysAndValues ...any) {
+	if message != "DHCPv6 MAC extraction failed from relay peer EUI-64 address" {
+		return
+	}
+	for i := 0; i+1 < len(keysAndValues); i += 2 {
+		if keysAndValues[i] == "error" {
+			s.relayPeerError, _ = keysAndValues[i+1].(error)
+		}
+	}
+}
+func (s *macExtractionLogSink) Error(error, string, ...any)    {}
+func (s *macExtractionLogSink) WithValues(...any) logr.LogSink { return s }
+func (s *macExtractionLogSink) WithName(string) logr.LogSink   { return s }
+
 func hasAttribute(attrs []attribute.KeyValue, key string) bool {
 	for _, attr := range attrs {
 		if string(attr.Key) == key {
@@ -475,14 +430,6 @@ func hasStringAttribute(attrs []attribute.KeyValue, key, value string) bool {
 		}
 	}
 	return false
-}
-
-func scriptURLBuilder(t *testing.T, raw string) func(net.HardwareAddr) *url.URL {
-	t.Helper()
-	u := mustParseURL(t, raw)
-	return func(net.HardwareAddr) *url.URL {
-		return u
-	}
 }
 
 func mustParseURL(t *testing.T, raw string) *url.URL {

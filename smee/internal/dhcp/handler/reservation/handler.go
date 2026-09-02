@@ -250,5 +250,5 @@ func hardwareNotFound(err error) bool {
 }
 
 func hasIPv4Reservation(d *dhcp.DHCP) bool {
-	return d != nil && d.IPAddress.Is4()
+	return d != nil && (d.IPAddress.Is4() || d.IPAddress.Is4In6())
 }

@@ -8,19 +8,16 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv6"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
-	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	tbotel "github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	v6 "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/dhcpv6"
-	statelessv6 "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/dhcpv6/handler/stateless"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -41,62 +38,127 @@ type BackendReader interface {
 	FilterHardware(ctx context.Context, opts data.HardwareFilter) (*tinkerbell.Hardware, error)
 }
 
-// Handler holds the configuration details for the running DHCPv6 server.
-type Handler struct {
-	// Backend is the backend to use for getting DHCP data.
-	Backend BackendReader
-	// DNSDefaults are used when Hardware does not provide usable DNS settings.
-	DNSDefaults v6.DNSDefaults
-
-	// Log is used to log messages.
-	// `logr.Discard()` can be used if no logging is desired.
-	Log logr.Logger
-
-	// Netboot configuration.
-	Netboot Netboot
-
-	// OTELEnabled is used to determine if netboot options include otel naming.
-	// When true, the netboot filename will be appended with otel information.
-	// For example, the filename will be "snp.efi-00-23b1e307bb35484f535a1f772c06910e-d887dc3912240434-01".
-	// <original filename>-00-<trace id>-<span id>-<trace flags>
-	OTELEnabled bool
-
-	// Derived enables deterministic IPv6 address assignment when no backend address reservation exists.
-	Derived bool
-	// DerivedDirectAddressPool is the IPv6 prefix used to derive addresses for direct client requests.
-	DerivedDirectAddressPool netip.Prefix
-	// DerivedRelayAddressPrefix controls how many relay link-address prefix bits are preserved in derived addresses.
-	DerivedRelayAddressPrefix int
-
-	// ServerID is the DHCPv6 server identifier included in replies and matched against client requests.
-	ServerID dhcpv6.DUID
-	// InformationRefreshTime controls how long clients wait before refreshing stateless configuration.
-	InformationRefreshTime time.Duration
+// BootURLSource supplies DHCPv6 request parsing options and boot URLs.
+// The handler package owns this interface because it consumes the behavior.
+type BootURLSource interface {
+	InfoOptions() []v6.InfoOption
+	BootURL(info v6.Info, hardware *dhcp.Netboot, traceparent string) (string, error)
 }
 
-// Netboot holds the netboot configuration details used in running a DHCP server.
-type Netboot struct {
-	// iPXE binary server IP:Port serving via TFTP.
-	IPXEBinServerTFTP netip.AddrPort
+// InformationRequestHandler responds to DHCPv6 Information-request messages.
+// The reservation handler owns this interface because it delegates that behavior.
+type InformationRequestHandler interface {
+	Handle(ctx context.Context, conn net.PacketConn, peer net.Addr, packet dhcpv6.DHCPv6)
+}
 
-	// IPXEBinServerHTTP is the URL to the IPXE binary server serving via HTTP(s).
-	IPXEBinServerHTTP *url.URL
+// DerivedConfig enables deterministic IPv6 address assignment.
+type DerivedConfig struct {
+	// DirectAddressPool supplies the prefix for addresses derived for direct clients.
+	// When set, it must be a usable IPv6 unicast prefix between /1 and /64,
+	// as checked by v6.UsableDerivedPrefix. The zero value disables direct derivation.
+	DirectAddressPool netip.Prefix
+	// RelayAddressPrefix is the number of bits preserved from the relay link-address
+	// when deriving an address. It must be between 1 and 64; New does not set a default.
+	RelayAddressPrefix int
+}
 
-	// IPXEScriptURL is the URL to the IPXE script to use.
-	IPXEScriptURL func(net.HardwareAddr) *url.URL
+// Config contains the dependencies and behavior used by a Handler.
+// A nil Derived field selects ordinary reservation behavior.
+type Config struct {
+	// Backend is required and looks up Hardware by the client's MAC address.
+	Backend BackendReader
+	// DNSDefaults supplies fallback DNS servers and domain search domains when
+	// Hardware does not provide usable values. Only IPv6 DNS addresses are used.
+	DNSDefaults v6.DNSDefaults
+	// Log records request handling and errors. Use logr.Discard() to disable logging.
+	Log logr.Logger
+	// BootURLSource is required and supplies request parsing options and boot URLs.
+	// Use v6.DisabledNetboot{} to omit netboot options.
+	BootURLSource BootURLSource
+	// InformationRequestHandler is required and handles stateless requests after
+	// Hardware validation, without requiring an IPv6 reservation or derived address.
+	// Configure it with the same backend, server ID, and boot settings as this handler.
+	InformationRequestHandler InformationRequestHandler
+	// OTELEnabled appends an available traceparent to iPXE binary filenames,
+	// producing <filename>-00-<trace ID>-<span ID>-<trace flags>.
+	// It does not control whether request tracing is enabled.
+	OTELEnabled bool
+	// Derived enables deterministic address assignment when Hardware has no usable
+	// IPv6 reservation. Nil disables derivation. New validates and copies this value.
+	Derived *DerivedConfig
+	// ServerID is required and identifies this server in replies. Requests carrying
+	// a different server ID are ignored.
+	ServerID dhcpv6.DUID
+}
 
-	// Enabled is whether to enable sending netboot DHCP options.
-	Enabled bool
+// Handler responds to DHCPv6 reservation requests.
+// Its invariants are established by New.
+type Handler struct {
+	backend                   BackendReader
+	dnsDefaults               v6.DNSDefaults
+	log                       logr.Logger
+	bootURLSource             BootURLSource
+	informationRequestHandler InformationRequestHandler
+	otelEnabled               bool
+	derived                   *DerivedConfig
+	serverID                  dhcpv6.DUID
+	infoOptions               []v6.InfoOption
+}
 
-	// InjectMacAddrFormat is the format to use when injecting the mac address into the iPXE binary URL.
-	InjectMacAddrFormat constant.MACFormat
+// New validates config and constructs a DHCPv6 reservation handler.
+func New(config Config) (*Handler, error) {
+	if config.Backend == nil {
+		return nil, errors.New("DHCPv6 backend is required")
+	}
+	if config.ServerID == nil {
+		return nil, errors.New("DHCPv6 server ID is required")
+	}
+	if config.BootURLSource == nil {
+		return nil, errors.New("DHCPv6 boot URL source is required")
+	}
+	if config.InformationRequestHandler == nil {
+		return nil, errors.New("DHCPv6 information-request handler is required")
+	}
 
-	// IPXEArchMapping will override the default architecture to binary mapping.
-	IPXEArchMapping map[iana.Arch]constant.IPXEBinary
+	var derived *DerivedConfig
+	if config.Derived != nil {
+		if pool := config.Derived.DirectAddressPool; pool.IsValid() && !v6.UsableDerivedPrefix(pool) {
+			return nil, fmt.Errorf("invalid DHCPv6 derived direct address pool: %s must be a usable IPv6 unicast prefix with prefix length between /1 and /64", pool)
+		}
+		if prefix := config.Derived.RelayAddressPrefix; prefix < 1 || prefix > 64 {
+			return nil, fmt.Errorf("invalid DHCPv6 derived relay address prefix: %d must be between 1 and 64", prefix)
+		}
+		configured := *config.Derived
+		derived = &configured
+	}
+
+	infoOptions := []v6.InfoOption{v6.WithLogger(config.Log)}
+	infoOptions = append(infoOptions, config.BootURLSource.InfoOptions()...)
+	infoOptions = append(infoOptions, v6.WithAllowedMessageTypes(
+		dhcpv6.MessageTypeSolicit,
+		dhcpv6.MessageTypeRequest,
+		dhcpv6.MessageTypeRenew,
+		dhcpv6.MessageTypeRebind,
+		dhcpv6.MessageTypeRelease,
+		dhcpv6.MessageTypeDecline,
+		dhcpv6.MessageTypeInformationRequest,
+	))
+
+	return &Handler{
+		backend:                   config.Backend,
+		dnsDefaults:               config.DNSDefaults,
+		log:                       config.Log,
+		bootURLSource:             config.BootURLSource,
+		informationRequestHandler: config.InformationRequestHandler,
+		otelEnabled:               config.OTELEnabled,
+		derived:                   derived,
+		serverID:                  config.ServerID,
+		infoOptions:               infoOptions,
+	}, nil
 }
 
 func (h *Handler) modeName() string {
-	if h.Derived {
+	if h.derived != nil {
 		return "derived"
 	}
 	return "reservation"
@@ -105,11 +167,7 @@ func (h *Handler) modeName() string {
 // Handle responds to DHCPv6 reservation messages with reserved IPv6 addresses.
 func (h *Handler) Handle(ctx context.Context, conn net.PacketConn, peer net.Addr, packet dhcpv6.DHCPv6) {
 	if conn == nil || packet == nil || peer == nil {
-		h.Log.Error(errors.New("invalid DHCPv6 handler input"), "not able to respond to DHCPv6 packet", "connectionNil", conn == nil, "packetNil", packet == nil, "peerNil", peer == nil)
-		return
-	}
-	if h.Backend == nil || h.ServerID == nil {
-		h.Log.Error(errors.New("invalid DHCPv6 handler configuration"), "not able to respond to DHCPv6 packet", "backendNil", h.Backend == nil, "serverIDNil", h.ServerID == nil)
+		h.log.Error(errors.New("invalid DHCPv6 handler input"), "not able to respond to DHCPv6 packet", "connectionNil", conn == nil, "packetNil", packet == nil, "peerNil", peer == nil)
 		return
 	}
 
@@ -123,29 +181,14 @@ func (h *Handler) Handle(ctx context.Context, conn net.PacketConn, peer net.Addr
 	)
 	defer span.End()
 
-	i, err := v6.NewInfo(
-		peer,
-		packet,
-		v6.WithLogger(h.Log),
-		v6.WithMacAddrFormat(h.Netboot.InjectMacAddrFormat),
-		v6.WithArchMappingOverride(h.Netboot.IPXEArchMapping),
-		v6.WithAllowedMessageTypes(
-			dhcpv6.MessageTypeSolicit,
-			dhcpv6.MessageTypeRequest,
-			dhcpv6.MessageTypeRenew,
-			dhcpv6.MessageTypeRebind,
-			dhcpv6.MessageTypeRelease,
-			dhcpv6.MessageTypeDecline,
-			dhcpv6.MessageTypeInformationRequest,
-		),
-	)
+	i, err := v6.NewInfo(peer, packet, h.infoOptions...)
 	if err != nil {
-		h.Log.Info("ignoring DHCPv6 packet: invalid request", "peer", peer.String(), "error", err.Error())
+		h.log.Info("ignoring DHCPv6 packet: invalid request", "peer", peer.String(), "error", err.Error())
 		span.SetStatus(codes.Ok, fmt.Sprintf("ignoring DHCPv6 packet: invalid request: %s", err.Error()))
 		return
 	}
 
-	log := h.Log.WithValues("mac", i.Mac.String(), "xid", i.Msg.TransactionID.String(), "peer", peer.String(), "messageType", i.Msg.Type().String())
+	log := h.log.WithValues("mac", i.Mac.String(), "xid", i.Msg.TransactionID.String(), "peer", peer.String(), "messageType", i.Msg.Type().String())
 	log.Info("received DHCPv6 packet", "mode", h.modeName())
 
 	serverID := i.Msg.Options.ServerID()
@@ -155,7 +198,7 @@ func (h *Handler) Handle(ctx context.Context, conn net.PacketConn, peer net.Addr
 		return
 	}
 
-	if serverID != nil && !serverID.Equal(h.ServerID) {
+	if serverID != nil && !serverID.Equal(h.serverID) {
 		log.Info("ignoring DHCPv6 packet: addressed to another server", "serverID", serverID.String())
 		span.SetStatus(codes.Ok, "addressed to another server")
 		return
@@ -189,6 +232,12 @@ func (h *Handler) Handle(ctx context.Context, conn net.PacketConn, peer net.Addr
 		return
 	}
 
+	if i.Msg.Type() == dhcpv6.MessageTypeInformationRequest {
+		h.informationRequestHandler.Handle(ctx, conn, peer, packet)
+		span.SetStatus(codes.Ok, "delegated information-request to stateless handler")
+		return
+	}
+
 	ipAddress := h.addressFor(i, hw.DHCP.IPAddress)
 	if !ipAddress.Is6() {
 		if isReleaseOrDecline(i.Msg.Type()) {
@@ -197,12 +246,6 @@ func (h *Handler) Handle(ctx context.Context, conn net.PacketConn, peer net.Addr
 		}
 		log.Info("ignoring DHCPv6 packet: IPv6 address unavailable", "ipAddress", hw.DHCP.IPAddress.String(), "mode", h.modeName())
 		span.SetStatus(codes.Ok, "IPv6 address unavailable")
-		return
-	}
-
-	if i.Msg.Type() == dhcpv6.MessageTypeInformationRequest {
-		h.statelessHandler().Handle(ctx, conn, peer, packet)
-		span.SetStatus(codes.Ok, "delegated information-request to stateless handler")
 		return
 	}
 
@@ -250,7 +293,7 @@ func (h *Handler) writeReleaseOrDeclineReply(conn net.PacketConn, peer net.Addr,
 		return
 	}
 	reply.AddOption(cid)
-	dhcpv6.WithServerID(h.ServerID)(reply)
+	dhcpv6.WithServerID(h.serverID)(reply)
 	dhcpv6.WithOption(&dhcpv6.OptStatusCode{StatusCode: iana.StatusSuccess})(reply)
 	for _, ia := range ianas {
 		reply.AddOption(ia)
@@ -268,27 +311,8 @@ func (h *Handler) writeReleaseOrDeclineReply(conn net.PacketConn, peer net.Addr,
 	span.SetStatus(codes.Ok, "sent DHCPv6 response")
 }
 
-func (h *Handler) statelessHandler() *statelessv6.Handler {
-	return &statelessv6.Handler{
-		Backend:     h.Backend,
-		DNSDefaults: h.DNSDefaults,
-		Log:         h.Log,
-		Netboot: statelessv6.Netboot{
-			IPXEBinServerTFTP:   h.Netboot.IPXEBinServerTFTP,
-			IPXEBinServerHTTP:   h.Netboot.IPXEBinServerHTTP,
-			IPXEScriptURL:       h.Netboot.IPXEScriptURL,
-			Enabled:             h.Netboot.Enabled,
-			InjectMacAddrFormat: h.Netboot.InjectMacAddrFormat,
-			IPXEArchMapping:     h.Netboot.IPXEArchMapping,
-		},
-		OTELEnabled:            h.OTELEnabled,
-		ServerID:               h.ServerID,
-		InformationRefreshTime: h.InformationRefreshTime,
-	}
-}
-
 func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (dhcp.Hardware, error) {
-	spec, err := h.Backend.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: mac.String()})
+	spec, err := h.backend.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: mac.String()})
 	if err != nil {
 		return dhcp.Hardware{}, err
 	}
@@ -312,7 +336,7 @@ func (h *Handler) reply(ctx context.Context, i v6.Info, d *dhcp.DHCP, n *dhcp.Ne
 	}
 
 	mods := []dhcpv6.Modifier{
-		dhcpv6.WithServerID(h.ServerID),
+		dhcpv6.WithServerID(h.serverID),
 		h.withAddressOptions(i, d, ipAddress, bootURL),
 	}
 
@@ -330,22 +354,16 @@ func (h *Handler) reply(ctx context.Context, i v6.Info, d *dhcp.DHCP, n *dhcp.Ne
 }
 
 func (h *Handler) bootURL(ctx context.Context, i v6.Info, _ *dhcp.DHCP, n *dhcp.Netboot) (string, error) {
-	if !h.Netboot.Enabled || !i.IsBootfileURLOptionRequested() {
+	if !i.IsBootfileURLOptionRequested() {
 		return "", nil
 	}
 
 	var traceparent string
-	if h.OTELEnabled {
+	if h.otelEnabled {
 		traceparent = tbotel.TraceparentStringFromContext(ctx)
 	}
 
-	bootURL, err := i.BootURL(v6.BootURLConfig{
-		HardwareNetboot:   n,
-		IPXEBinServerTFTP: h.Netboot.IPXEBinServerTFTP,
-		IPXEBinServerHTTP: h.Netboot.IPXEBinServerHTTP,
-		IPXEScriptURL:     h.Netboot.IPXEScriptURL,
-		Traceparent:       traceparent,
-	})
+	bootURL, err := h.bootURLSource.BootURL(i, n, traceparent)
 	if err != nil {
 		return "", err
 	}
@@ -362,7 +380,7 @@ func (h *Handler) withAddressOptions(i v6.Info, d *dhcp.DHCP, ipAddress netip.Ad
 		}
 
 		v6.ApplyBootOptions(reply, i, bootURL)
-		v6.ApplyRequestedStatelessOptions(reply, i, d, h.DNSDefaults)
+		v6.ApplyRequestedStatelessOptions(reply, i, d, h.dnsDefaults)
 	}
 }
 
@@ -428,9 +446,12 @@ func statefulLifetimes(leaseTime uint32) (t1, t2, preferredLifetime, validLifeti
 		validLifetime = minimumDHCPv6LeaseTime
 	}
 
-	preferredLifetime = validLifetime / 2
-	t1 = validLifetime / 2
-	t2 = validLifetime * 4 / 5
+	// DHCPv6 lifetimes use whole seconds. Base renewal and rebinding on the
+	// advertised preferred lifetime, per RFC 9915 section 21.4, so both begin
+	// before the address is deprecated.
+	preferredLifetime = (validLifetime / 2).Truncate(time.Second)
+	t1 = (preferredLifetime / 2).Truncate(time.Second)
+	t2 = (preferredLifetime * 4 / 5).Truncate(time.Second)
 
 	return t1, t2, preferredLifetime, validLifetime
 }
@@ -439,7 +460,7 @@ func (h *Handler) addressFor(i v6.Info, reservation netip.Addr) netip.Addr {
 	if usableReservationAddress(reservation) {
 		return reservation
 	}
-	if !h.Derived {
+	if h.derived == nil {
 		return netip.Addr{}
 	}
 	if i.Relay != nil {
@@ -447,9 +468,9 @@ func (h *Handler) addressFor(i v6.Info, reservation netip.Addr) netip.Addr {
 		if !ok || !usableRelayLinkAddress(linkAddr) {
 			return netip.Addr{}
 		}
-		return derivedAddress(netip.PrefixFrom(linkAddr, h.DerivedRelayAddressPrefix), i.Mac)
+		return derivedAddress(netip.PrefixFrom(linkAddr, h.derived.RelayAddressPrefix), i.Mac)
 	}
-	return derivedAddress(h.DerivedDirectAddressPool, i.Mac)
+	return derivedAddress(h.derived.DirectAddressPool, i.Mac)
 }
 
 func usableReservationAddress(addr netip.Addr) bool {

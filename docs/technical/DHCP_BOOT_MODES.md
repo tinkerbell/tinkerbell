@@ -57,7 +57,7 @@ The defaults apply to stateless options in DHCPv6 replies. In DHCPv6 `auto-state
 
 ## Address Reservation Limitations
 
-Each Hardware interface can define only one reserved IP address. That address can be either IPv4 or IPv6, but not both. DHCPv4 reservation mode uses only IPv4 Hardware addresses and ignores Hardware records whose reserved address is IPv6. DHCPv6 reservation mode uses only IPv6 Hardware addresses and ignores Hardware records whose reserved address is IPv4.
+Each Hardware interface can define only one reserved IP address. That address can be either IPv4 or IPv6, but not both. DHCPv4 reservation mode uses only IPv4 Hardware addresses and ignores Hardware records whose reserved address is IPv6. DHCPv6 reservation mode assigns only reserved IPv6 addresses. Its Information-request replies do not require an IPv6 reservation.
 
 ## DHCPv6 Client Identification
 
@@ -92,13 +92,17 @@ To enable this mode set the CLI flag `--dhcpv6-mode=auto-stateless` or the envir
 
 ### Reservation DHCPv6
 
-This mode is the DHCPv6 analogue of DHCPv4 `reservation`. Tinkerbell replies only when a matching Hardware object exists for the client's MAC address and that Hardware object has a reserved IPv6 address.
+This mode is the DHCPv6 analogue of DHCPv4 `reservation`. Tinkerbell assigns an address only when a matching Hardware object exists for the client's MAC address and that Hardware object has a reserved IPv6 address.
+
+Information-request messages follow the [stateless mode rules](#stateless-dhcpv6) and do not require an IPv6 reservation. A matching Hardware interface with usable DHCP and netboot data is still required, and DHCP must be enabled for that interface. Replies can include requested DNS, domain search, NTP, and boot URL options, but do not assign an address.
 
 Tinkerbell serves the selected address with IA_NA for Solicit, Request, Renew, and Rebind flows, and it supports both direct DHCPv6 messages and relay-forward wrapped messages. Solicit, Request, Renew, and Rebind messages without an IA_NA option are ignored. A Request IA_NA that contains no IAAddr is treated as a request for the selected reservation. Request messages that include a stale or different IA_NA address receive a Reply with an IA_NA status of NoAddrsAvail; Renew and Rebind messages that include a stale or different IA_NA address receive NoBinding. An IA_NA with client-provided addresses matches the host reservation only when it contains exactly one IAAddr and that IAAddr is the selected reservation. Confirm messages are ignored because Tinkerbell does not maintain enough link state to validate arbitrary client-held addresses. Release and Decline messages receive a Reply with an IA_NA status of Success when the requested address matches the host reservation, or NoBinding when it does not.
 
 This exact single-address match for client-provided addresses is a Tinkerbell reservation-mode policy, not a general DHCPv6 protocol limit. DHCPv6 allows an IA_NA to carry zero, one, or more IAAddr options in a Request, and servers may assign addresses that differ from the client's requested addresses. Tinkerbell Hardware reservations define one authoritative IPv6 address per interface, so empty Request IA_NA options are assigned the selected reservation, while mixed requested address sets are treated as non-matches to avoid accepting client state that includes addresses outside the host reservation.
 
-Tinkerbell sets each IAAddr preferred lifetime to half of the valid lifetime, IA_NA T1 to half of the valid lifetime, and IA_NA T2 to 80% of the valid lifetime.
+Tinkerbell discards Solicit and Rebind messages containing any Server Identifier option, including its own. In all DHCPv6 modes, Information-request messages containing IA_NA or IA_PD options are discarded. Obsolete IA_TA options are ignored and message processing continues, following [RFC 9915 section 21.5](https://www.rfc-editor.org/rfc/rfc9915.html#section-21.5).
+
+Tinkerbell sets each IAAddr preferred lifetime to half of the valid lifetime, IA_NA T1 to half of the preferred lifetime, and IA_NA T2 to 80% of the preferred lifetime, following [RFC 9915 section 21.4](https://www.rfc-editor.org/rfc/rfc9915.html#section-21.4). Values are rounded down to whole seconds, with the preferred lifetime calculated before T1 and T2. Renewal and rebinding therefore begin before address deprecation. For a two-hour valid lifetime, the preferred lifetime is one hour, T1 is 30 minutes, and T2 is 48 minutes.
 
 Reservation DHCPv6 can be used on networks where Router Advertisements set `M=1`, `O=1`, and `A=1`. Tinkerbell does not send or configure Router Advertisements; RA and SLAAC behavior remain managed by the network.
 
@@ -106,19 +110,25 @@ To enable this mode set the CLI flag `--dhcpv6-mode=reservation` or the environm
 
 ### Derived DHCPv6
 
-This mode replies only when a matching Hardware object exists for the client's MAC address. If the Hardware object has a reserved IPv6 address, Tinkerbell serves that address. If it does not, Tinkerbell derives a stable temporary address from the client's MAC address and either a direct-request pool or the relay-forward link-address.
+This mode replies only when a matching Hardware object exists for the client's MAC address. When assigning an address, Tinkerbell uses the Hardware object's reserved IPv6 address if present. Otherwise, it derives a stable temporary address from the client's MAC address and either a direct-request pool or the relay-forward link-address.
+
+Information-request messages follow the same stateless handling as in [reservation mode](#reservation-dhcpv6). They do not require an IPv6 reservation or a derived address pool, and their replies do not assign an address.
 
 Derived mode is intended for boot-time compatibility with systems that do not properly work with SLAAC when Router Advertisements set `M=0`, but still send DHCPv6 Solicit requests. Derived addresses are temporary boot-only addresses. Do not use derived mode to configure static IP addresses for machines, and do not treat these addresses as persisted leases.
 
 Derived mode has no lease database and does not track Duplicate Address Detection (DAD) failures. If a client receives a derived address, detects a duplicate address, and sends a DHCPv6 Decline, Tinkerbell replies according to the DHCPv6 Decline flow but does not mark the address as unusable or choose a replacement. Because derived addresses are deterministic from the client MAC address and selected prefix, the same client will receive the same derived address again until the duplicate is removed or the derived prefix configuration changes.
 
-Direct client requests use `--dhcpv6-derived-direct-address-pool` / `TINKERBELL_DHCPV6_DERIVED_DIRECT_ADDRESS_POOL`. The prefix must be a usable IPv6 unicast prefix between `/1` and `/64`; `/65` through `/128` are rejected because they do not leave enough host bits for stateless MAC-based derivation, and unusable ranges such as unspecified, IPv4-mapped, link-local, or multicast prefixes are rejected. The prefix must also be on-link and routable on the provisioning segment, and should normally come from the prefix advertised by Router Advertisements on that segment. Tinkerbell does not manage Router Advertisements or install routes; using a different, unadvertised prefix can make the boot-time address unreachable and cause netboot, including TFTP, to fail. If no direct pool is configured, derived mode ignores direct requests that do not already have a Hardware IPv6 reservation.
+Direct address assignment uses `--dhcpv6-derived-direct-address-pool` / `TINKERBELL_DHCPV6_DERIVED_DIRECT_ADDRESS_POOL`. The prefix must be a usable IPv6 unicast prefix between `/1` and `/64`; `/65` through `/128` are rejected because they do not leave enough host bits for stateless MAC-based derivation, and unusable ranges such as unspecified, IPv4-mapped, link-local, or multicast prefixes are rejected. The prefix must also be on-link and routable on the provisioning segment, and should normally come from the prefix advertised by Router Advertisements on that segment. Tinkerbell does not manage Router Advertisements or install routes; using a different, unadvertised prefix can make the boot-time address unreachable and cause netboot, including TFTP, to fail. If no direct pool is configured, direct clients need a Hardware IPv6 reservation to receive an address.
 
-Relayed requests use the relay-forward `link-address` as the source prefix and `--dhcpv6-derived-relay-address-prefix` / `TINKERBELL_DHCPV6_DERIVED_RELAY_ADDRESS_PREFIX` as the prefix length. The relay prefix length defaults to `/64` and must be between `/1` and `/64`; `/0` and `/65` through `/128` are rejected. The relay must set a usable IPv6 link-address for the client link.
+Relayed address assignment uses the relay-forward `link-address` as the source prefix and `--dhcpv6-derived-relay-address-prefix` / `TINKERBELL_DHCPV6_DERIVED_RELAY_ADDRESS_PREFIX` as the prefix length. The relay prefix length defaults to `/64` and must be between `/1` and `/64`; `/0` and `/65` through `/128` are rejected. The relay must set a usable IPv6 link-address for the client link.
 
 To enable this mode set the CLI flag `--dhcpv6-mode=derived` or the environment variable `TINKERBELL_DHCPV6_MODE=derived`.
 
 ### DHCPv6 Boot URL Selection
+
+When DHCPv6 is enabled and netboot options are enabled (the default), Tinkerbell validates all global boot endpoints at startup: the TFTP server address and port, the iPXE HTTP/HTTPS binary URL, and the iPXE HTTP/HTTPS script URL.
+
+To serve DHCPv6 without netboot options, set `--dhcpv6-enable-netboot-options=false` or `TINKERBELL_DHCPV6_ENABLE_NETBOOT_OPTIONS=false`. This skips boot endpoint validation and omits netboot options; address assignment and other stateless options continue to follow the selected DHCPv6 mode.
 
 For DHCPv6 stateless, auto-stateless, reservation, and derived modes, Tinkerbell includes DHCPv6 Option 59, Boot File URL, only when the client requests that option. Tinkerbell can still answer requests that only ask for other stateless information, such as DNS. When Option 59 is requested, Tinkerbell uses RFC 5970 boot options to decide which boot URL to return. If a matching Hardware interface has netboot data with `allowPXE: false`, or netboot data that omits `allowPXE`, Tinkerbell returns a valid not-allowed URL rooted at the configured DHCPv6 iPXE script URL. If Tinkerbell cannot determine any boot URL for a request that asked for Option 59, it ignores the request instead of sending DHCP data with unusable netboot data. The primary signal for HTTP boot is DHCPv6 Option 61, Client System Architecture Type. When the client reports an HTTP boot architecture, Tinkerbell returns an HTTP iPXE binary URL in Option 59.
 
@@ -127,6 +137,8 @@ Vendor Class data is also used as an HTTP boot hint. Tinkerbell treats a Vendor 
 IPv6 boot flows use the IPv6-specific Tinkerbell options for advertised boot and iPXE script values. Configure the `--public-ipv6`, `--dhcpv6-*`, `--ipxe-http-script-osie-url-v6`, and `--ipxe-script-tink-server-addr-port-v6` settings as needed for IPv6 clients. Do not rely on a dual-stack DNS name in the IPv4/common options to make the IPv6 boot path work; the IPv6 path does not automatically fall back to those values. On a host where both address families are detected, shared services bind to IPv4 by default even though DHCPv6 advertises the IPv6-specific endpoints. Ensure those endpoints are reachable over IPv6 with an explicit `--bind-address`, service-specific listener, or external load balancer or proxy; see [Bind Address Selection](PORTS_AND_ENDPOINTS.md#bind-address-selection).
 
 For stable DHCPv6 client behavior, configure a stable server DUID with `--dhcpv6-server-duid` / `TINKERBELL_DHCPV6_SERVER_DUID`. The value is the complete DHCPv6 DUID encoded as raw hex bytes, with optional `:` or `-` separators. For example, a DUID-UUID value starts with `00:04` followed by the 16 UUID bytes. If this option is empty, Tinkerbell keeps its automatic fallback behavior and derives a DUID from the configured IPv6 Tink Server address when possible, otherwise it uses a built-in fallback DUID. In Kubernetes, prefer storing the configured DUID in a Secret or other release-stable configuration rather than deriving it from Pod, Node, or Service addresses.
+
+Automatic server DUID derivation uses UUIDv5, with the standard URL namespace and the name `tinkerbell:smee:dhcpv6:<canonical IPv6 address>`. The port does not affect the identifier.
 
 ### Hardware URL Overrides
 

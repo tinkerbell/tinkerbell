@@ -810,7 +810,8 @@ func TestHasIPv4Reservation(t *testing.T) {
 			d: &dhcp.DHCP{IPAddress: netip.MustParseAddr("2001:db8::100")},
 		},
 		"ipv4 mapped ipv6": {
-			d: &dhcp.DHCP{IPAddress: netip.MustParseAddr("::ffff:192.168.1.100")},
+			d:    &dhcp.DHCP{IPAddress: netip.MustParseAddr("::ffff:192.168.1.100")},
+			want: true,
 		},
 		"missing address": {
 			d: &dhcp.DHCP{},
