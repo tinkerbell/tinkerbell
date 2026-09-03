@@ -172,6 +172,98 @@ This configuration will:
 5. Set boot device back to disk persistently
 6. Power on the machine to boot from disk
 
+#### Example: UEFI Secure Boot around a PXE boot
+
+HookOS and iPXE are typically unsigned, so a Machine with Secure Boot enforced can't network boot at all. The `secureBoot` and `secureBootResetKeys` actions let a Workflow disable Secure Boot and reset its key databases before netbooting, then re-enable it once a trusted key has been enrolled into the installed OS's `db` (for example by a Template Action that writes the `db` EFI variable while the firmware is in Setup Mode):
+
+```yaml
+apiVersion: "tinkerbell.org/v1alpha1"
+kind: Workflow
+metadata:
+  name: example-secureboot
+spec:
+  templateRef: example
+  hardwareRef: example
+  bootOptions:
+    bootMode: customboot
+    custombootConfig:
+      preparingActions:
+      - powerAction: "off"
+      - secureBoot:
+          enable: false
+      - secureBootResetKeys:
+          resetType: DeletePK
+      - bootDevice:
+          device: "pxe"
+          efiBoot: true
+      - powerAction: "on"
+      postActions:
+      - bootDevice:
+          device: "disk"
+          persistent: true
+          efiBoot: true
+      - secureBoot:
+          enable: true
+      - powerAction: "cycle"
+```
+
+This configuration will:
+1. Power off the machine
+2. Disable Secure Boot, since the netboot chain below isn't signed
+3. Reset the Secure Boot key databases, returning the firmware to Setup Mode - the state a Template Action needs to enroll new keys into `db`/`KEK`/`PK`
+4. Set the next boot device to PXE and power on
+5. After the Template has installed the OS and enrolled a trusted key, set the boot device back to disk persistently
+6. Re-enable Secure Boot and power-cycle so the firmware picks it up on the next boot
+
+`resetType` accepts `ResetAllKeysToDefault`, `DeleteAllKeys`, or `DeletePK`. `ResetAllKeysToDefault` alone restores the platform's default keys but leaves a PK in place, so the firmware stays out of Setup Mode - `DeletePK` is what actually returns it to Setup Mode.
+
+#### Example: Per-database Secure Boot key management
+
+`secureBootResetKeys` resets the whole Secure Boot subsystem, including PK - the key that puts the firmware into (and out of) Setup Mode. `secureBootDatabaseResetKeys` and `secureBootCertificateImport` instead target a single key database (`db`, `KEK`, ...) directly via the BMC, so a trust anchor can be enrolled - or a compromised entry removed - without touching PK, entering Setup Mode, or running a Template Action inside the booted OS to write EFI variables:
+
+```yaml
+apiVersion: "tinkerbell.org/v1alpha1"
+kind: Workflow
+metadata:
+  name: example-secureboot-db
+spec:
+  templateRef: example
+  hardwareRef: example
+  bootOptions:
+    bootMode: customboot
+    custombootConfig:
+      preparingActions:
+      - powerAction: "off"
+      - secureBootDatabaseResetKeys:
+          database: db
+          resetType: DeleteAllKeys
+      - secureBootCertificateImport:
+          database: db
+          certificatePEMConfigMapRef:
+            name: provisioning-trust-anchor
+            namespace: example
+            key: cert.pem
+      - bootDevice:
+          device: "pxe"
+          efiBoot: true
+      - powerAction: "on"
+      postActions:
+      - bootDevice:
+          device: "disk"
+          persistent: true
+          efiBoot: true
+      - powerAction: "cycle"
+```
+
+This configuration will:
+1. Power off the machine
+2. Clear any existing keys from the `db` database via the BMC
+3. Import the organization's trust anchor certificate (the `cert.pem` key of the `provisioning-trust-anchor` ConfigMap) into `db`
+4. Set the next boot device to PXE and power on - since the boot chain is signed with a certificate now enrolled in `db`, Secure Boot enforcement can stay enabled throughout, unlike the whole-subsystem reset above
+5. After provisioning, set the boot device back to disk persistently and power-cycle
+
+`secureBootDatabaseResetKeysAction`'s `resetType` accepts only `ResetAllKeysToDefault` or `DeleteAllKeys` - `DeletePK` isn't offered, since PK isn't addressable at the per-database granularity (use `secureBootResetKeys` for that). `certificatePEMConfigMapRef` points at a PEM-encoded certificate rather than inlining it in the Action, since a certificate is typically too large - and too reused across Workflows - to duplicate everywhere it's needed.
+
 ### Templating in customboot
 
 The `customboot` mode supports Go template syntax in action fields, enabling dynamic configuration based on Hardware specifications. This is particularly useful for virtual media URLs that need to include the Machine's MAC address.

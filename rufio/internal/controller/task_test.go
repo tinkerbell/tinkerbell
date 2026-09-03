@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -43,6 +44,7 @@ func TestTaskReconcile(t *testing.T) {
 		action     bmc.Action
 		provider   *testProvider
 		secret     *corev1.Secret
+		configMap  *corev1.ConfigMap
 		task       *bmc.Task
 		shouldErr  bool
 		timeoutErr bool
@@ -121,6 +123,58 @@ func TestTaskReconcile(t *testing.T) {
 			task:      createTask("PowerOn", getAction("PowerOn"), &corev1.Secret{}),
 			shouldErr: true,
 		},
+		"success secure boot enable": {
+			taskName: "secure boot enable",
+			action:   bmc.Action{SecureBoot: &bmc.SecureBootAction{Enable: true}},
+			provider: &testProvider{},
+		},
+		"failure on secure boot enable": {
+			taskName:  "secure boot enable",
+			action:    bmc.Action{SecureBoot: &bmc.SecureBootAction{Enable: true}},
+			provider:  &testProvider{ErrSetSecureBoot: errors.New("failed to set secure boot")},
+			shouldErr: true,
+		},
+		"success secure boot reset keys": {
+			taskName: "secure boot reset keys",
+			action:   bmc.Action{SecureBootResetKeys: &bmc.SecureBootResetKeysAction{ResetType: "DeleteAllKeys"}},
+			provider: &testProvider{},
+		},
+		"failure on secure boot reset keys": {
+			taskName:  "secure boot reset keys",
+			action:    bmc.Action{SecureBootResetKeys: &bmc.SecureBootResetKeysAction{ResetType: "DeleteAllKeys"}},
+			provider:  &testProvider{ErrResetSecureBootKeys: errors.New("failed to reset secure boot keys")},
+			shouldErr: true,
+		},
+		"success secure boot database reset keys": {
+			taskName: "secure boot database reset keys",
+			action:   bmc.Action{SecureBootDatabaseResetKeys: &bmc.SecureBootDatabaseResetKeysAction{Database: "db", ResetType: "ResetAllKeysToDefault"}},
+			provider: &testProvider{},
+		},
+		"failure on secure boot database reset keys": {
+			taskName:  "secure boot database reset keys",
+			action:    bmc.Action{SecureBootDatabaseResetKeys: &bmc.SecureBootDatabaseResetKeysAction{Database: "db", ResetType: "ResetAllKeysToDefault"}},
+			provider:  &testProvider{ErrResetSecureBootDatabaseKeys: errors.New("failed to reset secure boot database keys")},
+			shouldErr: true,
+		},
+		"success secure boot certificate import": {
+			taskName:  "secure boot certificate import",
+			action:    bmc.Action{SecureBootCertificateImport: &bmc.SecureBootCertificateImportAction{Database: "db", CertificatePEMConfigMapRef: bmc.ConfigMapKeyReference{Name: "test-cert", Namespace: "test-namespace", Key: "cert.pem"}}},
+			provider:  &testProvider{},
+			configMap: createCertConfigMap(),
+		},
+		"failure on secure boot certificate import": {
+			taskName:  "secure boot certificate import",
+			action:    bmc.Action{SecureBootCertificateImport: &bmc.SecureBootCertificateImportAction{Database: "db", CertificatePEMConfigMapRef: bmc.ConfigMapKeyReference{Name: "test-cert", Namespace: "test-namespace", Key: "cert.pem"}}},
+			provider:  &testProvider{ErrImportSecureBootCertificate: errors.New("failed to import secure boot certificate")},
+			configMap: createCertConfigMap(),
+			shouldErr: true,
+		},
+		"failure on secure boot certificate import, configmap not found": {
+			taskName:  "secure boot certificate import",
+			action:    bmc.Action{SecureBootCertificateImport: &bmc.SecureBootCertificateImportAction{Database: "db", CertificatePEMConfigMapRef: bmc.ConfigMapKeyReference{Name: "does-not-exist", Namespace: "test-namespace", Key: "cert.pem"}}},
+			provider:  &testProvider{},
+			shouldErr: true,
+		},
 		"success with boot device": {
 			taskName: "boot device pxe",
 			action: bmc.Action{
@@ -167,8 +221,12 @@ func TestTaskReconcile(t *testing.T) {
 				task = createTask(tt.taskName, tt.action, secret)
 			}
 
+			objs := []client.Object{task, secret}
+			if tt.configMap != nil {
+				objs = append(objs, tt.configMap)
+			}
 			cluster := newClientBuilder().
-				WithObjects(task, secret).
+				WithObjects(objs...).
 				Build()
 
 			reconciler := controller.NewTaskReconciler(cluster, newTestClient(tt.provider))
@@ -203,6 +261,28 @@ func TestTaskReconcile(t *testing.T) {
 			}
 			if len(retrieved.Status.Conditions) != 0 {
 				t.Fatalf("expected no conditions, got: %v", retrieved.Status.Conditions)
+			}
+
+			if tt.action.SecureBootResetKeys != nil {
+				want := tt.action.SecureBootResetKeys.ResetType
+				if got := tt.provider.ResetSecureBootKeysCalledWith; got != want {
+					t.Fatalf("expected ResetSecureBootKeys called with %q, got %q", want, got)
+				}
+			}
+
+			if tt.action.SecureBootDatabaseResetKeys != nil {
+				want := [2]string{tt.action.SecureBootDatabaseResetKeys.Database, tt.action.SecureBootDatabaseResetKeys.ResetType}
+				if got := tt.provider.ResetSecureBootDatabaseKeysCalledWith; got != want {
+					t.Fatalf("expected ResetSecureBootDatabaseKeys called with %v, got %v", want, got)
+				}
+			}
+
+			if tt.action.SecureBootCertificateImport != nil {
+				ref := tt.action.SecureBootCertificateImport.CertificatePEMConfigMapRef
+				want := [2]string{tt.action.SecureBootCertificateImport.Database, tt.configMap.Data[ref.Key]}
+				if got := tt.provider.ImportSecureBootCertificateCalledWith; got != want {
+					t.Fatalf("expected ImportSecureBootCertificate called with %v, got %v", want, got)
+				}
 			}
 
 			// Timeout check
@@ -256,6 +336,18 @@ func TestTaskReconcile(t *testing.T) {
 				t.Fatalf("expected no diff, got: %v", diff)
 			}
 		})
+	}
+}
+
+func createCertConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-namespace",
+			Name:      "test-cert",
+		},
+		Data: map[string]string{
+			"cert.pem": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
+		},
 	}
 }
 

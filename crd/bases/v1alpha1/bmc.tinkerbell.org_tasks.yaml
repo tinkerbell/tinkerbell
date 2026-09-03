@@ -316,6 +316,83 @@ spec:
                     - cycle
                     - reset
                     type: string
+                  secureBoot:
+                    description: SecureBoot represents enabling or disabling UEFI
+                      Secure Boot.
+                    properties:
+                      enable:
+                        description: Enable indicates whether Secure Boot should be
+                          enabled or disabled.
+                        type: boolean
+                    required:
+                    - enable
+                    type: object
+                  secureBootCertificateImport:
+                    description: SecureBootCertificateImport represents importing
+                      a certificate into a single UEFI Secure Boot key database.
+                    properties:
+                      certificatePEMConfigMapRef:
+                        description: |-
+                          CertificatePEMConfigMapRef references the ConfigMap key holding the PEM-encoded
+                          certificate to import - a certificate isn't secret, but is typically too large and
+                          too reused-across-Workflows to inline directly into an Action.
+                        properties:
+                          key:
+                            description: Key within the ConfigMap's data.
+                            type: string
+                          name:
+                            description: Name of the ConfigMap.
+                            type: string
+                          namespace:
+                            description: Namespace the ConfigMap resides in.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        - namespace
+                        type: object
+                      database:
+                        description: Database is the UEFI Secure Boot key database
+                          to import the certificate into (e.g. "db", "KEK").
+                        type: string
+                    required:
+                    - certificatePEMConfigMapRef
+                    - database
+                    type: object
+                  secureBootDatabaseResetKeys:
+                    description: SecureBootDatabaseResetKeys represents resetting
+                      a single UEFI Secure Boot key database.
+                    properties:
+                      database:
+                        description: Database is the UEFI Secure Boot key database
+                          to reset (e.g. "db", "KEK").
+                        type: string
+                      resetType:
+                        description: |-
+                          ResetType is the type of key reset to perform. PK is not a valid target at the
+                          per-database granularity, so DeletePK is not offered here (see SecureBootResetKeysAction).
+                        enum:
+                        - ResetAllKeysToDefault
+                        - DeleteAllKeys
+                        type: string
+                    required:
+                    - database
+                    - resetType
+                    type: object
+                  secureBootResetKeys:
+                    description: SecureBootResetKeys represents resetting the UEFI
+                      Secure Boot key databases.
+                    properties:
+                      resetType:
+                        description: ResetType is the type of key reset to perform.
+                        enum:
+                        - ResetAllKeysToDefault
+                        - DeleteAllKeys
+                        - DeletePK
+                        type: string
+                    required:
+                    - resetType
+                    type: object
                   virtualMediaAction:
                     description: VirtualMediaAction represents a baseboard management
                       virtual media insert/eject.
