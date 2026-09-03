@@ -39,6 +39,27 @@ func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef v1.Sec
 	return string(username), string(password), nil
 }
 
+// resolveConfigMapKeyRef gets the ConfigMap referenced by ref and returns the value at ref.Key.
+func resolveConfigMapKeyRef(ctx context.Context, c client.Client, ref bmc.ConfigMapKeyReference) (string, error) {
+	cm := &v1.ConfigMap{}
+	key := types.NamespacedName{Namespace: ref.Namespace, Name: ref.Name}
+
+	if err := c.Get(ctx, key, cm); err != nil {
+		if apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("configmap %s not found: %w", key, err)
+		}
+
+		return "", fmt.Errorf("failed to retrieve configmap %s: %w", key, err)
+	}
+
+	value, ok := cm.Data[ref.Key]
+	if !ok {
+		return "", fmt.Errorf("key %q not found in configmap %s", ref.Key, key)
+	}
+
+	return value, nil
+}
+
 // toPowerState takes a raw BMC power state response and converts it to a v1alpha1.PowerState.
 func toPowerState(state string) bmc.PowerState {
 	// Normalize the response string for comparison.

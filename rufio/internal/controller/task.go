@@ -20,6 +20,7 @@ import (
 	"time"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
+	bmclibbmc "github.com/bmc-toolbox/bmclib/v2/bmc"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -49,6 +50,7 @@ func NewTaskReconciler(c client.Client, bmcClientFactory ClientFunc) *TaskReconc
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=tasks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=tasks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=tasks/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
 // Reconcile runs a Task.
 // Establishes a connection to the BMC.
@@ -243,6 +245,50 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 		}
 		md := bmcClient.GetMetadata()
 		logger.Info("virtual media set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
+
+		return nil
+	}
+
+	if task.SecureBoot != nil {
+		if err := bmcClient.SetSecureBoot(ctx, task.SecureBoot.Enable); err != nil {
+			return fmt.Errorf("failed to perform SetSecureBoot: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("secure boot state set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "enable", task.SecureBoot.Enable)
+
+		return nil
+	}
+
+	if task.SecureBootResetKeys != nil {
+		if err := bmcClient.ResetSecureBootKeys(ctx, bmclibbmc.ResetSecureBootKeysType(task.SecureBootResetKeys.ResetType)); err != nil {
+			return fmt.Errorf("failed to perform ResetSecureBootKeys: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("secure boot keys reset successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "resetType", task.SecureBootResetKeys.ResetType)
+
+		return nil
+	}
+
+	if task.SecureBootDatabaseResetKeys != nil {
+		if err := bmcClient.ResetSecureBootDatabaseKeys(ctx, bmclibbmc.SecureBootDatabase(task.SecureBootDatabaseResetKeys.Database), bmclibbmc.ResetSecureBootDatabaseKeysType(task.SecureBootDatabaseResetKeys.ResetType)); err != nil {
+			return fmt.Errorf("failed to perform ResetSecureBootDatabaseKeys: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("secure boot database keys reset successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "database", task.SecureBootDatabaseResetKeys.Database, "resetType", task.SecureBootDatabaseResetKeys.ResetType)
+
+		return nil
+	}
+
+	if task.SecureBootCertificateImport != nil {
+		certificatePEM, err := resolveConfigMapKeyRef(ctx, r.client, task.SecureBootCertificateImport.CertificatePEMConfigMapRef)
+		if err != nil {
+			return fmt.Errorf("resolving certificatePEMConfigMapRef: %w", err)
+		}
+		if err := bmcClient.ImportSecureBootCertificate(ctx, bmclibbmc.SecureBootDatabase(task.SecureBootCertificateImport.Database), certificatePEM); err != nil {
+			return fmt.Errorf("failed to perform ImportSecureBootCertificate: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("secure boot certificate imported successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "database", task.SecureBootCertificateImport.Database)
 
 		return nil
 	}
