@@ -87,7 +87,20 @@ type Action struct {
 
 	// Image is an OCI image. Should generally be a fully qualified OCI image reference.
 	// For example, quay.io/tinkerbell/actions/image2disk:v1.0.0 or docker.io/library/alpine:3.23
-	Image string `json:"image" yaml:"image"`
+	// Mutually exclusive with Run; exactly one of Image or Run must be set.
+	// +optional
+	Image string `json:"image,omitempty,omitzero" yaml:"image,omitempty,omitzero"`
+
+	// Run is an inline script executed directly on the host the Agent runs on, outside any
+	// container runtime. The Agent writes the contents to a file and invokes it with Shell.
+	// Mutually exclusive with Image; exactly one of Image or Run must be set.
+	// +optional
+	Run string `json:"run,omitempty,omitzero" yaml:"run,omitempty,omitzero"`
+
+	// Shell is the interpreter argv used to execute Run, e.g. ["python3", "-u"].
+	// Defaults to ["bash", "-x", "-e"]. Only valid together with Run.
+	// +optional
+	Shell []string `json:"shell,omitempty,omitzero" yaml:"shell,omitempty,omitzero"`
 
 	// Command defines the command to use when launching the image. It overrides the default command
 	// of the Action image. It must be a unix path to an executable program. When omitted, the image's

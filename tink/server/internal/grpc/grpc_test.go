@@ -89,6 +89,8 @@ func TestGetAction(t *testing.T) {
 				Timeout:     toPtr(int64(5)),
 				Environment: []string{},
 				Pid:         new(string),
+				Run:         toPtr(""),
+				Background:  toPtr(false),
 			},
 			wantErr: nil,
 		},
@@ -106,6 +108,8 @@ func TestGetAction(t *testing.T) {
 				Timeout:     toPtr(int64(300)),
 				Environment: []string{},
 				Pid:         new(string),
+				Run:         toPtr(""),
+				Background:  toPtr(false),
 			},
 			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
@@ -177,6 +181,9 @@ func TestGetAction(t *testing.T) {
 				Environment: []string{},
 				Pid:         new(string),
 				Namespaces:  &proto.Namespaces{Network: toPtr("host"), Pid: new(string)},
+
+				Run:        toPtr(""),
+				Background: toPtr(false),
 			},
 			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
@@ -222,6 +229,9 @@ func TestGetAction(t *testing.T) {
 				Environment: []string{},
 				Pid:         toPtr("host"),
 				Namespaces:  &proto.Namespaces{Network: toPtr("host"), Pid: toPtr("host")},
+
+				Run:        toPtr(""),
+				Background: toPtr(false),
 			},
 			workflow: &tinkerbell.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
@@ -308,6 +318,8 @@ func TestGetAction(t *testing.T) {
 				Timeout:     toPtr(int64(300)),
 				Environment: []string{},
 				Pid:         new(string),
+				Run:         toPtr(""),
+				Background:  toPtr(false),
 			},
 			wantErr: nil,
 		},
@@ -365,6 +377,8 @@ func TestGetAction(t *testing.T) {
 				Timeout:     toPtr(int64(5)),
 				Environment: []string{},
 				Pid:         new(string),
+				Run:         toPtr(""),
+				Background:  toPtr(false),
 			},
 			wantErr: nil,
 		},
@@ -460,6 +474,56 @@ func TestGetAction(t *testing.T) {
 				Name:        toPtr("kexec"),
 				Image:       toPtr("quay.io/tinkerbell-actions/kexec:v1.0.0"),
 				Timeout:     toPtr(int64(5)),
+				Environment: []string{},
+				Pid:         new(string),
+				Run:         toPtr(""),
+				Background:  toPtr(false),
+			},
+			wantErr: nil,
+		},
+		"host script Action": {
+			request: &proto.ActionRequest{
+				AgentId: toPtr("machine-mac-1"),
+			},
+			workflow: &tinkerbell.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "machine1",
+					Namespace: "default",
+				},
+				Status: tinkerbell.WorkflowStatus{
+					State:         tinkerbell.WorkflowStatePending,
+					GlobalTimeout: 600,
+					Tasks: []tinkerbell.Task{
+						{
+							Name:    "provision",
+							AgentID: "machine-mac-1",
+							ID:      "provision",
+							Actions: []tinkerbell.Action{
+								{
+									Name:       "reboot",
+									Run:        "systemctl reboot\n",
+									Shell:      []string{"bash", "-e"},
+									Background: true,
+									Timeout:    30,
+									State:      tinkerbell.WorkflowStatePending,
+									ID:         "reboot",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &proto.ActionResponse{
+				WorkflowId:  toPtr("default/machine1"),
+				AgentId:     toPtr("machine-mac-1"),
+				TaskId:      toPtr("provision"),
+				ActionId:    toPtr("reboot"),
+				Name:        toPtr("reboot"),
+				Image:       toPtr(""),
+				Run:         toPtr("systemctl reboot\n"),
+				Shell:       []string{"bash", "-e"},
+				Background:  toPtr(true),
+				Timeout:     toPtr(int64(30)),
 				Environment: []string{},
 				Pid:         new(string),
 			},

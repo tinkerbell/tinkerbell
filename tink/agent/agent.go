@@ -16,6 +16,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/containerd"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/docker"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/kubernetes"
+	"github.com/tinkerbell/tinkerbell/tink/agent/internal/runtime/script"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/transport/file"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/transport/grpc"
@@ -44,6 +45,9 @@ type TransportWriter interface {
 type Config struct {
 	TransportReader TransportReader
 	RuntimeExecutor RuntimeExecutor
+	// ScriptExecutor runs actions that carry an inline script instead of an image. It is
+	// selected per action, independently of which container runtime RuntimeExecutor is.
+	ScriptExecutor  RuntimeExecutor
 	TransportWriter TransportWriter
 	Retry           Retry
 }
@@ -91,15 +95,94 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 		rt.next(nil)
 		log.Info("reported action status", "action", action, "state", spec.StateRunning)
 
+		// An action carrying an inline script runs directly on this host; everything else goes to
+		// the configured container runtime. Dispatching per action, rather than per agent, lets a
+		// single workflow mix the two.
+		executor := c.RuntimeExecutor
+		if action.Run != "" {
+			executor = c.ScriptExecutor
+		}
+		if executor == nil {
+			// Only reachable if the agent was assembled without the executor this action needs.
+			// Report the failure rather than panicking, so the workflow fails visibly instead of
+			// taking the agent down and stalling.
+			log.Info("no executor available for action", "action", action)
+			action.ExecutionStart = time.Now().UTC()
+			action.ExecutionStop = action.ExecutionStart
+			if err := c.report(ctx, log, rt, spec.Event{
+				Action:  action,
+				Message: "no executor available for this action",
+				State:   spec.StateFailure,
+			}); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				d := rt.next(err)
+				log.Info("action report rejected, returning to polling", "error", err, "retryIn", d.String())
+				if !sleep(ctx, d) {
+					return
+				}
+			}
+			continue
+		}
+
+		// A background action is reported successful before it runs, then detached. This is what
+		// makes actions that take the agent down with them - reboot, kexec, power off - usable:
+		// the workflow reaches a completed state first, instead of hanging on a report that will
+		// never arrive. The trade-off is that the action's outcome is invisible to the workflow.
+		if action.Background {
+			// The action is reported as taking no time, because from the workflow's point of
+			// view it did not run at all: it was handed off, not executed.
+			action.ExecutionStart = time.Now().UTC()
+			action.ExecutionStop = action.ExecutionStart
+			if err := c.report(ctx, log, rt, spec.Event{
+				Action:  action,
+				Message: "action started in the background",
+				State:   spec.StateSuccess,
+			}); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				d := rt.next(err)
+				log.Info("action report rejected, returning to polling", "error", err, "retryIn", d.String())
+				if !sleep(ctx, d) {
+					return
+				}
+				continue
+			}
+			log.Info("reported action status", "action", action, "state", spec.StateSuccess)
+
+			// Detach from the loop's context: the point of a background action is to outlive the
+			// agent's attention to it, and no timeout applies.
+			bgCtx := context.WithoutCancel(ctx)
+			bgAction := action
+			bgExecutor := executor
+			go func() {
+				if err := bgExecutor.Execute(bgCtx, bgAction); err != nil {
+					log.Info("background action failed", "action", bgAction, "error", err)
+					return
+				}
+				log.Info("background action completed", "action", bgAction)
+			}()
+
+			continue
+		}
+
 		state := spec.StateSuccess
 		// TODO(jacobweinstock): Add a retry count that comes from a CLI flag. It should only take precedence if the action has a retry count of 0.
 		retries := ternary(action.Retries == 0, 1, action.Retries)
 
 		responseEvent := spec.Event{}
 		action.ExecutionStart = time.Now().UTC()
-		timeoutCtx, timeoutDone := context.WithTimeout(ctx, time.Duration(action.TimeoutSeconds)*time.Second)
+		// A zero timeout means no timeout. Wrapping unconditionally would build an
+		// already-expired context, failing every action that omits the field.
+		timeoutCtx := ctx
+		timeoutDone := func() {}
+		if action.TimeoutSeconds > 0 {
+			timeoutCtx, timeoutDone = context.WithTimeout(ctx, time.Duration(action.TimeoutSeconds)*time.Second)
+		}
 		for i := 1; i <= retries; i++ {
-			if err := c.RuntimeExecutor.Execute(timeoutCtx, action); err != nil {
+			if err := executor.Execute(timeoutCtx, action); err != nil {
 				log.Info("error executing action", "error", err, "maxRetries", retries, "currentTry", i)
 				state = spec.StateFailure
 				if errors.Is(err, context.DeadlineExceeded) {
@@ -367,6 +450,9 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 	a := &Config{
 		TransportReader: tr,
 		RuntimeExecutor: re,
+		// Always available, regardless of the selected container runtime: an action opts into it
+		// by carrying a run script instead of an image.
+		ScriptExecutor:  &script.Config{Log: log},
 		TransportWriter: tw,
 		Retry:           o.Retry,
 	}

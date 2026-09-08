@@ -517,7 +517,7 @@ func TestGetWorkflowSchemaFields_TasksHaveActions(t *testing.T) {
 		actionFieldNames[f.Name] = true
 	}
 
-	expectedActionFields := []string{"name", "image", "timeout", "command", "environment"}
+	expectedActionFields := []string{"name", "image", "run", "shell", "background", "timeout", "command", "environment"}
 	for _, name := range expectedActionFields {
 		if !actionFieldNames[name] {
 			t.Errorf("expected action field %q not found", name)

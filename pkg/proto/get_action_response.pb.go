@@ -84,7 +84,7 @@ type ActionResponse struct {
 	// The name of the action
 	Name *string `protobuf:"bytes,5,opt,name=name" json:"name,omitempty"`
 	//
-	// The docker/oci image the action starts from
+	// The docker/oci image the action starts from. Mutually exclusive with run.
 	Image *string `protobuf:"bytes,6,opt,name=image" json:"image,omitempty"`
 	//
 	// Every action has a timeout, after that the execution stops and the action
@@ -107,7 +107,19 @@ type ActionResponse struct {
 	Pid *string `protobuf:"bytes,11,opt,name=pid" json:"pid,omitempty"`
 	//
 	// The Linux namespaces the action container should run in.
-	Namespaces    *Namespaces `protobuf:"bytes,12,opt,name=namespaces" json:"namespaces,omitempty"`
+	Namespaces *Namespaces `protobuf:"bytes,12,opt,name=namespaces" json:"namespaces,omitempty"`
+	//
+	// An inline script executed directly on the Agent host, outside any container
+	// runtime. Mutually exclusive with image.
+	Run *string `protobuf:"bytes,13,opt,name=run" json:"run,omitempty"`
+	//
+	// The interpreter argv used to execute run, e.g. ["python3", "-u"].
+	// Defaults to ["bash", "-x", "-e"]. Only valid together with run.
+	Shell []string `protobuf:"bytes,14,rep,name=shell" json:"shell,omitempty"`
+	//
+	// Report the action successful before executing it, then run it detached in the
+	// background with no timeout.
+	Background    *bool `protobuf:"varint,15,opt,name=background" json:"background,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -226,6 +238,27 @@ func (x *ActionResponse) GetNamespaces() *Namespaces {
 	return nil
 }
 
+func (x *ActionResponse) GetRun() string {
+	if x != nil && x.Run != nil {
+		return *x.Run
+	}
+	return ""
+}
+
+func (x *ActionResponse) GetShell() []string {
+	if x != nil {
+		return x.Shell
+	}
+	return nil
+}
+
+func (x *ActionResponse) GetBackground() bool {
+	if x != nil && x.Background != nil {
+		return *x.Background
+	}
+	return false
+}
+
 // Namespaces defines the Linux namespaces an action container runs in.
 // This mirrors the v1alpha2 API spec.
 type Namespaces struct {
@@ -290,7 +323,7 @@ var File_get_action_response_proto protoreflect.FileDescriptor
 
 const file_get_action_response_proto_rawDesc = "" +
 	"\n" +
-	"\x19get_action_response.proto\x12\x05proto\"\xe1\x02\n" +
+	"\x19get_action_response.proto\x12\x05proto\"\xa9\x03\n" +
 	"\x0eActionResponse\x12\x1f\n" +
 	"\vworkflow_id\x18\x01 \x01(\tR\n" +
 	"workflowId\x12\x17\n" +
@@ -307,7 +340,12 @@ const file_get_action_response_proto_rawDesc = "" +
 	"\x03pid\x18\v \x01(\tR\x03pid\x121\n" +
 	"\n" +
 	"namespaces\x18\f \x01(\v2\x11.proto.NamespacesR\n" +
-	"namespaces\"8\n" +
+	"namespaces\x12\x10\n" +
+	"\x03run\x18\r \x01(\tR\x03run\x12\x14\n" +
+	"\x05shell\x18\x0e \x03(\tR\x05shell\x12\x1e\n" +
+	"\n" +
+	"background\x18\x0f \x01(\bR\n" +
+	"background\"8\n" +
 	"\n" +
 	"Namespaces\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x10\n" +
