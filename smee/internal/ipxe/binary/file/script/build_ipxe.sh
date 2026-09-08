@@ -18,7 +18,7 @@ function build_ipxe() {
     # so the iPXE build defaults to a version of 1.0.0. See: https://github.com/ipxe/ipxe/blob/8460dc4e8ffc98db62377d1c5502d6aac40f5a64/src/Makefile#L213-L241
     tinkerbell_ipxe_commit=$(cat "$(dirname "${BASH_SOURCE[0]}")/ipxe.commit" | cut -c1-7)
     local extra_version="+ (${tinkerbell_ipxe_commit})"
-    local version_override="VERSION_MAJOR=1 VERSION_MINOR=21 VERSION_PATCH=1"
+    local version_override="VERSION_MAJOR=2 VERSION_MINOR=0 VERSION_PATCH=0"
 
     if [ -z "${env_opts}" ]; then
         make -C "${ipxe_dir}"/src ${version_override} EXTRAVERSION="${extra_version}" EMBED="${embed_path}" "${ipxe_bin}"
@@ -39,14 +39,14 @@ function mv_embed_into_build() {
 # make_local_empty will delete any custom ipxe header files,
 # putting the ipxe src back to a known good/clean state.
 function make_local_empty() {
-    local ipxe_dir="$1" 
+    local ipxe_dir="$1"
 
     rm -rf "${ipxe_dir}"/src/config/local/*
 }
 
 # copy_common_files will copy common custom header files into the ipxe src path.
 function copy_common_files() {
-    local ipxe_dir="$1" 
+    local ipxe_dir="$1"
     cp -a script/ipxe-customizations/colour.h "${ipxe_dir}"/src/config/local/
     cp -a script/ipxe-customizations/common.h "${ipxe_dir}"/src/config/local/
     cp -a script/ipxe-customizations/console.h "${ipxe_dir}"/src/config/local/
