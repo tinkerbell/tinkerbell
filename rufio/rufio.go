@@ -122,7 +122,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		options.Cache = cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}
 	}
 
-	mgr, err := controller.NewManager(c.Client, options, c.PowerCheckInterval, c.InventoryRefreshInterval, c.EnableInventoryCollection, c.MaxConcurrentReconciles)
+	mgr, err := controller.NewManager(c.Client, options, c.BMCConnectTimeout, c.PowerCheckInterval, c.InventoryRefreshInterval, c.EnableInventoryCollection, c.MaxConcurrentReconciles)
 	if err != nil {
 		return err
 	}
