@@ -31,7 +31,8 @@ import (
 // Returns handled=false when there's no Hardware match, netboot is not
 // allowed for it, no RPI config on the Hardware, no AssetDir, the path
 // doesn't have the serial prefix, or the rewritten on-disk file does not
-// exist.
+// exist. The netboot-not-allowed decline also returns ErrNetbootNotAllowed,
+// so the Router can report that cause if no other route serves the request.
 type RPiNetbootRoute struct {
 	Log      logr.Logger
 	Resolver hardware.Resolver
@@ -65,9 +66,14 @@ func (r RPiNetbootRoute) TryServe(ctx context.Context, req Request, w io.ReaderF
 	// (bootOptions.toggleAllowNetboot), and this route hands it the OSIE again
 	// instead of letting it fall through its BOOT_ORDER to the disk it was
 	// just installed to. It never boots the installed OS.
+	//
+	// The decline carries ErrNetbootNotAllowed rather than a bare
+	// handled=false: later routes still get their chance, but if none of them
+	// serve the request the client is told netboot is disabled instead of
+	// getting an indistinguishable "file not found".
 	if !hw.AllowNetboot {
-		log.V(1).Info("hardware does not allow netboot; skipping")
-		return false, nil
+		log.Info("hardware does not allow netboot; skipping")
+		return false, netbootNotAllowedForIP(req.Client.IP)
 	}
 
 	rpi := hw.RPI

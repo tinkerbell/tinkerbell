@@ -115,9 +115,14 @@ func (h *Handler) HandlerFunc() http.HandlerFunc {
 				h.serveStaticIPXEScript(w, settings)
 				return
 			}
-			if err != nil || !hw.AllowNetboot {
+			if err != nil {
 				w.WriteHeader(http.StatusNotFound)
-				h.Logger.Info("the hardware data for this machine, or lack there of, does not allow it to pxe", "client", ha, "error", err)
+				h.Logger.Info("no hardware data for this machine, it is not allowed to pxe", "client", ha, "error", err)
+
+				return
+			}
+			if !hw.AllowNetboot {
+				h.serveNetbootNotAllowed(w, fmt.Sprintf("mac: %v", ha))
 
 				return
 			}
@@ -131,9 +136,14 @@ func (h *Handler) HandlerFunc() http.HandlerFunc {
 				h.serveStaticIPXEScript(w, settings)
 				return
 			}
-			if err != nil || !hw.AllowNetboot {
+			if err != nil {
 				w.WriteHeader(http.StatusNotFound)
-				h.Logger.Info("the hardware data for this machine, or lack there of, does not allow it to pxe", "client", r.RemoteAddr, "error", err)
+				h.Logger.Info("no hardware data for this machine, it is not allowed to pxe", "client", r.RemoteAddr, "error", err)
+
+				return
+			}
+			if !hw.AllowNetboot {
+				h.serveNetbootNotAllowed(w, fmt.Sprintf("ip: %v", ip))
 
 				return
 			}
@@ -144,6 +154,31 @@ func (h *Handler) HandlerFunc() http.HandlerFunc {
 		// If we get here, we were unable to get the MAC address from the URL path or the source IP address.
 		w.WriteHeader(http.StatusNotFound)
 		h.Logger.Info("unable to get the MAC address from the URL path or the source IP address", "client", r.RemoteAddr, "urlPath", r.URL.Path)
+	}
+}
+
+// serveNetbootNotAllowed answers a client whose Hardware exists but has
+// netboot.allowPXE=false.
+//
+// It is a 403, not the 404 that a missing Hardware record gets, because the
+// two are different problems and only one of them is about the requested URL.
+// In the L3 scenarios (external DHCP, static IPs, DHCP relay) Smee's DHCP
+// handler never runs, so the "/netboot-not-allowed" boot file name it would
+// otherwise hand out is never seen and this response is the only signal the
+// operator gets. A 404 there is indistinguishable from a bad URL or a Smee
+// that has not loaded the Hardware, and sends people looking in the wrong
+// place; the status and the body both name allowPXE instead.
+//
+// The body is written as an iPXE comment so a client that fetched this as a
+// script and ignored the status still shows something intelligible rather
+// than a parse error.
+func (h *Handler) serveNetbootNotAllowed(w http.ResponseWriter, client string) {
+	h.Logger.Info("netboot not allowed for this hardware, netboot.allowPXE is false", "client", client)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusForbidden)
+	if _, err := fmt.Fprintf(w, "#!ipxe\n# netboot is not allowed for this hardware: netboot.allowPXE is false in the Hardware record (%s)\n", client); err != nil { //nolint:gosec // G705: client is a parsed MAC/IP, and the body is text/plain with nosniff
+		h.Logger.Error(err, "unable to send the netboot-not-allowed response", "client", client)
 	}
 }
 
