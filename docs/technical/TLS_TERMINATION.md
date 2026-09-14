@@ -109,7 +109,8 @@ When TLS is enabled, the following endpoints are available over HTTPS (in additi
 |----------|-------------|
 | `/ipxe/binary/` | Serves iPXE binaries |
 | `/ipxe/script/` | Serves iPXE scripts |
-| `/iso/` | Serves ISO files |
+| `/iso/` | Serves ISO files configured with IPv4 syslog and gRPC endpoints |
+| `/iso6/` | Serves ISO files configured with IPv6 syslog and gRPC endpoints |
 | `/healthcheck` | Server health information |
 | `/metrics` | Prometheus metrics |
 

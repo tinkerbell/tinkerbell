@@ -674,7 +674,7 @@ var ISOPatchMagicString = Config{
 
 var ISOStaticIPAMEnabled = Config{
 	Name:  "iso-static-ipam-enabled",
-	Usage: "[iso] enable static IPAM when patching the source (upstream) ISO",
+	Usage: "[iso] enable IPv4 static IPAM when patching the source (upstream) ISO",
 }
 
 // Tink Server flags.

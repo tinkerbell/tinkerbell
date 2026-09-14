@@ -157,7 +157,7 @@ func dhcpv6AddressForIAID(t *testing.T, message *dhcpv6.Message, iaid [4]byte) (
 }
 
 // TestConfig_syslogHost verifies that a configured SyslogFQDN takes precedence over the DHCP
-// syslog IP, and that the IP is used as a fallback when no FQDN is set. Covers #533.
+// syslog IP, and that only a usable IPv4 address is used as a fallback when no FQDN is set. Covers #533.
 func TestConfig_syslogHost(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -183,6 +183,26 @@ func TestConfig_syslogHost(t *testing.T) {
 			syslogIP:   netip.MustParseAddr("10.0.0.1"),
 			want:       "logs.reboot.example.net",
 		},
+		{
+			name:       "FQDN set without IP",
+			syslogFQDN: "syslog.example.com",
+			want:       "syslog.example.com",
+		},
+		{
+			name: "unset address does not render an invalid IP",
+		},
+		{
+			name:     "unspecified IPv4 address is not advertised",
+			syslogIP: netip.IPv4Unspecified(),
+		},
+		{
+			name:     "IPv6 address is not advertised to IPv4 scripts",
+			syslogIP: netip.MustParseAddr("2001:db8::100"),
+		},
+		{
+			name:     "IPv4-mapped address is not advertised to IPv4 scripts",
+			syslogIP: netip.MustParseAddr("::ffff:192.0.2.100"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -191,6 +211,7 @@ func TestConfig_syslogHost(t *testing.T) {
 			c.IPXE.HTTPScriptServer.SyslogFQDN = tt.syslogFQDN
 			c.IPXE.HTTPScriptServer.SyslogFQDNV6 = "ipv6-only.example.com"
 			c.DHCP.SyslogIP = tt.syslogIP
+			c.DHCPv6.SyslogIP = netip.MustParseAddr("2001:db8::100")
 
 			if got := c.syslogHost(); got != tt.want {
 				t.Errorf("syslogHost() = %q, want %q", got, tt.want)

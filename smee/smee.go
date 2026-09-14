@@ -87,6 +87,7 @@ const (
 	IPXEBinaryURI = "/ipxe/binary/"
 	IPXEScriptURI = "/ipxe/script/"
 	ISOURI        = "/iso/"
+	ISOURIV6      = "/iso6/"
 
 	// DHCPv6ServerDUIDHashPrefix scopes derived server DUIDs to Smee DHCPv6.
 	DHCPv6ServerDUIDHashPrefix = "tinkerbell:smee:dhcpv6:"
@@ -331,9 +332,9 @@ type ISO struct {
 type TinkServer struct {
 	UseTLS      bool
 	InsecureTLS bool
-	// AddrPort is the IPv4 Tink server gRPC address rendered into iPXE scripts.
+	// AddrPort is the IPv4 Tink server gRPC address rendered into iPXE scripts and ISOs.
 	AddrPort string
-	// AddrPortV6 is the IPv6 Tink server gRPC address rendered into iPXE scripts.
+	// AddrPortV6 is the IPv6 Tink server gRPC address rendered into iPXE scripts and ISOs.
 	AddrPortV6 string
 }
 
@@ -514,13 +515,17 @@ func (c *Config) ScriptHandler(log logr.Logger) http.Handler {
 }
 
 // syslogHost returns the host used for the syslog_host kernel parameter in iPXE scripts.
-// It prefers the configured SyslogFQDN (a hostname/FQDN) and falls back to the DHCP syslog IP
-// when no FQDN is set.
+// It prefers the configured SyslogFQDN (a hostname/FQDN) and falls back to a usable DHCP
+// IPv4 syslog address when no FQDN is set.
 func (c *Config) syslogHost() string {
 	if c.IPXE.HTTPScriptServer.SyslogFQDN != "" {
 		return c.IPXE.HTTPScriptServer.SyslogFQDN
 	}
-	return c.DHCP.SyslogIP.String()
+	syslogIP := c.DHCP.SyslogIP
+	if !syslogIP.IsValid() || !syslogIP.Is4() || syslogIP.IsUnspecified() {
+		return ""
+	}
+	return syslogIP.String()
 }
 
 // syslogHostV6 returns the host used for the syslog_host kernel parameter in
@@ -537,9 +542,31 @@ func (c *Config) syslogHostV6() string {
 	return syslogIP.String()
 }
 
-// ISOHandler returns an http.Handler that serves patched ISO images.
+// ISOHandler returns an http.Handler that serves ISO images patched with IPv4 endpoints.
 // Returns nil, nil if the ISO server is disabled.
 func (c *Config) ISOHandler(log logr.Logger) (http.Handler, error) {
+	return c.newISOHandler(log, c.syslogHost(), c.TinkServer.AddrPort)
+}
+
+// ISOHandlerV6 returns an http.Handler that serves ISO images patched with IPv6 endpoints.
+// Requests are rejected when static IPAM is enabled, which only supports IPv4.
+// Returns nil, nil if the ISO server is disabled.
+func (c *Config) ISOHandlerV6(log logr.Logger) (http.Handler, error) {
+	if !c.ISO.Enabled {
+		return nil, nil
+	}
+
+	// Static IPAM is not supported for IPv6
+	if c.ISO.StaticIPAMEnabled {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "static IPAM is not supported for IPv6 ISO boot", http.StatusBadRequest)
+		}), nil
+	}
+
+	return c.newISOHandler(log, c.syslogHostV6(), c.TinkServer.AddrPortV6)
+}
+
+func (c *Config) newISOHandler(log logr.Logger, syslogHost, tinkServerGRPCAddr string) (http.Handler, error) {
 	if !c.ISO.Enabled {
 		return nil, nil
 	}
@@ -549,9 +576,9 @@ func (c *Config) ISOHandler(log logr.Logger) (http.Handler, error) {
 		Patch: iso.Patch{
 			KernelParams: iso.KernelParams{
 				ExtraParams:        c.IPXE.HTTPScriptServer.ExtraKernelArgs,
-				Syslog:             c.syslogHost(),
+				Syslog:             syslogHost,
 				TinkServerTLS:      c.TinkServer.UseTLS,
-				TinkServerGRPCAddr: c.TinkServer.AddrPort,
+				TinkServerGRPCAddr: tinkServerGRPCAddr,
 			},
 			MagicString: func() string {
 				if c.ISO.PatchMagicString == "" {

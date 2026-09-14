@@ -107,7 +107,8 @@ per-service scraping. A combined endpoint gathers from all registries.
 |-------|--------|-------|----------|-------------|
 | `/ipxe/binary/` | GET, HEAD | | | Serves architecture-specific iPXE firmware binaries (e.g. `snp.efi`, `undionly.kpxe`) from the embedded file set. DHCP option 67 points machines here. |
 | `/ipxe/script/` | GET | | | Serves auto-generated iPXE boot scripts. Supports MAC-address injection in the URL path (e.g. `/ipxe/script/aa:bb:cc:dd:ee:ff/auto.ipxe` for IPv4 and `/ipxe/script/aa:bb:cc:dd:ee:ff/auto6.ipxe` for IPv6). |
-| `/iso/` | GET | ✅ | | Serves dynamically-patched ISO images with per-machine kernel parameters baked in. Enabled via `--smee-iso-enabled`. |
+| `/iso/` | GET | ✅ | | Serves dynamically-patched ISO images with per-machine kernel parameters and IPv4 syslog and gRPC endpoints. Enabled via `--iso-enabled`. |
+| `/iso6/` | GET | ✅ | | Serves dynamically-patched ISO images with per-machine kernel parameters and IPv6 syslog and gRPC endpoints. Enabled via `--iso-enabled`. |
 
 ### PXE over HTTP (Smee)
 
