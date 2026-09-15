@@ -60,9 +60,9 @@ type Action struct {
 	// VirtualMediaAction represents a baseboard management virtual media insert/eject.
 	VirtualMediaAction *VirtualMediaAction `json:"virtualMediaAction,omitempty"`
 
-	// SecureBootKeyManagement represents enabling/disabling out-of-band acceptance of
+	// AllowCustomSecureBootKeys represents enabling/disabling out-of-band acceptance of
 	// custom UEFI Secure Boot keys.
-	SecureBootKeyManagement *SecureBootKeyManagementAction `json:"secureBootKeyManagement,omitempty"`
+	AllowCustomSecureBootKeys *AllowCustomSecureBootKeysAction `json:"allowCustomSecureBootKeys,omitempty"`
 }
 
 // TaskStatus defines the observed state of Task.

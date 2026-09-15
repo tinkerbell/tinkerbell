@@ -92,19 +92,19 @@ func newClientBuilder() *fake.ClientBuilder {
 }
 
 type testProvider struct {
-	PName                      string
-	Proto                      string
-	Powerstate                 string
-	PowerSetOK                 bool
-	BootdeviceOK               bool
-	VirtualMediaOK             bool
-	ErrOpen                    error
-	ErrClose                   error
-	ErrPowerStateGet           error
-	ErrPowerStateSet           error
-	ErrBootDeviceSet           error
-	ErrVirtualMediaInsert      error
-	ErrSecureBootKeyManagement error
+	PName                        string
+	Proto                        string
+	Powerstate                   string
+	PowerSetOK                   bool
+	BootdeviceOK                 bool
+	VirtualMediaOK               bool
+	ErrOpen                      error
+	ErrClose                     error
+	ErrPowerStateGet             error
+	ErrPowerStateSet             error
+	ErrBootDeviceSet             error
+	ErrVirtualMediaInsert        error
+	ErrAllowCustomSecureBootKeys error
 
 	// InventoryDevice and ErrInventory control the Inventory() implementation
 	// below, used to test BMC inventory collection without a live BMC or a
@@ -137,7 +137,7 @@ func (t *testProvider) Features() registrar.Features {
 		providers.FeatureBootDeviceSet,
 		providers.FeatureVirtualMedia,
 		providers.FeatureInventoryRead,
-		providers.FeatureSetSecureBootKeyManagement,
+		providers.FeatureAllowCustomSecureBootKeys,
 	}
 }
 
@@ -173,8 +173,8 @@ func (t *testProvider) SetVirtualMedia(_ context.Context, _ string, _ string) (o
 	return t.VirtualMediaOK, t.ErrVirtualMediaInsert
 }
 
-func (t *testProvider) SetSecureBootKeyManagement(_ context.Context, _ bool) (rebootRequired bool, err error) {
-	return false, t.ErrSecureBootKeyManagement
+func (t *testProvider) AllowCustomSecureBootKeys(_ context.Context, _ bool) (rebootRequired bool, err error) {
+	return false, t.ErrAllowCustomSecureBootKeys
 }
 
 // newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc.

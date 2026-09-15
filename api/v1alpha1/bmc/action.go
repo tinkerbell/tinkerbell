@@ -47,12 +47,12 @@ type VirtualMediaAction struct {
 	Kind VirtualMediaKind `json:"kind"`
 }
 
-// SecureBootKeyManagementAction represents enabling or disabling the platform's
+// AllowCustomSecureBootKeysAction represents enabling or disabling the platform's
 // out-of-band acceptance of custom UEFI Secure Boot keys. This is distinct from
 // enabling UEFI Secure Boot itself and from the standardized Setup/Audit/User/
 // Deployed platform mode: it only gates whether a key store change made through
 // the BMC will be accepted.
-type SecureBootKeyManagementAction struct {
+type AllowCustomSecureBootKeysAction struct {
 	// Enable indicates whether the platform should accept custom UEFI Secure Boot keys.
 	Enable bool `json:"enable"`
 }

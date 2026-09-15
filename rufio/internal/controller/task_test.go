@@ -32,8 +32,8 @@ func getAction(s string) bmc.Action {
 		return bmc.Action{OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{Devices: []bmc.BootDevice{bmc.PXE}}}
 	case "VirtualMedia":
 		return bmc.Action{VirtualMediaAction: &bmc.VirtualMediaAction{MediaURL: "http://example.com/image.iso", Kind: bmc.VirtualMediaCD}}
-	case "SecureBootKeyManagementEnable":
-		return bmc.Action{SecureBootKeyManagement: &bmc.SecureBootKeyManagementAction{Enable: true}}
+	case "AllowCustomSecureBootKeysEnable":
+		return bmc.Action{AllowCustomSecureBootKeys: &bmc.AllowCustomSecureBootKeysAction{Enable: true}}
 	default:
 		return bmc.Action{}
 	}
@@ -75,8 +75,8 @@ func TestTaskReconcile(t *testing.T) {
 			provider: &testProvider{VirtualMediaOK: true},
 		},
 		"success secure boot key management": {
-			taskName: "SecureBootKeyManagementEnable",
-			action:   getAction("SecureBootKeyManagementEnable"),
+			taskName: "AllowCustomSecureBootKeysEnable",
+			action:   getAction("AllowCustomSecureBootKeysEnable"),
 			provider: &testProvider{},
 		},
 		"success power on with rpc provider": {
@@ -115,9 +115,9 @@ func TestTaskReconcile(t *testing.T) {
 			shouldErr: true,
 		},
 		"failure on secure boot key management": {
-			taskName:  "SecureBootKeyManagementEnable",
-			action:    getAction("SecureBootKeyManagementEnable"),
-			provider:  &testProvider{ErrSecureBootKeyManagement: errors.New("failed to set secure boot key management")},
+			taskName:  "AllowCustomSecureBootKeysEnable",
+			action:    getAction("AllowCustomSecureBootKeysEnable"),
+			provider:  &testProvider{ErrAllowCustomSecureBootKeys: errors.New("failed to set secure boot key management")},
 			shouldErr: true,
 		},
 		"failure timeout": {

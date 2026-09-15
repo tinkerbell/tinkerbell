@@ -247,10 +247,10 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 		return nil
 	}
 
-	if task.SecureBootKeyManagement != nil {
-		rebootRequired, err := bmcClient.SetSecureBootKeyManagement(ctx, task.SecureBootKeyManagement.Enable)
+	if task.AllowCustomSecureBootKeys != nil {
+		rebootRequired, err := bmcClient.AllowCustomSecureBootKeys(ctx, task.AllowCustomSecureBootKeys.Enable)
 		if err != nil {
-			return fmt.Errorf("failed to perform SecureBootKeyManagement: %w", err)
+			return fmt.Errorf("failed to perform AllowCustomSecureBootKeys: %w", err)
 		}
 		md := bmcClient.GetMetadata()
 		logger.Info("secure boot key management set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "rebootRequired", rebootRequired)

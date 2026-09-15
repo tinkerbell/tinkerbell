@@ -98,6 +98,18 @@ spec:
                             For example either PowerAction or OneTimeBootDeviceAction.
                           maxProperties: 1
                           properties:
+                            allowCustomSecureBootKeys:
+                              description: |-
+                                AllowCustomSecureBootKeys represents enabling/disabling out-of-band acceptance of
+                                custom UEFI Secure Boot keys.
+                              properties:
+                                enable:
+                                  description: Enable indicates whether the platform
+                                    should accept custom UEFI Secure Boot keys.
+                                  type: boolean
+                              required:
+                              - enable
+                              type: object
                             bootDevice:
                               description: BootDevice is the device to set as the
                                 first boot device on the Machine.
@@ -149,18 +161,6 @@ spec:
                               - cycle
                               - reset
                               type: string
-                            secureBootKeyManagement:
-                              description: |-
-                                SecureBootKeyManagement represents enabling/disabling out-of-band acceptance of
-                                custom UEFI Secure Boot keys.
-                              properties:
-                                enable:
-                                  description: Enable indicates whether the platform
-                                    should accept custom UEFI Secure Boot keys.
-                                  type: boolean
-                              required:
-                              - enable
-                              type: object
                             virtualMediaAction:
                               description: VirtualMediaAction represents a baseboard
                                 management virtual media insert/eject.
@@ -190,6 +190,18 @@ spec:
                             For example either PowerAction or OneTimeBootDeviceAction.
                           maxProperties: 1
                           properties:
+                            allowCustomSecureBootKeys:
+                              description: |-
+                                AllowCustomSecureBootKeys represents enabling/disabling out-of-band acceptance of
+                                custom UEFI Secure Boot keys.
+                              properties:
+                                enable:
+                                  description: Enable indicates whether the platform
+                                    should accept custom UEFI Secure Boot keys.
+                                  type: boolean
+                              required:
+                              - enable
+                              type: object
                             bootDevice:
                               description: BootDevice is the device to set as the
                                 first boot device on the Machine.
@@ -241,18 +253,6 @@ spec:
                               - cycle
                               - reset
                               type: string
-                            secureBootKeyManagement:
-                              description: |-
-                                SecureBootKeyManagement represents enabling/disabling out-of-band acceptance of
-                                custom UEFI Secure Boot keys.
-                              properties:
-                                enable:
-                                  description: Enable indicates whether the platform
-                                    should accept custom UEFI Secure Boot keys.
-                                  type: boolean
-                              required:
-                              - enable
-                              type: object
                             virtualMediaAction:
                               description: VirtualMediaAction represents a baseboard
                                 management virtual media insert/eject.

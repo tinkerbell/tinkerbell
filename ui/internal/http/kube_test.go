@@ -358,13 +358,13 @@ func TestBmcTaskType(t *testing.T) {
 			want: "VirtualMedia",
 		},
 		{
-			name: "SecureBootKeyManagement returns SecureBootKeyManagement",
+			name: "AllowCustomSecureBootKeys returns AllowCustomSecureBootKeys",
 			action: bmcv1alpha1.Action{
-				SecureBootKeyManagement: &bmcv1alpha1.SecureBootKeyManagementAction{
+				AllowCustomSecureBootKeys: &bmcv1alpha1.AllowCustomSecureBootKeysAction{
 					Enable: true,
 				},
 			},
-			want: "SecureBootKeyManagement",
+			want: "AllowCustomSecureBootKeys",
 		},
 	}
 
