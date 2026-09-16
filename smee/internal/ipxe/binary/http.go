@@ -104,6 +104,15 @@ func (h HTTPHandler) Handle(w http.ResponseWriter, req *http.Request) {
 	switch {
 	case err == nil:
 		span.SetStatus(codes.Ok, rel)
+	case errors.Is(err, ErrNetbootNotAllowed):
+		// 403, not 404: the file the client asked for is not the problem, the
+		// Hardware record is. In the L3 scenarios (external DHCP, static IPs,
+		// relay) this response is the only place the operator can see that
+		// netboot.allowPXE is false, so it says so in both the status and the
+		// body rather than looking like a missing file.
+		log.Info("netboot not allowed for this client", "err", err)
+		http.Error(w, err.Error(), http.StatusForbidden)
+		span.SetStatus(codes.Error, err.Error())
 	case errors.Is(err, os.ErrNotExist):
 		log.Info("no route handled request")
 		http.NotFound(w, req)

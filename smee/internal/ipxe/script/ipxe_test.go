@@ -2,19 +2,29 @@ package script
 
 import (
 	"context"
+	"errors"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/smee/internal/hardware"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
 	"go.opentelemetry.io/otel/trace"
 )
 
 const x8664Arch = "x86_64"
+
+// metric.Init registers collectors on the default registry and panics on a
+// second registration, so tests that need the counters share one call.
+var initMetrics = sync.OnceFunc(metric.Init)
 
 func TestCustomScript(t *testing.T) {
 	tests := map[string]struct {
@@ -365,7 +375,7 @@ echo Failed to boot
 imgfree
 exit
 `
-	metric.Init()
+	initMetrics()
 	h := &Handler{
 		OSIEURL:            "http://127.0.0.1",
 		ExtraKernelParams:  []string{"k=v", "k2=v2"},
@@ -385,5 +395,82 @@ exit
 	}
 	if diff := cmp.Diff(writer.Body.String(), want); diff != "" {
 		t.Fatalf("expected custom script, got %s", diff)
+	}
+}
+
+// mockBackend serves one canned Hardware (or an error) for every lookup.
+type mockBackend struct {
+	hw  *tinkerbell.Hardware
+	err error
+}
+
+func (m *mockBackend) FilterHardware(_ context.Context, _ data.HardwareFilter) (*tinkerbell.Hardware, error) {
+	return m.hw, m.err
+}
+
+// hardwareWithAllowPXE builds a minimal Hardware with one interface whose
+// netboot.allowPXE is set as given.
+func hardwareWithAllowPXE(mac string, allowPXE bool) *tinkerbell.Hardware {
+	return &tinkerbell.Hardware{
+		Spec: tinkerbell.HardwareSpec{
+			Interfaces: []tinkerbell.Interface{
+				{
+					DHCP: &tinkerbell.DHCP{
+						MAC: mac,
+						IP: &tinkerbell.IP{
+							Address: "192.168.1.100",
+							Netmask: "255.255.255.0",
+							Gateway: "192.168.1.1",
+							Family:  4,
+						},
+					},
+					Netboot: &tinkerbell.Netboot{AllowPXE: &allowPXE},
+				},
+			},
+		},
+	}
+}
+
+// The two ways an iPXE script request can be refused are different problems and
+// must not look alike: no Hardware record at all is a 404, a Hardware record
+// with netboot.allowPXE=false is a 403 that says so. In the L3 scenarios
+// (external DHCP, static IPs, DHCP relay) Smee's DHCP handler never runs, so
+// this response is the only place allowPXE=false is visible to the operator.
+func TestHandlerFuncNetbootNotAllowed(t *testing.T) {
+	// HandlerFunc counts requests; the collectors have to exist first.
+	initMetrics()
+
+	const mac = "aa:bb:cc:dd:ee:ff"
+
+	tests := map[string]struct {
+		backend    hardware.BackendReader
+		wantStatus int
+		wantInBody string
+	}{
+		"allowPXE false is 403 naming allowPXE": {
+			backend:    &mockBackend{hw: hardwareWithAllowPXE(mac, false)},
+			wantStatus: http.StatusForbidden,
+			wantInBody: "allowPXE",
+		},
+		"no hardware record stays a 404": {
+			backend:    &mockBackend{err: errors.New("no hardware")},
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			h := &Handler{Logger: logr.Discard(), Backend: tt.backend}
+			req := httptest.NewRequest(http.MethodGet, "/"+mac+"/auto.ipxe", nil)
+			rr := httptest.NewRecorder()
+			h.HandlerFunc()(rr, req)
+
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rr.Code, tt.wantStatus)
+			}
+			if tt.wantInBody != "" && !strings.Contains(rr.Body.String(), tt.wantInBody) {
+				t.Errorf("body = %q, want it to mention %q", rr.Body.String(), tt.wantInBody)
+			}
+		})
 	}
 }

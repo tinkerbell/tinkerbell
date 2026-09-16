@@ -147,6 +147,28 @@ func TestRouter(t *testing.T) {
 			wantErr:    true,
 			wantNotFnd: true,
 		},
+		// A route that declined because netboot is disabled doesn't stop the
+		// chain, but its reason outlives it: with nothing else to serve the
+		// request, that is what the client is told, instead of a 404 that looks
+		// like a missing file.
+		"netboot-not-allowed decline is returned when nothing handles": {
+			routes: []*stubRoute{
+				{name: "first", err: netbootNotAllowedForMAC(net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff})},
+				{name: "second"},
+			},
+			wantCalled: []bool{true, true},
+			wantErr:    true,
+			wantErrIs:  ErrNetbootNotAllowed,
+		},
+		// ... and it is only a fallback: a later route that actually serves the
+		// request wins, because a real file by that name is a real answer.
+		"later route handling wins over a netboot-not-allowed decline": {
+			routes: []*stubRoute{
+				{name: "first", err: netbootNotAllowedForMAC(net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff})},
+				{name: "second", handled: true},
+			},
+			wantCalled: []bool{true, true},
+		},
 	}
 
 	for name, tt := range tests {
@@ -224,6 +246,7 @@ func TestPXELinuxMACRoute(t *testing.T) {
 		resolver       hardware.Resolver
 		wantHandled    bool
 		wantBytesMatch string
+		wantErrIs      error
 	}{
 		"valid path, template served": {
 			filename: "pxelinux.cfg/01-" + dashed,
@@ -235,12 +258,15 @@ func TestPXELinuxMACRoute(t *testing.T) {
 		},
 		// AllowNetboot is netboot.allowPXE after dhcp.Convert*; the Workflow
 		// controller clears it once a machine is provisioned.
+		// The decline still lets later routes run, but it carries the reason so
+		// the client gets told netboot is disabled rather than "file not found".
 		"netboot not allowed passes through": {
 			filename: "pxelinux.cfg/01-" + dashed,
 			resolver: &fakeResolver{byMAC: map[string]hardware.Info{
 				mac.String(): {AllowNetboot: false, PXELINUX: hardware.PXELINUX{Config: "PROMPT 0\nDEFAULT linux"}},
 			}},
 			wantHandled: false,
+			wantErrIs:   ErrNetbootNotAllowed,
 		},
 		"wrong length passes through": {
 			filename:    "pxelinux.cfg/01-short",
@@ -278,8 +304,11 @@ func TestPXELinuxMACRoute(t *testing.T) {
 			r := PXELinuxMACRoute{Log: logr.Discard(), Resolver: tt.resolver}
 			w := &captureWriter{}
 			handled, err := r.TryServe(context.Background(), Request{Filename: tt.filename}, w)
-			if err != nil {
+			if tt.wantErrIs == nil && err != nil {
 				t.Fatal(err)
+			}
+			if tt.wantErrIs != nil && !errors.Is(err, tt.wantErrIs) {
+				t.Fatalf("err=%v want errors.Is %v", err, tt.wantErrIs)
 			}
 			if handled != tt.wantHandled {
 				t.Fatalf("handled=%v want=%v", handled, tt.wantHandled)
@@ -344,6 +373,7 @@ func TestRPiNetbootRoute(t *testing.T) {
 		resolver    hardware.Resolver
 		wantHandled bool
 		wantBody    string
+		wantErrIs   error
 	}{
 		"empty AssetDir passes through": {
 			filename:    serial + "/config.txt",
@@ -371,6 +401,8 @@ func TestRPiNetbootRoute(t *testing.T) {
 		// the OSIE after the Workflow controller has cleared AllowNetboot (the
 		// Hardware's netboot.allowPXE), and it never boots the disk it was
 		// just installed to.
+		// The decline still lets later routes run, but it carries the reason so
+		// the client gets told netboot is disabled rather than "file not found".
 		"netboot not allowed passes through": {
 			filename: serial + "/config.txt",
 			assetDir: assetDir,
@@ -378,6 +410,7 @@ func TestRPiNetbootRoute(t *testing.T) {
 				clientIP.String(): hwNetbootDisabled,
 			}},
 			wantHandled: false,
+			wantErrIs:   ErrNetbootNotAllowed,
 		},
 		"netboot not allowed passes through for rewritten assets too": {
 			filename: serial + "/start.elf",
@@ -386,6 +419,7 @@ func TestRPiNetbootRoute(t *testing.T) {
 				clientIP.String(): hwNetbootDisabled,
 			}},
 			wantHandled: false,
+			wantErrIs:   ErrNetbootNotAllowed,
 		},
 		"non-serial-prefixed path passes through": {
 			filename:    "other-serial/config.txt",
@@ -490,8 +524,11 @@ func TestRPiNetbootRoute(t *testing.T) {
 			r := RPiNetbootRoute{Log: logr.Discard(), Resolver: tt.resolver, AssetDir: tt.assetDir}
 			w := &captureWriter{}
 			handled, err := r.TryServe(context.Background(), Request{Filename: tt.filename, Client: clientAddr}, w)
-			if err != nil {
+			if tt.wantErrIs == nil && err != nil {
 				t.Fatal(err)
+			}
+			if tt.wantErrIs != nil && !errors.Is(err, tt.wantErrIs) {
+				t.Fatalf("err=%v want errors.Is %v", err, tt.wantErrIs)
 			}
 			if handled != tt.wantHandled {
 				t.Fatalf("handled=%v want=%v", handled, tt.wantHandled)
