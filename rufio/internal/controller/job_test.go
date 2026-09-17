@@ -137,10 +137,71 @@ func createJob(name string, machine *bmc.Machine, t ...bmc.Action) *bmc.Job {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      name,
+			UID:       types.UID(name + "-uid"),
 		},
 		Spec: bmc.JobSpec{
 			MachineRef: bmc.MachineRef{Name: machine.Name, Namespace: machine.Namespace},
 			Tasks:      tasks,
 		},
 	}
+}
+
+// TestJobReconcileIgnoresForeignTaskWithSameName covers a Task that shares
+// its name with the Task this Job would create but is owned by a different
+// Job UID - e.g. a leftover from a previous, deleted Job instance that
+// reused a fixed name (tink/controller's Workflow state machine does this
+// for Jobs like "netboot") and hasn't been garbage collected yet. The
+// owned-Task List must exclude it, so reconcile proceeds to attempt
+// creating this Job's own Task rather than mistaking the foreign one for it.
+func TestJobReconcileIgnoresForeignTaskWithSameName(t *testing.T) {
+	machine := createMachine()
+	secret := createSecret()
+	job := createJob("netboot", machine, getAction("PowerOn"))
+	job.UID = "current-job-uid"
+
+	isController := true
+	foreign := &bmc.Task{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      bmc.FormatTaskName(*job, 0),
+			Namespace: job.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: job.APIVersion,
+					Kind:       job.Kind,
+					Name:       job.Name,
+					UID:        "previous-job-uid",
+					Controller: &isController,
+				},
+			},
+		},
+		Spec: bmc.TaskSpec{Task: job.Spec.Tasks[0]},
+	}
+
+	clnt := newClientBuilder().
+		WithObjects(job, machine, secret, foreign).
+		WithIndex(&bmc.Task{}, ".metadata.controller", controller.TaskOwnerIndexFunc).
+		Build()
+
+	reconciler := controller.NewJobReconciler(clnt)
+
+	_, err := reconciler.Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: job.Namespace, Name: job.Name},
+	})
+	// The foreign Task's name collides with the one this Job attempts to
+	// create, so Create returns AlreadyExists.
+	if err == nil {
+		t.Fatal("expected an error surfacing the Task name conflict, got nil")
+	}
+
+	var got bmc.Job
+	if err := clnt.Get(context.Background(),
+		types.NamespacedName{Namespace: job.Namespace, Name: job.Name}, &got); err != nil {
+		t.Fatalf("getting job: %v", err)
+	}
+	for _, c := range got.Status.Conditions {
+		if c.Type == bmc.JobFailed && c.Status == bmc.ConditionTrue {
+			return
+		}
+	}
+	t.Fatal("expected Job to be marked Failed once the Task name conflict surfaced")
 }

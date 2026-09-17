@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
-// Index key for Job Owner Name.
+// Index key for Job Owner UID.
 const jobOwnerKey = ".metadata.controller"
 
 // JobReconciler reconciles a Job object.
@@ -105,9 +105,12 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmc.Job, jobPatch 
 		return ctrl.Result{}, fmt.Errorf("get Job %s/%s MachineRef: %w", job.Namespace, job.Name, err)
 	}
 
-	// List all Task owned by Job
+	// List all Task owned by Job, matched by owner UID: a Task belonging to
+	// a different Job instance that happens to reuse this Job's name (e.g. a
+	// controller that deletes and recreates a fixed-name Job) has a
+	// different owner UID and must not be mistaken for this Job's own Task.
 	tasks := &bmc.TaskList{}
-	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: job.Name}, client.InNamespace(job.Namespace))
+	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: string(job.UID)}, client.InNamespace(job.Namespace))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s: %w", job.Namespace, job.Name, err)
 	}
@@ -249,7 +252,7 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, 
 		Complete(r)
 }
 
-// TaskOwnerIndexFunc is Indexer func which returns the owner name for obj.
+// TaskOwnerIndexFunc is Indexer func which returns the owner UID for obj.
 func TaskOwnerIndexFunc(obj client.Object) []string {
 	task, ok := obj.(*bmc.Task)
 	if !ok {
@@ -266,5 +269,5 @@ func TaskOwnerIndexFunc(obj client.Object) []string {
 		return nil
 	}
 
-	return []string{owner.Name}
+	return []string{string(owner.UID)}
 }
