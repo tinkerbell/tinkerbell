@@ -28,7 +28,7 @@ func TestAgentAttributesFromData(t *testing.T) {
 			UsableBytes: ptr(int64(30_064_771_072)), // 28 GiB
 		},
 		BlockDevices: []*data.Block{
-			{Name: ptr("sda"), SizeBytes: ptr(int64(536_870_912_000)), PhysicalBlockSizeBytes: ptr(int64(512))}, // 500 GiB
+			{Name: ptr("sda"), Path: ptr("pci-0000:00:1f.2-ata-1"), SizeBytes: ptr(int64(536_870_912_000)), PhysicalBlockSizeBytes: ptr(int64(512))}, // 500 GiB
 		},
 		NetworkInterfaces: []*data.Network{
 			{Name: ptr("eno1"), Mac: ptr("aa:bb:cc:dd:ee:ff"), SpeedMbps: ptr(uint32(1000)), EnabledCapabilities: []string{"tso"}},
@@ -55,8 +55,8 @@ func TestAgentAttributesFromData(t *testing.T) {
 	if got.Memory.Total != "32 GiB" || got.Memory.Usable != "28 GiB" {
 		t.Errorf("Memory = %+v, want Total=\"32 GiB\" Usable=\"28 GiB\"", got.Memory)
 	}
-	if len(got.BlockDevices) != 1 || got.BlockDevices[0].Size != "500 GiB" || got.BlockDevices[0].PhysicalBlockSize != "512 B" {
-		t.Errorf("BlockDevices = %+v, want one entry Size=\"500 GiB\" PhysicalBlockSize=\"512 B\"", got.BlockDevices)
+	if len(got.BlockDevices) != 1 || got.BlockDevices[0].Size != "500 GiB" || got.BlockDevices[0].PhysicalBlockSize != "512 B" || got.BlockDevices[0].Path != "pci-0000:00:1f.2-ata-1" {
+		t.Errorf("BlockDevices = %+v, want one entry Size=\"500 GiB\" PhysicalBlockSize=\"512 B\" Path=pci-0000:00:1f.2-ata-1", got.BlockDevices)
 	}
 	if len(got.NetworkInterfaces) != 1 || got.NetworkInterfaces[0].Speed != "1 Gbps" {
 		t.Errorf("NetworkInterfaces = %+v, want one entry Speed=\"1 Gbps\"", got.NetworkInterfaces)

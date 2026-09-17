@@ -400,8 +400,13 @@ type Block struct {
 	SerialNumber           *string                `protobuf:"bytes,9,opt,name=serial_number,json=serialNumber" json:"serial_number,omitempty"`
 	SizeBytes              *int64                 `protobuf:"varint,10,opt,name=size_bytes,json=sizeBytes" json:"size_bytes,omitempty"`
 	PhysicalBlockSizeBytes *int64                 `protobuf:"varint,11,opt,name=physical_block_size_bytes,json=physicalBlockSizeBytes" json:"physical_block_size_bytes,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// udev ID_PATH (e.g. "pci-0000:17:00.0-nvme-1"): a stable identifier for
+	// the device's position in the topology (bus, slot, port). The OS-visible
+	// name can reorder across reboots; serial number and WWN identify the
+	// drive, not the slot it occupies.
+	Path          *string `protobuf:"bytes,12,opt,name=path" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Block) Reset() {
@@ -495,6 +500,13 @@ func (x *Block) GetPhysicalBlockSizeBytes() int64 {
 		return *x.PhysicalBlockSizeBytes
 	}
 	return 0
+}
+
+func (x *Block) GetPath() string {
+	if x != nil && x.Path != nil {
+		return *x.Path
+	}
+	return ""
 }
 
 type Network struct {
@@ -981,7 +993,7 @@ const file_get_action_request_proto_rawDesc = "" +
 	"\x06Memory\x12\x1f\n" +
 	"\vtotal_bytes\x18\x03 \x01(\x03R\n" +
 	"totalBytes\x12!\n" +
-	"\fusable_bytes\x18\x04 \x01(\x03R\vusableBytesJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03R\x05totalR\x06usable\"\xc9\x02\n" +
+	"\fusable_bytes\x18\x04 \x01(\x03R\vusableBytesJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03R\x05totalR\x06usable\"\xdd\x02\n" +
 	"\x05Block\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12'\n" +
 	"\x0fcontroller_type\x18\x02 \x01(\tR\x0econtrollerType\x12\x1d\n" +
@@ -994,7 +1006,8 @@ const file_get_action_request_proto_rawDesc = "" +
 	"\n" +
 	"size_bytes\x18\n" +
 	" \x01(\x03R\tsizeBytes\x129\n" +
-	"\x19physical_block_size_bytes\x18\v \x01(\x03R\x16physicalBlockSizeBytesJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x04sizeR\x13physical_block_size\"\x8e\x01\n" +
+	"\x19physical_block_size_bytes\x18\v \x01(\x03R\x16physicalBlockSizeBytes\x12\x12\n" +
+	"\x04path\x18\f \x01(\tR\x04pathJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x04sizeR\x13physical_block_size\"\x8e\x01\n" +
 	"\aNetwork\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03mac\x18\x02 \x01(\tR\x03mac\x121\n" +

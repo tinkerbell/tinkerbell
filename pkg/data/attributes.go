@@ -47,6 +47,10 @@ type Block struct {
 	Model                  *string `json:"model,omitempty" yaml:"model,omitempty"`
 	WWN                    *string `json:"wwn,omitempty" yaml:"wwn,omitempty"`
 	SerialNumber           *string `json:"serialNumber,omitempty" yaml:"serialNumber,omitempty"`
+	// Path is the device's position in the topology (udev ID_PATH, e.g.
+	// "pci-0000:17:00.0-nvme-1"): stable where Name is not, and identifies the
+	// slot rather than the drive (see WWN, SerialNumber).
+	Path *string `json:"path,omitempty" yaml:"path,omitempty"`
 }
 
 type Network struct {

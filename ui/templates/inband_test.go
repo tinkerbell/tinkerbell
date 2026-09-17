@@ -39,7 +39,7 @@ func TestAgentAttributesFromInBand(t *testing.T) {
 			UsableBytes: 7_500_000_000,
 		},
 		BlockDevices: []tinkv1alpha1.BlockDevice{
-			{Name: "nvme0n1", Vendor: "Samsung", SerialNumber: "S1", SizeBytes: 20_000_000_000},
+			{Name: "nvme0n1", Vendor: "Samsung", SerialNumber: "S1", Path: "pci-0000:17:00.0-nvme-1", SizeBytes: 20_000_000_000},
 		},
 		NetworkInterfaces: []tinkv1alpha1.NetworkInterface{
 			{
@@ -83,8 +83,8 @@ func TestAgentAttributesFromInBand(t *testing.T) {
 		t.Errorf("Memory = %+v, want Total=7.5 GiB Usable=7.0 GiB", got.Memory)
 	}
 
-	if len(got.BlockDevices) != 1 || got.BlockDevices[0].Name != "nvme0n1" || got.BlockDevices[0].Size != "19 GiB" {
-		t.Errorf("BlockDevices = %+v, want one entry with Name=nvme0n1 Size=19 GiB", got.BlockDevices)
+	if len(got.BlockDevices) != 1 || got.BlockDevices[0].Name != "nvme0n1" || got.BlockDevices[0].Size != "19 GiB" || got.BlockDevices[0].Path != "pci-0000:17:00.0-nvme-1" {
+		t.Errorf("BlockDevices = %+v, want one entry with Name=nvme0n1 Size=19 GiB Path=pci-0000:17:00.0-nvme-1", got.BlockDevices)
 	}
 
 	if len(got.NetworkInterfaces) != 2 {

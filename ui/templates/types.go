@@ -202,6 +202,7 @@ type AgentBlockDevice struct {
 	Model             string `json:"model"`
 	WWN               string `json:"wwn"`
 	SerialNumber      string `json:"serialNumber"`
+	Path              string `json:"path"`
 }
 
 // AgentNetworkInterface represents a network interface from agent attributes.

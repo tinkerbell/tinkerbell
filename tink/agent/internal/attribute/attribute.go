@@ -98,6 +98,7 @@ func DiscoverBlockDevices(l logr.Logger) []*data.Block {
 				Model:          toPtr(d.Model),
 				WWN:            toPtr(d.WWN),
 				SerialNumber:   toPtr(d.SerialNumber),
+				Path:           toPtr(d.BusPath),
 			}
 			if sizeBytes, err := safecast.Convert[int64](d.SizeBytes); err == nil {
 				dev.SizeBytes = toPtr(sizeBytes)

@@ -42,6 +42,7 @@ func convert(pAttr *proto.AgentAttributes) *data.AgentAttributes {
 			Model:                  block.Model,
 			WWN:                    block.Wwn,
 			SerialNumber:           block.SerialNumber,
+			Path:                   block.Path,
 		})
 	}
 	// NetworkInterfaces

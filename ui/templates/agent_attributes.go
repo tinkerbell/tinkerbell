@@ -137,6 +137,9 @@ func blockDeviceFromData(b *data.Block) AgentBlockDevice {
 	if b.SerialNumber != nil {
 		dev.SerialNumber = *b.SerialNumber
 	}
+	if b.Path != nil {
+		dev.Path = *b.Path
+	}
 	return dev
 }
 

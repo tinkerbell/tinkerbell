@@ -54,6 +54,7 @@ func AgentAttributesFromInBand(attrs *tinkv1alpha1.Attributes) *AgentAttributes 
 			Model:             dev.Model,
 			WWN:               dev.WWN,
 			SerialNumber:      dev.SerialNumber,
+			Path:              dev.Path,
 		})
 	}
 

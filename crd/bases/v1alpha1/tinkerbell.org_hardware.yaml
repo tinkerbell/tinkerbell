@@ -667,6 +667,13 @@ spec:
                               description: Name is the OS-visible device name (e.g.
                                 "nvme0n1"). In-band only.
                               type: string
+                            path:
+                              description: |-
+                                Path is the device's position in the topology (udev ID_PATH, e.g.
+                                "pci-0000:17:00.0-nvme-1"), i.e. /dev/disk/by-path/<path>. Stable where Name
+                                is not, and identifies the slot rather than the drive: WWN and SerialNumber
+                                identify the drive, Path the port it is attached to. In-band only.
+                              type: string
                             physicalBlockSizeBytes:
                               format: int64
                               type: integer
@@ -1285,6 +1292,13 @@ spec:
                             name:
                               description: Name is the OS-visible device name (e.g.
                                 "nvme0n1"). In-band only.
+                              type: string
+                            path:
+                              description: |-
+                                Path is the device's position in the topology (udev ID_PATH, e.g.
+                                "pci-0000:17:00.0-nvme-1"), i.e. /dev/disk/by-path/<path>. Stable where Name
+                                is not, and identifies the slot rather than the drive: WWN and SerialNumber
+                                identify the drive, Path the port it is attached to. In-band only.
                               type: string
                             physicalBlockSizeBytes:
                               format: int64
