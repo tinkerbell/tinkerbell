@@ -320,7 +320,19 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 			Actions:          make(chan spec.Action),
 		}
 		if o.AttributeDetectionEnabled {
-			readWriter.Attributes = attribute.DiscoverAll(log)
+			attrs := attribute.DiscoverAll(log)
+			// Blocks for up to attribute.DefaultLLDPTimeout: the physical
+			// task's own actions can finish and trigger a power cycle well
+			// before that timeout would otherwise elapse in the background,
+			// killing discovery before it ever sees a neighbor. Blocking here
+			// guarantees discovery always gets its full window before any
+			// action starts. Always safe to run unconditionally: DiscoverLLDP
+			// reads systemd-networkd's already-accumulated neighbor table, so
+			// it's normally near-instant, and returns immediately on OSes
+			// with no systemd (e.g. HookOS).
+			neighbors := attribute.DiscoverLLDP(ctx, log, attribute.DefaultLLDPTimeout)
+			attrs = attribute.MergeLLDPNeighbors(attrs, neighbors)
+			readWriter.Attributes = attrs
 		}
 		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort, "attributes", readWriter.Attributes)
 		tr = readWriter

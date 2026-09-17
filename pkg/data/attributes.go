@@ -50,10 +50,21 @@ type Block struct {
 }
 
 type Network struct {
-	Name                *string  `json:"name,omitempty" yaml:"name,omitempty"`
-	Mac                 *string  `json:"mac,omitempty" yaml:"mac,omitempty"`
-	SpeedMbps           *uint32  `json:"speedMbps,omitempty" yaml:"speedMbps,omitempty"`
-	EnabledCapabilities []string `json:"enabledCapabilities,omitempty" yaml:"enabledCapabilities,omitempty"`
+	Name                *string       `json:"name,omitempty" yaml:"name,omitempty"`
+	Mac                 *string       `json:"mac,omitempty" yaml:"mac,omitempty"`
+	SpeedMbps           *uint32       `json:"speedMbps,omitempty" yaml:"speedMbps,omitempty"`
+	EnabledCapabilities []string      `json:"enabledCapabilities,omitempty" yaml:"enabledCapabilities,omitempty"`
+	LLDPNeighbor        *LLDPNeighbor `json:"lldpNeighbor,omitempty" yaml:"lldpNeighbor,omitempty"`
+}
+
+// LLDPNeighbor is the switch (or other LLDP-speaking device) discovered on the
+// other end of a Network interface's port.
+type LLDPNeighbor struct {
+	ChassisID       *string  `json:"chassisID,omitempty" yaml:"chassisID,omitempty"`
+	SystemName      *string  `json:"systemName,omitempty" yaml:"systemName,omitempty"`
+	PortID          *string  `json:"portID,omitempty" yaml:"portID,omitempty"`
+	PortDescription *string  `json:"portDescription,omitempty" yaml:"portDescription,omitempty"`
+	VLANIDs         []uint32 `json:"vlanIDs,omitempty" yaml:"vlanIDs,omitempty"`
 }
 
 type PCI struct {

@@ -12,6 +12,11 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 )
 
+// DiscoverAll runs all attribute discovery. It does not include LLDP
+// neighbor discovery: that's orchestrated separately by the caller (see
+// DiscoverLLDP and MergeLLDPNeighbors), since it can take up to
+// DefaultLLDPTimeout and is run synchronously - see agent.go's
+// ConfigureAndRun.
 func DiscoverAll(l logr.Logger) *data.AgentAttributes {
 	return &data.AgentAttributes{
 		CPU:               DiscoverCPU(l),
@@ -111,6 +116,9 @@ func DiscoverBlockDevices(l logr.Logger) []*data.Block {
 	return blockDevices
 }
 
+// DiscoverNetworks discovers network interfaces. LLDP neighbor discovery is
+// orchestrated separately (see DiscoverLLDP and MergeLLDPNeighbors) since it
+// can take much longer than everything else here.
 func DiscoverNetworks(l logr.Logger) []*data.Network {
 	net, err := ghw.Network(ghw.WithDisableWarnings())
 	if err != nil {

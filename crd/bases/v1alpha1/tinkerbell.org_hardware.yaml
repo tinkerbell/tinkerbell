@@ -747,6 +747,36 @@ spec:
                                       type: array
                                     linkStatus:
                                       type: string
+                                    lldpNeighbor:
+                                      description: |-
+                                        LLDPNeighbor is the neighbor most recently advertised to this port over
+                                        LLDP, if the Agent has LLDP discovery enabled. In-band only: this comes
+                                        from passively listening on the wire, not from the BMC.
+                                      properties:
+                                        chassisID:
+                                          description: |-
+                                            ChassisID identifies the neighbor's chassis, format depending on what the
+                                            neighbor advertises (e.g. a MAC address).
+                                          type: string
+                                        portDescription:
+                                          type: string
+                                        portID:
+                                          description: |-
+                                            PortID identifies the neighbor's port that this port is connected to, as
+                                            the neighbor names it (e.g. a switch port name).
+                                          type: string
+                                        systemName:
+                                          description: SystemName is the neighbor's
+                                            advertised hostname (e.g. the switch name).
+                                          type: string
+                                        vlanIDs:
+                                          description: VLANIDs lists the VLANs the
+                                            neighbor advertises on this port.
+                                          items:
+                                            format: int32
+                                            type: integer
+                                          type: array
+                                      type: object
                                     mac:
                                       description: |-
                                         MAC is the port's hardware address. Where both sources report a port, this is
@@ -994,6 +1024,36 @@ spec:
                                     type: array
                                   linkStatus:
                                     type: string
+                                  lldpNeighbor:
+                                    description: |-
+                                      LLDPNeighbor is the neighbor most recently advertised to this port over
+                                      LLDP, if the Agent has LLDP discovery enabled. In-band only: this comes
+                                      from passively listening on the wire, not from the BMC.
+                                    properties:
+                                      chassisID:
+                                        description: |-
+                                          ChassisID identifies the neighbor's chassis, format depending on what the
+                                          neighbor advertises (e.g. a MAC address).
+                                        type: string
+                                      portDescription:
+                                        type: string
+                                      portID:
+                                        description: |-
+                                          PortID identifies the neighbor's port that this port is connected to, as
+                                          the neighbor names it (e.g. a switch port name).
+                                        type: string
+                                      systemName:
+                                        description: SystemName is the neighbor's
+                                          advertised hostname (e.g. the switch name).
+                                        type: string
+                                      vlanIDs:
+                                        description: VLANIDs lists the VLANs the neighbor
+                                          advertises on this port.
+                                        items:
+                                          format: int32
+                                          type: integer
+                                        type: array
+                                    type: object
                                   mac:
                                     description: |-
                                       MAC is the port's hardware address. Where both sources report a port, this is
@@ -1366,6 +1426,36 @@ spec:
                                       type: array
                                     linkStatus:
                                       type: string
+                                    lldpNeighbor:
+                                      description: |-
+                                        LLDPNeighbor is the neighbor most recently advertised to this port over
+                                        LLDP, if the Agent has LLDP discovery enabled. In-band only: this comes
+                                        from passively listening on the wire, not from the BMC.
+                                      properties:
+                                        chassisID:
+                                          description: |-
+                                            ChassisID identifies the neighbor's chassis, format depending on what the
+                                            neighbor advertises (e.g. a MAC address).
+                                          type: string
+                                        portDescription:
+                                          type: string
+                                        portID:
+                                          description: |-
+                                            PortID identifies the neighbor's port that this port is connected to, as
+                                            the neighbor names it (e.g. a switch port name).
+                                          type: string
+                                        systemName:
+                                          description: SystemName is the neighbor's
+                                            advertised hostname (e.g. the switch name).
+                                          type: string
+                                        vlanIDs:
+                                          description: VLANIDs lists the VLANs the
+                                            neighbor advertises on this port.
+                                          items:
+                                            format: int32
+                                            type: integer
+                                          type: array
+                                      type: object
                                     mac:
                                       description: |-
                                         MAC is the port's hardware address. Where both sources report a port, this is
@@ -1613,6 +1703,36 @@ spec:
                                     type: array
                                   linkStatus:
                                     type: string
+                                  lldpNeighbor:
+                                    description: |-
+                                      LLDPNeighbor is the neighbor most recently advertised to this port over
+                                      LLDP, if the Agent has LLDP discovery enabled. In-band only: this comes
+                                      from passively listening on the wire, not from the BMC.
+                                    properties:
+                                      chassisID:
+                                        description: |-
+                                          ChassisID identifies the neighbor's chassis, format depending on what the
+                                          neighbor advertises (e.g. a MAC address).
+                                        type: string
+                                      portDescription:
+                                        type: string
+                                      portID:
+                                        description: |-
+                                          PortID identifies the neighbor's port that this port is connected to, as
+                                          the neighbor names it (e.g. a switch port name).
+                                        type: string
+                                      systemName:
+                                        description: SystemName is the neighbor's
+                                          advertised hostname (e.g. the switch name).
+                                        type: string
+                                      vlanIDs:
+                                        description: VLANIDs lists the VLANs the neighbor
+                                          advertises on this port.
+                                        items:
+                                          format: int32
+                                          type: integer
+                                        type: array
+                                    type: object
                                   mac:
                                     description: |-
                                       MAC is the port's hardware address. Where both sources report a port, this is

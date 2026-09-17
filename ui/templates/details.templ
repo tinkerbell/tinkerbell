@@ -252,7 +252,8 @@ templ HardwareDetailContent(hw HardwareDetail, baseURL string) {
 									<tr class="border-b border-gray-200 dark:border-darkBorder">
 										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Name</th>
 										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">MAC Address</th>
-										<th class="py-2 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Speed</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Speed</th>
+										<th class="py-2 text-left text-sm font-medium text-gray-500 dark:text-gray-400">LLDP Neighbor</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -260,9 +261,33 @@ templ HardwareDetailContent(hw HardwareDetail, baseURL string) {
 										<tr class="border-b border-gray-100 dark:border-darkBorder last:border-b-0">
 											<td class="py-2 pr-4 text-sm font-mono text-gray-900 dark:text-white">{ iface.Name }</td>
 											<td class="py-2 pr-4 text-sm font-mono text-gray-900 dark:text-white">{ iface.MAC }</td>
-											<td class="py-2 text-sm text-gray-900 dark:text-white">
+											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
 												if iface.Speed != "" {
 													{ iface.Speed }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 text-sm text-gray-900 dark:text-white">
+												if iface.LLDPNeighbor.ChassisID != "" {
+													<div>
+														if iface.LLDPNeighbor.SystemName != "" {
+															<span class="font-medium">{ iface.LLDPNeighbor.SystemName }</span>
+														} else {
+															<span class="font-mono">{ iface.LLDPNeighbor.ChassisID }</span>
+														}
+													</div>
+													if iface.LLDPNeighbor.PortID != "" {
+														<div class="text-xs text-gray-500 dark:text-gray-400">
+															port { iface.LLDPNeighbor.PortID }
+															if iface.LLDPNeighbor.PortDescription != "" {
+																({ iface.LLDPNeighbor.PortDescription })
+															}
+														</div>
+													}
+													if iface.LLDPNeighbor.VLANIDs != "" {
+														<div class="text-xs text-gray-500 dark:text-gray-400">vlan { iface.LLDPNeighbor.VLANIDs }</div>
+													}
 												} else {
 													<span class="text-gray-400">-</span>
 												}
