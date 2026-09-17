@@ -77,7 +77,7 @@ func (r *Reconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, bmc
 		return fmt.Errorf("unable to create Machines controller: %w", err)
 	}
 
-	if err := NewJobReconciler(mgr.GetClient()).SetupWithManager(ctx, mgr, opts); err != nil {
+	if err := NewJobReconciler(mgr.GetClient(), mgr.GetAPIReader()).SetupWithManager(ctx, mgr, opts); err != nil {
 		return fmt.Errorf("unable to create Jobs controller: %w", err)
 	}
 

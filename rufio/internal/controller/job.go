@@ -37,12 +37,18 @@ const jobOwnerKey = ".metadata.controller"
 // JobReconciler reconciles a Job object.
 type JobReconciler struct {
 	client client.Client
+	// apiReader reads directly from the API server, bypassing the cache
+	// client's informer. Used where a cache miss on a just-created object
+	// (not yet observed by the informer) must not be mistaken for the
+	// object's absence.
+	apiReader client.Reader
 }
 
 // NewJobReconciler returns a new JobReconciler.
-func NewJobReconciler(c client.Client) *JobReconciler {
+func NewJobReconciler(c client.Client, apiReader client.Reader) *JobReconciler {
 	return &JobReconciler{
-		client: c,
+		client:    c,
+		apiReader: apiReader,
 	}
 }
 
@@ -206,8 +212,33 @@ func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmc.Job, ta
 	}
 
 	err := r.client.Create(ctx, task)
-	if err != nil {
+	if err == nil {
+		return nil
+	}
+
+	if !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("failed to create Task %s/%s: %w", task.Namespace, task.Name, err)
+	}
+
+	// A Task name is derived from the Job name and the task index, so an
+	// AlreadyExists here usually means a previous reconcile of this same Job
+	// already created it - the desired state, not a failure. But the name
+	// alone doesn't prove that: the existing Task could be ownerless, or
+	// owned by an unrelated Job that reused this name before its own Task was
+	// garbage collected. Fetch it and confirm this Job is its controller
+	// before accepting the conflict as success; otherwise mark the Job
+	// Failed rather than silently stalling.
+	//
+	// Read via apiReader, not the cache client: the cache that missed this
+	// Task in the owned-Task List above would just as likely miss it here
+	// too, since both read from the same informer store.
+	existing := &bmc.Task{}
+	if getErr := r.apiReader.Get(ctx, client.ObjectKeyFromObject(task), existing); getErr != nil {
+		return fmt.Errorf("failed to get existing Task %s/%s: %w", task.Namespace, task.Name, getErr)
+	}
+
+	if owner := metav1.GetControllerOf(existing); owner == nil || owner.UID != job.UID {
+		return fmt.Errorf("task %s/%s already exists and is not owned by Job %s/%s", task.Namespace, task.Name, job.Namespace, job.Name)
 	}
 
 	return nil
