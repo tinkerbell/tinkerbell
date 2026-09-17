@@ -18,6 +18,9 @@ import (
 
 const (
 	trueString = "true"
+
+	// defaultBMCConnectTimeout is used when the caller leaves the BMC connect timeout unset.
+	defaultBMCConnectTimeout = time.Minute
 )
 
 var schemeBuilder = runtime.NewSchemeBuilder(
@@ -42,9 +45,13 @@ type Reconciler struct {
 	backoff *backoff.ExponentialBackOff
 }
 
-func NewManager(cfg *rest.Config, opts ctrl.Options, powerCheckInterval, inventoryRefreshInterval time.Duration, inventoryCollectionEnabled bool, maxConcurrentReconciles int) (ctrl.Manager, error) {
+func NewManager(cfg *rest.Config, opts ctrl.Options, bmcConnectTimeout, powerCheckInterval, inventoryRefreshInterval time.Duration, inventoryCollectionEnabled bool, maxConcurrentReconciles int) (ctrl.Manager, error) {
 	if opts.Scheme == nil {
 		opts.Scheme = DefaultScheme()
+	}
+
+	if bmcConnectTimeout <= 0 {
+		bmcConnectTimeout = defaultBMCConnectTimeout
 	}
 
 	mgr, err := ctrl.NewManager(cfg, opts)
@@ -53,7 +60,7 @@ func NewManager(cfg *rest.Config, opts ctrl.Options, powerCheckInterval, invento
 	}
 
 	ctrlOpts := ctrlcontroller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}
-	if err := NewReconciler(mgr.GetClient()).SetupWithManager(context.Background(), mgr, NewClientFunc(time.Minute), powerCheckInterval, inventoryRefreshInterval, inventoryCollectionEnabled, ctrlOpts); err != nil {
+	if err := NewReconciler(mgr.GetClient()).SetupWithManager(context.Background(), mgr, NewClientFunc(bmcConnectTimeout), powerCheckInterval, inventoryRefreshInterval, inventoryCollectionEnabled, ctrlOpts); err != nil {
 		return nil, fmt.Errorf("unable to create reconciler: %w", err)
 	}
 
