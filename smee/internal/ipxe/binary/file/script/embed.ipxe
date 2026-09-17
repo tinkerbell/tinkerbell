@@ -28,7 +28,8 @@ set count:int32 1
 echo trying dhcp ( attempt ${count}/${retry-max} )
 dhcp net${idx} && goto done1 || iseq ${count} ${retry-max} && goto done1 || inc count && goto retry-loop1
 :done1
-autoboot net${idx} || exit
+autoboot net${idx} || goto no-netboot
+goto no-netboot
 
 :autoboot
 set retry-max:int32 10
@@ -37,7 +38,8 @@ set count:int32 1
 echo trying dhcp ( attempt ${count}/${retry-max} )
 dhcp && goto done2 || iseq ${count} ${retry-max} && goto done2 || inc count && goto retry-loop2
 :done2
-autoboot || exit
+autoboot || goto no-netboot
+goto no-netboot
 
 :boot-with-vlan
 set idx:int32 0
@@ -48,8 +50,13 @@ set idx:int32 0
 
 :loop_done
 echo Booting from net${idx}-${vlan-id}...
-autoboot net${idx}-${vlan-id}
+autoboot net${idx}-${vlan-id} || goto no-netboot
+goto no-netboot
 
 :error
 echo Failed to find the vlan interface
-shell
+goto no-netboot
+
+:no-netboot
+echo No netboot target; returning to firmware for next boot device
+exit 1
