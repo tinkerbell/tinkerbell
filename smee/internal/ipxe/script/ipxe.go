@@ -21,29 +21,76 @@ type Handler struct {
 	Logger                logr.Logger
 	Backend               hardware.BackendReader
 	OSIEURL               string
+	OSIEURLv6             string
 	ExtraKernelParams     []string
 	PublicSyslogFQDN      string
+	PublicSyslogFQDNV6    string
 	TinkServerTLS         bool
 	TinkServerInsecureTLS bool
 	TinkServerGRPCAddr    string
+	TinkServerGRPCAddrV6  string
 	IPXEScriptRetries     int
 	IPXEScriptRetryDelay  int
 	StaticIPXEEnabled     bool
+	StaticIPXEV6Enabled   bool
 	KernelName            string // name of the kernel file
 	InitrdName            string // name of the initrd file
 }
 
+type addressFamily string
+
+const (
+	ipv4 addressFamily = "ipv4"
+	ipv6 addressFamily = "ipv6"
+)
+
+// familySettings is the address-family-specific view of the handler's settings.
+type familySettings struct {
+	addressFamily      addressFamily
+	staticIPXEEnabled  bool
+	downloadURL        string
+	tinkServerGRPCAddr string
+}
+
+func (h *Handler) settingsFor(family addressFamily) familySettings {
+	if family == ipv6 {
+		return familySettings{
+			addressFamily:      ipv6,
+			staticIPXEEnabled:  h.StaticIPXEV6Enabled,
+			downloadURL:        h.OSIEURLv6,
+			tinkServerGRPCAddr: h.TinkServerGRPCAddrV6,
+		}
+	}
+	return familySettings{
+		addressFamily:      ipv4,
+		staticIPXEEnabled:  h.StaticIPXEEnabled,
+		downloadURL:        h.OSIEURL,
+		tinkServerGRPCAddr: h.TinkServerGRPCAddr,
+	}
+}
+
 // HandlerFunc returns a http.HandlerFunc that serves the ipxe script.
-// It is expected that the request path is /<mac address>/auto.ipxe.
+// It is expected that the request path is /<mac address>/auto.ipxe or /<mac address>/auto6.ipxe.
 func (h *Handler) HandlerFunc() http.HandlerFunc {
+	const metricLabelFrom = "from"
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		if path.Base(r.URL.Path) != "auto.ipxe" {
+		scriptPath := r.URL.Path
+		scriptName := path.Base(scriptPath)
+		var family addressFamily
+		switch scriptName {
+		case "auto.ipxe":
+			family = ipv4
+		case "auto6.ipxe":
+			family = ipv6
+		default:
 			h.Logger.Info("URL path not supported", "path", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
 
 			return
 		}
-		labels := prometheus.Labels{"from": "http", "op": "file"}
+		settings := h.settingsFor(family)
+		labels := prometheus.Labels{metricLabelFrom: "http", "op": "file"}
 		metric.JobsTotal.With(labels).Inc()
 		metric.JobsInProgress.With(labels).Inc()
 		defer metric.JobsInProgress.With(labels).Dec()
@@ -61,11 +108,11 @@ func (h *Handler) HandlerFunc() http.HandlerFunc {
 		// without a tink workflow present.
 
 		// Try to get the MAC address from the URL path, if not available get the source IP address.
-		if ha, err := getMAC(r.URL.Path); err == nil {
+		if ha, err := getMAC(scriptPath); err == nil {
 			hw, err := hardware.GetByMac(ctx, ha, h.Backend)
-			if err != nil && h.StaticIPXEEnabled {
+			if err != nil && settings.staticIPXEEnabled {
 				h.Logger.Info("serving static ipxe script", "mac", ha.String(), "reasonForStaticScript", err)
-				h.serveStaticIPXEScript(w)
+				h.serveStaticIPXEScript(w, settings)
 				return
 			}
 			if err != nil || !hw.AllowNetboot {
@@ -74,14 +121,14 @@ func (h *Handler) HandlerFunc() http.HandlerFunc {
 
 				return
 			}
-			h.serveBootScript(ctx, w, path.Base(r.URL.Path), hw)
+			h.serveBootScript(ctx, w, scriptName, hw, settings)
 			return
 		}
 		if ip, err := getIP(r.RemoteAddr); err == nil {
 			hw, err := hardware.GetByIP(ctx, ip, h.Backend)
-			if err != nil && h.StaticIPXEEnabled {
+			if err != nil && settings.staticIPXEEnabled {
 				h.Logger.Info("serving static ipxe script", "client", r.RemoteAddr, "error", err)
-				h.serveStaticIPXEScript(w)
+				h.serveStaticIPXEScript(w, settings)
 				return
 			}
 			if err != nil || !hw.AllowNetboot {
@@ -90,7 +137,7 @@ func (h *Handler) HandlerFunc() http.HandlerFunc {
 
 				return
 			}
-			h.serveBootScript(ctx, w, path.Base(r.URL.Path), hw)
+			h.serveBootScript(ctx, w, scriptName, hw, settings)
 			return
 		}
 
@@ -100,14 +147,16 @@ func (h *Handler) HandlerFunc() http.HandlerFunc {
 	}
 }
 
-func (h *Handler) serveStaticIPXEScript(w http.ResponseWriter) {
+func (h *Handler) serveStaticIPXEScript(w http.ResponseWriter, settings familySettings) {
 	// Serve static iPXE script.
 	auto := Hook{
-		DownloadURL:       h.OSIEURL,
+		AddressFamily:     settings.addressFamily,
+		DownloadURL:       settings.downloadURL,
 		ExtraKernelParams: h.ExtraKernelParams,
 		SyslogHost:        h.PublicSyslogFQDN,
+		SyslogHostV6:      h.PublicSyslogFQDNV6,
 		TinkerbellTLS:     h.TinkServerTLS,
-		TinkGRPCAuthority: h.TinkServerGRPCAddr,
+		TinkGRPCAuthority: settings.tinkServerGRPCAddr,
 		Retries:           h.IPXEScriptRetries,
 		RetryDelay:        h.IPXEScriptRetryDelay,
 		KernelName:        h.KernelName,
@@ -146,7 +195,7 @@ func getMAC(urlPath string) (net.HardwareAddr, error) {
 	return ha, nil
 }
 
-func (h *Handler) serveBootScript(ctx context.Context, w http.ResponseWriter, name string, hw hardware.Info) {
+func (h *Handler) serveBootScript(ctx context.Context, w http.ResponseWriter, name string, hw hardware.Info, settings familySettings) {
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.String("smee.script_name", name))
 	var script []byte
@@ -155,8 +204,8 @@ func (h *Handler) serveBootScript(ctx context.Context, w http.ResponseWriter, na
 		name = "custom.ipxe"
 	}
 	switch name {
-	case "auto.ipxe":
-		s, err := h.defaultScript(span, hw)
+	case "auto.ipxe", "auto6.ipxe":
+		s, err := h.defaultScript(span, hw, settings)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			h.Logger.Error(err, "error with default ipxe script", "script", name)
@@ -193,7 +242,7 @@ func (h *Handler) serveBootScript(ctx context.Context, w http.ResponseWriter, na
 	}
 }
 
-func (h *Handler) defaultScript(span trace.Span, hw hardware.Info) (string, error) {
+func (h *Handler) defaultScript(span trace.Span, hw hardware.Info, settings familySettings) (string, error) {
 	mac := hw.MACAddress
 	arch := hw.Arch
 	if arch == "" {
@@ -210,16 +259,18 @@ func (h *Handler) defaultScript(span trace.Span, hw hardware.Info) (string, erro
 	extraKernelParams := append(append([]string{}, h.ExtraKernelParams...), hw.OSIE.KernelParams...)
 
 	auto := Hook{
+		AddressFamily:         settings.addressFamily,
 		Arch:                  arch,
 		Console:               "",
-		DownloadURL:           h.OSIEURL,
+		DownloadURL:           settings.downloadURL,
 		ExtraKernelParams:     extraKernelParams,
 		Facility:              hw.Facility,
 		HWAddr:                mac.String(),
 		SyslogHost:            h.PublicSyslogFQDN,
+		SyslogHostV6:          h.PublicSyslogFQDNV6,
 		TinkerbellTLS:         h.TinkServerTLS,
 		TinkerbellInsecureTLS: h.TinkServerInsecureTLS,
-		TinkGRPCAuthority:     h.TinkServerGRPCAddr,
+		TinkGRPCAuthority:     settings.tinkServerGRPCAddr,
 		VLANID:                hw.VLANID,
 		WorkerID:              wID,
 		Retries:               h.IPXEScriptRetries,

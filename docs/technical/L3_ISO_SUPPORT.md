@@ -20,6 +20,10 @@ Layer 3 provisioning in Tinkerbell is a method of provisioning a machine by runn
 Tinkerbell tells the BMC the HTTP or HTTPS location of the ISO file to be mounted as virtual media.
 The format of the URL is as follows: `http(s)://<TINKERBELL_IP_OR_HOSTNAME>:<PORT>/iso/<MAC_ADDRESS>/hook.iso`
 
+Use `/iso6/<MAC_ADDRESS>/hook.iso` to patch the ISO with the IPv6 syslog and Tinkerbell gRPC endpoints. The URL path selects the endpoint family independently of the connection used to download the ISO, so a BMC can download an IPv6-configured ISO over IPv4. Both routes are enabled by `--iso-enabled` and share the same source ISO and patching options.
+
+Static IPAM supports IPv4 only. When `--iso-static-ipam-enabled` is set, `/iso6/` requests return HTTP 400 with an explanatory error.
+
 - The `TINKERBELL_IP_OR_HOSTNAME` is defined by either `--public-ipv4` or `--bind-addr` or `--ipxe-http-script-bind-addr` or a hostname that resolves to the Tinkerbell server.
 - The `PORT` is defined with either `--ipxe-http-script-bind-port` for HTTP or `--https-bind-port` for HTTPS.
 - The `MAC_ADDRESS` is the MAC address of one of the target machine's network interfaces. This is needed so that Tinkerbell can add kernel command line parameters specific to that machine.

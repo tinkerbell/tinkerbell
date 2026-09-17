@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,6 +36,7 @@ const (
 	routeTootles           = "/tootles/"
 	routeHackMetadata      = "/metadata"
 	routeISO               = smee.ISOURI
+	routeISOV6             = smee.ISOURIV6
 	routeIPXEBinary        = smee.IPXEBinaryURI
 	routeIPXEScript        = smee.IPXEScriptURI
 )
@@ -70,6 +73,15 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 			)
 		} else if err != nil {
 			return fmt.Errorf("failed to create smee iso handler: %w", err)
+		}
+		if isoH, err := s.Config.ISOHandlerV6(smeeLog); err == nil && isoH != nil {
+			routeList.Register(routeISOV6,
+				middleware.WithLogLevel(middleware.LogLevelNever, isoH),
+				"smee IPv6 ISO handler",
+				httpserver.WithHTTPSEnabled(tlsEnabled),
+			)
+		} else if err != nil {
+			return fmt.Errorf("failed to create smee IPv6 iso handler: %w", err)
 		}
 		if ph := s.Config.PXEHTTPHandler(smeeLog); ph != nil {
 			routeList.Register(normalizeURLPrefix(s.Config.PXEHTTP.PathPrefix),
@@ -196,7 +208,7 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 	srv := httpserver.NewConfig(opts...)
 
 	kvs := []any{
-		"addr", fmt.Sprintf("%s:%d", globals.BindAddr.String(), globals.HTTPPort),
+		"addr", net.JoinHostPort(globals.BindAddr.String(), strconv.Itoa(globals.HTTPPort)),
 		"enabledSchemes", func() []string {
 			schemes := []string{"http"}
 			if httpsHandler != nil {

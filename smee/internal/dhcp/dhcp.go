@@ -173,21 +173,24 @@ func isRaspberryPI(mac net.HardwareAddr) bool {
 
 // Arch returns the Arch of the client pulled from DHCP option 93.
 func Arch(d *dhcpv4.DHCPv4) iana.Arch {
+	// get option 93 ; arch
+	return FirstKnownArch(d.ClientHWAddr, d.ClientArch())
+}
+
+func FirstKnownArch(mac net.HardwareAddr, archs iana.Archs) iana.Arch {
 	// if the mac address is from a Raspberry PI, use the Raspberry PI architecture.
 	// Some Raspberry PI's (Raspberry PI 5) report an option 93 of 0.
 	// This translates to iana.INTEL_X86PC and causes us to map to undionly.kpxe.
-	if isRaspberryPI(d.ClientHWAddr) {
+	if isRaspberryPI(mac) {
 		return iana.Arch(41)
 	}
 
-	// get option 93 ; arch
-	fwt := d.ClientArch()
-	if len(fwt) == 0 {
+	if len(archs) == 0 {
 		return iana.Arch(255) // unknown arch
 	}
 	var archKnown bool
 	var a iana.Arch
-	for _, elem := range fwt {
+	for _, elem := range archs {
 		if !strings.Contains(elem.String(), "unknown") {
 			archKnown = true
 			// Basic architecture identification, based purely on
@@ -205,10 +208,13 @@ func Arch(d *dhcpv4.DHCPv4) iana.Arch {
 }
 
 func (i Info) IPXEBinaryFrom() string {
+	return IPXEBinaryForArch(i.Arch, i.ArchMappingOverride)
+}
+
+func IPXEBinaryForArch(arch iana.Arch, override map[iana.Arch]constant.IPXEBinary) string {
 	dst := ArchToBootFile()
-	src := i.ArchMappingOverride
-	maps.Copy(dst, src)
-	bin, found := dst[i.Arch]
+	maps.Copy(dst, override)
+	bin, found := dst[arch]
 	if !found {
 		return ""
 	}
@@ -332,7 +338,7 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 		if ipxeHTTPBinServer != nil {
 			paths := []string{i.IPXEBinary}
 			if i.Mac != nil {
-				paths = append([]string{macAddrFormat(i.Mac, i.MacAddrFormat)}, paths...)
+				paths = append([]string{FormatMACAddr(i.Mac, i.MacAddrFormat)}, paths...)
 			}
 			bootfile = ipxeHTTPBinServer.JoinPath(paths...).String()
 		}
@@ -343,7 +349,7 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 		}
 		paths := []string{i.IPXEBinary}
 		if i.Mac != nil {
-			paths = append([]string{macAddrFormat(i.Mac, i.MacAddrFormat)}, paths...)
+			paths = append([]string{FormatMACAddr(i.Mac, i.MacAddrFormat)}, paths...)
 		}
 		bootfile = t.JoinPath(paths...).String()
 	default:
@@ -353,23 +359,6 @@ func (i Info) Bootfile(customUC UserClass, ipxeScript, ipxeHTTPBinServer *url.UR
 	}
 
 	return bootfile
-}
-
-func macAddrFormat(mac net.HardwareAddr, f constant.MACFormat) string {
-	switch f {
-	case constant.MacAddrFormatColon:
-		return mac.String()
-	case constant.MacAddrFormatDot:
-		return dotNotation(mac)
-	case constant.MacAddrFormatDash:
-		return dashNotation(mac)
-	case constant.MacAddrFormatNoDelimiter:
-		return noDelimiter(mac)
-	case constant.MacAddrFormatEmpty:
-		return ""
-	default:
-		return mac.String() // default is colon delimited
-	}
 }
 
 // NextServer returns the calculated dhcp header (ServerIPAddr): "siaddr" value. see https://datatracker.ietf.org/doc/html/rfc2131#section-2 .

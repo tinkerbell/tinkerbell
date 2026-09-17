@@ -31,10 +31,11 @@ func TestGenerateTemplate(t *testing.T) {
 			},
 			script: HookScript,
 			want: `#!ipxe
-# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog).
-# If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog variable.
-set check:ipv4 1.2.3.4 && set syslog 1.2.3.4 || nslookup syslog 1.2.3.4 || echo [WARN] Failed to resolve syslog host 1.2.3.4
-clear check
+# Try an IP literal first so it works even when nslookup is unavailable.
+# Leave the nslookup destination untyped to preserve the resolved address's type.
+clear syslog-address
+set syslog-address:ipv4 1.2.3.4 || nslookup syslog-address 1.2.3.4 && set syslog ${syslog-address} || echo [WARN] Failed to configure syslog host 1.2.3.4: resolution failed or expected ipv4 address
+clear syslog-address
 
 echo Loading the Tinkerbell Hook iPXE script...
 
@@ -96,10 +97,11 @@ exit
 			},
 			script: HookScript,
 			want: `#!ipxe
-# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog).
-# If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog variable.
-set check:ipv4 1.2.3.4 && set syslog 1.2.3.4 || nslookup syslog 1.2.3.4 || echo [WARN] Failed to resolve syslog host 1.2.3.4
-clear check
+# Try an IP literal first so it works even when nslookup is unavailable.
+# Leave the nslookup destination untyped to preserve the resolved address's type.
+clear syslog-address
+set syslog-address:ipv4 1.2.3.4 || nslookup syslog-address 1.2.3.4 && set syslog ${syslog-address} || echo [WARN] Failed to configure syslog host 1.2.3.4: resolution failed or expected ipv4 address
+clear syslog-address
 
 echo Loading the Tinkerbell Hook iPXE script...
 
@@ -160,10 +162,11 @@ exit
 			},
 			script: HookScript,
 			want: `#!ipxe
-# iPXE can only set the syslog server to an IP address, not a hostname (https://ipxe.org/cfg/syslog).
-# If target is an IP, save it directly; if not, resolve it via nslookup directly into the syslog variable.
-set check:ipv4 syslog.example.com && set syslog syslog.example.com || nslookup syslog syslog.example.com || echo [WARN] Failed to resolve syslog host syslog.example.com
-clear check
+# Try an IP literal first so it works even when nslookup is unavailable.
+# Leave the nslookup destination untyped to preserve the resolved address's type.
+clear syslog-address
+set syslog-address:ipv4 syslog.example.com || nslookup syslog-address syslog.example.com && set syslog ${syslog-address} || echo [WARN] Failed to configure syslog host syslog.example.com: resolution failed or expected ipv4 address
+clear syslog-address
 
 echo Loading the Tinkerbell Hook iPXE script...
 
