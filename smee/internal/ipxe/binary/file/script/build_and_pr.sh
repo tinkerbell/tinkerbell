@@ -91,7 +91,7 @@ function create_checksums() {
 # push a new branch to GitHub
 function push_new_branch_to_github() {
     local branch="${1}"
-    local repository="${2:-tinkerbell/tinkerbell}"
+    local repository="${2:-"${IPXE_TARGET_GH_OWNER_REPO:-"tinkerbell/tinkerbell"}"}"
     local git_actor="${3:-github-actions[bot]}"
     local token="${4:-${GITHUB_TOKEN}}"
 
