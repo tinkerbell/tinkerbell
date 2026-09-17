@@ -280,6 +280,34 @@ func TestBootfile(t *testing.T) {
 			},
 			want: "http://1.2.3.4:8080/01:02:03:04:05:06/ipxe.efi",
 		},
+		"http client with nil binary server": {
+			info: Info{
+				ClientType: HTTPClient,
+				IPXEBinary: "ipxe.efi",
+			},
+			want: "/no-ipxe-script-defined",
+		},
+		"http client with nil binary server and ipxe user class": {
+			info: Info{
+				ClientType: HTTPClient,
+				UserClass:  IPXE,
+				IPXEBinary: "ipxe.efi",
+			},
+			args: args{
+				ipxeTFTPBinServer: netip.MustParseAddrPort("1.2.3.4:69"),
+			},
+			want: "/no-ipxe-script-defined",
+		},
+		"http client with empty binary": {
+			info: Info{
+				ClientType: HTTPClient,
+				Mac:        net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+			},
+			args: args{
+				ipxeHTTPBinServer: &url.URL{Scheme: "http", Host: "1.2.3.4:8080"},
+			},
+			want: "http://1.2.3.4:8080/01:02:03:04:05:06",
+		},
 		"firmware ipxe": {
 			info: Info{
 				UserClass:  IPXE,
@@ -290,6 +318,30 @@ func TestBootfile(t *testing.T) {
 				ipxeTFTPBinServer: netip.MustParseAddrPort("1.2.3.4:69"),
 			},
 			want: "tftp://1.2.3.4:69/01:02:03:04:05:06/undionly.kpxe",
+		},
+		"firmware ipxe with invalid binary server": {
+			info: Info{
+				UserClass:  IPXE,
+				Mac:        net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+				IPXEBinary: "undionly.kpxe",
+			},
+			want: "tftp://invalid%20AddrPort/01:02:03:04:05:06/undionly.kpxe",
+		},
+		"firmware ipxe with empty binary": {
+			info: Info{
+				UserClass: IPXE,
+				Mac:       net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+			},
+			args: args{
+				ipxeTFTPBinServer: netip.MustParseAddrPort("1.2.3.4:69"),
+			},
+			want: "tftp://1.2.3.4:69/01:02:03:04:05:06",
+		},
+		"firmware ipxe with invalid binary server and empty binary": {
+			info: Info{
+				UserClass: IPXE,
+			},
+			want: "tftp://invalid%20AddrPort",
 		},
 		"no user class": {
 			info: Info{

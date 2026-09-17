@@ -1,8 +1,31 @@
 package dhcp
 
-import "net"
+import (
+	"net"
+
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
+)
 
 const hexDigit = "0123456789abcdef"
+
+// FormatMACAddr formats a MAC address for use in a boot URL.
+// Unknown formats default to colon notation.
+func FormatMACAddr(mac net.HardwareAddr, format constant.MACFormat) string {
+	switch format {
+	case constant.MacAddrFormatColon:
+		return mac.String()
+	case constant.MacAddrFormatDot:
+		return dotNotation(mac)
+	case constant.MacAddrFormatDash:
+		return dashNotation(mac)
+	case constant.MacAddrFormatNoDelimiter:
+		return noDelimiter(mac)
+	case constant.MacAddrFormatEmpty:
+		return ""
+	default:
+		return mac.String() // default is colon delimited
+	}
+}
 
 // dashNotation formats a net.HardwareAddr into its dash notation string.
 //
