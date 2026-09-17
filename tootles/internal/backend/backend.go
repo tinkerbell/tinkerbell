@@ -108,6 +108,7 @@ func toEC2Instance(hw v1alpha1.Hardware) data.Ec2Instance {
 		i.Metadata.Hostname = hw.Spec.Metadata.Instance.Hostname
 		i.Metadata.LocalHostname = hw.Spec.Metadata.Instance.Hostname
 		i.Metadata.Tags = hw.Spec.Metadata.Instance.Tags
+		i.Metadata.PublicKeys = hw.Spec.Metadata.Instance.SSHKeys
 
 		if hw.Spec.Metadata.Instance.OperatingSystem != nil {
 			i.Metadata.OperatingSystem.Slug = hw.Spec.Metadata.Instance.OperatingSystem.Slug
