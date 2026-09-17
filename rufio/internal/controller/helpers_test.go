@@ -113,6 +113,19 @@ type testProvider struct {
 	InventoryDevice *common.Device
 	ErrInventory    error
 	InventoryCalls  int
+
+	// NetworkBootEnabledOK and ErrSetNetworkBootEnabled control the
+	// SetNetworkBootEnabled implementation below, used to test HTTPBootEnabled/PXEBootEnabled
+	// without a live BMC.
+	NetworkBootEnabledOK     bool
+	ErrSetNetworkBootEnabled error
+
+	// HTTPBootURIOK, ErrHTTPBootURISet, and SetHTTPBootURICalls control the
+	// SetHTTPBootURI implementation below, used to test HTTPBootURL without a
+	// live BMC.
+	HTTPBootURIOK       bool
+	ErrHTTPBootURISet   error
+	SetHTTPBootURICalls []string
 }
 
 func (t *testProvider) Name() string {
@@ -136,6 +149,8 @@ func (t *testProvider) Features() registrar.Features {
 		providers.FeatureBootDeviceSet,
 		providers.FeatureVirtualMedia,
 		providers.FeatureInventoryRead,
+		providers.FeatureSetHTTPBootURI,
+		providers.FeatureSetNetworkBootEnabled,
 	}
 }
 
@@ -169,6 +184,15 @@ func (t *testProvider) BootDeviceSet(_ context.Context, _ string, _, _ bool) (ok
 
 func (t *testProvider) SetVirtualMedia(_ context.Context, _ string, _ string) (ok bool, err error) {
 	return t.VirtualMediaOK, t.ErrVirtualMediaInsert
+}
+
+func (t *testProvider) SetNetworkBootEnabled(_ context.Context, _, _ *bool) (ok bool, err error) {
+	return t.NetworkBootEnabledOK, t.ErrSetNetworkBootEnabled
+}
+
+func (t *testProvider) SetHTTPBootURI(_ context.Context, uri string) (ok bool, err error) {
+	t.SetHTTPBootURICalls = append(t.SetHTTPBootURICalls, uri)
+	return t.HTTPBootURIOK, t.ErrHTTPBootURISet
 }
 
 // newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc.

@@ -32,6 +32,18 @@ func getAction(s string) bmc.Action {
 		return bmc.Action{OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{Devices: []bmc.BootDevice{bmc.PXE}}}
 	case "VirtualMedia":
 		return bmc.Action{VirtualMediaAction: &bmc.VirtualMediaAction{MediaURL: "http://example.com/image.iso", Kind: bmc.VirtualMediaCD}}
+	case "HTTPBootEnabled":
+		return bmc.Action{NetworkBootConfig: &bmc.NetworkBootConfig{HTTPBootEnabled: toPtr(true)}}
+	case "HTTPBootDisabled":
+		return bmc.Action{NetworkBootConfig: &bmc.NetworkBootConfig{HTTPBootEnabled: toPtr(false)}}
+	case "PXEBootEnabled":
+		return bmc.Action{NetworkBootConfig: &bmc.NetworkBootConfig{PXEBootEnabled: toPtr(true)}}
+	case "HTTPAndPXEBootEnabled":
+		return bmc.Action{NetworkBootConfig: &bmc.NetworkBootConfig{HTTPBootEnabled: toPtr(true), PXEBootEnabled: toPtr(true)}}
+	case "HTTPBootURL":
+		return bmc.Action{NetworkBootConfig: &bmc.NetworkBootConfig{HTTPBootURL: toPtr("http://example.com/boot.efi")}}
+	case "HTTPBootEnabledAndURL":
+		return bmc.Action{NetworkBootConfig: &bmc.NetworkBootConfig{HTTPBootEnabled: toPtr(true), HTTPBootURL: toPtr("http://example.com/boot.efi")}}
 	default:
 		return bmc.Action{}
 	}
@@ -148,6 +160,60 @@ func TestTaskReconcile(t *testing.T) {
 			taskName:  "empty task",
 			action:    bmc.Action{},
 			provider:  &testProvider{},
+			shouldErr: true,
+		},
+		"success http boot enabled": {
+			taskName: "HTTPBootEnabled",
+			action:   getAction("HTTPBootEnabled"),
+			provider: &testProvider{NetworkBootEnabledOK: true},
+		},
+		"success http boot disabled": {
+			taskName: "HTTPBootDisabled",
+			action:   getAction("HTTPBootDisabled"),
+			provider: &testProvider{NetworkBootEnabledOK: true},
+		},
+		"failure on http boot set network boot enabled error": {
+			taskName:  "HTTPBootEnabled",
+			action:    getAction("HTTPBootEnabled"),
+			provider:  &testProvider{ErrSetNetworkBootEnabled: errors.New("failed to set network boot enabled state")},
+			shouldErr: true,
+		},
+		"failure on http boot set network boot enabled not ok": {
+			taskName:  "HTTPBootEnabled",
+			action:    getAction("HTTPBootEnabled"),
+			provider:  &testProvider{NetworkBootEnabledOK: false},
+			shouldErr: true,
+		},
+		"success pxe boot enabled": {
+			taskName: "PXEBootEnabled",
+			action:   getAction("PXEBootEnabled"),
+			provider: &testProvider{NetworkBootEnabledOK: true},
+		},
+		"success http and pxe boot both enabled": {
+			taskName: "HTTPAndPXEBootEnabled",
+			action:   getAction("HTTPAndPXEBootEnabled"),
+			provider: &testProvider{NetworkBootEnabledOK: true},
+		},
+		"success http boot url": {
+			taskName: "HTTPBootURL",
+			action:   getAction("HTTPBootURL"),
+			provider: &testProvider{HTTPBootURIOK: true},
+		},
+		"success http boot enabled and url set together": {
+			taskName: "HTTPBootEnabledAndURL",
+			action:   getAction("HTTPBootEnabledAndURL"),
+			provider: &testProvider{NetworkBootEnabledOK: true, HTTPBootURIOK: true},
+		},
+		"failure on http boot url set error": {
+			taskName:  "HTTPBootURL",
+			action:    getAction("HTTPBootURL"),
+			provider:  &testProvider{ErrHTTPBootURISet: errors.New("failed to set http boot uri")},
+			shouldErr: true,
+		},
+		"failure on http boot url set not ok": {
+			taskName:  "HTTPBootURL",
+			action:    getAction("HTTPBootURL"),
+			provider:  &testProvider{HTTPBootURIOK: false},
 			shouldErr: true,
 		},
 	}
