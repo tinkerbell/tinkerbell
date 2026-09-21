@@ -23,6 +23,7 @@ type Handler struct {
 	OSIEURL               string
 	OSIEURLv6             string
 	ExtraKernelParams     []string
+	ExtraKernelParamsV6   []string
 	PublicSyslogFQDN      string
 	PublicSyslogFQDNV6    string
 	TinkServerTLS         bool
@@ -50,6 +51,7 @@ type familySettings struct {
 	staticIPXEEnabled  bool
 	downloadURL        string
 	tinkServerGRPCAddr string
+	extraKernelParams  []string
 }
 
 func (h *Handler) settingsFor(family addressFamily) familySettings {
@@ -59,6 +61,7 @@ func (h *Handler) settingsFor(family addressFamily) familySettings {
 			staticIPXEEnabled:  h.StaticIPXEV6Enabled,
 			downloadURL:        h.OSIEURLv6,
 			tinkServerGRPCAddr: h.TinkServerGRPCAddrV6,
+			extraKernelParams:  h.ExtraKernelParamsV6,
 		}
 	}
 	return familySettings{
@@ -66,6 +69,7 @@ func (h *Handler) settingsFor(family addressFamily) familySettings {
 		staticIPXEEnabled:  h.StaticIPXEEnabled,
 		downloadURL:        h.OSIEURL,
 		tinkServerGRPCAddr: h.TinkServerGRPCAddr,
+		extraKernelParams:  h.ExtraKernelParams,
 	}
 }
 
@@ -187,7 +191,7 @@ func (h *Handler) serveStaticIPXEScript(w http.ResponseWriter, settings familySe
 	auto := Hook{
 		AddressFamily:     settings.addressFamily,
 		DownloadURL:       settings.downloadURL,
-		ExtraKernelParams: h.ExtraKernelParams,
+		ExtraKernelParams: settings.extraKernelParams,
 		SyslogHost:        h.PublicSyslogFQDN,
 		SyslogHostV6:      h.PublicSyslogFQDNV6,
 		TinkerbellTLS:     h.TinkServerTLS,
@@ -291,7 +295,7 @@ func (h *Handler) defaultScript(span trace.Span, hw hardware.Info, settings fami
 
 	// Global params first, then per-Hardware OSIE.KernelParams so machine-specific
 	// values win on duplicate keys (Linux kernel cmdline is last-wins).
-	extraKernelParams := append(append([]string{}, h.ExtraKernelParams...), hw.OSIE.KernelParams...)
+	extraKernelParams := append(append([]string{}, settings.extraKernelParams...), hw.OSIE.KernelParams...)
 
 	auto := Hook{
 		AddressFamily:         settings.addressFamily,
