@@ -29,6 +29,7 @@ deployment:
       backendKubeNamespace: ""
       backendKubeQPS: 100
       bindAddr: ""
+      bindAddrV6: ""
       disableHttpToHttpsRedirect: false # set true to stop auto-redirecting plain HTTP requests to HTTPS when TLS is enabled
       enableCRDMigrations: true
       enableRufioController: true
@@ -39,7 +40,9 @@ deployment:
       enableTinkController: true
       enableUI: true
       httpPort: 7080
+      httpPortV6: 7080
       httpsPort: 7443
+      httpsPortV6: 7443
       logLevel: 0
       otelEndpoint: ""
       otelInsecure: false
@@ -58,7 +61,10 @@ deployment:
       maxConcurrentReconciles: 1
       powerCheckInterval: "30m0s"
     secondstar:
+      bindAddr: ""
+      bindAddrV6: ""
       bindPort: 2222
+      bindPortV6: 2222
       hostKeyPath: ""
       ipmitoolPath: "/usr/sbin/ipmitool"
       idleTimeout: "15m"
@@ -164,6 +170,8 @@ deployment:
       autoEnrollmentEnabled: false
       bindAddr: ""
       bindPort: 42113
+      bindAddrV6: ""
+      bindPortV6: 42113
       logLevel: 0
     tootles:
       debugMode: false

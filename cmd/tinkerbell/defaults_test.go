@@ -64,34 +64,40 @@ func TestFirstPublicIPv6(t *testing.T) {
 	}
 }
 
-func TestDefaultBindAddr(t *testing.T) {
+func TestDefaultBindAddrs(t *testing.T) {
 	tests := map[string]struct {
 		publicIP   netip.Addr
 		publicIPv6 netip.Addr
-		want       netip.Addr
+		wantV4     netip.Addr
+		wantV6     netip.Addr
 	}{
-		"ipv4 is preferred when both addresses are available": {
+		"dual stack binds both families": {
 			publicIP:   netip.MustParseAddr("192.0.2.10"),
 			publicIPv6: netip.MustParseAddr("2001:db8::10"),
-			want:       netip.MustParseAddr("192.0.2.10"),
+			wantV4:     netip.MustParseAddr("192.0.2.10"),
+			wantV6:     netip.IPv6Unspecified(),
 		},
-		"ipv6 only binds wildcard v6": {
+		"ipv6 only leaves ipv4 unbound": {
 			publicIPv6: netip.MustParseAddr("2001:db8::10"),
-			want:       netip.IPv6Unspecified(),
+			wantV6:     netip.IPv6Unspecified(),
 		},
-		"ipv4 only binds public ipv4": {
+		"ipv4 only leaves ipv6 unbound": {
 			publicIP: netip.MustParseAddr("192.0.2.10"),
-			want:     netip.MustParseAddr("192.0.2.10"),
+			wantV4:   netip.MustParseAddr("192.0.2.10"),
 		},
 		"no public address binds wildcard v4": {
-			want: netip.MustParseAddr("0.0.0.0"),
+			wantV4: netip.MustParseAddr("0.0.0.0"),
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			if got := defaultBindAddr(tt.publicIP, tt.publicIPv6); got != tt.want {
-				t.Fatalf("defaultBindAddr(%v, %v) = %v, want %v", tt.publicIP, tt.publicIPv6, got, tt.want)
+			gotV4, gotV6 := defaultBindAddrs(tt.publicIP, tt.publicIPv6)
+			if gotV4 != tt.wantV4 {
+				t.Errorf("v4 = %v, want %v", gotV4, tt.wantV4)
+			}
+			if gotV6 != tt.wantV6 {
+				t.Errorf("v6 = %v, want %v", gotV6, tt.wantV6)
 			}
 		})
 	}
