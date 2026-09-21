@@ -78,6 +78,9 @@ deployment:
       dhcpIpxeHttpScriptPort: 7080
       dhcpIpxeHttpScriptPrependMac: true
       dhcpIpxeHttpScriptScheme: "http"
+      dhcpBindPort: 67
+      dhcpDefaultDomainSearchList: [] # Fallback search domains when Hardware does not provide any for DHCPv4.
+      dhcpDefaultNameServers: [] # Fallback IPv4 DNS server addresses when Hardware does not provide IPv4 nameservers.
       dhcpMode: "reservation" # reservation, proxy, auto-proxy
       dhcpSyslogIP: ""
       dhcpTftpIP: ""
@@ -110,6 +113,7 @@ deployment:
       ipxeHttpBinaryEnabled: true
       ipxeHttpScriptEnabled: true
       ipxeHttpScriptExtraKernelArgs: [] # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
+      ipxeHttpScriptExtraKernelArgsV6: [] # As above, for IPv6 machines. Defaults to ipxeHttpScriptExtraKernelArgs when empty.
       ipxeHttpScriptKernelName: "vmlinuz" # name of the kernel file to fetch in the iPXE script, defaults to vmlinuz, which becomes vmlinuz-<arch> in the script
       ipxeHttpScriptInitrdName: "initramfs" # name of the initrd file to fetch in the iPXE script, defaults to initramfs, which becomes initramfs-<arch> in the script
       ipxeHttpScriptTrustedProxies: ""
@@ -131,11 +135,15 @@ deployment:
       isoUpstreamURL: ""
       logLevel: 0
       syslogBindAddr: ""
+      syslogBindAddrV6: ""
       syslogBindPort: 514
+      syslogBindPortV6: 514
       syslogEnabled: true
       tftpBlockSize: 512
       tftpServerBindAddr: ""
+      tftpServerBindAddrV6: ""
       tftpServerBindPort: 69
+      tftpServerBindPortV6: 69
       tftpServerEnabled: true
       tftpTimeout: "10s"
       tftpSinglePort: true # if true, use single port mode for TFTP server

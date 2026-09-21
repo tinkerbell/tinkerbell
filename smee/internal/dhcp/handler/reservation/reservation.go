@@ -3,6 +3,7 @@ package reservation
 
 import (
 	"context"
+	"net"
 	"net/netip"
 	"net/url"
 
@@ -45,6 +46,16 @@ type Handler struct {
 
 	// SyslogAddr is the address to send syslog messages to. DHCP Option 7.
 	SyslogAddr netip.Addr
+
+	// DNSDefaults supplies fallback DNS servers and domain search domains when
+	// Hardware does not provide them.
+	DNSDefaults DNSDefaults
+}
+
+// DNSDefaults are fallback DNS settings used when Hardware does not provide them.
+type DNSDefaults struct {
+	NameServers  []net.IP
+	DomainSearch []string
 }
 
 // Netboot holds the netboot configuration details used in running a DHCP server.

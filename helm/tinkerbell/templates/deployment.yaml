@@ -162,8 +162,12 @@ spec:
               value: {{ .Values.deployment.envs.smee.dhcpv6Enabled | quote }}
             - name: TINKERBELL_DHCP_ENABLE_NETBOOT_OPTIONS_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6EnableNetbootOptions | quote }}
+            - name: TINKERBELL_DHCP_DEFAULT_NAME_SERVERS_V4
+              value: {{ join "," .Values.deployment.envs.smee.dhcpDefaultNameServers | quote }}
             - name: TINKERBELL_DHCP_DEFAULT_NAME_SERVERS_V6
               value: {{ join "," .Values.deployment.envs.smee.dhcpv6DefaultNameServers | quote }}
+            - name: TINKERBELL_DHCP_DEFAULT_DOMAIN_SEARCH_LIST_V4
+              value: {{ join "," .Values.deployment.envs.smee.dhcpDefaultDomainSearchList | quote }}
             - name: TINKERBELL_DHCP_DEFAULT_DOMAIN_SEARCH_LIST_V6
               value: {{ join "," .Values.deployment.envs.smee.dhcpv6DefaultDomainSearchList | quote }}
             - name: TINKERBELL_DHCP_MODE_V4
@@ -178,6 +182,8 @@ spec:
               value: {{ .Values.deployment.envs.smee.dhcpv6DerivedRelayAddressPrefix | quote }}
             - name: TINKERBELL_DHCP_BIND_ADDR_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6BindAddr | quote }}
+            - name: TINKERBELL_DHCP_BIND_PORT_V4
+              value: {{ .Values.deployment.envs.smee.dhcpBindPort | quote }}
             - name: TINKERBELL_DHCP_BIND_PORT_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6BindPort | quote }}
             - name: TINKERBELL_DHCP_BIND_INTERFACE_V6
@@ -246,6 +252,8 @@ spec:
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptEnabled | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS_V4
               value: {{ join " " ( append .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs ( printf "tink_worker_image=%s:%s" .Values.deployment.agentImage (coalesce .Values.deployment.agentImageTag .Chart.AppVersion) ) ) | quote }}
+            - name: TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS_V6
+              value: {{ join " " ( append (default .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgsV6) ( printf "tink_worker_image=%s:%s" .Values.deployment.agentImage (coalesce .Values.deployment.agentImageTag .Chart.AppVersion) ) ) | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_KERNEL_NAME
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptKernelName | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_INITRD_NAME
@@ -288,14 +296,22 @@ spec:
               value: {{ .Values.deployment.envs.smee.syslogEnabled | quote }}
             - name: TINKERBELL_SYSLOG_BIND_ADDR_V4
               value: {{ .Values.deployment.envs.smee.syslogBindAddr | quote }}
+            - name: TINKERBELL_SYSLOG_BIND_ADDR_V6
+              value: {{ .Values.deployment.envs.smee.syslogBindAddrV6 | quote }}
             - name: TINKERBELL_SYSLOG_BIND_PORT_V4
               value: {{ .Values.deployment.envs.smee.syslogBindPort | quote }}
+            - name: TINKERBELL_SYSLOG_BIND_PORT_V6
+              value: {{ .Values.deployment.envs.smee.syslogBindPortV6 | quote }}
             - name: TINKERBELL_TFTP_SERVER_ENABLED
               value: {{ .Values.deployment.envs.smee.tftpServerEnabled | quote }}
             - name: TINKERBELL_TFTP_SERVER_BIND_ADDR_V4
               value: {{ .Values.deployment.envs.smee.tftpServerBindAddr | quote }}
+            - name: TINKERBELL_TFTP_SERVER_BIND_ADDR_V6
+              value: {{ .Values.deployment.envs.smee.tftpServerBindAddrV6 | quote }}
             - name: TINKERBELL_TFTP_SERVER_BIND_PORT_V4
               value: {{ .Values.deployment.envs.smee.tftpServerBindPort | quote }}
+            - name: TINKERBELL_TFTP_SERVER_BIND_PORT_V6
+              value: {{ .Values.deployment.envs.smee.tftpServerBindPortV6 | quote }}
             - name: TINKERBELL_TFTP_TIMEOUT
               value: {{ .Values.deployment.envs.smee.tftpTimeout | quote }}
             - name: TINKERBELL_TFTP_BLOCK_SIZE

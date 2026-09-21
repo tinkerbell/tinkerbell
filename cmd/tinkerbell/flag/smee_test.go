@@ -52,17 +52,17 @@ func TestSmeeConvertBindAddressPrecedence(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &SmeeConfig{Config: smee.NewConfig(smee.Config{
-				Syslog: smee.Syslog{BindAddr: tt.syslogAddr},
-				TFTP:   smee.TFTP{BindAddr: tt.tftpAddr},
+				Syslog: smee.Syslog{V4: smee.Bind{Addr: tt.syslogAddr}},
+				TFTP:   smee.TFTP{V4: smee.Bind{Addr: tt.tftpAddr}},
 			})}
 
 			cfg.Convert(nil, netip.Addr{}, netip.Addr{}, globalBindAddr, 8080)
 
-			if got := cfg.Config.Syslog.BindAddr; got != tt.wantSyslog {
-				t.Errorf("Syslog.BindAddr = %v, want %v", got, tt.wantSyslog)
+			if got := cfg.Config.Syslog.V4.Addr; got != tt.wantSyslog {
+				t.Errorf("Syslog.V4.Addr = %v, want %v", got, tt.wantSyslog)
 			}
-			if got := cfg.Config.TFTP.BindAddr; got != tt.wantTFTP {
-				t.Errorf("TFTP.BindAddr = %v, want %v", got, tt.wantTFTP)
+			if got := cfg.Config.TFTP.V4.Addr; got != tt.wantTFTP {
+				t.Errorf("TFTP.V4.Addr = %v, want %v", got, tt.wantTFTP)
 			}
 		})
 	}
@@ -217,11 +217,11 @@ func TestSmeeConvertSeparatesAdvertisedAndBindAddresses(t *testing.T) {
 	if got, want := cfg.Config.DHCPv6.IPXEHTTPScript.URL.Host, "[2001:db8::15]:7080"; got != want {
 		t.Errorf("DHCPv6 advertised script host = %q, want %q", got, want)
 	}
-	if got, want := cfg.Config.Syslog.BindAddr, bindAddr; got != want {
-		t.Errorf("Syslog.BindAddr = %q, want %q", got, want)
+	if got, want := cfg.Config.Syslog.V4.Addr, bindAddr; got != want {
+		t.Errorf("Syslog.V4.Addr = %q, want %q", got, want)
 	}
-	if got, want := cfg.Config.TFTP.BindAddr, bindAddr; got != want {
-		t.Errorf("TFTP.BindAddr = %q, want %q", got, want)
+	if got, want := cfg.Config.TFTP.V4.Addr, bindAddr; got != want {
+		t.Errorf("TFTP.V4.Addr = %q, want %q", got, want)
 	}
 }
 
@@ -232,16 +232,16 @@ func TestSmeeConvertPreservesExplicitServiceBindAddresses(t *testing.T) {
 	cfg := &SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}),
 	}
-	cfg.Config.Syslog.BindAddr = syslogBindAddr
-	cfg.Config.TFTP.BindAddr = tftpBindAddr
+	cfg.Config.Syslog.V4.Addr = syslogBindAddr
+	cfg.Config.TFTP.V4.Addr = tftpBindAddr
 
 	cfg.Convert(nil, netip.Addr{}, netip.Addr{}, globalBindAddr, 7080)
 
-	if got := cfg.Config.Syslog.BindAddr; got != syslogBindAddr {
-		t.Errorf("Syslog.BindAddr = %q, want %q", got, syslogBindAddr)
+	if got := cfg.Config.Syslog.V4.Addr; got != syslogBindAddr {
+		t.Errorf("Syslog.V4.Addr = %q, want %q", got, syslogBindAddr)
 	}
-	if got := cfg.Config.TFTP.BindAddr; got != tftpBindAddr {
-		t.Errorf("TFTP.BindAddr = %q, want %q", got, tftpBindAddr)
+	if got := cfg.Config.TFTP.V4.Addr; got != tftpBindAddr {
+		t.Errorf("TFTP.V4.Addr = %q, want %q", got, tftpBindAddr)
 	}
 }
 

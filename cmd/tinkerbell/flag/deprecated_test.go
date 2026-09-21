@@ -26,8 +26,30 @@ func TestRenameDeprecatedArgs(t *testing.T) {
 			warnings: 1,
 		},
 		"inline value containing equals is preserved": {
-			args:     []string{"--ipxe-http-script-extra-kernel-args=a=b"},
-			want:     []string{"--ipxe-http-script-extra-kernel-args-v4=a=b"},
+			args: []string{"--ipxe-http-script-extra-kernel-args=a=b"},
+			want: []string{
+				"--ipxe-http-script-extra-kernel-args-v4=a=b",
+				"--ipxe-http-script-extra-kernel-args-v6=a=b",
+			},
+			warnings: 1,
+		},
+		// The retired flag reached machines of both families, so it still must.
+		"separate value fans out to every replacement": {
+			args: []string{"--ipxe-http-script-extra-kernel-args", "a=b"},
+			want: []string{
+				"--ipxe-http-script-extra-kernel-args-v4=a=b",
+				"--ipxe-http-script-extra-kernel-args-v6=a=b",
+			},
+			warnings: 1,
+		},
+		"a fanned out flag keeps surrounding args": {
+			args: []string{"--log-level=1", "--ipxe-http-script-extra-kernel-args", "a=b", "--dhcp-mode-v4=proxy"},
+			want: []string{
+				"--log-level=1",
+				"--ipxe-http-script-extra-kernel-args-v4=a=b",
+				"--ipxe-http-script-extra-kernel-args-v6=a=b",
+				"--dhcp-mode-v4=proxy",
+			},
 			warnings: 1,
 		},
 		"current names are untouched": {
@@ -115,8 +137,10 @@ func TestDeprecatedNamesResolve(t *testing.T) {
 		if registered[from] {
 			t.Errorf("%q is listed as deprecated but is still registered", from)
 		}
-		if !registered[to] {
-			t.Errorf("%q is deprecated in favour of %q, which is not registered", from, to)
+		for _, n := range to {
+			if !registered[n] {
+				t.Errorf("%q is deprecated in favour of %q, which is not registered", from, n)
+			}
 		}
 	}
 }
