@@ -52,47 +52,47 @@ type URLBuilder struct {
 func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	// The order in which flags are registered here is the order they will appear in the help text.
 	// DHCP flags
-	fs.Register(DHCPEnabled, ffval.NewValueDefault(&sc.Config.DHCP.Enabled, sc.Config.DHCP.Enabled))
-	fs.Register(DHCPEnableNetbootOptions, ffval.NewValueDefault(&sc.Config.DHCP.EnableNetbootOptions, sc.Config.DHCP.EnableNetbootOptions))
-	fs.Register(DHCPModeFlag, &sc.Config.DHCP.Mode)
-	fs.Register(DHCPv6Enabled, ffval.NewValueDefault(&sc.Config.DHCPv6.Enabled, sc.Config.DHCPv6.Enabled))
-	fs.Register(DHCPv6EnableNetbootOptions, ffval.NewValueDefault(&sc.Config.DHCPv6.EnableNetbootOptions, sc.Config.DHCPv6.EnableNetbootOptions))
-	fs.Register(DHCPv6ModeFlag, &sc.Config.DHCPv6.Mode)
-	fs.Register(DHCPv6DefaultNameServers, delimitedlist.NewParsed(&sc.Config.DHCPv6.DefaultNameServers, ',', parseDefaultIPv6NameServer))
-	fs.Register(DHCPv6DefaultDomainSearchList, delimitedlist.NewParsed(&sc.Config.DHCPv6.DefaultDomainSearchList, ',', parseDomainSearchSuffix))
-	fs.Register(DHCPv6ServerDUID, ffval.NewValueDefault(&sc.Config.DHCPv6.ServerDUID, sc.Config.DHCPv6.ServerDUID))
-	fs.Register(DHCPv6DerivedDirectAddressPool, &ntip.Prefix{Prefix: &sc.Config.DHCPv6.DerivedDirectAddressPool})
-	fs.Register(DHCPv6DerivedRelayAddressPrefix, ffval.NewValueDefault(&sc.Config.DHCPv6.DerivedRelayAddressPrefix, sc.Config.DHCPv6.DerivedRelayAddressPrefix))
-	fs.Register(DHCPv6BindAddr, &ntip.Addr{Addr: &sc.Config.DHCPv6.BindAddr})
-	fs.Register(DHCPv6BindPort, ffval.NewValueDefault(&sc.Config.DHCPv6.BindPort, sc.Config.DHCPv6.BindPort))
-	fs.Register(DHCPv6BindInterface, ffval.NewValueDefault(&sc.Config.DHCPv6.BindInterface, sc.Config.DHCPv6.BindInterface))
-	fs.Register(DHCPv6SyslogIP, &ntip.Addr{Addr: &sc.Config.DHCPv6.SyslogIP})
-	fs.Register(DHCPv6TftpIP, &ntip.Addr{Addr: &sc.Config.DHCPv6.TFTPIP})
-	fs.Register(DHCPv6TftpPort, ffval.NewValueDefault(&sc.Config.DHCPv6.TFTPPort, sc.Config.DHCPv6.TFTPPort))
-	fs.Register(DHCPv6IPXEHTTPScriptInjectMac, ffval.NewValueDefault(&sc.Config.DHCPv6.IPXEHTTPScript.InjectMacAddress, sc.Config.DHCPv6.IPXEHTTPScript.InjectMacAddress))
-	fs.Register(DHCPv6IPXEHTTPBinaryURLScheme, ffval.NewValueDefault(&sc.Config.DHCPv6.IPXEHTTPBinaryURL.Scheme, sc.Config.DHCPv6.IPXEHTTPBinaryURL.Scheme))
-	fs.Register(DHCPv6IPXEHTTPBinaryURLHost, ffval.NewValueDefault(&sc.DHCPv6IPXEBinary.Host, sc.DHCPv6IPXEBinary.Host))
-	fs.Register(DHCPv6IPXEHTTPBinaryURLPort, ffval.NewValueDefault(&sc.DHCPv6IPXEBinary.Port, sc.DHCPv6IPXEBinary.Port))
-	fs.Register(DHCPv6IPXEHTTPBinaryURLPath, ffval.NewValueDefault(&sc.Config.DHCPv6.IPXEHTTPBinaryURL.Path, sc.Config.DHCPv6.IPXEHTTPBinaryURL.Path))
-	fs.Register(DHCPv6IPXEHTTPScriptScheme, ffval.NewValueDefault(&sc.Config.DHCPv6.IPXEHTTPScript.URL.Scheme, sc.Config.DHCPv6.IPXEHTTPScript.URL.Scheme))
-	fs.Register(DHCPv6IPXEHTTPScriptHost, ffval.NewValueDefault(&sc.DHCPv6IPXEScript.Host, sc.DHCPv6IPXEScript.Host))
-	fs.Register(DHCPv6IPXEHTTPScriptPort, ffval.NewValueDefault(&sc.DHCPv6IPXEScript.Port, sc.DHCPv6IPXEScript.Port))
-	fs.Register(DHCPv6IPXEHTTPScriptPath, ffval.NewValueDefault(&sc.Config.DHCPv6.IPXEHTTPScript.URL.Path, sc.Config.DHCPv6.IPXEHTTPScript.URL.Path))
-	fs.Register(DHCPBindAddr, &ntip.Addr{Addr: &sc.Config.DHCP.BindAddr})
-	fs.Register(DHCPBindInterface, ffval.NewValueDefault(&sc.Config.DHCP.BindInterface, sc.Config.DHCP.BindInterface))
-	fs.Register(DHCPIPForPacket, &ntip.Addr{Addr: &sc.Config.DHCP.IPForPacket})
-	fs.Register(DHCPSyslogIP, &ntip.Addr{Addr: &sc.Config.DHCP.SyslogIP})
-	fs.Register(DHCPTftpIP, &ntip.Addr{Addr: &sc.Config.DHCP.TFTPIP})
-	fs.Register(DHCPTftpPort, ffval.NewValueDefault(&sc.Config.DHCP.TFTPPort, sc.Config.DHCP.TFTPPort))
-	fs.Register(DHCPIPXEHTTPScriptInjectMac, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.InjectMacAddress, sc.Config.DHCP.IPXEHTTPScript.InjectMacAddress))
-	fs.Register(DHCPIPXEHTTPBinaryURLScheme, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPBinaryURL.Scheme, sc.Config.DHCP.IPXEHTTPBinaryURL.Scheme))
-	fs.Register(DHCPIPXEHTTPBinaryURLHost, ffval.NewValueDefault(&sc.DHCPIPXEBinary.Host, sc.DHCPIPXEBinary.Host))
-	fs.Register(DHCPIPXEHTTPBinaryURLPort, ffval.NewValueDefault(&sc.DHCPIPXEBinary.Port, sc.DHCPIPXEBinary.Port))
-	fs.Register(DHCPIPXEHTTPBinaryURLPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPBinaryURL.Path, sc.Config.DHCP.IPXEHTTPBinaryURL.Path))
-	fs.Register(DHCPIPXEHTTPScriptScheme, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Scheme, sc.Config.DHCP.IPXEHTTPScript.URL.Scheme))
-	fs.Register(DHCPIPXEHTTPScriptHost, ffval.NewValueDefault(&sc.DHCPIPXEScript.Host, sc.DHCPIPXEScript.Host))
-	fs.Register(DHCPIPXEHTTPScriptPort, ffval.NewValueDefault(&sc.DHCPIPXEScript.Port, sc.DHCPIPXEScript.Port))
-	fs.Register(DHCPIPXEHTTPScriptPath, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Path, sc.Config.DHCP.IPXEHTTPScript.URL.Path))
+	fs.RegisterFamily(DHCPEnabled, V4, ffval.NewValueDefault(&sc.Config.DHCP.Enabled, sc.Config.DHCP.Enabled))
+	fs.RegisterFamily(DHCPEnabled, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.Enabled, sc.Config.DHCPv6.Enabled))
+	fs.RegisterFamily(DHCPEnableNetbootOptions, V4, ffval.NewValueDefault(&sc.Config.DHCP.EnableNetbootOptions, sc.Config.DHCP.EnableNetbootOptions))
+	fs.RegisterFamily(DHCPEnableNetbootOptions, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.EnableNetbootOptions, sc.Config.DHCPv6.EnableNetbootOptions))
+	fs.RegisterFamily(DHCPModeFlag, V4, &sc.Config.DHCP.Mode)
+	fs.RegisterFamily(DHCPModeFlag, V6, &sc.Config.DHCPv6.Mode)
+	fs.RegisterFamily(DHCPDefaultNameServers, V6, delimitedlist.NewParsed(&sc.Config.DHCPv6.DefaultNameServers, ',', parseDefaultIPv6NameServer))
+	fs.RegisterFamily(DHCPDefaultDomainSearchList, V6, delimitedlist.NewParsed(&sc.Config.DHCPv6.DefaultDomainSearchList, ',', parseDomainSearchSuffix))
+	fs.RegisterFamily(DHCPServerDUID, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.ServerDUID, sc.Config.DHCPv6.ServerDUID))
+	fs.RegisterFamily(DHCPDerivedDirectAddressPool, V6, &ntip.Prefix{Prefix: &sc.Config.DHCPv6.DerivedDirectAddressPool})
+	fs.RegisterFamily(DHCPDerivedRelayAddressPrefix, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.DerivedRelayAddressPrefix, sc.Config.DHCPv6.DerivedRelayAddressPrefix))
+	fs.RegisterFamily(DHCPBindAddr, V4, &ntip.Addr{Addr: &sc.Config.DHCP.BindAddr})
+	fs.RegisterFamily(DHCPBindAddr, V6, &ntip.Addr{Addr: &sc.Config.DHCPv6.BindAddr})
+	fs.RegisterFamily(DHCPBindPort, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.BindPort, sc.Config.DHCPv6.BindPort))
+	fs.RegisterFamily(DHCPBindInterface, V4, ffval.NewValueDefault(&sc.Config.DHCP.BindInterface, sc.Config.DHCP.BindInterface))
+	fs.RegisterFamily(DHCPBindInterface, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.BindInterface, sc.Config.DHCPv6.BindInterface))
+	fs.RegisterFamily(DHCPIPForPacket, V4, &ntip.Addr{Addr: &sc.Config.DHCP.IPForPacket})
+	fs.RegisterFamily(DHCPSyslogIP, V4, &ntip.Addr{Addr: &sc.Config.DHCP.SyslogIP})
+	fs.RegisterFamily(DHCPSyslogIP, V6, &ntip.Addr{Addr: &sc.Config.DHCPv6.SyslogIP})
+	fs.RegisterFamily(DHCPTftpIP, V4, &ntip.Addr{Addr: &sc.Config.DHCP.TFTPIP})
+	fs.RegisterFamily(DHCPTftpIP, V6, &ntip.Addr{Addr: &sc.Config.DHCPv6.TFTPIP})
+	fs.RegisterFamily(DHCPTftpPort, V4, ffval.NewValueDefault(&sc.Config.DHCP.TFTPPort, sc.Config.DHCP.TFTPPort))
+	fs.RegisterFamily(DHCPTftpPort, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.TFTPPort, sc.Config.DHCPv6.TFTPPort))
+	fs.RegisterFamily(DHCPIPXEHTTPScriptInjectMac, V4, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.InjectMacAddress, sc.Config.DHCP.IPXEHTTPScript.InjectMacAddress))
+	fs.RegisterFamily(DHCPIPXEHTTPScriptInjectMac, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.IPXEHTTPScript.InjectMacAddress, sc.Config.DHCPv6.IPXEHTTPScript.InjectMacAddress))
+	fs.RegisterFamily(DHCPIPXEHTTPBinaryURLScheme, V4, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPBinaryURL.Scheme, sc.Config.DHCP.IPXEHTTPBinaryURL.Scheme))
+	fs.RegisterFamily(DHCPIPXEHTTPBinaryURLScheme, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.IPXEHTTPBinaryURL.Scheme, sc.Config.DHCPv6.IPXEHTTPBinaryURL.Scheme))
+	fs.RegisterFamily(DHCPIPXEHTTPBinaryURLHost, V4, ffval.NewValueDefault(&sc.DHCPIPXEBinary.Host, sc.DHCPIPXEBinary.Host))
+	fs.RegisterFamily(DHCPIPXEHTTPBinaryURLHost, V6, ffval.NewValueDefault(&sc.DHCPv6IPXEBinary.Host, sc.DHCPv6IPXEBinary.Host))
+	fs.RegisterFamily(DHCPIPXEHTTPBinaryURLPort, V4, ffval.NewValueDefault(&sc.DHCPIPXEBinary.Port, sc.DHCPIPXEBinary.Port))
+	fs.RegisterFamily(DHCPIPXEHTTPBinaryURLPort, V6, ffval.NewValueDefault(&sc.DHCPv6IPXEBinary.Port, sc.DHCPv6IPXEBinary.Port))
+	fs.RegisterFamily(DHCPIPXEHTTPBinaryURLPath, V4, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPBinaryURL.Path, sc.Config.DHCP.IPXEHTTPBinaryURL.Path))
+	fs.RegisterFamily(DHCPIPXEHTTPBinaryURLPath, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.IPXEHTTPBinaryURL.Path, sc.Config.DHCPv6.IPXEHTTPBinaryURL.Path))
+	fs.RegisterFamily(DHCPIPXEHTTPScriptScheme, V4, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Scheme, sc.Config.DHCP.IPXEHTTPScript.URL.Scheme))
+	fs.RegisterFamily(DHCPIPXEHTTPScriptScheme, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.IPXEHTTPScript.URL.Scheme, sc.Config.DHCPv6.IPXEHTTPScript.URL.Scheme))
+	fs.RegisterFamily(DHCPIPXEHTTPScriptHost, V4, ffval.NewValueDefault(&sc.DHCPIPXEScript.Host, sc.DHCPIPXEScript.Host))
+	fs.RegisterFamily(DHCPIPXEHTTPScriptHost, V6, ffval.NewValueDefault(&sc.DHCPv6IPXEScript.Host, sc.DHCPv6IPXEScript.Host))
+	fs.RegisterFamily(DHCPIPXEHTTPScriptPort, V4, ffval.NewValueDefault(&sc.DHCPIPXEScript.Port, sc.DHCPIPXEScript.Port))
+	fs.RegisterFamily(DHCPIPXEHTTPScriptPort, V6, ffval.NewValueDefault(&sc.DHCPv6IPXEScript.Port, sc.DHCPv6IPXEScript.Port))
+	fs.RegisterFamily(DHCPIPXEHTTPScriptPath, V4, ffval.NewValueDefault(&sc.Config.DHCP.IPXEHTTPScript.URL.Path, sc.Config.DHCP.IPXEHTTPScript.URL.Path))
+	fs.RegisterFamily(DHCPIPXEHTTPScriptPath, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.IPXEHTTPScript.URL.Path, sc.Config.DHCPv6.IPXEHTTPScript.URL.Path))
 
 	// IPXE flags
 	fs.Register(IPXEArchMapping, &ffval.Value[map[iana.Arch]constant.IPXEBinary]{
@@ -131,16 +131,16 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(IPXEEmbeddedScriptPatch, ffval.NewValueDefault(&sc.Config.IPXE.EmbeddedScriptPatch, sc.Config.IPXE.EmbeddedScriptPatch))
 	fs.Register(IPXEHTTPBinaryEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPBinaryServer.Enabled, sc.Config.IPXE.HTTPBinaryServer.Enabled))
 	fs.Register(IPXEHTTPScriptEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Enabled, sc.Config.IPXE.HTTPScriptServer.Enabled))
-	fs.Register(IPXEHTTPScriptExtraKernelArgs, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.ExtraKernelArgs))
+	fs.RegisterFamily(IPXEHTTPScriptExtraKernelArgs, V4, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.ExtraKernelArgs))
 	fs.Register(IPXEHTTPScriptKernelName, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.KernelName, sc.Config.IPXE.HTTPScriptServer.KernelName))
 	fs.Register(IPXEHTTPScriptInitrdName, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.InitrdName, sc.Config.IPXE.HTTPScriptServer.InitrdName))
 	fs.Register(IPXEHTTPScriptTrustedProxies, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.TrustedProxies))
 	fs.Register(IPXEHTTPScriptRetries, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Retries, sc.Config.IPXE.HTTPScriptServer.Retries))
 	fs.Register(IPXEHTTPScriptRetryDelay, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.RetryDelay, sc.Config.IPXE.HTTPScriptServer.RetryDelay))
-	fs.Register(IPXEHTTPScriptOSIEURL, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURL})
-	fs.Register(IPXEHTTPScriptOSIEURLv6, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURLv6})
-	fs.Register(IPXEScriptSyslogFQDN, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.SyslogFQDN, sc.Config.IPXE.HTTPScriptServer.SyslogFQDN))
-	fs.Register(IPXEScriptSyslogFQDNV6, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.SyslogFQDNV6, sc.Config.IPXE.HTTPScriptServer.SyslogFQDNV6))
+	fs.RegisterFamily(IPXEHTTPScriptOSIEURL, V4, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURL})
+	fs.RegisterFamily(IPXEHTTPScriptOSIEURL, V6, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURLv6})
+	fs.RegisterFamily(IPXEScriptSyslogFQDN, V4, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.SyslogFQDN, sc.Config.IPXE.HTTPScriptServer.SyslogFQDN))
+	fs.RegisterFamily(IPXEScriptSyslogFQDN, V6, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.SyslogFQDNV6, sc.Config.IPXE.HTTPScriptServer.SyslogFQDNV6))
 	fs.Register(IPXEBinaryInjectMacAddrFormat, &ffval.Enum[constant.MACFormat]{
 		ParseFunc: macAddrFormatParser,
 		Valid:     []constant.MACFormat{constant.MacAddrFormatColon, constant.MacAddrFormatDot, constant.MacAddrFormatDash, constant.MacAddrFormatNoDelimiter},
@@ -149,8 +149,8 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	})
 
 	// iPXE Tink Server Flags
-	fs.Register(TinkServerAddrPort, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPort, sc.Config.TinkServer.AddrPort))
-	fs.Register(TinkServerAddrPortV6, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPortV6, sc.Config.TinkServer.AddrPortV6))
+	fs.RegisterFamily(TinkServerAddrPort, V4, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPort, sc.Config.TinkServer.AddrPort))
+	fs.RegisterFamily(TinkServerAddrPort, V6, ffval.NewValueDefault(&sc.Config.TinkServer.AddrPortV6, sc.Config.TinkServer.AddrPortV6))
 	fs.Register(TinkServerUseTLS, ffval.NewValueDefault(&sc.Config.TinkServer.UseTLS, sc.Config.TinkServer.UseTLS))
 	fs.Register(TinkServerInsecureTLS, ffval.NewValueDefault(&sc.Config.TinkServer.InsecureTLS, sc.Config.TinkServer.InsecureTLS))
 
@@ -158,20 +158,20 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(ISOEnabled, ffval.NewValueDefault(&sc.Config.ISO.Enabled, sc.Config.ISO.Enabled))
 	fs.Register(ISOUpstreamURL, &url.URL{URL: sc.Config.ISO.UpstreamURL})
 	fs.Register(ISOPatchMagicString, ffval.NewValueDefault(&sc.Config.ISO.PatchMagicString, sc.Config.ISO.PatchMagicString))
-	fs.Register(ISOStaticIPAMEnabled, ffval.NewValueDefault(&sc.Config.ISO.StaticIPAMEnabled, sc.Config.ISO.StaticIPAMEnabled))
+	fs.RegisterFamily(ISOStaticIPAMEnabled, V4, ffval.NewValueDefault(&sc.Config.ISO.StaticIPAMEnabled, sc.Config.ISO.StaticIPAMEnabled))
 
 	// Log level
 	fs.Register(SmeeLogLevel, ffval.NewValueDefault(&sc.LogLevel, sc.LogLevel))
 
 	// Syslog Flags
 	fs.Register(SyslogEnabled, ffval.NewValueDefault(&sc.Config.Syslog.Enabled, sc.Config.Syslog.Enabled))
-	fs.Register(SyslogBindAddr, &ntip.Addr{Addr: &sc.Config.Syslog.BindAddr})
-	fs.Register(SyslogBindPort, ffval.NewValueDefault(&sc.Config.Syslog.BindPort, sc.Config.Syslog.BindPort))
+	fs.RegisterFamily(SyslogBindAddr, V4, &ntip.Addr{Addr: &sc.Config.Syslog.BindAddr})
+	fs.RegisterFamily(SyslogBindPort, V4, ffval.NewValueDefault(&sc.Config.Syslog.BindPort, sc.Config.Syslog.BindPort))
 
 	// TFTP Flags
 	fs.Register(TFTPServerEnabled, ffval.NewValueDefault(&sc.Config.TFTP.Enabled, sc.Config.TFTP.Enabled))
-	fs.Register(TFTPServerBindAddr, &ntip.Addr{Addr: &sc.Config.TFTP.BindAddr})
-	fs.Register(TFTPServerBindPort, ffval.NewValueDefault(&sc.Config.TFTP.BindPort, sc.Config.TFTP.BindPort))
+	fs.RegisterFamily(TFTPServerBindAddr, V4, &ntip.Addr{Addr: &sc.Config.TFTP.BindAddr})
+	fs.RegisterFamily(TFTPServerBindPort, V4, ffval.NewValueDefault(&sc.Config.TFTP.BindPort, sc.Config.TFTP.BindPort))
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
 	fs.Register(TFTPSinglePort, ffval.NewValueDefault(&sc.Config.TFTP.SinglePort, sc.Config.TFTP.SinglePort))
@@ -314,7 +314,8 @@ func parseDomainSearchSuffix(value string) (string, error) {
 	return value, nil
 }
 
-// DHCP flags.
+// DHCP flags. Each is registered once per address family by RegisterSmeeFlags,
+// so the usage text here must not name a family.
 var DHCPEnabled = Config{
 	Name:  "dhcp-enabled",
 	Usage: "[dhcp] enable DHCP server",
@@ -322,122 +323,38 @@ var DHCPEnabled = Config{
 
 var DHCPModeFlag = Config{
 	Name:  "dhcp-mode",
-	Usage: fmt.Sprintf("[dhcp] DHCP mode (%s, %s, %s)", smee.DHCPModeReservation, smee.DHCPModeProxy, smee.DHCPModeAutoProxy),
+	Usage: fmt.Sprintf("[dhcp] DHCP mode, one of [%s, %s, %s] for IPv4 or [%s, %s, %s, %s] for IPv6", smee.DHCPModeReservation, smee.DHCPModeProxy, smee.DHCPModeAutoProxy, smee.DHCPv6ModeStateless, smee.DHCPv6ModeAutoStateless, smee.DHCPv6ModeReservation, smee.DHCPv6ModeDerived),
 }
 
-var DHCPv6DefaultNameServers = Config{
-	Name:  "dhcpv6-default-name-servers",
-	Usage: "[dhcpv6] comma-separated default IPv6 DNS server addresses used when Hardware has no IPv6 nameservers",
+var DHCPDefaultNameServers = Config{
+	Name:  "dhcp-default-name-servers",
+	Usage: "[dhcp] comma-separated default DNS server addresses used when Hardware has no nameservers",
 }
 
-var DHCPv6DefaultDomainSearchList = Config{
-	Name:  "dhcpv6-default-domain-search-list",
-	Usage: "[dhcpv6] comma-separated default domain search list used when Hardware has none",
+var DHCPDefaultDomainSearchList = Config{
+	Name:  "dhcp-default-domain-search-list",
+	Usage: "[dhcp] comma-separated default domain search list used when Hardware has none",
 }
 
-var DHCPv6Enabled = Config{
-	Name:  "dhcpv6-enabled",
-	Usage: "[dhcpv6] enable DHCPv6 server",
+// DHCPServerDUID has no IPv4 counterpart: DHCPv6 identifies the server by DUID,
+// not by address.
+var DHCPServerDUID = Config{
+	Name:  "dhcp-server-duid",
+	Usage: "[dhcp] stable DHCPv6 server DUID as raw hex bytes; accepts colon, dash, or plain hex separators",
 }
 
-var DHCPv6EnableNetbootOptions = Config{
-	Name:  "dhcpv6-enable-netboot-options",
-	Usage: "[dhcpv6] enable sending netboot DHCPv6 options",
+// DHCPDerivedDirectAddressPool has no IPv4 counterpart: derived addressing is
+// DHCPv6-only.
+var DHCPDerivedDirectAddressPool = Config{
+	Name:  "dhcp-derived-direct-address-pool",
+	Usage: "[dhcp] usable IPv6 unicast CIDR, /1 through /64, used to derive addresses for direct DHCPv6 requests when Hardware has no IPv6 reservation",
 }
 
-var DHCPv6ModeFlag = Config{
-	Name:  "dhcpv6-mode",
-	Usage: fmt.Sprintf("[dhcpv6] DHCPv6 mode (%s, %s, %s, %s)", smee.DHCPv6ModeStateless, smee.DHCPv6ModeAutoStateless, smee.DHCPv6ModeReservation, smee.DHCPv6ModeDerived),
-}
-
-var DHCPv6ServerDUID = Config{
-	Name:  "dhcpv6-server-duid",
-	Usage: "[dhcpv6] stable DHCPv6 server DUID as raw hex bytes; accepts colon, dash, or plain hex separators",
-}
-
-var DHCPv6DerivedDirectAddressPool = Config{
-	Name:  "dhcpv6-derived-direct-address-pool",
-	Usage: "[dhcpv6] usable IPv6 unicast CIDR, /1 through /64, used to derive addresses for direct DHCPv6 requests when Hardware has no IPv6 reservation",
-}
-
-var DHCPv6DerivedRelayAddressPrefix = Config{
-	Name:  "dhcpv6-derived-relay-address-prefix",
-	Usage: "[dhcpv6] relay link-address prefix length, 1-64, used to derive addresses for relayed DHCPv6 requests when Hardware has no IPv6 reservation",
-}
-
-var DHCPv6BindAddr = Config{
-	Name:  "dhcpv6-bind-addr",
-	Usage: "[dhcpv6] DHCPv6 server bind address",
-}
-
-var DHCPv6BindPort = Config{
-	Name:  "dhcpv6-bind-port",
-	Usage: "[dhcpv6] DHCPv6 server bind port",
-}
-
-var DHCPv6BindInterface = Config{
-	Name:  "dhcpv6-bind-interface",
-	Usage: "[dhcpv6] DHCPv6 server bind interface, or comma-separated interfaces",
-}
-
-var DHCPv6TftpIP = Config{
-	Name:  "dhcpv6-tftp-ip",
-	Usage: "[dhcpv6] TFTP server IP address to use in DHCPv6 boot file URLs",
-}
-
-var DHCPv6SyslogIP = Config{
-	Name:  "dhcpv6-syslog-ip",
-	Usage: "[dhcpv6] Syslog server IP address to use for iPXE scripts served to DHCPv6 clients",
-}
-
-var DHCPv6TftpPort = Config{
-	Name:  "dhcpv6-tftp-port",
-	Usage: "[dhcpv6] TFTP server port to use in DHCPv6 boot file URLs",
-}
-
-var DHCPv6IPXEHTTPBinaryURLScheme = Config{
-	Name:  "dhcpv6-ipxe-http-binary-scheme",
-	Usage: "[dhcpv6] HTTP iPXE binaries scheme to use in DHCPv6 packets",
-}
-
-var DHCPv6IPXEHTTPBinaryURLHost = Config{
-	Name:  "dhcpv6-ipxe-http-binary-host",
-	Usage: "[dhcpv6] HTTP iPXE binaries host or IP to use in DHCPv6 packets",
-}
-
-var DHCPv6IPXEHTTPBinaryURLPort = Config{
-	Name:  "dhcpv6-ipxe-http-binary-port",
-	Usage: "[dhcpv6] HTTP iPXE binaries port to use in DHCPv6 packets",
-}
-
-var DHCPv6IPXEHTTPBinaryURLPath = Config{
-	Name:  "dhcpv6-ipxe-http-binary-path",
-	Usage: "[dhcpv6] HTTP iPXE binaries path to use in DHCPv6 packets",
-}
-
-var DHCPv6IPXEHTTPScriptScheme = Config{
-	Name:  "dhcpv6-ipxe-http-script-scheme",
-	Usage: "[dhcpv6] HTTP iPXE script scheme to use in DHCPv6 packets",
-}
-
-var DHCPv6IPXEHTTPScriptHost = Config{
-	Name:  "dhcpv6-ipxe-http-script-host",
-	Usage: "[dhcpv6] HTTP iPXE script host or IP to use in DHCPv6 packets",
-}
-
-var DHCPv6IPXEHTTPScriptPort = Config{
-	Name:  "dhcpv6-ipxe-http-script-port",
-	Usage: "[dhcpv6] HTTP iPXE script port to use in DHCPv6 packets",
-}
-
-var DHCPv6IPXEHTTPScriptPath = Config{
-	Name:  "dhcpv6-ipxe-http-script-path",
-	Usage: "[dhcpv6] HTTP iPXE script path to use in DHCPv6 packets",
-}
-
-var DHCPv6IPXEHTTPScriptInjectMac = Config{
-	Name:  "dhcpv6-ipxe-http-script-prepend-mac",
-	Usage: "[dhcpv6] prepend the hardware MAC address to iPXE script URL base, http://1.2.3.4/auto6.ipxe -> http://1.2.3.4/40:15:ff:89:cc:0e/auto6.ipxe",
+// DHCPDerivedRelayAddressPrefix has no IPv4 counterpart: derived addressing is
+// DHCPv6-only.
+var DHCPDerivedRelayAddressPrefix = Config{
+	Name:  "dhcp-derived-relay-address-prefix",
+	Usage: "[dhcp] relay link-address prefix length, 1-64, used to derive addresses for relayed DHCPv6 requests when Hardware has no IPv6 reservation",
 }
 
 var DHCPBindAddr = Config{
@@ -445,14 +362,21 @@ var DHCPBindAddr = Config{
 	Usage: "[dhcp] DHCP server bind address",
 }
 
-var DHCPBindInterface = Config{
-	Name:  "dhcp-bind-interface",
-	Usage: "[dhcp] DHCP server bind interface",
+var DHCPBindPort = Config{
+	Name:  "dhcp-bind-port",
+	Usage: "[dhcp] DHCP server bind port",
 }
 
+var DHCPBindInterface = Config{
+	Name:  "dhcp-bind-interface",
+	Usage: "[dhcp] DHCP server bind interface, or comma-separated interfaces",
+}
+
+// DHCPIPForPacket has no IPv6 counterpart: it is the DHCPv4 option 54 server
+// identifier, and DHCPv6 identifies the server by DUID.
 var DHCPIPForPacket = Config{
 	Name:  "dhcp-ip-for-packet",
-	Usage: "[dhcp] DHCP server IP for packet",
+	Usage: "[dhcp] DHCP server IP for packet (opt 54)",
 }
 
 var DHCPSyslogIP = Config{
@@ -546,11 +470,6 @@ var IPXEHTTPScriptOSIEURL = Config{
 	Usage: "[ipxe] URL where OSIE (HookOS) images are located",
 }
 
-var IPXEHTTPScriptOSIEURLv6 = Config{
-	Name:  "ipxe-http-script-osie-url-v6",
-	Usage: "[ipxe] URL where OSIE (HookOS) images are located for IPv6 clients",
-}
-
 var IPXEHTTPScriptRetries = Config{
 	Name:  "ipxe-http-script-retries",
 	Usage: "[ipxe] number of retries to attempt when fetching kernel and initrd files in the iPXE script",
@@ -563,12 +482,7 @@ var IPXEHTTPScriptRetryDelay = Config{
 
 var IPXEScriptSyslogFQDN = Config{
 	Name:  "ipxe-script-syslog-fqdn",
-	Usage: "[ipxe] syslog server hostname/FQDN for IPv4 iPXE scripts, resolved by iPXE at boot (if empty, falls back to --dhcp-syslog-ip)",
-}
-
-var IPXEScriptSyslogFQDNV6 = Config{
-	Name:  "ipxe-script-syslog-fqdn-v6",
-	Usage: "[ipxe] syslog server hostname or IPv6 address for DHCPv6 iPXE scripts, resolved by iPXE at boot (if empty, falls back to --dhcpv6-syslog-ip)",
+	Usage: "[ipxe] syslog server hostname/FQDN or address, resolved by iPXE at boot (if empty, falls back to the matching --dhcp-syslog-ip)",
 }
 
 // iPXE HTTP binary flags.
@@ -672,20 +586,17 @@ var ISOPatchMagicString = Config{
 	Usage: "[iso] the string pattern to match for in the source (upstream) ISO, defaults to the one defined in HookOS",
 }
 
+// ISOStaticIPAMEnabled has no IPv6 counterpart: static IPAM in patched ISOs is
+// IPv4-only. IPv6 machines use SLAAC or DHCPv6.
 var ISOStaticIPAMEnabled = Config{
 	Name:  "iso-static-ipam-enabled",
-	Usage: "[iso] enable IPv4 static IPAM when patching the source (upstream) ISO",
+	Usage: "[iso] enable static IPAM when patching the source (upstream) ISO",
 }
 
 // Tink Server flags.
 var TinkServerAddrPort = Config{
 	Name:  "ipxe-script-tink-server-addr-port",
 	Usage: "[ipxe] Tink server address and port",
-}
-
-var TinkServerAddrPortV6 = Config{
-	Name:  "ipxe-script-tink-server-addr-port-v6",
-	Usage: "[ipxe] Tink server IPv6 address and port",
 }
 
 var TinkServerUseTLS = Config{

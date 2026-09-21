@@ -22,8 +22,8 @@ var KubeIndexesTinkServer = map[kube.IndexType]kube.Index{
 }
 
 func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {
-	fs.Register(TinkServerBindAddr, &ntip.Addr{Addr: &t.BindAddr})
-	fs.Register(TinkServerBindPort, ffval.NewValueDefault(&t.BindPort, t.BindPort))
+	fs.RegisterFamily(TinkServerBindAddr, V4, &ntip.Addr{Addr: &t.BindAddr})
+	fs.RegisterFamily(TinkServerBindPort, V4, ffval.NewValueDefault(&t.BindPort, t.BindPort))
 	fs.Register(TinkServerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
 	fs.Register(TinkServerAutoEnrollmentEnabled, ffval.NewValueDefault(&t.Config.Auto.Enrollment.Enabled, t.Config.Auto.Enrollment.Enabled))
 	fs.Register(TinkerbellAutoDiscoveryEnabled, ffval.NewValueDefault(&t.Config.Auto.Discovery.Enabled, t.Config.Auto.Discovery.Enabled))
