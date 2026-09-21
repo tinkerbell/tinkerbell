@@ -62,7 +62,9 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		EnableUI:             true,
 		EnableCRDMigrations:  true,
 		HTTPPort:             defaultHTTPPort,
+		HTTPPortV6:           defaultHTTPPort,
 		HTTPSPort:            defaultHTTPSPort,
+		HTTPSPortV6:          defaultHTTPSPort,
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
@@ -81,8 +83,9 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		Config: tootles.NewConfig(tootles.Config{}),
 	}
 	ts := &flag.TinkServerConfig{
-		Config:   server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
-		BindPort: defaultTinkServerPort,
+		Config:     server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
+		BindPort:   defaultTinkServerPort,
+		BindPortV6: defaultTinkServerPort,
 	}
 	controllerOpts := []controller.Option{
 		controller.WithEnableLeaderElection(false),
@@ -102,8 +105,9 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	}
 
 	ssc := &flag.SecondStarConfig{
+		Port:   defaultSecondStarPort,
+		PortV6: defaultSecondStarPort,
 		Config: &secondstar.Config{
-			SSHPort:      defaultSecondStarPort,
 			IPMITOOLPath: "/usr/sbin/ipmitool",
 			IdleTimeout:  15 * time.Minute,
 		},
@@ -173,8 +177,8 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	if err := validatePublicAddressFamilies(globals.PublicIP, globals.PublicIPv6); err != nil {
 		return err
 	}
-	if !globals.BindAddr.IsValid() {
-		globals.BindAddr = defaultBindAddr(publicIP, publicIPv6)
+	if !globals.BindAddr.IsValid() && !globals.BindAddrV6.IsValid() {
+		globals.BindAddr, globals.BindAddrV6 = defaultBindAddrs(publicIP, publicIPv6)
 	}
 
 	log := getLogger(globals.LogLevel)
@@ -218,10 +222,11 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
 		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
 		"globalBindAddress", globals.BindAddr,
+		"globalBindAddressV6", globals.BindAddrV6,
 	)
 
 	// Smee
-	s.Convert(globals.PublicIP, globals.PublicIPv6, globals.BindAddr, globals.HTTPPort)
+	s.Convert(globals.PublicIP, globals.PublicIPv6, globals.BindAddr, globals.BindAddrV6, globals.HTTPPort)
 	if s.DHCPIPXEBinary.Port == 0 {
 		s.DHCPIPXEBinary.Port = globals.HTTPPort
 	}
@@ -246,7 +251,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	}
 
 	// Tink Server
-	ts.Convert(globals.BindAddr)
+	ts.Convert(globals.BindAddr, globals.BindAddrV6)
 	// Configure TLS if cert and key files are provided
 	if globals.TLS.CertFile != "" && globals.TLS.KeyFile != "" {
 		creds, err := credentials.NewServerTLSFromFile(globals.TLS.CertFile, globals.TLS.KeyFile)
@@ -266,11 +271,8 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace)
 
 	// Second star
-	if err := ssc.Convert(); err != nil {
+	if err := ssc.Convert(globals.BindAddr, globals.BindAddrV6); err != nil {
 		return fmt.Errorf("failed to convert secondstar config: %w", err)
-	}
-	if globals.BindAddr.IsValid() {
-		ssc.Config.BindAddr = globals.BindAddr
 	}
 
 	// Initialize OTel before starting goroutines so the provider outlives

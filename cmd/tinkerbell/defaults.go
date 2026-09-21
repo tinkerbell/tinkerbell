@@ -219,17 +219,23 @@ func autoDetectPublicIPv6WithDefaultGateway() (netip.Addr, error) {
 	return netip.Addr{}, fmt.Errorf("no IPv6 default gateway found")
 }
 
-// defaultBindAddr chooses an IPv4-first bind address from addresses detected
-// on the local host. Configured public addresses are advertised addresses and
-// must not be used here because they may belong to a load balancer.
-func defaultBindAddr(detectedIPv4, detectedIPv6 netip.Addr) netip.Addr {
+// defaultBindAddrs chooses per-family bind addresses from addresses detected on
+// the local host. Configured public addresses are advertised addresses and must
+// not be used here because they may belong to a load balancer. A family with no
+// detected address is left unset so nothing binds for it; IPv4 falls back to the
+// wildcard so a host with no detected address still serves.
+func defaultBindAddrs(detectedIPv4, detectedIPv6 netip.Addr) (v4, v6 netip.Addr) {
+	hasV6 := detectedIPv6.Is6() && !detectedIPv6.Is4In6() && !detectedIPv6.IsUnspecified()
+	if hasV6 {
+		v6 = netip.IPv6Unspecified()
+	}
 	if detectedIPv4.Is4() && !detectedIPv4.IsUnspecified() {
-		return detectedIPv4
+		return detectedIPv4, v6
 	}
-	if detectedIPv6.Is6() && !detectedIPv6.Is4In6() && !detectedIPv6.IsUnspecified() {
-		return netip.IPv6Unspecified()
+	if hasV6 {
+		return netip.Addr{}, v6
 	}
-	return netip.MustParseAddr("0.0.0.0")
+	return netip.MustParseAddr("0.0.0.0"), v6
 }
 
 func validatePublicAddressFamilies(publicIP, publicIPv6 netip.Addr) error {

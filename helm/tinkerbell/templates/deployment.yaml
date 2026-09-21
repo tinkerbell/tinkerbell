@@ -134,8 +134,12 @@ spec:
           # TINK SERVER
             - name: TINKERBELL_TINK_SERVER_BIND_ADDR_V4
               value: {{ .Values.deployment.envs.tinkServer.bindAddr | quote }}
+            - name: TINKERBELL_TINK_SERVER_BIND_ADDR_V6
+              value: {{ .Values.deployment.envs.tinkServer.bindAddrV6 | quote }}
             - name: TINKERBELL_TINK_SERVER_BIND_PORT_V4
               value: {{ .Values.deployment.envs.tinkServer.bindPort | quote }}
+            - name: TINKERBELL_TINK_SERVER_BIND_PORT_V6
+              value: {{ .Values.deployment.envs.tinkServer.bindPortV6 | quote }}
             - name: TINKERBELL_TINK_SERVER_LOG_LEVEL
               value: {{ .Values.deployment.envs.tinkServer.logLevel | quote }}
             - name: TINKERBELL_TINK_SERVER_AUTO_ENROLLMENT_ENABLED
@@ -323,8 +327,14 @@ spec:
             - name: TINKERBELL_PXE_HTTP_PATH_PREFIX
               value: {{ .Values.deployment.envs.smee.pxeHttpPathPrefix | quote }}
           # SECONDSTAR
+            - name: TINKERBELL_SECONDSTAR_BIND_ADDR_V4
+              value: {{ .Values.deployment.envs.secondstar.bindAddr | quote }}
+            - name: TINKERBELL_SECONDSTAR_BIND_ADDR_V6
+              value: {{ .Values.deployment.envs.secondstar.bindAddrV6 | quote }}
             - name: TINKERBELL_SECONDSTAR_PORT_V4
               value: {{ .Values.deployment.envs.secondstar.bindPort | quote }}
+            - name: TINKERBELL_SECONDSTAR_PORT_V6
+              value: {{ .Values.deployment.envs.secondstar.bindPortV6 | quote }}
             - name: TINKERBELL_SECONDSTAR_HOST_KEY
               value: {{ .Values.deployment.envs.secondstar.hostKeyPath | quote }}
             - name: TINKERBELL_SECONDSTAR_IPMITOOL_PATH
@@ -359,6 +369,8 @@ spec:
               value: {{ .Values.deployment.envs.globals.backendKubeQPS | quote }}
             - name: TINKERBELL_BIND_ADDRESS_V4
               value: {{ .Values.deployment.envs.globals.bindAddr | quote }}
+            - name: TINKERBELL_BIND_ADDRESS_V6
+              value: {{ .Values.deployment.envs.globals.bindAddrV6 | quote }}
             - name: TINKERBELL_OTEL_ENDPOINT
               value: {{ .Values.deployment.envs.globals.otelEndpoint | quote }}
             - name: TINKERBELL_OTEL_INSECURE
@@ -393,8 +405,12 @@ spec:
               value: {{ .Values.deployment.envs.globals.disableHttpToHttpsRedirect | quote }}
             - name: TINKERBELL_HTTP_PORT_V4
               value: {{ .Values.deployment.envs.globals.httpPort | quote }}
+            - name: TINKERBELL_HTTP_PORT_V6
+              value: {{ .Values.deployment.envs.globals.httpPortV6 | quote }}
             - name: TINKERBELL_HTTPS_PORT_V4
               value: {{ .Values.deployment.envs.globals.httpsPort | quote }}
+            - name: TINKERBELL_HTTPS_PORT_V6
+              value: {{ .Values.deployment.envs.globals.httpsPortV6 | quote }}
             {{- with .Values.deployment.additionalEnvs }}
           # Additional environment variables
             {{- toYaml . | nindent 12 }}

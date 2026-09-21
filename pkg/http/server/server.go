@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
-	"strconv"
+	"net/netip"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/pkg/listener"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -31,16 +31,21 @@ const (
 	DefaultMaxHeaderBytes = 1 << 20 // 1 MB
 )
 
+// Listener is the address and ports for one IP family. An invalid Addr leaves
+// that family unserved.
+type Listener struct {
+	Addr      netip.Addr
+	HTTPPort  int
+	HTTPSPort int
+}
+
 // Config is the configuration for the HTTP/HTTPS server.
 type Config struct {
-	// BindAddr is the IP address to bind to.
-	BindAddr string
-	// BindPort is the port for the HTTP server.
-	BindPort int
+	// V4 and V6 are the per-family listen addresses and ports.
+	V4 Listener
+	V6 Listener
 	// TLSCerts are in-memory TLS certificates. Must be provided to enable the HTTPS server.
 	TLSCerts []tls.Certificate
-	// HTTPSPort is the optional port for an HTTPS server.
-	HTTPSPort int
 	// ReadTimeout is the maximum duration for reading the entire request.
 	ReadTimeout time.Duration
 	// ReadHeaderTimeout is the maximum duration for reading request headers.
@@ -96,33 +101,40 @@ func (c *Config) setDefaults() {
 	}
 }
 
-// Serve starts the HTTP server (and optionally an HTTPS server) and blocks until ctx is cancelled.
-// It performs a graceful shutdown when ctx is cancelled.
+// Serve starts an HTTP server, and optionally an HTTPS server, for every
+// configured address family and blocks until ctx is cancelled. It performs a
+// graceful shutdown when ctx is cancelled.
 func (c *Config) Serve(ctx context.Context, log logr.Logger, httpHandler http.Handler, httpsHandler http.Handler) error {
 	c.setDefaults()
 	g, ctx := errgroup.WithContext(ctx)
 
-	// HTTP server
-	g.Go(func() error {
-		if httpHandler == nil {
-			log.Info("no HTTP handler, skipping HTTP server")
-			return nil
+	serveHTTPS := len(c.TLSCerts) > 0 && httpsHandler != nil
+	var started int
+	for _, l := range []Listener{c.V4, c.V6} {
+		if !l.Addr.IsValid() {
+			continue
 		}
-		httpAddr := net.JoinHostPort(c.BindAddr, strconv.Itoa(c.BindPort))
-
-		return c.doServe(ctx, log, httpAddr, httpHandler, nil)
-	})
-
-	// HTTPS server (optional)
-	if len(c.TLSCerts) > 0 && httpsHandler != nil {
-		httpsAddr := net.JoinHostPort(c.BindAddr, strconv.Itoa(c.HTTPSPort))
-		tlsCfg := &tls.Config{
-			MinVersion:   tls.VersionTLS12,
-			Certificates: c.TLSCerts,
+		if httpHandler != nil {
+			g.Go(func() error {
+				return c.doServe(ctx, log, l.Addr, l.HTTPPort, httpHandler, nil)
+			})
+			started++
 		}
-		g.Go(func() error {
-			return c.doServe(ctx, log.WithValues("server", "https"), httpsAddr, httpsHandler, tlsCfg)
-		})
+		if serveHTTPS {
+			tlsCfg := &tls.Config{
+				MinVersion:   tls.VersionTLS12,
+				Certificates: c.TLSCerts,
+			}
+			g.Go(func() error {
+				return c.doServe(ctx, log.WithValues("server", "https"), l.Addr, l.HTTPSPort, httpsHandler, tlsCfg)
+			})
+			started++
+		}
+	}
+
+	if started == 0 {
+		log.Info("no HTTP listeners configured, skipping HTTP server")
+		return nil
 	}
 
 	if err := g.Wait(); err != nil {
@@ -132,7 +144,13 @@ func (c *Config) Serve(ctx context.Context, log logr.Logger, httpHandler http.Ha
 	return nil
 }
 
-func (c *Config) doServe(ctx context.Context, log logr.Logger, addr string, handler http.Handler, tlsCfg *tls.Config) error {
+func (c *Config) doServe(ctx context.Context, log logr.Logger, bindAddr netip.Addr, port int, handler http.Handler, tlsCfg *tls.Config) error {
+	l, err := listener.TCP(ctx, bindAddr, port)
+	if err != nil {
+		return err
+	}
+	addr := l.Addr().String()
+
 	server := &http.Server{
 		Addr:              addr,
 		Handler:           handler,
@@ -150,9 +168,9 @@ func (c *Config) doServe(ctx context.Context, log logr.Logger, addr string, hand
 		var err error
 		if tlsCfg != nil {
 			// Use in-memory certificates from TLSConfig.
-			err = server.ListenAndServeTLS("", "")
+			err = server.ServeTLS(l, "", "")
 		} else {
-			err = server.ListenAndServe()
+			err = server.Serve(l)
 		}
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err

@@ -190,7 +190,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 }
 
 // Convert CLI specific fields to smee.Config fields.
-func (s *SmeeConfig) Convert(publicIP, publicIPv6 netip.Addr, bindAddr netip.Addr, defaultPort int) {
+func (s *SmeeConfig) Convert(publicIP, publicIPv6 netip.Addr, bindAddr, bindAddrV6 netip.Addr, defaultPort int) {
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = s.advertisedHost(s.DHCPIPXEScript, publicIP, defaultPort)
 	s.Config.DHCP.IPXEHTTPBinaryURL.Host = s.advertisedHost(s.DHCPIPXEBinary, publicIP, defaultPort)
 	hasPublicIPv6 := publicIPv6.IsValid() && !publicIPv6.IsUnspecified()
@@ -208,6 +208,14 @@ func (s *SmeeConfig) Convert(publicIP, publicIPv6 netip.Addr, bindAddr netip.Add
 		}
 		if !s.Config.TFTP.V4.Addr.IsValid() {
 			s.Config.TFTP.V4.Addr = bindAddr
+		}
+	}
+	if bindAddrV6.IsValid() {
+		if !s.Config.Syslog.V6.Addr.IsValid() {
+			s.Config.Syslog.V6.Addr = bindAddrV6
+		}
+		if !s.Config.TFTP.V6.Addr.IsValid() {
+			s.Config.TFTP.V6.Addr = bindAddrV6
 		}
 	}
 
