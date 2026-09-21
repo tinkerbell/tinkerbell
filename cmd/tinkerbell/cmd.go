@@ -44,7 +44,7 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 }
 
 // executeWithOutput allows command output to be captured in tests.
-func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []string, stdout io.Writer) error { //nolint:cyclop // Will need to look into reducing the cyclomatic complexity.
+func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []string, stdout io.Writer) error { //nolint:cyclop,gocognit // Will need to look into reducing the cyclomatic and cognitive complexity.
 	startTime := time.Now() // used in the HTTP healthcheck handler to report uptime.
 	publicIP := detectPublicIPv4()
 	publicIPv6 := detectPublicIPv6()
@@ -149,7 +149,14 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		Flags:    gfs,
 	}
 
-	if err := cli.Parse(args, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
+	args, deprecations := flag.RenameDeprecatedArgs(args)
+	envDeprecations, err := flag.RenameDeprecatedEnv()
+	if err != nil {
+		return err
+	}
+	deprecations = append(deprecations, envDeprecations...)
+
+	if err := cli.Parse(args, ff.WithEnvVarPrefix(flag.EnvVarPrefix)); err != nil {
 		e := errors.New(ffhelp.Command(cli).String())
 		if !errors.Is(err, ff.ErrHelp) {
 			e = fmt.Errorf("%w\n%s", e, err)
@@ -194,6 +201,9 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	rest.SetDefaultWarningHandler(k8sAPIWarningLogger{log: log.WithName("kube-api-warning")})
 
 	cliLog := log.WithName("cli")
+	for _, d := range deprecations {
+		cliLog.Info(d)
+	}
 	cliLog.Info("starting tinkerbell",
 		"version", build.GitRevision(),
 		"smeeEnabled", globals.EnableSmee,

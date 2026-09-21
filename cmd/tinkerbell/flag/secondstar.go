@@ -18,7 +18,7 @@ var KubeIndexesSecondStar = map[kube.IndexType]kube.Index{
 }
 
 func RegisterSecondStarFlags(fs *Set, ssc *SecondStarConfig) {
-	fs.Register(SecondStarPort, ffval.NewValueDefault(&ssc.Config.SSHPort, ssc.Config.SSHPort))
+	fs.RegisterFamily(SecondStarPort, V4, ffval.NewValueDefault(&ssc.Config.SSHPort, ssc.Config.SSHPort))
 	fs.Register(SecondStarHostKey, ffval.NewValueDefault(&ssc.HostKeyPath, ssc.HostKeyPath))
 	fs.Register(SecondStarIPMIToolPath, ffval.NewValueDefault(&ssc.Config.IPMITOOLPath, ssc.Config.IPMITOOLPath))
 	fs.Register(SecondStarIdleTimeout, ffval.NewValueDefault(&ssc.Config.IdleTimeout, ssc.Config.IdleTimeout))

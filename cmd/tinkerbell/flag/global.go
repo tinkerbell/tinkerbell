@@ -147,12 +147,12 @@ var TrustedProxies = Config{
 }
 
 var PublicIP = Config{
-	Name:  "public-ipv4",
+	Name:  "public-ip-v4",
 	Usage: "public IPv4 address to advertise to clients",
 }
 
 var PublicIPv6 = Config{
-	Name:  "public-ipv6",
+	Name:  "public-ip-v6",
 	Usage: "public IPv6 address to advertise to clients",
 }
 
@@ -207,8 +207,8 @@ var EnableCRDMigrations = Config{
 }
 
 var BindAddr = Config{
-	Name:  "bind-address",
-	Usage: "default IP address to which to bind shared services",
+	Name:  "bind-address-v4",
+	Usage: "default IPv4 address to which to bind shared services",
 }
 
 // TLS flags
@@ -228,13 +228,13 @@ var DisableHTTPToHTTPSRedirect = Config{
 }
 
 var HTTPPort = Config{
-	Name:  "http-port",
-	Usage: "port for the HTTP server",
+	Name:  "http-port-v4",
+	Usage: "port for the IPv4 HTTP server",
 }
 
 var HTTPSPort = Config{
-	Name:  "https-port",
-	Usage: "port for the HTTPS server, unused when no TLS cert and key are provided",
+	Name:  "https-port-v4",
+	Usage: "port for the IPv4 HTTPS server, unused when no TLS cert and key are provided",
 }
 
 var PrintVersion = Config{

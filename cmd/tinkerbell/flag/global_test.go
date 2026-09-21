@@ -8,14 +8,14 @@ import (
 )
 
 func TestRegisterGlobalBindAddressEnv(t *testing.T) {
-	t.Setenv("TINKERBELL_BIND_ADDRESS", "::")
+	t.Setenv("TINKERBELL_BIND_ADDRESS_V4", "::")
 
 	cfg := &GlobalConfig{}
 	fs := ff.NewFlagSet("test")
 	RegisterGlobal(&Set{FlagSet: fs}, cfg)
 	cmd := &ff.Command{Name: "test", Flags: fs}
 
-	if err := cmd.Parse(nil, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
+	if err := cmd.Parse(nil, ff.WithEnvVarPrefix(EnvVarPrefix)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -25,14 +25,14 @@ func TestRegisterGlobalBindAddressEnv(t *testing.T) {
 }
 
 func TestRegisterGlobalPublicIPv6Env(t *testing.T) {
-	t.Setenv("TINKERBELL_PUBLIC_IPV6", "2001:db8::15")
+	t.Setenv("TINKERBELL_PUBLIC_IP_V6", "2001:db8::15")
 
 	cfg := &GlobalConfig{}
 	fs := ff.NewFlagSet("test")
 	RegisterGlobal(&Set{FlagSet: fs}, cfg)
 	cmd := &ff.Command{Name: "test", Flags: fs}
 
-	if err := cmd.Parse(nil, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
+	if err := cmd.Parse(nil, ff.WithEnvVarPrefix(EnvVarPrefix)); err != nil {
 		t.Fatal(err)
 	}
 
