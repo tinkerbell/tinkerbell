@@ -102,38 +102,3 @@ func TestDefaultBindAddrs(t *testing.T) {
 		})
 	}
 }
-
-func TestValidatePublicAddressFamilies(t *testing.T) {
-	tests := map[string]struct {
-		publicIP   netip.Addr
-		publicIPv6 netip.Addr
-		wantErr    bool
-	}{
-		"valid addresses": {
-			publicIP:   netip.MustParseAddr("192.0.2.10"),
-			publicIPv6: netip.MustParseAddr("2001:db8::10"),
-		},
-		"unset addresses": {},
-		"IPv6 in IPv4 field": {
-			publicIP: netip.MustParseAddr("2001:db8::10"),
-			wantErr:  true,
-		},
-		"IPv4 in IPv6 field": {
-			publicIPv6: netip.MustParseAddr("192.0.2.10"),
-			wantErr:    true,
-		},
-		"IPv4-mapped address in IPv6 field": {
-			publicIPv6: netip.MustParseAddr("::ffff:192.0.2.10"),
-			wantErr:    true,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			err := validatePublicAddressFamilies(tt.publicIP, tt.publicIPv6)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("validatePublicAddressFamilies(%v, %v) error = %v, wantErr %v", tt.publicIP, tt.publicIPv6, err, tt.wantErr)
-			}
-		})
-	}
-}

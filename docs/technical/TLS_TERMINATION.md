@@ -30,9 +30,9 @@ When enabling TLS for Smee's iPXE services, note that iPXE only supports RSA cer
 |------|-------------|---------|
 | `--tls-cert-file` | Path to the TLS certificate file | "" |
 | `--tls-key-file` | Path to the TLS key file | "" |
-| `--https-port` | Port for HTTPS server | 7443 |
-| `--http-port` | Port for HTTP server | 7080 |
-| `--dhcp-ipxe-http-script-scheme` | Protocol scheme for iPXE scripts (http or https) | "http" |
+| `--https-port-v4` | Port for HTTPS server | 7443 |
+| `--http-port-v4` | Port for HTTP server | 7080 |
+| `--dhcp-ipxe-http-script-scheme-v4` | Protocol scheme for iPXE scripts (http or https) | "http" |
 | `--ipxe-script-tink-server-use-tls` | Use TLS to connect to the Tink server | false |
 | `--ipxe-script-tink-server-insecure-tls` | Skip TLS verification when connecting to the Tink server | false |
 
@@ -42,9 +42,9 @@ When enabling TLS for Smee's iPXE services, note that iPXE only supports RSA cer
 |---------------------|-------------|----------------|
 | `TINKERBELL_TLS_CERT_FILE` | Path to the TLS certificate file | `--tls-cert-file` |
 | `TINKERBELL_TLS_KEY_FILE` | Path to the TLS key file | `--tls-key-file` |
-| `TINKERBELL_HTTPS_PORT` | Port for HTTPS server | `--https-port` |
-| `TINKERBELL_HTTP_PORT` | Port for HTTP server | `--http-port` |
-| `TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_SCHEME` | Protocol scheme for iPXE scripts | `--dhcp-ipxe-http-script-scheme` |
+| `TINKERBELL_HTTPS_PORT_V4` | Port for HTTPS server | `--https-port-v4` |
+| `TINKERBELL_HTTP_PORT_V4` | Port for HTTP server | `--http-port-v4` |
+| `TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_SCHEME_V4` | Protocol scheme for iPXE scripts | `--dhcp-ipxe-http-script-scheme-v4` |
 | `TINKERBELL_IPXE_SCRIPT_TINK_SERVER_USE_TLS` | Use TLS to connect to Tink server | `--ipxe-script-tink-server-use-tls` |
 | `TINKERBELL_IPXE_SCRIPT_TINK_SERVER_INSECURE_TLS` | Skip TLS verification | `--ipxe-script-tink-server-insecure-tls` |
 
@@ -120,8 +120,8 @@ When TLS is enabled, the following endpoints are available over HTTPS (in additi
 
 Tinkerbell implements dual HTTP/HTTPS servers when TLS is enabled:
 
-1. The HTTP server continues to serve on the default port (7080, configured via `--http-port`)
-2. An HTTPS server is started on the HTTPS port (7443 by default, configured via `--https-port`)
+1. The HTTP server continues to serve on the default port (7080, configured via `--http-port-v4` / `--http-port-v6`)
+2. An HTTPS server is started on the HTTPS port (7443 by default, configured via `--https-port-v4` / `--https-port-v6`)
 3. Both servers share the same handlers and routes
 
 The TLS configuration uses TLS 1.2 as the minimum version to ensure security while maintaining compatibility with older clients.
@@ -143,9 +143,9 @@ The following CLI flags and environment variables control the DNS name used in s
 
 | Flag | Environment Variable | Description | Default | Example |
 | ---- | -------------------- | ----------- | ------- | ------- |
-| `--dhcp-ipxe-http-script-host` | `TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_HOST` | DNS name in DHCP for iPXE scripts | "" | "tinkerbell.example.com" |
-| `--dhcp-ipxe-http-binary-host` | `TINKERBELL_DHCP_IPXE_HTTP_BINARY_HOST` | DNS name in DHCP for iPXE binaries | "" | "tinkerbell.example.com" |
-| `--ipxe-http-script-extra-kernel-args` | `TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS` | Extra kernel arguments for iPXE scripts | "" | "tink_worker_image=ghcr.io/tinkerbell/tink-agent:latest grpc_authority=tinkerbell.example.com:42113" |
+| `--dhcp-ipxe-http-script-host-v4` | `TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_HOST_V4` | DNS name in DHCP for iPXE scripts | "" | "tinkerbell.example.com" |
+| `--dhcp-ipxe-http-binary-host-v4` | `TINKERBELL_DHCP_IPXE_HTTP_BINARY_HOST_V4` | DNS name in DHCP for iPXE binaries | "" | "tinkerbell.example.com" |
+| `--ipxe-http-script-extra-kernel-args-v4` | `TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS_V4` | Extra kernel arguments for iPXE scripts | "" | "tink_worker_image=ghcr.io/tinkerbell/tink-agent:latest grpc_authority=tinkerbell.example.com:42113" |
 
 > [!NOTE]
 > The `grpc_authority` parameter tells the Tink Agent which hostname and port to use when connecting to the Tink Server. This must match the hostname in your TLS certificate.
@@ -157,5 +157,5 @@ When using iPXE with TLS, consider:
 1. iPXE only supports RSA certificates (not ECDSA)
 2. Set `ipxeScriptTinkServerUseTLS: true` if your Tink server uses TLS
 3. For development environments with self-signed certificates, you may need to set `ipxeScriptTinkServerInsecureTLS: true`
-4. When configuring DHCP to use HTTPS for iPXE scripts, set `dhcpIpxeHttpScriptScheme: "https"` in Helm values or `--dhcp-ipxe-http-script-scheme=https` via CLI
+4. When configuring DHCP to use HTTPS for iPXE scripts, set `dhcpIpxeHttpScriptScheme: "https"` in Helm values or `--dhcp-ipxe-http-script-scheme-v4=https` via CLI
 5. Ensure your DNS configuration properly resolves the hostnames specified in `dhcp-ipxe-http-script-host` and `dhcp-ipxe-http-binary-host`

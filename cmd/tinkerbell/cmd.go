@@ -174,9 +174,6 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		}
 		return nil
 	}
-	if err := validatePublicAddressFamilies(globals.PublicIP, globals.PublicIPv6); err != nil {
-		return err
-	}
 	if !globals.BindAddr.IsValid() && !globals.BindAddrV6.IsValid() {
 		globals.BindAddr, globals.BindAddrV6 = defaultBindAddrs(publicIP, publicIPv6)
 	}
@@ -274,6 +271,13 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	if err := ssc.Convert(globals.BindAddr, globals.BindAddrV6); err != nil {
 		return fmt.Errorf("failed to convert secondstar config: %w", err)
 	}
+
+	// Validate after Convert so the check covers the addresses each service will
+	// actually use, including those defaulted from the global bind addresses.
+	if err := validateAddrFamilies(configuredAddrs(globals, s, ts, ssc)); err != nil {
+		return err
+	}
+	cliLog.Info("address families", addressFamilies(globals, s, ts, ssc)...)
 
 	// Initialize OTel before starting goroutines so the provider outlives
 	// all goroutines (Smee non-HTTP, consolidated HTTP server, etc.).

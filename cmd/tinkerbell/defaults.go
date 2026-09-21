@@ -238,16 +238,6 @@ func defaultBindAddrs(detectedIPv4, detectedIPv6 netip.Addr) (v4, v6 netip.Addr)
 	return netip.MustParseAddr("0.0.0.0"), v6
 }
 
-func validatePublicAddressFamilies(publicIP, publicIPv6 netip.Addr) error {
-	if publicIP.IsValid() && !publicIP.Is4() {
-		return fmt.Errorf("public IPv4 address %q is not IPv4", publicIP)
-	}
-	if publicIPv6.IsValid() && (!publicIPv6.Is6() || publicIPv6.Is4In6()) {
-		return fmt.Errorf("public IPv6 address %q is not IPv6", publicIPv6)
-	}
-	return nil
-}
-
 func kubeConfig() string {
 	hd, err := os.UserHomeDir()
 	if err != nil {
