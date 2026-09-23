@@ -30,8 +30,12 @@ func (j jobName) String() string {
 // this function will update the Workflow status.
 func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobName) (reconcile.Result, error) {
 	// there are 3 phases. 1. Clean up existing 2. Create new 3. Track status
-	// 1. clean up existing job if it wasn't already deleted
-	if j, found := s.workflow.Status.BootOptions.Jobs[name.String()]; found && !j.ExistingJobDeleted {
+	// 1. clean up existing job if it wasn't already deleted.
+	// A missing status entry must count as "not yet cleaned up": createJob doesn't record an
+	// entry when it creates the Job, only on the following reconcile when it finds the Job and
+	// stores its UID. Gating this on the entry existing would skip cleanup on a fresh Workflow,
+	// then run it one reconcile after creation and delete the Job this Workflow just created.
+	if !s.workflow.Status.BootOptions.Jobs[name.String()].ExistingJobDeleted {
 		journal.Log(ctx, "deleting existing job", "name", name)
 		result, err := s.deleteExisting(ctx, name)
 		if err != nil {
