@@ -47,6 +47,7 @@ func TestToProto(t *testing.T) {
 						PhysicalBlockSizeBytes: toPtr(int64(4_096)),
 						Vendor:                 toPtr("Samsung"),
 						Model:                  toPtr("EVO860"),
+						Path:                   toPtr("pci-0000:17:00.0-nvme-1"),
 					},
 				},
 				NetworkInterfaces: []*data.Network{
@@ -86,6 +87,7 @@ func TestToProto(t *testing.T) {
 						PhysicalBlockSizeBytes: toPtr(int64(4_096)),
 						Vendor:                 toPtr("Samsung"),
 						Model:                  toPtr("EVO860"),
+						Path:                   toPtr("pci-0000:17:00.0-nvme-1"),
 					},
 				},
 				Network: []*proto.Network{
@@ -141,6 +143,7 @@ func TestToProto(t *testing.T) {
 						PhysicalBlockSizeBytes: toPtr(int64(4_096)),
 						Vendor:                 toPtr("Samsung"),
 						Model:                  toPtr("EVO860"),
+						Path:                   toPtr("pci-0000:17:00.0-nvme-1"),
 					},
 				},
 				NetworkInterfaces: []*data.Network{
@@ -213,6 +216,7 @@ func TestToProto(t *testing.T) {
 						PhysicalBlockSizeBytes: toPtr(int64(4_096)),
 						Vendor:                 toPtr("Samsung"),
 						Model:                  toPtr("EVO860"),
+						Path:                   toPtr("pci-0000:17:00.0-nvme-1"),
 					},
 				},
 				Network: []*proto.Network{

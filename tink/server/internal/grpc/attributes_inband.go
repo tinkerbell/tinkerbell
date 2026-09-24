@@ -148,6 +148,9 @@ func blockDeviceFromAgent(b *data.Block) tinkerbell.BlockDevice {
 	if b.PhysicalBlockSizeBytes != nil {
 		dev.PhysicalBlockSizeBytes = *b.PhysicalBlockSizeBytes
 	}
+	if b.Path != nil {
+		dev.Path = *b.Path
+	}
 	return dev
 }
 

@@ -187,6 +187,7 @@ templ HardwareDetailContent(hw HardwareDetail, baseURL string) {
 										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Type</th>
 										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Vendor</th>
 										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Model</th>
+										<th class="py-2 pr-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Path</th>
 										<th class="py-2 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Serial</th>
 									</tr>
 								</thead>
@@ -223,6 +224,13 @@ templ HardwareDetailContent(hw HardwareDetail, baseURL string) {
 											<td class="py-2 pr-4 text-sm text-gray-900 dark:text-white">
 												if dev.Model != "" {
 													{ dev.Model }
+												} else {
+													<span class="text-gray-400">-</span>
+												}
+											</td>
+											<td class="py-2 pr-4 text-sm font-mono text-gray-900 dark:text-white">
+												if dev.Path != "" {
+													{ dev.Path }
 												} else {
 													<span class="text-gray-400">-</span>
 												}

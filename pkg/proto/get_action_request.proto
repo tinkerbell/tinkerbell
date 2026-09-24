@@ -66,6 +66,11 @@ message Block {
     string serial_number = 9;
     int64 size_bytes = 10;
     int64 physical_block_size_bytes = 11;
+    // udev ID_PATH (e.g. "pci-0000:17:00.0-nvme-1"): a stable identifier for
+    // the device's position in the topology (bus, slot, port). The OS-visible
+    // name can reorder across reboots; serial number and WWN identify the
+    // drive, not the slot it occupies.
+    string path = 12;
 }
 
 message Network {
