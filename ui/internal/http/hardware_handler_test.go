@@ -231,6 +231,21 @@ func TestHandleHardwareDetail_WithInBandAttributes(t *testing.T) {
 				Name:   "PowerEdge R750",
 				Vendor: "Dell Inc.",
 			},
+			NetworkInterfaces: []tinkv1alpha1.NetworkInterface{
+				{
+					Name: "eno1",
+					Ports: []tinkv1alpha1.NetworkPort{
+						{
+							MAC: "aa:bb:cc:dd:ee:ff",
+							LLDPNeighbor: &tinkv1alpha1.LLDPNeighbor{
+								ChassisID:  "aa:bb:cc:00:11:22",
+								SystemName: "switch01",
+								PortID:     "Gi1/0/1",
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	kubeClient := newFakeKubeClient(
@@ -258,6 +273,12 @@ func TestHandleHardwareDetail_WithInBandAttributes(t *testing.T) {
 	}
 	if !contains(body, "8 cores") {
 		t.Error("response should contain the in-band CPU core count")
+	}
+	if !contains(body, "switch01") {
+		t.Error("response should contain the LLDP neighbor's SystemName")
+	}
+	if !contains(body, "Gi1/0/1") {
+		t.Error("response should contain the LLDP neighbor's PortID")
 	}
 }
 

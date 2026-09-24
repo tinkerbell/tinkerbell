@@ -34,7 +34,13 @@ func TestInBandAttributesFromAgent(t *testing.T) {
 			},
 		},
 		NetworkInterfaces: []*data.Network{
-			{Name: ptr("eno1"), Mac: ptr("aa:bb:cc:dd:ee:ff"), SpeedMbps: ptr(uint32(1000)), EnabledCapabilities: []string{"tso"}},
+			{
+				Name: ptr("eno1"), Mac: ptr("aa:bb:cc:dd:ee:ff"), SpeedMbps: ptr(uint32(1000)), EnabledCapabilities: []string{"tso"},
+				LLDPNeighbor: &data.LLDPNeighbor{
+					ChassisID: ptr("aa:bb:cc:00:11:22"), SystemName: ptr("switch01"),
+					PortID: ptr("Gi1/0/1"), PortDescription: ptr("uplink"), VLANIDs: []uint32{10, 20},
+				},
+			},
 		},
 		PCIDevices: []*data.PCI{
 			{Vendor: ptr("Intel"), Product: ptr("Ethernet Controller"), Class: ptr("0200"), Driver: ptr("ixgbe")},
@@ -82,6 +88,16 @@ func TestInBandAttributesFromAgent(t *testing.T) {
 	}
 	if len(nic.Ports[0].EnabledCapabilities) != 1 || nic.Ports[0].EnabledCapabilities[0] != "tso" {
 		t.Errorf("NetworkInterfaces[0].Ports[0].EnabledCapabilities = %v, want [tso]", nic.Ports[0].EnabledCapabilities)
+	}
+	neighbor := nic.Ports[0].LLDPNeighbor
+	if neighbor == nil {
+		t.Fatal("NetworkInterfaces[0].Ports[0].LLDPNeighbor = nil, want populated")
+	}
+	if neighbor.ChassisID != "aa:bb:cc:00:11:22" || neighbor.SystemName != "switch01" || neighbor.PortID != "Gi1/0/1" || neighbor.PortDescription != "uplink" {
+		t.Errorf("LLDPNeighbor = %+v, want ChassisID=aa:bb:cc:00:11:22 SystemName=switch01 PortID=Gi1/0/1 PortDescription=uplink", neighbor)
+	}
+	if len(neighbor.VLANIDs) != 2 || neighbor.VLANIDs[0] != 10 || neighbor.VLANIDs[1] != 20 {
+		t.Errorf("LLDPNeighbor.VLANIDs = %v, want [10 20]", neighbor.VLANIDs)
 	}
 
 	if len(got.PCIDevices) != 1 || got.PCIDevices[0].Model != "Ethernet Controller" {
@@ -164,5 +180,11 @@ func TestInBandAttributesFromAgentDropsEmptyPorts(t *testing.T) {
 				t.Errorf("%s Ports = %+v, want no ports", nic.Name, nic.Ports)
 			}
 		}
+	}
+}
+
+func TestLLDPNeighborFromAgentNil(t *testing.T) {
+	if got := lldpNeighborFromAgent(nil); got != nil {
+		t.Errorf("lldpNeighborFromAgent(nil) = %+v, want nil", got)
 	}
 }

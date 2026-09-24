@@ -515,6 +515,7 @@ type Network struct {
 	Mac                 *string                `protobuf:"bytes,2,opt,name=mac" json:"mac,omitempty"`
 	EnabledCapabilities []string               `protobuf:"bytes,4,rep,name=enabled_capabilities,json=enabledCapabilities" json:"enabled_capabilities,omitempty"`
 	SpeedMbps           *uint32                `protobuf:"varint,5,opt,name=speed_mbps,json=speedMbps" json:"speed_mbps,omitempty"`
+	LldpNeighbor        *LLDPNeighbor          `protobuf:"bytes,6,opt,name=lldp_neighbor,json=lldpNeighbor" json:"lldp_neighbor,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -577,6 +578,89 @@ func (x *Network) GetSpeedMbps() uint32 {
 	return 0
 }
 
+func (x *Network) GetLldpNeighbor() *LLDPNeighbor {
+	if x != nil {
+		return x.LldpNeighbor
+	}
+	return nil
+}
+
+type LLDPNeighbor struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ChassisId       *string                `protobuf:"bytes,1,opt,name=chassis_id,json=chassisId" json:"chassis_id,omitempty"`
+	SystemName      *string                `protobuf:"bytes,2,opt,name=system_name,json=systemName" json:"system_name,omitempty"`
+	PortId          *string                `protobuf:"bytes,3,opt,name=port_id,json=portId" json:"port_id,omitempty"`
+	PortDescription *string                `protobuf:"bytes,4,opt,name=port_description,json=portDescription" json:"port_description,omitempty"`
+	VlanIds         []uint32               `protobuf:"varint,5,rep,packed,name=vlan_ids,json=vlanIds" json:"vlan_ids,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *LLDPNeighbor) Reset() {
+	*x = LLDPNeighbor{}
+	mi := &file_get_action_request_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LLDPNeighbor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LLDPNeighbor) ProtoMessage() {}
+
+func (x *LLDPNeighbor) ProtoReflect() protoreflect.Message {
+	mi := &file_get_action_request_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LLDPNeighbor.ProtoReflect.Descriptor instead.
+func (*LLDPNeighbor) Descriptor() ([]byte, []int) {
+	return file_get_action_request_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *LLDPNeighbor) GetChassisId() string {
+	if x != nil && x.ChassisId != nil {
+		return *x.ChassisId
+	}
+	return ""
+}
+
+func (x *LLDPNeighbor) GetSystemName() string {
+	if x != nil && x.SystemName != nil {
+		return *x.SystemName
+	}
+	return ""
+}
+
+func (x *LLDPNeighbor) GetPortId() string {
+	if x != nil && x.PortId != nil {
+		return *x.PortId
+	}
+	return ""
+}
+
+func (x *LLDPNeighbor) GetPortDescription() string {
+	if x != nil && x.PortDescription != nil {
+		return *x.PortDescription
+	}
+	return ""
+}
+
+func (x *LLDPNeighbor) GetVlanIds() []uint32 {
+	if x != nil {
+		return x.VlanIds
+	}
+	return nil
+}
+
 type PCI struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Vendor        *string                `protobuf:"bytes,1,opt,name=vendor" json:"vendor,omitempty"`
@@ -589,7 +673,7 @@ type PCI struct {
 
 func (x *PCI) Reset() {
 	*x = PCI{}
-	mi := &file_get_action_request_proto_msgTypes[7]
+	mi := &file_get_action_request_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -601,7 +685,7 @@ func (x *PCI) String() string {
 func (*PCI) ProtoMessage() {}
 
 func (x *PCI) ProtoReflect() protoreflect.Message {
-	mi := &file_get_action_request_proto_msgTypes[7]
+	mi := &file_get_action_request_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -614,7 +698,7 @@ func (x *PCI) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PCI.ProtoReflect.Descriptor instead.
 func (*PCI) Descriptor() ([]byte, []int) {
-	return file_get_action_request_proto_rawDescGZIP(), []int{7}
+	return file_get_action_request_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *PCI) GetVendor() string {
@@ -657,7 +741,7 @@ type GPU struct {
 
 func (x *GPU) Reset() {
 	*x = GPU{}
-	mi := &file_get_action_request_proto_msgTypes[8]
+	mi := &file_get_action_request_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -669,7 +753,7 @@ func (x *GPU) String() string {
 func (*GPU) ProtoMessage() {}
 
 func (x *GPU) ProtoReflect() protoreflect.Message {
-	mi := &file_get_action_request_proto_msgTypes[8]
+	mi := &file_get_action_request_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -682,7 +766,7 @@ func (x *GPU) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPU.ProtoReflect.Descriptor instead.
 func (*GPU) Descriptor() ([]byte, []int) {
-	return file_get_action_request_proto_rawDescGZIP(), []int{8}
+	return file_get_action_request_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GPU) GetVendor() string {
@@ -723,7 +807,7 @@ type Chassis struct {
 
 func (x *Chassis) Reset() {
 	*x = Chassis{}
-	mi := &file_get_action_request_proto_msgTypes[9]
+	mi := &file_get_action_request_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -735,7 +819,7 @@ func (x *Chassis) String() string {
 func (*Chassis) ProtoMessage() {}
 
 func (x *Chassis) ProtoReflect() protoreflect.Message {
-	mi := &file_get_action_request_proto_msgTypes[9]
+	mi := &file_get_action_request_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -748,7 +832,7 @@ func (x *Chassis) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Chassis.ProtoReflect.Descriptor instead.
 func (*Chassis) Descriptor() ([]byte, []int) {
-	return file_get_action_request_proto_rawDescGZIP(), []int{9}
+	return file_get_action_request_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Chassis) GetSerial() string {
@@ -776,7 +860,7 @@ type BIOS struct {
 
 func (x *BIOS) Reset() {
 	*x = BIOS{}
-	mi := &file_get_action_request_proto_msgTypes[10]
+	mi := &file_get_action_request_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -788,7 +872,7 @@ func (x *BIOS) String() string {
 func (*BIOS) ProtoMessage() {}
 
 func (x *BIOS) ProtoReflect() protoreflect.Message {
-	mi := &file_get_action_request_proto_msgTypes[10]
+	mi := &file_get_action_request_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -801,7 +885,7 @@ func (x *BIOS) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BIOS.ProtoReflect.Descriptor instead.
 func (*BIOS) Descriptor() ([]byte, []int) {
-	return file_get_action_request_proto_rawDescGZIP(), []int{10}
+	return file_get_action_request_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *BIOS) GetVendor() string {
@@ -837,7 +921,7 @@ type Baseboard struct {
 
 func (x *Baseboard) Reset() {
 	*x = Baseboard{}
-	mi := &file_get_action_request_proto_msgTypes[11]
+	mi := &file_get_action_request_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -849,7 +933,7 @@ func (x *Baseboard) String() string {
 func (*Baseboard) ProtoMessage() {}
 
 func (x *Baseboard) ProtoReflect() protoreflect.Message {
-	mi := &file_get_action_request_proto_msgTypes[11]
+	mi := &file_get_action_request_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -862,7 +946,7 @@ func (x *Baseboard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Baseboard.ProtoReflect.Descriptor instead.
 func (*Baseboard) Descriptor() ([]byte, []int) {
-	return file_get_action_request_proto_rawDescGZIP(), []int{11}
+	return file_get_action_request_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Baseboard) GetVendor() string {
@@ -904,7 +988,7 @@ type Product struct {
 
 func (x *Product) Reset() {
 	*x = Product{}
-	mi := &file_get_action_request_proto_msgTypes[12]
+	mi := &file_get_action_request_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -916,7 +1000,7 @@ func (x *Product) String() string {
 func (*Product) ProtoMessage() {}
 
 func (x *Product) ProtoReflect() protoreflect.Message {
-	mi := &file_get_action_request_proto_msgTypes[12]
+	mi := &file_get_action_request_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -929,7 +1013,7 @@ func (x *Product) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Product.ProtoReflect.Descriptor instead.
 func (*Product) Descriptor() ([]byte, []int) {
-	return file_get_action_request_proto_rawDescGZIP(), []int{12}
+	return file_get_action_request_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Product) GetName() string {
@@ -1007,13 +1091,22 @@ const file_get_action_request_proto_rawDesc = "" +
 	"size_bytes\x18\n" +
 	" \x01(\x03R\tsizeBytes\x129\n" +
 	"\x19physical_block_size_bytes\x18\v \x01(\x03R\x16physicalBlockSizeBytes\x12\x12\n" +
-	"\x04path\x18\f \x01(\tR\x04pathJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x04sizeR\x13physical_block_size\"\x8e\x01\n" +
+	"\x04path\x18\f \x01(\tR\x04pathJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x04sizeR\x13physical_block_size\"\xc8\x01\n" +
 	"\aNetwork\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03mac\x18\x02 \x01(\tR\x03mac\x121\n" +
 	"\x14enabled_capabilities\x18\x04 \x03(\tR\x13enabledCapabilities\x12\x1d\n" +
 	"\n" +
-	"speed_mbps\x18\x05 \x01(\rR\tspeedMbpsJ\x04\b\x03\x10\x04R\x05speed\"e\n" +
+	"speed_mbps\x18\x05 \x01(\rR\tspeedMbps\x128\n" +
+	"\rlldp_neighbor\x18\x06 \x01(\v2\x13.proto.LLDPNeighborR\flldpNeighborJ\x04\b\x03\x10\x04R\x05speed\"\xad\x01\n" +
+	"\fLLDPNeighbor\x12\x1d\n" +
+	"\n" +
+	"chassis_id\x18\x01 \x01(\tR\tchassisId\x12\x1f\n" +
+	"\vsystem_name\x18\x02 \x01(\tR\n" +
+	"systemName\x12\x17\n" +
+	"\aport_id\x18\x03 \x01(\tR\x06portId\x12)\n" +
+	"\x10port_description\x18\x04 \x01(\tR\x0fportDescription\x12\x19\n" +
+	"\bvlan_ids\x18\x05 \x03(\rR\avlanIds\"e\n" +
 	"\x03PCI\x12\x16\n" +
 	"\x06vendor\x18\x01 \x01(\tR\x06vendor\x12\x18\n" +
 	"\aproduct\x18\x02 \x01(\tR\aproduct\x12\x14\n" +
@@ -1054,7 +1147,7 @@ func file_get_action_request_proto_rawDescGZIP() []byte {
 	return file_get_action_request_proto_rawDescData
 }
 
-var file_get_action_request_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_get_action_request_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_get_action_request_proto_goTypes = []any{
 	(*ActionRequest)(nil),   // 0: proto.ActionRequest
 	(*AgentAttributes)(nil), // 1: proto.AgentAttributes
@@ -1063,12 +1156,13 @@ var file_get_action_request_proto_goTypes = []any{
 	(*Memory)(nil),          // 4: proto.Memory
 	(*Block)(nil),           // 5: proto.Block
 	(*Network)(nil),         // 6: proto.Network
-	(*PCI)(nil),             // 7: proto.PCI
-	(*GPU)(nil),             // 8: proto.GPU
-	(*Chassis)(nil),         // 9: proto.Chassis
-	(*BIOS)(nil),            // 10: proto.BIOS
-	(*Baseboard)(nil),       // 11: proto.Baseboard
-	(*Product)(nil),         // 12: proto.Product
+	(*LLDPNeighbor)(nil),    // 7: proto.LLDPNeighbor
+	(*PCI)(nil),             // 8: proto.PCI
+	(*GPU)(nil),             // 9: proto.GPU
+	(*Chassis)(nil),         // 10: proto.Chassis
+	(*BIOS)(nil),            // 11: proto.BIOS
+	(*Baseboard)(nil),       // 12: proto.Baseboard
+	(*Product)(nil),         // 13: proto.Product
 }
 var file_get_action_request_proto_depIdxs = []int32{
 	1,  // 0: proto.ActionRequest.agent_attributes:type_name -> proto.AgentAttributes
@@ -1076,18 +1170,19 @@ var file_get_action_request_proto_depIdxs = []int32{
 	4,  // 2: proto.AgentAttributes.memory:type_name -> proto.Memory
 	5,  // 3: proto.AgentAttributes.block:type_name -> proto.Block
 	6,  // 4: proto.AgentAttributes.network:type_name -> proto.Network
-	7,  // 5: proto.AgentAttributes.pci:type_name -> proto.PCI
-	8,  // 6: proto.AgentAttributes.gpu:type_name -> proto.GPU
-	9,  // 7: proto.AgentAttributes.chassis:type_name -> proto.Chassis
-	10, // 8: proto.AgentAttributes.bios:type_name -> proto.BIOS
-	11, // 9: proto.AgentAttributes.baseboard:type_name -> proto.Baseboard
-	12, // 10: proto.AgentAttributes.product:type_name -> proto.Product
+	8,  // 5: proto.AgentAttributes.pci:type_name -> proto.PCI
+	9,  // 6: proto.AgentAttributes.gpu:type_name -> proto.GPU
+	10, // 7: proto.AgentAttributes.chassis:type_name -> proto.Chassis
+	11, // 8: proto.AgentAttributes.bios:type_name -> proto.BIOS
+	12, // 9: proto.AgentAttributes.baseboard:type_name -> proto.Baseboard
+	13, // 10: proto.AgentAttributes.product:type_name -> proto.Product
 	3,  // 11: proto.CPU.processors:type_name -> proto.Processor
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	7,  // 12: proto.Network.lldp_neighbor:type_name -> proto.LLDPNeighbor
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_get_action_request_proto_init() }
@@ -1101,7 +1196,7 @@ func file_get_action_request_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_get_action_request_proto_rawDesc), len(file_get_action_request_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

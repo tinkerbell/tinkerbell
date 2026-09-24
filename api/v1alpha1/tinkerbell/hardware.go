@@ -684,6 +684,33 @@ type NetworkPort struct {
 	// EnabledCapabilities lists enabled offloads and features. In-band only.
 	//+optional
 	EnabledCapabilities []string `json:"enabledCapabilities,omitempty"`
+
+	// LLDPNeighbor is the neighbor most recently advertised to this port over
+	// LLDP, if the Agent has LLDP discovery enabled. In-band only: this comes
+	// from passively listening on the wire, not from the BMC.
+	//+optional
+	LLDPNeighbor *LLDPNeighbor `json:"lldpNeighbor,omitempty"`
+}
+
+// LLDPNeighbor describes the switch (or other LLDP-speaking device) discovered
+// on the other end of a NetworkPort.
+type LLDPNeighbor struct {
+	// ChassisID identifies the neighbor's chassis, format depending on what the
+	// neighbor advertises (e.g. a MAC address).
+	//+optional
+	ChassisID string `json:"chassisID,omitempty"`
+	// SystemName is the neighbor's advertised hostname (e.g. the switch name).
+	//+optional
+	SystemName string `json:"systemName,omitempty"`
+	// PortID identifies the neighbor's port that this port is connected to, as
+	// the neighbor names it (e.g. a switch port name).
+	//+optional
+	PortID string `json:"portID,omitempty"`
+	//+optional
+	PortDescription string `json:"portDescription,omitempty"`
+	// VLANIDs lists the VLANs the neighbor advertises on this port.
+	//+optional
+	VLANIDs []uint32 `json:"vlanIDs,omitempty"`
 }
 
 // GPUDevice describes a GPU or accelerator device.
