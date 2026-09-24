@@ -29,7 +29,7 @@ func TestInBandAttributesFromAgent(t *testing.T) {
 		},
 		BlockDevices: []*data.Block{
 			{
-				Name: ptr("nvme0n1"), Vendor: ptr("Samsung"), SerialNumber: ptr("S1"),
+				Name: ptr("nvme0n1"), Vendor: ptr("Samsung"), SerialNumber: ptr("S1"), Path: ptr("pci-0000:17:00.0-nvme-1"),
 				SizeBytes: ptr(int64(20_000_000_000)), PhysicalBlockSizeBytes: ptr(int64(512)),
 			},
 		},
@@ -63,8 +63,8 @@ func TestInBandAttributesFromAgent(t *testing.T) {
 		t.Errorf("Memory = %+v, want TotalBytes=8000000000 UsableBytes=7500000000", got.Memory)
 	}
 
-	if len(got.BlockDevices) != 1 || got.BlockDevices[0].Name != "nvme0n1" || got.BlockDevices[0].SerialNumber != "S1" {
-		t.Errorf("BlockDevices = %+v, want one entry with Name=nvme0n1 SerialNumber=S1", got.BlockDevices)
+	if len(got.BlockDevices) != 1 || got.BlockDevices[0].Name != "nvme0n1" || got.BlockDevices[0].SerialNumber != "S1" || got.BlockDevices[0].Path != "pci-0000:17:00.0-nvme-1" {
+		t.Errorf("BlockDevices = %+v, want one entry with Name=nvme0n1 SerialNumber=S1 Path=pci-0000:17:00.0-nvme-1", got.BlockDevices)
 	}
 	if got.BlockDevices[0].SizeBytes != 20_000_000_000 || got.BlockDevices[0].PhysicalBlockSizeBytes != 512 {
 		t.Errorf("BlockDevices[0] = %+v, want SizeBytes=20000000000 PhysicalBlockSizeBytes=512", got.BlockDevices[0])

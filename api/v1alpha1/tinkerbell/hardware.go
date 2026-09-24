@@ -625,6 +625,12 @@ type BlockDevice struct {
 	// sources report a drive, this is the key they can be joined on.
 	//+optional
 	WWN string `json:"wwn,omitempty"`
+	// Path is the device's position in the topology (udev ID_PATH, e.g.
+	// "pci-0000:17:00.0-nvme-1"), i.e. /dev/disk/by-path/<path>. Stable where Name
+	// is not, and identifies the slot rather than the drive: WWN and SerialNumber
+	// identify the drive, Path the port it is attached to. In-band only.
+	//+optional
+	Path string `json:"path,omitempty"`
 	//+optional
 	SizeBytes int64 `json:"sizeBytes,omitempty"`
 	//+optional

@@ -46,6 +46,7 @@ func ToProto(a *data.AgentAttributes) *proto.AgentAttributes {
 			Model:                  block.Model,
 			Wwn:                    block.WWN,
 			SerialNumber:           block.SerialNumber,
+			Path:                   block.Path,
 		})
 	}
 
