@@ -60,6 +60,13 @@ func TestConvert(t *testing.T) {
 						Mac:                 toPtr("de:ad:be:ef:00:00"),
 						SpeedMbps:           toPtr(uint32(1000)),
 						EnabledCapabilities: []string{"auto-negotiation"},
+						LldpNeighbor: &proto.LLDPNeighbor{
+							ChassisId:       toPtr("16:ae:d6:24:62:9f"),
+							SystemName:      toPtr("switch01.example.com"),
+							PortId:          toPtr("d0:11:e5:1c:6f:d8"),
+							PortDescription: toPtr("en0"),
+							VlanIds:         []uint32{10, 20},
+						},
 					},
 				},
 				Pci: []*proto.PCI{
@@ -137,6 +144,13 @@ func TestConvert(t *testing.T) {
 						Mac:                 toPtr("de:ad:be:ef:00:00"),
 						SpeedMbps:           toPtr(uint32(1000)),
 						EnabledCapabilities: []string{"auto-negotiation"},
+						LLDPNeighbor: &data.LLDPNeighbor{
+							ChassisID:       toPtr("16:ae:d6:24:62:9f"),
+							SystemName:      toPtr("switch01.example.com"),
+							PortID:          toPtr("d0:11:e5:1c:6f:d8"),
+							PortDescription: toPtr("en0"),
+							VLANIDs:         []uint32{10, 20},
+						},
 					},
 				},
 				PCIDevices: []*data.PCI{

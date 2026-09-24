@@ -51,12 +51,22 @@ func ToProto(a *data.AgentAttributes) *proto.AgentAttributes {
 	}
 
 	for _, nic := range a.NetworkInterfaces {
-		result.Network = append(result.Network, &proto.Network{
+		n := &proto.Network{
 			Name:                nic.Name,
 			Mac:                 nic.Mac,
 			SpeedMbps:           nic.SpeedMbps,
 			EnabledCapabilities: nic.EnabledCapabilities,
-		})
+		}
+		if nic.LLDPNeighbor != nil {
+			n.LldpNeighbor = &proto.LLDPNeighbor{
+				ChassisId:       nic.LLDPNeighbor.ChassisID,
+				SystemName:      nic.LLDPNeighbor.SystemName,
+				PortId:          nic.LLDPNeighbor.PortID,
+				PortDescription: nic.LLDPNeighbor.PortDescription,
+				VlanIds:         nic.LLDPNeighbor.VLANIDs,
+			}
+		}
+		result.Network = append(result.Network, n)
 	}
 
 	for _, p := range a.PCIDevices {

@@ -83,6 +83,15 @@ message Network {
     reserved speed;
     repeated string enabled_capabilities = 4;
     uint32 speed_mbps = 5;
+    LLDPNeighbor lldp_neighbor = 6;
+}
+
+message LLDPNeighbor {
+    string chassis_id = 1;
+    string system_name = 2;
+    string port_id = 3;
+    string port_description = 4;
+    repeated uint32 vlan_ids = 5;
 }
 
 message PCI {
