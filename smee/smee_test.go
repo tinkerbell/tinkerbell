@@ -376,26 +376,37 @@ func TestNewConfigDHCPv6Defaults(t *testing.T) {
 	if cfg.IPXE.HTTPScriptServer.OSIEURLv6 == cfg.IPXE.HTTPScriptServer.OSIEURL {
 		t.Fatal("OSIEURLv6 should be independent from OSIEURL")
 	}
-	if cfg.Syslog.BindAddr.IsValid() {
-		t.Fatalf("Syslog bind address should be unset by default: got %q", cfg.Syslog.BindAddr)
+	if cfg.Syslog.V4.Addr.IsValid() || cfg.Syslog.V6.Addr.IsValid() {
+		t.Fatalf("Syslog bind addresses should be unset by default: got %q and %q", cfg.Syslog.V4.Addr, cfg.Syslog.V6.Addr)
 	}
-	if cfg.TFTP.BindAddr.IsValid() {
-		t.Fatalf("TFTP bind address should be unset by default: got %q", cfg.TFTP.BindAddr)
+	if cfg.TFTP.V4.Addr.IsValid() || cfg.TFTP.V6.Addr.IsValid() {
+		t.Fatalf("TFTP bind addresses should be unset by default: got %q and %q", cfg.TFTP.V4.Addr, cfg.TFTP.V6.Addr)
 	}
 }
 
 func TestNewConfigServiceBindAddresses(t *testing.T) {
-	bindAddr := netip.MustParseAddr("192.0.2.1")
+	v4 := netip.MustParseAddr("192.0.2.1")
+	v6 := netip.MustParseAddr("2001:db8::1")
 	cfg := NewConfig(Config{
-		Syslog: Syslog{BindAddr: bindAddr},
-		TFTP:   TFTP{BindAddr: bindAddr},
+		Syslog: Syslog{V4: Bind{Addr: v4}, V6: Bind{Addr: v6}},
+		TFTP:   TFTP{V4: Bind{Addr: v4}, V6: Bind{Addr: v6}},
 	})
 
-	if got := cfg.Syslog.BindAddr; got != bindAddr {
-		t.Fatalf("unexpected Syslog bind address: got %q want %q", got, bindAddr)
+	if got := cfg.Syslog.V4.Addr; got != v4 {
+		t.Fatalf("unexpected Syslog IPv4 bind address: got %q want %q", got, v4)
 	}
-	if got := cfg.TFTP.BindAddr; got != bindAddr {
-		t.Fatalf("unexpected TFTP bind address: got %q want %q", got, bindAddr)
+	if got := cfg.Syslog.V6.Addr; got != v6 {
+		t.Fatalf("unexpected Syslog IPv6 bind address: got %q want %q", got, v6)
+	}
+	if got := cfg.TFTP.V4.Addr; got != v4 {
+		t.Fatalf("unexpected TFTP IPv4 bind address: got %q want %q", got, v4)
+	}
+	if got := cfg.TFTP.V6.Addr; got != v6 {
+		t.Fatalf("unexpected TFTP IPv6 bind address: got %q want %q", got, v6)
+	}
+	// Ports come from the defaults, not from the caller.
+	if got, want := cfg.Syslog.V6.Port, uint16(DefaultSyslogPort); got != want {
+		t.Fatalf("unexpected Syslog IPv6 port: got %d want %d", got, want)
 	}
 }
 
