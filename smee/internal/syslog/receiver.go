@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/pkg/listener"
 )
 
 var syslogMessagePool = sync.Pool{
@@ -36,7 +37,7 @@ func StartReceiver(ctx context.Context, logger logr.Logger, laddr string, parser
 		return nil, fmt.Errorf("resolve syslog udp listen address: %w", err)
 	}
 
-	c, err := net.ListenUDP("udp", addr)
+	c, err := listener.UDP(addr.AddrPort())
 	if err != nil {
 		return nil, fmt.Errorf("listen on syslog udp address: %w", err)
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pin/tftp/v3"
+	"github.com/tinkerbell/tinkerbell/pkg/listener"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -34,11 +35,7 @@ type TFTP struct {
 
 // ListenAndServe will listen and serve iPXE binaries over TFTP.
 func (h *TFTP) ListenAndServe(ctx context.Context) error {
-	a, err := net.ResolveUDPAddr("udp", h.Addr.String())
-	if err != nil {
-		return err
-	}
-	conn, err := net.ListenUDP("udp", a)
+	conn, err := listener.UDP(h.Addr)
 	if err != nil {
 		return err
 	}

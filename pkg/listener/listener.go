@@ -29,3 +29,23 @@ func TCP(ctx context.Context, addr netip.Addr, port int) (net.Listener, error) {
 
 	return l, nil
 }
+
+// UDP listens on addr, serving only addr's address family.
+//
+// The network is selected per family for the same reason as in [TCP]: a bare
+// "udp" listen on a wildcard address yields a dual-stack socket, so binding
+// both families to one port fails on the second bind. Services that listen on
+// the same port in both families, such as TFTP and syslog, need this.
+func UDP(addr netip.AddrPort) (*net.UDPConn, error) {
+	network := "udp6"
+	if a := addr.Addr(); a.Is4() || a.Is4In6() {
+		network = "udp4"
+	}
+
+	c, err := net.ListenUDP(network, net.UDPAddrFromAddrPort(addr))
+	if err != nil {
+		return nil, fmt.Errorf("listen %s on %s port %d: %w", network, addr.Addr(), addr.Port(), err)
+	}
+
+	return c, nil
+}
