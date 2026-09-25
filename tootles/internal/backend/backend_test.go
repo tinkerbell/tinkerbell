@@ -335,6 +335,33 @@ func TestToEC2Instance(t *testing.T) {
 				},
 			},
 		},
+		"instance with ssh keys": {
+			hw: v1alpha1.Hardware{
+				Spec: v1alpha1.HardwareSpec{
+					Metadata: &v1alpha1.HardwareMetadata{
+						Instance: &v1alpha1.MetadataInstance{
+							ID:       "inst-789",
+							Hostname: "my-host",
+							SSHKeys: []string{
+								"ssh-ed25519 AAAATESTKEY1 a@test",
+								"ssh-rsa AAAATESTKEY2 b@example",
+							},
+						},
+					},
+				},
+			},
+			want: data.Ec2Instance{
+				Metadata: data.Metadata{
+					InstanceID:    "inst-789",
+					Hostname:      "my-host",
+					LocalHostname: "my-host",
+					PublicKeys: []string{
+						"ssh-ed25519 AAAATESTKEY1 a@test",
+						"ssh-rsa AAAATESTKEY2 b@example",
+					},
+				},
+			},
+		},
 	}
 
 	for name, tt := range tests {
