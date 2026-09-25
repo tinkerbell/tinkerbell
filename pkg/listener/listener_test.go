@@ -10,7 +10,7 @@ import (
 // hasIPv6 reports whether an IPv6 socket can be created at all.
 func hasIPv6(t *testing.T) bool {
 	t.Helper()
-	c, err := net.ListenPacket("udp6", "[::1]:0")
+	c, err := net.ListenPacket(networkUDP6, "[::1]:0")
 	if err != nil {
 		return false
 	}
@@ -46,17 +46,17 @@ func TestUDPNetworkPerFamily(t *testing.T) {
 		addr netip.Addr
 		want string
 	}{
-		"IPv4 wildcard":     {netip.IPv4Unspecified(), "udp4"},
-		"IPv4 loopback":     {netip.MustParseAddr("127.0.0.1"), "udp4"},
-		"IPv4 mapped":       {netip.MustParseAddr("::ffff:127.0.0.1"), "udp4"},
-		"IPv6 wildcard":     {netip.IPv6Unspecified(), "udp6"},
-		"IPv6 loopback":     {netip.IPv6Loopback(), "udp6"},
-		"IPv6 unique local": {netip.MustParseAddr("fd00::1"), "udp6"},
+		"IPv4 wildcard":     {netip.IPv4Unspecified(), networkUDP4},
+		"IPv4 loopback":     {netip.MustParseAddr("127.0.0.1"), networkUDP4},
+		"IPv4 mapped":       {netip.MustParseAddr("::ffff:127.0.0.1"), networkUDP4},
+		"IPv6 wildcard":     {netip.IPv6Unspecified(), networkUDP6},
+		"IPv6 loopback":     {netip.IPv6Loopback(), networkUDP6},
+		"IPv6 unique local": {netip.MustParseAddr("fd00::1"), networkUDP6},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			if tt.want == "udp6" && !hasIPv6(t) {
+			if tt.want == networkUDP6 && !hasIPv6(t) {
 				t.Skip("IPv6 is unavailable")
 			}
 			if tt.addr.Is6() && !tt.addr.Is4In6() && !tt.addr.IsUnspecified() && !tt.addr.IsLoopback() {
@@ -69,9 +69,9 @@ func TestUDPNetworkPerFamily(t *testing.T) {
 			defer c.Close()
 
 			// A udp4 socket reports a 4-byte local address, a udp6 socket a 16-byte one.
-			got := "udp6"
+			got := networkUDP6
 			if c.LocalAddr().(*net.UDPAddr).IP.To4() != nil {
-				got = "udp4"
+				got = networkUDP4
 			}
 			if got != tt.want {
 				t.Errorf("listened on %s, want %s", got, tt.want)

@@ -13,6 +13,7 @@ import (
 
 func TestSetDHCPOptsDNSDefaults(t *testing.T) {
 	hardwareDNS := []net.IP{net.ParseIP("192.0.2.53")}
+	hardwareDNSv6 := net.ParseIP("2001:db8::53")
 	defaultDNS := []net.IP{net.ParseIP("192.0.2.54")}
 
 	tests := map[string]struct {
@@ -28,6 +29,16 @@ func TestSetDHCPOptsDNSDefaults(t *testing.T) {
 		"defaults fill the gap": {
 			hardware:         &dhcp.DHCP{},
 			wantNameServers:  []string{"192.0.2.54"},
+			wantDomainSearch: []string{"default.example.com"},
+		},
+		"IPv6-only Hardware nameservers fall back": {
+			hardware:         &dhcp.DHCP{NameServers: []net.IP{hardwareDNSv6}},
+			wantNameServers:  []string{"192.0.2.54"},
+			wantDomainSearch: []string{"default.example.com"},
+		},
+		"mixed-family Hardware nameservers keep IPv4 only": {
+			hardware:         &dhcp.DHCP{NameServers: []net.IP{hardwareDNS[0], hardwareDNSv6}},
+			wantNameServers:  []string{"192.0.2.53"},
 			wantDomainSearch: []string{"default.example.com"},
 		},
 		"each option falls back independently": {

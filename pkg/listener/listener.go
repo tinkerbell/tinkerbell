@@ -9,6 +9,11 @@ import (
 	"strconv"
 )
 
+const (
+	networkUDP4 = "udp4"
+	networkUDP6 = "udp6"
+)
+
 // TCP listens on addr and port, serving only addr's address family.
 //
 // The network is selected per family deliberately. Go turns a wildcard listen
@@ -37,9 +42,9 @@ func TCP(ctx context.Context, addr netip.Addr, port int) (net.Listener, error) {
 // both families to one port fails on the second bind. Services that listen on
 // the same port in both families, such as TFTP and syslog, need this.
 func UDP(addr netip.AddrPort) (*net.UDPConn, error) {
-	network := "udp6"
+	network := networkUDP6
 	if a := addr.Addr(); a.Is4() || a.Is4In6() {
-		network = "udp4"
+		network = networkUDP4
 	}
 
 	c, err := net.ListenUDP(network, net.UDPAddrFromAddrPort(addr))
