@@ -14,6 +14,22 @@ import (
 	dhcpotel "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 )
 
+// firstNonEmptyIPs returns primary, or fallback when primary is empty.
+func firstNonEmptyIPs(primary, fallback []net.IP) []net.IP {
+	if len(primary) > 0 {
+		return primary
+	}
+	return fallback
+}
+
+// firstNonEmptyStrings returns primary, or fallback when primary is empty.
+func firstNonEmptyStrings(primary, fallback []string) []string {
+	if len(primary) > 0 {
+		return primary
+	}
+	return fallback
+}
+
 // setDHCPOpts takes a client dhcp packet and data (typically from a backend) and creates a slice of DHCP packet modifiers.
 // m is the DHCP request from a client. d is the data to use to create the DHCP packet modifiers.
 // This is most likely the place where we would have any business logic for determining DHCP option setting.
@@ -22,11 +38,11 @@ func (h *Handler) setDHCPOpts(_ context.Context, _ *dhcpv4.DHCPv4, d *dhcp.DHCP)
 		dhcpv4.WithLeaseTime(d.LeaseTime),
 		dhcpv4.WithYourIP(d.IPAddress.AsSlice()),
 	}
-	if len(d.NameServers) > 0 {
-		mods = append(mods, dhcpv4.WithDNS(d.NameServers...))
+	if nameServers := firstNonEmptyIPs(d.NameServers, h.DNSDefaults.NameServers); len(nameServers) > 0 {
+		mods = append(mods, dhcpv4.WithDNS(nameServers...))
 	}
-	if len(d.DomainSearch) > 0 {
-		mods = append(mods, dhcpv4.WithDomainSearchList(d.DomainSearch...))
+	if domainSearch := firstNonEmptyStrings(d.DomainSearch, h.DNSDefaults.DomainSearch); len(domainSearch) > 0 {
+		mods = append(mods, dhcpv4.WithDomainSearchList(domainSearch...))
 	}
 	if len(d.NTPServers) > 0 {
 		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptNTPServers(d.NTPServers...)))

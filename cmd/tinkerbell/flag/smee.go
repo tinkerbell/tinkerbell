@@ -58,13 +58,16 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.RegisterFamily(DHCPEnableNetbootOptions, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.EnableNetbootOptions, sc.Config.DHCPv6.EnableNetbootOptions))
 	fs.RegisterFamily(DHCPModeFlag, V4, &sc.Config.DHCP.Mode)
 	fs.RegisterFamily(DHCPModeFlag, V6, &sc.Config.DHCPv6.Mode)
+	fs.RegisterFamily(DHCPDefaultNameServers, V4, delimitedlist.NewParsed(&sc.Config.DHCP.DefaultNameServers, ',', parseDefaultIPv4NameServer))
 	fs.RegisterFamily(DHCPDefaultNameServers, V6, delimitedlist.NewParsed(&sc.Config.DHCPv6.DefaultNameServers, ',', parseDefaultIPv6NameServer))
+	fs.RegisterFamily(DHCPDefaultDomainSearchList, V4, delimitedlist.NewParsed(&sc.Config.DHCP.DefaultDomainSearchList, ',', parseDomainSearchSuffix))
 	fs.RegisterFamily(DHCPDefaultDomainSearchList, V6, delimitedlist.NewParsed(&sc.Config.DHCPv6.DefaultDomainSearchList, ',', parseDomainSearchSuffix))
 	fs.RegisterFamily(DHCPServerDUID, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.ServerDUID, sc.Config.DHCPv6.ServerDUID))
 	fs.RegisterFamily(DHCPDerivedDirectAddressPool, V6, &ntip.Prefix{Prefix: &sc.Config.DHCPv6.DerivedDirectAddressPool})
 	fs.RegisterFamily(DHCPDerivedRelayAddressPrefix, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.DerivedRelayAddressPrefix, sc.Config.DHCPv6.DerivedRelayAddressPrefix))
 	fs.RegisterFamily(DHCPBindAddr, V4, &ntip.Addr{Addr: &sc.Config.DHCP.BindAddr})
 	fs.RegisterFamily(DHCPBindAddr, V6, &ntip.Addr{Addr: &sc.Config.DHCPv6.BindAddr})
+	fs.RegisterFamily(DHCPBindPort, V4, ffval.NewValueDefault(&sc.Config.DHCP.BindPort, sc.Config.DHCP.BindPort))
 	fs.RegisterFamily(DHCPBindPort, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.BindPort, sc.Config.DHCPv6.BindPort))
 	fs.RegisterFamily(DHCPBindInterface, V4, ffval.NewValueDefault(&sc.Config.DHCP.BindInterface, sc.Config.DHCP.BindInterface))
 	fs.RegisterFamily(DHCPBindInterface, V6, ffval.NewValueDefault(&sc.Config.DHCPv6.BindInterface, sc.Config.DHCPv6.BindInterface))
@@ -132,6 +135,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(IPXEHTTPBinaryEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPBinaryServer.Enabled, sc.Config.IPXE.HTTPBinaryServer.Enabled))
 	fs.Register(IPXEHTTPScriptEnabled, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Enabled, sc.Config.IPXE.HTTPScriptServer.Enabled))
 	fs.RegisterFamily(IPXEHTTPScriptExtraKernelArgs, V4, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.ExtraKernelArgs))
+	fs.RegisterFamily(IPXEHTTPScriptExtraKernelArgs, V6, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.ExtraKernelArgsV6))
 	fs.Register(IPXEHTTPScriptKernelName, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.KernelName, sc.Config.IPXE.HTTPScriptServer.KernelName))
 	fs.Register(IPXEHTTPScriptInitrdName, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.InitrdName, sc.Config.IPXE.HTTPScriptServer.InitrdName))
 	fs.Register(IPXEHTTPScriptRetries, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Retries, sc.Config.IPXE.HTTPScriptServer.Retries))
@@ -164,13 +168,17 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 
 	// Syslog Flags
 	fs.Register(SyslogEnabled, ffval.NewValueDefault(&sc.Config.Syslog.Enabled, sc.Config.Syslog.Enabled))
-	fs.RegisterFamily(SyslogBindAddr, V4, &ntip.Addr{Addr: &sc.Config.Syslog.BindAddr})
-	fs.RegisterFamily(SyslogBindPort, V4, ffval.NewValueDefault(&sc.Config.Syslog.BindPort, sc.Config.Syslog.BindPort))
+	fs.RegisterFamily(SyslogBindAddr, V4, &ntip.Addr{Addr: &sc.Config.Syslog.V4.Addr})
+	fs.RegisterFamily(SyslogBindAddr, V6, &ntip.Addr{Addr: &sc.Config.Syslog.V6.Addr})
+	fs.RegisterFamily(SyslogBindPort, V4, ffval.NewValueDefault(&sc.Config.Syslog.V4.Port, sc.Config.Syslog.V4.Port))
+	fs.RegisterFamily(SyslogBindPort, V6, ffval.NewValueDefault(&sc.Config.Syslog.V6.Port, sc.Config.Syslog.V6.Port))
 
 	// TFTP Flags
 	fs.Register(TFTPServerEnabled, ffval.NewValueDefault(&sc.Config.TFTP.Enabled, sc.Config.TFTP.Enabled))
-	fs.RegisterFamily(TFTPServerBindAddr, V4, &ntip.Addr{Addr: &sc.Config.TFTP.BindAddr})
-	fs.RegisterFamily(TFTPServerBindPort, V4, ffval.NewValueDefault(&sc.Config.TFTP.BindPort, sc.Config.TFTP.BindPort))
+	fs.RegisterFamily(TFTPServerBindAddr, V4, &ntip.Addr{Addr: &sc.Config.TFTP.V4.Addr})
+	fs.RegisterFamily(TFTPServerBindAddr, V6, &ntip.Addr{Addr: &sc.Config.TFTP.V6.Addr})
+	fs.RegisterFamily(TFTPServerBindPort, V4, ffval.NewValueDefault(&sc.Config.TFTP.V4.Port, sc.Config.TFTP.V4.Port))
+	fs.RegisterFamily(TFTPServerBindPort, V6, ffval.NewValueDefault(&sc.Config.TFTP.V6.Port, sc.Config.TFTP.V6.Port))
 	fs.Register(TFTPTimeout, ffval.NewValueDefault(&sc.Config.TFTP.Timeout, sc.Config.TFTP.Timeout))
 	fs.Register(TFTPBlockSize, ffval.NewValueDefault(&sc.Config.TFTP.BlockSize, sc.Config.TFTP.BlockSize))
 	fs.Register(TFTPSinglePort, ffval.NewValueDefault(&sc.Config.TFTP.SinglePort, sc.Config.TFTP.SinglePort))
@@ -195,11 +203,11 @@ func (s *SmeeConfig) Convert(publicIP, publicIPv6 netip.Addr, bindAddr netip.Add
 
 	// Service-specific bind addresses take precedence over the global bind address.
 	if bindAddr.IsValid() {
-		if !s.Config.Syslog.BindAddr.IsValid() {
-			s.Config.Syslog.BindAddr = bindAddr
+		if !s.Config.Syslog.V4.Addr.IsValid() {
+			s.Config.Syslog.V4.Addr = bindAddr
 		}
-		if !s.Config.TFTP.BindAddr.IsValid() {
-			s.Config.TFTP.BindAddr = bindAddr
+		if !s.Config.TFTP.V4.Addr.IsValid() {
+			s.Config.TFTP.V4.Addr = bindAddr
 		}
 	}
 
@@ -286,6 +294,17 @@ func macAddrFormatParser(s string) (constant.MACFormat, error) {
 	default:
 		return "", fmt.Errorf("invalid mac address format: %s, must be one of: [%s]", s, strings.Join([]string{constant.MacAddrFormatColon.String(), constant.MacAddrFormatDot.String(), constant.MacAddrFormatDash.String(), constant.MacAddrFormatNoDelimiter.String()}, ", "))
 	}
+}
+
+func parseDefaultIPv4NameServer(value string) (netip.Addr, error) {
+	addr, err := netip.ParseAddr(value)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("invalid default DNS server address %q: %w", value, err)
+	}
+	if !addr.Is4() {
+		return netip.Addr{}, fmt.Errorf("invalid default DNS server address %q: must be an IPv4 address", value)
+	}
+	return addr, nil
 }
 
 func parseDefaultIPv6NameServer(value string) (netip.Addr, error) {
