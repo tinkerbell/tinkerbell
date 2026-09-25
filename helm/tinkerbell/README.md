@@ -250,34 +250,31 @@ and upgrades, for example by sourcing it from a Secret.
 
 ## Bind Address Behavior
 
-When `deployment.envs.globals.bindAddr` is set, the Tinkerbell binary binds
-shared services to that address. A service-specific bind address, where
-available, takes precedence. When the global value is not set, Tinkerbell uses
-an IPv4-compatible default selected from addresses detected inside the
-container or host:
+`deployment.envs.globals.bindAddr` and `deployment.envs.globals.bindAddrV6` set
+the default listen address for each family. A service-specific bind address,
+where available, takes precedence for that family. A family with no address is
+not served. When neither global value is set, Tinkerbell chooses defaults from
+addresses detected inside the container or host:
 
-| Detected IPv4 | Detected IPv6 | Default bind address |
-|---------------|---------------|----------------------|
-| yes | either | detected IPv4 |
-| no | yes | `::` |
-| no | no | `0.0.0.0` |
+| Detected IPv4 | Detected IPv6 | Default `bindAddr` | Default `bindAddrV6` |
+|---------------|---------------|--------------------|----------------------|
+| yes | yes | detected IPv4 | `::` |
+| yes | no | detected IPv4 | unset |
+| no | yes | unset | `::` |
+| no | no | `0.0.0.0` | unset |
 
 The configured public IPv4 and IPv6 values are advertised addresses and do not
-change this default. Set `deployment.envs.globals.bindAddr: "::"` to explicitly
-select the IPv6 wildcard for shared services. Whether that listener also accepts
-IPv4 traffic is platform dependent; on Linux it depends on `IPV6_V6ONLY` and
-`net.ipv6.bindv6only`, and Kubernetes networking may add its own behavior.
-DHCPv6 uses its own bind setting, `deployment.envs.smee.dhcpv6BindAddr`, and
-defaults to `::`.
+change these defaults. Each listener is bound to a single address family, so an
+IPv4 and an IPv6 listener can share a port: `bindAddr: "0.0.0.0"` together with
+`bindAddrV6: "::"` serves both families on every configured port. DHCPv6 uses
+its own bind setting, `deployment.envs.smee.dhcpv6BindAddr`, and defaults to
+`::`.
 
-For a dual-stack deployment, detecting both address families does not create
-dual-stack shared listeners. The automatic bind address remains IPv4 while
-`publicIPv6` is still advertised to IPv6 clients. Ensure the advertised IPv6
-HTTP, TFTP, syslog, and Tink Server endpoints are reachable by setting an
-appropriate IPv6-capable `bindAddr`, configuring service-specific listeners,
-or using an IPv6 load balancer or proxy. Setting `dhcpv6BindAddr` alone only
-changes the DHCPv6 listener and does not expose the referenced shared services
-over IPv6.
+For a dual-stack deployment, set both families end to end. Advertising
+`publicIPv6` without `bindAddrV6` leaves nothing listening on IPv6. Tinkerbell
+logs the resulting topology of each service at startup under the
+`address families` message; see
+[IP Family Configuration](../../docs/technical/IP_FAMILY_CONFIGURATION.md).
 
 ## Additional RBAC Rules
 

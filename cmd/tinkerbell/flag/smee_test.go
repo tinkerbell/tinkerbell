@@ -52,17 +52,17 @@ func TestSmeeConvertBindAddressPrecedence(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &SmeeConfig{Config: smee.NewConfig(smee.Config{
-				Syslog: smee.Syslog{BindAddr: tt.syslogAddr},
-				TFTP:   smee.TFTP{BindAddr: tt.tftpAddr},
+				Syslog: smee.Syslog{V4: smee.Bind{Addr: tt.syslogAddr}},
+				TFTP:   smee.TFTP{V4: smee.Bind{Addr: tt.tftpAddr}},
 			})}
 
-			cfg.Convert(nil, netip.Addr{}, netip.Addr{}, globalBindAddr, 8080)
+			cfg.Convert(nil, netip.Addr{}, netip.Addr{}, globalBindAddr, netip.Addr{}, 8080)
 
-			if got := cfg.Config.Syslog.BindAddr; got != tt.wantSyslog {
-				t.Errorf("Syslog.BindAddr = %v, want %v", got, tt.wantSyslog)
+			if got := cfg.Config.Syslog.V4.Addr; got != tt.wantSyslog {
+				t.Errorf("Syslog.V4.Addr = %v, want %v", got, tt.wantSyslog)
 			}
-			if got := cfg.Config.TFTP.BindAddr; got != tt.wantTFTP {
-				t.Errorf("TFTP.BindAddr = %v, want %v", got, tt.wantTFTP)
+			if got := cfg.Config.TFTP.V4.Addr; got != tt.wantTFTP {
+				t.Errorf("TFTP.V4.Addr = %v, want %v", got, tt.wantTFTP)
 			}
 		})
 	}
@@ -148,7 +148,7 @@ func TestSmeeConfig_Convert_TinkServerAddrPort(t *testing.T) {
 			sc.Config.TinkServer.AddrPort = tt.inputAddrPort
 
 			var trustedProxies []netip.Prefix
-			sc.Convert(&trustedProxies, tt.publicIP, netip.Addr{}, netip.Addr{}, smee.DefaultTinkServerPort)
+			sc.Convert(&trustedProxies, tt.publicIP, netip.Addr{}, netip.Addr{}, netip.Addr{}, smee.DefaultTinkServerPort)
 
 			if sc.Config.TinkServer.AddrPort != tt.want {
 				t.Errorf("TinkServer.AddrPort = %q, want %q", sc.Config.TinkServer.AddrPort, tt.want)
@@ -164,7 +164,7 @@ func TestSmeeConvertAdvertisedEndpoints(t *testing.T) {
 		Config: smee.NewConfig(smee.Config{}),
 	}
 
-	cfg.Convert(nil, publicIP, publicIPv6, netip.Addr{}, 7080)
+	cfg.Convert(nil, publicIP, publicIPv6, netip.Addr{}, netip.Addr{}, 7080)
 
 	if got, want := cfg.Config.DHCP.IPXEHTTPScript.URL.Host, "10.0.2.15:7080"; got != want {
 		t.Errorf("IPXEHTTPScript.URL.Host = %q, want %q", got, want)
@@ -209,7 +209,7 @@ func TestSmeeConvertSeparatesAdvertisedAndBindAddresses(t *testing.T) {
 		Config: smee.NewConfig(smee.Config{}),
 	}
 
-	cfg.Convert(nil, publicIP, publicIPv6, bindAddr, 7080)
+	cfg.Convert(nil, publicIP, publicIPv6, bindAddr, netip.Addr{}, 7080)
 
 	if got, want := cfg.Config.DHCP.IPXEHTTPScript.URL.Host, "10.0.2.15:7080"; got != want {
 		t.Errorf("DHCP advertised script host = %q, want %q", got, want)
@@ -217,11 +217,11 @@ func TestSmeeConvertSeparatesAdvertisedAndBindAddresses(t *testing.T) {
 	if got, want := cfg.Config.DHCPv6.IPXEHTTPScript.URL.Host, "[2001:db8::15]:7080"; got != want {
 		t.Errorf("DHCPv6 advertised script host = %q, want %q", got, want)
 	}
-	if got, want := cfg.Config.Syslog.BindAddr, bindAddr; got != want {
-		t.Errorf("Syslog.BindAddr = %q, want %q", got, want)
+	if got, want := cfg.Config.Syslog.V4.Addr, bindAddr; got != want {
+		t.Errorf("Syslog.V4.Addr = %q, want %q", got, want)
 	}
-	if got, want := cfg.Config.TFTP.BindAddr, bindAddr; got != want {
-		t.Errorf("TFTP.BindAddr = %q, want %q", got, want)
+	if got, want := cfg.Config.TFTP.V4.Addr, bindAddr; got != want {
+		t.Errorf("TFTP.V4.Addr = %q, want %q", got, want)
 	}
 }
 
@@ -232,16 +232,16 @@ func TestSmeeConvertPreservesExplicitServiceBindAddresses(t *testing.T) {
 	cfg := &SmeeConfig{
 		Config: smee.NewConfig(smee.Config{}),
 	}
-	cfg.Config.Syslog.BindAddr = syslogBindAddr
-	cfg.Config.TFTP.BindAddr = tftpBindAddr
+	cfg.Config.Syslog.V4.Addr = syslogBindAddr
+	cfg.Config.TFTP.V4.Addr = tftpBindAddr
 
-	cfg.Convert(nil, netip.Addr{}, netip.Addr{}, globalBindAddr, 7080)
+	cfg.Convert(nil, netip.Addr{}, netip.Addr{}, globalBindAddr, netip.Addr{}, 7080)
 
-	if got := cfg.Config.Syslog.BindAddr; got != syslogBindAddr {
-		t.Errorf("Syslog.BindAddr = %q, want %q", got, syslogBindAddr)
+	if got := cfg.Config.Syslog.V4.Addr; got != syslogBindAddr {
+		t.Errorf("Syslog.V4.Addr = %q, want %q", got, syslogBindAddr)
 	}
-	if got := cfg.Config.TFTP.BindAddr; got != tftpBindAddr {
-		t.Errorf("TFTP.BindAddr = %q, want %q", got, tftpBindAddr)
+	if got := cfg.Config.TFTP.V4.Addr; got != tftpBindAddr {
+		t.Errorf("TFTP.V4.Addr = %q, want %q", got, tftpBindAddr)
 	}
 }
 
@@ -251,7 +251,7 @@ func TestSmeeConvertKeepsV6DefaultsWithoutPublicIPv6(t *testing.T) {
 		Config: smee.NewConfig(smee.Config{}),
 	}
 
-	cfg.Convert(nil, publicIP, netip.Addr{}, netip.Addr{}, 7080)
+	cfg.Convert(nil, publicIP, netip.Addr{}, netip.Addr{}, netip.Addr{}, 7080)
 
 	if got, want := cfg.Config.DHCP.IPXEHTTPScript.URL.Host, "10.0.2.15:7080"; got != want {
 		t.Errorf("IPXEHTTPScript.URL.Host = %q, want %q", got, want)
@@ -286,14 +286,14 @@ func TestRegisterSmeeFlagsV6(t *testing.T) {
 
 	err := cmd.Parse([]string{
 		"--ipxe-http-script-osie-url-v6", "http://[2001:db8::20]/hook",
-		"--ipxe-script-syslog-fqdn", "logs-v4.example.com",
+		"--ipxe-script-syslog-fqdn-v4", "logs-v4.example.com",
 		"--ipxe-script-syslog-fqdn-v6", "logs-v6.example.com",
 		"--ipxe-script-tink-server-addr-port-v6", "[2001:db8::30]:42113",
-		"--dhcpv6-enable-netboot-options=false",
-		"--dhcpv6-server-duid", "00:04:12:34:56:78:12:34:56:78:90:ab:cd:ef:12:34:56:78",
-		"--dhcpv6-derived-direct-address-pool", "2001:db8:abcd::/64",
-		"--dhcpv6-derived-relay-address-prefix", "56",
-		"--dhcpv6-bind-interface", "macvlan0,eth0",
+		"--dhcp-enable-netboot-options-v6=false",
+		"--dhcp-server-duid-v6", "00:04:12:34:56:78:12:34:56:78:90:ab:cd:ef:12:34:56:78",
+		"--dhcp-derived-direct-address-pool-v6", "2001:db8:abcd::/64",
+		"--dhcp-derived-relay-address-prefix-v6", "56",
+		"--dhcp-bind-interface-v6", "macvlan0,eth0",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -335,8 +335,8 @@ func TestRegisterSmeeDHCPv6DNSDefaultFlags(t *testing.T) {
 	cmd := &ff.Command{Name: "test", Flags: fs}
 
 	err := cmd.Parse([]string{
-		"--dhcpv6-default-name-servers", "2001:db8::53, 2001:db8::54",
-		"--dhcpv6-default-domain-search-list", "example.com, lab.example.com",
+		"--dhcp-default-name-servers-v6", "2001:db8::53, 2001:db8::54",
+		"--dhcp-default-domain-search-list-v6", "example.com, lab.example.com",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -361,10 +361,10 @@ func TestRegisterSmeeDHCPv6DNSDefaultFlagsLastOccurrenceWins(t *testing.T) {
 	cmd := &ff.Command{Name: "test", Flags: fs}
 
 	err := cmd.Parse([]string{
-		"--dhcpv6-default-name-servers", "2001:db8::52",
-		"--dhcpv6-default-domain-search-list", "old.example.com",
-		"--dhcpv6-default-name-servers", "2001:db8::53",
-		"--dhcpv6-default-domain-search-list", "new.example.com",
+		"--dhcp-default-name-servers-v6", "2001:db8::52",
+		"--dhcp-default-domain-search-list-v6", "old.example.com",
+		"--dhcp-default-name-servers-v6", "2001:db8::53",
+		"--dhcp-default-domain-search-list-v6", "new.example.com",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -396,7 +396,7 @@ func TestRegisterSmeeDHCPv6DNSDefaultDomainSearchRejectsInvalidNames(t *testing.
 			RegisterSmeeFlags(&Set{FlagSet: fs}, cfg)
 			cmd := &ff.Command{Name: "test", Flags: fs}
 
-			if err := cmd.Parse([]string{"--dhcpv6-default-domain-search-list", value}); err == nil {
+			if err := cmd.Parse([]string{"--dhcp-default-domain-search-list-v6", value}); err == nil {
 				t.Fatal("expected invalid default domain search list to fail")
 			}
 			if len(cfg.Config.DHCPv6.DefaultDomainSearchList) != 0 {
@@ -407,14 +407,14 @@ func TestRegisterSmeeDHCPv6DNSDefaultDomainSearchRejectsInvalidNames(t *testing.
 }
 
 func TestRegisterSmeeDHCPv6DNSDefaultEnv(t *testing.T) {
-	t.Setenv("TINKERBELL_DHCPV6_DEFAULT_NAME_SERVERS", "2001:db8::53,2001:db8::54")
-	t.Setenv("TINKERBELL_DHCPV6_DEFAULT_DOMAIN_SEARCH_LIST", "example.com,lab.example.com")
+	t.Setenv("TINKERBELL_DHCP_DEFAULT_NAME_SERVERS_V6", "2001:db8::53,2001:db8::54")
+	t.Setenv("TINKERBELL_DHCP_DEFAULT_DOMAIN_SEARCH_LIST_V6", "example.com,lab.example.com")
 
 	cfg := &SmeeConfig{Config: smee.NewConfig(smee.Config{})}
 	fs := ff.NewFlagSet("test")
 	RegisterSmeeFlags(&Set{FlagSet: fs}, cfg)
 	cmd := &ff.Command{Name: "test", Flags: fs}
-	if err := cmd.Parse(nil, ff.WithEnvVarPrefix("TINKERBELL")); err != nil {
+	if err := cmd.Parse(nil, ff.WithEnvVarPrefix(EnvVarPrefix)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -444,7 +444,7 @@ func TestRegisterSmeeDHCPv6DNSDefaultNameServersRejectsInvalidAddress(t *testing
 			RegisterSmeeFlags(&Set{FlagSet: fs}, cfg)
 			cmd := &ff.Command{Name: "test", Flags: fs}
 
-			if err := cmd.Parse([]string{"--dhcpv6-default-name-servers", "2001:db8::53," + value}); err == nil {
+			if err := cmd.Parse([]string{"--dhcp-default-name-servers-v6", "2001:db8::53," + value}); err == nil {
 				t.Fatal("expected invalid default nameserver to fail")
 			}
 		})
@@ -452,14 +452,14 @@ func TestRegisterSmeeDHCPv6DNSDefaultNameServersRejectsInvalidAddress(t *testing
 }
 
 func TestRegisterSmeeDHCPv6DNSDefaultNameServersRejectsInvalidEnvAddress(t *testing.T) {
-	t.Setenv("TINKERBELL_DHCPV6_DEFAULT_NAME_SERVERS", "2001:db8::53,192.0.2.53")
+	t.Setenv("TINKERBELL_DHCP_DEFAULT_NAME_SERVERS_V6", "2001:db8::53,192.0.2.53")
 
 	cfg := &SmeeConfig{Config: smee.NewConfig(smee.Config{})}
 	fs := ff.NewFlagSet("test")
 	RegisterSmeeFlags(&Set{FlagSet: fs}, cfg)
 	cmd := &ff.Command{Name: "test", Flags: fs}
 
-	if err := cmd.Parse(nil, ff.WithEnvVarPrefix("TINKERBELL")); err == nil {
+	if err := cmd.Parse(nil, ff.WithEnvVarPrefix(EnvVarPrefix)); err == nil {
 		t.Fatal("expected invalid default nameserver environment value to fail")
 	}
 }
@@ -471,8 +471,8 @@ func TestRegisterSmeeEmptyDHCPv6DNSDefaults(t *testing.T) {
 	cmd := &ff.Command{Name: "test", Flags: fs}
 
 	if err := cmd.Parse([]string{
-		"--dhcpv6-default-name-servers", "",
-		"--dhcpv6-default-domain-search-list", "",
+		"--dhcp-default-name-servers-v6", "",
+		"--dhcp-default-domain-search-list-v6", "",
 	}); err != nil {
 		t.Fatal(err)
 	}

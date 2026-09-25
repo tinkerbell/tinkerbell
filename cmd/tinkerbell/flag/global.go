@@ -19,8 +19,11 @@ type GlobalConfig struct {
 	PublicIP             netip.Addr
 	PublicIPv6           netip.Addr
 	BindAddr             netip.Addr
+	BindAddrV6           netip.Addr
 	HTTPPort             int
+	HTTPPortV6           int
 	HTTPSPort            int
+	HTTPSPortV6          int
 	EnableSmee           bool
 	EnableTootles        bool
 	EnableTinkServer     bool
@@ -62,9 +65,12 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(BackendKubeConfig, ffval.NewValueDefault(&gc.BackendKubeConfig, gc.BackendKubeConfig))
 	fs.Register(BackendKubeNamespace, ffval.NewValueDefault(&gc.BackendKubeNamespace, gc.BackendKubeNamespace))
 	fs.Register(KubeQPS, ffval.NewValueDefault(&gc.BackendKubeOptions.QPS, gc.BackendKubeOptions.QPS))
-	fs.Register(BindAddr, &ntip.Addr{Addr: &gc.BindAddr})
-	fs.Register(HTTPPort, ffval.NewValueDefault(&gc.HTTPPort, gc.HTTPPort))
-	fs.Register(HTTPSPort, ffval.NewValueDefault(&gc.HTTPSPort, gc.HTTPSPort))
+	fs.RegisterFamily(BindAddr, V4, &ntip.Addr{Addr: &gc.BindAddr})
+	fs.RegisterFamily(BindAddr, V6, &ntip.Addr{Addr: &gc.BindAddrV6})
+	fs.RegisterFamily(HTTPPort, V4, ffval.NewValueDefault(&gc.HTTPPort, gc.HTTPPort))
+	fs.RegisterFamily(HTTPPort, V6, ffval.NewValueDefault(&gc.HTTPPortV6, gc.HTTPPortV6))
+	fs.RegisterFamily(HTTPSPort, V4, ffval.NewValueDefault(&gc.HTTPSPort, gc.HTTPSPort))
+	fs.RegisterFamily(HTTPSPort, V6, ffval.NewValueDefault(&gc.HTTPSPortV6, gc.HTTPSPortV6))
 	fs.Register(EnableSmee, ffval.NewValueDefault(&gc.EnableSmee, gc.EnableSmee))
 	fs.Register(EnableTootles, ffval.NewValueDefault(&gc.EnableTootles, gc.EnableTootles))
 	fs.Register(EnableTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
@@ -76,8 +82,8 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(LogLevelConfig, ffval.NewValueDefault(&gc.LogLevel, gc.LogLevel))
 	fs.Register(OTELEndpoint, ffval.NewValueDefault(&gc.OTELEndpoint, gc.OTELEndpoint))
 	fs.Register(OTELInsecure, ffval.NewValueDefault(&gc.OTELInsecure, gc.OTELInsecure))
-	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
-	fs.Register(PublicIPv6, &ntip.Addr{Addr: &gc.PublicIPv6})
+	fs.RegisterFamily(PublicIP, V4, &ntip.Addr{Addr: &gc.PublicIP})
+	fs.RegisterFamily(PublicIP, V6, &ntip.Addr{Addr: &gc.PublicIPv6})
 	fs.Register(TLSCertFile, ffval.NewValueDefault(&gc.TLS.CertFile, gc.TLS.CertFile))
 	fs.Register(TLSKeyFile, ffval.NewValueDefault(&gc.TLS.KeyFile, gc.TLS.KeyFile))
 	fs.Register(DisableHTTPToHTTPSRedirect, ffval.NewValueDefault(&gc.TLS.DisableHTTPToHTTPSRedirect, gc.TLS.DisableHTTPToHTTPSRedirect))
@@ -147,13 +153,8 @@ var TrustedProxies = Config{
 }
 
 var PublicIP = Config{
-	Name:  "public-ipv4",
-	Usage: "public IPv4 address to advertise to clients",
-}
-
-var PublicIPv6 = Config{
-	Name:  "public-ipv6",
-	Usage: "public IPv6 address to advertise to clients",
+	Name:  "public-ip",
+	Usage: "public address to advertise to clients",
 }
 
 var EnableSmee = Config{
@@ -208,7 +209,7 @@ var EnableCRDMigrations = Config{
 
 var BindAddr = Config{
 	Name:  "bind-address",
-	Usage: "default IP address to which to bind shared services",
+	Usage: "default address to which to bind shared services",
 }
 
 // TLS flags

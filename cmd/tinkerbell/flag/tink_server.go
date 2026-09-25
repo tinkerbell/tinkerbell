@@ -10,10 +10,12 @@ import (
 )
 
 type TinkServerConfig struct {
-	Config   *server.Config
-	BindAddr netip.Addr
-	BindPort uint16
-	LogLevel int
+	Config     *server.Config
+	BindAddr   netip.Addr
+	BindAddrV6 netip.Addr
+	BindPort   uint16
+	BindPortV6 uint16
+	LogLevel   int
 }
 
 var KubeIndexesTinkServer = map[kube.IndexType]kube.Index{
@@ -22,8 +24,10 @@ var KubeIndexesTinkServer = map[kube.IndexType]kube.Index{
 }
 
 func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {
-	fs.Register(TinkServerBindAddr, &ntip.Addr{Addr: &t.BindAddr})
-	fs.Register(TinkServerBindPort, ffval.NewValueDefault(&t.BindPort, t.BindPort))
+	fs.RegisterFamily(TinkServerBindAddr, V4, &ntip.Addr{Addr: &t.BindAddr})
+	fs.RegisterFamily(TinkServerBindAddr, V6, &ntip.Addr{Addr: &t.BindAddrV6})
+	fs.RegisterFamily(TinkServerBindPort, V4, ffval.NewValueDefault(&t.BindPort, t.BindPort))
+	fs.RegisterFamily(TinkServerBindPort, V6, ffval.NewValueDefault(&t.BindPortV6, t.BindPortV6))
 	fs.Register(TinkServerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
 	fs.Register(TinkServerAutoEnrollmentEnabled, ffval.NewValueDefault(&t.Config.Auto.Enrollment.Enabled, t.Config.Auto.Enrollment.Enabled))
 	fs.Register(TinkerbellAutoDiscoveryEnabled, ffval.NewValueDefault(&t.Config.Auto.Discovery.Enabled, t.Config.Auto.Discovery.Enabled))
@@ -32,12 +36,23 @@ func RegisterTinkServerFlags(fs *Set, t *TinkServerConfig) {
 }
 
 // Convert TinkServerConfig data types to tink server server.Config data types.
-func (t *TinkServerConfig) Convert(bindAddr netip.Addr) {
+// A family with no service-specific address falls back to the global one.
+func (t *TinkServerConfig) Convert(bindAddr, bindAddrV6 netip.Addr) {
 	addr := bindAddr
 	if t.BindAddr.IsValid() {
 		addr = t.BindAddr
 	}
-	t.Config.BindAddrPort = netip.AddrPortFrom(addr, t.BindPort)
+	if addr.IsValid() {
+		t.Config.BindAddrPort = netip.AddrPortFrom(addr, t.BindPort)
+	}
+
+	addrV6 := bindAddrV6
+	if t.BindAddrV6.IsValid() {
+		addrV6 = t.BindAddrV6
+	}
+	if addrV6.IsValid() {
+		t.Config.BindAddrPortV6 = netip.AddrPortFrom(addrV6, t.BindPortV6)
+	}
 }
 
 var TinkServerBindAddr = Config{

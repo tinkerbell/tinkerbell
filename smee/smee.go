@@ -166,11 +166,17 @@ type Config struct {
 	TLS TLS
 }
 
+// Bind is a listen address for a single IP family. An invalid Addr leaves that
+// family unserved.
+type Bind struct {
+	Addr netip.Addr
+	Port uint16
+}
+
 type Syslog struct {
-	// BindAddr is the local address to which to bind the syslog server.
-	BindAddr netip.Addr
-	// BindPort is the local port to which to bind the syslog server.
-	BindPort uint16
+	// V4 and V6 are the per-family listen addresses.
+	V4 Bind
+	V6 Bind
 	// Enabled is a flag to enable or disable the syslog server.
 	Enabled bool
 }
@@ -178,10 +184,9 @@ type Syslog struct {
 type TFTP struct {
 	// AssetDir is the directory from which to serve extra TFTP assets.
 	AssetDir string
-	// BindAddr is the local address to which to bind the TFTP server.
-	BindAddr netip.Addr
-	// BindPort is the local port to which to bind the TFTP server.
-	BindPort uint16
+	// V4 and V6 are the per-family listen addresses.
+	V4 Bind
+	V6 Bind
 	// BlockSize is the block size to use when serving TFTP requests.
 	BlockSize int
 	// SinglePort configures whether to use single-port TFTP mode.
@@ -223,11 +228,14 @@ type IPXEHTTPScriptServer struct {
 	// OSIEURL is the IPv4 HookOS artifact base URL rendered into iPXE scripts.
 	OSIEURL *url.URL
 	// OSIEURLv6 is the IPv6 HookOS artifact base URL rendered into iPXE scripts.
-	OSIEURLv6       *url.URL
-	TrustedProxies  []string
+	OSIEURLv6      *url.URL
+	TrustedProxies []string
+	// ExtraKernelArgs is appended to the kernel cmdline for IPv4 machines.
 	ExtraKernelArgs []string
-	KernelName      string
-	InitrdName      string
+	// ExtraKernelArgsV6 is appended to the kernel cmdline for IPv6 machines.
+	ExtraKernelArgsV6 []string
+	KernelName        string
+	InitrdName        string
 	// SyslogFQDN is the syslog hostname for IPv4 iPXE scripts and ISO images.
 	// If empty, it falls back to DHCP.SyslogIP.
 	SyslogFQDN string
@@ -241,6 +249,10 @@ type DHCP struct {
 	Enabled bool
 	// EnableNetbootOptions configures whether sending netboot options is enabled.
 	EnableNetbootOptions bool
+	// DefaultNameServers are used when Hardware does not provide IPv4 nameservers.
+	DefaultNameServers []netip.Addr
+	// DefaultDomainSearchList is used when Hardware does not provide a domain search list.
+	DefaultDomainSearchList []string
 	// Mode determines the behavior of the DHCP server.
 	// See the DHCPMode type for valid values.
 	Mode DHCPMode
@@ -348,12 +360,14 @@ type TLS struct {
 func NewConfig(c Config) *Config {
 	defaults := &Config{
 		DHCP: DHCP{
-			Enabled:              true,
-			EnableNetbootOptions: true,
-			Mode:                 DHCPModeReservation,
-			BindAddr:             netip.MustParseAddr("0.0.0.0"),
-			BindPort:             DefaultDHCPPort,
-			BindInterface:        "",
+			Enabled:                 true,
+			EnableNetbootOptions:    true,
+			DefaultNameServers:      []netip.Addr{},
+			DefaultDomainSearchList: []string{},
+			Mode:                    DHCPModeReservation,
+			BindAddr:                netip.MustParseAddr("0.0.0.0"),
+			BindPort:                DefaultDHCPPort,
+			BindInterface:           "",
 			IPXEHTTPBinaryURL: &url.URL{
 				Scheme: schemeHTTP,
 				Path:   IPXEBinaryURI,
@@ -396,13 +410,14 @@ func NewConfig(c Config) *Config {
 				Enabled: true,
 			},
 			HTTPScriptServer: IPXEHTTPScriptServer{
-				Enabled:         true,
-				Retries:         1,
-				RetryDelay:      1,
-				OSIEURL:         &url.URL{},
-				OSIEURLv6:       &url.URL{},
-				TrustedProxies:  []string{},
-				ExtraKernelArgs: []string{},
+				Enabled:           true,
+				Retries:           1,
+				RetryDelay:        1,
+				OSIEURL:           &url.URL{},
+				OSIEURLv6:         &url.URL{},
+				TrustedProxies:    []string{},
+				ExtraKernelArgs:   []string{},
+				ExtraKernelArgsV6: []string{},
 			},
 			IPXEBinary: IPXEHTTPBinary{
 				InjectMacAddrFormat: constant.MacAddrFormatColon,
@@ -424,12 +439,14 @@ func NewConfig(c Config) *Config {
 			PathPrefix: DefaultPXEHTTPPathPrefix,
 		},
 		Syslog: Syslog{
-			BindPort: DefaultSyslogPort,
-			Enabled:  true,
+			V4:      Bind{Port: DefaultSyslogPort},
+			V6:      Bind{Port: DefaultSyslogPort},
+			Enabled: true,
 		},
 		TFTP: TFTP{
 			AssetDir:   DefaultTFTPAssetDir,
-			BindPort:   DefaultTFFTPPort,
+			V4:         Bind{Port: DefaultTFFTPPort},
+			V6:         Bind{Port: DefaultTFFTPPort},
 			BlockSize:  DefaultTFFTPBlockSize,
 			SinglePort: DefaultTFFTPSinglePort,
 			Timeout:    DefaultTFFTPTimeout,
@@ -498,6 +515,7 @@ func (c *Config) ScriptHandler(log logr.Logger) http.Handler {
 		OSIEURL:               c.IPXE.HTTPScriptServer.OSIEURL.String(),
 		OSIEURLv6:             c.IPXE.HTTPScriptServer.OSIEURLv6.String(),
 		ExtraKernelParams:     c.IPXE.HTTPScriptServer.ExtraKernelArgs,
+		ExtraKernelParamsV6:   c.IPXE.HTTPScriptServer.ExtraKernelArgsV6,
 		PublicSyslogFQDN:      c.syslogHost(),
 		PublicSyslogFQDNV6:    c.syslogHostV6(),
 		TinkServerTLS:         c.TinkServer.UseTLS,
@@ -545,7 +563,7 @@ func (c *Config) syslogHostV6() string {
 // ISOHandler returns an http.Handler that serves ISO images patched with IPv4 endpoints.
 // Returns nil, nil if the ISO server is disabled.
 func (c *Config) ISOHandler(log logr.Logger) (http.Handler, error) {
-	return c.newISOHandler(log, c.syslogHost(), c.TinkServer.AddrPort)
+	return c.newISOHandler(log, c.syslogHost(), c.TinkServer.AddrPort, c.IPXE.HTTPScriptServer.ExtraKernelArgs)
 }
 
 // ISOHandlerV6 returns an http.Handler that serves ISO images patched with IPv6 endpoints.
@@ -563,10 +581,10 @@ func (c *Config) ISOHandlerV6(log logr.Logger) (http.Handler, error) {
 		}), nil
 	}
 
-	return c.newISOHandler(log, c.syslogHostV6(), c.TinkServer.AddrPortV6)
+	return c.newISOHandler(log, c.syslogHostV6(), c.TinkServer.AddrPortV6, c.IPXE.HTTPScriptServer.ExtraKernelArgsV6)
 }
 
-func (c *Config) newISOHandler(log logr.Logger, syslogHost, tinkServerGRPCAddr string) (http.Handler, error) {
+func (c *Config) newISOHandler(log logr.Logger, syslogHost, tinkServerGRPCAddr string, extraKernelArgs []string) (http.Handler, error) {
 	if !c.ISO.Enabled {
 		return nil, nil
 	}
@@ -575,7 +593,7 @@ func (c *Config) newISOHandler(log logr.Logger, syslogHost, tinkServerGRPCAddr s
 		Backend: c.Backend,
 		Patch: iso.Patch{
 			KernelParams: iso.KernelParams{
-				ExtraParams:        c.IPXE.HTTPScriptServer.ExtraKernelArgs,
+				ExtraParams:        extraKernelArgs,
 				Syslog:             syslogHost,
 				TinkServerTLS:      c.TinkServer.UseTLS,
 				TinkServerGRPCAddr: tinkServerGRPCAddr,
@@ -616,6 +634,17 @@ func runSyslogServer(ctx context.Context, log logr.Logger, addr string) error {
 	return nil
 }
 
+// listenAddrs returns the listen address of every family that has one set.
+func listenAddrs(binds ...Bind) []netip.AddrPort {
+	var addrs []netip.AddrPort
+	for _, b := range binds {
+		if b.Addr.IsValid() {
+			addrs = append(addrs, netip.AddrPortFrom(b.Addr, b.Port))
+		}
+	}
+	return addrs
+}
+
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	if c.Backend == nil {
 		return errors.New("no backend provided")
@@ -627,44 +656,48 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	g, ctx := errgroup.WithContext(ctx)
 	// syslog
 	if c.Syslog.Enabled {
-		addr := netip.AddrPortFrom(c.Syslog.BindAddr, c.Syslog.BindPort)
-		if !addr.IsValid() {
-			return fmt.Errorf("invalid syslog bind address: IP: %v, Port: %v", addr.Addr(), addr.Port())
+		addrs := listenAddrs(c.Syslog.V4, c.Syslog.V6)
+		if len(addrs) == 0 {
+			return errors.New("syslog is enabled but no IPv4 or IPv6 bind address is set")
 		}
-		log.Info("starting syslog server", "bindAddr", addr)
-		g.Go(func() error {
-			return runSyslogServer(ctx, log, addr.String())
-		})
+		for _, addr := range addrs {
+			log.Info("starting syslog server", "bindAddr", addr)
+			g.Go(func() error {
+				return runSyslogServer(ctx, log, addr.String())
+			})
+		}
 	}
 
 	// tftp
 	if c.TFTP.Enabled {
-		addrPort := netip.AddrPortFrom(c.TFTP.BindAddr, c.TFTP.BindPort)
-		if !addrPort.IsValid() {
-			return fmt.Errorf("invalid TFTP bind address: IP: %v, Port: %v", addrPort.Addr(), addrPort.Port())
+		addrs := listenAddrs(c.TFTP.V4, c.TFTP.V6)
+		if len(addrs) == 0 {
+			return errors.New("TFTP is enabled but no IPv4 or IPv6 bind address is set")
 		}
 		resolver := hardware.BackendResolver{Backend: c.Backend}
-		tftpHandler := binary.TFTP{
-			Log:                  log,
-			EnableTFTPSinglePort: c.TFTP.SinglePort,
-			Addr:                 addrPort,
-			Timeout:              c.TFTP.Timeout,
-			BlockSize:            c.TFTP.BlockSize,
-			Router: binary.Router{
-				Log: log,
-				Routes: []binary.Route{ // order matters here, first match wins
-					binary.EmbeddedIPXERoute{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)},
-					binary.PXELinuxMACRoute{Log: log, Resolver: resolver},
-					binary.RPiNetbootRoute{Log: log, Resolver: resolver, AssetDir: c.TFTP.AssetDir},
-					binary.DiskAssetRoute{Log: log, Dir: c.TFTP.AssetDir},
+		for _, addrPort := range addrs {
+			tftpHandler := binary.TFTP{
+				Log:                  log,
+				EnableTFTPSinglePort: c.TFTP.SinglePort,
+				Addr:                 addrPort,
+				Timeout:              c.TFTP.Timeout,
+				BlockSize:            c.TFTP.BlockSize,
+				Router: binary.Router{
+					Log: log,
+					Routes: []binary.Route{ // order matters here, first match wins
+						binary.EmbeddedIPXERoute{Log: log, Patch: []byte(c.IPXE.EmbeddedScriptPatch)},
+						binary.PXELinuxMACRoute{Log: log, Resolver: resolver},
+						binary.RPiNetbootRoute{Log: log, Resolver: resolver, AssetDir: c.TFTP.AssetDir},
+						binary.DiskAssetRoute{Log: log, Dir: c.TFTP.AssetDir},
+					},
 				},
-			},
-		}
+			}
 
-		log.Info("starting tftp server", "bindAddr", addrPort.String())
-		g.Go(func() error {
-			return tftpHandler.ListenAndServe(ctx)
-		})
+			log.Info("starting tftp server", "bindAddr", addrPort.String())
+			g.Go(func() error {
+				return tftpHandler.ListenAndServe(ctx)
+			})
+		}
 	}
 
 	// dhcp serving
@@ -770,6 +803,7 @@ func (c *Config) dhcpHandler(log logr.Logger) (server.Handler, error) {
 			},
 			OTELEnabled: true,
 			SyslogAddr:  c.DHCP.SyslogIP,
+			DNSDefaults: c.dhcpDNSDefaults(),
 		}
 		return dh, nil
 	case DHCPModeProxy:
@@ -890,6 +924,20 @@ func (c *Config) dhcpv6Handler(log logr.Logger) (serverv6.Handler, error) {
 		return nil, fmt.Errorf("invalid DHCPv6 %s handler configuration: %w", c.DHCPv6.Mode, err)
 	}
 	return handler, nil
+}
+
+func (c *Config) dhcpDNSDefaults() reservation.DNSDefaults {
+	defaults := reservation.DNSDefaults{
+		DomainSearch: c.DHCP.DefaultDomainSearchList,
+		NameServers:  make([]net.IP, 0, len(c.DHCP.DefaultNameServers)),
+	}
+	for _, addr := range c.DHCP.DefaultNameServers {
+		if addr.Is4() {
+			defaults.NameServers = append(defaults.NameServers, net.IP(addr.AsSlice()))
+		}
+	}
+
+	return defaults
 }
 
 func (c *Config) dhcpv6DNSDefaults() v6.DNSDefaults {

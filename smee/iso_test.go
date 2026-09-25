@@ -28,20 +28,21 @@ func TestISOHandlersEndpointFamily(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		ipv4       bool
-		ipv6       bool
-		fqdn       bool
-		route      string
-		wantSyslog string
-		wantGRPC   string
+		name          string
+		ipv4          bool
+		ipv6          bool
+		fqdn          bool
+		route         string
+		wantSyslog    string
+		wantGRPC      string
+		wantKernelArg string
 	}{
-		{"IPv4 only", true, false, false, ISOURI, "192.0.2.10", "192.0.2.10:42113"},
-		{"IPv6 only", false, true, false, ISOURIV6, "2001:db8::10", "[2001:db8::10]:42113"},
-		{"dual stack IPv4", true, true, false, ISOURI, "192.0.2.10", "192.0.2.10:42113"},
-		{"dual stack IPv6", true, true, false, ISOURIV6, "2001:db8::10", "[2001:db8::10]:42113"},
-		{"IPv4 syslog FQDN", true, true, true, ISOURI, "syslog-v4.example.com", "192.0.2.10:42113"},
-		{"IPv6 syslog FQDN", true, true, true, ISOURIV6, "syslog-v6.example.com", "[2001:db8::10]:42113"},
+		{"IPv4 only", true, false, false, ISOURI, "192.0.2.10", "192.0.2.10:42113", "test_arg=v4"},
+		{"IPv6 only", false, true, false, ISOURIV6, "2001:db8::10", "[2001:db8::10]:42113", "test_arg=v6"},
+		{"dual stack IPv4", true, true, false, ISOURI, "192.0.2.10", "192.0.2.10:42113", "test_arg=v4"},
+		{"dual stack IPv6", true, true, false, ISOURIV6, "2001:db8::10", "[2001:db8::10]:42113", "test_arg=v6"},
+		{"IPv4 syslog FQDN", true, true, true, ISOURI, "syslog-v4.example.com", "192.0.2.10:42113", "test_arg=v4"},
+		{"IPv6 syslog FQDN", true, true, true, ISOURIV6, "syslog-v6.example.com", "[2001:db8::10]:42113", "test_arg=v6"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -70,7 +71,8 @@ func TestISOHandlersEndpointFamily(t *testing.T) {
 				c.IPXE.HTTPScriptServer.SyslogFQDNV6 = "syslog-v6.example.com"
 			}
 			c.TinkServer.UseTLS = true
-			c.IPXE.HTTPScriptServer.ExtraKernelArgs = []string{"test_arg=1"}
+			c.IPXE.HTTPScriptServer.ExtraKernelArgs = []string{"test_arg=v4"}
+			c.IPXE.HTTPScriptServer.ExtraKernelArgsV6 = []string{"test_arg=v6"}
 
 			mux := http.NewServeMux()
 			for route, factory := range map[string]func(logr.Logger) (http.Handler, error){
@@ -94,7 +96,7 @@ func TestISOHandlersEndpointFamily(t *testing.T) {
 				}
 				want := "console=ttyAMA0 console=ttyS0 console=tty0 console=tty1 console=ttyS1" +
 					" hw_addr=" + mac + " syslog_host=" + tt.wantSyslog + " grpc_authority=" + tt.wantGRPC +
-					" tinkerbell_tls=true worker_id=" + mac + " test_arg=1"
+					" tinkerbell_tls=true worker_id=" + mac + " " + tt.wantKernelArg
 				if diff := cmp.Diff(want, strings.TrimSpace(w.Body.String())); diff != "" {
 					t.Fatalf("patched ISO mismatch (-want +got):\n%s", diff)
 				}

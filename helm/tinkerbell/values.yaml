@@ -29,6 +29,7 @@ deployment:
       backendKubeNamespace: ""
       backendKubeQPS: 100
       bindAddr: ""
+      bindAddrV6: ""
       disableHttpToHttpsRedirect: false # set true to stop auto-redirecting plain HTTP requests to HTTPS when TLS is enabled
       enableCRDMigrations: true
       enableRufioController: true
@@ -39,7 +40,9 @@ deployment:
       enableTinkController: true
       enableUI: true
       httpPort: 7080
+      httpPortV6: 7080
       httpsPort: 7443
+      httpsPortV6: 7443
       logLevel: 0
       otelEndpoint: ""
       otelInsecure: false
@@ -58,7 +61,10 @@ deployment:
       maxConcurrentReconciles: 1
       powerCheckInterval: "30m0s"
     secondstar:
+      bindAddr: ""
+      bindAddrV6: ""
       bindPort: 2222
+      bindPortV6: 2222
       hostKeyPath: ""
       ipmitoolPath: "/usr/sbin/ipmitool"
       idleTimeout: "15m"
@@ -78,6 +84,9 @@ deployment:
       dhcpIpxeHttpScriptPort: 7080
       dhcpIpxeHttpScriptPrependMac: true
       dhcpIpxeHttpScriptScheme: "http"
+      dhcpBindPort: 67
+      dhcpDefaultDomainSearchList: [] # Fallback search domains when Hardware does not provide any for DHCPv4.
+      dhcpDefaultNameServers: [] # Fallback IPv4 DNS server addresses when Hardware does not provide IPv4 nameservers.
       dhcpMode: "reservation" # reservation, proxy, auto-proxy
       dhcpSyslogIP: ""
       dhcpTftpIP: ""
@@ -110,6 +119,7 @@ deployment:
       ipxeHttpBinaryEnabled: true
       ipxeHttpScriptEnabled: true
       ipxeHttpScriptExtraKernelArgs: [] # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
+      ipxeHttpScriptExtraKernelArgsV6: [] # As above, for IPv6 machines. Defaults to ipxeHttpScriptExtraKernelArgs when empty.
       ipxeHttpScriptKernelName: "vmlinuz" # name of the kernel file to fetch in the iPXE script, defaults to vmlinuz, which becomes vmlinuz-<arch> in the script
       ipxeHttpScriptInitrdName: "initramfs" # name of the initrd file to fetch in the iPXE script, defaults to initramfs, which becomes initramfs-<arch> in the script
       ipxeHttpScriptTrustedProxies: ""
@@ -131,11 +141,15 @@ deployment:
       isoUpstreamURL: ""
       logLevel: 0
       syslogBindAddr: ""
+      syslogBindAddrV6: ""
       syslogBindPort: 514
+      syslogBindPortV6: 514
       syslogEnabled: true
       tftpBlockSize: 512
       tftpServerBindAddr: ""
+      tftpServerBindAddrV6: ""
       tftpServerBindPort: 69
+      tftpServerBindPortV6: 69
       tftpServerEnabled: true
       tftpTimeout: "10s"
       tftpSinglePort: true # if true, use single port mode for TFTP server
@@ -156,6 +170,8 @@ deployment:
       autoEnrollmentEnabled: false
       bindAddr: ""
       bindPort: 42113
+      bindAddrV6: ""
+      bindPortV6: 42113
       logLevel: 0
     tootles:
       debugMode: false
