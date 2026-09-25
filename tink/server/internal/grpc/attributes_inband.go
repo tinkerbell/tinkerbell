@@ -204,8 +204,31 @@ func networkInterfaceFromAgent(n *data.Network) tinkerbell.NetworkInterface {
 	if n.SpeedMbps != nil {
 		port.SpeedMbps = *n.SpeedMbps
 	}
+	if n.LLDPNeighbor != nil {
+		port.LLDPNeighbor = lldpNeighborFromAgent(n.LLDPNeighbor)
+	}
 	iface.Ports = []tinkerbell.NetworkPort{port}
 	return iface
+}
+
+func lldpNeighborFromAgent(n *data.LLDPNeighbor) *tinkerbell.LLDPNeighbor {
+	if n == nil {
+		return nil
+	}
+	out := &tinkerbell.LLDPNeighbor{VLANIDs: n.VLANIDs}
+	if n.ChassisID != nil {
+		out.ChassisID = *n.ChassisID
+	}
+	if n.SystemName != nil {
+		out.SystemName = *n.SystemName
+	}
+	if n.PortID != nil {
+		out.PortID = *n.PortID
+	}
+	if n.PortDescription != nil {
+		out.PortDescription = *n.PortDescription
+	}
+	return out
 }
 
 func chassisFromAgent(c *data.Chassis) *tinkerbell.Chassis {

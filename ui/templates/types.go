@@ -207,10 +207,23 @@ type AgentBlockDevice struct {
 
 // AgentNetworkInterface represents a network interface from agent attributes.
 type AgentNetworkInterface struct {
-	Name                string   `json:"name"`
-	MAC                 string   `json:"mac"`
-	Speed               string   `json:"speed"`
-	EnabledCapabilities []string `json:"enabledCapabilities"`
+	Name                string            `json:"name"`
+	MAC                 string            `json:"mac"`
+	Speed               string            `json:"speed"`
+	EnabledCapabilities []string          `json:"enabledCapabilities"`
+	LLDPNeighbor        AgentLLDPNeighbor `json:"lldpNeighbor"`
+}
+
+// AgentLLDPNeighbor represents the switch discovered via LLDP on a network
+// port. ChassisID being empty means no neighbor was discovered (or LLDP
+// discovery wasn't enabled on the Agent).
+type AgentLLDPNeighbor struct {
+	ChassisID       string `json:"chassisID"`
+	SystemName      string `json:"systemName"`
+	PortID          string `json:"portID"`
+	PortDescription string `json:"portDescription"`
+	// VLANIDs is pre-formatted as a comma-separated list (e.g. "10, 20").
+	VLANIDs string `json:"vlanIDs"`
 }
 
 // AgentPCIDevice represents a PCI device from agent attributes.
