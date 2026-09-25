@@ -132,9 +132,9 @@ spec:
               value: {{ join "|" $rules | quote }}
             {{- end }}
           # TINK SERVER
-            - name: TINKERBELL_TINK_SERVER_BIND_ADDR
+            - name: TINKERBELL_TINK_SERVER_BIND_ADDR_V4
               value: {{ .Values.deployment.envs.tinkServer.bindAddr | quote }}
-            - name: TINKERBELL_TINK_SERVER_BIND_PORT
+            - name: TINKERBELL_TINK_SERVER_BIND_PORT_V4
               value: {{ .Values.deployment.envs.tinkServer.bindPort | quote }}
             - name: TINKERBELL_TINK_SERVER_LOG_LEVEL
               value: {{ .Values.deployment.envs.tinkServer.logLevel | quote }}
@@ -154,87 +154,87 @@ spec:
             - name: TINKERBELL_TOOTLES_LOG_LEVEL
               value: {{ .Values.deployment.envs.tootles.logLevel | quote }}
           # SMEE
-            - name: TINKERBELL_DHCP_ENABLED
+            - name: TINKERBELL_DHCP_ENABLED_V4
               value: {{ .Values.deployment.envs.smee.dhcpEnabled | quote }}
-            - name: TINKERBELL_DHCP_ENABLE_NETBOOT_OPTIONS
+            - name: TINKERBELL_DHCP_ENABLE_NETBOOT_OPTIONS_V4
               value: {{ .Values.deployment.envs.smee.dhcpEnableNetbootOptions | quote }}
-            - name: TINKERBELL_DHCPV6_ENABLED
+            - name: TINKERBELL_DHCP_ENABLED_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6Enabled | quote }}
-            - name: TINKERBELL_DHCPV6_ENABLE_NETBOOT_OPTIONS
+            - name: TINKERBELL_DHCP_ENABLE_NETBOOT_OPTIONS_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6EnableNetbootOptions | quote }}
-            - name: TINKERBELL_DHCPV6_DEFAULT_NAME_SERVERS
+            - name: TINKERBELL_DHCP_DEFAULT_NAME_SERVERS_V6
               value: {{ join "," .Values.deployment.envs.smee.dhcpv6DefaultNameServers | quote }}
-            - name: TINKERBELL_DHCPV6_DEFAULT_DOMAIN_SEARCH_LIST
+            - name: TINKERBELL_DHCP_DEFAULT_DOMAIN_SEARCH_LIST_V6
               value: {{ join "," .Values.deployment.envs.smee.dhcpv6DefaultDomainSearchList | quote }}
-            - name: TINKERBELL_DHCP_MODE
+            - name: TINKERBELL_DHCP_MODE_V4
               value: {{ .Values.deployment.envs.smee.dhcpMode | quote }}
-            - name: TINKERBELL_DHCPV6_MODE
+            - name: TINKERBELL_DHCP_MODE_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6Mode | quote }}
-            - name: TINKERBELL_DHCPV6_SERVER_DUID
+            - name: TINKERBELL_DHCP_SERVER_DUID_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6ServerDUID | quote }}
-            - name: TINKERBELL_DHCPV6_DERIVED_DIRECT_ADDRESS_POOL
+            - name: TINKERBELL_DHCP_DERIVED_DIRECT_ADDRESS_POOL_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6DerivedDirectAddressPool | quote }}
-            - name: TINKERBELL_DHCPV6_DERIVED_RELAY_ADDRESS_PREFIX
+            - name: TINKERBELL_DHCP_DERIVED_RELAY_ADDRESS_PREFIX_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6DerivedRelayAddressPrefix | quote }}
-            - name: TINKERBELL_DHCPV6_BIND_ADDR
+            - name: TINKERBELL_DHCP_BIND_ADDR_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6BindAddr | quote }}
-            - name: TINKERBELL_DHCPV6_BIND_PORT
+            - name: TINKERBELL_DHCP_BIND_PORT_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6BindPort | quote }}
-            - name: TINKERBELL_DHCPV6_BIND_INTERFACE
+            - name: TINKERBELL_DHCP_BIND_INTERFACE_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6BindInterface | quote }}
-            - name: TINKERBELL_DHCPV6_SYSLOG_IP
+            - name: TINKERBELL_DHCP_SYSLOG_IP_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6SyslogIP | quote }}
-            - name: TINKERBELL_DHCPV6_TFTP_IP
+            - name: TINKERBELL_DHCP_TFTP_IP_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6TftpIP | quote }}
-            - name: TINKERBELL_DHCPV6_TFTP_PORT
+            - name: TINKERBELL_DHCP_TFTP_PORT_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6TftpPort | quote }}
-            - name: TINKERBELL_DHCPV6_IPXE_HTTP_SCRIPT_PREPEND_MAC
+            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PREPEND_MAC_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpScriptPrependMac | quote }}
-            - name: TINKERBELL_DHCPV6_IPXE_HTTP_BINARY_SCHEME
+            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_SCHEME_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpBinaryScheme | quote }}
-            - name: TINKERBELL_DHCPV6_IPXE_HTTP_BINARY_HOST
+            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_HOST_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpBinaryHost | quote }}
-            - name: TINKERBELL_DHCPV6_IPXE_HTTP_BINARY_PORT
+            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_PORT_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpBinaryPort | quote }}
-            - name: TINKERBELL_DHCPV6_IPXE_HTTP_BINARY_PATH
+            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_PATH_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpBinaryPath | quote }}
-            - name: TINKERBELL_DHCPV6_IPXE_HTTP_SCRIPT_SCHEME
+            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_SCHEME_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpScriptScheme | quote }}
-            - name: TINKERBELL_DHCPV6_IPXE_HTTP_SCRIPT_HOST
+            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_HOST_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpScriptHost | quote }}
-            - name: TINKERBELL_DHCPV6_IPXE_HTTP_SCRIPT_PORT
+            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PORT_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpScriptPort | quote }}
-            - name: TINKERBELL_DHCPV6_IPXE_HTTP_SCRIPT_PATH
+            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PATH_V6
               value: {{ .Values.deployment.envs.smee.dhcpv6IpxeHttpScriptPath | quote }}
-            - name: TINKERBELL_DHCP_BIND_ADDR
+            - name: TINKERBELL_DHCP_BIND_ADDR_V4
               value: {{ .Values.deployment.envs.smee.dhcpBindAddr | quote }}
-            - name: TINKERBELL_DHCP_BIND_INTERFACE
+            - name: TINKERBELL_DHCP_BIND_INTERFACE_V4
               value: {{ .Values.deployment.envs.smee.dhcpBindInterface | quote }}
-            - name: TINKERBELL_DHCP_IP_FOR_PACKET
+            - name: TINKERBELL_DHCP_IP_FOR_PACKET_V4
               value: {{ .Values.deployment.envs.smee.dhcpIPForPacket | quote }}
-            - name: TINKERBELL_DHCP_SYSLOG_IP
+            - name: TINKERBELL_DHCP_SYSLOG_IP_V4
               value: {{ .Values.deployment.envs.smee.dhcpSyslogIP | quote }}
-            - name: TINKERBELL_DHCP_TFTP_IP
+            - name: TINKERBELL_DHCP_TFTP_IP_V4
               value: {{ .Values.deployment.envs.smee.dhcpTftpIP | quote }}
-            - name: TINKERBELL_DHCP_TFTP_PORT
+            - name: TINKERBELL_DHCP_TFTP_PORT_V4
               value: {{ .Values.deployment.envs.smee.dhcpTftpPort | quote }}
-            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PREPEND_MAC
+            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PREPEND_MAC_V4
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptPrependMac | quote }}
-            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_SCHEME
+            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_SCHEME_V4
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpBinaryScheme | quote }}
-            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_HOST
+            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_HOST_V4
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpBinaryHost | quote }}
-            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_PORT
+            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_PORT_V4
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpBinaryPort | quote }}
-            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_PATH
+            - name: TINKERBELL_DHCP_IPXE_HTTP_BINARY_PATH_V4
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpBinaryPath | quote }}
-            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_SCHEME
+            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_SCHEME_V4
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptScheme | quote }}
-            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_HOST
+            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_HOST_V4
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptHost | quote }}
-            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PORT
+            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PORT_V4
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptPort | quote }}
-            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PATH
+            - name: TINKERBELL_DHCP_IPXE_HTTP_SCRIPT_PATH_V4
               value: {{ .Values.deployment.envs.smee.dhcpIpxeHttpScriptPath | quote }}
             - name: TINKERBELL_IPXE_BINARY_INJECT_MAC_ADDR_FORMAT
               value: {{ .Values.deployment.envs.smee.ipxeBinaryInjectMacAddrFormat | quote }}
@@ -244,29 +244,27 @@ spec:
               value: {{ .Values.deployment.envs.smee.ipxeHttpBinaryEnabled | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_ENABLED
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptEnabled | quote }}
-            - name: TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS
+            - name: TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS_V4
               value: {{ join " " ( append .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs ( printf "tink_worker_image=%s:%s" .Values.deployment.agentImage (coalesce .Values.deployment.agentImageTag .Chart.AppVersion) ) ) | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_KERNEL_NAME
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptKernelName | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_INITRD_NAME
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptInitrdName | quote }}
-            - name: TINKERBELL_IPXE_SCRIPT_TRUSTED_PROXIES
-              value: {{ coalesce .Values.deployment.envs.smee.ipxeHttpScriptTrustedProxies ( join "," $trustedProxies ) | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRIES
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetries | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRY_DELAY
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetryDelay | quote }}
-            - name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL
+            - name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL_V4
               value: {{ coalesce .Values.artifactsFileServer .Values.deployment.envs.smee.ipxeHttpScriptOsieURL | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL_V6
               value: {{ coalesce .Values.artifactsFileServerV6 .Values.deployment.envs.smee.ipxeHttpScriptOsieURLv6 | quote }}
             - name: TINKERBELL_IPXE_OVERRIDE_ARCH_MAPPING
               value: {{ .Values.deployment.envs.smee.ipxeOverrideArchMapping | quote }}
-            - name: TINKERBELL_IPXE_SCRIPT_SYSLOG_FQDN
+            - name: TINKERBELL_IPXE_SCRIPT_SYSLOG_FQDN_V4
               value: {{ .Values.deployment.envs.smee.ipxeScriptSyslogFqdn | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_SYSLOG_FQDN_V6
               value: {{ .Values.deployment.envs.smee.ipxeScriptSyslogFqdnV6 | quote }}
-            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT
+            - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT_V4
               value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerAddrPort | quote }}
             - name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT_V6
               value: {{ .Values.deployment.envs.smee.ipxeScriptTinkServerAddrPortV6 | quote }}
@@ -280,21 +278,21 @@ spec:
               value: {{ .Values.deployment.envs.smee.isoUpstreamURL | quote }}
             - name: TINKERBELL_ISO_PATCH_MAGIC_STRING
               value: {{ .Values.deployment.envs.smee.isoPatchMagicString | quote }}
-            - name: TINKERBELL_ISO_STATIC_IPAM_ENABLED
+            - name: TINKERBELL_ISO_STATIC_IPAM_ENABLED_V4
               value: {{ .Values.deployment.envs.smee.isoStaticIPAMEnabled | quote }}
             - name: TINKERBELL_SMEE_LOG_LEVEL
               value: {{ .Values.deployment.envs.smee.logLevel | quote }}
             - name: TINKERBELL_SYSLOG_ENABLED
               value: {{ .Values.deployment.envs.smee.syslogEnabled | quote }}
-            - name: TINKERBELL_SYSLOG_BIND_ADDR
+            - name: TINKERBELL_SYSLOG_BIND_ADDR_V4
               value: {{ .Values.deployment.envs.smee.syslogBindAddr | quote }}
-            - name: TINKERBELL_SYSLOG_BIND_PORT
+            - name: TINKERBELL_SYSLOG_BIND_PORT_V4
               value: {{ .Values.deployment.envs.smee.syslogBindPort | quote }}
             - name: TINKERBELL_TFTP_SERVER_ENABLED
               value: {{ .Values.deployment.envs.smee.tftpServerEnabled | quote }}
-            - name: TINKERBELL_TFTP_SERVER_BIND_ADDR
+            - name: TINKERBELL_TFTP_SERVER_BIND_ADDR_V4
               value: {{ .Values.deployment.envs.smee.tftpServerBindAddr | quote }}
-            - name: TINKERBELL_TFTP_SERVER_BIND_PORT
+            - name: TINKERBELL_TFTP_SERVER_BIND_PORT_V4
               value: {{ .Values.deployment.envs.smee.tftpServerBindPort | quote }}
             - name: TINKERBELL_TFTP_TIMEOUT
               value: {{ .Values.deployment.envs.smee.tftpTimeout | quote }}
@@ -309,7 +307,7 @@ spec:
             - name: TINKERBELL_PXE_HTTP_PATH_PREFIX
               value: {{ .Values.deployment.envs.smee.pxeHttpPathPrefix | quote }}
           # SECONDSTAR
-            - name: TINKERBELL_SECONDSTAR_PORT
+            - name: TINKERBELL_SECONDSTAR_PORT_V4
               value: {{ .Values.deployment.envs.secondstar.bindPort | quote }}
             - name: TINKERBELL_SECONDSTAR_HOST_KEY
               value: {{ .Values.deployment.envs.secondstar.hostKeyPath | quote }}
@@ -343,7 +341,7 @@ spec:
               value: {{ .Values.deployment.envs.globals.backendKubeNamespace | quote }}
             - name: TINKERBELL_BACKEND_KUBE_QPS
               value: {{ .Values.deployment.envs.globals.backendKubeQPS | quote }}
-            - name: TINKERBELL_BIND_ADDRESS
+            - name: TINKERBELL_BIND_ADDRESS_V4
               value: {{ .Values.deployment.envs.globals.bindAddr | quote }}
             - name: TINKERBELL_OTEL_ENDPOINT
               value: {{ .Values.deployment.envs.globals.otelEndpoint | quote }}
@@ -351,9 +349,9 @@ spec:
               value: {{ .Values.deployment.envs.globals.otelInsecure | quote }}
             - name: TINKERBELL_TRUSTED_PROXIES
               value: {{ ( join "," $trustedProxies ) | quote }}
-            - name: TINKERBELL_PUBLIC_IPV4
+            - name: TINKERBELL_PUBLIC_IP_V4
               value: {{ (coalesce .Values.deployment.envs.globals.publicIpv4 $publicIP) | quote }}
-            - name: TINKERBELL_PUBLIC_IPV6
+            - name: TINKERBELL_PUBLIC_IP_V6
               value: {{ (coalesce .Values.deployment.envs.globals.publicIpv6 $publicIPv6) | quote }}
             - name: TINKERBELL_ENABLE_SMEE
               value: {{ .Values.deployment.envs.globals.enableSmee | quote }}
@@ -377,9 +375,9 @@ spec:
               value: {{ .Values.deployment.envs.globals.tlsKeyFile | quote }}
             - name: TINKERBELL_DISABLE_HTTP_TO_HTTPS_REDIRECT
               value: {{ .Values.deployment.envs.globals.disableHttpToHttpsRedirect | quote }}
-            - name: TINKERBELL_HTTP_PORT
+            - name: TINKERBELL_HTTP_PORT_V4
               value: {{ .Values.deployment.envs.globals.httpPort | quote }}
-            - name: TINKERBELL_HTTPS_PORT
+            - name: TINKERBELL_HTTPS_PORT_V4
               value: {{ .Values.deployment.envs.globals.httpsPort | quote }}
             {{- with .Values.deployment.additionalEnvs }}
           # Additional environment variables

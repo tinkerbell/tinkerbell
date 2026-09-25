@@ -112,7 +112,6 @@ deployment:
       ipxeHttpScriptExtraKernelArgs: [] # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
       ipxeHttpScriptKernelName: "vmlinuz" # name of the kernel file to fetch in the iPXE script, defaults to vmlinuz, which becomes vmlinuz-<arch> in the script
       ipxeHttpScriptInitrdName: "initramfs" # name of the initrd file to fetch in the iPXE script, defaults to initramfs, which becomes initramfs-<arch> in the script
-      ipxeHttpScriptTrustedProxies: ""
       ipxeHttpScriptOsieURL: ""
       ipxeHttpScriptOsieURLv6: ""
       ipxeHttpScriptRetries: 1
