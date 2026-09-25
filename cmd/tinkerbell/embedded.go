@@ -72,9 +72,9 @@ func init() {
 
 func kubeAPIServerFlags(kaffs *ff.FlagSet) func(*pflag.Flag) {
 	return func(f *pflag.Flag) {
-		// help and v already exist in the global flags defined above so we skip them
-		// here to avoid duplicate flag errors.
-		if f.Name == "help" || f.Name == "v" {
+		// help, v and version already exist in the global flags defined above so we
+		// skip them here to avoid duplicate flag errors.
+		if f.Name == "help" || f.Name == "v" || f.Name == "version" {
 			return
 		}
 		// rename these kube-apiserver flags to avoid name conflicts with Tinkerbell flags
