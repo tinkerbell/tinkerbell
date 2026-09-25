@@ -56,7 +56,7 @@ func TestSmeeConvertBindAddressPrecedence(t *testing.T) {
 				TFTP:   smee.TFTP{BindAddr: tt.tftpAddr},
 			})}
 
-			cfg.Convert(nil, netip.Addr{}, netip.Addr{}, globalBindAddr, 8080)
+			cfg.Convert(netip.Addr{}, netip.Addr{}, globalBindAddr, 8080)
 
 			if got := cfg.Config.Syslog.BindAddr; got != tt.wantSyslog {
 				t.Errorf("Syslog.BindAddr = %v, want %v", got, tt.wantSyslog)
@@ -147,8 +147,7 @@ func TestSmeeConfig_Convert_TinkServerAddrPort(t *testing.T) {
 			}
 			sc.Config.TinkServer.AddrPort = tt.inputAddrPort
 
-			var trustedProxies []netip.Prefix
-			sc.Convert(&trustedProxies, tt.publicIP, netip.Addr{}, netip.Addr{}, smee.DefaultTinkServerPort)
+			sc.Convert(tt.publicIP, netip.Addr{}, netip.Addr{}, smee.DefaultTinkServerPort)
 
 			if sc.Config.TinkServer.AddrPort != tt.want {
 				t.Errorf("TinkServer.AddrPort = %q, want %q", sc.Config.TinkServer.AddrPort, tt.want)
@@ -164,7 +163,7 @@ func TestSmeeConvertAdvertisedEndpoints(t *testing.T) {
 		Config: smee.NewConfig(smee.Config{}),
 	}
 
-	cfg.Convert(nil, publicIP, publicIPv6, netip.Addr{}, 7080)
+	cfg.Convert(publicIP, publicIPv6, netip.Addr{}, 7080)
 
 	if got, want := cfg.Config.DHCP.IPXEHTTPScript.URL.Host, "10.0.2.15:7080"; got != want {
 		t.Errorf("IPXEHTTPScript.URL.Host = %q, want %q", got, want)
@@ -209,7 +208,7 @@ func TestSmeeConvertSeparatesAdvertisedAndBindAddresses(t *testing.T) {
 		Config: smee.NewConfig(smee.Config{}),
 	}
 
-	cfg.Convert(nil, publicIP, publicIPv6, bindAddr, 7080)
+	cfg.Convert(publicIP, publicIPv6, bindAddr, 7080)
 
 	if got, want := cfg.Config.DHCP.IPXEHTTPScript.URL.Host, "10.0.2.15:7080"; got != want {
 		t.Errorf("DHCP advertised script host = %q, want %q", got, want)
@@ -235,7 +234,7 @@ func TestSmeeConvertPreservesExplicitServiceBindAddresses(t *testing.T) {
 	cfg.Config.Syslog.BindAddr = syslogBindAddr
 	cfg.Config.TFTP.BindAddr = tftpBindAddr
 
-	cfg.Convert(nil, netip.Addr{}, netip.Addr{}, globalBindAddr, 7080)
+	cfg.Convert(netip.Addr{}, netip.Addr{}, globalBindAddr, 7080)
 
 	if got := cfg.Config.Syslog.BindAddr; got != syslogBindAddr {
 		t.Errorf("Syslog.BindAddr = %q, want %q", got, syslogBindAddr)
@@ -251,7 +250,7 @@ func TestSmeeConvertKeepsV6DefaultsWithoutPublicIPv6(t *testing.T) {
 		Config: smee.NewConfig(smee.Config{}),
 	}
 
-	cfg.Convert(nil, publicIP, netip.Addr{}, netip.Addr{}, 7080)
+	cfg.Convert(publicIP, netip.Addr{}, netip.Addr{}, 7080)
 
 	if got, want := cfg.Config.DHCP.IPXEHTTPScript.URL.Host, "10.0.2.15:7080"; got != want {
 		t.Errorf("IPXEHTTPScript.URL.Host = %q, want %q", got, want)

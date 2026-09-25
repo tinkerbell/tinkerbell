@@ -224,7 +224,6 @@ type IPXEHTTPScriptServer struct {
 	OSIEURL *url.URL
 	// OSIEURLv6 is the IPv6 HookOS artifact base URL rendered into iPXE scripts.
 	OSIEURLv6       *url.URL
-	TrustedProxies  []string
 	ExtraKernelArgs []string
 	KernelName      string
 	InitrdName      string
@@ -401,7 +400,6 @@ func NewConfig(c Config) *Config {
 				RetryDelay:      1,
 				OSIEURL:         &url.URL{},
 				OSIEURLv6:       &url.URL{},
-				TrustedProxies:  []string{},
 				ExtraKernelArgs: []string{},
 			},
 			IPXEBinary: IPXEHTTPBinary{

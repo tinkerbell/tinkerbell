@@ -62,7 +62,29 @@ func TestRenameDeprecatedArgs(t *testing.T) {
 }
 
 func TestRenameDeprecatedEnv(t *testing.T) {
+	const destination = "TINKERBELL_DHCP_MODE_V6"
+
+	unsetDestination := func(t *testing.T) {
+		t.Helper()
+		value, wasSet := os.LookupEnv(destination)
+		if err := os.Unsetenv(destination); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			var err error
+			if wasSet {
+				err = os.Setenv(destination, value)
+			} else {
+				err = os.Unsetenv(destination)
+			}
+			if err != nil {
+				t.Errorf("restore %s: %v", destination, err)
+			}
+		})
+	}
+
 	t.Run("copies onto the current name", func(t *testing.T) {
+		unsetDestination(t)
 		t.Setenv("TINKERBELL_DHCPV6_MODE", "stateless")
 
 		warnings, err := RenameDeprecatedEnv()
@@ -78,8 +100,9 @@ func TestRenameDeprecatedEnv(t *testing.T) {
 	})
 
 	t.Run("an explicitly set current name wins", func(t *testing.T) {
+		unsetDestination(t)
 		t.Setenv("TINKERBELL_DHCPV6_MODE", "stateless")
-		t.Setenv("TINKERBELL_DHCP_MODE_V6", "reservation")
+		t.Setenv(destination, "reservation")
 
 		warnings, err := RenameDeprecatedEnv()
 		if err != nil {
@@ -95,13 +118,16 @@ func TestRenameDeprecatedEnv(t *testing.T) {
 
 	// ff distinguishes set-but-empty from unset, so an empty value must carry over.
 	t.Run("an empty value is copied", func(t *testing.T) {
+		unsetDestination(t)
 		t.Setenv("TINKERBELL_DHCPV6_MODE", "")
 
 		if _, err := RenameDeprecatedEnv(); err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := os.LookupEnv("TINKERBELL_DHCP_MODE_V6"); !ok {
-			t.Error("TINKERBELL_DHCP_MODE_V6 not set")
+		if got, ok := os.LookupEnv(destination); !ok {
+			t.Errorf("%s not set", destination)
+		} else if got != "" {
+			t.Errorf("%s = %q, want empty", destination, got)
 		}
 	})
 }

@@ -250,8 +250,6 @@ spec:
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptKernelName | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_INITRD_NAME
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptInitrdName | quote }}
-            - name: TINKERBELL_IPXE_HTTP_SCRIPT_TRUSTED_PROXIES
-              value: {{ coalesce .Values.deployment.envs.smee.ipxeHttpScriptTrustedProxies ( join "," $trustedProxies ) | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRIES
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetries | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRY_DELAY

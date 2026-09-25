@@ -59,7 +59,7 @@ in §4.4. This is enforced by test (§8.3).
 A flag takes no suffix when it configures behaviour that is identical for both families,
 or a value that already accepts both. These keep their current names:
 
-`--trusted-proxies`, `--ipxe-http-script-trusted-proxies` (both accept mixed-family
+`--trusted-proxies` (accepts mixed-family
 CIDRs); `--otel-*`, `--log-level`, `--backend*`, `--tls-*`,
 `--disable-http-to-https-redirect`, `--enable-*`, `--version`;
 `--dhcp-enabled` is *not* in this set (see §6);
@@ -147,7 +147,7 @@ func RenameDeprecatedEnv() ([]string, error)
 ```
 
 Backed by an unexported `deprecatedNames() map[string]string` of retired name →
-current name (54 entries when complete, §6).
+current name (58 entries, §6).
 
 Requirements:
 
@@ -266,7 +266,7 @@ And, for each of `scheme`, `host`, `port`, `path`:
 
 ### 6.6 Totals
 
-54 renames, 16 new flags, 5 intentionally single-family.
+58 renames, 16 new flags, 5 intentionally single-family.
 
 ## 7. Capability changes
 
@@ -342,9 +342,8 @@ Files: `cmd/tinkerbell/flag/flag.go` (new `Family`, `RegisterFamily`, `EnvVarPre
 New `-v6` flags whose listeners land in B1/B2 are **not** registered here. A `-v4` flag
 without its twin is expected in this PR; §8.3 lands in C.
 
-Also fixes, in `deployment.yaml`: `TINKERBELL_IPXE_SCRIPT_TRUSTED_PROXIES` →
-`TINKERBELL_IPXE_HTTP_SCRIPT_TRUSTED_PROXIES`. The flag is
-`--ipxe-http-script-trusted-proxies`, so the chart's value is silently ignored today.
+The chart uses the global `trustedProxies` value for the shared HTTP middleware,
+which includes the iPXE routes.
 
 Acceptance:
 - Every name in §6 resolves; every retired name still works via args and env.

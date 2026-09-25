@@ -134,7 +134,6 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.RegisterFamily(IPXEHTTPScriptExtraKernelArgs, V4, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.ExtraKernelArgs))
 	fs.Register(IPXEHTTPScriptKernelName, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.KernelName, sc.Config.IPXE.HTTPScriptServer.KernelName))
 	fs.Register(IPXEHTTPScriptInitrdName, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.InitrdName, sc.Config.IPXE.HTTPScriptServer.InitrdName))
-	fs.Register(IPXEHTTPScriptTrustedProxies, ffval.NewList(&sc.Config.IPXE.HTTPScriptServer.TrustedProxies))
 	fs.Register(IPXEHTTPScriptRetries, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.Retries, sc.Config.IPXE.HTTPScriptServer.Retries))
 	fs.Register(IPXEHTTPScriptRetryDelay, ffval.NewValueDefault(&sc.Config.IPXE.HTTPScriptServer.RetryDelay, sc.Config.IPXE.HTTPScriptServer.RetryDelay))
 	fs.RegisterFamily(IPXEHTTPScriptOSIEURL, V4, &url.URL{URL: sc.Config.IPXE.HTTPScriptServer.OSIEURL})
@@ -183,8 +182,7 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 }
 
 // Convert CLI specific fields to smee.Config fields.
-func (s *SmeeConfig) Convert(trustedProxies *[]netip.Prefix, publicIP, publicIPv6 netip.Addr, bindAddr netip.Addr, defaultPort int) {
-	s.Config.IPXE.HTTPScriptServer.TrustedProxies = ntip.ToPrefixList(trustedProxies).Slice()
+func (s *SmeeConfig) Convert(publicIP, publicIPv6 netip.Addr, bindAddr netip.Addr, defaultPort int) {
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = s.advertisedHost(s.DHCPIPXEScript, publicIP, defaultPort)
 	s.Config.DHCP.IPXEHTTPBinaryURL.Host = s.advertisedHost(s.DHCPIPXEBinary, publicIP, defaultPort)
 	hasPublicIPv6 := publicIPv6.IsValid() && !publicIPv6.IsUnspecified()
@@ -458,11 +456,6 @@ var IPXEHTTPScriptKernelName = Config{
 var IPXEHTTPScriptInitrdName = Config{
 	Name:  "ipxe-http-script-initrd-name",
 	Usage: "[ipxe] name of the initrd file to fetch in the iPXE script, defaults to initramfs, which becomes initramfs-<arch> in the script",
-}
-
-var IPXEHTTPScriptTrustedProxies = Config{
-	Name:  "ipxe-http-script-trusted-proxies",
-	Usage: "[ipxe] comma separated list of trusted proxies in CIDR notation",
 }
 
 var IPXEHTTPScriptOSIEURL = Config{
