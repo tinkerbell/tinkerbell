@@ -114,6 +114,15 @@ func (h TFTP) HandleRead(filename string, rf io.ReaderFrom) error {
 	switch {
 	case err == nil:
 		span.SetStatus(codes.Ok, filename)
+	case errors.Is(err, ErrNetbootNotAllowed):
+		// TFTP has no status code to distinguish this with: the pin/tftp server
+		// packs every handler error into an ERROR packet with code 1 ("file not
+		// found"), so the message text is the only channel. err.Error() names
+		// netboot.allowPXE and the client's MAC/IP and is what the client
+		// prints, which in the L3 scenarios (external DHCP, static IPs, relay)
+		// is the operator's only clue. Logged at Info for the same reason.
+		log.Info("netboot not allowed for this client", "err", err)
+		span.SetStatus(codes.Error, err.Error())
 	case errors.Is(err, os.ErrNotExist):
 		// Expected fall-through: no route claimed the request. The Router wraps
 		// os.ErrNotExist for this case; log it quietly rather than as an error.

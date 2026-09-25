@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -133,5 +134,32 @@ func TestHTTPHandler(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A Hardware record with netboot.allowPXE=false must not look like a missing
+// file. In the L3 scenarios (external DHCP, static IPs, DHCP relay) Smee's DHCP
+// handler never runs, so this response is the only place the cause is visible;
+// a 404 would send the operator looking for the file instead of at the Hardware.
+func TestHTTPHandlerNetbootNotAllowed(t *testing.T) {
+	mac, err := net.ParseMAC("aa:bb:cc:dd:ee:ff")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolver := &fakeResolver{byMAC: map[string]hardware.Info{
+		mac.String(): {AllowNetboot: false, PXELINUX: hardware.PXELINUX{Config: "PROMPT 0\nDEFAULT linux"}},
+	}}
+
+	h := NewHTTPHandler(logr.Discard(), pxeHTTPRouter(resolver, t.TempDir()), "/tftp/")
+	rr := httptest.NewRecorder()
+	h.Handle(rr, httptest.NewRequest(http.MethodGet, "/tftp/pxelinux.cfg/01-aa-bb-cc-dd-ee-ff", nil))
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusForbidden)
+	}
+	// The body has to name the cause; the status alone doesn't say which of the
+	// several reasons a boot file can be refused this is.
+	if body := rr.Body.String(); !strings.Contains(body, "allowPXE") || !strings.Contains(body, mac.String()) {
+		t.Errorf("body = %q, want it to mention allowPXE and %v", body, mac)
 	}
 }
