@@ -84,7 +84,6 @@ deployment:
       ipxeHttpBinaryEnabled: {{ .Values.deployment.envs.smee.ipxeHttpBinaryEnabled }}
       ipxeHttpScriptEnabled: {{ .Values.deployment.envs.smee.ipxeHttpScriptEnabled }}
       ipxeHttpScriptExtraKernelArgs: {{ .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs | toYaml | nindent 8 }}
-      ipxeHttpScriptTrustedProxies: {{ .Values.deployment.envs.smee.ipxeHttpScriptTrustedProxies }}
       ipxeHttpScriptOsieURL: {{ .Values.deployment.envs.smee.ipxeHttpScriptOsieURL }}
       ipxeHttpScriptRetries: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetries }}
       ipxeHttpScriptRetryDelay: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetryDelay }}
