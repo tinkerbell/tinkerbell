@@ -285,6 +285,40 @@ spec:
                           should be set persistently as the first boot device.
                         type: boolean
                     type: object
+                  networkBootConfig:
+                    description: |-
+                      NetworkBootConfig enables/disables network boot protocol capabilities (UEFI HTTP Boot,
+                      legacy PXE) in BIOS/UEFI firmware, and/or sets the URL UEFI HTTP Boot fetches its boot
+                      image from. Support for the specific BMC vendor is implemented in bmclib.
+                    minProperties: 1
+                    properties:
+                      httpBootEnabled:
+                        description: |-
+                          HTTPBootEnabled enables (true) or disables (false) UEFI HTTP Boot capability, IPv4 and
+                          IPv6 both.
+                        type: boolean
+                      httpBootTLSMode:
+                        description: |-
+                          HTTPBootTLSMode sets the TLS authentication mode UEFI HTTP Boot uses to connect to the HTTP
+                          boot server: "None" allows fetching the boot image over plain HTTP, "OneWay" requires HTTPS
+                          with the server authenticated by the client. Some hardware defaults to "OneWay", which
+                          rejects an HTTPBootURL that isn't HTTPS. Independent of HTTPBootEnabled and HTTPBootURL.
+                        enum:
+                        - None
+                        - OneWay
+                        type: string
+                      httpBootURL:
+                        description: |-
+                          HTTPBootURL sets the URL UEFI HTTP Boot fetches its boot image from, via the standard
+                          Redfish ComputerSystem.Boot.HttpBootUri property. Independent of HTTPBootEnabled: setting
+                          the URL does not enable the capability, and enabling the capability does not require a URL.
+                        format: uri
+                        type: string
+                      pxeBootEnabled:
+                        description: PXEBootEnabled enables (true) or disables (false)
+                          legacy PXE boot capability.
+                        type: boolean
+                    type: object
                   oneTimeBootDeviceAction:
                     description: |-
                       OneTimeBootDeviceAction represents a baseboard management one time set boot device operation.

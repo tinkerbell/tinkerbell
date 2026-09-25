@@ -20,6 +20,7 @@ import (
 	"time"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
+	bmclibbmc "github.com/bmc-toolbox/bmclib/v2/bmc"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -247,9 +248,59 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 		return nil
 	}
 
+	if task.NetworkBootConfig != nil {
+		return r.runNetworkBootConfig(ctx, logger, task.NetworkBootConfig, bmcClient)
+	}
+
 	logger.Info("no action specified in Task, nothing to do", "task", task)
 
 	return errors.New("no action specified in Task, nothing to do")
+}
+
+// runNetworkBootConfig applies the independent, individually-optional fields of a
+// NetworkBootConfig action: any combination of HTTPBootEnabled/PXEBootEnabled, HTTPBootURL, and
+// HTTPBootTLSMode may be set at once.
+func (r *TaskReconciler) runNetworkBootConfig(ctx context.Context, logger logr.Logger, cfg *bmc.NetworkBootConfig, bmcClient *bmclib.Client) error {
+	if cfg.HTTPBootEnabled != nil || cfg.PXEBootEnabled != nil {
+		ok, err := bmcClient.SetNetworkBootEnabled(ctx, cfg.HTTPBootEnabled, cfg.PXEBootEnabled)
+		if err != nil || !ok {
+			return fmt.Errorf("failed to set network boot enabled state, ok: %v, err: %w", ok, err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("network boot enabled state set successfully",
+			"httpBootEnabled", boolPtrValue(cfg.HTTPBootEnabled),
+			"pxeBootEnabled", boolPtrValue(cfg.PXEBootEnabled),
+			"providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider)
+	}
+
+	if cfg.HTTPBootURL != nil {
+		ok, err := bmcClient.SetHTTPBootURI(ctx, *cfg.HTTPBootURL)
+		if err != nil || !ok {
+			return fmt.Errorf("failed to set HTTP boot URL, ok: %v, err: %w", ok, err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("http boot url set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
+	}
+
+	if cfg.HTTPBootTLSMode != nil {
+		ok, err := bmcClient.SetHTTPBootTLSMode(ctx, bmclibbmc.HTTPBootTLSMode(*cfg.HTTPBootTLSMode))
+		if err != nil || !ok {
+			return fmt.Errorf("failed to set HTTP boot TLS mode, ok: %v, err: %w", ok, err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("http boot tls mode set successfully", "httpBootTLSMode", *cfg.HTTPBootTLSMode, "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider)
+	}
+
+	return nil
+}
+
+// boolPtrValue returns the pointed-to value for logging, or nil if b is nil, so log lines show
+// "true"/"false"/"<nil>" instead of a pointer address.
+func boolPtrValue(b *bool) any {
+	if b == nil {
+		return nil
+	}
+	return *b
 }
 
 // checkTaskStatus checks if Task action completed.
