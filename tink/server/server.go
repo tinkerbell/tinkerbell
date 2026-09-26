@@ -163,6 +163,9 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		}
 		lis, err := listener.TCP(ctx, addrPort.Addr(), int(addrPort.Port()))
 		if err != nil {
+			for _, l := range listeners {
+				_ = l.Close()
+			}
 			return fmt.Errorf("failed to listen: %w", err)
 		}
 		listeners = append(listeners, lis)
@@ -184,13 +187,18 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		log.Info("Server stopped")
 	}()
 
-	// gs.Serve blocks per listener, and GracefulStop closes all of them, so the
-	// first return is the outcome for every family.
+	// A graceful shutdown closes every listener, so each Serve returns nil and
+	// g.Wait reports success. A Serve that fails on its own stops the shared
+	// server, otherwise the other family keeps serving and g.Wait never returns.
 	g, _ := errgroup.WithContext(ctx)
 	for _, lis := range listeners {
 		log.Info("starting gRPC server", "bindAddr", lis.Addr().String())
 		g.Go(func() error {
-			return gs.Serve(lis)
+			if err := gs.Serve(lis); err != nil {
+				gs.Stop()
+				return err
+			}
+			return nil
 		})
 	}
 	if err := g.Wait(); err != nil {
