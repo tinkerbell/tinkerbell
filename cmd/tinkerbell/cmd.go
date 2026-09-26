@@ -226,7 +226,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	)
 
 	// Smee
-	s.Convert(globals.PublicIP, globals.PublicIPv6, globals.BindAddr, globals.BindAddrV6, globals.HTTPPort)
+	s.Convert(globals.PublicIP, globals.PublicIPv6, globals.BindAddr, globals.BindAddrV6, globals.HTTPPort, globals.HTTPPortV6)
 	if s.DHCPIPXEBinary.Port == 0 {
 		s.DHCPIPXEBinary.Port = globals.HTTPPort
 	}

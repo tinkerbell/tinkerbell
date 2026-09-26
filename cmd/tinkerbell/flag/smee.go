@@ -190,15 +190,15 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 }
 
 // Convert CLI specific fields to smee.Config fields.
-func (s *SmeeConfig) Convert(publicIP, publicIPv6 netip.Addr, bindAddr, bindAddrV6 netip.Addr, defaultPort int) {
+func (s *SmeeConfig) Convert(publicIP, publicIPv6 netip.Addr, bindAddr, bindAddrV6 netip.Addr, defaultPort, defaultPortV6 int) {
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = s.advertisedHost(s.DHCPIPXEScript, publicIP, defaultPort)
 	s.Config.DHCP.IPXEHTTPBinaryURL.Host = s.advertisedHost(s.DHCPIPXEBinary, publicIP, defaultPort)
 	hasPublicIPv6 := publicIPv6.IsValid() && !publicIPv6.IsUnspecified()
 	if hasPublicIPv6 || s.DHCPv6IPXEScript.Host != "" || s.DHCPv6IPXEScript.Port != 0 {
-		s.Config.DHCPv6.IPXEHTTPScript.URL.Host = s.advertisedHost(s.DHCPv6IPXEScript, publicIPv6, defaultPort)
+		s.Config.DHCPv6.IPXEHTTPScript.URL.Host = s.advertisedHost(s.DHCPv6IPXEScript, publicIPv6, defaultPortV6)
 	}
 	if hasPublicIPv6 || s.DHCPv6IPXEBinary.Host != "" || s.DHCPv6IPXEBinary.Port != 0 {
-		s.Config.DHCPv6.IPXEHTTPBinaryURL.Host = s.advertisedHost(s.DHCPv6IPXEBinary, publicIPv6, defaultPort)
+		s.Config.DHCPv6.IPXEHTTPBinaryURL.Host = s.advertisedHost(s.DHCPv6IPXEBinary, publicIPv6, defaultPortV6)
 	}
 
 	// Service-specific bind addresses take precedence over the global bind address.

@@ -37,6 +37,10 @@ type Listener struct {
 	Addr      netip.Addr
 	HTTPPort  int
 	HTTPSPort int
+	// HTTPHandler, when set, serves this family's HTTP port instead of the
+	// handler passed to Serve. The HTTP to HTTPS redirect embeds a port, so it
+	// must be built per family.
+	HTTPHandler http.Handler
 }
 
 // Config is the configuration for the HTTP/HTTPS server.
@@ -115,8 +119,12 @@ func (c *Config) Serve(ctx context.Context, log logr.Logger, httpHandler http.Ha
 			continue
 		}
 		if httpHandler != nil {
+			h := httpHandler
+			if l.HTTPHandler != nil {
+				h = l.HTTPHandler
+			}
 			g.Go(func() error {
-				return c.doServe(ctx, log, l.Addr, l.HTTPPort, httpHandler, nil)
+				return c.doServe(ctx, log, l.Addr, l.HTTPPort, h, nil)
 			})
 			started++
 		}

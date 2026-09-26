@@ -183,7 +183,11 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 	routeList.Register(routeHealthz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Healthz()), "Liveness probe handler")
 	routeList.Register(routeReadyz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Readyz()), "Readiness probe handler")
 
-	httpMux, httpsMux := routeList.Muxes(httpLog, globals.HTTPSPort, !globals.TLS.DisableHTTPToHTTPSRedirect && tlsEnabled)
+	redirectToHTTPS := !globals.TLS.DisableHTTPToHTTPSRedirect && tlsEnabled
+	httpMux, httpsMux := routeList.Muxes(httpLog, globals.HTTPSPort, redirectToHTTPS)
+	// The redirect names a port, so IPv6 needs its own mux when the families
+	// listen for HTTPS on different ports.
+	httpMuxV6, _ := routeList.Muxes(httpLog, globals.HTTPSPortV6, redirectToHTTPS)
 
 	// Only wrap and pass the HTTPS handler when there are HTTPS routes
 	// (which implies TLS is configured) — otherwise skip the HTTPS server.
@@ -196,11 +200,15 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 	if err != nil {
 		return fmt.Errorf("failed to add middleware: %w", err)
 	}
+	httpHandlerV6, _, err := addMiddleware(httpLog, globals.TrustedProxies, httpMuxV6, nil)
+	if err != nil {
+		return fmt.Errorf("failed to add middleware: %w", err)
+	}
 
 	opts := []httpserver.Option{
 		func(c *httpserver.Config) {
-			c.V4 = httpserver.Listener{Addr: globals.BindAddr, HTTPPort: globals.HTTPPort, HTTPSPort: globals.HTTPSPort}
-			c.V6 = httpserver.Listener{Addr: globals.BindAddrV6, HTTPPort: globals.HTTPPortV6, HTTPSPort: globals.HTTPSPortV6}
+			c.V4 = httpserver.Listener{Addr: globals.BindAddr, HTTPPort: globals.HTTPPort, HTTPSPort: globals.HTTPSPort, HTTPHandler: httpHandler}
+			c.V6 = httpserver.Listener{Addr: globals.BindAddrV6, HTTPPort: globals.HTTPPortV6, HTTPSPort: globals.HTTPSPortV6, HTTPHandler: httpHandlerV6}
 			c.TLSCerts = s.Config.TLS.Certs
 		},
 	}
