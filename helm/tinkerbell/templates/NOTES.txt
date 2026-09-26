@@ -18,3 +18,20 @@ feature gate on the kubelet and API server.
 
 Reference: https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/
 {{- end }}
+{{- $v6only := eq (include "tinkerbell.ipv6Only" .) "true" }}
+
+IP family: {{ if $v6only }}IPv6-only, so the *V6 port values are in effect{{ else }}IPv4 or dual-stack, so the IPv4 port values are in effect{{ end }}.
+
+Ports the pod exposes and the Service targets:
+
+  http    {{ include "tinkerbell.containerPort" (dict "v4" .Values.deployment.envs.globals.httpPort "v6" .Values.deployment.envs.globals.httpPortV6 "v6only" $v6only) }}
+  https   {{ include "tinkerbell.containerPort" (dict "v4" .Values.deployment.envs.globals.httpsPort "v6" .Values.deployment.envs.globals.httpsPortV6 "v6only" $v6only) }}
+  grpc    {{ include "tinkerbell.containerPort" (dict "v4" .Values.deployment.envs.tinkServer.bindPort "v6" .Values.deployment.envs.tinkServer.bindPortV6 "v6only" $v6only) }}
+  ssh     {{ include "tinkerbell.containerPort" (dict "v4" .Values.deployment.envs.secondstar.bindPort "v6" .Values.deployment.envs.secondstar.bindPortV6 "v6only" $v6only) }}
+  tftp    {{ include "tinkerbell.containerPort" (dict "v4" .Values.deployment.envs.smee.tftpServerBindPort "v6" .Values.deployment.envs.smee.tftpServerBindPortV6 "v6only" $v6only) }}
+  syslog  {{ include "tinkerbell.containerPort" (dict "v4" .Values.deployment.envs.smee.syslogBindPort "v6" .Values.deployment.envs.smee.syslogBindPortV6 "v6only" $v6only) }}
+{{- if and .Values.service.enabled (not $v6only) }}
+
+A Service port has one targetPort for both families, so the *V6 port values must
+match their IPv4 counterparts. Leave them empty to inherit.
+{{- end }}

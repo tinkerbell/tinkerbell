@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -10,9 +11,11 @@ import (
 	"github.com/go-logr/logr"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/tinkerbell/tinkerbell/pkg/listener"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	grpcinternal "github.com/tinkerbell/tinkerbell/tink/server/internal/grpc"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
@@ -34,9 +37,11 @@ func init() {
 type Config struct {
 	Backend      grpcinternal.Backend
 	BindAddrPort netip.AddrPort
-	Logger       logr.Logger
-	Auto         AutoCapabilities
-	TLS          TLS
+	// BindAddrPortV6 is the IPv6 address and port to serve on. Unset leaves IPv6 unserved.
+	BindAddrPortV6 netip.AddrPort
+	Logger         logr.Logger
+	Auto           AutoCapabilities
+	TLS            TLS
 }
 
 type AutoCapabilities struct {
@@ -151,10 +156,22 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	reflection.Register(gs)
 	grpcServerMetrics.InitializeMetrics(gs)
 
-	n := net.ListenConfig{}
-	lis, err := n.Listen(ctx, "tcp", c.BindAddrPort.String())
-	if err != nil {
-		return fmt.Errorf("failed to listen: %w", err)
+	var listeners []net.Listener
+	for _, addrPort := range []netip.AddrPort{c.BindAddrPort, c.BindAddrPortV6} {
+		if !addrPort.Addr().IsValid() {
+			continue
+		}
+		lis, err := listener.TCP(ctx, addrPort.Addr(), int(addrPort.Port()))
+		if err != nil {
+			for _, l := range listeners {
+				_ = l.Close()
+			}
+			return fmt.Errorf("failed to listen: %w", err)
+		}
+		listeners = append(listeners, lis)
+	}
+	if len(listeners) == 0 {
+		return errors.New("tink server has no IPv4 or IPv6 bind address")
 	}
 
 	go func() {
@@ -170,8 +187,21 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		log.Info("Server stopped")
 	}()
 
-	log.Info("starting gRPC server", "bindAddr", c.BindAddrPort.String())
-	if err := gs.Serve(lis); err != nil {
+	// A graceful shutdown closes every listener, so each Serve returns nil and
+	// g.Wait reports success. A Serve that fails on its own stops the shared
+	// server, otherwise the other family keeps serving and g.Wait never returns.
+	g, _ := errgroup.WithContext(ctx)
+	for _, lis := range listeners {
+		log.Info("starting gRPC server", "bindAddr", lis.Addr().String())
+		g.Go(func() error {
+			if err := gs.Serve(lis); err != nil {
+				gs.Stop()
+				return err
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
 		log.Error(err, "failed to serve")
 		return err
 	}

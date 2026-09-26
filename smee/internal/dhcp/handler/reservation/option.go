@@ -22,6 +22,16 @@ func firstNonEmptyIPs(primary, fallback []net.IP) []net.IP {
 	return fallback
 }
 
+func ipv4Only(servers []net.IP) []net.IP {
+	var result []net.IP
+	for _, server := range servers {
+		if server := server.To4(); server != nil {
+			result = append(result, server)
+		}
+	}
+	return result
+}
+
 // firstNonEmptyStrings returns primary, or fallback when primary is empty.
 func firstNonEmptyStrings(primary, fallback []string) []string {
 	if len(primary) > 0 {
@@ -38,7 +48,7 @@ func (h *Handler) setDHCPOpts(_ context.Context, _ *dhcpv4.DHCPv4, d *dhcp.DHCP)
 		dhcpv4.WithLeaseTime(d.LeaseTime),
 		dhcpv4.WithYourIP(d.IPAddress.AsSlice()),
 	}
-	if nameServers := firstNonEmptyIPs(d.NameServers, h.DNSDefaults.NameServers); len(nameServers) > 0 {
+	if nameServers := firstNonEmptyIPs(ipv4Only(d.NameServers), ipv4Only(h.DNSDefaults.NameServers)); len(nameServers) > 0 {
 		mods = append(mods, dhcpv4.WithDNS(nameServers...))
 	}
 	if domainSearch := firstNonEmptyStrings(d.DomainSearch, h.DNSDefaults.DomainSearch); len(domainSearch) > 0 {

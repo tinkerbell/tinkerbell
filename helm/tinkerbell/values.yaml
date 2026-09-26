@@ -29,6 +29,7 @@ deployment:
       backendKubeNamespace: ""
       backendKubeQPS: 100
       bindAddr: ""
+      bindAddrV6: ""
       disableHttpToHttpsRedirect: false # set true to stop auto-redirecting plain HTTP requests to HTTPS when TLS is enabled
       enableCRDMigrations: true
       enableRufioController: true
@@ -39,7 +40,9 @@ deployment:
       enableTinkController: true
       enableUI: true
       httpPort: 7080
+      httpPortV6: "" # Defaults to httpPort when empty. Must equal httpPort unless service.enabled is false.
       httpsPort: 7443
+      httpsPortV6: "" # Defaults to httpsPort when empty. Must equal httpsPort unless service.enabled is false.
       logLevel: 0
       otelEndpoint: ""
       otelInsecure: false
@@ -58,7 +61,10 @@ deployment:
       maxConcurrentReconciles: 1
       powerCheckInterval: "30m0s"
     secondstar:
+      bindAddr: ""
+      bindAddrV6: ""
       bindPort: 2222
+      bindPortV6: "" # Defaults to bindPort when empty. Must equal bindPort unless service.enabled is false.
       hostKeyPath: ""
       ipmitoolPath: "/usr/sbin/ipmitool"
       idleTimeout: "15m"
@@ -136,13 +142,13 @@ deployment:
       syslogBindAddr: ""
       syslogBindAddrV6: ""
       syslogBindPort: 514
-      syslogBindPortV6: 514
+      syslogBindPortV6: "" # Defaults to syslogBindPort when empty. Must equal syslogBindPort unless service.enabled is false.
       syslogEnabled: true
       tftpBlockSize: 512
       tftpServerBindAddr: ""
       tftpServerBindAddrV6: ""
       tftpServerBindPort: 69
-      tftpServerBindPortV6: 69
+      tftpServerBindPortV6: "" # Defaults to tftpServerBindPort when empty. Must equal tftpServerBindPort unless service.enabled is false.
       tftpServerEnabled: true
       tftpTimeout: "10s"
       tftpSinglePort: true # if true, use single port mode for TFTP server
@@ -163,6 +169,8 @@ deployment:
       autoEnrollmentEnabled: false
       bindAddr: ""
       bindPort: 42113
+      bindAddrV6: ""
+      bindPortV6: "" # Defaults to bindPort when empty. Must equal bindPort unless service.enabled is false.
       logLevel: 0
     tootles:
       debugMode: false

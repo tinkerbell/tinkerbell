@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -33,9 +34,10 @@ func TestNewConfig_Defaults(t *testing.T) {
 		{"IdleTimeout", cfg.IdleTimeout, DefaultIdleTimeout},
 		{"MaxHeaderBytes", cfg.MaxHeaderBytes, DefaultMaxHeaderBytes},
 		{"ShutdownTimeout", cfg.ShutdownTimeout, DefaultShutdownTimeout},
-		{"BindAddr", cfg.BindAddr, ""},
-		{"BindPort", cfg.BindPort, 0},
-		{"HTTPSPort", cfg.HTTPSPort, 0},
+		{"V4.Addr", cfg.V4.Addr.IsValid(), false},
+		{"V4.HTTPPort", cfg.V4.HTTPPort, 0},
+		{"V4.HTTPSPort", cfg.V4.HTTPSPort, 0},
+		{"V6.Addr", cfg.V6.Addr.IsValid(), false},
 	}
 	for _, c := range checks {
 		if fmt.Sprint(c.got) != fmt.Sprint(c.want) {
@@ -46,16 +48,15 @@ func TestNewConfig_Defaults(t *testing.T) {
 
 func TestNewConfig_WithOptions(t *testing.T) {
 	cfg := NewConfig(
-		func(c *Config) { c.BindAddr = "10.0.0.1" },
-		func(c *Config) { c.BindPort = 9999 },
+		func(c *Config) { c.V4 = Listener{Addr: netip.MustParseAddr("10.0.0.1"), HTTPPort: 9999} },
 		func(c *Config) { c.ReadTimeout = 5 * time.Second },
 	)
 
-	if cfg.BindAddr != "10.0.0.1" {
-		t.Errorf("BindAddr = %q, want %q", cfg.BindAddr, "10.0.0.1")
+	if got, want := cfg.V4.Addr.String(), "10.0.0.1"; got != want {
+		t.Errorf("V4.Addr = %q, want %q", got, want)
 	}
-	if cfg.BindPort != 9999 {
-		t.Errorf("BindPort = %d, want %d", cfg.BindPort, 9999)
+	if cfg.V4.HTTPPort != 9999 {
+		t.Errorf("V4.HTTPPort = %d, want %d", cfg.V4.HTTPPort, 9999)
 	}
 	if cfg.ReadTimeout != 5*time.Second {
 		t.Errorf("ReadTimeout = %v, want %v", cfg.ReadTimeout, 5*time.Second)
@@ -156,8 +157,7 @@ func TestServe_HTTPOnly(t *testing.T) {
 	})
 
 	cfg := NewConfig(func(c *Config) {
-		c.BindAddr = "127.0.0.1"
-		c.BindPort = port
+		c.V4 = Listener{Addr: netip.MustParseAddr("127.0.0.1"), HTTPPort: port}
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -202,8 +202,7 @@ func TestServe_HTTPOnlyIPv6(t *testing.T) {
 	})
 
 	cfg := NewConfig(func(c *Config) {
-		c.BindAddr = "::1"
-		c.BindPort = port
+		c.V6 = Listener{Addr: netip.MustParseAddr("::1"), HTTPPort: port}
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -274,9 +273,7 @@ func TestServe_HTTPS(t *testing.T) {
 	})
 
 	cfg := NewConfig(func(c *Config) {
-		c.BindAddr = "127.0.0.1"
-		c.BindPort = httpPort
-		c.HTTPSPort = httpsPort
+		c.V4 = Listener{Addr: netip.MustParseAddr("127.0.0.1"), HTTPPort: httpPort, HTTPSPort: httpsPort}
 		c.TLSCerts = []tls.Certificate{cert}
 	})
 
@@ -332,8 +329,7 @@ func TestServe_GracefulShutdownWaitsForInflight(t *testing.T) {
 	})
 
 	cfg := NewConfig(func(c *Config) {
-		c.BindAddr = "127.0.0.1"
-		c.BindPort = port
+		c.V4 = Listener{Addr: netip.MustParseAddr("127.0.0.1"), HTTPPort: port}
 		c.ShutdownTimeout = 10 * time.Second
 	})
 
@@ -402,8 +398,7 @@ func TestServe_BindError(t *testing.T) {
 
 	// Try to start the server on the same port.
 	cfg := NewConfig(func(c *Config) {
-		c.BindAddr = "127.0.0.1"
-		c.BindPort = port
+		c.V4 = Listener{Addr: netip.MustParseAddr("127.0.0.1"), HTTPPort: port}
 	})
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
