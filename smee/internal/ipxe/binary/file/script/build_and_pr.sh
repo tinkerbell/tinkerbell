@@ -15,6 +15,8 @@ tracked_files=(
     "./script/ipxe-customizations/common.h"
     "./script/embed.ipxe"
     "./script/ipxe.commit"
+    "./script/iso.patch"
+    "./script/dhcp6-veto.patch"
     "./ipxe.efi"
     "./snp-arm64.efi"
     "./snp-x86_64.efi"
@@ -128,6 +130,19 @@ function create_branch() {
     echo "Branch ${branch} created and pushed to GitHub"
 }
 
+# describe the push that produced these binaries. Several of these PRs can be
+# open at once and the branch name carries only a timestamp.
+function pr_body() {
+    local repository="${IPXE_TARGET_GH_OWNER_REPO:-tinkerbell/tinkerbell}"
+    local sha="${IPXE_TRIGGER_SHA:-${GITHUB_SHA:-}}"
+
+    echo "Automated iPXE binaries update."
+    if [ -n "${sha}" ]; then
+        echo
+        echo "Triggered by https://github.com/${repository}/commit/${sha}"
+    fi
+}
+
 # create Github Pull Request
 function create_pull_request() {
     local branch="$1"
@@ -171,7 +186,7 @@ function main() {
         echo "Creating pull request"
         # Create pull request
         check_github_token
-        create_pull_request "${branch}" "main" "Update iPXE binaries" "Automated iPXE binaries update."
+        create_pull_request "${branch}" "main" "Update iPXE binaries" "$(pr_body)"
         return 0
     fi
 
