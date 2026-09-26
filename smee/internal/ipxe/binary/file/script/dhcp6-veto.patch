@@ -1,0 +1,65 @@
+Restore the Dhcp6Dxe driver veto
+
+Reverts iPXE commit 5e06c866a ("[efi] Remove the Dhcp6Dxe driver veto").
+
+That commit removed the veto on the premise that, since iPXE now calls
+UnloadImage() at TPL_APPLICATION, it no longer triggers the edk2 bug at
+https://github.com/tianocore/edk2/issues/10506, where EfiDhcp6Stop() spins
+waiting for an event that never fires.
+
+The premise does not hold when the firmware itself PXE-booted over IPv6:
+Dhcp6Dxe is already bound before iPXE loads, and iPXE hangs at "initialising
+devices" instead of reaching its banner. Bisected to 5e06c866a, whose parent
+8796d2fb0 boots normally.
+
+Reproduced against OVMF 202608 with IPv4 PXE disabled
+(-fw_cfg opt/org.tianocore/IPv4PXESupport,string=false), so the newest edk2
+does not carry a fix, and upstream iPXE master has no commits touching
+efi_veto.c since the removal.
+
+Drop this patch once edk2#10506 is fixed or upstream restores the veto.
+
+--- a/src/interface/efi/efi_veto.c
++++ b/src/interface/efi/efi_veto.c
+@@ -480,6 +480,30 @@ efi_veto_vmware_uefipxebc ( EFI_DRIVER_BINDING_PROTOCOL *binding __unused,
+ 	return 1;
+ }
+ 
++/**
++ * Veto Dhcp6Dxe driver
++ *
++ * @v binding		Driver binding protocol
++ * @v loaded		Loaded image protocol
++ * @v manufacturer	Manufacturer name, if present
++ * @v name		Driver name, if present
++ * @ret vetoed		Driver is to be vetoed
++ */
++static int efi_veto_dhcp6 ( EFI_DRIVER_BINDING_PROTOCOL *binding __unused,
++			    EFI_LOADED_IMAGE_PROTOCOL *loaded __unused,
++			    const char *manufacturer __unused,
++			    const CHAR16 *name ) {
++	static const CHAR16 dhcp6[] = L"DHCP6 Protocol Driver";
++
++	/* Check driver name */
++	if ( ! name )
++		return 0;
++	if ( memcmp ( name, dhcp6, sizeof ( dhcp6 ) ) != 0 )
++		return 0;
++
++	return 1;
++}
++
+ /** Driver vetoes */
+ static struct efi_veto_candidate efi_vetoes[] = {
+ 	{
+@@ -494,6 +518,10 @@ static struct efi_veto_candidate efi_vetoes[] = {
+ 		.name = "VMware UefiPxeBc",
+ 		.veto = efi_veto_vmware_uefipxebc,
+ 	},
++	{
++		.name = "Dhcp6",
++		.veto = efi_veto_dhcp6,
++	},
+ };
+ 
+ /**

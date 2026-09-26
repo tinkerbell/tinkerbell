@@ -1,7 +1,7 @@
 IPXE_BUILD_SCRIPT := script/build_ipxe.sh
 IPXE_FETCH_SCRIPT := script/fetch_and_extract_ipxe.sh
 IPXE_NIX_SHELL := script/shell.nix
-IPXE_ISO_BUILD_PATCH := script/iso.patch
+IPXE_BUILD_PATCHES := $(sort $(wildcard script/*.patch))
 BINARIES := ipxe.efi snp-arm64.efi snp-x86_64.efi undionly.kpxe ipxe.iso ipxe-efi.img
 
 help: ## show this help message
@@ -21,8 +21,8 @@ ipxe_readme := upstream-$(ipxe_sha_or_tag)/README
 
 .PHONY: extract-ipxe
 extract-ipxe: $(ipxe_readme) ## Fetch and extract ipxe source
-$(ipxe_readme): script/ipxe.commit
-	${IPXE_FETCH_SCRIPT} "$(ipxe_sha_or_tag)" ${IPXE_ISO_BUILD_PATCH}
+$(ipxe_readme): script/ipxe.commit $(IPXE_BUILD_PATCHES)
+	${IPXE_FETCH_SCRIPT} "$(ipxe_sha_or_tag)" ${IPXE_BUILD_PATCHES}
 	touch "$@"
 
 ipxe.efi: $(ipxe_readme) ## build ipxe.efi
