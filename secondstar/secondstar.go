@@ -2,8 +2,11 @@ package secondstar
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"os"
 	"time"
@@ -43,29 +46,48 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		return errors.New("secondstar has no IPv4 or IPv6 bind address")
 	}
 
-	g, ctx := errgroup.WithContext(ctx)
+	// Bind every family before serving any of them so a later bind failure
+	// cannot leave an already started server running after Start returns.
+	var listeners []net.Listener
 	for _, addrPort := range addrPorts {
 		lis, err := listener.TCP(ctx, addrPort.Addr(), int(addrPort.Port()))
 		if err != nil {
+			closeListeners(listeners)
 			return err
 		}
+		listeners = append(listeners, lis)
+	}
 
-		log.Info("starting ssh server", "addrPort", addrPort.String())
+	hostKey := c.HostKey
+	if hostKey == nil {
+		// One generated key, so both families present the same SSH identity.
+		var err error
+		if hostKey, err = generateHostKey(); err != nil {
+			closeListeners(listeners)
+			return err
+		}
+	}
+
+	// One store for every family, so a session arriving over the other family
+	// attaches to the running SOL session instead of starting a second one.
+	handler := internal.Handler(log, internal.NewKeyValueStore(), c.IPMITOOLPath)
+	pubkeyAuth := internal.PubkeyAuth(c.Backend, log)
+
+	g, ctx := errgroup.WithContext(ctx)
+	for _, lis := range listeners {
 		server := &gssh.Server{
-			Handler:          internal.Handler(log, internal.NewKeyValueStore(), c.IPMITOOLPath),
-			PublicKeyHandler: internal.PubkeyAuth(c.Backend, log),
+			Handler:          handler,
+			PublicKeyHandler: pubkeyAuth,
 			Banner:           "Second star to the right and straight on 'til morning\n[Use ~. to disconnect]\n",
 			IdleTimeout:      c.IdleTimeout,
 		}
+		server.AddHostKey(hostKey)
 
-		// when c.HostKey is nil, the server will generate a new host key on every start.
-		if c.HostKey != nil {
-			server.AddHostKey(c.HostKey)
-		}
+		log.Info("starting ssh server", "addrPort", lis.Addr().String())
 
 		go func() { //nolint:gosec // G118: ctx is already cancelled here; a fresh context is needed for graceful shutdown
 			<-ctx.Done()
-			log.Info("shutting down ssh server", "addrPort", addrPort.String())
+			log.Info("shutting down ssh server", "addrPort", lis.Addr().String())
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := server.Shutdown(shutdownCtx); err != nil {
@@ -82,6 +104,22 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	}
 
 	return g.Wait()
+}
+
+func closeListeners(listeners []net.Listener) {
+	for _, lis := range listeners {
+		_ = lis.Close()
+	}
+}
+
+// generateHostKey matches the key gliderlabs/ssh generates when none is set.
+func generateHostKey() (ssh.Signer, error) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, fmt.Errorf("error generating host key: %w", err)
+	}
+
+	return ssh.NewSignerFromKey(key)
 }
 
 func sshAddrPort(addr netip.Addr, port int) string {
