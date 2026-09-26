@@ -31,17 +31,21 @@ function extract_ipxe_repo() {
 }
 
 # patch_ipxe is needed to apply any patches needed to aid the build process.
-# currently the only use case if for ipxe.iso building.
+# Patches land in the shared extracted source, so every binary target gets them.
 function patch_ipxe() {
 	local archive_dir="$1"
-	local patch_file="$2"
+	shift
 
-	echo "applying patch"
-	patch --verbose -s -p1 -t -d "${archive_dir}" < "${patch_file}"
+	local patch_file
+	for patch_file in "$@"; do
+		echo "applying ${patch_file}"
+		patch --verbose -s -p1 -t -d "${archive_dir}" <"${patch_file}"
+	done
 }
 
 ipxe_sha_or_tag=$1
+shift
 archive_name=ipxe-${ipxe_sha_or_tag}.tar.gz
 download_ipxe_repo "${ipxe_sha_or_tag}" "${archive_name}"
 extract_ipxe_repo "${archive_name}" "upstream-${ipxe_sha_or_tag}"
-patch_ipxe "upstream-${ipxe_sha_or_tag}" "$2"
+patch_ipxe "upstream-${ipxe_sha_or_tag}" "$@"
