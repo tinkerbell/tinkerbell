@@ -204,6 +204,7 @@ does not allow changing the primary family in place. See the
 These examples configure Service IP allocation. Also configure the matching
 public addresses and artifact URLs in [Required Values](#required-values),
 IPv6-capable listeners as described in [Bind Address Behavior](#bind-address-behavior),
+the port values described in [Per-Family Ports](#per-family-ports),
 and cluster networking and a load balancer that support the requested families.
 Service family settings do not enable DHCPv6; if Smee provides DHCPv6, set
 `deployment.envs.smee.dhcpv6Enabled: true` separately. The OSIE Service settings
@@ -278,6 +279,46 @@ appropriate IPv6-capable `bindAddr`, configuring service-specific listeners,
 or using an IPv6 load balancer or proxy. Setting `dhcpv6BindAddr` alone only
 changes the DHCPv6 listener and does not expose the referenced shared services
 over IPv6.
+
+## Per-Family Ports
+
+Each bind port has an IPv6 counterpart. Leave the IPv6 value empty and it
+inherits the IPv4 value, which is the recommended setting:
+
+| IPv4 value | IPv6 value |
+|------------|------------|
+| `deployment.envs.globals.httpPort` | `deployment.envs.globals.httpPortV6` |
+| `deployment.envs.globals.httpsPort` | `deployment.envs.globals.httpsPortV6` |
+| `deployment.envs.tinkServer.bindPort` | `deployment.envs.tinkServer.bindPortV6` |
+| `deployment.envs.secondstar.bindPort` | `deployment.envs.secondstar.bindPortV6` |
+| `deployment.envs.smee.tftpServerBindPort` | `deployment.envs.smee.tftpServerBindPortV6` |
+| `deployment.envs.smee.syslogBindPort` | `deployment.envs.smee.syslogBindPortV6` |
+
+**A Service port entry has a single `targetPort` that both families share.**
+Kubernetes provides no way to route IPv4 and IPv6 to different container ports
+through one Service, so while `service.enabled` is `true` each IPv6 value must
+equal its IPv4 counterpart. The chart fails at render time rather than creating
+a listener the Service cannot reach:
+
+```text
+deployment.envs.smee.tftpServerBindPortV6 (6969) must equal
+deployment.envs.smee.tftpServerBindPort (69): a Service port has a single
+targetPort shared by both IP families.
+```
+
+To bind a different port per family, set `service.enabled: false` and reach the
+pod directly, for example with `deployment.hostNetwork: true`. Note that
+`hostNetwork` alone is not enough: traffic arriving through a Service still
+lands on `targetPort`.
+
+When the deployment is IPv6-only, the IPv6 values take effect and drive both
+the container port and the Service target. The chart treats a deployment as
+IPv6-only when `service.ipFamilies` selects IPv6 without IPv4, or, if that is
+unset, when `publicIPv6` is set and `publicIP` is not. `helm install` prints
+the resolved family and the effective ports.
+
+DHCP and DHCPv6 are unaffected: they have separate Service entries, so
+`dhcpBindPort` and `dhcpv6BindPort` may differ.
 
 ## Additional RBAC Rules
 

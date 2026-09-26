@@ -23,6 +23,32 @@
   {{- fail "artifactsFileServerV6 must use an IPv6 address or hostname; use artifactsFileServer for IPv4 addresses" }}
 {{- end }}
 {{- end }}
+{{- $v6only := eq (include "tinkerbell.ipv6Only" .) "true" }}
+{{- $httpPort := .Values.deployment.envs.globals.httpPort }}
+{{- $httpPortV6 := default $httpPort .Values.deployment.envs.globals.httpPortV6 }}
+{{- $httpsPort := .Values.deployment.envs.globals.httpsPort }}
+{{- $httpsPortV6 := default $httpsPort .Values.deployment.envs.globals.httpsPortV6 }}
+{{- $grpcPort := .Values.deployment.envs.tinkServer.bindPort }}
+{{- $grpcPortV6 := default $grpcPort .Values.deployment.envs.tinkServer.bindPortV6 }}
+{{- $sshPort := .Values.deployment.envs.secondstar.bindPort }}
+{{- $sshPortV6 := default $sshPort .Values.deployment.envs.secondstar.bindPortV6 }}
+{{- $syslogPort := .Values.deployment.envs.smee.syslogBindPort }}
+{{- $syslogPortV6 := default $syslogPort .Values.deployment.envs.smee.syslogBindPortV6 }}
+{{- $tftpPort := .Values.deployment.envs.smee.tftpServerBindPort }}
+{{- $tftpPortV6 := default $tftpPort .Values.deployment.envs.smee.tftpServerBindPortV6 }}
+{{- if and .Values.service.enabled (not $v6only) }}
+{{- range $pair := list
+      (dict "name" "globals.httpPortV6" "peer" "globals.httpPort" "v4" $httpPort "v6" $httpPortV6)
+      (dict "name" "globals.httpsPortV6" "peer" "globals.httpsPort" "v4" $httpsPort "v6" $httpsPortV6)
+      (dict "name" "tinkServer.bindPortV6" "peer" "tinkServer.bindPort" "v4" $grpcPort "v6" $grpcPortV6)
+      (dict "name" "secondstar.bindPortV6" "peer" "secondstar.bindPort" "v4" $sshPort "v6" $sshPortV6)
+      (dict "name" "smee.syslogBindPortV6" "peer" "smee.syslogBindPort" "v4" $syslogPort "v6" $syslogPortV6)
+      (dict "name" "smee.tftpServerBindPortV6" "peer" "smee.tftpServerBindPort" "v4" $tftpPort "v6" $tftpPortV6) }}
+{{- if ne (toString $pair.v6) (toString $pair.v4) }}
+  {{- fail (printf "deployment.envs.%s (%v) must equal deployment.envs.%s (%v): a Service port has a single targetPort shared by both IP families. Leave it empty to inherit, or set service.enabled=false to bind a different port per family." $pair.name $pair.v6 $pair.peer $pair.v4) }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- if .Values.deployment.daemonSet.enabled }}
 apiVersion: apps/v1
 kind: DaemonSet
@@ -137,9 +163,9 @@ spec:
             - name: TINKERBELL_TINK_SERVER_BIND_ADDR_V6
               value: {{ .Values.deployment.envs.tinkServer.bindAddrV6 | quote }}
             - name: TINKERBELL_TINK_SERVER_BIND_PORT_V4
-              value: {{ .Values.deployment.envs.tinkServer.bindPort | quote }}
+              value: {{ $grpcPort | quote }}
             - name: TINKERBELL_TINK_SERVER_BIND_PORT_V6
-              value: {{ .Values.deployment.envs.tinkServer.bindPortV6 | quote }}
+              value: {{ $grpcPortV6 | quote }}
             - name: TINKERBELL_TINK_SERVER_LOG_LEVEL
               value: {{ .Values.deployment.envs.tinkServer.logLevel | quote }}
             - name: TINKERBELL_TINK_SERVER_AUTO_ENROLLMENT_ENABLED
@@ -301,9 +327,9 @@ spec:
             - name: TINKERBELL_SYSLOG_BIND_ADDR_V6
               value: {{ .Values.deployment.envs.smee.syslogBindAddrV6 | quote }}
             - name: TINKERBELL_SYSLOG_BIND_PORT_V4
-              value: {{ .Values.deployment.envs.smee.syslogBindPort | quote }}
+              value: {{ $syslogPort | quote }}
             - name: TINKERBELL_SYSLOG_BIND_PORT_V6
-              value: {{ .Values.deployment.envs.smee.syslogBindPortV6 | quote }}
+              value: {{ $syslogPortV6 | quote }}
             - name: TINKERBELL_TFTP_SERVER_ENABLED
               value: {{ .Values.deployment.envs.smee.tftpServerEnabled | quote }}
             - name: TINKERBELL_TFTP_SERVER_BIND_ADDR_V4
@@ -311,9 +337,9 @@ spec:
             - name: TINKERBELL_TFTP_SERVER_BIND_ADDR_V6
               value: {{ .Values.deployment.envs.smee.tftpServerBindAddrV6 | quote }}
             - name: TINKERBELL_TFTP_SERVER_BIND_PORT_V4
-              value: {{ .Values.deployment.envs.smee.tftpServerBindPort | quote }}
+              value: {{ $tftpPort | quote }}
             - name: TINKERBELL_TFTP_SERVER_BIND_PORT_V6
-              value: {{ .Values.deployment.envs.smee.tftpServerBindPortV6 | quote }}
+              value: {{ $tftpPortV6 | quote }}
             - name: TINKERBELL_TFTP_TIMEOUT
               value: {{ .Values.deployment.envs.smee.tftpTimeout | quote }}
             - name: TINKERBELL_TFTP_BLOCK_SIZE
@@ -332,9 +358,9 @@ spec:
             - name: TINKERBELL_SECONDSTAR_BIND_ADDR_V6
               value: {{ .Values.deployment.envs.secondstar.bindAddrV6 | quote }}
             - name: TINKERBELL_SECONDSTAR_PORT_V4
-              value: {{ .Values.deployment.envs.secondstar.bindPort | quote }}
+              value: {{ $sshPort | quote }}
             - name: TINKERBELL_SECONDSTAR_PORT_V6
-              value: {{ .Values.deployment.envs.secondstar.bindPortV6 | quote }}
+              value: {{ $sshPortV6 | quote }}
             - name: TINKERBELL_SECONDSTAR_HOST_KEY
               value: {{ .Values.deployment.envs.secondstar.hostKeyPath | quote }}
             - name: TINKERBELL_SECONDSTAR_IPMITOOL_PATH
@@ -404,25 +430,25 @@ spec:
             - name: TINKERBELL_DISABLE_HTTP_TO_HTTPS_REDIRECT
               value: {{ .Values.deployment.envs.globals.disableHttpToHttpsRedirect | quote }}
             - name: TINKERBELL_HTTP_PORT_V4
-              value: {{ .Values.deployment.envs.globals.httpPort | quote }}
+              value: {{ $httpPort | quote }}
             - name: TINKERBELL_HTTP_PORT_V6
-              value: {{ .Values.deployment.envs.globals.httpPortV6 | quote }}
+              value: {{ $httpPortV6 | quote }}
             - name: TINKERBELL_HTTPS_PORT_V4
-              value: {{ .Values.deployment.envs.globals.httpsPort | quote }}
+              value: {{ $httpsPort | quote }}
             - name: TINKERBELL_HTTPS_PORT_V6
-              value: {{ .Values.deployment.envs.globals.httpsPortV6 | quote }}
+              value: {{ $httpsPortV6 | quote }}
             {{- with .Values.deployment.additionalEnvs }}
           # Additional environment variables
             {{- toYaml . | nindent 12 }}
             {{- end }}
           ports:
           {{- if .Values.deployment.envs.globals.enableSmee }}
-            - containerPort: {{ .Values.deployment.envs.smee.tftpServerBindPort }}
+            - containerPort: {{ include "tinkerbell.containerPort" (dict "v4" $tftpPort "v6" $tftpPortV6 "v6only" $v6only) }}
             {{- with .Values.service.ports.tftp }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
-            - containerPort: {{ .Values.deployment.envs.smee.syslogBindPort }}
+            - containerPort: {{ include "tinkerbell.containerPort" (dict "v4" $syslogPort "v6" $syslogPortV6 "v6only" $v6only) }}
             {{- with .Values.service.ports.syslog }}
               name: {{ .name }}
               protocol: {{ .protocol }}
@@ -438,27 +464,27 @@ spec:
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
-            - containerPort: {{ .Values.deployment.envs.globals.httpPort }} # This is always enabled because /metrics and /healthcheck are always enabled.
+            - containerPort: {{ include "tinkerbell.containerPort" (dict "v4" $httpPort "v6" $httpPortV6 "v6only" $v6only) }} # This is always enabled because /metrics and /healthcheck are always enabled.
             {{- with .Values.service.ports.http }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
           {{- if .Values.deployment.envs.globals.enableTinkServer }}
-            - containerPort: {{ .Values.deployment.envs.tinkServer.bindPort }}
+            - containerPort: {{ include "tinkerbell.containerPort" (dict "v4" $grpcPort "v6" $grpcPortV6 "v6only" $v6only) }}
             {{- with .Values.service.ports.grpc }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
           {{- if .Values.deployment.envs.globals.enableSecondstar }}
-            - containerPort: {{ .Values.deployment.envs.secondstar.bindPort }}
+            - containerPort: {{ include "tinkerbell.containerPort" (dict "v4" $sshPort "v6" $sshPortV6 "v6only" $v6only) }}
             {{- with .Values.service.ports.ssh }}
               name: {{ .name }}
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
           {{- if and .Values.deployment.envs.globals.tlsCertFile .Values.deployment.envs.globals.tlsKeyFile }}
-            - containerPort: {{ .Values.deployment.envs.globals.httpsPort }}
+            - containerPort: {{ include "tinkerbell.containerPort" (dict "v4" $httpsPort "v6" $httpsPortV6 "v6only" $v6only) }}
             {{- with .Values.service.ports.https }}
               name: {{ .name }}
               protocol: {{ .protocol }}
