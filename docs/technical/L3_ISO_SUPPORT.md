@@ -22,10 +22,10 @@ The format of the URL is as follows: `http(s)://<TINKERBELL_IP_OR_HOSTNAME>:<POR
 
 Use `/iso6/<MAC_ADDRESS>/hook.iso` to patch the ISO with the IPv6 syslog and Tinkerbell gRPC endpoints. The URL path selects the endpoint family independently of the connection used to download the ISO, so a BMC can download an IPv6-configured ISO over IPv4. Both routes are enabled by `--iso-enabled` and share the same source ISO and patching options.
 
-Static IPAM supports IPv4 only. When `--iso-static-ipam-enabled` is set, `/iso6/` requests return HTTP 400 with an explanatory error.
+Static IPAM supports IPv4 only. When `--iso-static-ipam-enabled-v4` is set, `/iso6/` requests return HTTP 400 with an explanatory error.
 
-- The `TINKERBELL_IP_OR_HOSTNAME` is defined by either `--public-ipv4` or `--bind-addr` or `--ipxe-http-script-bind-addr` or a hostname that resolves to the Tinkerbell server.
-- The `PORT` is defined with either `--ipxe-http-script-bind-port` for HTTP or `--https-bind-port` for HTTPS.
+- The `TINKERBELL_IP_OR_HOSTNAME` is defined by either `--public-ip-v4` or `--bind-address-v4` or a hostname that resolves to the Tinkerbell server.
+- The `PORT` is defined with either `--http-port-v4` / `--http-port-v6` for HTTP or `--https-port-v4` / `--https-port-v6` for HTTPS.
 - The `MAC_ADDRESS` is the MAC address of one of the target machine's network interfaces. This is needed so that Tinkerbell can add kernel command line parameters specific to that machine.
 
 ### Step 2
