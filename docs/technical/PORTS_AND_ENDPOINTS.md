@@ -15,13 +15,14 @@ variables.
 | **7443** | TCP (HTTPS) | Consolidated HTTPS server | Same routes as HTTP; enabled when TLS cert/key are provided | `--tls-cert-file` / `--tls-key-file` |
 | **42113** | TCP (gRPC) | Tink Server | Workflow service for tink-agent | `--enable-tink-server=false` |
 | **67** | UDP | Smee DHCP | PXE boot: offers next-server, iPXE script URL, and IP configuration | `--enable-smee=false` |
-| **547** | UDP | Smee DHCPv6 | IPv6 netboot: DHCPv6 stateless data, boot file URL, reservation, and derived address support | `--dhcpv6-enabled=false` |
+| **547** | UDP | Smee DHCPv6 | IPv6 netboot: DHCPv6 stateless data, boot file URL, reservation, and derived address support | `--dhcp-enabled-v6=false` |
 | **69** | UDP | Smee TFTP | Serves iPXE firmware binaries, and (optionally) PXELinux configs, Raspberry Pi netboot firmware, and arbitrary disk assets to PXE-booting machines | `--enable-smee=false` |
 | **514** | UDP | Smee Syslog | Collects boot-time syslog messages from provisioning machines | `--enable-smee=false` |
 | **2222** | TCP (SSH) | SecondStar | SSH-to-serial bridge for out-of-band hardware management via BMC | `--enable-secondstar=false` |
 
-> **Note:** The HTTP and HTTPS ports are configurable via `--http-port` and
-> `--https-port`. The gRPC port is configurable via `--tink-server-bind-port`.
+> **Note:** The HTTP and HTTPS ports are configurable via `--http-port-v4` /
+> `--http-port-v6` and `--https-port-v4` / `--https-port-v6`. The gRPC port is
+> configurable via `--tink-server-bind-port-v4` / `--tink-server-bind-port-v6`.
 > The TFTP server can serve extra on-disk assets from a directory configured
 > via `--tftp-asset-dir` (env `TINKERBELL_TFTP_ASSET_DIR`); it is disabled when
 > empty (the default). The same PXELinux configs and asset directory can also
@@ -30,43 +31,43 @@ variables.
 > prefix it mounts under is set with `--pxe-http-path-prefix` (default
 > `/tftp/`).
 
-Shared listeners support IPv4 and IPv6 bind addresses through
-`--bind-address`. Use `--public-ipv4` and `--public-ipv6` to advertise the
-addresses provisioned machines and agents should call back to.
+Every listener is scoped to a single address family, and
+`--listener-families` (`ipv4`, `ipv6`, or `dual`) selects the families served.
+See [IP Family Configuration](IP_FAMILY_CONFIGURATION.md).
 
 ### Bind Address Selection
 
-When `--bind-address` is set, Tinkerbell uses that address for shared services
-such as HTTP, Tink Server gRPC, TFTP, syslog, and SecondStar. A service-specific
-bind address, where available, takes precedence over the global address.
+`--bind-address-v4` and `--bind-address-v6` set the default listen address for
+each family across shared services: HTTP, Tink Server gRPC, TFTP, syslog, and
+SecondStar. A service-specific bind address, where available, takes precedence
+over the global one for that family. Values for a family outside
+`--listener-families` are ignored.
 
-When `--bind-address` is not set, Tinkerbell chooses an IPv4-compatible default
-from addresses detected on the local host:
+When the address for a served family is not set, Tinkerbell chooses a default:
 
-| Detected IPv4 | Detected IPv6 | Default bind address |
-|---------------|---------------|----------------------|
-| yes | either | detected IPv4 |
-| no | yes | `::` |
-| no | no | `0.0.0.0` |
+| Family | Detected address | Default bind address |
+|--------|------------------|----------------------|
+| IPv4 | yes | the detected IPv4 address |
+| IPv4 | no | `0.0.0.0` |
+| IPv6 | either | `::` |
 
-The `--public-ipv4` and `--public-ipv6` values are advertised addresses and do
+The `--public-ip-v4` and `--public-ip-v6` values are advertised addresses and do
 not change the automatically selected bind address. This allows an external,
 NAT, or load-balancer address to be advertised without requiring that address
 to exist on a local interface. Each setting must contain an address of its
 named family; IPv4-mapped IPv6 values such as `::ffff:192.0.2.10` are IPv4 and
-are rejected by `--public-ipv6`.
+are rejected by `--public-ip-v6`.
 
-Use `--bind-address=::` to explicitly select the IPv6 wildcard for shared
-services. Whether an IPv6 wildcard socket also accepts IPv4 traffic is platform
-dependent; on Linux it depends on `IPV6_V6ONLY` and `net.ipv6.bindv6only`, and
-container or Kubernetes networking may impose additional behavior.
+An IPv4 and an IPv6 listener share a port number, because each socket is bound
+to one family only and the IPv6 socket is always `IPV6_V6ONLY`.
 
-The DHCPv6 listener has its own `--dhcpv6-bind-addr` setting and defaults to
+The DHCPv6 listener has its own `--dhcp-bind-addr-v6` setting and defaults to
 `::`. The DHCPv4 and DHCPv6 listeners are enabled independently with
-`--dhcp-enabled` and `--dhcpv6-enabled`. `--dhcpv6-bind-interface` can be set
-to one interface or a comma-separated list of interfaces. Changing the DHCPv6
-listener does not change the bind address of HTTP, TFTP, syslog, Tink Server,
-or other shared services referenced by the advertised IPv6 boot configuration.
+`--dhcp-enabled-v4` and `--dhcp-enabled-v6`, within the families
+`--listener-families` allows. `--dhcp-bind-interface-v6` can be set to one
+interface or a comma-separated list of interfaces. Changing the DHCPv6 listener
+does not change the bind address of HTTP, TFTP, syslog, Tink Server, or other
+shared services referenced by the advertised IPv6 boot configuration.
 
 ---
 
@@ -266,7 +267,9 @@ Hardware-field source.
 `cmdline.txt` above, `spec.netboot.osie.kernelParams` is also injected into the
 generated **iPXE boot script** (a different code path from TFTP serving). There
 the precedence is additive rather than fall-through: the global
-`--ipxe-http-script-extra-kernel-args` values are applied first, then the
+`--ipxe-http-script-extra-kernel-args-v4` or
+`--ipxe-http-script-extra-kernel-args-v6` values, depending on the machine's
+address family, are applied first, then the
 per-Hardware `osie.kernelParams` are appended, so machine-specific values win on
 duplicate keys (the Linux kernel command line is last-wins).
 
@@ -306,9 +309,10 @@ Key DHCP options set:
 
 ### DHCPv6 (UDP :547)
 
-Smee DHCPv6 is disabled by default and can be enabled with
-`--dhcpv6-enabled=true`. It listens on `--dhcpv6-bind-addr` and
-`--dhcpv6-bind-port`, defaulting to `[::]:547`. `--dhcpv6-bind-interface`
+Smee DHCPv6 runs when `--listener-families` includes IPv6 and
+`--dhcp-enabled-v6` is true, so it is off under the default
+`--listener-families ipv4`. It listens on `--dhcp-bind-addr-v6` and
+`--dhcp-bind-port-v6`, defaulting to `[::]:547`. `--dhcp-bind-interface-v6`
 accepts either one interface or a comma-separated list, such as
 `macvlan0,eth0`. When setting this through Helm, escape the comma and prefer
 `--set-string`, for example

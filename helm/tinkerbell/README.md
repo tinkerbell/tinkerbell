@@ -287,6 +287,9 @@ This is independent of `service.ipFamilies`, which controls the families
 Kubernetes assigns to the Service. Set both; see
 [Service IP Families](#service-ip-families).
 
+For the underlying flags and how to verify the result, see
+[IP Family Configuration](../../docs/technical/IP_FAMILY_CONFIGURATION.md).
+
 ## Bind Address Behavior
 
 Within the families being served, shared services bind one socket per family.
