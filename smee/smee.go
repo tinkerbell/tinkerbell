@@ -653,32 +653,66 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		return errors.New("all Smee services are disabled (DHCP, DHCPv6, TFTP, syslog, iPXE binary, iPXE script, ISO)")
 	}
 
+	// Every fallible step runs before the first goroutine exists. Returning once
+	// one is running skips g.Wait, leaving those services serving behind the
+	// error until the caller happens to cancel ctx.
+	services, err := c.services(log)
+	if err != nil {
+		return err
+	}
+
 	g, ctx := errgroup.WithContext(ctx)
-	// syslog
+	for _, svc := range services {
+		log.Info("starting "+svc.name, svc.logKV...)
+		g.Go(func() error {
+			return svc.run(ctx)
+		})
+	}
+
+	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		return fmt.Errorf("failed running all Smee services: %w", err)
+	}
+	log.Info("smee is shutting down", "reason", ctx.Err())
+	return nil
+}
+
+// service is one listener ready to run, with everything that could fail already
+// resolved.
+type service struct {
+	name  string
+	logKV []any
+	run   func(context.Context) error
+}
+
+func (c *Config) services(log logr.Logger) ([]service, error) {
+	var services []service
+
 	if c.Syslog.Enabled {
 		addrs, err := enabledBinds("syslog", c.Syslog.V4, c.Syslog.V6)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if len(addrs) == 0 {
-			return errors.New("syslog is enabled but no address family is served")
+			return nil, errors.New("syslog is enabled but no address family is served")
 		}
 		for _, addr := range addrs {
-			log.Info("starting syslog server", "bindAddr", addr)
-			g.Go(func() error {
-				return runSyslogServer(ctx, log, addr.String())
+			services = append(services, service{
+				name:  "syslog server",
+				logKV: []any{"bindAddr", addr.String()},
+				run: func(ctx context.Context) error {
+					return runSyslogServer(ctx, log, addr.String())
+				},
 			})
 		}
 	}
 
-	// tftp
 	if c.TFTP.Enabled {
 		addrs, err := enabledBinds("TFTP", c.TFTP.V4, c.TFTP.V6)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if len(addrs) == 0 {
-			return errors.New("TFTP is enabled but no address family is served")
+			return nil, errors.New("TFTP is enabled but no address family is served")
 		}
 		resolver := hardware.BackendResolver{Backend: c.Backend}
 		for _, addrPort := range addrs {
@@ -698,63 +732,64 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 					},
 				},
 			}
-
-			log.Info("starting tftp server", "bindAddr", addrPort.String())
-			g.Go(func() error {
-				return tftpHandler.ListenAndServe(ctx)
+			services = append(services, service{
+				name:  "tftp server",
+				logKV: []any{"bindAddr", addrPort.String()},
+				run:   tftpHandler.ListenAndServe,
 			})
 		}
 	}
 
-	// dhcp serving
 	if c.DHCP.Enabled {
 		dh, err := c.dhcpHandler(log)
 		if err != nil {
-			return fmt.Errorf("failed to create dhcp listener: %w", err)
+			return nil, fmt.Errorf("failed to create dhcp listener: %w", err)
 		}
 		dhcpAddrPort := netip.AddrPortFrom(c.DHCP.BindAddr, c.DHCP.BindPort)
 		if !dhcpAddrPort.IsValid() {
-			return fmt.Errorf("invalid DHCP bind address: IP: %v, Port: %v", dhcpAddrPort.Addr(), dhcpAddrPort.Port())
+			return nil, fmt.Errorf("invalid DHCP bind address: IP: %v, Port: %v", dhcpAddrPort.Addr(), dhcpAddrPort.Port())
 		}
-		log.Info("starting dhcp server", "bindAddr", dhcpAddrPort)
-		g.Go(func() error {
-			conn, err := server4.NewIPv4UDPConn(c.DHCP.BindInterface, net.UDPAddrFromAddrPort(dhcpAddrPort))
-			if err != nil {
-				return err
-			}
-			defer conn.Close()
-			ds := &server.DHCP{Logger: log, Conn: conn, Handlers: []server.Handler{dh}}
+		services = append(services, service{
+			name:  "dhcp server",
+			logKV: []any{"bindAddr", dhcpAddrPort.String()},
+			run: func(ctx context.Context) error {
+				conn, err := server4.NewIPv4UDPConn(c.DHCP.BindInterface, net.UDPAddrFromAddrPort(dhcpAddrPort))
+				if err != nil {
+					return err
+				}
+				defer conn.Close()
+				ds := &server.DHCP{Logger: log, Conn: conn, Handlers: []server.Handler{dh}}
 
-			return ds.Serve(ctx)
+				return ds.Serve(ctx)
+			},
 		})
 	}
 
 	if c.DHCPv6.Enabled {
 		dh, err := c.dhcpv6Handler(log)
 		if err != nil {
-			return fmt.Errorf("failed to create dhcpv6 listener: %w", err)
+			return nil, fmt.Errorf("failed to create dhcpv6 listener: %w", err)
 		}
 		addr := netip.AddrPortFrom(c.DHCPv6.BindAddr, c.DHCPv6.BindPort)
 		if !addr.IsValid() {
-			return fmt.Errorf("invalid DHCPv6 bind address: IP: %v, Port: %v", addr.Addr(), addr.Port())
+			return nil, fmt.Errorf("invalid DHCPv6 bind address: IP: %v, Port: %v", addr.Addr(), addr.Port())
 		}
 		for _, bindInterface := range dhcpv6BindInterfaces(c.DHCPv6.BindInterface) {
-			log.Info("starting dhcpv6 server", "bindAddr", addr.String(), "bindInterface", bindInterface)
-			g.Go(func() error {
-				ds := serverv6.NewServer(bindInterface, net.UDPAddrFromAddrPort(addr), dh)
-				ds.SetLogger(log)
-				defer ds.Close()
+			services = append(services, service{
+				name:  "dhcpv6 server",
+				logKV: []any{"bindAddr", addr.String(), "bindInterface", bindInterface},
+				run: func(ctx context.Context) error {
+					ds := serverv6.NewServer(bindInterface, net.UDPAddrFromAddrPort(addr), dh)
+					ds.SetLogger(log)
+					defer ds.Close()
 
-				return ds.Serve(ctx)
+					return ds.Serve(ctx)
+				},
 			})
 		}
 	}
 
-	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		return fmt.Errorf("failed running all Smee services: %w", err)
-	}
-	log.Info("smee is shutting down", "reason", ctx.Err())
-	return nil
+	return services, nil
 }
 
 func dhcpv6BindInterfaces(bindInterface string) []string {

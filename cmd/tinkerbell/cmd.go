@@ -363,33 +363,38 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	if numEnabled(globals) == 0 {
 		globals.Backend = "pass"
 	}
+	// The embedded servers are running from here on, so a bare return would hand
+	// the caller a startup error while they keep holding their sockets and
+	// retrying until something else cancels ctx.
+	startupErr := func(err error) error {
+		cancel()
+		return errors.Join(err, g.Wait())
+	}
 	switch globals.Backend {
 	case "kube":
 		if globals.EnableCRDMigrations {
 			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil, WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
 			if err != nil {
-				return fmt.Errorf("failed to create kube backend with no indexes: %w", err)
+				return startupErr(fmt.Errorf("failed to create kube backend with no indexes: %w", err))
 			}
 			// Wait for the API server to be healthy and ready.
 			if err := backendNoIndexes.WaitForAPIServer(ctx, cliLog, 20*time.Second, 5*time.Second, nil); err != nil {
-				return fmt.Errorf("failed to wait for API server health: %w", err)
+				return startupErr(fmt.Errorf("failed to wait for API server health: %w", err))
 			}
 
 			tb, err := crd.NewTinkerbell(crd.WithLogger(cliLog), crd.WithRestConfig(backendNoIndexes.ClientConfig))
 			if err != nil {
-				return fmt.Errorf("failed to create CRD migrator: %w", err)
+				return startupErr(fmt.Errorf("failed to create CRD migrator: %w", err))
 			}
 			if err := tb.MigrateAndReady(ctx); err != nil {
-				cancel()
-				gerr := g.Wait()
-				return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
+				return startupErr(fmt.Errorf("CRD migrations failed: %w", err))
 			}
 			cliLog.Info("CRD migrations completed")
 		}
 
 		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar), WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
 		if err != nil {
-			return fmt.Errorf("failed to create kube backend: %w", err)
+			return startupErr(fmt.Errorf("failed to create kube backend: %w", err))
 		}
 		s.Config.Backend = b
 		h.Config.SetBackendFromFilterer(b)
@@ -405,7 +410,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	case "file":
 		b, err := newFileBackend(ctx, log, globals.BackendFilePath)
 		if err != nil {
-			return fmt.Errorf("failed to create file backend: %w", err)
+			return startupErr(fmt.Errorf("failed to create file backend: %w", err))
 		}
 		s.Config.Backend = b
 	case "none":
@@ -414,7 +419,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		h.Config.SetBackendFromFilterer(b)
 	case "pass":
 	default:
-		return fmt.Errorf("unknown backend %q", globals.Backend)
+		return startupErr(fmt.Errorf("unknown backend %q", globals.Backend))
 	}
 
 	// Kube Controller Manager
