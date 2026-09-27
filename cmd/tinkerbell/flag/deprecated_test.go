@@ -26,28 +26,21 @@ func TestRenameDeprecatedArgs(t *testing.T) {
 			warnings: 1,
 		},
 		"inline value containing equals is preserved": {
-			args: []string{"--ipxe-http-script-extra-kernel-args=a=b"},
-			want: []string{
-				"--ipxe-http-script-extra-kernel-args-v4=a=b",
-				"--ipxe-http-script-extra-kernel-args-v6=a=b",
-			},
+			args:     []string{"--ipxe-http-script-extra-kernel-args=a=b"},
+			want:     []string{"--ipxe-http-script-extra-kernel-args-v4=a=b"},
 			warnings: 1,
 		},
-		// The retired flag reached machines of both families, so it still must.
-		"separate value fans out to every replacement": {
-			args: []string{"--ipxe-http-script-extra-kernel-args", "a=b"},
-			want: []string{
-				"--ipxe-http-script-extra-kernel-args-v4=a=b",
-				"--ipxe-http-script-extra-kernel-args-v6=a=b",
-			},
+		"separate value is left in place": {
+			args:     []string{"--ipxe-http-script-extra-kernel-args", "a=b"},
+			want:     []string{"--ipxe-http-script-extra-kernel-args-v4", "a=b"},
 			warnings: 1,
 		},
-		"a fanned out flag keeps surrounding args": {
+		"a renamed flag keeps surrounding args": {
 			args: []string{"--log-level=1", "--ipxe-http-script-extra-kernel-args", "a=b", "--dhcp-mode-v4=proxy"},
 			want: []string{
 				"--log-level=1",
-				"--ipxe-http-script-extra-kernel-args-v4=a=b",
-				"--ipxe-http-script-extra-kernel-args-v6=a=b",
+				"--ipxe-http-script-extra-kernel-args-v4",
+				"a=b",
 				"--dhcp-mode-v4=proxy",
 			},
 			warnings: 1,
@@ -121,7 +114,7 @@ func TestRenameDeprecatedEnv(t *testing.T) {
 		}
 	})
 
-	t.Run("an explicitly set current name wins", func(t *testing.T) {
+	t.Run("a deprecated name wins over the current name", func(t *testing.T) {
 		unsetDestination(t)
 		t.Setenv("TINKERBELL_DHCPV6_MODE", "stateless")
 		t.Setenv(destination, "reservation")
@@ -130,10 +123,10 @@ func TestRenameDeprecatedEnv(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(warnings) != 0 {
-			t.Errorf("warnings = %v, want none", warnings)
+		if got, want := len(warnings), 1; got != want {
+			t.Fatalf("warnings = %d, want %d: %v", got, want, warnings)
 		}
-		if got, want := os.Getenv("TINKERBELL_DHCP_MODE_V6"), "reservation"; got != want {
+		if got, want := os.Getenv("TINKERBELL_DHCP_MODE_V6"), "stateless"; got != want {
 			t.Errorf("TINKERBELL_DHCP_MODE_V6 = %q, want %q", got, want)
 		}
 	})
@@ -163,10 +156,8 @@ func TestDeprecatedNamesResolve(t *testing.T) {
 		if registered[from] {
 			t.Errorf("%q is listed as deprecated but is still registered", from)
 		}
-		for _, n := range to {
-			if !registered[n] {
-				t.Errorf("%q is deprecated in favour of %q, which is not registered", from, n)
-			}
+		if !registered[to] {
+			t.Errorf("%q is deprecated in favour of %q, which is not registered", from, to)
 		}
 	}
 }

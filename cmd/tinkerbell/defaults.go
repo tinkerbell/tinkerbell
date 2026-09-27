@@ -7,7 +7,13 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
+	"github.com/peterbourgon/ff/v4"
+	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
+	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -219,25 +225,130 @@ func autoDetectPublicIPv6WithDefaultGateway() (netip.Addr, error) {
 	return netip.Addr{}, fmt.Errorf("no IPv6 default gateway found")
 }
 
-// defaultBindAddr chooses an IPv4-first bind address from addresses detected
-// on the local host. Configured public addresses are advertised addresses and
-// must not be used here because they may belong to a load balancer.
-func defaultBindAddr(detectedIPv4, detectedIPv6 netip.Addr) netip.Addr {
+// defaultBindAddrV4 chooses the IPv4 bind address from an address detected on
+// the local host. A configured public address is an advertised address and must
+// not be used here because it may belong to a load balancer. The wildcard is the
+// fallback so a host with no detected address still serves.
+func defaultBindAddrV4(detectedIPv4 netip.Addr) netip.Addr {
 	if detectedIPv4.Is4() && !detectedIPv4.IsUnspecified() {
 		return detectedIPv4
 	}
-	if detectedIPv6.Is6() && !detectedIPv6.Is4In6() && !detectedIPv6.IsUnspecified() {
-		return netip.IPv6Unspecified()
+
+	return netip.IPv4Unspecified()
+}
+
+// resolveListenerFamilies records, for every service, which address families it
+// serves. The global listener families are a ceiling: a service can narrow the
+// set with its own enable flag but can never widen it.
+//
+// Configuration for an unserved family is dropped rather than rejected, so one
+// set of flags or one Helm values file can drive any family, with only the
+// listener families changing between deployments.
+func resolveListenerFamilies(globals *flag.GlobalConfig, s *flag.SmeeConfig, ts *flag.TinkServerConfig, ssc *flag.SecondStarConfig) {
+	v4 := globals.ListenerFamilies.HasV4()
+	v6 := globals.ListenerFamilies.HasV6()
+
+	s.Config.DHCP.Enabled = s.Config.DHCP.Enabled && v4
+	s.Config.DHCPv6.Enabled = s.Config.DHCPv6.Enabled && v6
+	s.Config.Syslog.V4.Enabled = v4
+	s.Config.Syslog.V6.Enabled = v6
+	s.Config.TFTP.V4.Enabled = v4
+	s.Config.TFTP.V6.Enabled = v6
+	ts.Config.V4.Enabled = v4
+	ts.Config.V6.Enabled = v6
+	ssc.Config.V4.Enabled = v4
+	ssc.Config.V6.Enabled = v6
+
+	if !v4 {
+		globals.BindAddr = netip.Addr{}
+		globals.PublicIP = netip.Addr{}
+		s.Config.Syslog.V4.Addr = netip.Addr{}
+		s.Config.TFTP.V4.Addr = netip.Addr{}
 	}
-	return netip.MustParseAddr("0.0.0.0")
+	if !v6 {
+		globals.BindAddrV6 = netip.Addr{}
+		globals.PublicIPv6 = netip.Addr{}
+		s.Config.Syslog.V6.Addr = netip.Addr{}
+		s.Config.TFTP.V6.Addr = netip.Addr{}
+	}
+}
+
+// servedFamilies reports the address families each service ended up serving, so
+// an operator can read the resolved plan instead of inferring it from flags.
+func servedFamilies(globals *flag.GlobalConfig, s *flag.SmeeConfig) map[string]string {
+	families := func(v4, v6 bool) string {
+		switch {
+		case v4 && v6:
+			return constant.ListenerFamiliesDual.String()
+		case v4:
+			return constant.ListenerFamiliesIPv4.String()
+		case v6:
+			return constant.ListenerFamiliesIPv6.String()
+		default:
+			return "none"
+		}
+	}
+	v4 := globals.ListenerFamilies.HasV4()
+	v6 := globals.ListenerFamilies.HasV6()
+
+	served := map[string]string{"http": families(v4, v6)}
+	if globals.EnableSmee {
+		served["dhcp"] = families(s.Config.DHCP.Enabled, s.Config.DHCPv6.Enabled)
+		if s.Config.TFTP.Enabled {
+			served["tftp"] = families(s.Config.TFTP.V4.Enabled, s.Config.TFTP.V6.Enabled)
+		}
+		if s.Config.Syslog.Enabled {
+			served["syslog"] = families(s.Config.Syslog.V4.Enabled, s.Config.Syslog.V6.Enabled)
+		}
+	}
+	if globals.EnableTinkServer {
+		served["tink-server"] = families(v4, v6)
+	}
+	if globals.EnableSecondStar {
+		served["secondstar"] = families(v4, v6)
+	}
+
+	return served
+}
+
+// ignoredFamilyFlags returns the set flags scoped to a family that is not
+// served. The family suffix is the one RegisterFamily builds the name from, so
+// this covers every family-scoped flag without enumerating them. These are
+// reported rather than rejected so one configuration can drive any family, with
+// only the listener families changing between deployments.
+//
+// Values matching the default are skipped. The Helm chart emits every
+// family-scoped environment variable, empty ones included, which counts as set;
+// reporting those would bury the handful the operator actually chose.
+func ignoredFamilyFlags(fs ff.Flags, families constant.ListenerFamilies) []string {
+	var ignored []string
+	_ = fs.WalkFlags(func(f ff.Flag) error {
+		name, ok := f.GetLongName()
+		if !ok || !f.IsSet() || f.GetValue() == f.GetDefault() {
+			return nil
+		}
+		if (!families.HasV6() && strings.HasSuffix(name, "-v6")) ||
+			(!families.HasV4() && strings.HasSuffix(name, "-v4")) {
+			ignored = append(ignored, name)
+		}
+
+		return nil
+	})
+	sort.Strings(ignored)
+
+	return ignored
 }
 
 func validatePublicAddressFamilies(publicIP, publicIPv6 netip.Addr) error {
-	if publicIP.IsValid() && !publicIP.Is4() {
-		return fmt.Errorf("public IPv4 address %q is not IPv4", publicIP)
+	if publicIP.IsValid() {
+		if err := ntip.ValidIPv4(publicIP); err != nil {
+			return fmt.Errorf("public IPv4 address %w", err)
+		}
 	}
-	if publicIPv6.IsValid() && (!publicIPv6.Is6() || publicIPv6.Is4In6()) {
-		return fmt.Errorf("public IPv6 address %q is not IPv6", publicIPv6)
+	if publicIPv6.IsValid() {
+		if err := ntip.ValidIPv6(publicIPv6); err != nil {
+			return fmt.Errorf("public IPv6 address %w", err)
+		}
 	}
 	return nil
 }

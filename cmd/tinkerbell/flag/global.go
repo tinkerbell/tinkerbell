@@ -4,6 +4,7 @@ import (
 	"net/netip"
 
 	"github.com/peterbourgon/ff/v4/ffval"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 )
 
@@ -16,11 +17,15 @@ type GlobalConfig struct {
 	OTELEndpoint         string
 	OTELInsecure         bool
 	TrustedProxies       []netip.Prefix
+	ListenerFamilies     constant.ListenerFamilies
 	PublicIP             netip.Addr
 	PublicIPv6           netip.Addr
 	BindAddr             netip.Addr
+	BindAddrV6           netip.Addr
 	HTTPPort             int
+	HTTPPortV6           int
 	HTTPSPort            int
+	HTTPSPortV6          int
 	EnableSmee           bool
 	EnableTootles        bool
 	EnableTinkServer     bool
@@ -57,14 +62,23 @@ const (
 
 func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(BackendConfig, ffval.NewEnum(&gc.Backend, "kube", "file", "none"))
+	fs.Register(ListenerFamiliesConfig, &ffval.Enum[constant.ListenerFamilies]{
+		ParseFunc: func(s string) (constant.ListenerFamilies, error) { return constant.ListenerFamilies(s), nil },
+		Valid:     []constant.ListenerFamilies{constant.ListenerFamiliesIPv4, constant.ListenerFamiliesIPv6, constant.ListenerFamiliesDual},
+		Pointer:   &gc.ListenerFamilies,
+		Default:   gc.ListenerFamilies,
+	})
 	fs.Register(BackendFilePath, ffval.NewValueDefault(&gc.BackendFilePath, gc.BackendFilePath))
 	fs.Register(KubeBurst, ffval.NewValueDefault(&gc.BackendKubeOptions.Burst, gc.BackendKubeOptions.Burst))
 	fs.Register(BackendKubeConfig, ffval.NewValueDefault(&gc.BackendKubeConfig, gc.BackendKubeConfig))
 	fs.Register(BackendKubeNamespace, ffval.NewValueDefault(&gc.BackendKubeNamespace, gc.BackendKubeNamespace))
 	fs.Register(KubeQPS, ffval.NewValueDefault(&gc.BackendKubeOptions.QPS, gc.BackendKubeOptions.QPS))
-	fs.Register(BindAddr, &ntip.Addr{Addr: &gc.BindAddr})
-	fs.Register(HTTPPort, ffval.NewValueDefault(&gc.HTTPPort, gc.HTTPPort))
-	fs.Register(HTTPSPort, ffval.NewValueDefault(&gc.HTTPSPort, gc.HTTPSPort))
+	fs.RegisterFamily(BindAddr, V4, &ntip.Addr{Addr: &gc.BindAddr})
+	fs.RegisterFamily(BindAddr, V6, &ntip.Addr{Addr: &gc.BindAddrV6})
+	fs.RegisterFamily(HTTPPort, V4, ffval.NewValueDefault(&gc.HTTPPort, gc.HTTPPort))
+	fs.RegisterFamily(HTTPPort, V6, ffval.NewValueDefault(&gc.HTTPPortV6, gc.HTTPPortV6))
+	fs.RegisterFamily(HTTPSPort, V4, ffval.NewValueDefault(&gc.HTTPSPort, gc.HTTPSPort))
+	fs.RegisterFamily(HTTPSPort, V6, ffval.NewValueDefault(&gc.HTTPSPortV6, gc.HTTPSPortV6))
 	fs.Register(EnableSmee, ffval.NewValueDefault(&gc.EnableSmee, gc.EnableSmee))
 	fs.Register(EnableTootles, ffval.NewValueDefault(&gc.EnableTootles, gc.EnableTootles))
 	fs.Register(EnableTinkServer, ffval.NewValueDefault(&gc.EnableTinkServer, gc.EnableTinkServer))
@@ -76,8 +90,8 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(LogLevelConfig, ffval.NewValueDefault(&gc.LogLevel, gc.LogLevel))
 	fs.Register(OTELEndpoint, ffval.NewValueDefault(&gc.OTELEndpoint, gc.OTELEndpoint))
 	fs.Register(OTELInsecure, ffval.NewValueDefault(&gc.OTELInsecure, gc.OTELInsecure))
-	fs.Register(PublicIP, &ntip.Addr{Addr: &gc.PublicIP})
-	fs.Register(PublicIPv6, &ntip.Addr{Addr: &gc.PublicIPv6})
+	fs.RegisterFamily(PublicIP, V4, &ntip.Addr{Addr: &gc.PublicIP})
+	fs.RegisterFamily(PublicIP, V6, &ntip.Addr{Addr: &gc.PublicIPv6})
 	fs.Register(TLSCertFile, ffval.NewValueDefault(&gc.TLS.CertFile, gc.TLS.CertFile))
 	fs.Register(TLSKeyFile, ffval.NewValueDefault(&gc.TLS.KeyFile, gc.TLS.KeyFile))
 	fs.Register(DisableHTTPToHTTPSRedirect, ffval.NewValueDefault(&gc.TLS.DisableHTTPToHTTPSRedirect, gc.TLS.DisableHTTPToHTTPSRedirect))
@@ -101,6 +115,13 @@ var LogLevelConfig = Config{
 var BackendConfig = Config{
 	Name:  "backend",
 	Usage: "backend to use (kube, file, none)",
+}
+
+// ListenerFamiliesConfig selects the address families every listener serves.
+// Per-service enable flags still decide which services run.
+var ListenerFamiliesConfig = Config{
+	Name:  "listener-families",
+	Usage: "IP address families to listen on (ipv4, ipv6, dual)",
 }
 
 var BackendFilePath = Config{
@@ -147,13 +168,8 @@ var TrustedProxies = Config{
 }
 
 var PublicIP = Config{
-	Name:  "public-ip-v4",
-	Usage: "public IPv4 address to advertise to clients",
-}
-
-var PublicIPv6 = Config{
-	Name:  "public-ip-v6",
-	Usage: "public IPv6 address to advertise to clients",
+	Name:  "public-ip",
+	Usage: "public address to advertise to clients",
 }
 
 var EnableSmee = Config{
@@ -207,8 +223,8 @@ var EnableCRDMigrations = Config{
 }
 
 var BindAddr = Config{
-	Name:  "bind-address-v4",
-	Usage: "default IPv4 address to which to bind shared services",
+	Name:  "bind-address",
+	Usage: "default address to which to bind shared services",
 }
 
 // TLS flags
@@ -228,13 +244,13 @@ var DisableHTTPToHTTPSRedirect = Config{
 }
 
 var HTTPPort = Config{
-	Name:  "http-port-v4",
-	Usage: "port for the IPv4 HTTP server",
+	Name:  "http-port",
+	Usage: "port for the HTTP server",
 }
 
 var HTTPSPort = Config{
-	Name:  "https-port-v4",
-	Usage: "port for the IPv4 HTTPS server, unused when no TLS cert and key are provided",
+	Name:  "https-port",
+	Usage: "port for the HTTPS server, unused when no TLS cert and key are provided",
 }
 
 var PrintVersion = Config{

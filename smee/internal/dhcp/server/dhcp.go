@@ -27,21 +27,30 @@ type DHCP struct {
 
 // Serve serves requests.
 func (s *DHCP) Serve(ctx context.Context) error {
-	go func() {
-		<-ctx.Done()
-		_ = s.Close()
-	}()
 	s.Logger.V(1).Info("Server listening on", "addr", s.Conn.LocalAddr())
 
 	nConn := ipv4.NewPacketConn(s.Conn)
+	defer func() {
+		_ = nConn.Close()
+	}()
+
 	if err := nConn.SetControlMessage(ipv4.FlagInterface, true); err != nil {
 		s.Logger.Info("error setting control message", "err", err)
 		return err
 	}
 
-	defer func() {
-		_ = nConn.Close()
+	// Started only once nothing else can fail, and bounded by done so it cannot
+	// outlive Serve holding the socket open.
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = s.Close()
+		case <-done:
+		}
 	}()
+
 	for {
 		// Max UDP packet size is 65535. Max DHCPv4 packet size is 576. An ethernet frame is 1500 bytes.
 		// We use 4096 as a reasonable buffer size. dhcpv4.FromBytes will handle the rest.

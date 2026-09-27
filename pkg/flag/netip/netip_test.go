@@ -398,3 +398,103 @@ func TestPrefixListSlice(t *testing.T) {
 		})
 	}
 }
+
+func TestAddrSetFamily(t *testing.T) {
+	tests := map[string]struct {
+		restrict    func(*Addr)
+		input       string
+		want        string
+		expectError bool
+	}{
+		"unrestricted accepts ipv4": {input: "192.0.2.10", want: "192.0.2.10"},
+		"unrestricted accepts ipv6": {input: "2001:db8::1", want: "2001:db8::1"},
+
+		"v4 accepts ipv4":     {restrict: (*Addr).RequireIPv4, input: "192.0.2.10", want: "192.0.2.10"},
+		"v4 accepts wildcard": {restrict: (*Addr).RequireIPv4, input: "0.0.0.0", want: "0.0.0.0"},
+		"v4 rejects 4in6":     {restrict: (*Addr).RequireIPv4, input: "::ffff:192.0.2.10", expectError: true},
+		"v4 rejects ipv6":     {restrict: (*Addr).RequireIPv4, input: "2001:db8::1", expectError: true},
+		"v4 rejects wildcard": {restrict: (*Addr).RequireIPv4, input: "::", expectError: true},
+		"v4 empty is no-op":   {restrict: (*Addr).RequireIPv4, input: ""},
+
+		"v6 accepts ipv6":     {restrict: (*Addr).RequireIPv6, input: "2001:db8::1", want: "2001:db8::1"},
+		"v6 accepts wildcard": {restrict: (*Addr).RequireIPv6, input: "::", want: "::"},
+		"v6 rejects ipv4":     {restrict: (*Addr).RequireIPv6, input: "0.0.0.0", expectError: true},
+		"v6 rejects 4in6":     {restrict: (*Addr).RequireIPv6, input: "::ffff:192.0.2.10", expectError: true},
+		"v6 empty is no-op":   {restrict: (*Addr).RequireIPv6, input: ""},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var got netip.Addr
+			a := &Addr{Addr: &got}
+			if tc.restrict != nil {
+				tc.restrict(a)
+			}
+
+			err := a.Set(tc.input)
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("Set(%q) = nil, want an error", tc.input)
+				}
+				if got.IsValid() {
+					t.Errorf("Set(%q) stored %v on a rejected value", tc.input, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Set(%q) unexpected error: %v", tc.input, err)
+			}
+
+			var want netip.Addr
+			if tc.want != "" {
+				want = netip.MustParseAddr(tc.want)
+			}
+			if got != want {
+				t.Errorf("Set(%q) = %v, want %v", tc.input, got, want)
+			}
+		})
+	}
+}
+
+// Reset must not clear the family, because ff resets values between parse passes.
+func TestAddrRequireFamilySurvivesReset(t *testing.T) {
+	var got netip.Addr
+	a := &Addr{Addr: &got}
+	a.RequireIPv6()
+
+	if err := a.Reset(); err != nil {
+		t.Fatalf("Reset() unexpected error: %v", err)
+	}
+	if err := a.Set("0.0.0.0"); err == nil {
+		t.Error(`Set("0.0.0.0") = nil after Reset, want a family mismatch`)
+	}
+}
+
+func TestPrefixSetFamily(t *testing.T) {
+	tests := map[string]struct {
+		restrict    func(*Prefix)
+		input       string
+		expectError bool
+	}{
+		"v6 accepts ipv6 prefix": {restrict: (*Prefix).RequireIPv6, input: "2001:db8::/32"},
+		"v6 rejects ipv4 prefix": {restrict: (*Prefix).RequireIPv6, input: "192.168.0.0/24", expectError: true},
+		"v4 accepts ipv4 prefix": {restrict: (*Prefix).RequireIPv4, input: "192.168.0.0/24"},
+		"v4 rejects ipv6 prefix": {restrict: (*Prefix).RequireIPv4, input: "2001:db8::/32", expectError: true},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var got netip.Prefix
+			p := &Prefix{Prefix: &got}
+			tc.restrict(p)
+
+			err := p.Set(tc.input)
+			if tc.expectError && err == nil {
+				t.Fatalf("Set(%q) = nil, want an error", tc.input)
+			}
+			if !tc.expectError && err != nil {
+				t.Fatalf("Set(%q) unexpected error: %v", tc.input, err)
+			}
+		})
+	}
+}

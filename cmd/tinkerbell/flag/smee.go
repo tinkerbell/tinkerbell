@@ -190,15 +190,15 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 }
 
 // Convert CLI specific fields to smee.Config fields.
-func (s *SmeeConfig) Convert(publicIP, publicIPv6 netip.Addr, bindAddr netip.Addr, defaultPort int) {
+func (s *SmeeConfig) Convert(publicIP, publicIPv6 netip.Addr, bindAddr, bindAddrV6 netip.Addr, defaultPort, defaultPortV6 int) {
 	s.Config.DHCP.IPXEHTTPScript.URL.Host = s.advertisedHost(s.DHCPIPXEScript, publicIP, defaultPort)
 	s.Config.DHCP.IPXEHTTPBinaryURL.Host = s.advertisedHost(s.DHCPIPXEBinary, publicIP, defaultPort)
 	hasPublicIPv6 := publicIPv6.IsValid() && !publicIPv6.IsUnspecified()
 	if hasPublicIPv6 || s.DHCPv6IPXEScript.Host != "" || s.DHCPv6IPXEScript.Port != 0 {
-		s.Config.DHCPv6.IPXEHTTPScript.URL.Host = s.advertisedHost(s.DHCPv6IPXEScript, publicIPv6, defaultPort)
+		s.Config.DHCPv6.IPXEHTTPScript.URL.Host = s.advertisedHost(s.DHCPv6IPXEScript, publicIPv6, defaultPortV6)
 	}
 	if hasPublicIPv6 || s.DHCPv6IPXEBinary.Host != "" || s.DHCPv6IPXEBinary.Port != 0 {
-		s.Config.DHCPv6.IPXEHTTPBinaryURL.Host = s.advertisedHost(s.DHCPv6IPXEBinary, publicIPv6, defaultPort)
+		s.Config.DHCPv6.IPXEHTTPBinaryURL.Host = s.advertisedHost(s.DHCPv6IPXEBinary, publicIPv6, defaultPortV6)
 	}
 
 	// Service-specific bind addresses take precedence over the global bind address.
@@ -208,6 +208,14 @@ func (s *SmeeConfig) Convert(publicIP, publicIPv6 netip.Addr, bindAddr netip.Add
 		}
 		if !s.Config.TFTP.V4.Addr.IsValid() {
 			s.Config.TFTP.V4.Addr = bindAddr
+		}
+	}
+	if bindAddrV6.IsValid() {
+		if !s.Config.Syslog.V6.Addr.IsValid() {
+			s.Config.Syslog.V6.Addr = bindAddrV6
+		}
+		if !s.Config.TFTP.V6.Addr.IsValid() {
+			s.Config.TFTP.V6.Addr = bindAddrV6
 		}
 	}
 
@@ -254,12 +262,16 @@ func (s *SmeeConfig) advertisedHost(builder URLBuilder, publicIP netip.Addr, def
 	if builder.Port != 0 {
 		port = fmt.Sprintf("%d", builder.Port)
 	}
+	// A port on its own is not a reachable endpoint to hand a machine.
+	if addr == "" {
+		return ""
+	}
 
 	return joinHostPort(addr, port)
 }
 
 func advertisedAddrPort(addrPort string, publicIP netip.Addr) string {
-	host, port := splitHostPort(addrPort)
+	host, port := splitAdvertisedAddrPort(addrPort)
 	if port == "" {
 		port = fmt.Sprintf("%d", smee.DefaultTinkServerPort)
 	}
@@ -277,6 +289,18 @@ func joinHostPort(host, port string) string {
 		host = strings.TrimPrefix(strings.TrimSuffix(host, "]"), "[")
 	}
 	return net.JoinHostPort(host, port)
+}
+
+// splitAdvertisedAddrPort splits host and port, returning an unbracketed IPv6
+// literal whole. RFC 3986 requires brackets around an IPv6 host, so
+// splitHostPort splits on the last colon and would otherwise read 2001:db8::10
+// as host 2001:db8: and port 10.
+func splitAdvertisedAddrPort(addrPort string) (host, port string) {
+	if _, err := netip.ParseAddr(addrPort); err == nil {
+		return addrPort, ""
+	}
+
+	return splitHostPort(addrPort)
 }
 
 func macAddrFormatParser(s string) (constant.MACFormat, error) {
@@ -301,8 +325,8 @@ func parseDefaultIPv4NameServer(value string) (netip.Addr, error) {
 	if err != nil {
 		return netip.Addr{}, fmt.Errorf("invalid default DNS server address %q: %w", value, err)
 	}
-	if !addr.Is4() {
-		return netip.Addr{}, fmt.Errorf("invalid default DNS server address %q: must be an IPv4 address", value)
+	if err := ntip.ValidIPv4(addr); err != nil {
+		return netip.Addr{}, fmt.Errorf("invalid default DNS server address: %w", err)
 	}
 	return addr, nil
 }
@@ -312,8 +336,8 @@ func parseDefaultIPv6NameServer(value string) (netip.Addr, error) {
 	if err != nil {
 		return netip.Addr{}, fmt.Errorf("invalid default DNS server address %q: %w", value, err)
 	}
-	if !addr.Is6() || addr.Is4In6() {
-		return netip.Addr{}, fmt.Errorf("invalid default DNS server address %q: must be an IPv6 address", value)
+	if err := ntip.ValidIPv6(addr); err != nil {
+		return netip.Addr{}, fmt.Errorf("invalid default DNS server address: %w", err)
 	}
 	return addr, nil
 }

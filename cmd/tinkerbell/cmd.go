@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/crd"
 	"github.com/tinkerbell/tinkerbell/pkg/build"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/rufio"
 	"github.com/tinkerbell/tinkerbell/secondstar"
@@ -46,12 +48,9 @@ func Execute(ctx context.Context, cancel context.CancelFunc, args []string) erro
 // executeWithOutput allows command output to be captured in tests.
 func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []string, stdout io.Writer) error { //nolint:cyclop,gocognit // Will need to look into reducing the cyclomatic and cognitive complexity.
 	startTime := time.Now() // used in the HTTP healthcheck handler to report uptime.
-	publicIP := detectPublicIPv4()
-	publicIPv6 := detectPublicIPv6()
 	globals := &flag.GlobalConfig{
 		BackendKubeConfig: kubeConfig(),
-		PublicIP:          publicIP,
-		PublicIPv6:        publicIPv6,
+		ListenerFamilies:  constant.ListenerFamiliesIPv4,
 
 		EnableSmee:           true,
 		EnableTootles:        true,
@@ -62,7 +61,9 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		EnableUI:             true,
 		EnableCRDMigrations:  true,
 		HTTPPort:             defaultHTTPPort,
+		HTTPPortV6:           defaultHTTPPort,
 		HTTPSPort:            defaultHTTPSPort,
+		HTTPSPortV6:          defaultHTTPSPort,
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
@@ -81,8 +82,9 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		Config: tootles.NewConfig(tootles.Config{}),
 	}
 	ts := &flag.TinkServerConfig{
-		Config:   server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
-		BindPort: defaultTinkServerPort,
+		Config:     server.NewConfig(server.WithAutoDiscoveryNamespace("default")),
+		BindPort:   defaultTinkServerPort,
+		BindPortV6: defaultTinkServerPort,
 	}
 	controllerOpts := []controller.Option{
 		controller.WithEnableLeaderElection(false),
@@ -102,8 +104,9 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	}
 
 	ssc := &flag.SecondStarConfig{
+		Port:   defaultSecondStarPort,
+		PortV6: defaultSecondStarPort,
 		Config: &secondstar.Config{
-			SSHPort:      defaultSecondStarPort,
 			IPMITOOLPath: "/usr/sbin/ipmitool",
 			IdleTimeout:  15 * time.Minute,
 		},
@@ -173,8 +176,32 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	if err := validatePublicAddressFamilies(globals.PublicIP, globals.PublicIPv6); err != nil {
 		return err
 	}
-	if !globals.BindAddr.IsValid() {
-		globals.BindAddr = defaultBindAddr(publicIP, publicIPv6)
+	// Collected before resolving, which zeroes the fields these flag values point at.
+	ignoredFlags := ignoredFamilyFlags(gfs, globals.ListenerFamilies)
+	resolveListenerFamilies(globals, s, ts, ssc)
+	// Detection runs per family so a disabled family is never advertised.
+	if globals.ListenerFamilies.HasV4() {
+		// Detecting the host's own address spares operators from having to set a bind
+		// address. A configured public IPv4 cannot fill that role because it may be a
+		// load balancer VIP that does not exist on this host.
+		var detectedIPv4 netip.Addr
+		if !globals.PublicIP.IsValid() || !globals.BindAddr.IsValid() {
+			detectedIPv4 = detectPublicIPv4()
+		}
+		if !globals.PublicIP.IsValid() {
+			globals.PublicIP = detectedIPv4
+		}
+		if !globals.BindAddr.IsValid() {
+			globals.BindAddr = defaultBindAddrV4(detectedIPv4)
+		}
+	}
+	if globals.ListenerFamilies.HasV6() {
+		if !globals.PublicIPv6.IsValid() {
+			globals.PublicIPv6 = detectPublicIPv6()
+		}
+		if !globals.BindAddrV6.IsValid() {
+			globals.BindAddrV6 = netip.IPv6Unspecified()
+		}
 	}
 
 	log := getLogger(globals.LogLevel)
@@ -204,8 +231,15 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	for _, d := range deprecations {
 		cliLog.Info(d)
 	}
+	if len(ignoredFlags) > 0 {
+		cliLog.Info("ignoring flags for address families not being served",
+			"listenerFamilies", globals.ListenerFamilies,
+			"ignoredFlags", ignoredFlags,
+		)
+	}
 	cliLog.Info("starting tinkerbell",
 		"version", build.GitRevision(),
+		"listenerFamilies", globals.ListenerFamilies,
 		"smeeEnabled", globals.EnableSmee,
 		"tootlesEnabled", globals.EnableTootles,
 		"tinkServerEnabled", globals.EnableTinkServer,
@@ -218,10 +252,12 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		"embeddedKubeAPIServer", globals.EmbeddedGlobalConfig.EnableKubeAPIServer,
 		"embeddedEtcd", globals.EmbeddedGlobalConfig.EnableETCD,
 		"globalBindAddress", globals.BindAddr,
+		"globalBindAddressV6", globals.BindAddrV6,
+		"servedFamilies", servedFamilies(globals, s),
 	)
 
 	// Smee
-	s.Convert(globals.PublicIP, globals.PublicIPv6, globals.BindAddr, globals.HTTPPort)
+	s.Convert(globals.PublicIP, globals.PublicIPv6, globals.BindAddr, globals.BindAddrV6, globals.HTTPPort, globals.HTTPPortV6)
 	if s.DHCPIPXEBinary.Port == 0 {
 		s.DHCPIPXEBinary.Port = globals.HTTPPort
 	}
@@ -246,7 +282,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	}
 
 	// Tink Server
-	ts.Convert(globals.BindAddr)
+	ts.Convert(globals.BindAddr, globals.BindAddrV6)
 	// Configure TLS if cert and key files are provided
 	if globals.TLS.CertFile != "" && globals.TLS.KeyFile != "" {
 		creds, err := credentials.NewServerTLSFromFile(globals.TLS.CertFile, globals.TLS.KeyFile)
@@ -266,11 +302,8 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace)
 
 	// Second star
-	if err := ssc.Convert(); err != nil {
+	if err := ssc.Convert(globals.BindAddr, globals.BindAddrV6); err != nil {
 		return fmt.Errorf("failed to convert secondstar config: %w", err)
-	}
-	if globals.BindAddr.IsValid() {
-		ssc.Config.BindAddr = globals.BindAddr
 	}
 
 	// Initialize OTel before starting goroutines so the provider outlives
@@ -330,33 +363,38 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	if numEnabled(globals) == 0 {
 		globals.Backend = "pass"
 	}
+	// The embedded servers are running from here on, so a bare return would hand
+	// the caller a startup error while they keep holding their sockets and
+	// retrying until something else cancels ctx.
+	startupErr := func(err error) error {
+		cancel()
+		return errors.Join(err, g.Wait())
+	}
 	switch globals.Backend {
 	case "kube":
 		if globals.EnableCRDMigrations {
 			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil, WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
 			if err != nil {
-				return fmt.Errorf("failed to create kube backend with no indexes: %w", err)
+				return startupErr(fmt.Errorf("failed to create kube backend with no indexes: %w", err))
 			}
 			// Wait for the API server to be healthy and ready.
 			if err := backendNoIndexes.WaitForAPIServer(ctx, cliLog, 20*time.Second, 5*time.Second, nil); err != nil {
-				return fmt.Errorf("failed to wait for API server health: %w", err)
+				return startupErr(fmt.Errorf("failed to wait for API server health: %w", err))
 			}
 
 			tb, err := crd.NewTinkerbell(crd.WithLogger(cliLog), crd.WithRestConfig(backendNoIndexes.ClientConfig))
 			if err != nil {
-				return fmt.Errorf("failed to create CRD migrator: %w", err)
+				return startupErr(fmt.Errorf("failed to create CRD migrator: %w", err))
 			}
 			if err := tb.MigrateAndReady(ctx); err != nil {
-				cancel()
-				gerr := g.Wait()
-				return fmt.Errorf("CRD migrations failed: %w", errors.Join(err, gerr))
+				return startupErr(fmt.Errorf("CRD migrations failed: %w", err))
 			}
 			cliLog.Info("CRD migrations completed")
 		}
 
 		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar), WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
 		if err != nil {
-			return fmt.Errorf("failed to create kube backend: %w", err)
+			return startupErr(fmt.Errorf("failed to create kube backend: %w", err))
 		}
 		s.Config.Backend = b
 		h.Config.SetBackendFromFilterer(b)
@@ -372,7 +410,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	case "file":
 		b, err := newFileBackend(ctx, log, globals.BackendFilePath)
 		if err != nil {
-			return fmt.Errorf("failed to create file backend: %w", err)
+			return startupErr(fmt.Errorf("failed to create file backend: %w", err))
 		}
 		s.Config.Backend = b
 	case "none":
@@ -381,7 +419,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		h.Config.SetBackendFromFilterer(b)
 	case "pass":
 	default:
-		return fmt.Errorf("unknown backend %q", globals.Backend)
+		return startupErr(fmt.Errorf("unknown backend %q", globals.Backend))
 	}
 
 	// Kube Controller Manager

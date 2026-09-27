@@ -203,10 +203,14 @@ does not allow changing the primary family in place. See the
 
 These examples configure Service IP allocation. Also configure the matching
 public addresses and artifact URLs in [Required Values](#required-values),
-IPv6-capable listeners as described in [Bind Address Behavior](#bind-address-behavior),
+the families the pod listens on as described in [Listener Families](#listener-families),
+the port values described in [Per-Family Ports](#per-family-ports),
 and cluster networking and a load balancer that support the requested families.
-Service family settings do not enable DHCPv6; if Smee provides DHCPv6, set
-`deployment.envs.smee.dhcpv6Enabled: true` separately. The OSIE Service settings
+Service family settings do not reach Smee; whether DHCPv6 runs is decided by
+`deployment.envs.globals.listenerFamilies` and
+`deployment.envs.smee.dhcpv6Enabled`. Those two settings also decide whether the
+DHCP and DHCPv6 Service ports are published at all, so the Service never
+advertises a port the pod is not listening on. The OSIE Service settings
 apply only when the chart creates that Service; no OSIE Service is created
 when its artifact server uses host networking.
 
@@ -248,36 +252,104 @@ value is empty, Tinkerbell uses its automatic fallback DUID behavior. In
 production Kubernetes deployments, keep this value stable across Pod restarts
 and upgrades, for example by sourcing it from a Secret.
 
+## Listener Families
+
+`deployment.envs.globals.listenerFamilies` selects the IP address families every
+listener serves.
+
+| Value | Listeners |
+|-------|-----------|
+| `ipv4` (default) | IPv4 only |
+| `ipv6` | IPv6 only |
+| `dual` | both |
+
+**Values for a family that is not served are ignored, not rejected.** One values
+file can therefore configure both families, and switching between IPv4-only,
+IPv6-only, and dual-stack is a one-line change. Tinkerbell logs the ignored
+settings at startup, for example:
+
+```text
+"msg":"ignoring flags for address families not being served",
+"listenerFamilies":"ipv4","ignoredFlags":["bind-address-v6","public-ip-v6"]
+```
+
+This governs the *family* of every listener, including DHCP. It does not turn
+services on: each service keeps its own enable value, and the two combine. DHCP
+is enabled for both families by default, so `dual` answers DHCPv4 and DHCPv6,
+while `ipv6` answers only DHCPv6. Set `deployment.envs.smee.dhcpv6Enabled:
+false` to serve IPv6 HTTP, TFTP, syslog, gRPC, and SSH without running a DHCPv6
+server, for example where the network already provides one.
+
+Public address auto-detection follows the same rule: a family that is not served
+is never detected and never advertised.
+
+This is independent of `service.ipFamilies`, which controls the families
+Kubernetes assigns to the Service. Set both; see
+[Service IP Families](#service-ip-families).
+
 ## Bind Address Behavior
 
-When `deployment.envs.globals.bindAddr` is set, the Tinkerbell binary binds
-shared services to that address. A service-specific bind address, where
-available, takes precedence. When the global value is not set, Tinkerbell uses
-an IPv4-compatible default selected from addresses detected inside the
-container or host:
+Within the families being served, shared services bind one socket per family.
+The IPv6 socket is always `IPV6_V6ONLY`, so an IPv6 wildcard never accepts IPv4
+traffic and the two families can share a port number.
 
-| Detected IPv4 | Detected IPv6 | Default bind address |
-|---------------|---------------|----------------------|
-| yes | either | detected IPv4 |
-| no | yes | `::` |
-| no | no | `0.0.0.0` |
+`deployment.envs.globals.bindAddr` sets the IPv4 bind address and
+`deployment.envs.globals.bindAddrV6` sets the IPv6 one. A service-specific bind
+address, where available, takes precedence. When a served family has no
+configured address, Tinkerbell selects a default:
 
-The configured public IPv4 and IPv6 values are advertised addresses and do not
-change this default. Set `deployment.envs.globals.bindAddr: "::"` to explicitly
-select the IPv6 wildcard for shared services. Whether that listener also accepts
-IPv4 traffic is platform dependent; on Linux it depends on `IPV6_V6ONLY` and
-`net.ipv6.bindv6only`, and Kubernetes networking may add its own behavior.
-DHCPv6 uses its own bind setting, `deployment.envs.smee.dhcpv6BindAddr`, and
-defaults to `::`.
+| Family | Detected address | Default bind address |
+|--------|------------------|----------------------|
+| IPv4 | yes | the detected IPv4 address |
+| IPv4 | no | `0.0.0.0` |
+| IPv6 | either | `::` |
 
-For a dual-stack deployment, detecting both address families does not create
-dual-stack shared listeners. The automatic bind address remains IPv4 while
-`publicIPv6` is still advertised to IPv6 clients. Ensure the advertised IPv6
-HTTP, TFTP, syslog, and Tink Server endpoints are reachable by setting an
-appropriate IPv6-capable `bindAddr`, configuring service-specific listeners,
-or using an IPv6 load balancer or proxy. Setting `dhcpv6BindAddr` alone only
-changes the DHCPv6 listener and does not expose the referenced shared services
-over IPv6.
+The configured public IPv4 and IPv6 values are advertised addresses, possibly
+belonging to a load balancer, and do not change these defaults. DHCPv6 uses its
+own bind setting, `deployment.envs.smee.dhcpv6BindAddr`, and defaults to `::`.
+
+Setting `dhcpv6BindAddr` alone only changes the DHCPv6 listener; use
+`listenerFamilies` to expose the shared services over IPv6.
+
+## Per-Family Ports
+
+Each bind port has an IPv6 counterpart. Leave the IPv6 value empty and it
+inherits the IPv4 value, which is the recommended setting:
+
+| IPv4 value | IPv6 value |
+|------------|------------|
+| `deployment.envs.globals.httpPort` | `deployment.envs.globals.httpPortV6` |
+| `deployment.envs.globals.httpsPort` | `deployment.envs.globals.httpsPortV6` |
+| `deployment.envs.tinkServer.bindPort` | `deployment.envs.tinkServer.bindPortV6` |
+| `deployment.envs.secondstar.bindPort` | `deployment.envs.secondstar.bindPortV6` |
+| `deployment.envs.smee.tftpServerBindPort` | `deployment.envs.smee.tftpServerBindPortV6` |
+| `deployment.envs.smee.syslogBindPort` | `deployment.envs.smee.syslogBindPortV6` |
+
+**A Service port entry has a single `targetPort` that both families share.**
+Kubernetes provides no way to route IPv4 and IPv6 to different container ports
+through one Service, so when `listenerFamilies` is `dual` and `service.enabled`
+is `true`, each IPv6 value must equal its IPv4 counterpart. The chart fails at
+render time rather than creating a listener the Service cannot reach:
+
+```text
+deployment.envs.smee.tftpServerBindPortV6 (6969) must equal
+deployment.envs.smee.tftpServerBindPort (69): a Service port has a single
+targetPort shared by both IP families.
+```
+
+Only one family is served in the `ipv4` and `ipv6` modes, so there is no shared
+`targetPort` to reconcile and the values may differ. The values belonging to a
+family that is not served are ignored, exactly as Tinkerbell ignores them, and
+the container ports the pod declares follow whichever family is served.
+
+To bind a different port per family while serving both, set
+`service.enabled: false` and reach the pod directly, for example with
+`deployment.hostNetwork: true`. Note that `hostNetwork` alone is not enough:
+traffic arriving through a Service still lands on `targetPort`.
+
+DHCP and DHCPv6 are unaffected: they have separate Service entries, so
+`dhcpBindPort` and `dhcpv6BindPort` may differ. Each declares the container port
+it binds, and each entry is published only when its family is served.
 
 ## Additional RBAC Rules
 
@@ -352,10 +424,12 @@ helm install tinkerbell . \
 
 ### Configure DHCPv6 Mode
 
+DHCPv6 runs only when the listener families include IPv6.
+
 ```bash
 helm install tinkerbell . \
   --namespace tinkerbell \
-  --set deployment.envs.smee.dhcpv6Enabled=true \
+  --set deployment.envs.globals.listenerFamilies=dual \
   --set deployment.envs.smee.dhcpv6Mode=reservation
 ```
 
@@ -364,10 +438,19 @@ helm install tinkerbell . \
 ```bash
 helm install tinkerbell . \
   --namespace tinkerbell \
-  --set deployment.envs.smee.dhcpv6Enabled=true \
+  --set deployment.envs.globals.listenerFamilies=dual \
   --set deployment.envs.smee.dhcpv6Mode=derived \
   --set deployment.envs.smee.dhcpv6DerivedDirectAddressPool=2001:db8:10::/64 \
   --set deployment.envs.smee.dhcpv6DerivedRelayAddressPrefix=64
+```
+
+### Serve IPv6 Without Running DHCPv6
+
+```bash
+helm install tinkerbell . \
+  --namespace tinkerbell \
+  --set deployment.envs.globals.listenerFamilies=dual \
+  --set deployment.envs.smee.dhcpv6Enabled=false
 ```
 
 ### Disable DHCPv6 Netboot Options

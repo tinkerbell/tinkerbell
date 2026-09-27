@@ -1,53 +1,56 @@
 package secondstar
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net"
 	"net/netip"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/pkg/listener"
 )
 
-func TestSSHAddrPort(t *testing.T) {
-	tests := map[string]struct {
-		addr netip.Addr
-		port int
-		want string
-	}{
-		"invalid address": {
-			port: 2222,
-			want: ":2222",
-		},
-		"unspecified ipv4 address": {
-			addr: netip.IPv4Unspecified(),
-			port: 2222,
-			want: ":2222",
-		},
-		"unspecified ipv6 address": {
-			addr: netip.IPv6Unspecified(),
-			port: 2222,
-			want: "[::]:2222",
-		},
-		"ipv4": {
-			addr: netip.MustParseAddr("10.0.2.15"),
-			port: 2222,
-			want: "10.0.2.15:2222",
-		},
-		"ipv6": {
-			addr: netip.MustParseAddr("2001:db8::15"),
-			port: 2222,
-			want: "[2001:db8::15]:2222",
-		},
+// Start must return once its context is cancelled. gliderlabs/ssh resets the
+// server's done channel when Serve registers a listener, so a Shutdown that
+// arrives first leaves Accept with nothing to stop it and hangs the process.
+func TestStartReturnsOnContextCancel(t *testing.T) {
+	hostKey, err := generateHostKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := probe.Addr().(*net.TCPAddr).AddrPort().Port()
+	probe.Close()
+
+	c := &Config{
+		V4:      listener.Bind{Addr: netip.MustParseAddr("127.0.0.1"), Port: port, Enabled: true},
+		HostKey: hostKey,
 	}
 
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			if got := sshAddrPort(tt.addr, tt.port); got != tt.want {
-				t.Errorf("sshAddrPort() = %q, want %q", got, tt.want)
-			}
-		})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- c.Start(ctx, logr.Discard()) }()
+
+	// Give Serve time to register its listener, which is the race being guarded.
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("Start() = %v, want nil", err)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("Start did not return after its context was cancelled")
 	}
 }
 

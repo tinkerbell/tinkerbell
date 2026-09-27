@@ -6,6 +6,7 @@ import (
 
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffval"
+	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 )
 
 // EnvVarPrefix is the prefix ff derives environment variable names from. A flag
@@ -44,6 +45,16 @@ type Set struct {
 // family. One Config therefore serves both families, so a missing counterpart is
 // a missing call here rather than an absent declaration.
 func (fs *Set) RegisterFamily(f Config, fam Family, fv flag.Value) {
+	// Address values learn their family from fam, which also builds the flag
+	// name, so the two can never disagree. Values that carry hostnames or URLs
+	// don't implement the interface and stay unrestricted.
+	if r, ok := fv.(ntip.FamilyRestricter); ok {
+		if fam == V6 {
+			r.RequireIPv6()
+		} else {
+			r.RequireIPv4()
+		}
+	}
 	fs.Register(Config{
 		Name:  f.Name + "-" + string(fam),
 		Usage: fmt.Sprintf("%s (%s only)", f.Usage, fam.label()),

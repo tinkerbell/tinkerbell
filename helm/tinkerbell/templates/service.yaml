@@ -54,11 +54,13 @@ spec:
   {{- end }}
   ports:
   {{- if .Values.deployment.envs.globals.enableSmee}}
+  {{- if and .Values.deployment.envs.smee.dhcpEnabled (include "tinkerbell.servesIPv4" .) }}
   - port: {{ .Values.service.ports.dhcp.port }}
     targetPort: {{ .Values.service.ports.dhcp.name }}
     protocol: {{ .Values.service.ports.dhcp.protocol }}
     name: {{ .Values.service.ports.dhcp.name }}
-  {{- if .Values.deployment.envs.smee.dhcpv6Enabled }}
+  {{- end }}
+  {{- if and .Values.deployment.envs.smee.dhcpv6Enabled (include "tinkerbell.servesIPv6" .) }}
   - port: {{ .Values.service.ports.dhcpv6.port }}
     targetPort: {{ .Values.service.ports.dhcpv6.name }}
     protocol: {{ .Values.service.ports.dhcpv6.protocol }}
