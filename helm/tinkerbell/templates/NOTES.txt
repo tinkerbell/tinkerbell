@@ -25,13 +25,13 @@ deployment.envs.globals.listenerFamilies.
 
 Ports the pod exposes and the Service targets:
 
-  http    {{ .Values.deployment.envs.globals.httpPort }}
-  https   {{ .Values.deployment.envs.globals.httpsPort }}
-  grpc    {{ .Values.deployment.envs.tinkServer.bindPort }}
-  ssh     {{ .Values.deployment.envs.secondstar.bindPort }}
-  tftp    {{ .Values.deployment.envs.smee.tftpServerBindPort }}
-  syslog  {{ .Values.deployment.envs.smee.syslogBindPort }}
-{{- if .Values.service.enabled }}
+  http    {{ include "tinkerbell.servedPort" (dict "v4" .Values.deployment.envs.globals.httpPort "v6" (default .Values.deployment.envs.globals.httpPort .Values.deployment.envs.globals.httpPortV6) "ctx" $) }}
+  https   {{ include "tinkerbell.servedPort" (dict "v4" .Values.deployment.envs.globals.httpsPort "v6" (default .Values.deployment.envs.globals.httpsPort .Values.deployment.envs.globals.httpsPortV6) "ctx" $) }}
+  grpc    {{ include "tinkerbell.servedPort" (dict "v4" .Values.deployment.envs.tinkServer.bindPort "v6" (default .Values.deployment.envs.tinkServer.bindPort .Values.deployment.envs.tinkServer.bindPortV6) "ctx" $) }}
+  ssh     {{ include "tinkerbell.servedPort" (dict "v4" .Values.deployment.envs.secondstar.bindPort "v6" (default .Values.deployment.envs.secondstar.bindPort .Values.deployment.envs.secondstar.bindPortV6) "ctx" $) }}
+  tftp    {{ include "tinkerbell.servedPort" (dict "v4" .Values.deployment.envs.smee.tftpServerBindPort "v6" (default .Values.deployment.envs.smee.tftpServerBindPort .Values.deployment.envs.smee.tftpServerBindPortV6) "ctx" $) }}
+  syslog  {{ include "tinkerbell.servedPort" (dict "v4" .Values.deployment.envs.smee.syslogBindPort "v6" (default .Values.deployment.envs.smee.syslogBindPort .Values.deployment.envs.smee.syslogBindPortV6) "ctx" $) }}
+{{- if and .Values.service.enabled (include "tinkerbell.servesIPv4" .) (include "tinkerbell.servesIPv6" .) }}
 
 IPv4 and IPv6 share these ports: a Service port has one targetPort for both
 families. Leave the *V6 port values empty to inherit.

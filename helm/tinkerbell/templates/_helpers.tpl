@@ -17,6 +17,20 @@ Usage: {{ if include "tinkerbell.servesIPv6" . }}
 {{- end -}}
 
 {{/*
+The port a container actually binds for a setting. Only IPv6 being served makes
+the IPv6 value the live one; otherwise the IPv4 value is, because a Service port
+has a single targetPort that both families share.
+Usage: {{ include "tinkerbell.servedPort" (dict "v4" $httpPort "v6" $httpPortV6 "ctx" $) }}
+*/}}
+{{- define "tinkerbell.servedPort" -}}
+{{- if and (include "tinkerbell.servesIPv6" .ctx) (not (include "tinkerbell.servesIPv4" .ctx)) -}}
+{{- .v6 -}}
+{{- else -}}
+{{- .v4 -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Ensure a value is a JSON array. Fails on nil or non-array input.
 - slice/array: use as-is
 - nil/missing: fail with an error (required field)

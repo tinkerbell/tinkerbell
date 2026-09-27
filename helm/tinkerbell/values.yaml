@@ -40,9 +40,9 @@ deployment:
       enableTinkController: true
       enableUI: true
       httpPort: 7080
-      httpPortV6: "" # Defaults to httpPort when empty. Must equal httpPort unless service.enabled is false.
+      httpPortV6: "" # Defaults to httpPort when empty. Must equal httpPort when listenerFamilies is dual and service.enabled is true.
       httpsPort: 7443
-      httpsPortV6: "" # Defaults to httpsPort when empty. Must equal httpsPort unless service.enabled is false.
+      httpsPortV6: "" # Defaults to httpsPort when empty. Must equal httpsPort when listenerFamilies is dual and service.enabled is true.
       # listenerFamilies controls the IP address families listeners serve.
       # Can be set to ipv4, ipv6, or dual.
       # Values for a family that is not served are ignored.
@@ -68,7 +68,7 @@ deployment:
       bindAddr: ""
       bindAddrV6: ""
       bindPort: 2222
-      bindPortV6: "" # Defaults to bindPort when empty. Must equal bindPort unless service.enabled is false.
+      bindPortV6: "" # Defaults to bindPort when empty. Must equal bindPort when listenerFamilies is dual and service.enabled is true.
       hostKeyPath: ""
       ipmitoolPath: "/usr/sbin/ipmitool"
       idleTimeout: "15m"
@@ -146,13 +146,13 @@ deployment:
       syslogBindAddr: ""
       syslogBindAddrV6: ""
       syslogBindPort: 514
-      syslogBindPortV6: "" # Defaults to syslogBindPort when empty. Must equal syslogBindPort unless service.enabled is false.
+      syslogBindPortV6: "" # Defaults to syslogBindPort when empty. Must equal syslogBindPort when listenerFamilies is dual and service.enabled is true.
       syslogEnabled: true
       tftpBlockSize: 512
       tftpServerBindAddr: ""
       tftpServerBindAddrV6: ""
       tftpServerBindPort: 69
-      tftpServerBindPortV6: "" # Defaults to tftpServerBindPort when empty. Must equal tftpServerBindPort unless service.enabled is false.
+      tftpServerBindPortV6: "" # Defaults to tftpServerBindPort when empty. Must equal tftpServerBindPort when listenerFamilies is dual and service.enabled is true.
       tftpServerEnabled: true
       tftpTimeout: "10s"
       tftpSinglePort: true # if true, use single port mode for TFTP server
@@ -174,7 +174,7 @@ deployment:
       bindAddr: ""
       bindPort: 42113
       bindAddrV6: ""
-      bindPortV6: "" # Defaults to bindPort when empty. Must equal bindPort unless service.enabled is false.
+      bindPortV6: "" # Defaults to bindPort when empty. Must equal bindPort when listenerFamilies is dual and service.enabled is true.
       logLevel: 0
     tootles:
       debugMode: false

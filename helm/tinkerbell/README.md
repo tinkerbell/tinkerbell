@@ -327,9 +327,9 @@ inherits the IPv4 value, which is the recommended setting:
 
 **A Service port entry has a single `targetPort` that both families share.**
 Kubernetes provides no way to route IPv4 and IPv6 to different container ports
-through one Service, so while `service.enabled` is `true` each IPv6 value must
-equal its IPv4 counterpart. The chart fails at render time rather than creating
-a listener the Service cannot reach:
+through one Service, so when `listenerFamilies` is `dual` and `service.enabled`
+is `true`, each IPv6 value must equal its IPv4 counterpart. The chart fails at
+render time rather than creating a listener the Service cannot reach:
 
 ```text
 deployment.envs.smee.tftpServerBindPortV6 (6969) must equal
@@ -337,17 +337,15 @@ deployment.envs.smee.tftpServerBindPort (69): a Service port has a single
 targetPort shared by both IP families.
 ```
 
-The container ports the pod declares, and the ports the Service targets, are
-always the IPv4 values. The chart cannot determine which families a Service
-will actually receive: `ipFamilies` and `ipFamilyPolicy` may be unset, in which
-case Kubernetes decides from cluster configuration Helm cannot see, and an
-upgrade keeps the existing Service's primary family regardless of what is
-requested. Rather than guess, the chart requires the families to share a port.
+Only one family is served in the `ipv4` and `ipv6` modes, so there is no shared
+`targetPort` to reconcile and the values may differ. The values belonging to a
+family that is not served are ignored, exactly as Tinkerbell ignores them, and
+the container ports the pod declares follow whichever family is served.
 
-To bind a different port per family, set `service.enabled: false` and reach the
-pod directly, for example with `deployment.hostNetwork: true`. Note that
-`hostNetwork` alone is not enough: traffic arriving through a Service still
-lands on `targetPort`.
+To bind a different port per family while serving both, set
+`service.enabled: false` and reach the pod directly, for example with
+`deployment.hostNetwork: true`. Note that `hostNetwork` alone is not enough:
+traffic arriving through a Service still lands on `targetPort`.
 
 DHCP and DHCPv6 are unaffected: they have separate Service entries, so
 `dhcpBindPort` and `dhcpv6BindPort` may differ. Each declares the container port
