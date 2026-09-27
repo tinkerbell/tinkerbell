@@ -16,7 +16,7 @@ require (
 	github.com/containers/image/v5 v5.36.2
 	github.com/diskfs/go-diskfs v1.9.4
 	github.com/distribution/reference v0.6.0
-	github.com/dustin/go-humanize v1.0.1
+	github.com/dustin/go-humanize v1.1.0
 	github.com/felixge/httpsnoop v1.1.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-gonic/gin v1.12.0
