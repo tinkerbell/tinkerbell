@@ -352,8 +352,10 @@ func TestDHCPv6BindInterfaces(t *testing.T) {
 func TestNewConfigDHCPv6Defaults(t *testing.T) {
 	cfg := NewConfig(Config{})
 
-	if cfg.DHCPv6.Enabled {
-		t.Fatal("DHCPv6 should be disabled by default")
+	// Matches DHCPv4. Whether an IPv6 listener exists at all is decided by the
+	// configured listener families, not here.
+	if !cfg.DHCPv6.Enabled {
+		t.Fatal("DHCPv6 should be enabled by default")
 	}
 	if cfg.DHCPv6.Mode != DHCPv6ModeStateless {
 		t.Fatalf("unexpected DHCPv6 mode: got %q want %q", cfg.DHCPv6.Mode, DHCPv6ModeStateless)

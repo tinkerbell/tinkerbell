@@ -26,6 +26,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	"github.com/tinkerbell/tinkerbell/pkg/listener"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	v6 "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/dhcpv6"
 	reservationv6 "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/dhcpv6/handler/reservation"
@@ -166,12 +167,10 @@ type Config struct {
 	TLS TLS
 }
 
-// Bind is a listen address for a single IP family. An invalid Addr leaves that
-// family unserved.
-type Bind struct {
-	Addr netip.Addr
-	Port uint16
-}
+// Bind is the per-family listen address shared with every other Tinkerbell
+// listener. Type aliased so that existing code using Bind continues to work
+// without modification.
+type Bind = listener.Bind
 
 type Syslog struct {
 	// V4 and V6 are the per-family listen addresses.
@@ -381,7 +380,7 @@ func NewConfig(c Config) *Config {
 			TFTPPort: DefaultTFFTPPort,
 		},
 		DHCPv6: DHCPv6{
-			Enabled:                   false,
+			Enabled:                   true,
 			EnableNetbootOptions:      true,
 			DefaultNameServers:        []netip.Addr{},
 			DefaultDomainSearchList:   []string{},
@@ -561,28 +560,18 @@ func (c *Config) syslogHostV6() string {
 // ISOHandler returns an http.Handler that serves ISO images patched with IPv4 endpoints.
 // Returns nil, nil if the ISO server is disabled.
 func (c *Config) ISOHandler(log logr.Logger) (http.Handler, error) {
-	return c.newISOHandler(log, c.syslogHost(), c.TinkServer.AddrPort, c.IPXE.HTTPScriptServer.ExtraKernelArgs)
+	return c.newISOHandler(log, c.syslogHost(), c.TinkServer.AddrPort, c.IPXE.HTTPScriptServer.ExtraKernelArgs, c.ISO.StaticIPAMEnabled)
 }
 
 // ISOHandlerV6 returns an http.Handler that serves ISO images patched with IPv6 endpoints.
-// Requests are rejected when static IPAM is enabled, which only supports IPv4.
+// Static IPAM is never applied: the ipam kernel parameter it builds carries an
+// IPv4 address, netmask, and gateway.
 // Returns nil, nil if the ISO server is disabled.
 func (c *Config) ISOHandlerV6(log logr.Logger) (http.Handler, error) {
-	if !c.ISO.Enabled {
-		return nil, nil
-	}
-
-	// Static IPAM is not supported for IPv6
-	if c.ISO.StaticIPAMEnabled {
-		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, "static IPAM is not supported for IPv6 ISO boot", http.StatusBadRequest)
-		}), nil
-	}
-
-	return c.newISOHandler(log, c.syslogHostV6(), c.TinkServer.AddrPortV6, c.IPXE.HTTPScriptServer.ExtraKernelArgsV6)
+	return c.newISOHandler(log, c.syslogHostV6(), c.TinkServer.AddrPortV6, c.IPXE.HTTPScriptServer.ExtraKernelArgsV6, false)
 }
 
-func (c *Config) newISOHandler(log logr.Logger, syslogHost, tinkServerGRPCAddr string, extraKernelArgs []string) (http.Handler, error) {
+func (c *Config) newISOHandler(log logr.Logger, syslogHost, tinkServerGRPCAddr string, extraKernelArgs []string, staticIPAMEnabled bool) (http.Handler, error) {
 	if !c.ISO.Enabled {
 		return nil, nil
 	}
@@ -603,7 +592,7 @@ func (c *Config) newISOHandler(log logr.Logger, syslogHost, tinkServerGRPCAddr s
 				return c.ISO.PatchMagicString
 			}(),
 			SourceISO:         c.ISO.UpstreamURL.String(),
-			StaticIPAMEnabled: c.ISO.StaticIPAMEnabled,
+			StaticIPAMEnabled: staticIPAMEnabled,
 		},
 	}
 	h, err := ih.HandlerFunc()
@@ -632,15 +621,28 @@ func runSyslogServer(ctx context.Context, log logr.Logger, addr string) error {
 	return nil
 }
 
-// listenAddrs returns the listen address of every family that has one set.
-func listenAddrs(binds ...Bind) []netip.AddrPort {
+// enabledBinds returns the listen address of every enabled family, failing when
+// an enabled family has no usable address.
+func enabledBinds(service string, v4Bind, v6Bind Bind) ([]netip.AddrPort, error) {
 	var addrs []netip.AddrPort
-	for _, b := range binds {
-		if b.Addr.IsValid() {
-			addrs = append(addrs, netip.AddrPortFrom(b.Addr, b.Port))
+	for _, fb := range []struct {
+		family string
+		bind   Bind
+	}{{"IPv4", v4Bind}, {"IPv6", v6Bind}} {
+		if !fb.bind.Enabled {
+			continue
 		}
+		if !fb.bind.Addr.IsValid() {
+			return nil, fmt.Errorf("%s %s is enabled but has no bind address", service, fb.family)
+		}
+		// Port 0 binds an ephemeral port, which nothing can be told to reach.
+		if fb.bind.Port == 0 {
+			return nil, fmt.Errorf("%s %s is enabled but has no bind port", service, fb.family)
+		}
+		addrs = append(addrs, netip.AddrPortFrom(fb.bind.Addr, fb.bind.Port))
 	}
-	return addrs
+
+	return addrs, nil
 }
 
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
@@ -654,9 +656,12 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	g, ctx := errgroup.WithContext(ctx)
 	// syslog
 	if c.Syslog.Enabled {
-		addrs := listenAddrs(c.Syslog.V4, c.Syslog.V6)
+		addrs, err := enabledBinds("syslog", c.Syslog.V4, c.Syslog.V6)
+		if err != nil {
+			return err
+		}
 		if len(addrs) == 0 {
-			return errors.New("syslog is enabled but no IPv4 or IPv6 bind address is set")
+			return errors.New("syslog is enabled but no address family is served")
 		}
 		for _, addr := range addrs {
 			log.Info("starting syslog server", "bindAddr", addr)
@@ -668,9 +673,12 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 	// tftp
 	if c.TFTP.Enabled {
-		addrs := listenAddrs(c.TFTP.V4, c.TFTP.V6)
+		addrs, err := enabledBinds("TFTP", c.TFTP.V4, c.TFTP.V6)
+		if err != nil {
+			return err
+		}
 		if len(addrs) == 0 {
-			return errors.New("TFTP is enabled but no IPv4 or IPv6 bind address is set")
+			return errors.New("TFTP is enabled but no address family is served")
 		}
 		resolver := hardware.BackendResolver{Backend: c.Backend}
 		for _, addrPort := range addrs {

@@ -127,7 +127,9 @@ func TestISOHandlersDisabledAndInvalidSource(t *testing.T) {
 	}
 }
 
-func TestISOHandlerV6RejectsStaticIPAM(t *testing.T) {
+// Static IPAM is configured by an IPv4-only flag, so enabling it must not
+// affect IPv6 ISO boot.
+func TestISOHandlerV6OmitsStaticIPAM(t *testing.T) {
 	const mac = "de:ed:be:ef:fe:ed"
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(isoMagicString))
@@ -138,21 +140,6 @@ func TestISOHandlerV6RejectsStaticIPAM(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := Config{ISO: ISO{Enabled: true, UpstreamURL: sourceURL, StaticIPAMEnabled: true}}
-	h, err := c.ISOHandlerV6(logr.Discard())
-	if err != nil {
-		t.Fatal(err)
-	}
-	// No backend is configured: rejection must happen before hardware lookup.
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ISOURIV6+mac+"/hook.iso", nil))
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusBadRequest, w.Body.String())
-	}
-	if !strings.Contains(w.Body.String(), "static IPAM is not supported for IPv6 ISO boot") {
-		t.Fatalf("missing explanation in response: %q", w.Body.String())
-	}
-
-	// The same configuration must still serve IPv4 ISOs with static IPAM.
 	c.Backend = dhcpv6TestBackend{hardware: &tinkerbell.Hardware{
 		Spec: tinkerbell.HardwareSpec{Interfaces: []tinkerbell.Interface{{
 			DHCP: &tinkerbell.DHCP{
@@ -162,6 +149,21 @@ func TestISOHandlerV6RejectsStaticIPAM(t *testing.T) {
 			Netboot: &tinkerbell.Netboot{},
 		}}},
 	}}
+
+	h, err := c.ISOHandlerV6(logr.Discard())
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ISOURIV6+mac+"/hook.iso", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("IPv6 status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), "ipam=") {
+		t.Fatalf("IPv6 patched ISO must not carry a static IPAM parameter: %q", w.Body.String())
+	}
+
+	// The same configuration must still serve IPv4 ISOs with static IPAM.
 	h, err = c.ISOHandler(logr.Discard())
 	if err != nil {
 		t.Fatal(err)
