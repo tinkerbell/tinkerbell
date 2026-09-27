@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
+	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/http/handler"
 	"github.com/tinkerbell/tinkerbell/pkg/http/middleware"
 	httpserver "github.com/tinkerbell/tinkerbell/pkg/http/server"
@@ -65,23 +66,8 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 				"smee iPXE script handler",
 			)
 		}
-		if isoH, err := s.Config.ISOHandler(smeeLog); err == nil && isoH != nil {
-			routeList.Register(routeISO,
-				middleware.WithLogLevel(middleware.LogLevelNever, isoH),
-				"smee ISO handler",
-				httpserver.WithHTTPSEnabled(tlsEnabled),
-			)
-		} else if err != nil {
-			return fmt.Errorf("failed to create smee iso handler: %w", err)
-		}
-		if isoH, err := s.Config.ISOHandlerV6(smeeLog); err == nil && isoH != nil {
-			routeList.Register(routeISOV6,
-				middleware.WithLogLevel(middleware.LogLevelNever, isoH),
-				"smee IPv6 ISO handler",
-				httpserver.WithHTTPSEnabled(tlsEnabled),
-			)
-		} else if err != nil {
-			return fmt.Errorf("failed to create smee IPv6 iso handler: %w", err)
+		if err := registerISORoutes(routeList, s, smeeLog, globals.ListenerFamilies, tlsEnabled); err != nil {
+			return err
 		}
 		if ph := s.Config.PXEHTTPHandler(smeeLog); ph != nil {
 			routeList.Register(normalizeURLPrefix(s.Config.PXEHTTP.PathPrefix),
@@ -183,7 +169,11 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 	routeList.Register(routeHealthz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Healthz()), "Liveness probe handler")
 	routeList.Register(routeReadyz, middleware.WithLogLevel(middleware.LogLevelNever, handler.Readyz()), "Readiness probe handler")
 
-	httpMux, httpsMux := routeList.Muxes(httpLog, globals.HTTPSPort, !globals.TLS.DisableHTTPToHTTPSRedirect && tlsEnabled)
+	redirectToHTTPS := !globals.TLS.DisableHTTPToHTTPSRedirect && tlsEnabled
+	httpMux, httpsMux := routeList.Muxes(httpLog, globals.HTTPSPort, redirectToHTTPS)
+	// The redirect names a port, so IPv6 needs its own mux when the families
+	// listen for HTTPS on different ports.
+	httpMuxV6, _ := routeList.Muxes(httpLog, globals.HTTPSPortV6, redirectToHTTPS)
 
 	// Only wrap and pass the HTTPS handler when there are HTTPS routes
 	// (which implies TLS is configured) — otherwise skip the HTTPS server.
@@ -192,23 +182,26 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 		httpsArg = httpsMux
 	}
 
-	httpHandler, httpsHandler, err := addMiddleware(httpLog, globals.TrustedProxies, httpMux, httpsArg)
+	httpHandler, httpsHandler, err := addMiddleware(httpLog, globals.TrustedProxies, httpMux, httpsArg, "")
+	if err != nil {
+		return fmt.Errorf("failed to add middleware: %w", err)
+	}
+	httpHandlerV6, _, err := addMiddleware(httpLog, globals.TrustedProxies, httpMuxV6, nil, "-v6")
 	if err != nil {
 		return fmt.Errorf("failed to add middleware: %w", err)
 	}
 
 	opts := []httpserver.Option{
 		func(c *httpserver.Config) {
-			c.BindAddr = globals.BindAddr.String()
-			c.BindPort = globals.HTTPPort
-			c.HTTPSPort = globals.HTTPSPort
+			c.V4 = httpserver.Listener{Addr: globals.BindAddr, HTTPPort: globals.HTTPPort, HTTPSPort: globals.HTTPSPort, HTTPHandler: httpHandler, Enabled: globals.ListenerFamilies.HasV4()}
+			c.V6 = httpserver.Listener{Addr: globals.BindAddrV6, HTTPPort: globals.HTTPPortV6, HTTPSPort: globals.HTTPSPortV6, HTTPHandler: httpHandlerV6, Enabled: globals.ListenerFamilies.HasV6()}
 			c.TLSCerts = s.Config.TLS.Certs
 		},
 	}
 	srv := httpserver.NewConfig(opts...)
 
 	kvs := []any{
-		"addr", net.JoinHostPort(globals.BindAddr.String(), strconv.Itoa(globals.HTTPPort)),
+		"addrs", listenAddrs(srv),
 		"enabledSchemes", func() []string {
 			schemes := []string{"http"}
 			if httpsHandler != nil {
@@ -222,13 +215,58 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 	return srv.Serve(ctx, httpLog, httpHandler, httpsHandler)
 }
 
+// registerISORoutes registers the ISO handler of every served family. An ISO is
+// patched with endpoints of its own family, so a route for an unserved family
+// could only hand out addresses nothing listens on.
+func registerISORoutes(routeList *httpserver.Routes, s *flag.SmeeConfig, log logr.Logger, families constant.ListenerFamilies, tlsEnabled bool) error {
+	for _, r := range []struct {
+		route   string
+		serve   bool
+		name    string
+		handler func(logr.Logger) (http.Handler, error)
+	}{
+		{routeISO, families.HasV4(), "smee ISO handler", s.Config.ISOHandler},
+		{routeISOV6, families.HasV6(), "smee IPv6 ISO handler", s.Config.ISOHandlerV6},
+	} {
+		if !r.serve {
+			continue
+		}
+		isoH, err := r.handler(log)
+		if err != nil {
+			return fmt.Errorf("failed to create %s: %w", r.name, err)
+		}
+		if isoH == nil {
+			continue
+		}
+		routeList.Register(r.route,
+			middleware.WithLogLevel(middleware.LogLevelNever, isoH),
+			r.name,
+			httpserver.WithHTTPSEnabled(tlsEnabled),
+		)
+	}
+
+	return nil
+}
+
+// listenAddrs returns the HTTP listen address of every enabled family.
+func listenAddrs(srv *httpserver.Config) []string {
+	var addrs []string
+	for _, l := range []httpserver.Listener{srv.V4, srv.V6} {
+		if l.Enabled && l.Addr.IsValid() {
+			addrs = append(addrs, net.JoinHostPort(l.Addr.String(), strconv.Itoa(l.HTTPPort)))
+		}
+	}
+	return addrs
+}
+
 // addMiddleware applies the shared middleware stack to both the HTTP and
-// HTTPS handlers. The middleware executes in the following order on the
+// HTTPS handlers. familySuffix keeps each family's traces distinguishable.
+// The middleware executes in the following order on the
 // request path:
 //
 //	Request  → SourceIP → XFF → RequestMetrics → Recovery → Logging → OTel → mux
 //	Response ← SourceIP ← XFF ← RequestMetrics ← Recovery ← Logging ← OTel ← mux
-func addMiddleware(log logr.Logger, trustedProxies []netip.Prefix, httpHandler, httpsHandler http.Handler) (http.Handler, http.Handler, error) {
+func addMiddleware(log logr.Logger, trustedProxies []netip.Prefix, httpHandler, httpsHandler http.Handler, familySuffix string) (http.Handler, http.Handler, error) {
 	// Convert trusted proxies once for both handlers.
 	var proxies []string
 	for _, p := range trustedProxies {
@@ -256,12 +294,12 @@ func addMiddleware(log logr.Logger, trustedProxies []netip.Prefix, httpHandler, 
 	}
 
 	var err error
-	httpHandler, err = wrap(httpHandler, "tinkerbell-http")
+	httpHandler, err = wrap(httpHandler, "tinkerbell-http"+familySuffix)
 	if err != nil {
 		return nil, nil, err
 	}
 	if httpsHandler != nil {
-		httpsHandler, err = wrap(httpsHandler, "tinkerbell-https")
+		httpsHandler, err = wrap(httpsHandler, "tinkerbell-https"+familySuffix)
 		if err != nil {
 			return nil, nil, err
 		}

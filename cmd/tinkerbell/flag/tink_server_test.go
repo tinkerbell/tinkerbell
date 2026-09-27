@@ -35,10 +35,10 @@ func TestTinkServerConvertBindAddressPrecedence(t *testing.T) {
 				BindPort: 42113,
 			}
 
-			cfg.Convert(globalBindAddr)
+			cfg.Convert(globalBindAddr, netip.Addr{})
 
-			if got := cfg.Config.BindAddrPort.String(); got != tt.want {
-				t.Errorf("BindAddrPort = %q, want %q", got, tt.want)
+			if got := cfg.Config.V4.AddrPort().String(); got != tt.want {
+				t.Errorf("V4.AddrPort = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -46,27 +46,51 @@ func TestTinkServerConvertBindAddressPrecedence(t *testing.T) {
 
 func TestTinkServerConvertUsesGlobalBindAddrByDefault(t *testing.T) {
 	cfg := &TinkServerConfig{
-		Config:   server.NewConfig(),
-		BindPort: 42113,
+		Config:     server.NewConfig(),
+		BindPort:   42113,
+		BindPortV6: 42113,
 	}
 
-	cfg.Convert(netip.MustParseAddr("2001:db8::15"))
+	cfg.Convert(netip.MustParseAddr("10.0.2.15"), netip.MustParseAddr("2001:db8::15"))
 
-	if got, want := cfg.Config.BindAddrPort.String(), "[2001:db8::15]:42113"; got != want {
-		t.Errorf("BindAddrPort = %q, want %q", got, want)
+	if got, want := cfg.Config.V4.AddrPort().String(), "10.0.2.15:42113"; got != want {
+		t.Errorf("V4.AddrPort = %q, want %q", got, want)
+	}
+	if got, want := cfg.Config.V6.AddrPort().String(), "[2001:db8::15]:42113"; got != want {
+		t.Errorf("V6.AddrPort = %q, want %q", got, want)
+	}
+}
+
+// A family with no global and no service address is left unset so nothing binds for it.
+func TestTinkServerConvertLeavesUnsetFamilyUnbound(t *testing.T) {
+	cfg := &TinkServerConfig{
+		Config:     server.NewConfig(),
+		BindPort:   42113,
+		BindPortV6: 42113,
+	}
+
+	cfg.Convert(netip.MustParseAddr("10.0.2.15"), netip.Addr{})
+
+	if cfg.Config.V6.AddrPort().Addr().IsValid() {
+		t.Errorf("V6.AddrPort = %q, want unset", cfg.Config.V6.AddrPort())
 	}
 }
 
 func TestTinkServerConvertPreservesExplicitBindAddr(t *testing.T) {
 	cfg := &TinkServerConfig{
-		Config:   server.NewConfig(),
-		BindAddr: netip.MustParseAddr("10.0.2.15"),
-		BindPort: 42113,
+		Config:     server.NewConfig(),
+		BindAddr:   netip.MustParseAddr("10.0.2.15"),
+		BindAddrV6: netip.MustParseAddr("2001:db8::20"),
+		BindPort:   42113,
+		BindPortV6: 42113,
 	}
 
-	cfg.Convert(netip.MustParseAddr("2001:db8::15"))
+	cfg.Convert(netip.MustParseAddr("192.0.2.1"), netip.MustParseAddr("2001:db8::15"))
 
-	if got, want := cfg.Config.BindAddrPort.String(), "10.0.2.15:42113"; got != want {
-		t.Errorf("BindAddrPort = %q, want %q", got, want)
+	if got, want := cfg.Config.V4.AddrPort().String(), "10.0.2.15:42113"; got != want {
+		t.Errorf("V4.AddrPort = %q, want %q", got, want)
+	}
+	if got, want := cfg.Config.V6.AddrPort().String(), "[2001:db8::20]:42113"; got != want {
+		t.Errorf("V6.AddrPort = %q, want %q", got, want)
 	}
 }
