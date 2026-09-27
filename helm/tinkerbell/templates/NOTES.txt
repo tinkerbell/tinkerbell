@@ -18,3 +18,21 @@ feature gate on the kubelet and API server.
 
 Reference: https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/
 {{- end }}
+
+Listeners serve: {{ .Values.deployment.envs.globals.listenerFamilies }}{{ if eq (toString .Values.deployment.envs.globals.listenerFamilies) "dual" }} (IPv4 and IPv6){{ end }}.
+Settings for a family that is not served are ignored; see values.yaml
+deployment.envs.globals.listenerFamilies.
+
+Ports the pod exposes and the Service targets:
+
+  http    {{ .Values.deployment.envs.globals.httpPort }}
+  https   {{ .Values.deployment.envs.globals.httpsPort }}
+  grpc    {{ .Values.deployment.envs.tinkServer.bindPort }}
+  ssh     {{ .Values.deployment.envs.secondstar.bindPort }}
+  tftp    {{ .Values.deployment.envs.smee.tftpServerBindPort }}
+  syslog  {{ .Values.deployment.envs.smee.syslogBindPort }}
+{{- if .Values.service.enabled }}
+
+IPv4 and IPv6 share these ports: a Service port has one targetPort for both
+families. Leave the *V6 port values empty to inherit.
+{{- end }}
