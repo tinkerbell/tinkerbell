@@ -141,8 +141,8 @@ Retired names are rewritten to current names before parsing. Two functions in a 
 func RenameDeprecatedArgs(args []string) ([]string, []string)
 
 // RenameDeprecatedEnv copies values from retired TINKERBELL_ environment variables
-// onto their current names, leaving an explicitly set current name alone. It returns
-// one message per value copied.
+// onto their current names, overwriting them. It returns one message per value
+// copied.
 func RenameDeprecatedEnv() ([]string, error)
 ```
 
@@ -155,15 +155,18 @@ Requirements:
   `--` as a long-name prefix, so single-dash forms need no handling.
 - `RenameDeprecatedEnv` copies the value verbatim, including the empty string. `ff`
   distinguishes set-but-empty from unset, so skipping empties would change semantics.
+- A deprecated environment variable wins over its current name. The Helm chart emits
+  every current name unconditionally, so a deployment carrying a deprecated name
+  through `additionalEnvs` would otherwise lose to a generated default.
 - Both are called from `executeWithOutput` immediately before `cli.Parse`.
 - Messages are buffered and emitted through `cliLog` after the logger is built — the
   log level is not known until after parsing.
-- Message format: `<old> is deprecated and will be removed after <date>, use <new>`.
+- Message format: `<old> is deprecated and will be removed in a future release, use <new>`.
 - The prefix `TINKERBELL` moves to an exported `flag.EnvVarPrefix` const, used by both
   the shim and `ff.WithEnvVarPrefix` in `cmd.go`, so it is not written twice.
 
-**Removal target: 2027-09-01** (approximately one year). This affects only the warning
-text and a doc comment on `deprecatedNames`; there is no runtime gate.
+Removal is deliberately not tied to a date: the warning promises no schedule and
+there is no runtime gate.
 
 ## 6. Flag mapping
 
@@ -275,18 +278,23 @@ requires a second socket.
 
 | Component | File | Today | Required |
 | --- | --- | --- | --- |
-| HTTP/HTTPS | `pkg/http/server/server.go` | one `BindAddr string`, one `BindPort`, one `HTTPSPort` | per-family bind address and ports; up to four listeners; skip a family whose bind address is unset |
+| HTTP/HTTPS | `pkg/http/server/server.go` | one `BindAddr string`, one `BindPort`, one `HTTPSPort` | per-family bind address and ports; up to four listeners; serve a family only when it is enabled |
 | Syslog | `smee/smee.go` | one `netip.AddrPort` | two receivers |
 | TFTP | `smee/smee.go` | one `binary.TFTP` | two instances |
 | Tink gRPC | `tink/server/server.go` | one `BindAddrPort netip.AddrPort` | two listeners serving one `grpc.Server` |
 | SSH | `secondstar/secondstar.go` | one `BindAddr`/`SSHPort` | two `gssh.Server` sharing handler and host key |
 
+Whether a family is served is carried by an explicit `Enabled` field on each
+per-family listener config, resolved once from `--listener-families` before any
+service starts. The global families are a ceiling: a service can narrow the set
+with its own enable flag but can never widen it. An address is never the signal,
+so an enabled family with no usable address fails at startup instead of leaving a
+listener silently missing.
+
 Two further capability changes are not about listeners:
 
 - **Extra kernel args.** Split `IPXE.HTTPScriptServer.ExtraKernelArgs` into `...V4` and
-  `...V6`, threaded into `ScriptHandler`, `ISOHandler`, and `ISOHandlerV6`. The
-  deprecated `--ipxe-http-script-extra-kernel-args` must feed **both** to preserve
-  current behaviour.
+  `...V6`, threaded into `ScriptHandler`, `ISOHandler`, and `ISOHandlerV6`.
 - **DHCPv4 DNS defaults.** `--dhcp-default-name-servers-v4` and
   `--dhcp-default-domain-search-list-v4` have no implementation today. Mirror the
   existing `v6.DNSDefaults` fallback into the v4 reservation handler
@@ -362,7 +370,9 @@ Files: `smee/smee.go`, `smee/internal/dhcp/handler/reservation/option.go`,
 Acceptance:
 - Smee binds syslog and TFTP on both families when both are configured, and on exactly
   one when only one is.
-- `--ipxe-http-script-extra-kernel-args` (deprecated) still applies to both families.
+- `--ipxe-http-script-extra-kernel-args` (deprecated) applies to IPv4 only, like
+  every other renamed flag. IPv6 kernel arguments are set with
+  `--ipxe-http-script-extra-kernel-args-v6`.
 
 ### PR B2 — HTTP, tink server, secondstar dual-stack
 

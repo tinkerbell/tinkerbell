@@ -277,9 +277,11 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 	// instantiate the implementation for the runtime executor
 	// instantiate the agent
 	// run the agent
-	eg, ctx := errgroup.WithContext(inctx)
 	var tr TransportReader
 	var tw TransportWriter
+	// Held back until the runtime executor is built: starting it here would leave
+	// the transport connected when a runtime error returns without waiting.
+	var startTransport func(context.Context) error
 	switch o.TransportSelected {
 	case FileTransportType:
 		readWriter := &file.Config{
@@ -287,9 +289,7 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 			Actions: make(chan spec.Action),
 			FileLoc: "./example/file_template.yaml",
 		}
-		eg.Go(func() error {
-			return readWriter.Start(ctx)
-		})
+		startTransport = readWriter.Start
 		tr = readWriter
 		tw = readWriter
 	case NATSTransportType:
@@ -303,9 +303,7 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 			Actions:        make(chan spec.Action),
 		}
 		log.Info("starting NATS transport", "server", o.Transport.NATS.ServerAddrPort)
-		eg.Go(func() error {
-			return readWriter.Start(ctx)
-		})
+		startTransport = readWriter.Start
 		tr = readWriter
 		tw = readWriter
 	default:
@@ -389,6 +387,13 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 		RuntimeExecutor: re,
 		TransportWriter: tw,
 		Backoff:         bo,
+	}
+
+	eg, ctx := errgroup.WithContext(inctx)
+	if startTransport != nil {
+		eg.Go(func() error {
+			return startTransport(ctx)
+		})
 	}
 
 	eg.Go(func() error {

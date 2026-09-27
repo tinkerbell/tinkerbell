@@ -51,3 +51,31 @@ type IPXEBinary string
 func (i IPXEBinary) String() string {
 	return string(i)
 }
+
+// ListenerFamilies is the set of IP address families Tinkerbell listens on. It
+// is an enum rather than a pair of toggles so that "neither family" cannot be
+// expressed.
+type ListenerFamilies string
+
+const (
+	// ListenerFamiliesIPv4 serves IPv4 only.
+	ListenerFamiliesIPv4 ListenerFamilies = "ipv4"
+	// ListenerFamiliesIPv6 serves IPv6 only.
+	ListenerFamiliesIPv6 ListenerFamilies = "ipv6"
+	// ListenerFamiliesDual serves both families.
+	ListenerFamiliesDual ListenerFamilies = "dual"
+)
+
+func (l ListenerFamilies) String() string {
+	return string(l)
+}
+
+// HasV4 reports whether IPv4 listeners are served.
+func (l ListenerFamilies) HasV4() bool {
+	return l != ListenerFamiliesIPv6
+}
+
+// HasV6 reports whether IPv6 listeners are served.
+func (l ListenerFamilies) HasV6() bool {
+	return l == ListenerFamiliesIPv6 || l == ListenerFamiliesDual
+}

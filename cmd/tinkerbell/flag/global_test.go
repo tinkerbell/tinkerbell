@@ -8,7 +8,7 @@ import (
 )
 
 func TestRegisterGlobalBindAddressEnv(t *testing.T) {
-	t.Setenv("TINKERBELL_BIND_ADDRESS_V4", "::")
+	t.Setenv("TINKERBELL_BIND_ADDRESS_V4", "192.0.2.10")
 
 	cfg := &GlobalConfig{}
 	fs := ff.NewFlagSet("test")
@@ -19,8 +19,32 @@ func TestRegisterGlobalBindAddressEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got, want := cfg.BindAddr, netip.MustParseAddr("::"); got != want {
+	if got, want := cfg.BindAddr, netip.MustParseAddr("192.0.2.10"); got != want {
 		t.Errorf("BindAddr = %v, want %v", got, want)
+	}
+}
+
+// RegisterFamily hands each address flag the family its name declares, so a
+// value from the wrong family is rejected at parse time rather than producing a
+// listener for the other family.
+func TestRegisterGlobalRejectsWrongFamily(t *testing.T) {
+	for name, tt := range map[string]struct{ env, value string }{
+		"IPv6 in the v4 flag": {"TINKERBELL_BIND_ADDRESS_V4", "::"},
+		"IPv4 in the v6 flag": {"TINKERBELL_BIND_ADDRESS_V6", "0.0.0.0"},
+		"IPv4 in public v6":   {"TINKERBELL_PUBLIC_IP_V6", "192.0.2.10"},
+		"4-in-6 in public v6": {"TINKERBELL_PUBLIC_IP_V6", "::ffff:192.0.2.10"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(tt.env, tt.value)
+
+			fs := ff.NewFlagSet("test")
+			RegisterGlobal(&Set{FlagSet: fs}, &GlobalConfig{})
+			cmd := &ff.Command{Name: "test", Flags: fs}
+
+			if err := cmd.Parse(nil, ff.WithEnvVarPrefix(EnvVarPrefix)); err == nil {
+				t.Fatalf("%s=%s: got nil error, want a family mismatch", tt.env, tt.value)
+			}
+		})
 	}
 }
 
