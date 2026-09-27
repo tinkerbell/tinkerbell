@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
-	"strconv"
+	"net/netip"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/pkg/listener"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -31,16 +31,27 @@ const (
 	DefaultMaxHeaderBytes = 1 << 20 // 1 MB
 )
 
+// Listener is the address and ports for one IP family.
+type Listener struct {
+	Addr      netip.Addr
+	HTTPPort  int
+	HTTPSPort int
+	// HTTPHandler, when set, serves this family's HTTP port instead of the
+	// handler passed to Serve. The HTTP to HTTPS redirect embeds a port, so it
+	// must be built per family.
+	HTTPHandler http.Handler
+	// Enabled reports whether this family is served. It is explicit so that an
+	// address left unset by mistake is an error instead of a missing listener.
+	Enabled bool
+}
+
 // Config is the configuration for the HTTP/HTTPS server.
 type Config struct {
-	// BindAddr is the IP address to bind to.
-	BindAddr string
-	// BindPort is the port for the HTTP server.
-	BindPort int
+	// V4 and V6 are the per-family listen addresses and ports.
+	V4 Listener
+	V6 Listener
 	// TLSCerts are in-memory TLS certificates. Must be provided to enable the HTTPS server.
 	TLSCerts []tls.Certificate
-	// HTTPSPort is the optional port for an HTTPS server.
-	HTTPSPort int
 	// ReadTimeout is the maximum duration for reading the entire request.
 	ReadTimeout time.Duration
 	// ReadHeaderTimeout is the maximum duration for reading request headers.
@@ -96,33 +107,57 @@ func (c *Config) setDefaults() {
 	}
 }
 
-// Serve starts the HTTP server (and optionally an HTTPS server) and blocks until ctx is cancelled.
-// It performs a graceful shutdown when ctx is cancelled.
+// Serve starts an HTTP server, and optionally an HTTPS server, for every
+// configured address family and blocks until ctx is cancelled. It performs a
+// graceful shutdown when ctx is cancelled.
 func (c *Config) Serve(ctx context.Context, log logr.Logger, httpHandler http.Handler, httpsHandler http.Handler) error {
 	c.setDefaults()
 	g, ctx := errgroup.WithContext(ctx)
 
-	// HTTP server
-	g.Go(func() error {
-		if httpHandler == nil {
-			log.Info("no HTTP handler, skipping HTTP server")
-			return nil
+	serveHTTPS := len(c.TLSCerts) > 0 && httpsHandler != nil
+	families := []struct {
+		family   string
+		listener Listener
+	}{{"IPv4", c.V4}, {"IPv6", c.V6}}
+	// Validated before anything starts: returning once a server is running would
+	// skip g.Wait and leave that server serving behind the error.
+	for _, fl := range families {
+		if fl.listener.Enabled && !fl.listener.Addr.IsValid() {
+			return fmt.Errorf("http server %s is enabled but has no bind address", fl.family)
 		}
-		httpAddr := net.JoinHostPort(c.BindAddr, strconv.Itoa(c.BindPort))
+	}
 
-		return c.doServe(ctx, log, httpAddr, httpHandler, nil)
-	})
-
-	// HTTPS server (optional)
-	if len(c.TLSCerts) > 0 && httpsHandler != nil {
-		httpsAddr := net.JoinHostPort(c.BindAddr, strconv.Itoa(c.HTTPSPort))
-		tlsCfg := &tls.Config{
-			MinVersion:   tls.VersionTLS12,
-			Certificates: c.TLSCerts,
+	var started int
+	for _, fl := range families {
+		l := fl.listener
+		if !l.Enabled {
+			continue
 		}
-		g.Go(func() error {
-			return c.doServe(ctx, log.WithValues("server", "https"), httpsAddr, httpsHandler, tlsCfg)
-		})
+		if httpHandler != nil {
+			h := httpHandler
+			if l.HTTPHandler != nil {
+				h = l.HTTPHandler
+			}
+			g.Go(func() error {
+				return c.doServe(ctx, log, l.Addr, l.HTTPPort, h, nil)
+			})
+			started++
+		}
+		if serveHTTPS {
+			tlsCfg := &tls.Config{
+				MinVersion:   tls.VersionTLS12,
+				Certificates: c.TLSCerts,
+			}
+			g.Go(func() error {
+				return c.doServe(ctx, log.WithValues("server", "https"), l.Addr, l.HTTPSPort, httpsHandler, tlsCfg)
+			})
+			started++
+		}
+	}
+
+	if started == 0 {
+		log.Info("no HTTP listeners configured, skipping HTTP server")
+		return nil
 	}
 
 	if err := g.Wait(); err != nil {
@@ -132,7 +167,13 @@ func (c *Config) Serve(ctx context.Context, log logr.Logger, httpHandler http.Ha
 	return nil
 }
 
-func (c *Config) doServe(ctx context.Context, log logr.Logger, addr string, handler http.Handler, tlsCfg *tls.Config) error {
+func (c *Config) doServe(ctx context.Context, log logr.Logger, bindAddr netip.Addr, port int, handler http.Handler, tlsCfg *tls.Config) error {
+	l, err := listener.TCP(ctx, bindAddr, port)
+	if err != nil {
+		return err
+	}
+	addr := l.Addr().String()
+
 	server := &http.Server{
 		Addr:              addr,
 		Handler:           handler,
@@ -150,9 +191,9 @@ func (c *Config) doServe(ctx context.Context, log logr.Logger, addr string, hand
 		var err error
 		if tlsCfg != nil {
 			// Use in-memory certificates from TLSConfig.
-			err = server.ListenAndServeTLS("", "")
+			err = server.ServeTLS(l, "", "")
 		} else {
-			err = server.ListenAndServe()
+			err = server.Serve(l)
 		}
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
@@ -175,6 +216,12 @@ func (c *Config) doServe(ctx context.Context, log logr.Logger, addr string, hand
 				return nil
 			}
 			return fmt.Errorf("server shutdown error: %w", err)
+		}
+		// A Serve failure that raced the cancellation is still a failure.
+		select {
+		case err := <-errCh:
+			return err
+		default:
 		}
 		return nil
 	}

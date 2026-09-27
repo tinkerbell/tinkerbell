@@ -62,9 +62,66 @@ func (a *AddrPort) String() string {
 	return a.AddrPort.String()
 }
 
+// FamilyRestricter is implemented by flag values that accept a single IP
+// address family. Registering a flag under a family name calls it so the name
+// and the accepted family cannot disagree.
+type FamilyRestricter interface {
+	RequireIPv4()
+	RequireIPv6()
+}
+
+// ValidIPv4 reports an error when addr is not IPv4. IPv4-mapped IPv6 addresses
+// such as ::ffff:192.0.2.1 are rejected by both this and [ValidIPv6]: they are
+// ambiguous in exactly the way family-scoped flags exist to disambiguate.
+func ValidIPv4(addr netip.Addr) error {
+	if !addr.Is4() {
+		return fmt.Errorf("%q is not an IPv4 address", addr)
+	}
+
+	return nil
+}
+
+// ValidIPv6 reports an error when addr is not IPv6.
+func ValidIPv6(addr netip.Addr) error {
+	if !addr.Is6() || addr.Is4In6() {
+		return fmt.Errorf("%q is not an IPv6 address", addr)
+	}
+
+	return nil
+}
+
+// family is the address family a flag value accepts. The zero value accepts both.
+type family uint8
+
+const (
+	familyAny family = iota
+	familyV4
+	familyV6
+)
+
+func (f family) check(addr netip.Addr) error {
+	switch f {
+	case familyV4:
+		return ValidIPv4(addr)
+	case familyV6:
+		return ValidIPv6(addr)
+	default:
+		return nil
+	}
+}
+
 // Addr wraps a netip.Addr to implement the flag.Value interface.
 // It represents an IP address without a port.
-type Addr struct{ *netip.Addr }
+type Addr struct {
+	*netip.Addr
+	family family
+}
+
+// RequireIPv4 implements [FamilyRestricter].
+func (a *Addr) RequireIPv4() { a.family = familyV4 }
+
+// RequireIPv6 implements [FamilyRestricter].
+func (a *Addr) RequireIPv6() { a.family = familyV6 }
 
 // Set implements the flag.Value interface.
 // Parses a string as an IP address and sets the Addr value.
@@ -81,6 +138,9 @@ func (a *Addr) Set(s string) error {
 	ip, err := netip.ParseAddr(s)
 	if !ip.IsValid() || err != nil {
 		return fmt.Errorf("failed to parse Address: %q", s)
+	}
+	if err := a.family.check(ip); err != nil {
+		return err
 	}
 	*a.Addr = ip
 
@@ -117,7 +177,16 @@ func (a *Addr) String() string {
 
 // Prefix wraps a netip.Prefix to implement the flag.Value interface.
 // It represents an IP network with address and mask (CIDR notation).
-type Prefix struct{ *netip.Prefix }
+type Prefix struct {
+	*netip.Prefix
+	family family
+}
+
+// RequireIPv4 implements [FamilyRestricter].
+func (p *Prefix) RequireIPv4() { p.family = familyV4 }
+
+// RequireIPv6 implements [FamilyRestricter].
+func (p *Prefix) RequireIPv6() { p.family = familyV6 }
 
 // Set implements the flag.Value interface.
 // Parses a string in CIDR notation (e.g., "192.168.0.0/24") and sets the Prefix value.
@@ -134,6 +203,9 @@ func (p *Prefix) Set(s string) error {
 	ip, err := netip.ParsePrefix(s)
 	if !ip.IsValid() || err != nil {
 		return fmt.Errorf("failed to parse Prefix: %q", s)
+	}
+	if err := p.family.check(ip.Addr()); err != nil {
+		return err
 	}
 	*p.Prefix = ip
 
