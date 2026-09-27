@@ -370,7 +370,9 @@ Files: `smee/smee.go`, `smee/internal/dhcp/handler/reservation/option.go`,
 Acceptance:
 - Smee binds syslog and TFTP on both families when both are configured, and on exactly
   one when only one is.
-- `--ipxe-http-script-extra-kernel-args` (deprecated) still applies to both families.
+- `--ipxe-http-script-extra-kernel-args` (deprecated) applies to IPv4 only, like
+  every other renamed flag. IPv6 kernel arguments are set with
+  `--ipxe-http-script-extra-kernel-args-v6`.
 
 ### PR B2 — HTTP, tink server, secondstar dual-stack
 

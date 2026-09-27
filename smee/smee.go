@@ -168,8 +168,9 @@ type Config struct {
 }
 
 // Bind is the per-family listen address shared with every other Tinkerbell
-// listener. Type aliased so that existing code using Bind continues to work
-// without modification.
+// listener. The alias keeps existing field access compiling, but a caller that
+// builds a Bind must now set Enabled: an address alone no longer serves a
+// family, and Start reports the family as unserved without it.
 type Bind = listener.Bind
 
 type Syslog struct {

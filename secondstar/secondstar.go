@@ -37,9 +37,14 @@ type Config struct {
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	var addrPorts []netip.AddrPort
 	for _, b := range []listener.Bind{c.V4, c.V6} {
-		if b.Enabled {
-			addrPorts = append(addrPorts, b.AddrPort())
+		if !b.Enabled {
+			continue
 		}
+		// Port 0 binds an ephemeral port, which no machine can be told to reach.
+		if b.Port == 0 {
+			return fmt.Errorf("secondstar %s is enabled but has no bind port", b.Addr)
+		}
+		addrPorts = append(addrPorts, b.AddrPort())
 	}
 	if len(addrPorts) == 0 {
 		return errors.New("secondstar has no enabled IPv4 or IPv6 listener")

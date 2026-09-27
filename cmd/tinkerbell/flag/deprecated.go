@@ -91,7 +91,12 @@ func RenameDeprecatedArgs(args []string) ([]string, []string) {
 	out := make([]string, 0, len(args))
 	var warnings []string
 
-	for _, arg := range args {
+	for i, arg := range args {
+		// ff stops treating arguments as flags here, so neither does this.
+		if arg == "--" {
+			out = append(out, args[i:]...)
+			break
+		}
 		if !strings.HasPrefix(arg, "--") {
 			out = append(out, arg)
 			continue

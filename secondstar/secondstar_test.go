@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net"
 	"net/netip"
 	"os"
 	"testing"
@@ -23,8 +24,15 @@ func TestStartReturnsOnContextCancel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	probe, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := probe.Addr().(*net.TCPAddr).AddrPort().Port()
+	probe.Close()
+
 	c := &Config{
-		V4:      listener.Bind{Addr: netip.MustParseAddr("127.0.0.1"), Enabled: true},
+		V4:      listener.Bind{Addr: netip.MustParseAddr("127.0.0.1"), Port: port, Enabled: true},
 		HostKey: hostKey,
 	}
 

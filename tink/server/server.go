@@ -161,6 +161,12 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		if !b.Enabled {
 			continue
 		}
+		if b.Port == 0 {
+			for _, l := range listeners {
+				_ = l.Close()
+			}
+			return fmt.Errorf("tink server %s is enabled but has no bind port", b.Addr)
+		}
 		lis, err := listener.TCP(ctx, b.Addr, int(b.Port))
 		if err != nil {
 			for _, l := range listeners {
@@ -174,8 +180,16 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		return errors.New("tink server has no enabled IPv4 or IPv6 listener")
 	}
 
+	// Bounded by done so a Serve failure cannot leave this parked until the
+	// caller's context happens to end.
+	done := make(chan struct{})
+	defer close(done)
 	go func() {
-		<-ctx.Done()
+		select {
+		case <-ctx.Done():
+		case <-done:
+			return
+		}
 		time.Sleep(1 * time.Second)
 		log.Info("Initiating graceful shutdown")
 		timer := time.AfterFunc(5*time.Second, func() {

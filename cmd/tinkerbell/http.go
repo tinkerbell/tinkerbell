@@ -186,15 +186,15 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 	if err != nil {
 		return fmt.Errorf("failed to add middleware: %w", err)
 	}
-	httpHandlerV6, _, err := addMiddleware(httpLog, globals.TrustedProxies, httpMuxV6, nil, "-v6")
+	httpHandlerV6, httpsHandlerV6, err := addMiddleware(httpLog, globals.TrustedProxies, httpMuxV6, httpsArg, "-v6")
 	if err != nil {
 		return fmt.Errorf("failed to add middleware: %w", err)
 	}
 
 	opts := []httpserver.Option{
 		func(c *httpserver.Config) {
-			c.V4 = httpserver.Listener{Addr: globals.BindAddr, HTTPPort: globals.HTTPPort, HTTPSPort: globals.HTTPSPort, HTTPHandler: httpHandler, Enabled: globals.ListenerFamilies.HasV4()}
-			c.V6 = httpserver.Listener{Addr: globals.BindAddrV6, HTTPPort: globals.HTTPPortV6, HTTPSPort: globals.HTTPSPortV6, HTTPHandler: httpHandlerV6, Enabled: globals.ListenerFamilies.HasV6()}
+			c.V4 = httpserver.Listener{Addr: globals.BindAddr, HTTPPort: globals.HTTPPort, HTTPSPort: globals.HTTPSPort, HTTPHandler: httpHandler, HTTPSHandler: httpsHandler, Enabled: globals.ListenerFamilies.HasV4()}
+			c.V6 = httpserver.Listener{Addr: globals.BindAddrV6, HTTPPort: globals.HTTPPortV6, HTTPSPort: globals.HTTPSPortV6, HTTPHandler: httpHandlerV6, HTTPSHandler: httpsHandlerV6, Enabled: globals.ListenerFamilies.HasV6()}
 			c.TLSCerts = s.Config.TLS.Certs
 		},
 	}

@@ -40,6 +40,9 @@ type Listener struct {
 	// handler passed to Serve. The HTTP to HTTPS redirect embeds a port, so it
 	// must be built per family.
 	HTTPHandler http.Handler
+	// HTTPSHandler, when set, serves this family's HTTPS port instead of the
+	// handler passed to Serve.
+	HTTPSHandler http.Handler
 	// Enabled reports whether this family is served. It is explicit so that an
 	// address left unset by mistake is an error instead of a missing listener.
 	Enabled bool
@@ -122,8 +125,18 @@ func (c *Config) Serve(ctx context.Context, log logr.Logger, httpHandler http.Ha
 	// Validated before anything starts: returning once a server is running would
 	// skip g.Wait and leave that server serving behind the error.
 	for _, fl := range families {
-		if fl.listener.Enabled && !fl.listener.Addr.IsValid() {
+		if !fl.listener.Enabled {
+			continue
+		}
+		if !fl.listener.Addr.IsValid() {
 			return fmt.Errorf("http server %s is enabled but has no bind address", fl.family)
+		}
+		// Port 0 binds an ephemeral port, which nothing can be told to reach.
+		if httpHandler != nil && fl.listener.HTTPPort == 0 {
+			return fmt.Errorf("http server %s is enabled but has no HTTP port", fl.family)
+		}
+		if serveHTTPS && fl.listener.HTTPSPort == 0 {
+			return fmt.Errorf("http server %s is enabled but has no HTTPS port", fl.family)
 		}
 	}
 
@@ -144,12 +157,16 @@ func (c *Config) Serve(ctx context.Context, log logr.Logger, httpHandler http.Ha
 			started++
 		}
 		if serveHTTPS {
+			hs := httpsHandler
+			if l.HTTPSHandler != nil {
+				hs = l.HTTPSHandler
+			}
 			tlsCfg := &tls.Config{
 				MinVersion:   tls.VersionTLS12,
 				Certificates: c.TLSCerts,
 			}
 			g.Go(func() error {
-				return c.doServe(ctx, log.WithValues("server", "https"), l.Addr, l.HTTPSPort, httpsHandler, tlsCfg)
+				return c.doServe(ctx, log.WithValues("server", "https"), l.Addr, l.HTTPSPort, hs, tlsCfg)
 			})
 			started++
 		}
