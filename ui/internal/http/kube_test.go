@@ -357,6 +357,15 @@ func TestBmcTaskType(t *testing.T) {
 			},
 			want: "VirtualMedia",
 		},
+		{
+			name: "AllowCustomSecureBootKeys returns AllowCustomSecureBootKeys",
+			action: bmcv1alpha1.Action{
+				AllowCustomSecureBootKeys: &bmcv1alpha1.AllowCustomSecureBootKeysAction{
+					Enable: true,
+				},
+			},
+			want: "AllowCustomSecureBootKeys",
+		},
 	}
 
 	for _, tt := range tests {
