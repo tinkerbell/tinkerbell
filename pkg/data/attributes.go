@@ -54,14 +54,14 @@ type Block struct {
 }
 
 type Network struct {
-	Name                *string       `json:"name,omitempty" yaml:"name,omitempty"`
-	Mac                 *string       `json:"mac,omitempty" yaml:"mac,omitempty"`
-	SpeedMbps           *uint32       `json:"speedMbps,omitempty" yaml:"speedMbps,omitempty"`
-	EnabledCapabilities []string      `json:"enabledCapabilities,omitempty" yaml:"enabledCapabilities,omitempty"`
-	LLDPNeighbor        *LLDPNeighbor `json:"lldpNeighbor,omitempty" yaml:"lldpNeighbor,omitempty"`
+	Name                *string         `json:"name,omitempty" yaml:"name,omitempty"`
+	Mac                 *string         `json:"mac,omitempty" yaml:"mac,omitempty"`
+	SpeedMbps           *uint32         `json:"speedMbps,omitempty" yaml:"speedMbps,omitempty"`
+	EnabledCapabilities []string        `json:"enabledCapabilities,omitempty" yaml:"enabledCapabilities,omitempty"`
+	LLDPNeighbors       []*LLDPNeighbor `json:"lldpNeighbors,omitempty" yaml:"lldpNeighbors,omitempty"`
 }
 
-// LLDPNeighbor is the switch (or other LLDP-speaking device) discovered on the
+// LLDPNeighbor is a switch (or other LLDP-speaking device) discovered on the
 // other end of a Network interface's port.
 type LLDPNeighbor struct {
 	ChassisID       *string  `json:"chassisID,omitempty" yaml:"chassisID,omitempty"`

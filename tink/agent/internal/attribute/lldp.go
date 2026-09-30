@@ -1,11 +1,13 @@
 package attribute
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,8 +31,9 @@ import (
 // margin for a missed cycle.
 const DefaultLLDPTimeout = 35 * time.Second
 
-// DiscoverLLDP returns the first neighbor systemd-networkd has seen on each
-// of ifaces, keyed by interface name, for up to timeout. ifaces is the set of
+// DiscoverLLDP returns the neighbors systemd-networkd has seen on each of
+// ifaces, keyed by interface name, waiting up to timeout for each connected
+// interface to have at least one. ifaces is the set of
 // interfaces worth waiting on (normally attrs.NetworkInterfaces from a prior
 // DiscoverAll call) - `networkctl lldp` itself can't be used for this: it
 // omits an interface entirely until it has seen a neighbor, rather than
@@ -40,7 +43,7 @@ const DefaultLLDPTimeout = 35 * time.Second
 // immediately if timeout is zero or less, or if networkd isn't usable (e.g.
 // HookOS's LinuxKit base has no systemd/networkd at all) - callers must treat
 // that as "no neighbors available" rather than a discovery failure.
-func DiscoverLLDP(ctx context.Context, l logr.Logger, timeout time.Duration, ifaces []*data.Network) map[string]*data.LLDPNeighbor {
+func DiscoverLLDP(ctx context.Context, l logr.Logger, timeout time.Duration, ifaces []*data.Network) map[string][]*data.LLDPNeighbor {
 	if timeout <= 0 {
 		return nil
 	}
@@ -137,8 +140,10 @@ type networkctlLLDPNeighbor struct {
 }
 
 // queryNetworkctlLLDP runs and parses a single `networkctl lldp` call,
-// keeping the first neighbor per interface. A real `networkctl lldp
-// --json=short` call omits an interface entirely until it has a neighbor
+// keeping every neighbor per interface - a port can see more than one (e.g. a
+// switch plus a device that forwards LLDP). Neighbors are sorted by chassis ID,
+// then port ID, so the result doesn't depend on networkd's output order. A
+// real `networkctl lldp --json=short` call omits an interface entirely until it has a neighbor
 // (systemd's vl_method_get_lldp_neighbors skips blank entries when no single
 // interface is requested), so an interface's absence here does not mean
 // networkd doesn't know about it - callers that need to distinguish "no
@@ -148,7 +153,7 @@ type networkctlLLDPNeighbor struct {
 // systemd/networkd) or its output couldn't be parsed - the caller must treat
 // that as "no data available", not the same as a successful call that simply
 // found no neighbors yet.
-func queryNetworkctlLLDP(ctx context.Context, l logr.Logger) (neighbors map[string]*data.LLDPNeighbor, ok bool) {
+func queryNetworkctlLLDP(ctx context.Context, l logr.Logger) (neighbors map[string][]*data.LLDPNeighbor, ok bool) {
 	out, err := runNetworkctlLLDP(ctx)
 	if err != nil {
 		l.V(1).Info("LLDP: networkctl unavailable", "error", err)
@@ -161,29 +166,30 @@ func queryNetworkctlLLDP(ctx context.Context, l logr.Logger) (neighbors map[stri
 		return nil, false
 	}
 
-	neighbors = map[string]*data.LLDPNeighbor{}
+	neighbors = map[string][]*data.LLDPNeighbor{}
 	for _, iface := range resp.Neighbors {
-		if len(iface.Neighbors) == 0 {
-			continue
+		slices.SortFunc(iface.Neighbors, func(a, b networkctlLLDPNeighbor) int {
+			return cmp.Or(cmp.Compare(a.ChassisID, b.ChassisID), cmp.Compare(a.PortID, b.PortID))
+		})
+		for _, n := range iface.Neighbors {
+			neighbor := &data.LLDPNeighbor{
+				ChassisID:       toPtr(n.ChassisID),
+				PortID:          toPtr(n.PortID),
+				PortDescription: toPtr(n.PortDescription),
+				SystemName:      toPtr(n.SystemName),
+			}
+			if n.VlanID > 0 {
+				neighbor.VLANIDs = []uint32{n.VlanID}
+			}
+			neighbors[iface.InterfaceName] = append(neighbors[iface.InterfaceName], neighbor)
 		}
-		n := iface.Neighbors[0]
-		neighbor := &data.LLDPNeighbor{
-			ChassisID:       toPtr(n.ChassisID),
-			PortID:          toPtr(n.PortID),
-			PortDescription: toPtr(n.PortDescription),
-			SystemName:      toPtr(n.SystemName),
-		}
-		if n.VlanID > 0 {
-			neighbor.VLANIDs = []uint32{n.VlanID}
-		}
-		neighbors[iface.InterfaceName] = neighbor
 	}
 	return neighbors, true
 }
 
 // pendingInterfaces returns the names, out of candidates, that have no entry
 // in found yet.
-func pendingInterfaces(candidates []string, found map[string]*data.LLDPNeighbor) []string {
+func pendingInterfaces(candidates []string, found map[string][]*data.LLDPNeighbor) []string {
 	var pending []string
 	for _, name := range candidates {
 		if _, ok := found[name]; !ok {
@@ -239,8 +245,8 @@ func anyCarrier(names []string) bool {
 // ever coming. ok is false if networkctl isn't usable at all - callers must
 // not treat that as "zero neighbors". A transient failure after at least one
 // successful query keeps that query's result rather than discarding it.
-func discoverLLDPViaNetworkd(ctx context.Context, l logr.Logger, candidates []string) (map[string]*data.LLDPNeighbor, bool) {
-	var last map[string]*data.LLDPNeighbor
+func discoverLLDPViaNetworkd(ctx context.Context, l logr.Logger, candidates []string) (map[string][]*data.LLDPNeighbor, bool) {
+	var last map[string][]*data.LLDPNeighbor
 	for {
 		neighbors, ok := queryNetworkctlLLDP(ctx, l)
 		if !ok {
@@ -262,7 +268,7 @@ func discoverLLDPViaNetworkd(ctx context.Context, l logr.Logger, candidates []st
 // MergeLLDPNeighbors returns a copy of attrs with neighbors attached to the
 // matching NetworkInterfaces, without mutating attrs or any of its nested
 // values in place. Returns attrs unchanged if there's nothing to merge.
-func MergeLLDPNeighbors(attrs *data.AgentAttributes, neighbors map[string]*data.LLDPNeighbor) *data.AgentAttributes {
+func MergeLLDPNeighbors(attrs *data.AgentAttributes, neighbors map[string][]*data.LLDPNeighbor) *data.AgentAttributes {
 	if attrs == nil || len(neighbors) == 0 {
 		return attrs
 	}
@@ -272,7 +278,7 @@ func MergeLLDPNeighbors(attrs *data.AgentAttributes, neighbors map[string]*data.
 		if nic != nil && nic.Name != nil {
 			if n, ok := neighbors[*nic.Name]; ok {
 				withNeighbor := *nic
-				withNeighbor.LLDPNeighbor = n
+				withNeighbor.LLDPNeighbors = n
 				nics[i] = &withNeighbor
 				continue
 			}

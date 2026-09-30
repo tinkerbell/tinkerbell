@@ -685,11 +685,12 @@ type NetworkPort struct {
 	//+optional
 	EnabledCapabilities []string `json:"enabledCapabilities,omitempty"`
 
-	// LLDPNeighbor is the neighbor most recently advertised to this port over
-	// LLDP, if the Agent has LLDP discovery enabled. In-band only: this comes
-	// from passively listening on the wire, not from the BMC.
+	// LLDPNeighbors lists every neighbor advertising to this port over LLDP; a
+	// port can see more than one (e.g. a switch plus a hypervisor vSwitch or a
+	// daisy-chained device). In-band only: this comes from passively listening
+	// on the wire, not from the BMC.
 	//+optional
-	LLDPNeighbor *LLDPNeighbor `json:"lldpNeighbor,omitempty"`
+	LLDPNeighbors []LLDPNeighbor `json:"lldpNeighbors,omitempty"`
 }
 
 // LLDPNeighbor describes the switch (or other LLDP-speaking device) discovered

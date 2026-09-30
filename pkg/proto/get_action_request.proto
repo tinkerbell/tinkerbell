@@ -83,7 +83,7 @@ message Network {
     reserved speed;
     repeated string enabled_capabilities = 4;
     uint32 speed_mbps = 5;
-    LLDPNeighbor lldp_neighbor = 6;
+    repeated LLDPNeighbor lldp_neighbors = 6;
 }
 
 message LLDPNeighbor {

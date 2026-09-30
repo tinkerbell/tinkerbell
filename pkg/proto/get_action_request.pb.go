@@ -515,7 +515,7 @@ type Network struct {
 	Mac                 *string                `protobuf:"bytes,2,opt,name=mac" json:"mac,omitempty"`
 	EnabledCapabilities []string               `protobuf:"bytes,4,rep,name=enabled_capabilities,json=enabledCapabilities" json:"enabled_capabilities,omitempty"`
 	SpeedMbps           *uint32                `protobuf:"varint,5,opt,name=speed_mbps,json=speedMbps" json:"speed_mbps,omitempty"`
-	LldpNeighbor        *LLDPNeighbor          `protobuf:"bytes,6,opt,name=lldp_neighbor,json=lldpNeighbor" json:"lldp_neighbor,omitempty"`
+	LldpNeighbors       []*LLDPNeighbor        `protobuf:"bytes,6,rep,name=lldp_neighbors,json=lldpNeighbors" json:"lldp_neighbors,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -578,9 +578,9 @@ func (x *Network) GetSpeedMbps() uint32 {
 	return 0
 }
 
-func (x *Network) GetLldpNeighbor() *LLDPNeighbor {
+func (x *Network) GetLldpNeighbors() []*LLDPNeighbor {
 	if x != nil {
-		return x.LldpNeighbor
+		return x.LldpNeighbors
 	}
 	return nil
 }
@@ -1091,14 +1091,14 @@ const file_get_action_request_proto_rawDesc = "" +
 	"size_bytes\x18\n" +
 	" \x01(\x03R\tsizeBytes\x129\n" +
 	"\x19physical_block_size_bytes\x18\v \x01(\x03R\x16physicalBlockSizeBytes\x12\x12\n" +
-	"\x04path\x18\f \x01(\tR\x04pathJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x04sizeR\x13physical_block_size\"\xc8\x01\n" +
+	"\x04path\x18\f \x01(\tR\x04pathJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x04sizeR\x13physical_block_size\"\xca\x01\n" +
 	"\aNetwork\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03mac\x18\x02 \x01(\tR\x03mac\x121\n" +
 	"\x14enabled_capabilities\x18\x04 \x03(\tR\x13enabledCapabilities\x12\x1d\n" +
 	"\n" +
-	"speed_mbps\x18\x05 \x01(\rR\tspeedMbps\x128\n" +
-	"\rlldp_neighbor\x18\x06 \x01(\v2\x13.proto.LLDPNeighborR\flldpNeighborJ\x04\b\x03\x10\x04R\x05speed\"\xad\x01\n" +
+	"speed_mbps\x18\x05 \x01(\rR\tspeedMbps\x12:\n" +
+	"\x0elldp_neighbors\x18\x06 \x03(\v2\x13.proto.LLDPNeighborR\rlldpNeighborsJ\x04\b\x03\x10\x04R\x05speed\"\xad\x01\n" +
 	"\fLLDPNeighbor\x12\x1d\n" +
 	"\n" +
 	"chassis_id\x18\x01 \x01(\tR\tchassisId\x12\x1f\n" +
@@ -1177,7 +1177,7 @@ var file_get_action_request_proto_depIdxs = []int32{
 	12, // 9: proto.AgentAttributes.baseboard:type_name -> proto.Baseboard
 	13, // 10: proto.AgentAttributes.product:type_name -> proto.Product
 	3,  // 11: proto.CPU.processors:type_name -> proto.Processor
-	7,  // 12: proto.Network.lldp_neighbor:type_name -> proto.LLDPNeighbor
+	7,  // 12: proto.Network.lldp_neighbors:type_name -> proto.LLDPNeighbor
 	13, // [13:13] is the sub-list for method output_type
 	13, // [13:13] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name

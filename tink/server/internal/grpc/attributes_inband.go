@@ -204,18 +204,18 @@ func networkInterfaceFromAgent(n *data.Network) tinkerbell.NetworkInterface {
 	if n.SpeedMbps != nil {
 		port.SpeedMbps = *n.SpeedMbps
 	}
-	if n.LLDPNeighbor != nil {
-		port.LLDPNeighbor = lldpNeighborFromAgent(n.LLDPNeighbor)
+	for _, nb := range n.LLDPNeighbors {
+		if nb == nil {
+			continue
+		}
+		port.LLDPNeighbors = append(port.LLDPNeighbors, lldpNeighborFromAgent(nb))
 	}
 	iface.Ports = []tinkerbell.NetworkPort{port}
 	return iface
 }
 
-func lldpNeighborFromAgent(n *data.LLDPNeighbor) *tinkerbell.LLDPNeighbor {
-	if n == nil {
-		return nil
-	}
-	out := &tinkerbell.LLDPNeighbor{VLANIDs: n.VLANIDs}
+func lldpNeighborFromAgent(n *data.LLDPNeighbor) tinkerbell.LLDPNeighbor {
+	out := tinkerbell.LLDPNeighbor{VLANIDs: n.VLANIDs}
 	if n.ChassisID != nil {
 		out.ChassisID = *n.ChassisID
 	}

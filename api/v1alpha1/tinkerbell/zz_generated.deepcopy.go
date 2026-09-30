@@ -1295,10 +1295,12 @@ func (in *NetworkPort) DeepCopyInto(out *NetworkPort) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.LLDPNeighbor != nil {
-		in, out := &in.LLDPNeighbor, &out.LLDPNeighbor
-		*out = new(LLDPNeighbor)
-		(*in).DeepCopyInto(*out)
+	if in.LLDPNeighbors != nil {
+		in, out := &in.LLDPNeighbors, &out.LLDPNeighbors
+		*out = make([]LLDPNeighbor, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 

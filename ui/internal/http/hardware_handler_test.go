@@ -237,10 +237,17 @@ func TestHandleHardwareDetail_WithInBandAttributes(t *testing.T) {
 					Ports: []tinkv1alpha1.NetworkPort{
 						{
 							MAC: "aa:bb:cc:dd:ee:ff",
-							LLDPNeighbor: &tinkv1alpha1.LLDPNeighbor{
-								ChassisID:  "aa:bb:cc:00:11:22",
-								SystemName: "switch01",
-								PortID:     "Gi1/0/1",
+							LLDPNeighbors: []tinkv1alpha1.LLDPNeighbor{
+								{
+									ChassisID:  "aa:bb:cc:00:11:22",
+									SystemName: "switch01",
+									PortID:     "Gi1/0/1",
+								},
+								{
+									ChassisID:  "aa:bb:cc:00:11:33",
+									SystemName: "vswitch01",
+									PortID:     "vnet0",
+								},
 							},
 						},
 					},
@@ -279,6 +286,9 @@ func TestHandleHardwareDetail_WithInBandAttributes(t *testing.T) {
 	}
 	if !contains(body, "Gi1/0/1") {
 		t.Error("response should contain the LLDP neighbor's PortID")
+	}
+	if !contains(body, "vswitch01") || !contains(body, "vnet0") {
+		t.Error("response should contain every LLDP neighbor on the port, not just the first")
 	}
 }
 

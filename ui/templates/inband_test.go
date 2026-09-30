@@ -53,9 +53,12 @@ func TestAgentAttributesFromInBand(t *testing.T) {
 				Ports: []tinkv1alpha1.NetworkPort{
 					{
 						MAC: "aa:bb:cc:dd:ee:00", SpeedMbps: 25000,
-						LLDPNeighbor: &tinkv1alpha1.LLDPNeighbor{
-							ChassisID: "aa:bb:cc:00:11:22", SystemName: "switch01",
-							PortID: "Gi1/0/1", PortDescription: "uplink", VLANIDs: []uint32{10, 20},
+						LLDPNeighbors: []tinkv1alpha1.LLDPNeighbor{
+							{
+								ChassisID: "aa:bb:cc:00:11:22", SystemName: "switch01",
+								PortID: "Gi1/0/1", PortDescription: "uplink", VLANIDs: []uint32{10, 20},
+							},
+							{ChassisID: "aa:bb:cc:00:11:33", SystemName: "vswitch01", PortID: "vnet0"},
 						},
 					},
 				},
@@ -105,15 +108,22 @@ func TestAgentAttributesFromInBand(t *testing.T) {
 	if got.NetworkInterfaces[1].Speed != "25 Gbps" {
 		t.Errorf("NetworkInterfaces[1].Speed = %q, want \"25 Gbps\"", got.NetworkInterfaces[1].Speed)
 	}
-	neighbor := got.NetworkInterfaces[1].LLDPNeighbor
+	neighbors := got.NetworkInterfaces[1].LLDPNeighbors
+	if len(neighbors) != 2 {
+		t.Fatalf("NetworkInterfaces[1].LLDPNeighbors = %+v, want two entries", neighbors)
+	}
+	neighbor := neighbors[0]
 	if neighbor.ChassisID != "aa:bb:cc:00:11:22" || neighbor.SystemName != "switch01" || neighbor.PortID != "Gi1/0/1" || neighbor.PortDescription != "uplink" {
-		t.Errorf("NetworkInterfaces[1].LLDPNeighbor = %+v, want ChassisID=aa:bb:cc:00:11:22 SystemName=switch01 PortID=Gi1/0/1 PortDescription=uplink", neighbor)
+		t.Errorf("NetworkInterfaces[1].LLDPNeighbors[0] = %+v, want ChassisID=aa:bb:cc:00:11:22 SystemName=switch01 PortID=Gi1/0/1 PortDescription=uplink", neighbor)
 	}
 	if neighbor.VLANIDs != "10, 20" {
-		t.Errorf("NetworkInterfaces[1].LLDPNeighbor.VLANIDs = %q, want \"10, 20\"", neighbor.VLANIDs)
+		t.Errorf("NetworkInterfaces[1].LLDPNeighbors[0].VLANIDs = %q, want \"10, 20\"", neighbor.VLANIDs)
 	}
-	if got.NetworkInterfaces[0].LLDPNeighbor.ChassisID != "" {
-		t.Errorf("NetworkInterfaces[0].LLDPNeighbor = %+v, want zero value (no neighbor reported)", got.NetworkInterfaces[0].LLDPNeighbor)
+	if neighbors[1].SystemName != "vswitch01" || neighbors[1].PortID != "vnet0" || neighbors[1].VLANIDs != "" {
+		t.Errorf("NetworkInterfaces[1].LLDPNeighbors[1] = %+v, want SystemName=vswitch01 PortID=vnet0 VLANIDs=\"\"", neighbors[1])
+	}
+	if got.NetworkInterfaces[0].LLDPNeighbors != nil {
+		t.Errorf("NetworkInterfaces[0].LLDPNeighbors = %+v, want nil (no neighbor reported)", got.NetworkInterfaces[0].LLDPNeighbors)
 	}
 
 	if len(got.PCIDevices) != 1 || got.PCIDevices[0].Product != "Ethernet Controller" {

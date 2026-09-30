@@ -56,12 +56,19 @@ func TestToProto(t *testing.T) {
 						Mac:                 toPtr("00:1A:2B:3C:4D:5E"),
 						SpeedMbps:           toPtr(uint32(1000)),
 						EnabledCapabilities: []string{"rx-checksum", "tx-checksum"},
-						LLDPNeighbor: &data.LLDPNeighbor{
-							ChassisID:       toPtr("16:ae:d6:24:62:9f"),
-							SystemName:      toPtr("switch01.example.com"),
-							PortID:          toPtr("d0:11:e5:1c:6f:d8"),
-							PortDescription: toPtr("en0"),
-							VLANIDs:         []uint32{10, 20},
+						LLDPNeighbors: []*data.LLDPNeighbor{
+							{
+								ChassisID:       toPtr("16:ae:d6:24:62:9f"),
+								SystemName:      toPtr("switch01.example.com"),
+								PortID:          toPtr("d0:11:e5:1c:6f:d8"),
+								PortDescription: toPtr("en0"),
+								VLANIDs:         []uint32{10, 20},
+							},
+							{
+								ChassisID:  toPtr("aa:bb:cc:00:11:22"),
+								SystemName: toPtr("vswitch01.example.com"),
+								PortID:     toPtr("vnet0"),
+							},
 						},
 					},
 				},
@@ -103,12 +110,19 @@ func TestToProto(t *testing.T) {
 						Mac:                 toPtr("00:1A:2B:3C:4D:5E"),
 						SpeedMbps:           toPtr(uint32(1000)),
 						EnabledCapabilities: []string{"rx-checksum", "tx-checksum"},
-						LldpNeighbor: &proto.LLDPNeighbor{
-							ChassisId:       toPtr("16:ae:d6:24:62:9f"),
-							SystemName:      toPtr("switch01.example.com"),
-							PortId:          toPtr("d0:11:e5:1c:6f:d8"),
-							PortDescription: toPtr("en0"),
-							VlanIds:         []uint32{10, 20},
+						LldpNeighbors: []*proto.LLDPNeighbor{
+							{
+								ChassisId:       toPtr("16:ae:d6:24:62:9f"),
+								SystemName:      toPtr("switch01.example.com"),
+								PortId:          toPtr("d0:11:e5:1c:6f:d8"),
+								PortDescription: toPtr("en0"),
+								VlanIds:         []uint32{10, 20},
+							},
+							{
+								ChassisId:  toPtr("aa:bb:cc:00:11:22"),
+								SystemName: toPtr("vswitch01.example.com"),
+								PortId:     toPtr("vnet0"),
+							},
 						},
 					},
 				},

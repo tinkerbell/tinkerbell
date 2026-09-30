@@ -53,14 +53,17 @@ func convert(pAttr *proto.AgentAttributes) *data.AgentAttributes {
 			SpeedMbps:           network.SpeedMbps,
 			EnabledCapabilities: network.EnabledCapabilities,
 		}
-		if network.LldpNeighbor != nil {
-			n.LLDPNeighbor = &data.LLDPNeighbor{
-				ChassisID:       network.LldpNeighbor.ChassisId,
-				SystemName:      network.LldpNeighbor.SystemName,
-				PortID:          network.LldpNeighbor.PortId,
-				PortDescription: network.LldpNeighbor.PortDescription,
-				VLANIDs:         network.LldpNeighbor.VlanIds,
+		for _, nb := range network.LldpNeighbors {
+			if nb == nil {
+				continue
 			}
+			n.LLDPNeighbors = append(n.LLDPNeighbors, &data.LLDPNeighbor{
+				ChassisID:       nb.ChassisId,
+				SystemName:      nb.SystemName,
+				PortID:          nb.PortId,
+				PortDescription: nb.PortDescription,
+				VLANIDs:         nb.VlanIds,
+			})
 		}
 		dAttr.NetworkInterfaces = append(dAttr.NetworkInterfaces, n)
 	}

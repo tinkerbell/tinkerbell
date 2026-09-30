@@ -3,6 +3,7 @@ package attribute
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -16,8 +17,8 @@ func TestMergeLLDPNeighbors(t *testing.T) {
 	eno2 := &data.Network{Name: name("eno2")}
 	attrs := &data.AgentAttributes{NetworkInterfaces: []*data.Network{eno1, eno2}}
 
-	neighbor := &data.LLDPNeighbor{SystemName: name("switch01")}
-	merged := MergeLLDPNeighbors(attrs, map[string]*data.LLDPNeighbor{"eno1": neighbor})
+	neighbors := []*data.LLDPNeighbor{{SystemName: name("switch01")}, {SystemName: name("vswitch01")}}
+	merged := MergeLLDPNeighbors(attrs, map[string][]*data.LLDPNeighbor{"eno1": neighbors})
 
 	if merged == attrs {
 		t.Fatal("MergeLLDPNeighbors returned the same pointer, want a new value")
@@ -28,15 +29,15 @@ func TestMergeLLDPNeighbors(t *testing.T) {
 	if merged.NetworkInterfaces[0] == eno1 {
 		t.Error("the merged eno1 entry shares the original pointer, want a copy since it was modified")
 	}
-	if merged.NetworkInterfaces[0].LLDPNeighbor != neighbor {
-		t.Errorf("merged eno1 LLDPNeighbor = %+v, want %+v", merged.NetworkInterfaces[0].LLDPNeighbor, neighbor)
+	if got := merged.NetworkInterfaces[0].LLDPNeighbors; len(got) != 2 || got[0] != neighbors[0] || got[1] != neighbors[1] {
+		t.Errorf("merged eno1 LLDPNeighbors = %+v, want %+v", got, neighbors)
 	}
 	if merged.NetworkInterfaces[1] != eno2 {
 		t.Error("the merged eno2 entry (no neighbor found) should share the original pointer unchanged")
 	}
 	// The original must be untouched - a concurrent reader may still hold it.
-	if eno1.LLDPNeighbor != nil {
-		t.Errorf("original eno1.LLDPNeighbor = %+v, want nil (must not mutate the input)", eno1.LLDPNeighbor)
+	if eno1.LLDPNeighbors != nil {
+		t.Errorf("original eno1.LLDPNeighbors = %+v, want nil (must not mutate the input)", eno1.LLDPNeighbors)
 	}
 }
 
@@ -45,7 +46,7 @@ func TestMergeLLDPNeighborsNoMatch(t *testing.T) {
 	if got := MergeLLDPNeighbors(attrs, nil); got != attrs {
 		t.Errorf("MergeLLDPNeighbors with no neighbors = %v, want the same attrs pointer unchanged", got)
 	}
-	if got := MergeLLDPNeighbors(nil, map[string]*data.LLDPNeighbor{"eno1": {}}); got != nil {
+	if got := MergeLLDPNeighbors(nil, map[string][]*data.LLDPNeighbor{"eno1": {{}}}); got != nil {
 		t.Errorf("MergeLLDPNeighbors(nil, ...) = %v, want nil", got)
 	}
 }
@@ -90,7 +91,7 @@ func withIsVirtualInterface(t *testing.T, fn func(name string) bool) {
 // all interfaces omits such an interface entirely rather than listing it
 // with an empty Neighbors array (see TestDiscoverLLDPViaNetworkdPollsForInterfaceOmittedFromResponse),
 // but queryNetworkctlLLDP must still cope with it defensively.
-const networkctlSample = `{"Neighbors":[{"InterfaceIndex":4,"InterfaceName":"eno1","Neighbors":[{"ChassisID":"16:ae:d6:24:62:9f","PortID":"d0:11:e5:1c:6f:d8","PortDescription":"en0","SystemName":"switch01.example.com","SystemDescription":"desc","EnabledCapabilities":12,"VlanID":10},{"ChassisID":"ignored-second-neighbor","PortID":"ignored","SystemName":"ignored"}]},{"InterfaceIndex":5,"InterfaceName":"eno2","Neighbors":[]}]}`
+const networkctlSample = `{"Neighbors":[{"InterfaceIndex":4,"InterfaceName":"eno1","Neighbors":[{"ChassisID":"16:ae:d6:24:62:9f","PortID":"d0:11:e5:1c:6f:d8","PortDescription":"en0","SystemName":"switch01.example.com","SystemDescription":"desc","EnabledCapabilities":12,"VlanID":10},{"ChassisID":"aa:bb:cc:00:11:22","PortID":"vnet0","SystemName":"vswitch01.example.com"}]},{"InterfaceIndex":5,"InterfaceName":"eno2","Neighbors":[]}]}`
 
 // networkctlSampleAllFound is networkctlSample with eno2 also having found a
 // neighbor, i.e. every interface networkd reported on has one.
@@ -108,18 +109,32 @@ func TestQueryNetworkctlLLDPParsesResponse(t *testing.T) {
 	if len(neighbors) != 1 {
 		t.Fatalf("neighbors = %+v, want exactly one entry (eno2 has an empty Neighbors list)", neighbors)
 	}
-	n, found := neighbors["eno1"]
+	eno1, found := neighbors["eno1"]
 	if !found {
 		t.Fatalf("neighbors = %+v, want an eno1 entry", neighbors)
 	}
+	if len(eno1) != 2 {
+		t.Fatalf("eno1 neighbors = %+v, want both neighbors networkd reported", eno1)
+	}
+	n := eno1[0]
 	if got, want := *n.ChassisID, "16:ae:d6:24:62:9f"; got != want {
-		t.Errorf("ChassisID = %q, want %q (first neighbor kept, not the second)", got, want)
+		t.Errorf("ChassisID = %q, want %q (networkd's order preserved)", got, want)
 	}
 	if got, want := *n.SystemName, "switch01.example.com"; got != want {
 		t.Errorf("SystemName = %q, want %q", got, want)
 	}
 	if got, want := n.VLANIDs, []uint32{10}; len(got) != 1 || got[0] != want[0] {
 		t.Errorf("VLANIDs = %v, want %v", got, want)
+	}
+	second := eno1[1]
+	if got, want := *second.ChassisID, "aa:bb:cc:00:11:22"; got != want {
+		t.Errorf("second ChassisID = %q, want %q", got, want)
+	}
+	if got, want := *second.SystemName, "vswitch01.example.com"; got != want {
+		t.Errorf("second SystemName = %q, want %q", got, want)
+	}
+	if second.VLANIDs != nil {
+		t.Errorf("second VLANIDs = %v, want nil", second.VLANIDs)
 	}
 }
 
@@ -132,8 +147,27 @@ func TestQueryNetworkctlLLDPOmitsZeroVlanID(t *testing.T) {
 	if !ok {
 		t.Fatal("queryNetworkctlLLDP ok = false, want true")
 	}
-	if got := neighbors["eno1"].VLANIDs; got != nil {
+	if got := neighbors["eno1"][0].VLANIDs; got != nil {
 		t.Errorf("VLANIDs = %v, want nil when networkd reports no VlanID", got)
+	}
+}
+
+func TestQueryNetworkctlLLDPSortsNeighbors(t *testing.T) {
+	withNetworkctlLLDP(t, func(context.Context) ([]byte, error) {
+		return []byte(`{"Neighbors":[{"InterfaceName":"eno1","Neighbors":[{"ChassisID":"bb","PortID":"p1"},{"ChassisID":"aa","PortID":"p2"},{"ChassisID":"aa","PortID":"p1"}]}]}`), nil
+	})
+
+	neighbors, ok := queryNetworkctlLLDP(context.Background(), logr.Discard())
+	if !ok {
+		t.Fatal("queryNetworkctlLLDP ok = false, want true")
+	}
+	var got []string
+	for _, n := range neighbors["eno1"] {
+		got = append(got, *n.ChassisID+"/"+*n.PortID)
+	}
+	want := []string{"aa/p1", "aa/p2", "bb/p1"}
+	if !slices.Equal(got, want) {
+		t.Errorf("eno1 neighbors = %v, want %v (sorted by chassis ID, then port ID)", got, want)
 	}
 }
 
@@ -183,7 +217,7 @@ func TestInterfaceNamesExcludesVirtualInterfaces(t *testing.T) {
 }
 
 func TestPendingInterfaces(t *testing.T) {
-	found := map[string]*data.LLDPNeighbor{"eno1": {}}
+	found := map[string][]*data.LLDPNeighbor{"eno1": {{}}}
 	got := pendingInterfaces([]string{"eno1", "eno2"}, found)
 	if want := []string{"eno2"}; len(got) != 1 || got[0] != want[0] {
 		t.Errorf("pendingInterfaces = %v, want %v", got, want)

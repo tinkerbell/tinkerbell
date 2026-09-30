@@ -71,14 +71,14 @@ func AgentAttributesFromInBand(attrs *tinkv1alpha1.Attributes) *AgentAttributes 
 				Speed:               humanizeSpeedMbps(port.SpeedMbps),
 				EnabledCapabilities: port.EnabledCapabilities,
 			}
-			if port.LLDPNeighbor != nil {
-				nic.LLDPNeighbor = AgentLLDPNeighbor{
-					ChassisID:       port.LLDPNeighbor.ChassisID,
-					SystemName:      port.LLDPNeighbor.SystemName,
-					PortID:          port.LLDPNeighbor.PortID,
-					PortDescription: port.LLDPNeighbor.PortDescription,
-					VLANIDs:         humanizeVLANIDs(port.LLDPNeighbor.VLANIDs),
-				}
+			for _, nb := range port.LLDPNeighbors {
+				nic.LLDPNeighbors = append(nic.LLDPNeighbors, AgentLLDPNeighbor{
+					ChassisID:       nb.ChassisID,
+					SystemName:      nb.SystemName,
+					PortID:          nb.PortID,
+					PortDescription: nb.PortDescription,
+					VLANIDs:         humanizeVLANIDs(nb.VLANIDs),
+				})
 			}
 			out.NetworkInterfaces = append(out.NetworkInterfaces, nic)
 		}
