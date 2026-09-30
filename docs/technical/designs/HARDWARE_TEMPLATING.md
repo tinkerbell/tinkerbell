@@ -190,7 +190,9 @@ Rules:
 - Available data:
   - `.hardware` — the Hardware being rendered. A field that references another templated
     field sees that field's rendered value (in the example, `userData` sees the rendered
-    `hostname`). Reference cycles are an error.
+    `hostname`). Reference cycles are an error. `.hardware.metadata` and
+    `.hardware.status`, including `status.attributes`, are readable inputs only; their
+    values are never rendered or changed.
   - `.references.<name>` — the Hardware's own references, subject to policy (§6).
 - Functions: Sprig's hermetic function map plus the existing Tinkerbell helpers
   (`toYaml`, `fromYaml`, `formatPartition`, `netmaskToPrefixLength`). The same map is used
@@ -203,14 +205,14 @@ Rules:
 
 ### 5.2 What is rendered
 
-Only string values under `spec` are rendered. Everything else is either not part of the
-document or readable but never rendered:
+Only eligible string values under `spec` are rendered. Metadata and status are included
+in the document as readable inputs, but are never rendered:
 
 | Path | Readable as | Rendered | Why not |
 | --- | --- | --- | --- |
 | `spec.*` string values | `.hardware.spec...` | Yes | |
 | `metadata` | `.hardware.metadata...` | No | `kubectl apply` stores a copy of the spec, templates included, in the `last-applied-configuration` annotation |
-| `status` | — | No | Written by controllers, not authored |
+| `status` | `.hardware.status...` | No | Controller-observed state and hardware attributes are inputs, not template targets |
 | `spec.references` | `.hardware.spec.references` | No | References must be known before rendering can start |
 | `spec.interfaces[].dhcp.mac` | yes | No | Lookup key (MAC index) |
 | `spec.interfaces[].dhcp.ip.address` | yes | No | Lookup key (IP index) |
@@ -247,9 +249,10 @@ runaway loop. They cap rendered output, not memory or CPU: a template can alloca
 without writing, for example by growing a variable in a `range`, and nothing interrupts
 execution between writes. They are not a security boundary (§10).
 
-The document passed to the render package is the object's `apiVersion`, `kind`, `metadata` and `spec`,
-so that templates address fields as `.hardware.metadata.name` and `.hardware.spec...`, as
-the [v1alpha2 templating](../v1alpha2/templating.md) doc specifies. `status` is omitted.
+The document passed to the render package is the object's `apiVersion`, `kind`, `metadata`,
+`spec` and `status`, so templates can read `.hardware.metadata.name`,
+`.hardware.spec...` and `.hardware.status.attributes...`. Metadata and status are skipped
+as render targets and retain their stored values, including any literal template text.
 Resolved references are passed as data under `references`. The same shape and options are
 used for v1alpha1 and v1alpha2; only the list of lookup-key paths differs.
 
