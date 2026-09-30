@@ -117,6 +117,9 @@ spec:
                             the URL does not enable the capability, and enabling the capability does not require a URL.
                           format: uri
                           type: string
+                          x-kubernetes-validations:
+                          - message: httpBootURL must be an http or https URL
+                            rule: self.startsWith('http://') || self.startsWith('https://')
                         pxeBootEnabled:
                           description: PXEBootEnabled enables (true) or disables (false)
                             legacy PXE boot capability.

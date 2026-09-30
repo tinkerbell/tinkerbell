@@ -191,11 +191,11 @@ spec:
       - powerAction: "off"
       - networkBootConfig:
           httpBootEnabled: true
-          httpBootURL: 'http://172.17.1.1:7080/ipxe/'
+          httpBootURL: 'http://172.17.1.1:7080/ipxe/binary/ipxe.efi'
       - powerAction: "on"
 ```
 
-`httpBootURL` is not templated - unlike `virtualMediaAction.mediaURL`, `customboot`'s Go-template support (e.g. `{{ (index .Hardware.Interfaces 0).DHCP.MAC }}`) does not apply to `networkBootConfig` fields, so the URL above must already be Machine-specific (or generic, e.g. an iPXE endpoint that looks up the requesting MAC itself) rather than containing template syntax.
+`httpBootURL` points at the iPXE binary Tinkerbell serves under `/ipxe/binary/` (`ipxe.efi` for x86_64, `snp-arm64.efi` for arm64). It must be an `http://` or `https://` URL, and it is not templated - unlike `virtualMediaAction.mediaURL`, `customboot`'s Go-template support (e.g. `{{ (index .Hardware.Interfaces 0).DHCP.MAC }}`) does not apply to `networkBootConfig` fields, so the URL must not contain template syntax.
 
 `httpBootEnabled`, `pxeBootEnabled`, `httpBootURL`, and `httpBootTLSMode` are independent - any combination may be set at once, and a field left unset leaves that setting untouched. Support for this action depends on the BMC's provider implementing it in [bmclib](https://github.com/bmc-toolbox/bmclib); `httpBootTLSMode` is currently only implemented for Dell (iDRAC/Redfish) and returns an error on other providers.
 

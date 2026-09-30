@@ -78,6 +78,7 @@ type NetworkBootConfig struct {
 	// Redfish ComputerSystem.Boot.HttpBootUri property. Independent of HTTPBootEnabled: setting
 	// the URL does not enable the capability, and enabling the capability does not require a URL.
 	// +kubebuilder:validation:Format=uri
+	// +kubebuilder:validation:XValidation:rule="self.startsWith('http://') || self.startsWith('https://')",message="httpBootURL must be an http or https URL"
 	HTTPBootURL *string `json:"httpBootURL,omitempty"`
 
 	// HTTPBootTLSMode sets the TLS authentication mode UEFI HTTP Boot uses to connect to the HTTP
