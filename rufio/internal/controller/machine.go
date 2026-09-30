@@ -77,6 +77,7 @@ func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=machines/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
+//+kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups=tinkerbell.org,resources=hardware,verbs=get;list;watch
 //+kubebuilder:rbac:groups=tinkerbell.org,resources=hardware/status,verbs=get;update;patch
 
