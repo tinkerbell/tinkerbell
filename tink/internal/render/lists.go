@@ -1,7 +1,6 @@
-package workflow
+package render
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -27,19 +26,23 @@ type source struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// evaluate checks if the data matches any rules defined.
-// It returns a boolean indicating if at least one rule was matched, the rule that matched for the decision, and an error if any occurred.
-func evaluate(_ context.Context, rules []string, data evaluationData) (bool, string, error) {
+// newRuleMatcher builds a quamina matching engine loaded with rules.
+func newRuleMatcher(rules []string) (*quamina.Quamina, error) {
 	q, err := quamina.New()
 	if err != nil {
-		return false, "", fmt.Errorf("error creating rule evaluation engine: %w", err)
+		return nil, fmt.Errorf("error creating rule evaluation engine: %w", err)
 	}
 	for _, r := range rules {
 		if err := q.AddPattern(fmt.Sprintf("pattern-%v", r), r); err != nil {
-			return false, "", fmt.Errorf("error adding matching pattern: %v err: %w", r, err)
+			return nil, fmt.Errorf("error adding matching pattern: %v err: %w", r, err)
 		}
 	}
+	return q, nil
+}
 
+// evaluate checks if data matches any pattern loaded into q.
+// It returns a boolean indicating if at least one rule was matched, the rule that matched for the decision, and an error if any occurred.
+func evaluate(q *quamina.Quamina, data evaluationData) (bool, string, error) {
 	jsonEvent, err := json.Marshal(&data)
 	if err != nil {
 		return false, "", fmt.Errorf("error while marshalling data: %w", err)

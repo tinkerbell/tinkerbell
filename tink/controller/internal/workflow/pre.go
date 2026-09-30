@@ -8,6 +8,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
+	"github.com/tinkerbell/tinkerbell/tink/internal/render"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -242,7 +243,7 @@ func templateActions(actions []bmc.Action, hw *v1alpha1.Hardware) ([]bmc.Action,
 
 // templateString executes a Go template string with the provided data.
 func templateString(tmplStr string, data templateData) (string, error) {
-	rendered, err := renderTemplate("action", tmplStr, data)
+	rendered, err := render.Render("action", tmplStr, data)
 	if err != nil {
 		return "", err
 	}

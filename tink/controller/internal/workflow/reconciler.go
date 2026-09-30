@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -11,10 +10,10 @@ import (
 	"github.com/go-logr/logr"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
+	"github.com/tinkerbell/tinkerbell/tink/internal/render"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -22,40 +21,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	// templateDataReferences is the key used to access the Hardware references in the template data.
-	// This is lowercase as it is new and follows the all lowercase convention used when referencing
-	// fields in the reference object.
-	templateDataReferences = "references"
-	// templateDataHardware is the key used to access the Hardware data in the template data.
-	templateDataHardware = "hardware"
-	// templateDataHardwareLegacy is the key used to access the Hardware data in the template data.
-	// This is Title cased as it was the original convention used in the template data and is
-	// used for backwards compatibility.
-	//
-	// Deprecated: use templateDataHardware instead. This key will be removed in a future release.
-	templateDataHardwareLegacy = "Hardware"
-
-	// reasonError is the condition Reason set when a workflow step fails.
-	reasonError = "Error"
-)
-
-type dynamicClient interface {
-	DynamicRead(ctx context.Context, gvr schema.GroupVersionResource, name, namespace string) (map[string]interface{}, error)
-}
+// reasonError is the condition Reason set when a workflow step fails.
+const reasonError = "Error"
 
 // Reconciler is a type for managing Workflows.
 type Reconciler struct {
 	client         ctrlclient.Client
 	nowFunc        func() time.Time
 	backoff        *backoff.ExponentialBackOff
-	dynamicClient  dynamicClient
-	referenceRules ReferenceRules
-}
-
-type ReferenceRules struct {
-	Allowlist []string
-	Denylist  []string
+	dynamicClient  render.DynamicReader
+	referenceRules render.ReferenceRules
 }
 
 type Option func(*Reconciler)
@@ -76,7 +51,7 @@ func WithDenyReferenceRules(denylist []string) Option {
 
 // TODO(jacobweinstock): add functional arguments to the signature.
 // TODO(jacobweinstock): write functional argument for customizing the backoff.
-func NewReconciler(client ctrlclient.Client, dc dynamicClient, opts ...Option) *Reconciler {
+func NewReconciler(client ctrlclient.Client, dc render.DynamicReader, opts ...Option) *Reconciler {
 	bo := backoff.NewExponentialBackOff()
 	bo.MaxInterval = 5 * time.Second // this should keep all NextBackOff's under 10 seconds
 	d := &Reconciler{
@@ -84,9 +59,9 @@ func NewReconciler(client ctrlclient.Client, dc dynamicClient, opts ...Option) *
 		nowFunc:       time.Now,
 		backoff:       bo,
 		dynamicClient: dc,
-		referenceRules: ReferenceRules{
+		referenceRules: render.ReferenceRules{
 			Allowlist: []string{},
-			Denylist:  []string{`{"reference": {"name": [{"wildcard": "*"}]}}`}, // deny all by default.
+			Denylist:  render.DefaultDenylist(),
 		},
 	}
 
@@ -305,62 +280,12 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 		)
 	}
 
-	data := make(map[string]interface{})
-	for key, val := range stored.Spec.HardwareMap {
-		data[key] = val
+	references, refErr := render.ResolveReferences(ctx, r.dynamicClient, r.referenceRules, hardware)
+	if refErr != nil {
+		logger.V(1).Info("error resolving one or more references", "error", refErr)
 	}
-	contract := toTemplateHardwareData(hardware)
-	data[templateDataHardware] = func() interface{} {
-		// structToMap is used so that fields are accessible in Templates by their json struct tag names instead of
-		// their Go struct field names and their case.
-		// for example, {{ hardware.spec.metadata.instance.id }} instead of {{ hardware.Spec.Metadata.Instance.ID }}.
-		v, err := structToMap(hardware)
-		if err != nil {
-			logger.V(1).Info("error converting hardware to map for use in template data", "error", err)
-			return map[string]interface{}{}
-		}
-		return v
-	}()
-	data[templateDataHardwareLegacy] = contract
-	references := make(map[string]interface{})
-	var refErr error
-	for refName, rf := range hardware.Spec.References {
-		ed := evaluationData{
-			Source: source{
-				Name:      hardware.Name,
-				Namespace: hardware.Namespace,
-			},
-			Reference: rf,
-		}
-		denied, drules, err := evaluate(ctx, r.referenceRules.Denylist, ed)
-		if err != nil {
-			refErr = errors.Join(refErr, err)
-			logger.V(1).Info("error applying denylist rules", "error", err, "denyRules", r.referenceRules.Denylist)
-			continue
-		}
-		allowed, arules, err := evaluate(ctx, r.referenceRules.Allowlist, ed)
-		if err != nil {
-			refErr = errors.Join(refErr, err)
-			logger.V(1).Info("error applying allowlist rules", "error", err, "allowRules", r.referenceRules.Allowlist)
-			continue
-		}
-		if denied && !allowed {
-			refErr = errors.Join(refErr, errors.New("reference denied"))
-			logger.V(1).Info("reference denied", "referenceName", refName, "denyRules", drules, "allowRules", arules)
-			continue
-		}
-		logger.V(1).Info("reference allowed", "referenceName", refName, "denyRules", drules, "allowRules", arules)
-		gvr := schema.GroupVersionResource{Group: rf.Group, Version: rf.Version, Resource: rf.Resource}
-		if v, err := r.dynamicClient.DynamicRead(ctx, gvr, rf.Name, rf.Namespace); err == nil || v != nil {
-			references[refName] = v
-		} else {
-			refErr = errors.Join(refErr, err)
-			logger.V(1).Info("error getting reference", "referenceName", rf.Name, "namespace", rf.Namespace, "gvr", gvr, "error", err, "refNil", v == nil)
-		}
-	}
-	data[templateDataReferences] = references
 
-	tinkWf, err := renderTemplateHardware(stored.Name, pointerToValue(tpl.Spec.Data), data)
+	status, err := render.ToWorkflowStatus(render.NewInput(stored, tpl, hardware, references))
 	if err != nil {
 		journal.Log(ctx, "error rendering template")
 		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
@@ -376,7 +301,7 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 	}
 
 	// populate Task and Action data
-	stored.Status = *YAMLToStatus(tinkWf)
+	stored.Status = *status
 	stored.Status.TemplateRendering = v1alpha1.TemplateRenderingSuccessful
 	stored.Status.SetCondition(v1alpha1.WorkflowCondition{
 		Type:    v1alpha1.TemplateRenderedSuccess,
@@ -403,63 +328,6 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	stored.Status.State = v1alpha1.WorkflowStatePending
 
 	return reconcile.Result{}, nil
-}
-
-// structToMap converts a struct to a map[string]interface{}.
-func structToMap(item interface{}) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
-
-	// Marshal the struct to JSON.
-	jsonBytes, err := json.Marshal(item)
-	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal the JSON to a map[string]interface{}.
-	if err = json.Unmarshal(jsonBytes, &result); err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-// templateHardwareData defines the data exposed for a Hardware instance to a Template.
-type templateHardwareData struct {
-	Disks      []string
-	Interfaces []v1alpha1.Interface
-	UserData   string
-	Metadata   v1alpha1.HardwareMetadata
-	VendorData string
-}
-
-// toTemplateHardwareData converts a Hardware instance of templateHardwareData for use in template
-// rendering.
-func toTemplateHardwareData(hardware v1alpha1.Hardware) templateHardwareData {
-	var contract templateHardwareData
-	for _, disk := range hardware.Spec.Disks {
-		contract.Disks = append(contract.Disks, disk.Device)
-	}
-	if len(hardware.Spec.Interfaces) > 0 {
-		contract.Interfaces = hardware.Spec.Interfaces
-	}
-	if hardware.Spec.UserData != nil {
-		contract.UserData = pointerToValue(hardware.Spec.UserData)
-	}
-	if hardware.Spec.Metadata != nil {
-		contract.Metadata = *hardware.Spec.Metadata
-	}
-	if hardware.Spec.VendorData != nil {
-		contract.VendorData = pointerToValue(hardware.Spec.VendorData)
-	}
-	return contract
-}
-
-func pointerToValue[V any](ptr *V) V {
-	if ptr == nil {
-		var zero V
-		return zero
-	}
-	return *ptr
 }
 
 // firstAction returns the first Action of the first Task in the Workflow.

@@ -1,4 +1,4 @@
-package workflow
+package render
 
 import (
 	"errors"
@@ -30,7 +30,7 @@ func parse(yamlContent []byte) (*Workflow, error) {
 
 // renderTemplateHardware renders the workflow template and returns the Workflow and the interpolated bytes.
 func renderTemplateHardware(templateID, templateData string, hardware map[string]interface{}) (*Workflow, error) {
-	rendered, err := renderTemplate("workflow-template", templateData, hardware)
+	rendered, err := Render("workflow-template", templateData, hardware)
 	if err != nil {
 		return nil, fmt.Errorf("%s: err: %w", fmt.Sprintf(errTemplateParsing, templateID), err)
 	}

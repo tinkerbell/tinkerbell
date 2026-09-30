@@ -1,4 +1,4 @@
-package workflow
+package render
 
 import (
 	"bytes"
@@ -34,9 +34,9 @@ func safeFuncMap() template.FuncMap {
 	return fm
 }
 
-// renderTemplate parses and executes a Go template with the hermetic function
+// Render parses and executes a Go template with the hermetic function
 // map, erroring on missing keys and capping output at maxRenderBytes.
-func renderTemplate(name, tmplStr string, data interface{}) ([]byte, error) {
+func Render(name, tmplStr string, data interface{}) ([]byte, error) {
 	t, err := template.New(name).
 		Option("missingkey=error").
 		Funcs(safeFuncMap()).
