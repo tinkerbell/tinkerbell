@@ -2,47 +2,55 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/google/go-cmp/cmp"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
-// conflictingClient wraps a fake client to simulate conflict errors on update.
+// conflictingClient wraps a fake client to simulate conflict errors on patch.
 type conflictingClient struct {
 	client.Client
-	conflictCount int
-	maxConflicts  int
+	conflictCount              int
+	maxConflicts               int
+	resourceVersionTestFailure bool
 }
 
-func (c *conflictingClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+func (c *conflictingClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 	if c.conflictCount < c.maxConflicts {
 		c.conflictCount++
+		if c.resourceVersionTestFailure {
+			return apierrors.NewBadRequest("json patch test failed: /metadata/resourceVersion")
+		}
 		return apierrors.NewConflict(
 			schema.GroupResource{Group: "tinkerbell.org", Resource: "hardware"},
 			obj.GetName(),
 			nil,
 		)
 	}
-	return c.Client.Update(ctx, obj, opts...)
+	return c.Client.Patch(ctx, obj, patch, opts...)
 }
 
-// errorClient wraps a fake client to simulate non-conflict errors on update.
+// errorClient wraps a fake client to simulate non-conflict errors on patch.
 type errorClient struct {
 	client.Client
 }
 
-func (c *errorClient) Update(_ context.Context, _ client.Object, _ ...client.UpdateOption) error {
-	return apierrors.NewInternalError(fmt.Errorf("simulated update error"))
+func (c *errorClient) Patch(_ context.Context, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
+	return apierrors.NewInternalError(fmt.Errorf("simulated patch error"))
 }
 
 func withDuration(duration func() time.Duration) backoffOpts {
@@ -570,14 +578,21 @@ func TestSetAllowPXE_RetryMechanism(t *testing.T) {
 	_ = v1alpha1.AddToScheme(scheme)
 
 	tests := map[string]struct {
-		maxConflicts    int
-		expectError     bool
-		expectedRetries int
+		maxConflicts               int
+		resourceVersionTestFailure bool
+		expectError                bool
+		expectedRetries            int
 	}{
 		"success after 1 conflict": {
 			maxConflicts:    1,
 			expectError:     false,
 			expectedRetries: 1,
+		},
+		"retry after resourceVersion test failure": {
+			maxConflicts:               1,
+			resourceVersionTestFailure: true,
+			expectError:                false,
+			expectedRetries:            1,
 		},
 		"success after 2 conflicts": {
 			maxConflicts:    2,
@@ -635,8 +650,9 @@ func TestSetAllowPXE_RetryMechanism(t *testing.T) {
 
 			// Wrap with conflicting client
 			conflictClient := &conflictingClient{
-				Client:       baseClient,
-				maxConflicts: tc.maxConflicts,
+				Client:                     baseClient,
+				maxConflicts:               tc.maxConflicts,
+				resourceVersionTestFailure: tc.resourceVersionTestFailure,
 			}
 
 			// Call the function
@@ -681,5 +697,90 @@ func TestSetAllowPXE_RetryMechanism(t *testing.T) {
 				t.Error("hardware interface netboot configuration is missing")
 			}
 		})
+	}
+}
+
+// TestSetAllowPXEJSONPatchPreservesUnknownInterfaceFields guards against array replacement.
+func TestSetAllowPXEJSONPatchPreservesUnknownInterfaceFields(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	hw := &v1alpha1.Hardware{
+		ObjectMeta: metav1.ObjectMeta{Name: "hw", Namespace: "default"},
+		Spec: v1alpha1.HardwareSpec{
+			Interfaces: []v1alpha1.Interface{
+				{Netboot: &v1alpha1.Netboot{AllowPXE: valueToPointer(false)}},
+				{},
+			},
+			UserData: valueToPointer("#cloud-config"),
+		},
+	}
+	cc := interceptor.NewClient(fake.NewClientBuilder().WithScheme(scheme).WithObjects(hw).Build(), interceptor.Funcs{
+		Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+			if patch.Type() != types.JSONPatchType {
+				return fmt.Errorf("patch type = %q, want JSON Patch", patch.Type())
+			}
+			data, err := patch.Data(obj)
+			if err != nil {
+				return err
+			}
+			var body []allowPXEJSONPatchOperation
+			if err := json.Unmarshal(data, &body); err != nil {
+				return err
+			}
+
+			wantOperations := []allowPXEJSONPatchOperation{
+				{Op: "test", Path: "/metadata/resourceVersion", Value: obj.GetResourceVersion()},
+				{Op: "add", Path: "/spec/interfaces/0/netboot/allowPXE", Value: true},
+				{Op: "add", Path: "/spec/interfaces/1/netboot", Value: map[string]any{"allowPXE": true}},
+			}
+			if diff := cmp.Diff(wantOperations, body); diff != "" {
+				return fmt.Errorf("unexpected patch operations (-want +got):\n%s", diff)
+			}
+
+			original, err := json.Marshal(map[string]any{
+				"metadata": map[string]any{"resourceVersion": obj.GetResourceVersion()},
+				"spec": map[string]any{
+					"interfaces": []any{
+						map[string]any{
+							"futureInterfaceField": "preserve interface extension",
+							"netboot": map[string]any{
+								"allowPXE":           false,
+								"futureNetbootField": "preserve netboot extension",
+							},
+						},
+						map[string]any{"futureInterfaceField": "preserve interface without netboot"},
+					},
+				},
+			})
+			if err != nil {
+				return err
+			}
+			decodedPatch, err := jsonpatch.DecodePatch(data)
+			if err != nil {
+				return err
+			}
+			updated, err := decodedPatch.Apply(original)
+			if err != nil {
+				return err
+			}
+			var updatedObject map[string]any
+			if err := json.Unmarshal(updated, &updatedObject); err != nil {
+				return err
+			}
+			interfaces := updatedObject["spec"].(map[string]any)["interfaces"].([]any)
+			firstInterface := interfaces[0].(map[string]any)
+			if firstInterface["futureInterfaceField"] != "preserve interface extension" || firstInterface["netboot"].(map[string]any)["futureNetbootField"] != "preserve netboot extension" {
+				return fmt.Errorf("patch removed an unknown field from an interface: %v", firstInterface)
+			}
+			secondInterface := interfaces[1].(map[string]any)
+			if secondInterface["futureInterfaceField"] != "preserve interface without netboot" {
+				return fmt.Errorf("patch removed an unknown field from an interface without netboot: %v", secondInterface)
+			}
+			return c.Patch(ctx, obj, patch, opts...)
+		},
+	})
+
+	if err := setAllowPXE(context.Background(), cc, nil, hw.DeepCopy(), true); err != nil {
+		t.Fatal(err)
 	}
 }
