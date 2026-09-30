@@ -1,4 +1,4 @@
-package workflow
+package funcmap
 
 import (
 	"reflect"

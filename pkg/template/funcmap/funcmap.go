@@ -1,7 +1,7 @@
-package workflow
+// Package funcmap provides the functions available to Tinkerbell templates.
+package funcmap
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"strconv"
@@ -12,58 +12,16 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// maxRenderBytes caps rendered template output to guard against expansion-based DoS.
-const maxRenderBytes = 256 * 1024
-
-// templateFuncs defines the custom functions available to workflow templates.
-var templateFuncs = map[string]interface{}{
-	"formatPartition":       formatPartition,
-	"netmaskToPrefixLength": netmaskToPrefixLength,
-	"toYaml":                toYaml,
-	"fromYaml":              fromYaml,
-}
-
-// safeFuncMap returns the functions available to workflow templates. It uses
-// Sprig's hermetic function map, which excludes non-repeatable and unsafe
-// functions such as env, expandenv, and getHostByName.
-func safeFuncMap() template.FuncMap {
+// New returns the functions available to Tinkerbell templates: Sprig's hermetic
+// function map, which excludes non-repeatable and unsafe functions such as env,
+// expandenv, and getHostByName, plus Tinkerbell's own helpers.
+func New() template.FuncMap {
 	fm := sprig.HermeticTxtFuncMap()
-	for k, v := range templateFuncs {
-		fm[k] = v
-	}
+	fm["formatPartition"] = formatPartition
+	fm["netmaskToPrefixLength"] = netmaskToPrefixLength
+	fm["toYaml"] = toYaml
+	fm["fromYaml"] = fromYaml
 	return fm
-}
-
-// renderTemplate parses and executes a Go template with the hermetic function
-// map, erroring on missing keys and capping output at maxRenderBytes.
-func renderTemplate(name, tmplStr string, data interface{}) ([]byte, error) {
-	t, err := template.New(name).
-		Option("missingkey=error").
-		Funcs(safeFuncMap()).
-		Parse(tmplStr)
-	if err != nil {
-		return nil, err
-	}
-
-	w := &limitedWriter{limit: maxRenderBytes}
-	if err := t.Execute(w, data); err != nil {
-		return nil, err
-	}
-
-	return w.buf.Bytes(), nil
-}
-
-// limitedWriter buffers written bytes and errors once limit is exceeded.
-type limitedWriter struct {
-	buf   bytes.Buffer
-	limit int
-}
-
-func (w *limitedWriter) Write(p []byte) (int, error) {
-	if w.buf.Len()+len(p) > w.limit {
-		return 0, fmt.Errorf("rendered template exceeds %d bytes", w.limit)
-	}
-	return w.buf.Write(p)
 }
 
 // formatPartition formats a device path with partition for the device type.
