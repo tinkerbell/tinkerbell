@@ -8,9 +8,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"github.com/tinkerbell/tinkerbell/pkg/template/render"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	toolscache "k8s.io/client-go/tools/cache"
@@ -25,24 +27,18 @@ import (
 // Referenced objects are read live by the workers. Informers on their types
 // hold metadata only and are used just to notice changes.
 type renderStore struct {
-	consumers []string
 	informers informerGetter
 	mapper    meta.RESTMapper
 	get       func(context.Context, types.NamespacedName) (*tinkerbell.Hardware, error)
-	resolve   func(context.Context, string, *tinkerbell.Hardware) (map[string]any, error)
+	resolve   func(context.Context, *tinkerbell.Hardware) (map[string]any, error)
 	queue     workqueue.TypedRateLimitingInterface[types.NamespacedName]
 	log       logr.Logger
 
 	mu        sync.RWMutex
-	entries   map[entryKey]*renderEntry
+	entries   map[types.NamespacedName]*renderEntry
 	refs      map[types.NamespacedName][]refKey
 	referrers map[refKey]map[types.NamespacedName]struct{}
 	watched   map[schema.GroupResource]struct{}
-}
-
-type entryKey struct {
-	hardware types.NamespacedName
-	consumer string
 }
 
 type informerGetter interface {
@@ -66,11 +62,9 @@ func newRenderStore(
 	informers informerGetter,
 	mapper meta.RESTMapper,
 	get func(context.Context, types.NamespacedName) (*tinkerbell.Hardware, error),
-	resolve func(context.Context, string, *tinkerbell.Hardware) (map[string]any, error),
-	consumers ...string,
+	resolve func(context.Context, *tinkerbell.Hardware) (map[string]any, error),
 ) *renderStore {
 	return &renderStore{
-		consumers: consumers,
 		informers: informers,
 		mapper:    mapper,
 		get:       get,
@@ -80,11 +74,23 @@ func newRenderStore(
 			workqueue.DefaultTypedControllerRateLimiter[types.NamespacedName](),
 			workqueue.TypedRateLimitingQueueConfig[types.NamespacedName]{Name: "hardware_render"},
 		),
-		entries:   map[entryKey]*renderEntry{},
+		entries:   map[types.NamespacedName]*renderEntry{},
 		refs:      map[types.NamespacedName][]refKey{},
 		referrers: map[refKey]map[types.NamespacedName]struct{}{},
 		watched:   map[schema.GroupResource]struct{}{},
 	}
+}
+
+func needsRendering(hw *tinkerbell.Hardware) bool {
+	skip, err := hardwareRenderSkip(hw)
+	if err != nil {
+		return true
+	}
+	doc, err := runtime.DefaultUnstructuredConverter.ToUnstructured(hw)
+	if err != nil {
+		return true
+	}
+	return render.HasTemplates(doc, render.WithSkip(skip))
 }
 
 // Start renders every Hardware and keeps renderings current until ctx is done.
@@ -113,12 +119,12 @@ func (s *renderStore) Start(ctx context.Context, workers int) error {
 	return nil
 }
 
-// rendered returns hw as rendered for consumer. While a new rendering is pending
-// or after it failed, the last successful one is returned. ok is false when hw
-// needs rendering and none has succeeded yet.
-func (s *renderStore) rendered(consumer string, hw *tinkerbell.Hardware) (*tinkerbell.Hardware, bool) {
+// rendered returns the Hardware-wide result. While a new rendering is pending
+// or after it failed, the last successful result is returned. ok is false when
+// hw needs rendering and none has succeeded yet.
+func (s *renderStore) rendered(hw *tinkerbell.Hardware) (*tinkerbell.Hardware, bool) {
 	s.mu.RLock()
-	e := s.entries[entryKey{client.ObjectKeyFromObject(hw), consumer}]
+	e := s.entries[client.ObjectKeyFromObject(hw)]
 	s.mu.RUnlock()
 
 	if e != nil && e.resourceVersion == hw.ResourceVersion && e.err == nil && e.identity {
@@ -166,47 +172,43 @@ func (s *renderStore) render(ctx context.Context, key types.NamespacedName) bool
 	if !needsRendering(hw) {
 		s.track(ctx, key, nil)
 		s.mu.Lock()
-		for _, consumer := range s.consumers {
-			s.entries[entryKey{key, consumer}] = &renderEntry{resourceVersion: hw.ResourceVersion, good: hw, identity: true}
-		}
+		s.entries[key] = &renderEntry{resourceVersion: hw.ResourceVersion, good: hw, identity: true}
 		s.mu.Unlock()
 		return true
 	}
 	s.track(ctx, key, hw.Spec.References)
 
-	ok := true
-	for _, consumer := range s.consumers {
-		e := &renderEntry{resourceVersion: hw.ResourceVersion}
-		// Like Workflow rendering, a denied or unreadable reference only fails
-		// the render if a template uses it.
-		refs, refErr := s.resolve(ctx, consumer, hw)
-		e.good, err = renderHardware(hw, refs)
-		e.identity = e.good == hw
-		ek := entryKey{key, consumer}
-		s.mu.Lock()
-		if err != nil {
-			ok = false
-			e.err = errors.Join(refErr, err)
-			e.good, e.identity = nil, false
-			if prev := s.entries[ek]; prev != nil {
-				e.good = prev.good
-			}
-			s.log.Error(e.err, "render hardware", "hardware", key, "consumer", consumer, "servingPrevious", e.good != nil)
+	e := &renderEntry{resourceVersion: hw.ResourceVersion}
+	// A denied or unreadable reference only fails the render if a template uses it.
+	refs, refErr := s.resolve(ctx, hw)
+	e.good, err = renderHardware(hw, refs)
+	e.identity = e.good == hw
+	var servingPrevious bool
+	if err != nil {
+		e.err = errors.Join(refErr, err)
+		e.good, e.identity = nil, false
+	}
+	s.mu.Lock()
+	if err != nil {
+		if prev := s.entries[key]; prev != nil {
+			e.good = prev.good
+			servingPrevious = prev.good != nil
 		}
-		s.entries[ek] = e
-		s.mu.Unlock()
+	}
+	s.entries[key] = e
+	s.mu.Unlock()
+	if err != nil {
+		s.log.Error(e.err, "render hardware", "hardware", key, "servingPrevious", servingPrevious)
 	}
 
-	return ok
+	return err == nil
 }
 
 // forget drops everything held for a deleted Hardware.
 func (s *renderStore) forget(key types.NamespacedName) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, consumer := range s.consumers {
-		delete(s.entries, entryKey{key, consumer})
-	}
+	delete(s.entries, key)
 	s.setRefs(key, nil)
 }
 

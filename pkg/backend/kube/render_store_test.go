@@ -99,7 +99,7 @@ type fakeResolver struct {
 	calls int
 }
 
-func (f *fakeResolver) resolve(_ context.Context, _ string, _ *tinkerbell.Hardware) (map[string]any, error) {
+func (f *fakeResolver) resolve(_ context.Context, _ *tinkerbell.Hardware) (map[string]any, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
@@ -115,7 +115,7 @@ func (f *fakeResolver) set(refs map[string]any, err error) {
 func newTestStore(hws *fakeHardware, res *fakeResolver, inf *fakeInformers) *renderStore {
 	mapper := meta.NewDefaultRESTMapper(nil)
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-	return newRenderStore(logr.Discard(), inf, mapper, hws.get, res.resolve, "smee", "tootles")
+	return newRenderStore(logr.Discard(), inf, mapper, hws.get, res.resolve)
 }
 
 func templated(rv string) *tinkerbell.Hardware {
@@ -139,20 +139,21 @@ func TestRenderStoreServesRenderedHardware(t *testing.T) {
 	hw := templated("1")
 	hws.set(hw)
 
-	if _, ok := s.rendered("smee", hw); ok {
+	if _, ok := s.rendered(hw); ok {
 		t.Fatal("templated Hardware must not be served before it is rendered")
 	}
 	if !s.render(ctx, client.ObjectKeyFromObject(hw)) {
 		t.Fatal("render failed")
 	}
-	for _, consumer := range []string{"smee", "tootles"} {
-		if got, ok := s.rendered(consumer, hw); !ok || *got.Spec.UserData != "domain=example.org" {
-			t.Fatalf("%s: rendered = %v, %v", consumer, got, ok)
-		}
+	if res.calls != 1 || len(s.entries) != 1 {
+		t.Fatalf("resolved references %d times and stored %d entries, want 1 each", res.calls, len(s.entries))
 	}
-	got, _ := s.rendered("smee", hw)
+	got, ok := s.rendered(hw)
+	if !ok || *got.Spec.UserData != "domain=example.org" {
+		t.Fatalf("rendered = %v, %v", got, ok)
+	}
 	got.Spec.UserData = ptr("mutated")
-	if again, _ := s.rendered("smee", hw); *again.Spec.UserData != "domain=example.org" {
+	if again, _ := s.rendered(hw); *again.Spec.UserData != "domain=example.org" {
 		t.Fatal("a caller's copy must not change the stored rendering")
 	}
 }
@@ -165,17 +166,56 @@ func TestRenderStoreUntemplatedHardware(t *testing.T) {
 	hw.Spec.UserData = ptr("#cloud-config")
 	hws.set(hw)
 
-	if got, ok := s.rendered("smee", hw); !ok || got != hw {
+	if got, ok := s.rendered(hw); !ok || got != hw {
 		t.Fatal("untemplated Hardware must be served as stored before any render")
 	}
 	if !s.render(ctx, client.ObjectKeyFromObject(hw)) {
 		t.Fatal("render failed")
 	}
-	if got, ok := s.rendered("smee", hw); !ok || got != hw {
+	if got, ok := s.rendered(hw); !ok || got != hw {
 		t.Fatal("untemplated Hardware must be served as stored")
 	}
 	if res.calls != 0 {
 		t.Fatalf("references resolved %d times for untemplated Hardware, want 0", res.calls)
+	}
+}
+
+func TestRenderStoreSkippedJinja(t *testing.T) {
+	hws, res := &fakeHardware{}, &fakeResolver{err: errors.New("reference denied")}
+	s := newTestStore(hws, res, &fakeInformers{})
+	hw := templated("1")
+	hw.Annotations = map[string]string{templateSkipAnnotation: `["spec.userData"]`}
+	hw.Spec.UserData = ptr("{{ ds.meta_data.hostname }}")
+	hws.set(hw)
+	if got, ok := s.rendered(hw); !ok || got != hw {
+		t.Fatal("skipped Jinja must be served unchanged before rendering")
+	}
+	if !s.render(context.Background(), client.ObjectKeyFromObject(hw)) {
+		t.Fatal("render of skipped Jinja failed")
+	}
+	if got, ok := s.rendered(hw); !ok || got != hw {
+		t.Fatal("skipped Jinja must be served unchanged after rendering")
+	}
+	if res.calls != 0 || len(s.refs) != 0 {
+		t.Fatal("skipped Jinja must not resolve or track references")
+	}
+}
+
+func TestRenderStoreInvalidSkipAnnotation(t *testing.T) {
+	hws, res := &fakeHardware{}, &fakeResolver{}
+	s := newTestStore(hws, res, &fakeInformers{})
+	hw := templated("1")
+	hw.Spec.UserData = ptr("#cloud-config")
+	hw.Annotations = map[string]string{templateSkipAnnotation: "null"}
+	hws.set(hw)
+	if _, ok := s.rendered(hw); ok {
+		t.Fatal("invalid skip annotation must not take the unchanged-object fast path")
+	}
+	if s.render(context.Background(), client.ObjectKeyFromObject(hw)) {
+		t.Fatal("invalid skip annotation must fail rendering")
+	}
+	if _, ok := s.rendered(hw); ok {
+		t.Fatal("failed Hardware without a previous rendering must not be served")
 	}
 }
 
@@ -189,7 +229,7 @@ func TestRenderStoreUnusedDeniedReference(t *testing.T) {
 	if !s.render(context.Background(), client.ObjectKeyFromObject(hw)) {
 		t.Fatal("a denied reference no template uses must not fail the render")
 	}
-	if got, ok := s.rendered("smee", hw); !ok || *got.Spec.UserData != "host=m1" {
+	if got, ok := s.rendered(hw); !ok || *got.Spec.UserData != "host=m1" {
 		t.Fatalf("rendered = %v, %v", got, ok)
 	}
 }
@@ -208,14 +248,14 @@ func TestRenderStoreFailureServesPrevious(t *testing.T) {
 	if s.render(ctx, key) {
 		t.Fatal("render of a broken template must fail")
 	}
-	if got, ok := s.rendered("smee", broken); !ok || *got.Spec.UserData != "domain=example.org" {
+	if got, ok := s.rendered(broken); !ok || *got.Spec.UserData != "domain=example.org" {
 		t.Fatalf("rendered = %v, %v; want the previous rendering", got, ok)
 	}
 
 	hws.set(templated("3"))
 	res.set(netRefs("fixed.org"), nil)
 	s.render(ctx, key)
-	if got, _ := s.rendered("smee", templated("3")); *got.Spec.UserData != "domain=fixed.org" {
+	if got, _ := s.rendered(templated("3")); *got.Spec.UserData != "domain=fixed.org" {
 		t.Fatalf("userData = %q after the fix", *got.Spec.UserData)
 	}
 }
@@ -230,7 +270,7 @@ func TestRenderStoreNeverRendered(t *testing.T) {
 	if s.render(context.Background(), client.ObjectKeyFromObject(hw)) {
 		t.Fatal("render must fail")
 	}
-	if _, ok := s.rendered("smee", hw); ok {
+	if _, ok := s.rendered(hw); ok {
 		t.Fatal("Hardware that never rendered must not be served")
 	}
 }
@@ -291,7 +331,7 @@ func TestRenderStoreStart(t *testing.T) {
 	// Re-send the event until Start has registered its handler and a worker rendered it.
 	for ; ; time.Sleep(time.Millisecond) {
 		inf.informer(&tinkerbell.Hardware{}).Add(hw)
-		if got, ok := s.rendered("smee", hw); ok {
+		if got, ok := s.rendered(hw); ok {
 			if *got.Spec.UserData != "domain=example.org" {
 				t.Fatalf("userData = %q", *got.Spec.UserData)
 			}
