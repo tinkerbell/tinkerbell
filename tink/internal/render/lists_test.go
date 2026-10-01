@@ -1,7 +1,6 @@
-package workflow
+package render
 
 import (
-	"context"
 	"testing"
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
@@ -125,16 +124,50 @@ func TestMatch(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, rules, err := evaluate(context.TODO(), test.rules, test.data)
-			if err != nil && !test.expectedErr {
-				t.Fatalf("match() error = %v", err)
+			q, buildErr := newRuleMatcher(test.rules)
+			if buildErr != nil {
+				if !test.expectedErr {
+					t.Fatalf("newRuleMatcher() error = %v", buildErr)
+				}
+				return
+			}
+			if test.expectedErr {
+				t.Fatal("newRuleMatcher() expected an error, got nil")
+			}
+			got, rules, err := evaluate(q, test.data)
+			if err != nil {
+				t.Fatalf("evaluate() error = %v", err)
 			}
 			if got != test.expectedMatch {
-				t.Errorf("match() found: got = %v, want %v", got, test.expectedMatch)
+				t.Errorf("evaluate() found: got = %v, want %v", got, test.expectedMatch)
 			}
 			if rules != test.expectedRules {
-				t.Errorf("match() rules: got = %v, want %v", rules, test.expectedRules)
+				t.Errorf("evaluate() rules: got = %v, want %v", rules, test.expectedRules)
 			}
 		})
+	}
+}
+
+func TestNewRuleMatcherReused(t *testing.T) {
+	q, err := newRuleMatcher([]string{`{"reference":{"name":["example"]}}`})
+	if err != nil {
+		t.Fatalf("newRuleMatcher() error = %v", err)
+	}
+
+	// A matcher can be evaluated against more than one event.
+	match, _, err := evaluate(q, evaluationData{Reference: tinkerbell.Reference{Name: "example"}})
+	if err != nil {
+		t.Fatalf("evaluate() error = %v", err)
+	}
+	if !match {
+		t.Fatal("evaluate() expected a match for the first event")
+	}
+
+	noMatch, _, err := evaluate(q, evaluationData{Reference: tinkerbell.Reference{Name: "other"}})
+	if err != nil {
+		t.Fatalf("evaluate() error = %v", err)
+	}
+	if noMatch {
+		t.Fatal("evaluate() expected no match for the second event")
 	}
 }
