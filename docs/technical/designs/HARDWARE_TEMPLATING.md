@@ -93,17 +93,17 @@ checked against the Quamina deny/allow lists, then fetched with the backend's
 - Rufio server-side-applies `status.attributes.outOfBand` as field manager
   `machine-controller`.
 
-### 4.3 loom
+### 4.3 `pkg/template/render` (from loom)
 
 [`github.com/jacobweinstock/loom`](https://github.com/jacobweinstock/loom) renders Go
 `text/template` expressions found in the string values of a YAML document. It is copied
-into this repository as `pkg/loom` (both projects are Apache-2.0) and maintained here from
+into this repository as `pkg/template/render` (both projects are Apache-2.0) and maintained here from
 then on; Tinkerbell does not depend on the external module. The copy leaves out what this
-design never uses: YAML input and output (replaced by `RenderValue`, §5.4) and type
+design never uses: YAML input and output (replaced by `render.Value`, §5.4) and type
 inference (always off here, §5.3). That also removes loom's only dependency,
 `goccy/go-yaml`.
 
-What loom does:
+What the render package does:
 
 - Only string leaves containing a delimiter are rendered; the document's structure cannot
   be changed by a template.
@@ -112,7 +112,9 @@ What loom does:
 - Fields may reference other templated fields; they are evaluated once each, in
   dependency order, and cycles are reported as `ErrReferenceCycle`.
 - Functions are injected by the caller (`WithFuncs`), with `missingkey=error` by default,
-  and a per-field output cap and time budget.
+  a per-field output cap, a best-effort per-field output-write deadline, and a cap on the
+  combined output of one render. These are operational safeguards, not a security
+  boundary (§5.3, §10).
 - Errors carry the field path, e.g. `spec.metadata.osieFiles[0].contents`.
 
 Behaviour verified against loom `main` while writing this design:
@@ -120,7 +122,7 @@ Behaviour verified against loom `main` while writing this design:
 | Probe | Result |
 | --- | --- |
 | `{{ .self.hostname }}`, references data, multi-line values | Rendered correctly |
-| Literal `{{` via `{{ "{{" }}` | Works (loom's documentation says there is no escape; `pkg/loom` corrects it) |
+| Literal `{{` via `{{ "{{" }}` | Works (loom's documentation says there is no escape; `pkg/template/render` corrects it) |
 | `"{{ \"0644\" }}"` with type inference on | Becomes the integer `420` |
 | Raw bytes from `b64dec` | Produce YAML that cannot be parsed back (`control characters are not allowed`) |
 
@@ -226,52 +228,58 @@ today. No CRD validation rule is added: rejecting `{{` there would tighten valid
 existing users, and on clusters without validation ratcheting it could reject updates to
 objects that already exist.
 
-### 5.3 Rendering with loom
+### 5.3 Rendering with `pkg/template/render`
 
-The backend renders with loom using these options:
+The backend renders with the render package using these options:
 
 | Option | Value | Why |
 | --- | --- | --- |
 | `WithFuncs` | shared hermetic function map | Same functions as Workflow Templates |
 | `WithMissingKeyError` | `true` | A denied or missing reference fails instead of rendering `<no value>` |
 | `WithSelfKey` | `"hardware"` | `.hardware` is the object being rendered |
-| `WithSkip` | the paths in §5.2 | New in `pkg/loom`, see below |
-| `WithMaxOutputBytes` | loom default (1 MiB) | Bounds one field; the OSIE archive total is checked separately (§5.10) |
-| `WithRenderTimeout` | loom default (2s) | |
+| `WithSkip` | the paths in §5.2 | New in `pkg/template/render`, see below |
+| `WithMaxOutputBytes` | package default (1 MiB) | Caps one field's output; the OSIE archive total is checked separately (§5.10) |
+| `WithMaxTotalBytes` | package default (8 MiB) | Caps the combined output of one render, so many templated fields cannot each claim the per-field cap |
+| `WithOutputDeadline` | package default (2s) | Best-effort check on output writes; it cannot interrupt a blocking function or non-writing template execution |
 
-The document passed to loom is the object's `apiVersion`, `kind`, `metadata` and `spec`,
+These limits are operational safeguards against mistakes such as an oversized value or a
+runaway loop. They cap rendered output, not memory or CPU: a template can allocate or loop
+without writing, for example by growing a variable in a `range`, and nothing interrupts
+execution between writes. They are not a security boundary (§10).
+
+The document passed to the render package is the object's `apiVersion`, `kind`, `metadata` and `spec`,
 so that templates address fields as `.hardware.metadata.name` and `.hardware.spec...`, as
 the [v1alpha2 templating](../v1alpha2/templating.md) doc specifies. `status` is omitted.
 Resolved references are passed as data under `references`. The same shape and options are
 used for v1alpha1 and v1alpha2; only the list of lookup-key paths differs.
 
-A rendered value is always a string. `pkg/loom` has no type inference: the result is
+A rendered value is always a string. `pkg/template/render` has no type inference: the result is
 decoded into a typed CRD, where a rendered `"0644"` must stay the string `"0644"`, not
 become the integer `420`.
 
-`pkg/loom` adds an option that keeps a string leaf out of rendering while leaving it
+`pkg/template/render` adds an option that keeps a string leaf out of rendering while leaving it
 readable through the self key:
 
 ```go
-// WithSkip excludes string leaves whose path skip reports true for from rendering.
+// WithSkip leaves unrendered every string value for which skip(path) returns true.
 // Skipped values stay readable through the self key, unrendered.
 func WithSkip(skip func(path string) bool) Option
 ```
 
 Paths use loom's existing format, for example `spec.interfaces[0].dhcp.mac`.
 
-### 5.4 Rendering a decoded tree (`pkg/loom` addition)
+### 5.4 Rendering a decoded tree (`pkg/template/render` addition)
 
 `loom.Render` round-trips through YAML. For typed Kubernetes objects that is both lossy
 (binary strings) and wasteful (marshal to YAML, parse, re-marshal, convert back).
 
-loom already renders a decoded tree internally (`renderDoc(doc any, ...)`). `pkg/loom`
-adds a public function:
+loom already renders a decoded tree internally (`renderDoc(doc any, ...)`).
+`pkg/template/render` adds a public function:
 
 ```go
-// RenderValue renders the templated string leaves of an already-decoded document
+// Value renders the templated string leaves of an already-decoded document
 // (map[string]any / []any / scalars) in place and returns it.
-func RenderValue(doc any, data map[string]any, opts ...Option) (any, error)
+func Value(doc any, data map[string]any, opts ...Option) (any, error)
 ```
 
 The backend then renders without any serialization:
@@ -279,7 +287,7 @@ The backend then renders without any serialization:
 ```text
 typed Hardware
   -> runtime.DefaultUnstructuredConverter.ToUnstructured
-  -> loom.RenderValue
+  -> render.Value
   -> runtime.DefaultUnstructuredConverter.FromUnstructured
   -> rendered Hardware (in memory only)
 ```
@@ -287,12 +295,12 @@ typed Hardware
 The unstructured converter works by reflection, so Go strings, including non-UTF-8
 bytes produced by `b64dec`, pass through unchanged. This is what makes binary delivery
 work (§5.5). The map and slice types it produces (`map[string]interface{}`,
-`[]interface{}`) are the types loom already walks.
+`[]interface{}`) are the types the render package already walks.
 
 ### 5.5 Binary contents
 
 Rendered values only ever exist in memory in the backend and its consumers; they are never
-written to an API object. With `RenderValue`, a field whose template ends in `b64dec` is
+written to an API object. With `render.Value`, a field whose template ends in `b64dec` is
 delivered byte-for-byte, for example into the CPIO archive. The Hardware object itself only
 stores the template text, which is always valid UTF-8.
 
@@ -408,7 +416,8 @@ old and new values. Avoid editing during provisioning."
 
 ### 5.10 Size limits
 
-- Per field: loom's output cap (§5.3).
+- Per field: the render package's output cap (§5.3).
+- Per render: the render package's cap on the combined output of all fields (§5.3).
 - OSIE archive: after rendering for the `smee` consumer, the render store builds the
   bootstrap archive from `osieFiles` and checks its size against
   `--backend-kube-bootstrap-slot-capacity` (Helm
@@ -643,7 +652,7 @@ so what it reports is exactly what Smee and Tootles serve, and nothing is render
 | `True` | `NoTemplates` | Nothing in the Hardware needs rendering, and it passed validation |
 | `False` | `ReferenceDenied` | A reference is denied by policy for a consumer |
 | `False` | `ReferenceNotFound` | A referenced object does not exist |
-| `False` | `TemplateError` | loom returned a `*FieldError` |
+| `False` | `TemplateError` | The render package returned a `*FieldError` |
 | `False` | `ArchiveTooLarge` | The OSIE archive exceeds `--backend-kube-bootstrap-slot-capacity` (§5.10) |
 
 When `False`, the message names the consumer and the failing field path, and says what is
@@ -722,7 +731,7 @@ type for consumer `tootles`, with the same not-ready handling as Smee.
 
 - **Template injection.** Anyone who can edit a Hardware can execute templates in any of
   its `spec` string fields, against that Hardware's resolved references and nothing else.
-  Data passed to loom is never re-templated. Functions are the hermetic set only.
+  Data passed to the render package is never re-templated. Functions are the hermetic set only.
 - **Confused deputy.** The backend reads referenced objects with its own ServiceAccount on
   behalf of whoever wrote the Hardware. The allow/deny policy, default deny, is the control
   that stops a Hardware author reading objects they could not read directly.
@@ -733,9 +742,13 @@ type for consumer `tootles`, with the same not-ready handling as Smee.
 - **Stale data.** After a render failure, the previous rendering, including any Secret
   values it contains, keeps being served (§5.8). Rotating a Secret does not take effect
   for a Hardware whose render is failing.
-- **Resource exhaustion.** loom's per-field output cap and time budget bound each render.
-  Rendering happens in rate-limited background workers, so request volume never drives
-  render volume.
+- **Resource exhaustion.** Rendering is not sandboxed. The output caps and per-field
+  deadline (§5.3) are operational safeguards against mistakes; they do not bound memory or
+  CPU, so a Hardware author can exhaust the backend's process. Hardware authors are
+  therefore trusted to the same degree as for the rest of the Hardware, which already
+  controls what a machine boots. If that changes, rendering needs a real boundary, such as
+  a subprocess with memory and time limits. Rendering happens in rate-limited background
+  workers, so request volume never drives render volume.
 - **RBAC.** Caching referenced types requires `get`/`list`/`watch` on them. Operators
   grant these per type through `rbac.additionalRoleRules`; nothing is granted by wildcard.
   Secret data is never held in the cache (§7.5).
@@ -747,7 +760,7 @@ type for consumer `tootles`, with the same not-ready handling as Smee.
 | Enablement | `--backend-kube-hardware-templating-enabled`, off by default | Always on |
 | Templated Hardware fields | All `spec` string fields except §5.2 | Same, with v1alpha2's lookup keys |
 | Document and self key | `metadata` + `spec`, `.hardware` | Same |
-| Renderer | `pkg/loom` `RenderValue` with `WithSkip` | Same |
+| Renderer | `render.Value` with `WithSkip` | Same |
 | Where rendering runs | Background render store in the kube backend | Same |
 | Render failures | Last successful rendering served | Same |
 | Policy and resolution | kube backend | kube backend |
@@ -756,7 +769,7 @@ type for consumer `tootles`, with the same not-ready handling as Smee.
 | Conditions | `metav1.Condition` | `metav1.Condition` (Hardware and Job) |
 
 The v1alpha2 Workflow and Task rendering described in
-[v1alpha2 templating](../v1alpha2/templating.md) uses the same loom configuration and
+[v1alpha2 templating](../v1alpha2/templating.md) uses the same render package configuration and
 function map, rendered in the Tink Controller from the rendered Hardware and the
 references the backend resolves.
 
@@ -784,7 +797,7 @@ Each phase is a separate pull request of at most 600 lines of non-test Go, and n
 CLI flags, CRDs or Helm values incompatibly.
 
 1. `setAllowPXE` merge patch (§9.1).
-2. `pkg/loom`: trimmed copy with `RenderValue` and `WithSkip` (§4.3, §5.3, §5.4).
+2. `pkg/template/render`: trimmed copy of loom with `Value` and `WithSkip` (§4.3, §5.3, §5.4).
 3. Template functions moved to a shared package (§5.1).
 4. Reference policy in the backend: `ResolveReferences`, `consumer`, private
    `DynamicRead`/`DynamicClient`, `depguard` rule (§6).
@@ -810,7 +823,7 @@ Questions raised during review, and how they were settled:
 
 | Question | Decision |
 | --- | --- |
-| Where does loom live? | Copied into `pkg/loom` and maintained in this repository (§4.3). |
+| Where does loom live? | Copied into `pkg/template/render` and maintained in this repository (§4.3). |
 | Which fields can be templated? | Every `spec` string field, except `spec.references` and the lookup keys (§5.2). |
 | How is templating enabled in v1alpha1? | A process-wide flag, `--backend-kube-hardware-templating-enabled`, off by default (§5.1). |
 | How is request latency protected? | Rendering runs in background workers; requests only look up results (§5.7). |
@@ -829,7 +842,7 @@ Questions raised during review, and how they were settled:
 
 ## 15. Testing
 
-- **loom:** `RenderValue` preserves non-UTF-8 bytes; the leaf walker handles the
+- **Render package:** `Value` preserves non-UTF-8 bytes; the leaf walker handles the
   unstructured converter's types; a rendered `"0644"` stays a string; `WithSkip` leaves
   skipped values unrendered but readable.
 - **Backend:** policy is applied for every consumer; denied and missing references are
