@@ -136,7 +136,7 @@ spec:
               value: {{ .Values.deployment.envs.tinkController.logLevel | quote }}
             - name: TINKERBELL_TINK_CONTROLLER_MAX_CONCURRENT_RECONCILES
               value: {{ .Values.deployment.envs.tinkController.maxConcurrentReconciles | quote }}
-            - name: TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES
+            - name: TINKERBELL_BACKEND_KUBE_HARDWARE_REFERENCE_ALLOW_LIST_RULES
             {{- if .Values.deployment.envs.tinkController.referenceAllowListRules }}
               {{- $rules := list }}
               {{- $value := .Values.deployment.envs.tinkController.referenceAllowListRules }}
@@ -151,7 +151,7 @@ spec:
               {{- end }}
               value: {{ join "|" $rules | quote }}
             {{- end }}
-            - name: TINKERBELL_TINK_CONTROLLER_REFERENCE_DENY_LIST_RULES
+            - name: TINKERBELL_BACKEND_KUBE_HARDWARE_REFERENCE_DENY_LIST_RULES
             {{- if .Values.deployment.envs.tinkController.referenceDenyListRules }}
               {{- $rules := list }}
               {{- $value := .Values.deployment.envs.tinkController.referenceDenyListRules }}

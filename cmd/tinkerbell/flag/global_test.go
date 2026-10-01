@@ -24,6 +24,26 @@ func TestRegisterGlobalBindAddressEnv(t *testing.T) {
 	}
 }
 
+func TestRegisterGlobalReferenceRules(t *testing.T) {
+	const allow = `{"reference":{"resource":["configmaps"]}}`
+	const deny = `{"reference":{"resource":["secrets"]}}`
+	t.Setenv("TINKERBELL_BACKEND_KUBE_HARDWARE_REFERENCE_DENY_LIST_RULES", deny)
+
+	cfg := &GlobalConfig{}
+	fs := ff.NewFlagSet("test")
+	RegisterGlobal(&Set{FlagSet: fs}, cfg)
+	cmd := &ff.Command{Name: "test", Flags: fs}
+	if err := cmd.Parse([]string{"--backend-kube-hardware-reference-allow-list-rules=" + allow}, ff.WithEnvVarPrefix(EnvVarPrefix)); err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.BackendKubeOptions.HardwareReferenceAllowListRules; len(got) != 1 || got[0] != allow {
+		t.Errorf("allow rules = %v, want %s", got, allow)
+	}
+	if got := cfg.BackendKubeOptions.HardwareReferenceDenyListRules; len(got) != 1 || got[0] != deny {
+		t.Errorf("deny rules = %v, want %s", got, deny)
+	}
+}
+
 // RegisterFamily hands each address flag the family its name declares, so a
 // value from the wrong family is rejected at parse time rather than producing a
 // listener for the other family.

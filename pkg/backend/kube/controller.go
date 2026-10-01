@@ -9,11 +9,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// DynamicRead reads any Kubernetes resource, defined via gvr, name, and namespace, and returns the spec field
-// as a map[string]interface{}. It uses the Kubernetes dynamic client to perform the read operation.
+// dynamicRead reads any Kubernetes resource identified by GVR, name, and namespace and returns
+// the complete unstructured object as a map[string]interface{} using the Kubernetes dynamic client.
 //
-// This is most useful for look ups of References in Tinkerbell CRDs.
-func (b *Backend) DynamicRead(ctx context.Context, gvr schema.GroupVersionResource, name, namespace string) (map[string]interface{}, error) {
+// It is unexported so that references can only be read through ResolveReferences, which applies the policy.
+func (b *Backend) dynamicRead(ctx context.Context, gvr schema.GroupVersionResource, name, namespace string) (map[string]interface{}, error) {
 	// Here's the spec (https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources):
 	// Resource collections should be all lowercase and plural, [...], Group names must be lower case and be valid DNS subdomains.
 	sanitizedGVR := schema.GroupVersionResource{
@@ -21,7 +21,7 @@ func (b *Backend) DynamicRead(ctx context.Context, gvr schema.GroupVersionResour
 		Version:  gvr.Version,
 		Resource: strings.ToLower(gvr.Resource),
 	}
-	res := b.DynamicClient.Resource(sanitizedGVR).Namespace(namespace)
+	res := b.dynamicClient.Resource(sanitizedGVR).Namespace(namespace)
 	one, err := res.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error getting resource: %w", err)
