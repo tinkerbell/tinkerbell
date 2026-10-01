@@ -2,13 +2,16 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -30,6 +33,12 @@ type backoffConfig struct {
 
 type backoffOpts func(*backoffConfig)
 
+type allowPXEJSONPatchOperation struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value any    `json:"value,omitempty"`
+}
+
 // setAllowPXE sets the allowPXE field on the hardware network interfaces.
 // If hardware is nil then it will be retrieved using the client.
 // The hardware object will be updated in the cluster.
@@ -44,26 +53,47 @@ func setAllowPXE(ctx context.Context, cc client.Client, w *v1alpha1.Workflow, h 
 	for _, opt := range opts {
 		opt(bc)
 	}
+	var key client.ObjectKey
+	if h != nil {
+		key = client.ObjectKeyFromObject(h)
+	} else {
+		key = client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}
+	}
 	for attempt := 1; attempt <= bc.maxRetries; attempt++ {
-		if h == nil {
+		if h == nil || h.ResourceVersion == "" {
 			h = &v1alpha1.Hardware{}
-			if err := cc.Get(ctx, client.ObjectKey{Name: w.Spec.HardwareRef, Namespace: w.Namespace}, h); err != nil {
-				return fmt.Errorf("hardware not found: name=%v; namespace=%v, error: %w", w.Spec.HardwareRef, w.Namespace, err)
+			if err := cc.Get(ctx, key, h); err != nil {
+				return fmt.Errorf("hardware not found: name=%v; namespace=%v, error: %w", key.Name, key.Namespace, err)
 			}
 		}
 
+		operations := []allowPXEJSONPatchOperation{{
+			Op:    "test",
+			Path:  "/metadata/resourceVersion",
+			Value: h.ResourceVersion,
+		}}
 		for idx := range h.Spec.Interfaces {
-			if h.Spec.Interfaces[idx].Netboot != nil {
-				h.Spec.Interfaces[idx].Netboot.AllowPXE = valueToPointer(allowPXE)
-			} else {
-				h.Spec.Interfaces[idx].Netboot = &v1alpha1.Netboot{
-					AllowPXE: valueToPointer(allowPXE),
-				}
+			path := fmt.Sprintf("/spec/interfaces/%d/netboot", idx)
+			if h.Spec.Interfaces[idx].Netboot == nil {
+				operations = append(operations, allowPXEJSONPatchOperation{
+					Op:    "add",
+					Path:  path,
+					Value: map[string]any{"allowPXE": allowPXE},
+				})
+				continue
 			}
+			operations = append(operations, allowPXEJSONPatchOperation{
+				Op:    "add",
+				Path:  path + "/allowPXE",
+				Value: allowPXE,
+			})
 		}
-
-		if err := cc.Update(ctx, h); err != nil {
-			if apierrors.IsConflict(err) {
+		patchData, err := json.Marshal(operations)
+		if err != nil {
+			return fmt.Errorf("failed to marshal allowPXE patch for Hardware %s/%s: %w", h.Namespace, h.Name, err)
+		}
+		if err := cc.Patch(ctx, h, client.RawPatch(types.JSONPatchType, patchData)); err != nil {
+			if isAllowPXEConflict(err) {
 				if attempt >= bc.maxRetries {
 					return fmt.Errorf("error updating allow pxe after %d retries: %w", attempt, err)
 				}
@@ -163,4 +193,15 @@ func (s *state) toggleHardware(ctx context.Context, allowPXE bool) error {
 		Time:    &metav1.Time{Time: metav1.Now().UTC()},
 	})
 	return nil
+}
+
+func isAllowPXEConflict(err error) bool {
+	if apierrors.IsConflict(err) {
+		return true
+	}
+	if !apierrors.IsInvalid(err) && !apierrors.IsBadRequest(err) {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "test failed") && strings.Contains(message, "resourceversion")
 }
