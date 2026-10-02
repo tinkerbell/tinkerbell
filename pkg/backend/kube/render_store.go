@@ -14,6 +14,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/template/render"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -65,6 +66,39 @@ type metadataInformerFactory interface {
 	Shutdown()
 }
 
+type metadataListClient struct {
+	metadata.Interface
+	listed func(schema.GroupResource)
+}
+
+func (c *metadataListClient) Resource(resource schema.GroupVersionResource) metadata.Getter {
+	getter := c.Interface.Resource(resource)
+	return &metadataListResource{ResourceInterface: getter, namespace: getter.Namespace, listed: func() { c.listed(resource.GroupResource()) }}
+}
+
+// Explicit LIST/WATCH keeps every completed snapshot on the reconciliation path.
+func (*metadataListClient) IsWatchListSemanticsUnSupported() bool { return true }
+
+type metadataListResource struct {
+	metadata.ResourceInterface
+	namespace func(string) metadata.ResourceInterface
+	listed    func()
+}
+
+func (r *metadataListResource) Namespace(namespace string) metadata.ResourceInterface {
+	scoped := *r
+	scoped.ResourceInterface = r.namespace(namespace)
+	return &scoped
+}
+
+func (r *metadataListResource) List(ctx context.Context, options metav1.ListOptions) (*metav1.PartialObjectMetadataList, error) {
+	list, err := r.ResourceInterface.List(ctx, options)
+	if err == nil {
+		r.listed()
+	}
+	return list, err
+}
+
 // renderEntry is replaced whole, never modified, so readers need no lock on it.
 type renderEntry struct {
 	uid             types.UID            // of the Hardware owning this entry
@@ -94,12 +128,11 @@ func newRenderStore(
 	registry prometheus.Registerer,
 ) *renderStore {
 	store := &renderStore{
-		informers:          hardwareInformers,
-		referenceInformers: metadatainformer.NewSharedInformerFactory(metadataClient, 0),
-		mapper:             mapper,
-		get:                get,
-		resolve:            resolve,
-		log:                log,
+		informers: hardwareInformers,
+		mapper:    mapper,
+		get:       get,
+		resolve:   resolve,
+		log:       log,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[types.NamespacedName](),
 			workqueue.TypedRateLimitingQueueConfig[types.NamespacedName]{Name: "hardware_render"},
@@ -112,6 +145,7 @@ func newRenderStore(
 		notify:    make(chan struct{}, 1),
 		changes:   map[types.NamespacedName]struct{}{},
 	}
+	store.referenceInformers = metadatainformer.NewSharedInformerFactory(&metadataListClient{Interface: metadataClient, listed: store.requeueResource}, 0)
 	store.renders = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "tinkerbell_hardware_render_attempts_total", Help: "Hardware render attempts by outcome."}, []string{"result"})
 	store.duration = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "tinkerbell_hardware_render_duration_seconds", Help: "Hardware render attempt duration."})
 	store.fallbacks = prometheus.NewGauge(prometheus.GaugeOpts{Name: "tinkerbell_hardware_render_fallback_entries", Help: "Hardware entries serving a previous result after a render failure."})
@@ -330,6 +364,18 @@ func (s *renderStore) track(ctx context.Context, key types.NamespacedName, refer
 		}
 	}
 	return watchErr
+}
+
+func (s *renderStore) requeueResource(resource schema.GroupResource) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for reference, hardware := range s.referrers {
+		if reference.group == resource.Group && reference.resource == resource.Resource {
+			for key := range hardware {
+				s.queue.Add(key)
+			}
+		}
+	}
 }
 
 func (s *renderStore) ensureWatch(ctx context.Context, gvr schema.GroupVersionResource) error {

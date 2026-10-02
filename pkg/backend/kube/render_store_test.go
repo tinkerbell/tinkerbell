@@ -419,6 +419,9 @@ func TestRenderStoreCrossNamespaceReference(t *testing.T) {
 	if !toolscache.WaitForCacheSync(ctx.Done(), inf.HasSynced) {
 		t.Fatal("metadata informer did not sync")
 	}
+	for s.queue.Len() > 0 {
+		s.processNext(ctx)
+	}
 	updates.Add(&metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Namespace: "shared", Name: "net1", ResourceVersion: "2"}})
 	if err := wait.PollUntilContextCancel(ctx, time.Millisecond, true, func(context.Context) (bool, error) {
 		return s.queue.Len() == 1, nil
@@ -444,6 +447,143 @@ func TestRenderStoreCrossNamespaceReference(t *testing.T) {
 	s.referenceInformers.Shutdown()
 	if !updates.IsStopped() || !inf.IsStopped() {
 		t.Fatal("metadata informer must stop when its context is canceled")
+	}
+}
+
+func TestRenderStoreEmptyListReconcilesReferrers(t *testing.T) {
+	for _, phase := range []string{"initial", "relist"} {
+		t.Run(phase, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			metadataClient := metadatafake.NewSimpleMetadataClient(runtime.NewScheme())
+			listStarted, allowList, watchStarted := make(chan struct{}), make(chan struct{}), make(chan struct{})
+			var callsMu sync.Mutex
+			var started, release sync.Once
+			listCalls, watchCalls := 0, 0
+			metadataClient.PrependReactor("list", "configmaps", func(clienttesting.Action) (bool, runtime.Object, error) {
+				callsMu.Lock()
+				listCalls++
+				initial := listCalls == 1
+				callsMu.Unlock()
+				if phase == "relist" && initial {
+					return true, &metav1.List{ListMeta: metav1.ListMeta{ResourceVersion: "1"}}, nil
+				}
+				started.Do(func() { close(listStarted) })
+				select {
+				case <-allowList:
+					return true, &metav1.List{ListMeta: metav1.ListMeta{ResourceVersion: "4"}}, nil
+				case <-ctx.Done():
+					return true, nil, ctx.Err()
+				}
+			})
+			oldWatch := watch.NewRaceFreeFake()
+			metadataClient.PrependWatchReactor("configmaps", func(clienttesting.Action) (bool, watch.Interface, error) {
+				callsMu.Lock()
+				defer callsMu.Unlock()
+				watchCalls++
+				if watchCalls == 1 {
+					close(watchStarted)
+					return true, oldWatch, nil
+				}
+				return true, watch.NewRaceFreeFake(), nil
+			})
+			hws, res := &fakeHardware{}, &fakeResolver{refs: netRefs("before-delete")}
+			mapper := meta.NewDefaultRESTMapper(nil)
+			mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+			s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, hws.get, res.resolve, prometheus.NewRegistry())
+			t.Cleanup(func() {
+				cancel()
+				release.Do(func() { close(allowList) })
+				s.queue.ShutDown()
+				s.referenceInformers.Shutdown()
+			})
+			gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+			if phase == "relist" {
+				if err := s.ensureWatch(ctx, gvr); err != nil {
+					t.Fatal(err)
+				}
+				if !toolscache.WaitForCacheSync(ctx.Done(), s.referenceInformers.ForResource(gvr).Informer().HasSynced) {
+					t.Fatal("initial informer sync failed")
+				}
+				select {
+				case <-watchStarted:
+				case <-ctx.Done():
+					t.Fatal("initial watch did not start")
+				}
+				oldWatch.Error(&metav1.Status{Status: metav1.StatusFailure, Reason: metav1.StatusReasonExpired, Code: 410, Message: "expired"})
+			}
+			fleet := []*tinkerbell.Hardware{templated("1"), templated("1")}
+			for index, hw := range fleet {
+				hw.Name = fmt.Sprintf("machine-%d", index)
+				hw.Spec.UserData = ptr(`{{ if hasKey .references "net" }}present{{ else }}absent{{ end }}`)
+				hws.set(hw)
+				s.queue.Add(client.ObjectKeyFromObject(hw))
+				s.processNext(ctx)
+				if index == 0 {
+					select {
+					case <-listStarted:
+					case <-ctx.Done():
+						t.Fatal("controlled metadata LIST did not start")
+					}
+				}
+				if got, ok := s.rendered(hw); !ok || *got.Spec.UserData != "present" {
+					t.Fatal("live reference must be present before the controlled deletion")
+				}
+			}
+			res.set(map[string]any{}, apierrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "net1"))
+			release.Do(func() { close(allowList) })
+			if err := wait.PollUntilContextCancel(ctx, time.Millisecond, true, func(context.Context) (bool, error) {
+				return s.queue.Len() == len(fleet), nil
+			}); err != nil {
+				t.Fatalf("empty metadata LIST must reconcile every current referrer: %v", err)
+			}
+			for range fleet {
+				s.processNext(ctx)
+			}
+			for _, hw := range fleet {
+				if got, ok := s.rendered(hw); !ok || *got.Spec.UserData != "absent" {
+					t.Fatal("reconciliation must observe the deletion rather than retain a successful stale result")
+				}
+			}
+		})
+	}
+}
+
+func TestRenderStoreMetadataListCompletion(t *testing.T) {
+	s := newTestStore(&fakeHardware{}, &fakeResolver{}, &fakeInformers{})
+	defer s.queue.ShutDown()
+	configMapKeys := []types.NamespacedName{{Namespace: "tink", Name: "m1"}, {Namespace: "tink", Name: "m2"}}
+	s.mu.Lock()
+	for _, key := range configMapKeys {
+		s.setRefs(key, []refKey{{resource: "configmaps", namespace: "shared", name: "net1"}})
+	}
+	s.setRefs(types.NamespacedName{Namespace: "tink", Name: "secret-user"}, []refKey{{resource: "secrets", namespace: "shared", name: "credentials"}})
+	s.mu.Unlock()
+	metadataClient := metadatafake.NewSimpleMetadataClient(runtime.NewScheme())
+	failed := true
+	metadataClient.PrependReactor("list", "configmaps", func(clienttesting.Action) (bool, runtime.Object, error) {
+		if failed {
+			return true, nil, errors.New("temporary list failure")
+		}
+		return true, &metav1.List{}, nil
+	})
+	observed := &metadataListClient{Interface: metadataClient, listed: s.requeueResource}
+	resource := observed.Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).Namespace("shared")
+	if _, err := resource.List(context.Background(), metav1.ListOptions{}); err == nil || s.queue.Len() != 0 {
+		t.Fatal("failed LIST must not publish a completed snapshot")
+	}
+	failed = false
+	if _, err := resource.List(context.Background(), metav1.ListOptions{}); err != nil || s.queue.Len() != len(configMapKeys) {
+		t.Fatalf("successful empty LIST must requeue only matching resource referrers: %v", err)
+	}
+	for range configMapKeys {
+		key, _ := s.queue.Get()
+		if key.Name == "secret-user" {
+			t.Fatal("a ConfigMap LIST must not requeue Secret-only referrers")
+		}
+		s.queue.Done(key)
+	}
+	if !observed.IsWatchListSemanticsUnSupported() {
+		t.Fatal("the snapshot hook requires explicit LIST/WATCH rather than watch-list initialization")
 	}
 }
 

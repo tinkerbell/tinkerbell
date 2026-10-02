@@ -445,6 +445,19 @@ that valid result remains available. Established informers use client-go's list/
 reconnection rather than a second retry mechanism. Concurrent workers do not install
 duplicate handlers.
 
+Registration is not a snapshot-synchronization barrier: informers start asynchronously.
+A live read can observe an object that is deleted before the initial LIST, leaving no
+object for the informer to emit a deletion event for. The same gap can occur after watch
+expiration when an object is created, read live, and deleted before a recovery relist;
+`HasSynced()` remains true after the first synchronization.
+
+The reference metadata client therefore requeues all current referrers of a resource after
+every successful LIST, including empty initial lists and recovery relists. Reconciliation
+is queued, not executed in the LIST callback, so workers never block on informer sync.
+Hardware joining a pending watcher is included through the current reverse index. Failed
+LISTs do not trigger this completion hook; client-go retries them. The factory uses explicit
+LIST/WATCH rather than watch-list initialization so no snapshot path bypasses the hook.
+
 Hardware update handling must include changes to the skip annotation, other metadata
 read by templates, and status attributes. For CRDs, metadata-only updates do not increment
 `metadata.generation`; Hardware status updates do not increment it either. A generation-only
