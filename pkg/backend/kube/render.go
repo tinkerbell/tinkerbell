@@ -1,7 +1,6 @@
 package kube
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -12,24 +11,30 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const templateSkipAnnotation = "tinkerbell.org/render-skip"
+
 // renderHardware returns hw with the templates in its spec rendered against the
 // Hardware itself (.hardware) and its resolved references (.references). hw is
 // never modified; when it has nothing to render it is returned as is.
 func renderHardware(hw *tinkerbell.Hardware, references map[string]any) (*tinkerbell.Hardware, error) {
-	if !needsRendering(hw) {
-		return hw, nil
+	skip, err := hardwareRenderSkip(hw)
+	if err != nil {
+		return nil, fmt.Errorf("render hardware %s/%s: %w", hw.Namespace, hw.Name, err)
 	}
 
 	doc, err := runtime.DefaultUnstructuredConverter.ToUnstructured(hw)
 	if err != nil {
 		return nil, fmt.Errorf("convert hardware %s/%s: %w", hw.Namespace, hw.Name, err)
 	}
+	if !render.HasTemplates(doc, render.WithSkip(skip)) {
+		return hw, nil
+	}
 
 	// doc is a map, so it is rendered in place.
 	if _, err := render.Value(doc, map[string]any{"references": references},
 		render.WithSelfKey("hardware"),
 		render.WithFuncs(funcmap.New()),
-		render.WithSkip(skipRender),
+		render.WithSkip(skip),
 	); err != nil {
 		return nil, fmt.Errorf("render hardware %s/%s: %w", hw.Namespace, hw.Name, err)
 	}
@@ -43,11 +48,26 @@ func renderHardware(hw *tinkerbell.Hardware, references map[string]any) (*tinker
 	return out, nil
 }
 
-// needsRendering reports whether hw's spec contains a template, so that
-// untemplated Hardware is never copied and its references never read.
-func needsRendering(hw *tinkerbell.Hardware) bool {
-	b, err := json.Marshal(hw.Spec)
-	return err != nil || bytes.Contains(b, []byte("{{"))
+func hardwareRenderSkip(hw *tinkerbell.Hardware) (func(string) bool, error) {
+	raw, ok := hw.Annotations[templateSkipAnnotation]
+	if !ok {
+		return skipRender, nil
+	}
+	var paths []string
+	if err := json.Unmarshal([]byte(raw), &paths); err != nil {
+		return nil, fmt.Errorf("annotation %s must be a JSON array of string paths: %w", templateSkipAnnotation, err)
+	}
+	if paths == nil {
+		return nil, fmt.Errorf("annotation %s must be a JSON array of string paths, not null", templateSkipAnnotation)
+	}
+	skipped := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		if !strings.HasPrefix(path, "spec.") || path == "spec." {
+			return nil, fmt.Errorf("annotation %s path %q must be under spec", templateSkipAnnotation, path)
+		}
+		skipped[path] = true
+	}
+	return func(path string) bool { return skipRender(path) || skipped[path] }, nil
 }
 
 // skipRender reports whether the value at path must never be rendered: anything

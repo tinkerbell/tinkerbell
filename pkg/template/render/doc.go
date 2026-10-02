@@ -6,6 +6,9 @@
 // value but never the document's shape. A literal "{{" is written as
 // {{ "{{" }}.
 //
+// WithSkip excludes whole strings before parsing while keeping them readable.
+// HasTemplates uses the same selection without executing or modifying the document.
+//
 // # Self-reference and evaluation order
 //
 // The document is exposed to its own templates under the self key (default

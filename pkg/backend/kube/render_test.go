@@ -3,6 +3,7 @@ package kube
 import (
 	"encoding/base64"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -128,6 +129,121 @@ func TestRenderHardwareError(t *testing.T) {
 	var fe *render.FieldError
 	if !errors.As(err, &fe) || fe.Path != "spec.userData" {
 		t.Fatalf("err = %v, want *render.FieldError at spec.userData", err)
+	}
+}
+
+func TestRenderHardwareSkipAnnotation(t *testing.T) {
+	const jinja = "## template: jinja\n#cloud-config\nhostname: {{ ds.meta_data.hostname }}\n"
+	for _, test := range []struct {
+		name       string
+		annotation string
+		vendorData *string
+		wantVendor *string
+		unchanged  bool
+	}{
+		{name: "Jinja only", annotation: `["spec.userData"]`, unchanged: true},
+		{name: "duplicate and absent optional paths", annotation: `["spec.userData", "spec.userData", "spec.vendorData"]`, unchanged: true},
+		{name: "mixed fields", annotation: `["spec.userData"]`, vendorData: ptr("{{ .hardware.metadata.name }}"), wantVendor: ptr("machine1")},
+		{name: "skipped content is readable", annotation: `["spec.userData"]`, vendorData: ptr("{{ .hardware.spec.userData }}"), wantVendor: ptr(jinja)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			hw := &tinkerbell.Hardware{
+				ObjectMeta: metav1.ObjectMeta{Name: "machine1", Annotations: map[string]string{templateSkipAnnotation: test.annotation}},
+				Spec:       tinkerbell.HardwareSpec{UserData: ptr(jinja), VendorData: test.vendorData},
+			}
+			orig := hw.DeepCopy()
+			got, err := renderHardware(hw, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.unchanged && got != hw {
+				t.Fatal("expected the stored object to be returned unchanged")
+			}
+			want := orig.DeepCopy()
+			want.Spec.VendorData = test.wantVendor
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("rendered (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(orig, hw); diff != "" {
+				t.Errorf("input was modified (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestRenderHardwareSkipAnnotationInvalid(t *testing.T) {
+	for _, annotation := range []string{
+		"", "null", `{}`, `"spec.userData"`, `[1]`, `[null]`, `[""]`,
+		`["metadata.name"]`, `["status.state"]`, `["spec"]`, `["spec."]`,
+		`["spec.userData"] trailing`,
+	} {
+		t.Run(annotation, func(t *testing.T) {
+			hw := &tinkerbell.Hardware{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{templateSkipAnnotation: annotation}}}
+			_, err := renderHardware(hw, nil)
+			if err == nil || !strings.Contains(err.Error(), templateSkipAnnotation) {
+				t.Fatalf("err = %v, want annotation validation error even without templates", err)
+			}
+		})
+	}
+}
+
+func TestRenderHardwareSkipAnnotationChanged(t *testing.T) {
+	hw := &tinkerbell.Hardware{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{templateSkipAnnotation: `["spec.userData"]`}},
+		Spec:       tinkerbell.HardwareSpec{UserData: ptr("{{ ds.meta_data.hostname }}")},
+	}
+	if got, err := renderHardware(hw, nil); err != nil || got != hw {
+		t.Fatalf("initial render = %v, %v; want unchanged hardware", got, err)
+	}
+	for _, annotation := range []string{`[]`, `["spec.vendorData"]`} {
+		hw.Annotations[templateSkipAnnotation] = annotation
+		if _, err := renderHardware(hw, nil); err == nil {
+			t.Fatalf("annotation %s: expected Jinja parse error", annotation)
+		}
+	}
+	delete(hw.Annotations, templateSkipAnnotation)
+	if _, err := renderHardware(hw, nil); err == nil {
+		t.Fatal("expected Jinja parse error after removing annotation")
+	}
+}
+
+func TestRenderHardwareSkipAnnotationExactPath(t *testing.T) {
+	hw := &tinkerbell.Hardware{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{templateSkipAnnotation: `["spec.interfaces[0].dhcp.hostname"]`}},
+		Spec: tinkerbell.HardwareSpec{Interfaces: []tinkerbell.Interface{
+			{DHCP: &tinkerbell.DHCP{Hostname: "{{ ds.meta_data.hostname }}"}},
+			{DHCP: &tinkerbell.DHCP{Hostname: `{{ "machine2" }}`}},
+		}},
+	}
+	got, err := renderHardware(hw, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Spec.Interfaces[0].DHCP.Hostname != hw.Spec.Interfaces[0].DHCP.Hostname || got.Spec.Interfaces[1].DHCP.Hostname != "machine2" {
+		t.Fatalf("unexpected hostnames: %+v", got.Spec.Interfaces)
+	}
+}
+
+func TestRenderHardwareOnlySkippedFields(t *testing.T) {
+	for _, annotation := range []string{`[]`, `["spec.vendorData"]`} {
+		hw := &tinkerbell.Hardware{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "{{ invalid }}",
+				Annotations: map[string]string{templateSkipAnnotation: annotation},
+			},
+			Spec: tinkerbell.HardwareSpec{
+				AgentID:    "{{ invalid }}",
+				References: map[string]tinkerbell.Reference{"net": {Name: "{{ invalid }}"}},
+				Metadata:   &tinkerbell.HardwareMetadata{Instance: &tinkerbell.MetadataInstance{ID: "{{ invalid }}"}},
+				Interfaces: []tinkerbell.Interface{{DHCP: &tinkerbell.DHCP{
+					MAC: "{{ invalid }}", IP: &tinkerbell.IP{Address: "{{ invalid }}"},
+				}}},
+			},
+			Status: tinkerbell.HardwareStatus{State: "{{ invalid }}"},
+		}
+		if got, err := renderHardware(hw, nil); err != nil || got != hw {
+			t.Fatalf("annotation %s: render = %v, %v; want unchanged hardware", annotation, got, err)
+		}
 	}
 }
 
