@@ -47,12 +47,25 @@ func convert(pAttr *proto.AgentAttributes) *data.AgentAttributes {
 	}
 	// NetworkInterfaces
 	for _, network := range pAttr.Network {
-		dAttr.NetworkInterfaces = append(dAttr.NetworkInterfaces, &data.Network{
+		n := &data.Network{
 			Name:                network.Name,
 			Mac:                 network.Mac,
 			SpeedMbps:           network.SpeedMbps,
 			EnabledCapabilities: network.EnabledCapabilities,
-		})
+		}
+		for _, nb := range network.LldpNeighbors {
+			if nb == nil {
+				continue
+			}
+			n.LLDPNeighbors = append(n.LLDPNeighbors, &data.LLDPNeighbor{
+				ChassisID:       nb.ChassisId,
+				SystemName:      nb.SystemName,
+				PortID:          nb.PortId,
+				PortDescription: nb.PortDescription,
+				VLANIDs:         nb.VlanIds,
+			})
+		}
+		dAttr.NetworkInterfaces = append(dAttr.NetworkInterfaces, n)
 	}
 	// PCIDevices
 	for _, pci := range pAttr.Pci {

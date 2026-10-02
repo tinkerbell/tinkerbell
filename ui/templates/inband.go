@@ -2,6 +2,7 @@ package templates
 
 import (
 	"strconv"
+	"strings"
 
 	tinkv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 )
@@ -64,12 +65,22 @@ func AgentAttributesFromInBand(attrs *tinkv1alpha1.Attributes) *AgentAttributes 
 			continue
 		}
 		for _, port := range iface.Ports {
-			out.NetworkInterfaces = append(out.NetworkInterfaces, AgentNetworkInterface{
+			nic := AgentNetworkInterface{
 				Name:                iface.Name,
 				MAC:                 port.MAC,
 				Speed:               humanizeSpeedMbps(port.SpeedMbps),
 				EnabledCapabilities: port.EnabledCapabilities,
-			})
+			}
+			for _, nb := range port.LLDPNeighbors {
+				nic.LLDPNeighbors = append(nic.LLDPNeighbors, AgentLLDPNeighbor{
+					ChassisID:       nb.ChassisID,
+					SystemName:      nb.SystemName,
+					PortID:          nb.PortID,
+					PortDescription: nb.PortDescription,
+					VLANIDs:         humanizeVLANIDs(nb.VLANIDs),
+				})
+			}
+			out.NetworkInterfaces = append(out.NetworkInterfaces, nic)
 		}
 	}
 
@@ -119,3 +130,15 @@ func AgentAttributesFromInBand(attrs *tinkv1alpha1.Attributes) *AgentAttributes 
 }
 
 // humanizeBytes and humanizeSpeedMbps are shared with agent_attributes.go.
+
+// humanizeVLANIDs formats a list of VLAN IDs as a comma-separated string.
+func humanizeVLANIDs(ids []uint32) string {
+	if len(ids) == 0 {
+		return ""
+	}
+	parts := make([]string, len(ids))
+	for i, id := range ids {
+		parts[i] = strconv.FormatUint(uint64(id), 10)
+	}
+	return strings.Join(parts, ", ")
+}

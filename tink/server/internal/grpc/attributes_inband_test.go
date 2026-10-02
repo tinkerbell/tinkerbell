@@ -34,7 +34,17 @@ func TestInBandAttributesFromAgent(t *testing.T) {
 			},
 		},
 		NetworkInterfaces: []*data.Network{
-			{Name: ptr("eno1"), Mac: ptr("aa:bb:cc:dd:ee:ff"), SpeedMbps: ptr(uint32(1000)), EnabledCapabilities: []string{"tso"}},
+			{
+				Name: ptr("eno1"), Mac: ptr("aa:bb:cc:dd:ee:ff"), SpeedMbps: ptr(uint32(1000)), EnabledCapabilities: []string{"tso"},
+				LLDPNeighbors: []*data.LLDPNeighbor{
+					{
+						ChassisID: ptr("aa:bb:cc:00:11:22"), SystemName: ptr("switch01"),
+						PortID: ptr("Gi1/0/1"), PortDescription: ptr("uplink"), VLANIDs: []uint32{10, 20},
+					},
+					nil,
+					{ChassisID: ptr("aa:bb:cc:00:11:33"), SystemName: ptr("vswitch01"), PortID: ptr("vnet0")},
+				},
+			},
 		},
 		PCIDevices: []*data.PCI{
 			{Vendor: ptr("Intel"), Product: ptr("Ethernet Controller"), Class: ptr("0200"), Driver: ptr("ixgbe")},
@@ -82,6 +92,20 @@ func TestInBandAttributesFromAgent(t *testing.T) {
 	}
 	if len(nic.Ports[0].EnabledCapabilities) != 1 || nic.Ports[0].EnabledCapabilities[0] != "tso" {
 		t.Errorf("NetworkInterfaces[0].Ports[0].EnabledCapabilities = %v, want [tso]", nic.Ports[0].EnabledCapabilities)
+	}
+	neighbors := nic.Ports[0].LLDPNeighbors
+	if len(neighbors) != 2 {
+		t.Fatalf("NetworkInterfaces[0].Ports[0].LLDPNeighbors = %+v, want two entries (nil entry skipped)", neighbors)
+	}
+	neighbor := neighbors[0]
+	if neighbor.ChassisID != "aa:bb:cc:00:11:22" || neighbor.SystemName != "switch01" || neighbor.PortID != "Gi1/0/1" || neighbor.PortDescription != "uplink" {
+		t.Errorf("LLDPNeighbors[0] = %+v, want ChassisID=aa:bb:cc:00:11:22 SystemName=switch01 PortID=Gi1/0/1 PortDescription=uplink", neighbor)
+	}
+	if len(neighbor.VLANIDs) != 2 || neighbor.VLANIDs[0] != 10 || neighbor.VLANIDs[1] != 20 {
+		t.Errorf("LLDPNeighbors[0].VLANIDs = %v, want [10 20]", neighbor.VLANIDs)
+	}
+	if neighbors[1].ChassisID != "aa:bb:cc:00:11:33" || neighbors[1].SystemName != "vswitch01" || neighbors[1].PortID != "vnet0" {
+		t.Errorf("LLDPNeighbors[1] = %+v, want ChassisID=aa:bb:cc:00:11:33 SystemName=vswitch01 PortID=vnet0", neighbors[1])
 	}
 
 	if len(got.PCIDevices) != 1 || got.PCIDevices[0].Model != "Ethernet Controller" {
