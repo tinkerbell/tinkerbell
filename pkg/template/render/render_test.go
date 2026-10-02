@@ -1,6 +1,7 @@
 package render_test
 
 import (
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -11,6 +12,41 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/pkg/template/render"
 )
+
+func TestHasTemplates(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		doc  any
+		skip func(string) bool
+		want bool
+	}{
+		{name: "nil"},
+		{name: "literal", doc: "plain text"},
+		{name: "invalid template is detected without parsing", doc: "{{ invalid", want: true},
+		{name: "nested", doc: map[string]any{"spec": []any{"literal", "{{ invalid"}}, want: true},
+		{name: "skipped", doc: map[string]any{"userData": "{{ ds.meta_data.hostname }}"}, skip: func(path string) bool { return path == "userData" }},
+		{name: "array path", doc: []any{"{{ invalid"}, skip: func(path string) bool { return path == "[0]" }},
+		{name: "quoted key", doc: map[string]any{"a.b": "{{ invalid"}, skip: func(path string) bool { return path == `["a.b"]` }},
+		{name: "mixed", doc: map[string]any{"skip": "{{ invalid", "render": "{{ invalid"}, skip: func(path string) bool { return path == "skip" }, want: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			orig, err := json.Marshal(test.doc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := render.HasTemplates(test.doc, render.WithSkip(test.skip)); got != test.want {
+				t.Errorf("HasTemplates = %v, want %v", got, test.want)
+			}
+			after, err := json.Marshal(test.doc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(string(orig), string(after)); diff != "" {
+				t.Errorf("input was modified (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
 
 func TestValue(t *testing.T) {
 	tests := map[string]struct {

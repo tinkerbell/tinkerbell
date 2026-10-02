@@ -2,9 +2,13 @@
 // values of an already-decoded document, resolving them against the document
 // itself (self-reference) and against caller-supplied data.
 //
-// Only string values containing "{{" are rendered, so a template can change a
-// value but never the document's shape. A literal "{{" is written as
-// {{ "{{" }}.
+// Only string values containing "{{" are selected for rendering, and each result
+// is a string. These replacements do not reshape the document, but caller-supplied
+// helpers can mutate exposed maps and slices, including adding or removing fields.
+// A literal "{{" is written as {{ "{{" }}.
+//
+// WithSkip excludes whole strings before parsing while keeping them readable.
+// HasTemplates uses the same selection without executing or modifying the document.
 //
 // # Self-reference and evaluation order
 //

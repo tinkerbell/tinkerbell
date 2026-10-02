@@ -2,6 +2,18 @@ package render
 
 import "maps"
 
+// HasTemplates reports whether doc contains any non-skipped string values with
+// template delimiters. It neither parses templates nor modifies doc.
+func HasTemplates(doc any, opts ...Option) bool {
+	cfg := defaults()
+	for _, option := range opts {
+		option(&cfg)
+	}
+	var leaves []*leaf
+	collectLeaves(doc, "", nil, func(any) {}, &cfg, &leaves)
+	return len(leaves) > 0
+}
+
 // Value renders, in place, the templated string values of doc, a
 // document decoded into map[string]any, []any and scalars, and returns it.
 //
