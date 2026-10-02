@@ -417,29 +417,64 @@ adds no template execution and no network I/O to any of them.
 
 Rendering therefore happens in the background, and requests only look results up.
 
-**The render store.** The backend keeps a store of rendered Hardware, keyed by Hardware UID.
-Each entry records the Hardware `resourceVersion` and the
-`resourceVersion` of each resolved reference it was rendered from, the rendered result, and
-the last error.
+**The render store.** The backend keeps a store of rendered Hardware, addressed by
+namespace/name with a Hardware UID recorded on each entry. Lookup and last-successful
+fallback both require the same UID: deletion and recreation at the same name must never
+inherit the deleted object's result, even when queue events coalesce.
+Each entry records the Hardware UID and `resourceVersion`, the rendered result, and the
+last rendering error. Reference changes invalidate entries through the reverse index and
+metadata informers rather than per-reference version snapshots in the entry.
 
-**Background workers.** Event handlers on the shared cache's informers add Hardware keys to
-a rate-limited work queue, and a fixed pool of workers renders them:
+**Background workers.** Hardware events come from the backend cache; reference events come
+from a separate metadata-only informer factory. They add Hardware keys to a rate-limited
+work queue, and a fixed pool of workers renders them:
 
 - Hardware added, updated or deleted.
 - A referenced object added, updated or deleted. The store keeps a reverse index from each
   referenced `(group, resource, namespace, name)` to the Hardware that reference it. The
-  first time a new referenced GVK appears, the store registers an event handler on that
-  GVK's informer (`cache.GetInformer`).
+  first time a new referenced resource appears, the store registers an event handler on
+  the independent metadata factory's informer. This factory watches all namespaces,
+  regardless of `--backend-kube-namespace`, so allowed cross-namespace references stay
+  current. Its informers stop with the render context and are joined at store shutdown.
 - A referenced Secret's metadata changing (§7.5).
+
+Watch registration is serialized separately from entry access. A resource is marked
+watched only after handler registration succeeds. Discovery or handler-registration
+failure schedules a rate-limited Hardware retry even if the rendered result is valid;
+that valid result remains available. Established informers use client-go's list/watch
+reconnection rather than a second retry mechanism. Concurrent workers do not install
+duplicate handlers.
+
+Registration is not a snapshot-synchronization barrier: informers start asynchronously.
+A live read can observe an object that is deleted before the initial LIST, leaving no
+object for the informer to emit a deletion event for. The same gap can occur after watch
+expiration when an object is created, read live, and deleted before a recovery relist;
+`HasSynced()` remains true after the first synchronization.
+
+The reference metadata client therefore requeues all current referrers of a resource after
+every successful LIST, including empty initial lists and recovery relists. Reconciliation
+is queued, not executed in the LIST callback, so workers never block on informer sync.
+Hardware joining a pending watcher is included through the current reverse index. Failed
+LISTs do not trigger this completion hook; client-go retries them. The factory uses explicit
+LIST/WATCH rather than watch-list initialization so no snapshot path bypasses the hook.
 
 Hardware update handling must include changes to the skip annotation, other metadata
 read by templates, and status attributes. For CRDs, metadata-only updates do not increment
 `metadata.generation`; Hardware status updates do not increment it either. A generation-only
-predicate would miss these inputs. Avoid self-triggered render loops from renderer-owned
-condition updates when the Hardware controller is added.
+predicate would miss these inputs. Updates compare private normalized documents, ignoring
+only `metadata.resourceVersion`, `metadata.managedFields`, and the renderer-owned `Rendered`
+condition. Other status changes and mixed condition-plus-input changes still enqueue
+rendering. The `Rendered` condition is bookkeeping, not a render invalidation input.
+Reference metadata updates do not use this filter: their resource versions signal data
+changes even when the metadata payload otherwise looks identical.
 
 **The request path.** `FilterHardware` does the same indexed lookup as today, then one map
-lookup in the store by UID. No template runs and no network call happens.
+lookup in the store by namespace/name, with UID validation before any cached result is
+used. No template runs and no network call happens. Informer observations and workers
+prepare the render-needed decision, keyed by Hardware UID and resource version. During
+startup/edit windows, a matching decision avoids request-path conversion and scanning.
+A snapshot not yet observed, or one with a different UID/version, uses the existing
+skip-aware scan to preserve immediate literal passthrough and annotation validation.
 
 **Fast path.** When templating is disabled, or a Hardware has no `{{` in any non-skipped
 string leaf, the store records that the rendered result is the stored object and keeps no
@@ -447,12 +482,18 @@ copy. Detect this before resolving references for Hardware rendering; Workflow T
 references are resolved independently. Fleets that do not use templating pay nothing
 beyond the map lookup.
 
-**Referenced data.** Referenced objects are read from the shared cache as unstructured
-objects (`client.Options.Cache.Unstructured: true`). The first read of a GVK starts its
-informer; later reads are in memory. This replaces the uncached `DynamicRead`. Secrets are
-the exception: the store keeps the data of Secrets that at least one Hardware references,
-and workers re-fetch a Secret only when its metadata shows a new `resourceVersion`
-(§7.5). Memory grows with the referenced Secrets, not with all Secrets.
+A lookup benchmark cycles through 10,000 Hardware in literal, skipped-Jinja, and templated
+fleets, with steady-state, unobserved startup/edit, and observed startup/edit cases.
+On the development host, unobserved scans took roughly 32-60 microseconds and over 100
+allocations per call; observed literal/Jinja catch-up cases took approximately
+0.1-0.4 microseconds with zero allocations. Templated results still incur the required
+copy. These are local measurements, not a cross-machine latency guarantee.
+
+**Referenced data.** PR6 workers read referenced objects live through the reference
+resolver; the independent informers retain metadata only, never full Secret contents.
+Later shared-data-cache work must preserve the watchers' cross-namespace coverage and
+live Secret reads (§7.5). Reference data held by the store is limited to rendered results,
+not all objects of a referenced type.
 
 **Shared references.** When an object referenced by many Hardware changes, all of them are
 queued. The queue is rate limited, and requests keep being answered from the previous
@@ -475,11 +516,25 @@ found; DHCP clients retry within seconds.
 **Atomic replacement.** Each entry is replaced whole, so a request never sees some fields
 from one rendering and some from another.
 
-**Metrics.** Queue depth, render duration, render errors, and the number of entries
-currently serving a previous rendering (§5.8).
+**Notifications.** `Changes()` exposes a one-slot wake channel; `TakeChanges()` atomically
+drains the coalesced set of changed Hardware keys. Result replacement, render failure,
+recovery, and deletion mark keys pending without blocking workers. Slow consumers keep
+the latest key set rather than a per-event backlog; consumers reconcile against the latest
+store state, including UID validation. The wake channel closes after workers stop, and
+also on startup failure. PR8 integrates this with the Hardware status controller.
+
+**Metrics.** PR7 supplies the registerer for one store using the existing metrics registry.
+The store registers `tinkerbell_hardware_render_queue_depth`,
+`tinkerbell_hardware_render_duration_seconds`, `tinkerbell_hardware_render_attempts_total`
+(only the bounded `result=success|error` label), and
+`tinkerbell_hardware_render_fallback_entries`. Attempts include watch-registration failure
+and read errors; the fallback gauge counts entries serving last-good data after a rendering
+error and decreases on recovery or deletion. No Hardware or reference names are labels.
 
 Informers on referenced types need `list` and `watch` RBAC for those types, not only
-`get`. Operators grant them through the chart's existing `rbac.additionalRoleRules`; the
+`get`. The independent factory lists and watches across all namespaces, so those permissions
+must be granted cluster-wide for referenced types. Operators grant them through the chart's
+existing `rbac.additionalRoleRules`; the
 templating documentation states that referenced types need all three verbs:
 
 ```yaml
