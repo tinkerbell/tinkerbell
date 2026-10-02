@@ -105,8 +105,10 @@ inference (always off here, §5.3). That also removes loom's only dependency,
 
 What the render package does:
 
-- Only string leaves containing a delimiter are rendered; the document's structure cannot
-  be changed by a template.
+- Only string leaves containing a delimiter are selected for rendering, and their results
+  remain strings. These replacements do not reshape the document, but template helpers
+  can mutate exposed maps and slices, including adding or removing fields. Hardware's
+  hardcoded protected paths are checked separately after rendering (§5.2).
 - The document is exposed to its own templates under a configurable self key, and caller
   data is merged into the same root. Caller data is never re-templated.
 - Fields may reference other templated fields; they are evaluated once each, in
@@ -220,6 +222,13 @@ in the document as readable inputs, but are never rendered:
 | `spec.agentID` | yes | No | Lookup key (agent ID index) |
 | `spec.metadata.instance.id` | yes | No | Lookup key (instance ID index) |
 
+The built-in exclusions are declared in one `skippedHardwarePaths` list of full paths,
+independent of `protectedHardwarePaths`. A path excludes its value and subtree; `[]` selects
+array elements, as in `spec.interfaces[].dhcp.mac`. There is no regex or wildcard matching.
+Adding or removing a built-in exclusion changes one entry in this list. Only strings under
+`spec` are eligible for rendering; other root fields remain excluded regardless of the list.
+Annotation exclusions below remain exact-match rather than using these subtree/array rules.
+
 The lookup keys are indexed from the stored object (`pkg/backend/kube/index.go`), which is
 how DHCP, Tootles and Tink Server find a Hardware. A template there would put the template
 text into the index, so lookups would never match. Indexing rendered values instead would
@@ -267,9 +276,43 @@ returned unchanged. This annotation affects Hardware rendering, not Workflow Tem
 rendering.
 
 Skipping template interpretation is not an immutability guarantee. Sprig helpers such as
-`set` can mutate maps exposed to the current rendering. No helper restrictions or blanket
-restoration of excluded fields are added; isolation between separate renderings is a cache
-ownership requirement (§5.7).
+`set` can mutate maps exposed to the current rendering. Annotation paths add skipping only,
+not protection. A helper may change an annotation-skipped field unless it also belongs to
+the hardcoded protected set below.
+
+#### Hardcoded protection after rendering
+
+Protection is separate from leaf skipping. After template execution, before conversion
+back to typed Hardware, the backend compares these hardcoded values against a private
+pre-render snapshot:
+
+- `apiVersion`, `kind`, and the complete `metadata` and `status` subtrees.
+- The complete `spec.references` subtree.
+- `spec.agentID` and `spec.metadata.instance.id`.
+- Each interface's `dhcp.mac` and `dhcp.ip.address`, matched by array position.
+
+The policy is declared in one `protectedHardwarePaths` list of full paths, including
+`spec.interfaces[].dhcp.mac` and `spec.interfaces[].dhcp.ip.address`. Literal field names
+are separated by dots; `[]` means iterate each array element in the original or final
+document. There is no regex or wildcard matching. Adding or removing protection changes
+one entry in this list, independently of the skip policy. This notation is internal;
+annotation skip paths still require exact indexes such as `spec.interfaces[0].dhcp.mac`.
+
+A change in value or presence rejects the render with an error naming the affected path,
+without exposing values. Checks include originally absent fields and lookup keys in newly
+added interfaces. Removing or replacing a parent cannot bypass these checks. Changes to
+unprotected siblings remain allowed. Array positions are compared, not inferred interface
+identities.
+
+This is a final-state contract, not execution-time immutability: a helper may temporarily
+change a protected value and restore it before rendering ends. Other fields can observe a
+temporary value during that render. Helpers remain available; no restoration of protected
+fields is performed, including status. A failed render returns no Hardware result.
+
+Reference maps are deep-copied before template execution, so local mutations cannot change
+the caller's references even on failure. The original Hardware also remains untouched.
+Independent cache ownership at the Workflow handoff is still required (§5.7); rejecting
+a result would not undo a mutation to a shared cache input.
 
 ### 5.3 Rendering with `pkg/template/render`
 
@@ -906,7 +949,10 @@ Questions raised during review, and how they were settled:
 - **Backend:** policy is applied for every Hardware; denied and missing references are
   distinct errors; `metadata`, `status`, `spec.references` and lookup keys are not template
   targets; annotation skips preserve Jinja, compose with built-in exclusions, and reject
-  malformed configuration; with the flag off, every consumer receives the stored object.
+  malformed configuration; final changes to hardcoded protected fields reject rendering
+  before typed conversion; annotation skips alone do not protect fields; original Hardware
+  and references remain unchanged on success and failure; with the flag off, every consumer
+  receives the stored object.
 - **Render store:** a referenced object's change re-renders exactly the Hardware that
   reference it; a failing render keeps serving the previous one and reports it; a Hardware
   that never rendered is not found; entries are replaced atomically; an oversized OSIE
