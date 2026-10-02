@@ -328,8 +328,8 @@ adds no template execution and no network I/O to any of them.
 
 Rendering therefore happens in the background, and requests only look results up.
 
-**The render store.** The backend keeps a store of rendered Hardware, keyed by Hardware UID
-and consumer (§6.5). Each entry records the Hardware `resourceVersion` and the
+**The render store.** The backend keeps a store of rendered Hardware, keyed by Hardware UID.
+Each entry records the Hardware `resourceVersion` and the
 `resourceVersion` of each resolved reference it was rendered from, the rendered result, and
 the last error.
 
@@ -418,7 +418,7 @@ old and new values. Avoid editing during provisioning."
 
 - Per field: the render package's output cap (§5.3).
 - Per render: the render package's cap on the combined output of all fields (§5.3).
-- OSIE archive: after rendering for the `smee` consumer, the render store builds the
+- OSIE archive: after rendering, the render store builds the
   bootstrap archive from `osieFiles` and checks its size against
   `--backend-kube-bootstrap-slot-capacity` (Helm
   `deployment.envs.globals.backendKubeBootstrapSlotCapacity`), default 4 MiB, the size
@@ -457,59 +457,54 @@ security boundary against a component that builds its own client from the shared
 ### 6.3 API
 
 ```go
-// ResolveReferences returns the Hardware's references that the policy allows for
-// consumer, keyed by reference name. Denied or missing references are reported in
-// the returned error and omitted from the map.
-func (b *Backend) ResolveReferences(ctx context.Context, consumer string, hw *tinkerbell.Hardware) (map[string]any, error)
+// ResolveReferences returns the Hardware's references that the policy allows,
+// keyed by reference name. Denied or missing references are reported in the
+// returned error and omitted from the map.
+func (b *Backend) ResolveReferences(ctx context.Context, hw *tinkerbell.Hardware) (map[string]any, error)
 ```
 
-The render store (§5.7) calls this for each consumer it renders for.
+The render store (§5.7) and the Tink Controller use this policy-checked resolver.
 
 ### 6.4 Tink Controller
 
 The Workflow reconciler stops evaluating policy and calling `DynamicRead` itself. It builds
-its template data from the backend: the rendered Hardware for consumer `tink-controller`,
-as a read-only unstructured map, and that consumer's resolved references. A Workflow
+its template data from the backend: the rendered Hardware as a read-only unstructured
+map, and the Hardware's resolved references. A Workflow
 Template therefore sees final values under `.Hardware`, matching the v1alpha2 order in
 which Hardware is rendered before Workflows. The template engine itself is unchanged in
 v1alpha1. With templating disabled, the rendered Hardware is the stored one, so Workflow
 rendering behaves exactly as it does today.
 
-### 6.5 Consumer-aware rules
+### 6.5 Hardware-wide rules
 
-The Quamina event gains a `consumer` field:
+The Quamina event contains the source Hardware and the referenced object:
 
 ```json
 {
-  "consumer": "smee",
   "source": {"name": "machine1", "namespace": "tinkerbell"},
   "reference": {"name": "machine1-creds", "namespace": "tinkerbell", "group": "", "version": "v1", "resource": "secrets"}
 }
 ```
 
-Consumers have different exposure. A Workflow render is readable only by those who can
-read Workflows; Smee serves rendered values to any machine presenting the right MAC
-address, and Tootles to any client with the right IP address, both unauthenticated. Rules
-can use `consumer` to keep, for example, Secrets out of anything served over the network.
-
-Consumers are `tink-controller`, `smee` and `tootles`. The render store keeps one entry per
-Hardware for each consumer enabled in the process, so a Hardware can render successfully
-for one consumer and fail for another.
+Reference policy applies to the Hardware regardless of which component reads it. Smee
+serves rendered values to any machine presenting the right MAC address, and Tootles to
+any client with the right IP address, both unauthenticated. A rule allowing a Secret for
+a Hardware also permits it to appear in values served over the provisioning network.
+The render store keeps one entry per Hardware.
 
 ### 6.6 Configuration
 
-The rules keep their existing flags and Helm values, now read by the backend instead of
-the Tink Controller:
+The backend reads Hardware reference rules from global flags. The former flag and
+environment names remain deprecated aliases, while the Helm value paths stay unchanged.
+v1alpha2 Task and Workflow references use separate policy rule sets:
 
-- `--tink-controller-reference-allow-list-rules` /
+- `--backend-kube-hardware-reference-allow-list-rules` /
   `deployment.envs.tinkController.referenceAllowListRules`
-- `--tink-controller-reference-deny-list-rules` /
+- `--backend-kube-hardware-reference-deny-list-rules` /
   `deployment.envs.tinkController.referenceDenyListRules`
 
-They are not renamed. Their names reflect their original user, but a rename would add
-flags, Helm keys and a deprecation period for no change in behaviour. The default remains
-deny-all: references fail to render until an allow rule is configured, and the Hardware
-condition (§8.3) says so.
+The default remains deny-all: references fail to render until an allow rule is configured,
+and the Hardware condition (§8.3) says so.
 
 ## 7. Design: one informer cache per process
 
@@ -644,18 +639,18 @@ so what it reports is exactly what Smee and Tootles serve, and nothing is render
   through the store's informer event handlers; the reconciler adds no watches of its own.
 - The leader's store is the one reported. Every replica's store renders the same result.
 - Sets the `Rendered` condition, which means the Hardware's rendered values are valid for
-  every enabled consumer:
+  the Hardware rendering:
 
 | Status | Reason | When |
 | --- | --- | --- |
-| `True` | `Rendered` | Every enabled consumer's rendering succeeded and passed validation |
+| `True` | `Rendered` | The Hardware rendering succeeded and passed validation |
 | `True` | `NoTemplates` | Nothing in the Hardware needs rendering, and it passed validation |
-| `False` | `ReferenceDenied` | A reference is denied by policy for a consumer |
+| `False` | `ReferenceDenied` | A reference is denied by policy |
 | `False` | `ReferenceNotFound` | A referenced object does not exist |
 | `False` | `TemplateError` | The render package returned a `*FieldError` |
 | `False` | `ArchiveTooLarge` | The OSIE archive exceeds `--backend-kube-bootstrap-slot-capacity` (§5.10) |
 
-When `False`, the message names the consumer and the failing field path, and says what is
+When `False`, the message names the failing field path and says what is
 being served: the previous rendering after a render failure (§5.8), or the current one for
 `ArchiveTooLarge`, in which case ISO delivery fails and iPXE delivery is unaffected.
 
@@ -725,7 +720,7 @@ reconciliation logic is unchanged.
 ### 9.4 Tootles
 
 Tootles serves instance metadata, `userData` and `vendorData` from the rendered read-only
-type for consumer `tootles`, with the same not-ready handling as Smee.
+type, with the same not-ready handling as Smee.
 
 ## 10. Security
 
@@ -737,8 +732,8 @@ type for consumer `tootles`, with the same not-ready handling as Smee.
   that stops a Hardware author reading objects they could not read directly.
 - **Network exposure.** Rendered values are served by Smee to any client presenting the
   Hardware's MAC address, and by Tootles to any client with its IP address. Treat anything
-  a `smee` or `tootles` consumer may resolve as disclosed to the provisioning network; use
-  `consumer` rules (§6.5) accordingly.
+  a Hardware may resolve as disclosed to the provisioning network; write Hardware-wide
+  rules accordingly (§6.5).
 - **Stale data.** After a render failure, the previous rendering, including any Secret
   values it contains, keeps being served (§5.8). Rotating a Secret does not take effect
   for a Hardware whose render is failing.
@@ -799,7 +794,7 @@ CLI flags, CRDs or Helm values incompatibly.
 1. `setAllowPXE` merge patch (§9.1).
 2. `pkg/template/render`: trimmed copy of loom with `Value` and `WithSkip` (§4.3, §5.3, §5.4).
 3. Template functions moved to a shared package (§5.1).
-4. Reference policy in the backend: `ResolveReferences`, `consumer`, private
+4. Reference policy in the backend: `ResolveReferences`, private
    `DynamicRead`/`DynamicClient`, `depguard` rule (§6).
 5. The renderer: stored Hardware and references to rendered Hardware (§5.2–§5.4).
 6. The render store (§5.7, §5.8).
@@ -814,7 +809,7 @@ reason (§5.10) are delivered with the bootstrap CPIO and `osieFiles` work, on t
 
 Documentation: how to enable templating and escape existing `{{` before doing so, which
 fields can be templated, the edit-during-boot note, last-successful fallback and its
-behaviour across restarts, consumer rules, and `rbac.additionalRoleRules` for referenced
+behaviour across restarts, reference rules, and `rbac.additionalRoleRules` for referenced
 types.
 
 ## 14. Decisions
@@ -834,7 +829,7 @@ Questions raised during review, and how they were settled:
 | How is an oversized OSIE archive reported? | The render store checks it against `--backend-kube-bootstrap-slot-capacity`, default 4 MiB, and reports it through `Rendered`. It does not change what is served (§5.10). |
 | Does OSIE delivery get its own condition? | No. `Rendered` covers it; an `OSIEFilesReady` condition would duplicate it. |
 | Which condition type? | `metav1.Condition` for v1alpha1 and v1alpha2 Hardware, and v1alpha2 Job (§8.4). |
-| Are the reference-rule flags renamed? | No. The backend reads the existing `--tink-controller-reference-*` flags (§6.6). |
+| Are the reference-rule flags renamed? | Yes. The backend reads `--backend-kube-hardware-reference-*`; the old names are deprecated aliases, and Helm value paths stay unchanged (§6.6). |
 | Is `{{` rejected in lookup-key fields? | No. The renderer skips them, so they behave as today (§5.2). |
 | Does the Hardware controller run when templating is off? | No (§8.1). |
 | Is the cache always shared? | Only when every component watches the same scope, the default (§7.3). |
@@ -845,7 +840,7 @@ Questions raised during review, and how they were settled:
 - **Render package:** `Value` preserves non-UTF-8 bytes; the leaf walker handles the
   unstructured converter's types; a rendered `"0644"` stays a string; `WithSkip` leaves
   skipped values unrendered but readable.
-- **Backend:** policy is applied for every consumer; denied and missing references are
+- **Backend:** policy is applied for every Hardware; denied and missing references are
   distinct errors; `metadata`, `spec.references` and lookup keys are never rendered; with
   the flag off, every consumer receives the stored object.
 - **Render store:** a referenced object's change re-renders exactly the Hardware that

@@ -392,7 +392,13 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 			cliLog.Info("CRD migrations completed")
 		}
 
-		b, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar), WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
+		b, err := newKubeBackend(ctx,
+			globals.BackendKubeConfig,
+			"",
+			globals.BackendKubeNamespace,
+			enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar),
+			WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst),
+			WithHardwareReferenceRules(globals.BackendKubeOptions.HardwareReferenceAllowListRules, globals.BackendKubeOptions.HardwareReferenceDenyListRules))
 		if err != nil {
 			return startupErr(fmt.Errorf("failed to create kube backend: %w", err))
 		}
@@ -400,7 +406,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		h.Config.SetBackendFromFilterer(b)
 		ts.Config.SetBackends(b)
 		tc.Config.Client = b.ClientConfig
-		tc.Config.DynamicClient = b
+		tc.Config.ReferenceResolver = b
 		rc.Config.Client = b.ClientConfig
 		ssc.Config.Backend = b
 		if uic.Config.EnableAutoLogin {

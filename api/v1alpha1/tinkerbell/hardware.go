@@ -97,25 +97,30 @@ type HardwareSpec struct {
 }
 
 type Reference struct {
-	// Namespace of the referent.
-	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
-	Namespace string `json:"namespace,omitempty"`
+	// Group of the referent.
+	// More info: https://kubernetes.io/docs/reference/using-api/#api-groups
+	// +optional
+	Group string `json:"group,omitempty"`
 
 	// Name of the referent.
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+	// +required
 	Name string `json:"name,omitempty"`
 
-	// Group of the referent.
-	// More info: https://kubernetes.io/docs/reference/using-api/#api-groups
-	Group string `json:"group,omitempty"`
-
-	// API version of the referent.
-	// More info: https://kubernetes.io/docs/reference/using-api/#api-versioning
-	Version string `json:"version,omitempty"`
+	// Namespace of the referent. Leave empty for cluster-scoped resources.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 
 	// Resource of the referent. Must be the pluralized kind of the referent. Must be all lowercase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +required
 	Resource string `json:"resource,omitempty"`
+
+	// API version of the referent.
+	// More info: https://kubernetes.io/docs/reference/using-api/#api-versioning
+	// +required
+	Version string `json:"version,omitempty"`
 }
 
 // Interface represents configuration related to a network interface.

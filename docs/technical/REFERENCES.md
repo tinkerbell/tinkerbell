@@ -12,7 +12,7 @@ This opens up Tinkerbell to integrate with any Kubernetes object and data availa
 
 ## How to define References
 
-Here's an example of a reference for a fictional CRD, `lvm.example.org` inside of a Hardware object. All fields are required, except for `group`, which is optional for some resources like `pods`, for example. The `resource` and `group` values should generally always be lowercase. The `resource` field must be the plural version of the object. There is a helper script, [here](/script/reference_format.sh), for getting this info from a cluster. The string name under `spec.references` can be mostly anything and will be used to reference the object in the Template.
+Here's an example of a reference for a fictional CRD, `lvm.example.org` inside of a Hardware object. All fields are required, except for `group`, which is optional for some resources like `pods`, for example, and `namespace`, which must be omitted for cluster-scoped resources like `nodes`. The `resource` and `group` values should generally always be lowercase. The `resource` field must be the plural version of the object. There is a helper script, [here](/script/reference_format.sh), for getting this info from a cluster. The string name under `spec.references` can be mostly anything and will be used to reference the object in the Template.
 
 ```yaml
 spec:
@@ -51,6 +51,17 @@ spec:
       version: v1alpha1
 ```
 
+Here's an example of referencing a cluster-scoped resource. `namespace` is omitted.
+
+```yaml
+spec:
+  references:
+    node:
+      name: worker1
+      resource: nodes
+      version: v1
+```
+
 ## How to use References
 
 The following shows how to use references in a Template. Start with `.reference`, then add the name of the reference `.references.<name>`, and then the field you want to access. For example, to access the `group` field of the `lvm` reference, you would use `.references.lvm.spec.group`.
@@ -82,7 +93,17 @@ spec:
 
 ### Access Control
 
-By default, all access to References is denied. The deny all by default is a security feature to limit what can be accessed as the Tink Controller might have cluster wide access. Tink Controller is responsible for Reference lookups, so the access Tink Controller has is the upper bound for Reference access.
+Reference policy is evaluated by the Kubernetes backend whenever a built-in
+template path resolves `Hardware.spec.references`. With no deny rules
+configured, an implicit deny-all rule is used, so a reference must match an
+allow rule. With explicit deny rules, a reference is denied only when it
+matches a deny rule and does not match an allow rule; an allow match takes
+precedence. Policy does not grant Kubernetes permissions: the Service Account
+must also have RBAC access to read and watch the referenced resource.
+
+These rules apply to Hardware-declared references, including those read by
+v1alpha1 Workflow Templates. The v1alpha2 Task and Workflow reference policies
+are separate.
 
 ### Events, Rules, and Patterns
 
@@ -108,7 +129,15 @@ Tinkerbell uses the Quamina library for handling both the allow and deny list. Q
 }
 ```
 
-The `source` object refers to the Hardware object where the reference is defined. The `name` field is the name of the Hardware object. The `namespace` field is the namespace of the Hardware object. The `reference` object refers to a single referenced object. The `name` field is the name of the referenced object. The `namespace` field is the namespace of the referenced object. The `group` field is the group of the referenced object. The `version` field is the version of the referenced object. The `resource` field is the resource of the referenced object.
+The `source` object identifies the Hardware that declares the reference. The
+`reference` object identifies one referenced object by namespace, name, group,
+version, and plural resource. For a cluster-scoped reference, `namespace` is
+absent from the event, so a pattern on `reference.namespace` never matches it;
+use `{"exists": false}` to match it explicitly. Rules that don't constrain
+`reference.namespace` (for example, `{"source":{"namespace":["tink-system"]}}`)
+also allow cluster-scoped references. Policy is evaluated for this Hardware-reference
+pair and does not vary by which Tinkerbell component later uses the rendered
+data.
 
 The following is an example event.
 
@@ -192,20 +221,20 @@ Use the CLI flags or environment variables to define both the allow and deny rul
 
 CLI Flags:
 
-- `--tink-controller-reference-allow-list-rules`
-- `--tink-controller-reference-deny-list-rules`
+- `--backend-kube-hardware-reference-allow-list-rules`
+- `--backend-kube-hardware-reference-deny-list-rules`
 
 ```bash
---tink-controller-reference-allow-list-rules='{"reference":{"resource":["hardware"]}}|{"reference":{"resource":["workflows"]}}'
+--backend-kube-hardware-reference-allow-list-rules='{"reference":{"resource":["hardware"]}}|{"reference":{"resource":["workflows"]}}'
 ```
 
 Environment Variables:
 
-- `TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES`
-- `TINKERBELL_TINK_CONTROLLER_REFERENCE_DENY_LIST_RULES`
+- `TINKERBELL_BACKEND_KUBE_HARDWARE_REFERENCE_ALLOW_LIST_RULES`
+- `TINKERBELL_BACKEND_KUBE_HARDWARE_REFERENCE_DENY_LIST_RULES`
 
 ```bash
-export TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES='{"reference":{"resource":["hardware"]}}|{"reference":{"resource":["workflows"]}}'
+export TINKERBELL_BACKEND_KUBE_HARDWARE_REFERENCE_ALLOW_LIST_RULES='{"reference":{"resource":["hardware"]}}|{"reference":{"resource":["workflows"]}}'
 ```
 
 Helm Values:
@@ -213,7 +242,7 @@ Helm Values:
 - `deployment.envs.tinkController.referenceAllowListRules`
 - `deployment.envs.tinkController.referenceDenyListRules`
 
-Each value is a list of rule objects. The chart renders each rule as a JSON object and joins them with `|` for the controller. A single rule object (map) is also accepted and treated as one rule.
+The Helm value names are unchanged for compatibility. Each value is a list of rule objects. The chart renders each rule as a JSON object and joins them with `|` for the backend. A single rule object (map) is also accepted and treated as one rule. The former `tink-controller-reference-*` CLI flags and environment variables are deprecated aliases.
 
 ```bash
 --set-json 'deployment.envs.tinkController.referenceAllowListRules=[{"reference":{"resource":["hardware"]}},{"reference":{"resource":["workflows"]}}]'

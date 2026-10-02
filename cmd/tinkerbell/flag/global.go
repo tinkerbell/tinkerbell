@@ -5,6 +5,7 @@ import (
 
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
+	"github.com/tinkerbell/tinkerbell/pkg/flag/delimitedlist"
 	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 )
 
@@ -46,8 +47,10 @@ type EmbeddedGlobalConfig struct {
 }
 
 type BackendKubeOptions struct {
-	QPS   float32
-	Burst int
+	QPS                             float32
+	Burst                           int
+	HardwareReferenceAllowListRules []string
+	HardwareReferenceDenyListRules  []string
 }
 
 type TLSConfig struct {
@@ -73,6 +76,8 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(BackendKubeConfig, ffval.NewValueDefault(&gc.BackendKubeConfig, gc.BackendKubeConfig))
 	fs.Register(BackendKubeNamespace, ffval.NewValueDefault(&gc.BackendKubeNamespace, gc.BackendKubeNamespace))
 	fs.Register(KubeQPS, ffval.NewValueDefault(&gc.BackendKubeOptions.QPS, gc.BackendKubeOptions.QPS))
+	fs.Register(BackendKubeHardwareReferenceAllowListRules, delimitedlist.New(&gc.BackendKubeOptions.HardwareReferenceAllowListRules, '|'))
+	fs.Register(BackendKubeHardwareReferenceDenyListRules, delimitedlist.New(&gc.BackendKubeOptions.HardwareReferenceDenyListRules, '|'))
 	fs.RegisterFamily(BindAddr, V4, &ntip.Addr{Addr: &gc.BindAddr})
 	fs.RegisterFamily(BindAddr, V6, &ntip.Addr{Addr: &gc.BindAddrV6})
 	fs.RegisterFamily(HTTPPort, V4, ffval.NewValueDefault(&gc.HTTPPort, gc.HTTPPort))
@@ -148,6 +153,16 @@ var KubeQPS = Config{
 var KubeBurst = Config{
 	Name:  "backend-kube-burst",
 	Usage: "[kube] maximum burst for throttle in the Kubernetes client. A 0 value equates to 10 (client sdk constraint). A negative value disables client-side burst limiting.",
+}
+
+var BackendKubeHardwareReferenceAllowListRules = Config{
+	Name:  "backend-kube-hardware-reference-allow-list-rules",
+	Usage: "[kube] rules for which Hardware Reference objects are accessible",
+}
+
+var BackendKubeHardwareReferenceDenyListRules = Config{
+	Name:  "backend-kube-hardware-reference-deny-list-rules",
+	Usage: "[kube] rules for which Hardware Reference objects are not accessible, defaults to deny all",
 }
 
 // OTEL flags.

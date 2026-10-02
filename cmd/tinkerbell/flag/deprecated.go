@@ -7,9 +7,7 @@ import (
 	"strings"
 )
 
-// deprecatedNames maps retired flag names to their current equivalents. Address
-// family is now always a trailing -v4 or -v6, so every name that carried an
-// implicit family, or spelled it as a "dhcpv6-" infix, moved.
+// deprecatedNames maps retired flag names to their current equivalents.
 func deprecatedNames() map[string]string {
 	return map[string]string{
 		// Globals.
@@ -18,6 +16,8 @@ func deprecatedNames() map[string]string {
 		"bind-address": "bind-address-v4",
 		"http-port":    "http-port-v4",
 		"https-port":   "https-port-v4",
+		"tink-controller-reference-allow-list-rules": "backend-kube-hardware-reference-allow-list-rules",
+		"tink-controller-reference-deny-list-rules":  "backend-kube-hardware-reference-deny-list-rules",
 
 		// DHCP, previously unsuffixed for IPv4.
 		"dhcp-enabled":                      "dhcp-enabled-v4",

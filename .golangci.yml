@@ -9,6 +9,7 @@ linters:
     - bodyclose
     - copyloopvar
     - cyclop
+    - depguard
     - dogsled
     - dupl
     - durationcheck
@@ -49,6 +50,15 @@ linters:
     cyclop:
       max-complexity: 37
       package-average: 34
+    depguard:
+      rules:
+        dynamic-client:
+          files:
+            - $all
+            - "!**/pkg/backend/kube/*.go"
+          deny:
+            - pkg: k8s.io/client-go/dynamic
+              desc: read referenced objects through kube.Backend.ResolveReferences, which applies the reference policy
     dupl:
       threshold: 200
     errorlint:

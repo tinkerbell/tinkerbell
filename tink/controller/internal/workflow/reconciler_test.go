@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -62,13 +62,72 @@ func GetFakeClientBuilder() *fake.ClientBuilder {
 		})
 }
 
-type fakeDynamicClient struct {
-	unstructured map[string]interface{}
-	error        error
+type fakeReferences struct {
+	refs  map[string]any
+	err   error
+	gotHW *string
 }
 
-func (f *fakeDynamicClient) DynamicRead(_ context.Context, _ schema.GroupVersionResource, _, _ string) (map[string]interface{}, error) {
-	return f.unstructured, f.error
+func (f fakeReferences) ResolveReferences(_ context.Context, hw *v1alpha1.Hardware) (map[string]any, error) {
+	if f.gotHW != nil {
+		*f.gotHW = hw.Name
+	}
+	return f.refs, f.err
+}
+
+func TestProcessWorkflowReferences(t *testing.T) {
+	tpl := `version: "0.1"
+name: debian
+global_timeout: 1800
+tasks:
+  - name: t
+    worker: "{{.device_1}}"
+    actions:
+      - name: a
+        image: "{{ .references.img.spec.image }}"
+        timeout: 60`
+	tests := map[string]struct {
+		refs      map[string]any
+		err       error
+		wantImage string
+		wantMsg   string
+	}{
+		"resolved":       {refs: map[string]any{"img": map[string]any{"spec": map[string]any{"image": "alpine"}}}, wantImage: "alpine"},
+		"resolver error": {err: errors.New("reference denied"), wantMsg: "reference denied"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var gotHW string
+			r := &Reconciler{
+				client: GetFakeClientBuilder().WithObjects(
+					&v1alpha1.Hardware{ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "default"}},
+					&v1alpha1.Template{ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"}, Spec: v1alpha1.TemplateSpec{Data: &tpl}},
+				).Build(),
+				references: fakeReferences{refs: tt.refs, err: tt.err, gotHW: &gotHW},
+			}
+			wf := &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"},
+				Spec:       v1alpha1.WorkflowSpec{TemplateRef: "debian", HardwareRef: "machine1", HardwareMap: map[string]string{"device_1": "aa"}},
+			}
+
+			err := r.processWorkflow(context.Background(), logr.Discard(), wf)
+			if gotHW != "machine1" {
+				t.Errorf("resolver got Hardware %q, want machine1", gotHW)
+			}
+			if tt.wantMsg != "" {
+				if err == nil || len(wf.Status.Conditions) == 0 || !strings.Contains(wf.Status.Conditions[0].Message, tt.wantMsg) {
+					t.Fatalf("err = %v, conditions = %+v, want message containing %q", err, wf.Status.Conditions, tt.wantMsg)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := wf.Status.Tasks[0].Actions[0].Image; got != tt.wantImage {
+				t.Errorf("image = %q, want %q", got, tt.wantImage)
+			}
+		})
+	}
 }
 
 var minimalTemplate = `version: "0.1"
@@ -1025,9 +1084,9 @@ tasks:
 			kc = kc.WithStatusSubresource(tc.seedWorkflow)
 		}
 		controller := &Reconciler{
-			client:        kc.Build(),
-			nowFunc:       TestTime.Now,
-			dynamicClient: &fakeDynamicClient{},
+			client:     kc.Build(),
+			nowFunc:    TestTime.Now,
+			references: fakeReferences{},
 		}
 
 		t.Run(tc.name, func(t *testing.T) {
@@ -2012,9 +2071,9 @@ func TestReconcileWithMultipleTasksAndAgents(t *testing.T) {
 				kc = kc.WithStatusSubresource(tc.seedWorkflow)
 			}
 			controller := &Reconciler{
-				client:        kc.Build(),
-				nowFunc:       TestTime.Now,
-				dynamicClient: &fakeDynamicClient{},
+				client:     kc.Build(),
+				nowFunc:    TestTime.Now,
+				references: fakeReferences{},
 			}
 
 			got, gotErr := controller.Reconcile(context.Background(), tc.req)
@@ -2127,9 +2186,9 @@ func TestReconcileFailedWorkflowWinsStalePatch(t *testing.T) {
 		},
 	})
 	controller := &Reconciler{
-		client:        cc,
-		nowFunc:       TestTime.Now,
-		dynamicClient: &fakeDynamicClient{},
+		client:     cc,
+		nowFunc:    TestTime.Now,
+		references: fakeReferences{},
 	}
 	req := reconcile.Request{NamespacedName: client.ObjectKeyFromObject(workflow)}
 
