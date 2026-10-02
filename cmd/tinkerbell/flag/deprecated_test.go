@@ -25,6 +25,11 @@ func TestRenameDeprecatedArgs(t *testing.T) {
 			want:     []string{"--dhcp-mode-v6=stateless"},
 			warnings: 1,
 		},
+		"reference policy flags": {
+			args:     []string{"--tink-controller-reference-allow-list-rules=allow", "--tink-controller-reference-deny-list-rules", "deny"},
+			want:     []string{"--backend-kube-hardware-reference-allow-list-rules=allow", "--backend-kube-hardware-reference-deny-list-rules", "deny"},
+			warnings: 2,
+		},
 		"inline value containing equals is preserved": {
 			args:     []string{"--ipxe-http-script-extra-kernel-args=a=b"},
 			want:     []string{"--ipxe-http-script-extra-kernel-args-v4=a=b"},
@@ -143,6 +148,27 @@ func TestRenameDeprecatedEnv(t *testing.T) {
 			t.Errorf("%s not set", destination)
 		} else if got != "" {
 			t.Errorf("%s = %q, want empty", destination, got)
+		}
+	})
+
+	t.Run("reference policy variables retain deprecated precedence", func(t *testing.T) {
+		t.Setenv("TINKERBELL_TINK_CONTROLLER_REFERENCE_ALLOW_LIST_RULES", "old-allow")
+		t.Setenv("TINKERBELL_BACKEND_KUBE_HARDWARE_REFERENCE_ALLOW_LIST_RULES", "new-allow")
+		t.Setenv("TINKERBELL_TINK_CONTROLLER_REFERENCE_DENY_LIST_RULES", "old-deny")
+		t.Setenv("TINKERBELL_BACKEND_KUBE_HARDWARE_REFERENCE_DENY_LIST_RULES", "new-deny")
+
+		warnings, err := RenameDeprecatedEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(warnings) != 2 {
+			t.Fatalf("warnings = %v, want two", warnings)
+		}
+		if got := os.Getenv("TINKERBELL_BACKEND_KUBE_HARDWARE_REFERENCE_ALLOW_LIST_RULES"); got != "old-allow" {
+			t.Errorf("allow rules = %q, want old-allow", got)
+		}
+		if got := os.Getenv("TINKERBELL_BACKEND_KUBE_HARDWARE_REFERENCE_DENY_LIST_RULES"); got != "old-deny" {
+			t.Errorf("deny rules = %q, want old-deny", got)
 		}
 	})
 }

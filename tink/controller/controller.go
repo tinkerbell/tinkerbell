@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -9,7 +10,6 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/tink/controller/internal/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	controllerruntime "sigs.k8s.io/controller-runtime"
@@ -29,14 +29,12 @@ type Config struct {
 	Client                  *rest.Config
 	EnableLeaderElection    bool
 	LeaderElectionNamespace string
-	DynamicClient           dynamicClient
-	ReferenceAllowListRules []string
-	ReferenceDenyListRules  []string
+	ReferenceResolver       referenceResolver
 	MaxConcurrentReconciles int
 }
 
-type dynamicClient interface {
-	DynamicRead(ctx context.Context, gvr schema.GroupVersionResource, name, namespace string) (map[string]interface{}, error)
+type referenceResolver interface {
+	ResolveReferences(ctx context.Context, hw *tinkerbell.Hardware) (map[string]any, error)
 }
 
 type Option func(*Config)
@@ -53,9 +51,9 @@ func WithClient(client *rest.Config) Option {
 	}
 }
 
-func WithDynamicClient(dynamicClient dynamicClient) Option {
+func WithReferenceResolver(r referenceResolver) Option {
 	return func(c *Config) {
-		c.DynamicClient = dynamicClient
+		c.ReferenceResolver = r
 	}
 }
 
@@ -68,18 +66,6 @@ func WithEnableLeaderElection(enableLeaderElection bool) Option {
 func WithLeaderElectionNamespace(namespace string) Option {
 	return func(c *Config) {
 		c.LeaderElectionNamespace = namespace
-	}
-}
-
-func WithReferenceAllowListRules(rules []string) Option {
-	return func(c *Config) {
-		c.ReferenceAllowListRules = rules
-	}
-}
-
-func WithReferenceDenyListRules(rules []string) Option {
-	return func(c *Config) {
-		c.ReferenceDenyListRules = rules
 	}
 }
 
@@ -97,6 +83,10 @@ func NewConfig(opts ...Option) *Config {
 }
 
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
+	if c.ReferenceResolver == nil {
+		return errors.New("reference resolver is required")
+	}
+
 	options := controllerruntime.Options{
 		Logger:                  log,
 		LeaderElection:          c.EnableLeaderElection,
@@ -111,15 +101,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		options.Cache = cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}
 	}
 
-	wfOpts := []workflow.Option{}
-	if len(c.ReferenceAllowListRules) > 0 {
-		wfOpts = append(wfOpts, workflow.WithAllowReferenceRules(c.ReferenceAllowListRules))
-	}
-	if len(c.ReferenceDenyListRules) > 0 {
-		wfOpts = append(wfOpts, workflow.WithDenyReferenceRules(c.ReferenceDenyListRules))
-	}
-
-	mgr, err := newManager(c.Client, c.DynamicClient, options, c.MaxConcurrentReconciles, wfOpts...)
+	mgr, err := newManager(c.Client, c.ReferenceResolver, options, c.MaxConcurrentReconciles)
 	if err != nil {
 		return err
 	}
@@ -129,7 +111,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 
 // NewManager creates a new controller manager with tink controller controllers pre-registered.
 // If opts.Scheme is nil, DefaultScheme() is used.
-func newManager(cfg *rest.Config, dc dynamicClient, opts controllerruntime.Options, maxConcurrentReconciles int, wfOpts ...workflow.Option) (controllerruntime.Manager, error) {
+func newManager(cfg *rest.Config, rr referenceResolver, opts controllerruntime.Options, maxConcurrentReconciles int) (controllerruntime.Manager, error) {
 	if opts.Scheme == nil {
 		s := runtime.NewScheme()
 		_ = schemeBuilder.AddToScheme(s)
@@ -141,7 +123,7 @@ func newManager(cfg *rest.Config, dc dynamicClient, opts controllerruntime.Optio
 		return nil, fmt.Errorf("controller manager: %w", err)
 	}
 
-	if err = workflow.NewReconciler(mgr.GetClient(), dc, wfOpts...).SetupWithManager(mgr, ctrlcontroller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}); err != nil {
+	if err = workflow.NewReconciler(mgr.GetClient(), rr).SetupWithManager(mgr, ctrlcontroller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}); err != nil {
 		return nil, fmt.Errorf("setup workflow reconciler: %w", err)
 	}
 

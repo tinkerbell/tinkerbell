@@ -41,7 +41,7 @@ func TestDynamicRead(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			b := &Backend{
-				DynamicClient: &fakeDynamicClient{
+				dynamicClient: &fakeDynamicClient{
 					gvr: schema.GroupVersionResource{
 						Group:    "apps",
 						Version:  "v1",
@@ -60,7 +60,7 @@ func TestDynamicRead(t *testing.T) {
 			name := "test-deployment"
 			namespace := "default"
 
-			object, err := b.DynamicRead(ctx, gvr, name, namespace)
+			object, err := b.dynamicRead(ctx, gvr, name, namespace)
 			if tt.error != nil && err == nil {
 				t.Fatalf("expected error: %v, got nil", err)
 			}

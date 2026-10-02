@@ -518,7 +518,7 @@ spec:
                       type: string
                     namespace:
                       description: |-
-                        Namespace of the referent.
+                        Namespace of the referent. Leave empty for cluster-scoped resources.
                         More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
                       type: string
                     resource:
@@ -531,6 +531,10 @@ spec:
                         API version of the referent.
                         More info: https://kubernetes.io/docs/reference/using-api/#api-versioning
                       type: string
+                  required:
+                  - name
+                  - resource
+                  - version
                   type: object
                 description: |-
                   References allows for linking custom resource objects of any kind to this Hardware object.

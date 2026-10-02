@@ -2,7 +2,6 @@ package flag
 
 import (
 	"github.com/peterbourgon/ff/v4/ffval"
-	"github.com/tinkerbell/tinkerbell/pkg/flag/delimitedlist"
 	"github.com/tinkerbell/tinkerbell/tink/controller"
 )
 
@@ -16,8 +15,6 @@ func RegisterTinkControllerFlags(fs *Set, t *TinkControllerConfig) {
 	fs.Register(TinkControllerLeaderElectionNamespace, ffval.NewValueDefault(&t.Config.LeaderElectionNamespace, t.Config.LeaderElectionNamespace))
 	fs.Register(TinkControllerMaxConcurrentReconciles, ffval.NewValueDefault(&t.Config.MaxConcurrentReconciles, t.Config.MaxConcurrentReconciles))
 	fs.Register(TinkControllerLogLevel, ffval.NewValueDefault(&t.LogLevel, t.LogLevel))
-	fs.Register(TinkControllerReferenceAllowListRules, delimitedlist.New(&t.Config.ReferenceAllowListRules, '|'))
-	fs.Register(TinkControllerReferenceDenyListRules, delimitedlist.New(&t.Config.ReferenceDenyListRules, '|'))
 }
 
 var TinkControllerEnableLeaderElection = Config{
@@ -33,16 +30,6 @@ var TinkControllerLeaderElectionNamespace = Config{
 var TinkControllerLogLevel = Config{
 	Name:  "tink-controller-log-level",
 	Usage: logLevelUsage,
-}
-
-var TinkControllerReferenceAllowListRules = Config{
-	Name:  "tink-controller-reference-allow-list-rules",
-	Usage: "rules for which Hardware Reference objects are accessible to Templates",
-}
-
-var TinkControllerReferenceDenyListRules = Config{
-	Name:  "tink-controller-reference-deny-list-rules",
-	Usage: "rules for which Hardware Reference objects are not accessible to Templates, defaults to deny all",
 }
 
 var TinkControllerMaxConcurrentReconciles = Config{

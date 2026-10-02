@@ -38,7 +38,11 @@ type Backend struct {
 	ClientConfig *rest.Config
 	// Indexes to register
 	Indexes       map[IndexType]Index
-	DynamicClient dynamic.Interface
+	dynamicClient dynamic.Interface
+	// HardwareReferenceAllowListRules and HardwareReferenceDenyListRules are the Quamina rules
+	// ResolveReferences applies. An empty deny list denies every reference.
+	HardwareReferenceAllowListRules []string
+	HardwareReferenceDenyListRules  []string
 	// QPS is the maximum queries per second to the Kubernetes API server.
 	// If set to 0, defaults to 5. Negative values disable rate limiting.
 	QPS float32
@@ -112,12 +116,14 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 	}
 
 	return &Backend{
-		cluster:        c,
-		ConfigFilePath: cfg.ConfigFilePath,
-		APIURL:         cfg.APIURL,
-		Namespace:      cfg.Namespace,
-		ClientConfig:   cfg.ClientConfig,
-		DynamicClient:  dc,
+		cluster:                         c,
+		ConfigFilePath:                  cfg.ConfigFilePath,
+		APIURL:                          cfg.APIURL,
+		Namespace:                       cfg.Namespace,
+		ClientConfig:                    cfg.ClientConfig,
+		dynamicClient:                   dc,
+		HardwareReferenceAllowListRules: cfg.HardwareReferenceAllowListRules,
+		HardwareReferenceDenyListRules:  cfg.HardwareReferenceDenyListRules,
 	}, nil
 }
 
