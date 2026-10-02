@@ -105,8 +105,10 @@ inference (always off here, §5.3). That also removes loom's only dependency,
 
 What the render package does:
 
-- Only string leaves containing a delimiter are rendered; the document's structure cannot
-  be changed by a template.
+- Only string leaves containing a delimiter are selected for rendering, and their results
+  remain strings. These replacements do not reshape the document, but template helpers
+  can mutate exposed maps and slices, including adding or removing fields. Hardware's
+  hardcoded protected paths are checked separately after rendering (§5.2).
 - The document is exposed to its own templates under a configurable self key, and caller
   data is merged into the same root. Caller data is never re-templated.
 - Fields may reference other templated fields; they are evaluated once each, in
@@ -142,9 +144,10 @@ It is off by default because existing Hardware already contains `{{` that is not
 template. `spec.userData` and `spec.vendorData` commonly carry cloud-init Jinja
 (`{{ ds.meta_data.hostname }}`) or templates inside files they deliver, and CAPT copies
 Cluster API bootstrap data unchanged into `spec.userData`. Go templates cannot parse
-Jinja (`function "ds" not defined`), so enabling templating without first escaping those
-values would stop them rendering (§5.8). Operators enable it once their Hardware writes a
-literal `{{` as `{{ "{{" }}`. v1alpha2 has no flag: templating is always on.
+Jinja (`function "ds" not defined`), so enabling templating without first excluding or
+escaping those values would stop them rendering (§5.8). Operators can exclude entire
+strings with the skip annotation below, or write a literal `{{` as `{{ "{{" }}`.
+v1alpha2 has no flag: templating is always on.
 
 With the flag enabled, every string field under `spec` is a template, apart from the
 exclusions in §5.2:
@@ -186,11 +189,13 @@ Rules:
 
 - There is no per-field opt-in. This matches Workflow Templates, and a forgotten opt-in
   would deliver `{{ ... }}` literally with no error. A literal `{{` is written as
-  `{{ "{{" }}`.
+  `{{ "{{" }}`. The skip annotation provides an explicit per-field opt-out.
 - Available data:
   - `.hardware` — the Hardware being rendered. A field that references another templated
     field sees that field's rendered value (in the example, `userData` sees the rendered
-    `hostname`). Reference cycles are an error.
+    `hostname`). Reference cycles are an error. `.hardware.metadata` and
+    `.hardware.status`, including `status.attributes`, are readable inputs only; their
+    values are not interpreted as templates.
   - `.references.<name>` — the Hardware's own references, subject to policy (§6).
 - Functions: Sprig's hermetic function map plus the existing Tinkerbell helpers
   (`toYaml`, `fromYaml`, `formatPartition`, `netmaskToPrefixLength`). The same map is used
@@ -203,19 +208,26 @@ Rules:
 
 ### 5.2 What is rendered
 
-Only string values under `spec` are rendered. Everything else is either not part of the
-document or readable but never rendered:
+Only eligible string values under `spec` are rendered. Metadata and status are included
+in the document as readable inputs, but are never rendered:
 
 | Path | Readable as | Rendered | Why not |
 | --- | --- | --- | --- |
 | `spec.*` string values | `.hardware.spec...` | Yes | |
 | `metadata` | `.hardware.metadata...` | No | `kubectl apply` stores a copy of the spec, templates included, in the `last-applied-configuration` annotation |
-| `status` | — | No | Written by controllers, not authored |
+| `status` | `.hardware.status...` | No | Controller-observed state and hardware attributes are inputs, not template targets |
 | `spec.references` | `.hardware.spec.references` | No | References must be known before rendering can start |
 | `spec.interfaces[].dhcp.mac` | yes | No | Lookup key (MAC index) |
 | `spec.interfaces[].dhcp.ip.address` | yes | No | Lookup key (IP index) |
 | `spec.agentID` | yes | No | Lookup key (agent ID index) |
 | `spec.metadata.instance.id` | yes | No | Lookup key (instance ID index) |
+
+The built-in exclusions are declared in one `skippedHardwarePaths` list of full paths,
+independent of `protectedHardwarePaths`. A path excludes its value and subtree; `[]` selects
+array elements, as in `spec.interfaces[].dhcp.mac`. There is no regex or wildcard matching.
+Adding or removing a built-in exclusion changes one entry in this list. Only strings under
+`spec` are eligible for rendering; other root fields remain excluded regardless of the list.
+Annotation exclusions below remain exact-match rather than using these subtree/array rules.
 
 The lookup keys are indexed from the stored object (`pkg/backend/kube/index.go`), which is
 how DHCP, Tootles and Tink Server find a Hardware. A template there would put the template
@@ -228,6 +240,80 @@ today. No CRD validation rule is added: rejecting `{{` there would tighten valid
 existing users, and on clusters without validation ratcheting it could reject updates to
 objects that already exist.
 
+#### Additional exclusions with an annotation
+
+`metadata.annotations["tinkerbell.org/render-skip"]` is a JSON array of exact string-leaf
+paths to exclude in addition to the built-in exclusions:
+
+```yaml
+apiVersion: tinkerbell.org/v1alpha1
+kind: Hardware
+metadata:
+  name: machine1
+  annotations:
+    tinkerbell.org/render-skip: '["spec.userData", "spec.vendorData"]'
+spec:
+  userData: |
+    ## template: jinja
+    #cloud-config
+    hostname: "{{ ds.meta_data.hostname }}"
+```
+
+Paths use the render engine's notation, such as `spec.userData` or
+`spec.interfaces[0].dhcp.hostname`. Map keys containing punctuation are quoted, such as
+`spec.someMap["a.b"]`. Matching is exact: no wildcards or subtree exclusions. A path that
+does not name a present string leaf has no effect, so absent optional targets are allowed.
+Duplicate paths are harmless. A missing annotation or `[]` adds no exclusions.
+
+Malformed JSON, non-string entries, `null`, empty paths, and paths outside `spec` are render
+errors, even when there are no templates. The annotation can add exclusions, not remove
+the built-in ones. With templating disabled, the annotation has no effect.
+
+Excluded strings are not parsed, dependency-analysed, or executed. Other fields can still
+read them, for example `{{ .hardware.spec.userData }}`; the resulting string is not rendered
+again. If all template delimiters occur in excluded fields, the original Hardware is
+returned unchanged. This annotation affects Hardware rendering, not Workflow Template
+rendering.
+
+Skipping template interpretation is not an immutability guarantee. Sprig helpers such as
+`set` can mutate maps exposed to the current rendering. Annotation paths add skipping only,
+not protection. A helper may change an annotation-skipped field unless it also belongs to
+the hardcoded protected set below.
+
+#### Hardcoded protection after rendering
+
+Protection is separate from leaf skipping. After template execution, before conversion
+back to typed Hardware, the backend compares these hardcoded values against a private
+pre-render snapshot:
+
+- `apiVersion`, `kind`, and the complete `metadata` and `status` subtrees.
+- The complete `spec.references` subtree.
+- `spec.agentID` and `spec.metadata.instance.id`.
+- Each interface's `dhcp.mac` and `dhcp.ip.address`, matched by array position.
+
+The policy is declared in one `protectedHardwarePaths` list of full paths, including
+`spec.interfaces[].dhcp.mac` and `spec.interfaces[].dhcp.ip.address`. Literal field names
+are separated by dots; `[]` means iterate each array element in the original or final
+document. There is no regex or wildcard matching. Adding or removing protection changes
+one entry in this list, independently of the skip policy. This notation is internal;
+annotation skip paths still require exact indexes such as `spec.interfaces[0].dhcp.mac`.
+
+A change in value or presence rejects the render with an error naming the affected path,
+without exposing values. Checks include originally absent fields and lookup keys in newly
+added interfaces. Removing or replacing a parent cannot bypass these checks. Changes to
+unprotected siblings remain allowed. Array positions are compared, not inferred interface
+identities.
+
+This is a final-state contract, not execution-time immutability: a helper may temporarily
+change a protected value and restore it before rendering ends. Other fields can observe a
+temporary value during that render. Helpers remain available; no restoration of protected
+fields is performed, including status. A failed render returns no Hardware result.
+
+Reference maps are deep-copied before template execution, so local mutations cannot change
+the caller's references even on failure. The original Hardware also remains untouched.
+Independent cache ownership at the Workflow handoff is still required (§5.7); rejecting
+a result would not undo a mutation to a shared cache input.
+
 ### 5.3 Rendering with `pkg/template/render`
 
 The backend renders with the render package using these options:
@@ -237,7 +323,7 @@ The backend renders with the render package using these options:
 | `WithFuncs` | shared hermetic function map | Same functions as Workflow Templates |
 | `WithMissingKeyError` | `true` | A denied or missing reference fails instead of rendering `<no value>` |
 | `WithSelfKey` | `"hardware"` | `.hardware` is the object being rendered |
-| `WithSkip` | the paths in §5.2 | New in `pkg/template/render`, see below |
+| `WithSkip` | the built-in and annotation paths in §5.2 | Excludes whole strings before parsing |
 | `WithMaxOutputBytes` | package default (1 MiB) | Caps one field's output; the OSIE archive total is checked separately (§5.10) |
 | `WithMaxTotalBytes` | package default (8 MiB) | Caps the combined output of one render, so many templated fields cannot each claim the per-field cap |
 | `WithOutputDeadline` | package default (2s) | Best-effort check on output writes; it cannot interrupt a blocking function or non-writing template execution |
@@ -247,9 +333,10 @@ runaway loop. They cap rendered output, not memory or CPU: a template can alloca
 without writing, for example by growing a variable in a `range`, and nothing interrupts
 execution between writes. They are not a security boundary (§10).
 
-The document passed to the render package is the object's `apiVersion`, `kind`, `metadata` and `spec`,
-so that templates address fields as `.hardware.metadata.name` and `.hardware.spec...`, as
-the [v1alpha2 templating](../v1alpha2/templating.md) doc specifies. `status` is omitted.
+The document passed to the render package is the object's `apiVersion`, `kind`, `metadata`,
+`spec` and `status`, so templates can read `.hardware.metadata.name`,
+`.hardware.spec...` and `.hardware.status.attributes...`. Metadata and status are skipped
+as render targets, so literal template text in them is not interpreted.
 Resolved references are passed as data under `references`. The same shape and options are
 used for v1alpha1 and v1alpha2; only the list of lookup-key paths differs.
 
@@ -267,6 +354,8 @@ func WithSkip(skip func(path string) bool) Option
 ```
 
 Paths use loom's existing format, for example `spec.interfaces[0].dhcp.mac`.
+`HasTemplates(doc, opts...)` uses the same leaf selection without parsing or modifying the
+document. The backend uses the same skip predicate for detection and rendering.
 
 ### 5.4 Rendering a decoded tree (`pkg/template/render` addition)
 
@@ -343,12 +432,20 @@ a rate-limited work queue, and a fixed pool of workers renders them:
   GVK's informer (`cache.GetInformer`).
 - A referenced Secret's metadata changing (§7.5).
 
+Hardware update handling must include changes to the skip annotation, other metadata
+read by templates, and status attributes. For CRDs, metadata-only updates do not increment
+`metadata.generation`; Hardware status updates do not increment it either. A generation-only
+predicate would miss these inputs. Avoid self-triggered render loops from renderer-owned
+condition updates when the Hardware controller is added.
+
 **The request path.** `FilterHardware` does the same indexed lookup as today, then one map
 lookup in the store by UID. No template runs and no network call happens.
 
-**Fast path.** When templating is disabled, or a Hardware has no references and no `{{` in
-any rendered path, the store records that the rendered result is the stored object and
-keeps no copy. Fleets that do not use templating pay nothing beyond the map lookup.
+**Fast path.** When templating is disabled, or a Hardware has no `{{` in any non-skipped
+string leaf, the store records that the rendered result is the stored object and keeps no
+copy. Detect this before resolving references for Hardware rendering; Workflow Template
+references are resolved independently. Fleets that do not use templating pay nothing
+beyond the map lookup.
 
 **Referenced data.** Referenced objects are read from the shared cache as unstructured
 objects (`client.Options.Cache.Unstructured: true`). The first read of a GVK starts its
@@ -360,6 +457,13 @@ and workers re-fetch a Secret only when its metadata shows a new `resourceVersio
 **Shared references.** When an object referenced by many Hardware changes, all of them are
 queued. The queue is rate limited, and requests keep being answered from the previous
 renderings until each new one is ready.
+
+Cache-owned Hardware and reference maps must not be exposed directly to template execution.
+Each independent Hardware or Workflow rendering receives private mutable inputs, so a
+helper mutation cannot affect another render through a shared reference or cached result.
+Workflow task workers become `status.tasks[].agentID` and `status.agentID`, which drive
+agent targeting; sharing mutable render inputs could therefore contaminate later routing.
+This requires ownership isolation, not a prohibition on helper mutations within one render.
 
 **Every replica renders.** Smee and Tootles run in every replica, not only on the leader,
 so each replica keeps its own store. Rendering is deterministic, so replicas agree.
@@ -807,7 +911,7 @@ CLI flags, CRDs or Helm values incompatibly.
 The OSIE archive check, `--backend-kube-bootstrap-slot-capacity` and the `ArchiveTooLarge`
 reason (§5.10) are delivered with the bootstrap CPIO and `osieFiles` work, on top of these.
 
-Documentation: how to enable templating and escape existing `{{` before doing so, which
+Documentation: how to enable templating and exclude or escape existing `{{` before doing so, which
 fields can be templated, the edit-during-boot note, last-successful fallback and its
 behaviour across restarts, reference rules, and `rbac.additionalRoleRules` for referenced
 types.
@@ -819,7 +923,8 @@ Questions raised during review, and how they were settled:
 | Question | Decision |
 | --- | --- |
 | Where does loom live? | Copied into `pkg/template/render` and maintained in this repository (§4.3). |
-| Which fields can be templated? | Every `spec` string field, except `spec.references` and the lookup keys (§5.2). |
+| Which fields can be templated? | Every `spec` string field, except `spec.references`, the lookup keys, and exact paths in the skip annotation (§5.2). |
+| How can Jinja payloads stay literal? | List their exact paths in `tinkerbell.org/render-skip`, a JSON-array annotation (§5.2). |
 | How is templating enabled in v1alpha1? | A process-wide flag, `--backend-kube-hardware-templating-enabled`, off by default (§5.1). |
 | How is request latency protected? | Rendering runs in background workers; requests only look up results (§5.7). |
 | What happens when a render fails? | The last successful rendering keeps being served, and the `Rendered` condition reports the failure (§5.8). |
@@ -839,15 +944,22 @@ Questions raised during review, and how they were settled:
 
 - **Render package:** `Value` preserves non-UTF-8 bytes; the leaf walker handles the
   unstructured converter's types; a rendered `"0644"` stays a string; `WithSkip` leaves
-  skipped values unrendered but readable.
+  skipped values unrendered but readable; `HasTemplates` uses the same selection without
+  parsing or modifying the document.
 - **Backend:** policy is applied for every Hardware; denied and missing references are
-  distinct errors; `metadata`, `spec.references` and lookup keys are never rendered; with
-  the flag off, every consumer receives the stored object.
+  distinct errors; `metadata`, `status`, `spec.references` and lookup keys are not template
+  targets; annotation skips preserve Jinja, compose with built-in exclusions, and reject
+  malformed configuration; final changes to hardcoded protected fields reject rendering
+  before typed conversion; annotation skips alone do not protect fields; original Hardware
+  and references remain unchanged on success and failure; with the flag off, every consumer
+  receives the stored object.
 - **Render store:** a referenced object's change re-renders exactly the Hardware that
   reference it; a failing render keeps serving the previous one and reports it; a Hardware
   that never rendered is not found; entries are replaced atomically; an oversized OSIE
   archive is reported but the current rendering is still served, including for DHCP and
-  iPXE.
+  iPXE. Annotation, template-readable metadata and attribute updates invalidate entries
+  even when generation is unchanged; helper mutations cannot leak across independent
+  renders through shared cached Hardware or references.
 - **Request latency:** a benchmark of `FilterHardware` with 10,000 Hardware, templated and
   untemplated, stays within noise of today's baseline, with no API calls on the request
   path.
