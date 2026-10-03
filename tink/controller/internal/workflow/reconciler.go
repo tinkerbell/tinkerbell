@@ -22,9 +22,6 @@ import (
 )
 
 const (
-	// templateDataReferences is the key used to access the Hardware references in the template data.
-	// This is lowercase as it is new and follows the all lowercase convention used when referencing
-	// fields in the reference object.
 	templateDataReferences = "references"
 	// templateDataHardware is the key used to access the Hardware data in the template data.
 	templateDataHardware = "hardware"
@@ -39,28 +36,29 @@ const (
 	reasonError = "Error"
 )
 
-type referenceResolver interface {
+type renderedHardwareReader interface {
+	RenderedHardware(ctx context.Context, hw *v1alpha1.Hardware) (*v1alpha1.Hardware, error)
 	ResolveReferences(ctx context.Context, hw *v1alpha1.Hardware) (map[string]any, error)
 }
 
 // Reconciler is a type for managing Workflows.
 type Reconciler struct {
-	client     ctrlclient.Client
-	nowFunc    func() time.Time
-	backoff    *backoff.ExponentialBackOff
-	references referenceResolver
+	client         ctrlclient.Client
+	nowFunc        func() time.Time
+	backoff        *backoff.ExponentialBackOff
+	hardwareReader renderedHardwareReader
 }
 
 // TODO(jacobweinstock): add functional arguments to the signature.
 // TODO(jacobweinstock): write functional argument for customizing the backoff.
-func NewReconciler(client ctrlclient.Client, references referenceResolver) *Reconciler {
+func NewReconciler(client ctrlclient.Client, hardwareReader renderedHardwareReader) *Reconciler {
 	bo := backoff.NewExponentialBackOff()
 	bo.MaxInterval = 5 * time.Second // this should keep all NextBackOff's under 10 seconds
 	return &Reconciler{
-		client:     client,
-		nowFunc:    time.Now,
-		backoff:    bo,
-		references: references,
+		client:         client,
+		nowFunc:        time.Now,
+		backoff:        bo,
+		hardwareReader: hardwareReader,
 	}
 }
 
@@ -272,24 +270,34 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 		)
 	}
 
+	rendered, err := r.hardwareReader.RenderedHardware(ctx, &hardware)
+	if err != nil {
+		journal.Log(ctx, "error getting rendered hardware")
+		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
+		stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.TemplateRenderedSuccess,
+			Status:  metav1.ConditionFalse,
+			Reason:  reasonError,
+			Message: fmt.Sprintf("error getting rendered hardware: %v", err),
+			Time:    &metav1.Time{Time: metav1.Now().UTC()},
+		})
+		return err
+	}
+	references, refErr := r.hardwareReader.ResolveReferences(ctx, &hardware)
+	hardware = *rendered
+
 	data := make(map[string]interface{})
 	for key, val := range stored.Spec.HardwareMap {
 		data[key] = val
 	}
 	contract := toTemplateHardwareData(hardware)
-	data[templateDataHardware] = func() interface{} {
-		// structToMap is used so that fields are accessible in Templates by their json struct tag names instead of
-		// their Go struct field names and their case.
-		// for example, {{ hardware.spec.metadata.instance.id }} instead of {{ hardware.Spec.Metadata.Instance.ID }}.
-		v, err := structToMap(hardware)
-		if err != nil {
-			logger.V(1).Info("error converting hardware to map for use in template data", "error", err)
-			return map[string]interface{}{}
-		}
-		return v
-	}()
+	hardwareData, err := structToMap(hardware)
+	if err != nil {
+		logger.V(1).Info("error converting hardware to map for use in template data", "error", err)
+		hardwareData = map[string]interface{}{}
+	}
+	data[templateDataHardware] = hardwareData
 	data[templateDataHardwareLegacy] = contract
-	references, refErr := r.references.ResolveReferences(ctx, &hardware)
 	data[templateDataReferences] = references
 
 	tinkWf, err := renderTemplateHardware(stored.Name, pointerToValue(tpl.Spec.Data), data)

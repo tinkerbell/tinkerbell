@@ -627,12 +627,18 @@ The render store (§5.7) and the Tink Controller use this policy-checked resolve
 ### 6.4 Tink Controller
 
 The Workflow reconciler stops evaluating policy and calling `DynamicRead` itself. It builds
-its template data from the backend: the rendered Hardware as a read-only unstructured
-map, and the Hardware's resolved references. A Workflow
-Template therefore sees final values under `.Hardware`, matching the v1alpha2 order in
-which Hardware is rendered before Workflows. The template engine itself is unchanged in
-v1alpha1. With templating disabled, the rendered Hardware is the stored one, so Workflow
-rendering behaves exactly as it does today.
+its template data from the backend. When enabled, `RenderedHardware` reads the store's
+latest successful Hardware result; the Workflow reconciler does not render Hardware itself.
+An unready Hardware returns a not-found/readiness error before Workflow references are read.
+Workflow references are independently resolved through `ResolveReferences(ctx, storedHW)`
+under Hardware-wide policy; they are not removed or replaced by the store's cached result.
+
+The existing whole-text Workflow renderer remains unchanged. Its private input contains
+the Hardware data under `.hardware` and legacy `.Hardware`, plus resolved objects under
+`.references`. Reference declarations under `.hardware.spec.references` remain readable.
+With templating disabled, `RenderedHardware` returns the stored object, so existing
+Workflow references, output and condition-error messages retain their behavior. Neither
+the rendered Hardware nor template helper mutations are written back to its CR.
 
 ### 6.5 Hardware-wide rules
 
