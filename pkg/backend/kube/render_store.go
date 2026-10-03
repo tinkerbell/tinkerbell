@@ -36,6 +36,7 @@ import (
 type renderStore struct {
 	informers          informerGetter
 	referenceInformers metadataInformerFactory
+	namespace          string
 	mapper             meta.RESTMapper
 	get                func(context.Context, types.NamespacedName) (*tinkerbell.Hardware, error)
 	resolve            func(context.Context, *tinkerbell.Hardware) (map[string]any, error)
@@ -123,12 +124,14 @@ func newRenderStore(
 	hardwareInformers informerGetter,
 	mapper meta.RESTMapper,
 	metadataClient metadata.Interface,
+	namespace string,
 	get func(context.Context, types.NamespacedName) (*tinkerbell.Hardware, error),
 	resolve func(context.Context, *tinkerbell.Hardware) (map[string]any, error),
 	registry prometheus.Registerer,
 ) *renderStore {
 	store := &renderStore{
 		informers: hardwareInformers,
+		namespace: namespace,
 		mapper:    mapper,
 		get:       get,
 		resolve:   resolve,
@@ -145,7 +148,9 @@ func newRenderStore(
 		notify:    make(chan struct{}, 1),
 		changes:   map[types.NamespacedName]struct{}{},
 	}
-	store.referenceInformers = metadatainformer.NewSharedInformerFactory(&metadataListClient{Interface: metadataClient, listed: store.requeueResource}, 0)
+	store.referenceInformers = metadatainformer.NewFilteredSharedInformerFactory(
+		&metadataListClient{Interface: metadataClient, listed: store.requeueResource}, 0, namespace, nil,
+	)
 	store.renders = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "tinkerbell_hardware_render_attempts_total", Help: "Hardware render attempts by outcome."}, []string{"result"})
 	store.duration = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "tinkerbell_hardware_render_duration_seconds", Help: "Hardware render attempt duration."})
 	store.fallbacks = prometheus.NewGauge(prometheus.GaugeOpts{Name: "tinkerbell_hardware_render_fallback_entries", Help: "Hardware entries serving a previous result after a render failure."})
@@ -346,8 +351,13 @@ func (s *renderStore) forget(key types.NamespacedName) {
 // track records what key references, so that a change to a referenced object
 // re-renders it, and starts watching referenced types not yet watched.
 func (s *renderStore) track(ctx context.Context, key types.NamespacedName, references map[string]tinkerbell.Reference) error {
+	scopedReferences := make(map[string]tinkerbell.Reference, len(references))
 	refs := make([]refKey, 0, len(references))
-	for _, r := range references {
+	for name, r := range references {
+		if s.namespace != "" && r.Namespace != s.namespace {
+			continue
+		}
+		scopedReferences[name] = r
 		refs = append(refs, refKey{strings.ToLower(r.Group), strings.ToLower(r.Resource), r.Namespace, r.Name})
 	}
 
@@ -356,7 +366,7 @@ func (s *renderStore) track(ctx context.Context, key types.NamespacedName, refer
 	s.mu.Unlock()
 
 	var watchErr error
-	for _, reference := range references {
+	for _, reference := range scopedReferences {
 		gvr := schema.GroupVersionResource{Group: strings.ToLower(reference.Group), Resource: strings.ToLower(reference.Resource), Version: reference.Version}
 		if err := s.ensureWatch(ctx, gvr); err != nil {
 			s.log.Error(err, "watch referenced objects; scheduling retry", "resource", gvr)

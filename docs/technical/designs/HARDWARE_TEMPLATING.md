@@ -433,9 +433,11 @@ work queue, and a fixed pool of workers renders them:
 - A referenced object added, updated or deleted. The store keeps a reverse index from each
   referenced `(group, resource, namespace, name)` to the Hardware that reference it. The
   first time a new referenced resource appears, the store registers an event handler on
-  the independent metadata factory's informer. This factory watches all namespaces,
-  regardless of `--backend-kube-namespace`, so allowed cross-namespace references stay
-  current. Its informers stop with the render context and are joined at store shutdown.
+  the independent metadata factory's informer. The factory uses the
+  `--backend-kube-namespace` scope: a non-empty value limits watches and reference reads to
+  that namespace, while an empty value watches all namespaces and permits cross-namespace
+  references. Out-of-scope references are rejected before a live GET. Its informers stop
+  with the render context and are joined at store shutdown.
 - A referenced Secret's metadata changing (§7.5).
 
 Watch registration is serialized separately from entry access. A resource is marked
@@ -491,9 +493,9 @@ copy. These are local measurements, not a cross-machine latency guarantee.
 
 **Referenced data.** PR6 workers read referenced objects live through the reference
 resolver; the independent informers retain metadata only, never full Secret contents.
-Later shared-data-cache work must preserve the watchers' cross-namespace coverage and
-live Secret reads (§7.5). Reference data held by the store is limited to rendered results,
-not all objects of a referenced type.
+Later shared-data-cache work must preserve the watchers' configured namespace scope (or
+all-namespace scope when the flag is empty) and live Secret reads (§7.5). Reference data
+held by the store is limited to rendered results, not all objects of a referenced type.
 
 **Shared references.** When an object referenced by many Hardware changes, all of them are
 queued. The queue is rate limited, and requests keep being answered from the previous
@@ -532,10 +534,11 @@ and read errors; the fallback gauge counts entries serving last-good data after 
 error and decreases on recovery or deletion. No Hardware or reference names are labels.
 
 Informers on referenced types need `list` and `watch` RBAC for those types, not only
-`get`. The independent factory lists and watches across all namespaces, so those permissions
-must be granted cluster-wide for referenced types. Operators grant them through the chart's
-existing `rbac.additionalRoleRules`; the
-templating documentation states that referenced types need all three verbs:
+`get`. With a non-empty `--backend-kube-namespace`, reference reads and watches stay within
+that namespace, so a namespace-scoped `Role` can grant the required access. When the flag is
+empty, the factory lists and watches across all namespaces, requiring a `ClusterRole`.
+Operators grant referenced-type permissions through the chart's existing
+`rbac.additionalRoleRules`; referenced types need all three verbs:
 
 ```yaml
 rbac:

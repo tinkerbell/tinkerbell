@@ -399,7 +399,11 @@ helm install tinkerbell . \
 
 When `rbac.type` is `Role`, permissions apply only in the Helm release namespace. Set
 `deployment.envs.globals.backendKubeNamespace` to that namespace; use `ClusterRole` for
-cluster-wide or cross-namespace watching and cluster-scoped CRD migrations.
+cluster-wide watching and cluster-scoped CRD migrations. With a non-empty backend namespace,
+Hardware references are limited to namespaced objects there, so a `Role` can grant access
+using `rbac.additionalRoleRules`. With an empty backend namespace, references can span
+namespaces and require a `ClusterRole`. In either mode, add rules granting `get`, `list`, and
+`watch` on each referenced API resource.
 
 ## Examples
 
@@ -467,6 +471,63 @@ helm install tinkerbell . \
   --namespace tinkerbell \
   --set deployment.envs.smee.dhcpv6EnableNetbootOptions=false
 ```
+
+## Helm Namespace and RBAC Configuration
+
+### Helm Chart Defaults
+
+| Helm value | Default |
+|---|---|
+| `deployment.envs.globals.backend` | `"kube"` |
+| `deployment.envs.globals.backendKubeNamespace` | `""` |
+| `deployment.envs.globals.backendKubeHardwareTemplatingEnabled` | `false` |
+| `deployment.envs.globals.enableCRDMigrations` | `true` |
+| `deployment.envs.globals.enableTinkController` | `true` |
+| `deployment.envs.globals.enableRufioController` | `true` |
+| `deployment.envs.tinkServer.autoDiscoveryEnabled` | `false` |
+| `deployment.envs.tinkServer.autoDiscoveryNamespace` | `""` |
+| `deployment.envs.tinkController.referenceAllowListRules` | `[]` |
+| `deployment.envs.tinkController.referenceDenyListRules` | `[]` |
+| `rbac.type` | `ClusterRole` |
+| `rbac.additionalRoleRules` | `[]` |
+| `rbac.secrets.enabled` | `true` |
+
+Assume only the RBAC resources installed by this chart; additional RoleBindings or ClusterRoleBindings can grant more API permissions, but they do not change which namespaces Tinkerbell watches.
+
+The **Helm release namespace** is the namespace where Helm installs Tinkerbell. `backendKubeNamespace` sets the **backend namespace**: when empty, the backend and the Tink Controller and Rufio caches watch all namespaces; when set, they watch only that namespace. The backend is Tinkerbell’s shared Kubernetes access layer, used by Smee, Tootles, Tink Server, and SecondStar. The optional render store is the backend’s background Hardware renderer; it starts only when Hardware templating is enabled. `autoDiscoveryNamespace` sets the **auto-discovery namespace**. Helm resolves an empty value to the Helm release namespace. When auto-discovery is enabled, Tink Server creates discovered Hardware there.
+
+Hardware references are objects named in `Hardware.spec.references`. The allow-list and deny-list values control Tinkerbell’s policy for resolving references, not Kubernetes permissions. With both lists empty, the resolver denies references by default. After policy allows a reference, Kubernetes RBAC must separately permit reading it and watching for changes. The chart grants Secret access separately by default; other referenced resource types need `rbac.additionalRoleRules`.
+
+CRD migrations run at startup and create or update Kubernetes CustomResourceDefinition objects. CRDs are cluster-scoped resources, and migrations are enabled by default. A namespaced `Role` cannot authorize these operations; with `Role`, disable migrations only if the CRDs are already installed.
+
+### `rbac.type: Role`
+
+Helm creates the `Role` and `RoleBinding` in the Helm release namespace. This Role authorizes namespaced API requests only in that namespace. `rbac.additionalRoleRules` adds permissions there; it cannot grant access in other namespaces or to cluster-scoped resources.
+
+The chart defaults `rbac.type` to `ClusterRole`; none of the following `Role` combinations is the chart default.
+
+Examples below use `tinkerbell` as the Helm release namespace and `machines` and `discovery` as other namespaces. Replace them with the namespaces in your installation.
+
+| Backend namespace | Auto-discovery namespace | Support status | Expected behavior | Example Helm overrides |
+|---|---|---|---|---|
+| Helm release namespace | Helm release namespace | Supported for namespaced operations if CRDs are installed and migrations are disabled. | Components can list, watch, and reconcile resources in the release namespace. If auto-discovery is enabled, Hardware is created there and is visible to them. | `rbac.type: Role`<br>`deployment.envs.globals.backendKubeNamespace: tinkerbell`<br>`deployment.envs.globals.enableCRDMigrations: false` |
+| Empty (Helm default) | Empty (Helm default) | Not supported with the chart’s Role alone. | All-namespace cache LIST/WATCH requests receive Kubernetes `Forbidden` errors because the Role authorizes only the release namespace. The controller caches cannot sync, so those controllers do not reconcile. | `rbac.type: Role`<br>`deployment.envs.globals.enableCRDMigrations: false` |
+| A namespace other than the Helm release namespace | Any namespace | Not supported with the chart’s Role alone. | Cache LIST/WATCH requests in the configured backend namespace receive `Forbidden` errors; the controller caches cannot sync or reconcile there. | `rbac.type: Role`<br>`deployment.envs.globals.backendKubeNamespace: machines`<br>`deployment.envs.globals.enableCRDMigrations: false` |
+| Helm release namespace | A different namespace | Not supported when auto-discovery is enabled. | The Hardware create request receives `Forbidden`, and the discovery operation returns an error. With auto-discovery disabled, the auto-discovery namespace has no effect. | `rbac.type: Role`<br>`deployment.envs.globals.backendKubeNamespace: tinkerbell`<br>`deployment.envs.globals.enableCRDMigrations: false`<br>`deployment.envs.tinkServer.autoDiscoveryEnabled: true`<br>`deployment.envs.tinkServer.autoDiscoveryNamespace: discovery` |
+
+When the backend namespace is set to the Helm release namespace, Hardware references must point to namespaced objects in that namespace. Cross-namespace and cluster-scoped references are rejected, even if an allow-list rule matches. Use `rbac.additionalRoleRules` to grant `get`, `list`, and `watch` on referenced resource types there; Tinkerbell’s reference allow/deny rules must also permit them. The default CRD migrations must be disabled after the CRDs are installed.
+
+### `rbac.type: ClusterRole`
+
+Helm creates a `ClusterRole` and `ClusterRoleBinding`, authorizing namespaced requests in any namespace and cluster-scoped operations. This authorization does not widen caches: the configured backend namespace still controls which namespaces the backend, controllers, and render store watch.
+
+| Backend namespace | Auto-discovery namespace | Support status | Expected behavior | Example Helm overrides |
+|---|---|---|---|---|
+| Empty (Helm default) | Empty (Helm default) | **Helm chart default:** `ClusterRole`, with auto-discovery disabled. | Components watch all namespaces. Tink Server does not create Hardware unless auto-discovery is enabled. If enabled, Hardware is created in the release namespace and is visible to the caches. | No overrides |
+| A configured namespace | The same namespace | Supported. | Components watch only the configured backend namespace. If auto-discovery is enabled, the Hardware create succeeds and the object is visible to backend reads and controllers. | `deployment.envs.globals.backendKubeNamespace: machines`<br>`deployment.envs.tinkServer.autoDiscoveryNamespace: machines`<br>`deployment.envs.tinkServer.autoDiscoveryEnabled: true` |
+| A configured namespace | A different namespace | Misconfigured when auto-discovery is enabled. | The Hardware create can succeed, but the object is outside the components’ watched namespace and is not visible to their cache-backed reads or controllers. A later discovery can miss it and fail a duplicate create with `AlreadyExists`. With auto-discovery disabled, the auto-discovery namespace has no effect. | `deployment.envs.globals.backendKubeNamespace: machines`<br>`deployment.envs.tinkServer.autoDiscoveryNamespace: discovery`<br>`deployment.envs.tinkServer.autoDiscoveryEnabled: true` |
+
+When the backend namespace is empty, references may point to namespaced objects in any namespace or to cluster-scoped objects, subject to the reference allow/deny rules. Add `rbac.additionalRoleRules` granting `get`, `list`, and `watch` on every referenced API resource; these rules apply cluster-wide. When a backend namespace is configured, references are limited to namespaced objects in that namespace. Both the reference policy and Kubernetes RBAC must permit each reference. The chart’s default `ClusterRole` also authorizes the default cluster-scoped CRD migrations.
 
 ## Upgrading from Helm chart version 0.6.2
 
