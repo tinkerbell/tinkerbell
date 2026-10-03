@@ -411,6 +411,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		}
 		ts.Config.SetBackends(b)
 		tc.Config.Client = b.ClientConfig
+		tc.Config.Namespace = globals.BackendKubeNamespace
 		tc.Config.HardwareReader = b
 		rc.Config.Client = b.ClientConfig
 		ssc.Config.Backend = b

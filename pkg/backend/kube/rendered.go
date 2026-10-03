@@ -54,6 +54,9 @@ func (r *RenderedReader) FilterHardware(ctx context.Context, opts data.HardwareF
 	if err != nil {
 		return nil, err
 	}
+	if r.store == nil {
+		return hw, nil
+	}
 	rendered, ok := r.store.rendered(hw)
 	if !ok {
 		return nil, hardwareNotRenderedError{hardwareNotFoundError{name: hw.Name, namespace: hw.Namespace}}

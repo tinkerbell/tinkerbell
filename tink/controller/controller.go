@@ -98,9 +98,7 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		},
 		HealthProbeBindAddress: "0",
 	}
-	if c.Namespace != "" {
-		options.Cache = cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}
-	}
+	options.Cache = c.cacheOptions()
 
 	mgr, err := newManager(c.Client, c.HardwareReader, options, c.MaxConcurrentReconciles)
 	if err != nil {
@@ -108,6 +106,13 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	}
 
 	return mgr.Start(ctx)
+}
+
+func (c *Config) cacheOptions() cache.Options {
+	if c.Namespace == "" {
+		return cache.Options{}
+	}
+	return cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}
 }
 
 // NewManager creates a new controller manager with tink controller controllers pre-registered.

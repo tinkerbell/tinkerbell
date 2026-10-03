@@ -39,6 +39,19 @@ func TestRenderedReader(t *testing.T) {
 	}
 }
 
+func TestRenderedReaderWithoutStore(t *testing.T) {
+	hw := templated("1")
+	r := &RenderedReader{stored: storedHardware{hw}}
+
+	got, err := r.FilterHardware(context.Background(), data.HardwareFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != hw.Name {
+		t.Fatalf("Hardware = %q, want %q", got.Name, hw.Name)
+	}
+}
+
 func TestRenderedHardware(t *testing.T) {
 	hw := templated("1")
 	if got, err := (&Backend{}).RenderedHardware(context.Background(), hw); err != nil || got != hw {
