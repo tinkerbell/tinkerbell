@@ -397,6 +397,10 @@ helm install tinkerbell . \
 > No content-level validation is performed on rule values. Users are responsible for following the principle of least privilege.
 > Avoid wildcards (`*`) and privileged verbs (`escalate`, `bind`, `impersonate`) unless absolutely necessary.
 
+When `rbac.type` is `Role`, permissions apply only in the Helm release namespace. Set
+`deployment.envs.globals.backendKubeNamespace` to that namespace; use `ClusterRole` for
+cluster-wide or cross-namespace watching and cluster-scoped CRD migrations.
+
 ## Examples
 
 ### Disabling specific services

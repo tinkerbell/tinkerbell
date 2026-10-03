@@ -414,6 +414,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		tc.Config.Namespace = globals.BackendKubeNamespace
 		tc.Config.HardwareReader = b
 		rc.Config.Client = b.ClientConfig
+		rc.Config.Namespace = globals.BackendKubeNamespace
 		ssc.Config.Backend = b
 		if uic.Config.EnableAutoLogin {
 			uic.Config.AutoLoginRestConfig = b.ClientConfig

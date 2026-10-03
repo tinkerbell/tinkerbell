@@ -144,7 +144,7 @@ var BackendKubeConfig = Config{
 
 var BackendKubeNamespace = Config{
 	Name:  "backend-kube-namespace",
-	Usage: "[kube] namespace to watch for resources",
+	Usage: "[kube] namespace to watch; empty means all namespaces",
 }
 
 var KubeQPS = Config{

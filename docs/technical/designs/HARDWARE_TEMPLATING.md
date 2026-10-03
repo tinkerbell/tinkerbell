@@ -76,9 +76,9 @@ Two related problems are addressed because the design depends on them:
 | Component | How it reads Hardware |
 | --- | --- |
 | Smee, Tootles, Tink Server, SecondStar | Shared `kube.Backend` (`FilterHardware`, `ReadHardware`), informer cache scoped to `--backend-kube-namespace` |
-| Tink Controller | Its own controller-runtime manager built from `b.ClientConfig`, cluster-wide cache |
-| Rufio | Its own controller-runtime manager built from `b.ClientConfig`, cluster-wide cache |
-| UI | Its own client built from `b.ClientConfig` |
+| Tink Controller | Its own controller-runtime manager built from `b.ClientConfig`, scoped to `--backend-kube-namespace` |
+| Rufio | Its own controller-runtime manager built from `b.ClientConfig`, scoped to `--backend-kube-namespace` |
+| UI | Per-request client using the user's credentials (or configured auto-login credentials); namespace visibility follows those credentials, not `--backend-kube-namespace` |
 
 References are resolved only by the Tink Controller, per Workflow, in
 `tink/controller/internal/workflow/reconciler.go`: each `spec.references` entry is
@@ -720,11 +720,10 @@ The backend's indexes become the union of what enabled components need.
 
 - The cache's scheme is the union of all components' schemes (core, `tinkerbell.org`,
   `bmc.tinkerbell.org`); the backend already registers all three.
-- The cache is shared only when every component would watch the same scope. That is the
-  default: `--backend-kube-namespace` is empty and the controllers are cluster-wide. When
-  `--backend-kube-namespace` is set, the backend's scope differs from the controllers', and
-  each component keeps its own cache as it does today. Sharing in that case would change
-  what some component can see.
+- The backend, Tink Controller and Rufio all use `--backend-kube-namespace`: empty means
+  cluster-wide, and a non-empty value scopes each to that namespace. Their cache scopes
+  therefore match, allowing the cache to be shared. The UI uses request credentials and
+  remains outside this cache and scope contract.
 - Referenced objects are cached in the same cache as unstructured objects (§5.7).
 
 ### 7.4 Limits
