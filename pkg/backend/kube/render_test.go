@@ -60,6 +60,21 @@ func TestRenderHardware(t *testing.T) {
 	}
 }
 
+func TestRenderHardwareNonJSONReferences(t *testing.T) {
+	hw := &tinkerbell.Hardware{
+		Spec: tinkerbell.HardwareSpec{UserData: ptr("{{ .references.net.cores }} {{ .references.net.labels.rack }}")},
+	}
+	refs := map[string]any{"net": map[string]any{"cores": uint64(8), "labels": map[string]string{"rack": "r1"}}}
+
+	got, err := renderHardware(hw, refs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "8 r1"; got.Spec.UserData == nil || *got.Spec.UserData != want {
+		t.Errorf("userData = %v, want %q", got.Spec.UserData, want)
+	}
+}
+
 func TestRenderHardwareObjectData(t *testing.T) {
 	hw := &tinkerbell.Hardware{
 		ObjectMeta: metav1.ObjectMeta{
