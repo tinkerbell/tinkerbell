@@ -879,6 +879,23 @@ func TestRenderStoreHardwareUpdateFilter(t *testing.T) {
 	}
 }
 
+func TestHardwareInputsChangedWithHardwareAttributes(t *testing.T) {
+	before := &tinkerbell.Hardware{
+		ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "tink"},
+		Status: tinkerbell.HardwareStatus{
+			Attributes: &tinkerbell.HardwareAttributes{
+				InBand: &tinkerbell.Attributes{CPU: &tinkerbell.CPU{TotalCores: 8}},
+			},
+		},
+	}
+	after := before.DeepCopy()
+	after.Status.Attributes.InBand.CPU.TotalCores = 16
+
+	if !hardwareInputsChanged(before, after) {
+		t.Fatal("Hardware attribute change was not detected")
+	}
+}
+
 func BenchmarkRenderStoreLookup(b *testing.B) {
 	for _, kind := range []string{"literal", "skipped-Jinja", "templated"} {
 		for _, state := range []string{"steady", "startup", "version-mismatch", "startup-observed", "version-mismatch-observed"} {

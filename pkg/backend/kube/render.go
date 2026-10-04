@@ -57,7 +57,10 @@ func renderHardware(hw *tinkerbell.Hardware, references map[string]any) (*tinker
 	if !render.HasTemplates(doc, render.WithSkip(skip)) {
 		return hw, nil
 	}
-	original := runtime.DeepCopyJSON(doc)
+	original, err := runtime.DefaultUnstructuredConverter.ToUnstructured(hw.DeepCopy())
+	if err != nil {
+		return nil, fmt.Errorf("copy hardware %s/%s for validation: %w", hw.Namespace, hw.Name, err)
+	}
 
 	// doc is a map, so it is rendered in place.
 	if _, err := render.Value(doc, map[string]any{"references": runtime.DeepCopyJSON(references)},

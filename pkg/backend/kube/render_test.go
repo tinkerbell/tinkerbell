@@ -95,6 +95,23 @@ func TestRenderHardwareObjectData(t *testing.T) {
 	}
 }
 
+func TestRenderHardwareWithUnsignedAttributes(t *testing.T) {
+	hw := &tinkerbell.Hardware{
+		Spec: tinkerbell.HardwareSpec{UserData: ptr("cores={{ .hardware.status.attributes.inBand.cpu.totalCores }}")},
+		Status: tinkerbell.HardwareStatus{Attributes: &tinkerbell.HardwareAttributes{
+			InBand: &tinkerbell.Attributes{CPU: &tinkerbell.CPU{TotalCores: 8}},
+		}},
+	}
+
+	got, err := renderHardware(hw, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Spec.UserData == nil || *got.Spec.UserData != "cores=8" {
+		t.Fatalf("UserData = %v, want cores=8", got.Spec.UserData)
+	}
+}
+
 func TestRenderHardwareBinary(t *testing.T) {
 	raw := "\x30\x82\x00\xff\xfe"
 	hw := &tinkerbell.Hardware{Spec: tinkerbell.HardwareSpec{UserData: ptr(`{{ .references.s.data.der | b64dec }}`)}}

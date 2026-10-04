@@ -468,11 +468,10 @@ func (s *renderStore) hardwareHandler() toolscache.ResourceEventHandler {
 func hardwareInputsChanged(before, after client.Object) bool {
 	documents := make([]map[string]any, 0, 2)
 	for _, object := range []client.Object{before, after} {
-		document, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
+		document, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object.DeepCopyObject())
 		if err != nil {
 			return true
 		}
-		document = runtime.DeepCopyJSON(document)
 		unstructured.RemoveNestedField(document, "metadata", "resourceVersion")
 		unstructured.RemoveNestedField(document, "metadata", "managedFields")
 		value, found, err := unstructured.NestedFieldNoCopy(document, "status", "conditions")
