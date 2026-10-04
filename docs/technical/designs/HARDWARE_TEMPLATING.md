@@ -138,7 +138,7 @@ Templating is enabled for the whole process by a flag, off by default:
 
 | Flag | Helm value | Default |
 | --- | --- | --- |
-| `--backend-kube-hardware-templating-enabled` | `deployment.envs.globals.backendKubeHardwareTemplatingEnabled` | `false` |
+| `--backend-kube-rendering-enabled` | `deployment.envs.globals.backendKubeRenderingEnabled` | `false` |
 
 It is off by default because existing Hardware already contains `{{` that is not a Go
 template. `spec.userData` and `spec.vendorData` commonly carry cloud-init Jinja
@@ -919,7 +919,7 @@ type, with the same not-ready handling as Smee.
 
 | Concern | v1alpha1 (this design) | v1alpha2 |
 | --- | --- | --- |
-| Enablement | `--backend-kube-hardware-templating-enabled`, off by default | Always on |
+| Enablement | `--backend-kube-rendering-enabled`, off by default | Always on |
 | Templated Hardware fields | All `spec` string fields except §5.2 | Same, with v1alpha2's lookup keys |
 | Document and self key | `metadata` + `spec`, `.hardware` | Same |
 | Renderer | `render.Value` with `WithSkip` | Same |
@@ -965,7 +965,7 @@ CLI flags, CRDs or Helm values incompatibly.
    `DynamicRead`/`DynamicClient`, `depguard` rule (§6).
 5. The renderer: stored Hardware and references to rendered Hardware (§5.2–§5.4).
 6. The render store (§5.7, §5.8).
-7. `--backend-kube-hardware-templating-enabled` and the wiring of Smee, Tootles and the Tink
+7. `--backend-kube-rendering-enabled` and the wiring of Smee, Tootles and the Tink
    Controller to rendered data (§5.1, §5.6, §6.4, §9).
 8. v1alpha1 `status.conditions` and the Hardware controller (§8).
 9. The shared cache and live Secret reads (§7).
@@ -988,7 +988,7 @@ Questions raised during review, and how they were settled:
 | Where does loom live? | Copied into `pkg/template/render` and maintained in this repository (§4.3). |
 | Which fields can be templated? | Every `spec` string field, except `spec.references`, the lookup keys, and exact paths in the skip annotation (§5.2). |
 | How can Jinja payloads stay literal? | List their exact paths in `tinkerbell.org/render-skip`, a JSON-array annotation (§5.2). |
-| How is templating enabled in v1alpha1? | A process-wide flag, `--backend-kube-hardware-templating-enabled`, off by default (§5.1). |
+| How is templating enabled in v1alpha1? | A process-wide flag, `--backend-kube-rendering-enabled`, off by default (§5.1). |
 | How is request latency protected? | Rendering runs in background workers; requests only look up results (§5.7). |
 | What happens when a render fails? | The last successful rendering keeps being served, and the `Rendered` condition reports the failure (§5.8). |
 | Should Rufio's Secret reads use the cache? | No. Secret data is read live; Secret changes are observed through a metadata-only informer (§7.5). |

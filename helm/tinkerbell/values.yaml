@@ -26,7 +26,7 @@ deployment:
       backendFilePath: ""
       backendKubeBurst: 100
       backendKubeConfig: ""
-      backendKubeHardwareTemplatingEnabled: false # render Go templates in Hardware spec string fields; escape existing literal '{{' as {{ "{{" }} before enabling
+      backendKubeRenderingEnabled: false # render Go templates in Hardware spec string fields; escape existing literal '{{' as {{ "{{" }} before enabling
       backendKubeNamespace: "" # namespace for the backend and controllers to watch; empty means all namespaces
       backendKubeQPS: 100
       bindAddr: ""

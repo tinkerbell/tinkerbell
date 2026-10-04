@@ -398,8 +398,8 @@ spec:
               value: {{ .Values.deployment.envs.globals.backendKubeBurst | quote }}
             - name: TINKERBELL_BACKEND_KUBE_CONFIG
               value: {{ .Values.deployment.envs.globals.backendKubeConfig | quote }}
-            - name: TINKERBELL_BACKEND_KUBE_HARDWARE_TEMPLATING_ENABLED
-              value: {{ .Values.deployment.envs.globals.backendKubeHardwareTemplatingEnabled | quote }}
+            - name: TINKERBELL_BACKEND_KUBE_RENDERING_ENABLED
+              value: {{ .Values.deployment.envs.globals.backendKubeRenderingEnabled | quote }}
             - name: TINKERBELL_BACKEND_KUBE_NAMESPACE
               value: {{ .Values.deployment.envs.globals.backendKubeNamespace | quote }}
             - name: TINKERBELL_BACKEND_KUBE_QPS

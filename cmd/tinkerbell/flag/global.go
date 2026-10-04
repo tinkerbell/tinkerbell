@@ -51,7 +51,7 @@ type BackendKubeOptions struct {
 	Burst                           int
 	HardwareReferenceAllowListRules []string
 	HardwareReferenceDenyListRules  []string
-	HardwareTemplating              bool
+	Rendering                       bool
 }
 
 type TLSConfig struct {
@@ -79,7 +79,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(KubeQPS, ffval.NewValueDefault(&gc.BackendKubeOptions.QPS, gc.BackendKubeOptions.QPS))
 	fs.Register(BackendKubeHardwareReferenceAllowListRules, delimitedlist.New(&gc.BackendKubeOptions.HardwareReferenceAllowListRules, '|'))
 	fs.Register(BackendKubeHardwareReferenceDenyListRules, delimitedlist.New(&gc.BackendKubeOptions.HardwareReferenceDenyListRules, '|'))
-	fs.Register(KubeHardwareTemplating, ffval.NewValueDefault(&gc.BackendKubeOptions.HardwareTemplating, gc.BackendKubeOptions.HardwareTemplating))
+	fs.Register(KubeRendering, ffval.NewValueDefault(&gc.BackendKubeOptions.Rendering, gc.BackendKubeOptions.Rendering))
 	fs.RegisterFamily(BindAddr, V4, &ntip.Addr{Addr: &gc.BindAddr})
 	fs.RegisterFamily(BindAddr, V6, &ntip.Addr{Addr: &gc.BindAddrV6})
 	fs.RegisterFamily(HTTPPort, V4, ffval.NewValueDefault(&gc.HTTPPort, gc.HTTPPort))
@@ -167,9 +167,9 @@ var BackendKubeHardwareReferenceDenyListRules = Config{
 	Usage: "[kube] rules for which Hardware Reference objects are not accessible, defaults to deny all",
 }
 
-var KubeHardwareTemplating = Config{
-	Name:  "backend-kube-hardware-templating-enabled",
-	Usage: "[kube] render Go templates in Hardware spec string fields; use the tinkerbell.org/render-skip annotation to preserve literal payloads",
+var KubeRendering = Config{
+	Name:  "backend-kube-rendering-enabled",
+	Usage: "[kube] enable template rendering of Hardware objects",
 }
 
 // OTEL flags.

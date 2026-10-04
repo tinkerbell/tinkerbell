@@ -399,7 +399,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 			enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar),
 			WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst),
 			WithHardwareReferenceRules(globals.BackendKubeOptions.HardwareReferenceAllowListRules, globals.BackendKubeOptions.HardwareReferenceDenyListRules),
-			WithHardwareTemplating(globals.BackendKubeOptions.HardwareTemplating, log))
+			WithHardwareTemplating(globals.BackendKubeOptions.Rendering, log))
 		if err != nil {
 			return startupErr(fmt.Errorf("failed to create kube backend: %w", err))
 		}

@@ -480,7 +480,7 @@ helm install tinkerbell . \
 |---|---|
 | `deployment.envs.globals.backend` | `"kube"` |
 | `deployment.envs.globals.backendKubeNamespace` | `""` |
-| `deployment.envs.globals.backendKubeHardwareTemplatingEnabled` | `false` |
+| `deployment.envs.globals.backendKubeRenderingEnabled` | `false` |
 | `deployment.envs.globals.enableCRDMigrations` | `true` |
 | `deployment.envs.globals.enableTinkController` | `true` |
 | `deployment.envs.globals.enableRufioController` | `true` |
