@@ -81,7 +81,31 @@ func TestRenameDeprecatedArgs(t *testing.T) {
 	}
 }
 
+func unsetDeprecatedEnv(t *testing.T) {
+	t.Helper()
+	for name := range deprecatedNames() {
+		key := envKey(name)
+		value, wasSet := os.LookupEnv(key)
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			var err error
+			if wasSet {
+				err = os.Setenv(key, value)
+			} else {
+				err = os.Unsetenv(key)
+			}
+			if err != nil {
+				t.Errorf("restore %s: %v", key, err)
+			}
+		})
+	}
+}
+
 func TestRenameDeprecatedEnv(t *testing.T) {
+	unsetDeprecatedEnv(t)
+
 	const destination = "TINKERBELL_DHCP_MODE_V6"
 
 	unsetDestination := func(t *testing.T) {
