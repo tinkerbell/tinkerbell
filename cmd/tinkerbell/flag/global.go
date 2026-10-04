@@ -51,6 +51,7 @@ type BackendKubeOptions struct {
 	Burst                           int
 	HardwareReferenceAllowListRules []string
 	HardwareReferenceDenyListRules  []string
+	Rendering                       bool
 }
 
 type TLSConfig struct {
@@ -78,6 +79,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(KubeQPS, ffval.NewValueDefault(&gc.BackendKubeOptions.QPS, gc.BackendKubeOptions.QPS))
 	fs.Register(BackendKubeHardwareReferenceAllowListRules, delimitedlist.New(&gc.BackendKubeOptions.HardwareReferenceAllowListRules, '|'))
 	fs.Register(BackendKubeHardwareReferenceDenyListRules, delimitedlist.New(&gc.BackendKubeOptions.HardwareReferenceDenyListRules, '|'))
+	fs.Register(KubeRendering, ffval.NewValueDefault(&gc.BackendKubeOptions.Rendering, gc.BackendKubeOptions.Rendering))
 	fs.RegisterFamily(BindAddr, V4, &ntip.Addr{Addr: &gc.BindAddr})
 	fs.RegisterFamily(BindAddr, V6, &ntip.Addr{Addr: &gc.BindAddrV6})
 	fs.RegisterFamily(HTTPPort, V4, ffval.NewValueDefault(&gc.HTTPPort, gc.HTTPPort))
@@ -142,7 +144,7 @@ var BackendKubeConfig = Config{
 
 var BackendKubeNamespace = Config{
 	Name:  "backend-kube-namespace",
-	Usage: "[kube] namespace to watch for resources",
+	Usage: "[kube] namespace to watch; empty means all namespaces",
 }
 
 var KubeQPS = Config{
@@ -163,6 +165,11 @@ var BackendKubeHardwareReferenceAllowListRules = Config{
 var BackendKubeHardwareReferenceDenyListRules = Config{
 	Name:  "backend-kube-hardware-reference-deny-list-rules",
 	Usage: "[kube] rules for which Hardware Reference objects are not accessible, defaults to deny all",
+}
+
+var KubeRendering = Config{
+	Name:  "backend-kube-rendering-enabled",
+	Usage: "[kube] enable template rendering of Hardware objects",
 }
 
 // OTEL flags.

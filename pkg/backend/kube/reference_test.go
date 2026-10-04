@@ -60,6 +60,7 @@ func TestResolveReferences(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			b := &Backend{
 				dynamicClient:                   &fakeDynamicClient{gvr: schema.GroupVersionResource{Version: "v1"}, error: tt.readErr},
+				Namespace:                       "tink-system",
 				HardwareReferenceAllowListRules: tt.allow,
 				HardwareReferenceDenyListRules:  tt.deny,
 			}
@@ -74,6 +75,40 @@ func TestResolveReferences(t *testing.T) {
 			slices.Sort(names)
 			if !slices.Equal(names, tt.want) {
 				t.Errorf("resolved %v, want %v", names, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveReferencesRejectsOutOfScopeNamespace(t *testing.T) {
+	tests := map[string]string{
+		"different namespace": "shared",
+		"cluster-scoped":      "",
+	}
+	for name, referenceNamespace := range tests {
+		t.Run(name, func(t *testing.T) {
+			dynamicClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+			b := &Backend{
+				Namespace:                       "tink-system",
+				dynamicClient:                   dynamicClient,
+				HardwareReferenceAllowListRules: []string{`{"source":{"namespace":["tink-system"]}}`},
+			}
+			hw := &tinkerbell.Hardware{
+				ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "tink-system"},
+				Spec: tinkerbell.HardwareSpec{References: map[string]tinkerbell.Reference{
+					"cm": {Name: "cm1", Namespace: referenceNamespace, Version: "v1", Resource: "configmaps"},
+				}},
+			}
+
+			got, err := b.ResolveReferences(context.Background(), hw)
+			if err == nil {
+				t.Fatal("expected out-of-scope reference error")
+			}
+			if len(got) != 0 {
+				t.Fatalf("resolved out-of-scope references: %v", got)
+			}
+			if actions := dynamicClient.Actions(); len(actions) != 0 {
+				t.Fatalf("made API calls for out-of-scope reference: %v", actions)
 			}
 		})
 	}

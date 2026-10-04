@@ -62,17 +62,19 @@ func GetFakeClientBuilder() *fake.ClientBuilder {
 		})
 }
 
-type fakeReferences struct {
-	refs  map[string]any
-	err   error
-	gotHW *string
+type fakeHardwareReader struct {
+	refs         map[string]any
+	err          error
+	referenceErr error
+	gotHW        *string
+	render       func(*v1alpha1.Hardware) (*v1alpha1.Hardware, error)
 }
 
-func (f fakeReferences) ResolveReferences(_ context.Context, hw *v1alpha1.Hardware) (map[string]any, error) {
+func (f fakeHardwareReader) ResolveReferences(_ context.Context, hw *v1alpha1.Hardware) (map[string]any, error) {
 	if f.gotHW != nil {
 		*f.gotHW = hw.Name
 	}
-	return f.refs, f.err
+	return f.refs, f.referenceErr
 }
 
 func TestProcessWorkflowReferences(t *testing.T) {
@@ -103,7 +105,7 @@ tasks:
 					&v1alpha1.Hardware{ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "default"}},
 					&v1alpha1.Template{ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"}, Spec: v1alpha1.TemplateSpec{Data: &tpl}},
 				).Build(),
-				references: fakeReferences{refs: tt.refs, err: tt.err, gotHW: &gotHW},
+				hardwareReader: fakeHardwareReader{refs: tt.refs, referenceErr: tt.err, gotHW: &gotHW},
 			}
 			wf := &v1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"},
@@ -128,6 +130,13 @@ tasks:
 			}
 		})
 	}
+}
+
+func (f fakeHardwareReader) RenderedHardware(_ context.Context, hw *v1alpha1.Hardware) (*v1alpha1.Hardware, error) {
+	if f.render != nil {
+		return f.render(hw)
+	}
+	return hw.DeepCopy(), f.err
 }
 
 var minimalTemplate = `version: "0.1"
@@ -1084,9 +1093,9 @@ tasks:
 			kc = kc.WithStatusSubresource(tc.seedWorkflow)
 		}
 		controller := &Reconciler{
-			client:     kc.Build(),
-			nowFunc:    TestTime.Now,
-			references: fakeReferences{},
+			client:         kc.Build(),
+			nowFunc:        TestTime.Now,
+			hardwareReader: fakeHardwareReader{},
 		}
 
 		t.Run(tc.name, func(t *testing.T) {
@@ -2071,9 +2080,9 @@ func TestReconcileWithMultipleTasksAndAgents(t *testing.T) {
 				kc = kc.WithStatusSubresource(tc.seedWorkflow)
 			}
 			controller := &Reconciler{
-				client:     kc.Build(),
-				nowFunc:    TestTime.Now,
-				references: fakeReferences{},
+				client:         kc.Build(),
+				nowFunc:        TestTime.Now,
+				hardwareReader: fakeHardwareReader{},
 			}
 
 			got, gotErr := controller.Reconcile(context.Background(), tc.req)
@@ -2186,9 +2195,9 @@ func TestReconcileFailedWorkflowWinsStalePatch(t *testing.T) {
 		},
 	})
 	controller := &Reconciler{
-		client:     cc,
-		nowFunc:    TestTime.Now,
-		references: fakeReferences{},
+		client:         cc,
+		nowFunc:        TestTime.Now,
+		hardwareReader: fakeHardwareReader{},
 	}
 	req := reconcile.Request{NamespacedName: client.ObjectKeyFromObject(workflow)}
 
@@ -2216,4 +2225,93 @@ func TestReconcileFailedWorkflowWinsStalePatch(t *testing.T) {
 	if diff := cmp.Diff(committed, got); diff != "" {
 		t.Fatalf("committed FAILED workflow changed (-want +got):\n%s", diff)
 	}
+}
+
+func TestProcessWorkflowUsesRenderedHardware(t *testing.T) {
+	newObjects := func() (*v1alpha1.Hardware, *v1alpha1.Template, *v1alpha1.Workflow) {
+		hw := &v1alpha1.Hardware{
+			ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "default"},
+			Spec: v1alpha1.HardwareSpec{
+				References: map[string]v1alpha1.Reference{"disk": {Name: "boot-disk", Namespace: "default", Version: "v1", Resource: "configmaps"}},
+				Disks:      []v1alpha1.Disk{{Device: "{{ .references.disk.name }}"}},
+			},
+		}
+		tpl := &v1alpha1.Template{
+			ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"},
+			Spec:       v1alpha1.TemplateSpec{Data: &templateWithDiskTemplate},
+		}
+		wf := &v1alpha1.Workflow{
+			ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"},
+			Spec: v1alpha1.WorkflowSpec{
+				TemplateRef: "debian",
+				HardwareRef: "machine1",
+				HardwareMap: map[string]string{"device_1": "3c:ec:ef:4c:4f:54"},
+			},
+		}
+		return hw, tpl, wf
+	}
+
+	t.Run("rendered values reach the Template", func(t *testing.T) {
+		hw, tpl, wf := newObjects()
+		r := &Reconciler{
+			client: GetFakeClientBuilder().WithObjects(hw, tpl).Build(),
+			hardwareReader: fakeHardwareReader{render: func(hw *v1alpha1.Hardware) (*v1alpha1.Hardware, error) {
+				out := hw.DeepCopy()
+				out.Spec.Disks[0].Device = "/dev/sdb"
+				return out, nil
+			}},
+		}
+		if err := r.processWorkflow(context.Background(), logr.Discard(), wf); err != nil {
+			t.Fatal(err)
+		}
+		if got := wf.Status.Tasks[0].Actions[0].Environment["DEST_DISK"]; got != "/dev/sdb" {
+			t.Fatalf("DEST_DISK = %q, want the rendered /dev/sdb", got)
+		}
+	})
+
+	t.Run("a render failure fails the Workflow", func(t *testing.T) {
+		hw, tpl, wf := newObjects()
+		var resolvedHardware string
+		r := &Reconciler{
+			client: GetFakeClientBuilder().WithObjects(hw, tpl).Build(),
+			hardwareReader: fakeHardwareReader{gotHW: &resolvedHardware, render: func(*v1alpha1.Hardware) (*v1alpha1.Hardware, error) {
+				return nil, errors.New("missing reference")
+			}},
+		}
+		if err := r.processWorkflow(context.Background(), logr.Discard(), wf); err == nil {
+			t.Fatal("expected an error")
+		}
+		if wf.Status.TemplateRendering != v1alpha1.TemplateRenderingFailed {
+			t.Fatalf("TemplateRendering = %q", wf.Status.TemplateRendering)
+		}
+		if c := wf.Status.Conditions; len(c) != 1 || !strings.Contains(c[0].Message, "error getting rendered hardware: missing reference") {
+			t.Fatalf("conditions = %+v", c)
+		}
+		if resolvedHardware != "" {
+			t.Fatal("not-ready Hardware must be rejected before Workflow references are read")
+		}
+	})
+
+	t.Run("Workflow templates retain Hardware reference access", func(t *testing.T) {
+		for name, path := range map[string]string{
+			"top-level resolved references":   ".references.disk.name",
+			"Hardware reference declarations": ".hardware.spec.references.disk.name",
+		} {
+			t.Run(name, func(t *testing.T) {
+				hw, tpl, wf := newObjects()
+				tplData := strings.Replace(templateWithDiskTemplate, "{{ index .Hardware.Disks 0 }}", "{{ "+path+" }}", 1)
+				tpl.Spec.Data = &tplData
+				r := &Reconciler{
+					client:         GetFakeClientBuilder().WithObjects(hw, tpl).Build(),
+					hardwareReader: fakeHardwareReader{refs: map[string]any{"disk": map[string]any{"name": "boot-disk"}}},
+				}
+				if err := r.processWorkflow(context.Background(), logr.Discard(), wf); err != nil {
+					t.Fatal(err)
+				}
+				if got := wf.Status.Tasks[0].Actions[0].Environment["DEST_DISK"]; got != "boot-disk" {
+					t.Fatalf("DEST_DISK = %q, want preserved reference access", got)
+				}
+			})
+		}
+	})
 }

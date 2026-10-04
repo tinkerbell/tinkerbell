@@ -398,16 +398,23 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 			globals.BackendKubeNamespace,
 			enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar),
 			WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst),
-			WithHardwareReferenceRules(globals.BackendKubeOptions.HardwareReferenceAllowListRules, globals.BackendKubeOptions.HardwareReferenceDenyListRules))
+			WithHardwareReferenceRules(globals.BackendKubeOptions.HardwareReferenceAllowListRules, globals.BackendKubeOptions.HardwareReferenceDenyListRules),
+			WithHardwareTemplating(globals.BackendKubeOptions.Rendering, log))
 		if err != nil {
 			return startupErr(fmt.Errorf("failed to create kube backend: %w", err))
 		}
 		s.Config.Backend = b
 		h.Config.SetBackendFromFilterer(b)
+		if b.HardwareTemplating {
+			s.Config.Backend = b.RenderedReader()
+			h.Config.SetBackendFromFilterer(b.RenderedReader())
+		}
 		ts.Config.SetBackends(b)
 		tc.Config.Client = b.ClientConfig
-		tc.Config.ReferenceResolver = b
+		tc.Config.Namespace = globals.BackendKubeNamespace
+		tc.Config.HardwareReader = b
 		rc.Config.Client = b.ClientConfig
+		rc.Config.Namespace = globals.BackendKubeNamespace
 		ssc.Config.Backend = b
 		if uic.Config.EnableAutoLogin {
 			uic.Config.AutoLoginRestConfig = b.ClientConfig

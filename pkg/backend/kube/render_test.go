@@ -60,6 +60,21 @@ func TestRenderHardware(t *testing.T) {
 	}
 }
 
+func TestRenderHardwareNonJSONReferences(t *testing.T) {
+	hw := &tinkerbell.Hardware{
+		Spec: tinkerbell.HardwareSpec{UserData: ptr("{{ .references.net.cores }} {{ .references.net.labels.rack }}")},
+	}
+	refs := map[string]any{"net": map[string]any{"cores": uint64(8), "labels": map[string]string{"rack": "r1"}}}
+
+	got, err := renderHardware(hw, refs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "8 r1"; got.Spec.UserData == nil || *got.Spec.UserData != want {
+		t.Errorf("userData = %v, want %q", got.Spec.UserData, want)
+	}
+}
+
 func TestRenderHardwareObjectData(t *testing.T) {
 	hw := &tinkerbell.Hardware{
 		ObjectMeta: metav1.ObjectMeta{
@@ -92,6 +107,23 @@ func TestRenderHardwareObjectData(t *testing.T) {
 	got.Status.Attributes.InBand.CollectionMethod = "changed"
 	if diff := cmp.Diff(orig, hw); diff != "" {
 		t.Errorf("input was modified (-want +got):\n%s", diff)
+	}
+}
+
+func TestRenderHardwareWithUnsignedAttributes(t *testing.T) {
+	hw := &tinkerbell.Hardware{
+		Spec: tinkerbell.HardwareSpec{UserData: ptr("cores={{ .hardware.status.attributes.inBand.cpu.totalCores }}")},
+		Status: tinkerbell.HardwareStatus{Attributes: &tinkerbell.HardwareAttributes{
+			InBand: &tinkerbell.Attributes{CPU: &tinkerbell.CPU{TotalCores: 8}},
+		}},
+	}
+
+	got, err := renderHardware(hw, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Spec.UserData == nil || *got.Spec.UserData != "cores=8" {
+		t.Fatalf("UserData = %v, want cores=8", got.Spec.UserData)
 	}
 }
 

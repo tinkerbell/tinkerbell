@@ -35,6 +35,13 @@ func WithHardwareReferenceRules(allow, deny []string) kubeBackendOpt {
 	}
 }
 
+func WithHardwareTemplating(enabled bool, log logr.Logger) kubeBackendOpt {
+	return func(k *kube.Backend) {
+		k.HardwareTemplating = enabled
+		k.Logger = log
+	}
+}
+
 func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string, indexes map[kube.IndexType]kube.Index, opts ...kubeBackendOpt) (*kube.Backend, error) {
 	defaultConfig := kube.Backend{
 		ConfigFilePath: kubeconfig,

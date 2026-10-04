@@ -29,11 +29,12 @@ type Config struct {
 	Client                  *rest.Config
 	EnableLeaderElection    bool
 	LeaderElectionNamespace string
-	ReferenceResolver       referenceResolver
+	HardwareReader          renderedHardwareReader
 	MaxConcurrentReconciles int
 }
 
-type referenceResolver interface {
+type renderedHardwareReader interface {
+	RenderedHardware(ctx context.Context, hw *tinkerbell.Hardware) (*tinkerbell.Hardware, error)
 	ResolveReferences(ctx context.Context, hw *tinkerbell.Hardware) (map[string]any, error)
 }
 
@@ -51,9 +52,9 @@ func WithClient(client *rest.Config) Option {
 	}
 }
 
-func WithReferenceResolver(r referenceResolver) Option {
+func WithHardwareReader(r renderedHardwareReader) Option {
 	return func(c *Config) {
-		c.ReferenceResolver = r
+		c.HardwareReader = r
 	}
 }
 
@@ -83,8 +84,8 @@ func NewConfig(opts ...Option) *Config {
 }
 
 func (c *Config) Start(ctx context.Context, log logr.Logger) error {
-	if c.ReferenceResolver == nil {
-		return errors.New("reference resolver is required")
+	if c.HardwareReader == nil {
+		return errors.New("hardware reader is required")
 	}
 
 	options := controllerruntime.Options{
@@ -97,11 +98,9 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		},
 		HealthProbeBindAddress: "0",
 	}
-	if c.Namespace != "" {
-		options.Cache = cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}
-	}
+	options.Cache = c.cacheOptions()
 
-	mgr, err := newManager(c.Client, c.ReferenceResolver, options, c.MaxConcurrentReconciles)
+	mgr, err := newManager(c.Client, c.HardwareReader, options, c.MaxConcurrentReconciles)
 	if err != nil {
 		return err
 	}
@@ -109,9 +108,16 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	return mgr.Start(ctx)
 }
 
+func (c *Config) cacheOptions() cache.Options {
+	if c.Namespace == "" {
+		return cache.Options{}
+	}
+	return cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}
+}
+
 // NewManager creates a new controller manager with tink controller controllers pre-registered.
 // If opts.Scheme is nil, DefaultScheme() is used.
-func newManager(cfg *rest.Config, rr referenceResolver, opts controllerruntime.Options, maxConcurrentReconciles int) (controllerruntime.Manager, error) {
+func newManager(cfg *rest.Config, hardwareReader renderedHardwareReader, opts controllerruntime.Options, maxConcurrentReconciles int) (controllerruntime.Manager, error) {
 	if opts.Scheme == nil {
 		s := runtime.NewScheme()
 		_ = schemeBuilder.AddToScheme(s)
@@ -123,7 +129,7 @@ func newManager(cfg *rest.Config, rr referenceResolver, opts controllerruntime.O
 		return nil, fmt.Errorf("controller manager: %w", err)
 	}
 
-	if err = workflow.NewReconciler(mgr.GetClient(), rr).SetupWithManager(mgr, ctrlcontroller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}); err != nil {
+	if err = workflow.NewReconciler(mgr.GetClient(), hardwareReader).SetupWithManager(mgr, ctrlcontroller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}); err != nil {
 		return nil, fmt.Errorf("setup workflow reconciler: %w", err)
 	}
 

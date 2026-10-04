@@ -76,9 +76,9 @@ Two related problems are addressed because the design depends on them:
 | Component | How it reads Hardware |
 | --- | --- |
 | Smee, Tootles, Tink Server, SecondStar | Shared `kube.Backend` (`FilterHardware`, `ReadHardware`), informer cache scoped to `--backend-kube-namespace` |
-| Tink Controller | Its own controller-runtime manager built from `b.ClientConfig`, cluster-wide cache |
-| Rufio | Its own controller-runtime manager built from `b.ClientConfig`, cluster-wide cache |
-| UI | Its own client built from `b.ClientConfig` |
+| Tink Controller | Its own controller-runtime manager built from `b.ClientConfig`, scoped to `--backend-kube-namespace` |
+| Rufio | Its own controller-runtime manager built from `b.ClientConfig`, scoped to `--backend-kube-namespace` |
+| UI | Per-request client using the user's credentials (or configured auto-login credentials); namespace visibility follows those credentials, not `--backend-kube-namespace` |
 
 References are resolved only by the Tink Controller, per Workflow, in
 `tink/controller/internal/workflow/reconciler.go`: each `spec.references` entry is
@@ -138,7 +138,7 @@ Templating is enabled for the whole process by a flag, off by default:
 
 | Flag | Helm value | Default |
 | --- | --- | --- |
-| `--backend-kube-hardware-templating-enabled` | `deployment.envs.globals.backendKubeHardwareTemplatingEnabled` | `false` |
+| `--backend-kube-rendering-enabled` | `deployment.envs.globals.backendKubeRenderingEnabled` | `false` |
 
 It is off by default because existing Hardware already contains `{{` that is not a Go
 template. `spec.userData` and `spec.vendorData` commonly carry cloud-init Jinja
@@ -433,9 +433,11 @@ work queue, and a fixed pool of workers renders them:
 - A referenced object added, updated or deleted. The store keeps a reverse index from each
   referenced `(group, resource, namespace, name)` to the Hardware that reference it. The
   first time a new referenced resource appears, the store registers an event handler on
-  the independent metadata factory's informer. This factory watches all namespaces,
-  regardless of `--backend-kube-namespace`, so allowed cross-namespace references stay
-  current. Its informers stop with the render context and are joined at store shutdown.
+  the independent metadata factory's informer. The factory uses the
+  `--backend-kube-namespace` scope: a non-empty value limits watches and reference reads to
+  that namespace, while an empty value watches all namespaces and permits cross-namespace
+  references. Out-of-scope references are rejected before a live GET. Its informers stop
+  with the render context and are joined at store shutdown.
 - A referenced Secret's metadata changing (§7.5).
 
 Watch registration is serialized separately from entry access. A resource is marked
@@ -491,9 +493,9 @@ copy. These are local measurements, not a cross-machine latency guarantee.
 
 **Referenced data.** PR6 workers read referenced objects live through the reference
 resolver; the independent informers retain metadata only, never full Secret contents.
-Later shared-data-cache work must preserve the watchers' cross-namespace coverage and
-live Secret reads (§7.5). Reference data held by the store is limited to rendered results,
-not all objects of a referenced type.
+Later shared-data-cache work must preserve the watchers' configured namespace scope (or
+all-namespace scope when the flag is empty) and live Secret reads (§7.5). Reference data
+held by the store is limited to rendered results, not all objects of a referenced type.
 
 **Shared references.** When an object referenced by many Hardware changes, all of them are
 queued. The queue is rate limited, and requests keep being answered from the previous
@@ -532,10 +534,11 @@ and read errors; the fallback gauge counts entries serving last-good data after 
 error and decreases on recovery or deletion. No Hardware or reference names are labels.
 
 Informers on referenced types need `list` and `watch` RBAC for those types, not only
-`get`. The independent factory lists and watches across all namespaces, so those permissions
-must be granted cluster-wide for referenced types. Operators grant them through the chart's
-existing `rbac.additionalRoleRules`; the
-templating documentation states that referenced types need all three verbs:
+`get`. With a non-empty `--backend-kube-namespace`, reference reads and watches stay within
+that namespace, so a namespace-scoped `Role` can grant the required access. When the flag is
+empty, the factory lists and watches across all namespaces, requiring a `ClusterRole`.
+Operators grant referenced-type permissions through the chart's existing
+`rbac.additionalRoleRules`; referenced types need all three verbs:
 
 ```yaml
 rbac:
@@ -627,12 +630,18 @@ The render store (§5.7) and the Tink Controller use this policy-checked resolve
 ### 6.4 Tink Controller
 
 The Workflow reconciler stops evaluating policy and calling `DynamicRead` itself. It builds
-its template data from the backend: the rendered Hardware as a read-only unstructured
-map, and the Hardware's resolved references. A Workflow
-Template therefore sees final values under `.Hardware`, matching the v1alpha2 order in
-which Hardware is rendered before Workflows. The template engine itself is unchanged in
-v1alpha1. With templating disabled, the rendered Hardware is the stored one, so Workflow
-rendering behaves exactly as it does today.
+its template data from the backend. When enabled, `RenderedHardware` reads the store's
+latest successful Hardware result; the Workflow reconciler does not render Hardware itself.
+An unready Hardware returns a not-found/readiness error before Workflow references are read.
+Workflow references are independently resolved through `ResolveReferences(ctx, storedHW)`
+under Hardware-wide policy; they are not removed or replaced by the store's cached result.
+
+The existing whole-text Workflow renderer remains unchanged. Its private input contains
+the Hardware data under `.hardware` and legacy `.Hardware`, plus resolved objects under
+`.references`. Reference declarations under `.hardware.spec.references` remain readable.
+With templating disabled, `RenderedHardware` returns the stored object, so existing
+Workflow references, output and condition-error messages retain their behavior. Neither
+the rendered Hardware nor template helper mutations are written back to its CR.
 
 ### 6.5 Hardware-wide rules
 
@@ -714,11 +723,10 @@ The backend's indexes become the union of what enabled components need.
 
 - The cache's scheme is the union of all components' schemes (core, `tinkerbell.org`,
   `bmc.tinkerbell.org`); the backend already registers all three.
-- The cache is shared only when every component would watch the same scope. That is the
-  default: `--backend-kube-namespace` is empty and the controllers are cluster-wide. When
-  `--backend-kube-namespace` is set, the backend's scope differs from the controllers', and
-  each component keeps its own cache as it does today. Sharing in that case would change
-  what some component can see.
+- The backend, Tink Controller and Rufio all use `--backend-kube-namespace`: empty means
+  cluster-wide, and a non-empty value scopes each to that namespace. Their cache scopes
+  therefore match, allowing the cache to be shared. The UI uses request credentials and
+  remains outside this cache and scope contract.
 - Referenced objects are cached in the same cache as unstructured objects (§5.7).
 
 ### 7.4 Limits
@@ -911,7 +919,7 @@ type, with the same not-ready handling as Smee.
 
 | Concern | v1alpha1 (this design) | v1alpha2 |
 | --- | --- | --- |
-| Enablement | `--backend-kube-hardware-templating-enabled`, off by default | Always on |
+| Enablement | `--backend-kube-rendering-enabled`, off by default | Always on |
 | Templated Hardware fields | All `spec` string fields except §5.2 | Same, with v1alpha2's lookup keys |
 | Document and self key | `metadata` + `spec`, `.hardware` | Same |
 | Renderer | `render.Value` with `WithSkip` | Same |
@@ -957,7 +965,7 @@ CLI flags, CRDs or Helm values incompatibly.
    `DynamicRead`/`DynamicClient`, `depguard` rule (§6).
 5. The renderer: stored Hardware and references to rendered Hardware (§5.2–§5.4).
 6. The render store (§5.7, §5.8).
-7. `--backend-kube-hardware-templating-enabled` and the wiring of Smee, Tootles and the Tink
+7. `--backend-kube-rendering-enabled` and the wiring of Smee, Tootles and the Tink
    Controller to rendered data (§5.1, §5.6, §6.4, §9).
 8. v1alpha1 `status.conditions` and the Hardware controller (§8).
 9. The shared cache and live Secret reads (§7).
@@ -980,7 +988,7 @@ Questions raised during review, and how they were settled:
 | Where does loom live? | Copied into `pkg/template/render` and maintained in this repository (§4.3). |
 | Which fields can be templated? | Every `spec` string field, except `spec.references`, the lookup keys, and exact paths in the skip annotation (§5.2). |
 | How can Jinja payloads stay literal? | List their exact paths in `tinkerbell.org/render-skip`, a JSON-array annotation (§5.2). |
-| How is templating enabled in v1alpha1? | A process-wide flag, `--backend-kube-hardware-templating-enabled`, off by default (§5.1). |
+| How is templating enabled in v1alpha1? | A process-wide flag, `--backend-kube-rendering-enabled`, off by default (§5.1). |
 | How is request latency protected? | Rendering runs in background workers; requests only look up results (§5.7). |
 | What happens when a render fails? | The last successful rendering keeps being served, and the `Rendered` condition reports the failure (§5.8). |
 | Should Rufio's Secret reads use the cache? | No. Secret data is read live; Secret changes are observed through a metadata-only informer (§7.5). |

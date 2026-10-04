@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mitchellh/copystructure"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/template/funcmap"
 	"github.com/tinkerbell/tinkerbell/pkg/template/render"
@@ -57,10 +58,20 @@ func renderHardware(hw *tinkerbell.Hardware, references map[string]any) (*tinker
 	if !render.HasTemplates(doc, render.WithSkip(skip)) {
 		return hw, nil
 	}
-	original := runtime.DeepCopyJSON(doc)
+	original, err := runtime.DefaultUnstructuredConverter.ToUnstructured(hw.DeepCopy())
+	if err != nil {
+		return nil, fmt.Errorf("copy hardware %s/%s for validation: %w", hw.Namespace, hw.Name, err)
+	}
+
+	// Templates may mutate references; copystructure, unlike DeepCopyJSON, accepts any value type.
+	copied, err := copystructure.Copy(references)
+	if err != nil {
+		return nil, fmt.Errorf("copy references for hardware %s/%s: %w", hw.Namespace, hw.Name, err)
+	}
+	refs, _ := copied.(map[string]any)
 
 	// doc is a map, so it is rendered in place.
-	if _, err := render.Value(doc, map[string]any{"references": runtime.DeepCopyJSON(references)},
+	if _, err := render.Value(doc, map[string]any{"references": refs},
 		render.WithSelfKey("hardware"),
 		render.WithFuncs(funcmap.New()),
 		render.WithSkip(skip),

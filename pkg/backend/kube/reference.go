@@ -34,9 +34,10 @@ type source struct {
 }
 
 // ResolveReferences returns the objects hw's spec.references point to, keyed by
-// reference name. A reference is read only if the allow list matches it or the
-// deny list does not; with no deny list configured, an implicit deny-all rule is
-// used and can still be overridden by an allow-list match. Denied and unreadable
+// reference name. When Namespace is set, only references in that namespace are
+// considered. A reference is read only if the allow list matches it or the deny
+// list does not; with no deny list configured, an implicit deny-all rule is used
+// and can still be overridden by an allow-list match. Denied and unreadable
 // references are omitted from the map, reported in the error, and other references are still returned.
 func (b *Backend) ResolveReferences(ctx context.Context, hw *tinkerbell.Hardware) (map[string]any, error) {
 	logger := logr.FromContextOrDiscard(ctx)
@@ -66,6 +67,11 @@ func (b *Backend) ResolveReferences(ctx context.Context, hw *tinkerbell.Hardware
 		}
 		rf.Group = strings.ToLower(rf.Group)
 		rf.Resource = strings.ToLower(rf.Resource)
+		if b.Namespace != "" && rf.Namespace != b.Namespace {
+			err := fmt.Errorf("reference %q namespace %q is outside configured backend namespace %q", refName, rf.Namespace, b.Namespace)
+			refErr = errors.Join(refErr, err)
+			continue
+		}
 
 		ed := evaluationData{
 			Source:    source{Name: hw.Name, Namespace: hw.Namespace},
