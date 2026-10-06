@@ -2,7 +2,9 @@ package workflow
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -2224,6 +2227,145 @@ func TestReconcileFailedWorkflowWinsStalePatch(t *testing.T) {
 	}
 	if diff := cmp.Diff(committed, got); diff != "" {
 		t.Fatalf("committed FAILED workflow changed (-want +got):\n%s", diff)
+	}
+}
+
+func TestHardwareTemplateDataPreservesValues(t *testing.T) {
+	raw := "\x30\x82\x00\xff\xfe"
+	allowPXE := false
+	stamp := metav1.NewTime(time.Date(2026, time.October, 6, 12, 0, 0, 0, time.UTC))
+	hw := &v1alpha1.Hardware{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "tinkerbell.org/v1alpha1", Kind: "Hardware"},
+		ObjectMeta: metav1.ObjectMeta{Name: "machine1", CreationTimestamp: stamp, Labels: map[string]string{"rack": "original"}},
+		Spec: v1alpha1.HardwareSpec{
+			UserData:   &raw,
+			Interfaces: []v1alpha1.Interface{{Netboot: &v1alpha1.Netboot{AllowPXE: &allowPXE}}},
+			Metadata:   &v1alpha1.HardwareMetadata{Instance: &v1alpha1.MetadataInstance{}},
+			Resources:  map[string]resource.Quantity{"memory": resource.MustParse("1Gi")},
+		},
+		Status: v1alpha1.HardwareStatus{State: "active", Attributes: &v1alpha1.HardwareAttributes{
+			InBand: &v1alpha1.Attributes{CPU: &v1alpha1.CPU{TotalCores: 8}, Memory: &v1alpha1.Memory{TotalBytes: 9007199254740993}},
+		}},
+	}
+	original := hw.DeepCopy()
+	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(hw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checks := map[string]string{
+		"binary":                `{{ .hardware.spec.userData | b64enc }}`,
+		"integer comparison":    `{{ eq .hardware.status.attributes.inBand.cpu.totalCores 8 }}`,
+		"integer precision":     `{{ .hardware.status.attributes.inBand.memory.totalBytes }}`,
+		"zero integer omitted":  `{{ hasKey .hardware.spec "tinkVersion" }}`,
+		"false boolean omitted": `{{ hasKey .hardware.spec.metadata.instance "allow_pxe" }}`,
+		"false pointer present": `{{ eq (index .hardware.spec.interfaces 0).netboot.allowPXE false }}`,
+		"quantity":              `{{ .hardware.spec.resources.memory }}`,
+		"timestamp":             `{{ .hardware.metadata.creationTimestamp }}`,
+		"enum string":           `{{ .hardware.status.state | upper }}`,
+		"inline metadata":       `{{ .hardware.apiVersion }} {{ .hardware.kind }}`,
+		"nil optional":          `{{ hasKey .hardware.spec "vendorData" }}`,
+	}
+	wants := map[string]string{
+		"binary":             base64.StdEncoding.EncodeToString([]byte(raw)),
+		"integer comparison": "true", "integer precision": "9007199254740993",
+		"zero integer omitted": "false", "false boolean omitted": "false", "quantity": "1Gi",
+		"false pointer present": "true",
+		"timestamp":             "2026-10-06T12:00:00Z", "enum string": "ACTIVE",
+		"inline metadata": "tinkerbell.org/v1alpha1 Hardware", "nil optional": "false",
+	}
+	for name, text := range checks {
+		t.Run(name, func(t *testing.T) {
+			got, err := renderTemplate(name, text, map[string]any{"hardware": data})
+			if err != nil || string(got) != wants[name] {
+				t.Fatalf("render = %q, %v; want %q", got, err, wants[name])
+			}
+		})
+	}
+	if _, err := renderTemplate("mutation", `{{ $_ := set .hardware.metadata.labels "rack" "changed" }}`, map[string]any{"hardware": data}); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(original, hw); diff != "" {
+		t.Fatalf("conversion or helper mutated source Hardware (-want +got):\n%s", diff)
+	}
+}
+
+func TestHardwareTemplateDataIntegerBoundaries(t *testing.T) {
+	input := struct {
+		Signed   int64  `json:"signed,omitempty"`
+		Unsigned uint64 `json:"unsigned,omitempty"`
+	}{Signed: math.MinInt64, Unsigned: math.MaxUint64}
+	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := renderTemplate("bounds", `{{ .signed }} {{ .unsigned }} {{ gt .unsigned 0 }}`, data)
+	want := "-9223372036854775808 18446744073709551615 true"
+	if err != nil || string(got) != want {
+		t.Fatalf("render = %q, %v; want %q", got, err, want)
+	}
+}
+
+func TestProcessWorkflowBinaryHardwareAliases(t *testing.T) {
+	for _, rendered := range []bool{false, true} {
+		name := "stored"
+		if rendered {
+			name = "rendered"
+		}
+		t.Run(name, func(t *testing.T) {
+			storedPayload := "stored UTF-8 data"
+			renderedPayload := "\x30\x82\x00\xff\xfe"
+			hw := &v1alpha1.Hardware{ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "default"}, Spec: v1alpha1.HardwareSpec{UserData: &storedPayload}}
+			text := strings.Replace(minimalTemplate, "IMG_URL:", "LOWER: '{{ .hardware.spec.userData | b64enc }}'\n          LEGACY: '{{ .Hardware.UserData | b64enc }}'\n          IMG_URL:", 1)
+			reader := fakeHardwareReader{}
+			payload := storedPayload
+			if rendered {
+				payload = renderedPayload
+				reader.render = func(stored *v1alpha1.Hardware) (*v1alpha1.Hardware, error) {
+					out := stored.DeepCopy()
+					out.Spec.UserData = &renderedPayload
+					return out, nil
+				}
+			}
+			reconciler := &Reconciler{
+				client:         GetFakeClientBuilder().WithObjects(hw, &v1alpha1.Template{ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"}, Spec: v1alpha1.TemplateSpec{Data: &text}}).Build(),
+				hardwareReader: reader,
+			}
+			wf := &v1alpha1.Workflow{ObjectMeta: metav1.ObjectMeta{Name: "workflow", Namespace: "default"}, Spec: v1alpha1.WorkflowSpec{HardwareRef: "machine1", TemplateRef: "debian", HardwareMap: map[string]string{"device_1": "agent"}}}
+			if err := reconciler.processWorkflow(context.Background(), logr.Discard(), wf); err != nil {
+				t.Fatal(err)
+			}
+			values := wf.Status.Tasks[0].Actions[0].Environment
+			want := base64.StdEncoding.EncodeToString([]byte(payload))
+			if values["LOWER"] != want || values["LEGACY"] != want {
+				t.Fatalf("alias payloads = %q/%q, want %q", values["LOWER"], values["LEGACY"], want)
+			}
+			stored := &v1alpha1.Hardware{}
+			if err := reconciler.client.Get(context.Background(), client.ObjectKeyFromObject(hw), stored); err != nil {
+				t.Fatal(err)
+			}
+			if stored.Spec.UserData == nil || *stored.Spec.UserData != storedPayload {
+				t.Fatalf("stored userData = %v, want %q", stored.Spec.UserData, storedPayload)
+			}
+		})
+	}
+}
+
+func TestProcessWorkflowHardwareConversionFailure(t *testing.T) {
+	hw := &v1alpha1.Hardware{ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "default"}}
+	reconciler := &Reconciler{
+		client: GetFakeClientBuilder().WithObjects(hw, &v1alpha1.Template{ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"}, Spec: v1alpha1.TemplateSpec{Data: &minimalTemplate}}).Build(),
+		hardwareReader: fakeHardwareReader{render: func(stored *v1alpha1.Hardware) (*v1alpha1.Hardware, error) {
+			out := stored.DeepCopy()
+			out.ManagedFields = []metav1.ManagedFieldsEntry{{FieldsV1: &metav1.FieldsV1{Raw: []byte("invalid")}}}
+			return out, nil
+		}},
+	}
+	wf := &v1alpha1.Workflow{ObjectMeta: metav1.ObjectMeta{Name: "workflow", Namespace: "default"}, Spec: v1alpha1.WorkflowSpec{HardwareRef: "machine1", TemplateRef: "debian"}}
+	if err := reconciler.processWorkflow(context.Background(), logr.Discard(), wf); err == nil || !strings.Contains(err.Error(), "convert hardware template data") {
+		t.Fatalf("err = %v, want conversion failure", err)
+	}
+	if wf.Status.TemplateRendering != v1alpha1.TemplateRenderingFailed || len(wf.Status.Tasks) != 0 || len(wf.Status.Conditions) != 1 || !strings.Contains(wf.Status.Conditions[0].Message, "error converting hardware template data") {
+		t.Fatalf("conversion failure must not continue with empty data or publish tasks: %+v", wf.Status)
 	}
 }
 

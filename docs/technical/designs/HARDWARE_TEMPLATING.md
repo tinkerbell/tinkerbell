@@ -75,15 +75,18 @@ Two related problems are addressed because the design depends on them:
 
 | Component | How it reads Hardware |
 | --- | --- |
-| Smee, Tootles, Tink Server, SecondStar | Shared `kube.Backend` (`FilterHardware`, `ReadHardware`), informer cache scoped to `--backend-kube-namespace` |
-| Tink Controller | Its own controller-runtime manager built from `b.ClientConfig`, scoped to `--backend-kube-namespace` |
+| Smee, Tootles | Shared `kube.Backend` informer cache scoped to `--backend-kube-namespace`; through `RenderedReader` when rendering is enabled |
+| SecondStar | Shared `kube.Backend` through `RenderedReader`, which returns stored Hardware when rendering is disabled |
+| Tink Server | Shared `kube.Backend` (`FilterHardware`, `ReadHardware`), stored Hardware |
+| Tink Controller | Its own controller-runtime manager built from `b.ClientConfig`, scoped to `--backend-kube-namespace`; Workflow template data from the backend's `RenderedHardware` |
 | Rufio | Its own controller-runtime manager built from `b.ClientConfig`, scoped to `--backend-kube-namespace` |
 | UI | Per-request client using the user's credentials (or configured auto-login credentials); namespace visibility follows those credentials, not `--backend-kube-namespace` |
 
-References are resolved only by the Tink Controller, per Workflow, in
-`tink/controller/internal/workflow/reconciler.go`: each `spec.references` entry is
-checked against the Quamina deny/allow lists, then fetched with the backend's
-`DynamicRead` (a live, uncached GET).
+References are resolved only through the backend's `ResolveReferences` (§6.3), used by
+the render store and by the Tink Controller for each Workflow's `.references`. Each
+`spec.references` entry is checked against the namespace scope and the Quamina deny/allow
+lists, then fetched with a live, uncached GET through the backend's private dynamic
+client.
 
 ### 4.2 Hardware writes
 
@@ -639,9 +642,23 @@ under Hardware-wide policy; they are not removed or replaced by the store's cach
 The existing whole-text Workflow renderer remains unchanged. Its private input contains
 the Hardware data under `.hardware` and legacy `.Hardware`, plus resolved objects under
 `.references`. Reference declarations under `.hardware.spec.references` remain readable.
+The lowercase map uses `runtime.DefaultUnstructuredConverter.ToUnstructured`, the same
+conversion path as Hardware rendering, rather than a JSON round trip or a controller-local
+serializer. Strings retain arbitrary bytes and signed/unsigned integer values keep their
+precision without becoming `float64`. Standard JSON tags, custom type encodings and
+`omitempty` behavior remain unchanged; scalar zero/false values can still be absent.
+Conversion errors fail the Workflow and report a condition instead of substituting an
+empty map. A different zero-value visibility policy is a separate deferred decision.
 With templating disabled, `RenderedHardware` returns the stored object, so existing
-Workflow references, output and condition-error messages retain their behavior. Neither
+Workflow references and the legacy input remain available. Corrected lowercase numeric
+behavior applies in both modes. Neither
 the rendered Hardware nor template helper mutations are written back to its CR.
+
+Second Star uses `RenderedReader.FilterHardware`, the same consumer boundary as Smee and
+Tootles. The wrapper performs the stored protected-selector lookup and then selects the
+ready rendered result before Second Star reads BMC Machine references or SSH keys.
+Authentication does not execute templates or resolve template references. Existing Machine
+and credential Secret reads remain unchanged; write paths and Rufio retain stored Hardware.
 
 ### 6.5 Hardware-wide rules
 

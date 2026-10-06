@@ -21,7 +21,10 @@ deployment:
 ```
 
 The backend renders Hardware in the background and serves the rendered copy to
-Tinkerbell components. The stored Hardware object is not modified.
+Smee, Tootles, Workflow template input and Second Star's read-only Hardware lookup.
+Second Star uses the rendered BMC Machine reference and SSH public keys; Machine
+objects and credential Secrets retain their existing lookup paths. The stored
+Hardware object is not modified, and Hardware write paths continue using it.
 
 ## Template data
 
@@ -69,11 +72,34 @@ such as `toYaml`, `fromYaml`, `formatPartition`, and `netmaskToPrefixLength`.
 Host- and environment-dependent functions such as `env`, `expandenv`, and
 `getHostByName` are not available.
 
-Conditionals and loops can build text inside a string value, but cannot add,
-remove, or select YAML fields or list entries. The object structure must already
-be valid when Kubernetes admits it. CRD validation also applies to the raw
+Conditionals and loops build text inside selected string values. Helpers can mutate
+private template input maps; final changes to protected Hardware fields are rejected.
+The stored object must already be valid when Kubernetes admits it. CRD validation
+also applies to the raw
 template text, so a template in a field with a pattern or enum may be rejected
 before rendering.
+
+## Workflow Hardware data
+
+Workflow Templates keep their existing whole-text renderer. `.hardware` exposes
+stored or ready rendered Hardware using JSON field names without a JSON round trip:
+strings retain their exact bytes and integers retain their types and precision.
+Legacy `.Hardware` and independently resolved `.references` remain available.
+
+The map uses Kubernetes' standard unstructured converter, also used by Hardware
+rendering. Existing JSON tags and `omitempty` rules still apply: zero/false scalar
+values and nil optionals may be absent. Use `hasKey` or `index` when accessing an
+optional field. Timestamp and quantity values retain the standard converter's
+encodings. This fixes binary and integer conversion without introducing a separate
+controller-specific field-presence policy.
+Compare integer fields with integer literals, such as `8`, rather than float
+literals such as `8.0`; Go templates do not implicitly equate integers and floats.
+
+For example, `{{ eq .hardware.status.attributes.inBand.cpu.totalCores 8 }}` compares
+integers directly. Binary rendered payloads can be encoded with
+`{{ .hardware.spec.userData | b64enc }}` without replacement-character corruption.
+Conversion failures report a failed Workflow condition rather than rendering with
+an empty Hardware map. These data semantics apply with rendering enabled or disabled.
 
 ## Preserve literal template syntax
 

@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -291,10 +291,17 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 		data[key] = val
 	}
 	contract := toTemplateHardwareData(hardware)
-	hardwareData, err := structToMap(hardware)
+	hardwareData, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&hardware)
 	if err != nil {
-		logger.V(1).Info("error converting hardware to map for use in template data", "error", err)
-		hardwareData = map[string]interface{}{}
+		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
+		stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.TemplateRenderedSuccess,
+			Status:  metav1.ConditionFalse,
+			Reason:  reasonError,
+			Message: fmt.Sprintf("error converting hardware template data: %v", err),
+			Time:    &metav1.Time{Time: metav1.Now().UTC()},
+		})
+		return fmt.Errorf("convert hardware template data: %w", err)
 	}
 	data[templateDataHardware] = hardwareData
 	data[templateDataHardwareLegacy] = contract
@@ -343,24 +350,6 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	stored.Status.State = v1alpha1.WorkflowStatePending
 
 	return reconcile.Result{}, nil
-}
-
-// structToMap converts a struct to a map[string]interface{}.
-func structToMap(item interface{}) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
-
-	// Marshal the struct to JSON.
-	jsonBytes, err := json.Marshal(item)
-	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal the JSON to a map[string]interface{}.
-	if err = json.Unmarshal(jsonBytes, &result); err != nil {
-		return nil, err
-	}
-
-	return result, nil
 }
 
 // templateHardwareData defines the data exposed for a Hardware instance to a Template.
