@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
@@ -127,6 +128,65 @@ tasks:
 				t.Errorf("image = %q, want %q", got, tt.wantImage)
 			}
 		})
+	}
+}
+
+func TestHardwareTemplateDataBinary(t *testing.T) {
+	raw := "\x30\x82\x00\xff\xfe"
+	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&v1alpha1.Hardware{Spec: v1alpha1.HardwareSpec{UserData: &raw}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := renderTemplate("binary", `{{ .hardware.spec.userData | b64enc }}`, map[string]any{"hardware": data})
+	if want := base64.StdEncoding.EncodeToString([]byte(raw)); err != nil || string(got) != want {
+		t.Fatalf("render = %q, %v; want %q", got, err, want)
+	}
+}
+
+func TestProcessWorkflowHardwareIntegers(t *testing.T) {
+	hw := &v1alpha1.Hardware{
+		ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "default"},
+		Status: v1alpha1.HardwareStatus{Attributes: &v1alpha1.HardwareAttributes{
+			InBand: &v1alpha1.Attributes{CPU: &v1alpha1.CPU{TotalCores: 8}, Memory: &v1alpha1.Memory{TotalBytes: 9007199254740993}},
+		}},
+	}
+	text := strings.Replace(minimalTemplate, "IMG_URL:", "BYTES: '{{ .hardware.status.attributes.inBand.memory.totalBytes }}'\n          EIGHT: '{{ eq .hardware.status.attributes.inBand.cpu.totalCores 8 }}'\n          IMG_URL:", 1)
+	r := &Reconciler{
+		client:     GetFakeClientBuilder().WithObjects(hw, &v1alpha1.Template{ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"}, Spec: v1alpha1.TemplateSpec{Data: &text}}).Build(),
+		references: fakeReferences{},
+	}
+	wf := &v1alpha1.Workflow{ObjectMeta: metav1.ObjectMeta{Name: "workflow", Namespace: "default"}, Spec: v1alpha1.WorkflowSpec{HardwareRef: "machine1", TemplateRef: "debian", HardwareMap: map[string]string{"device_1": "agent"}}}
+	if err := r.processWorkflow(context.Background(), logr.Discard(), wf); err != nil {
+		t.Fatal(err)
+	}
+	env := wf.Status.Tasks[0].Actions[0].Environment
+	if env["BYTES"] != "9007199254740993" || env["EIGHT"] != valueTrue {
+		t.Fatalf("BYTES = %q, EIGHT = %q; want 9007199254740993, true", env["BYTES"], env["EIGHT"])
+	}
+}
+
+func TestProcessWorkflowHardwareConversionFailure(t *testing.T) {
+	hw := &v1alpha1.Hardware{ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "default"}}
+	tpl := &v1alpha1.Template{ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"}, Spec: v1alpha1.TemplateSpec{Data: &minimalTemplate}}
+	c := fake.NewClientBuilder().WithScheme(runtimescheme).WithObjects(hw, tpl).WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if err := c.Get(ctx, key, obj, opts...); err != nil {
+				return err
+			}
+			// Set after Get because the fake client cannot store FieldsV1 that is not valid JSON.
+			if h, ok := obj.(*v1alpha1.Hardware); ok {
+				h.ManagedFields = []metav1.ManagedFieldsEntry{{FieldsV1: &metav1.FieldsV1{Raw: []byte("invalid")}}}
+			}
+			return nil
+		},
+	}).Build()
+	r := &Reconciler{client: c, references: fakeReferences{}}
+	wf := &v1alpha1.Workflow{ObjectMeta: metav1.ObjectMeta{Name: "workflow", Namespace: "default"}, Spec: v1alpha1.WorkflowSpec{HardwareRef: "machine1", TemplateRef: "debian"}}
+	if err := r.processWorkflow(context.Background(), logr.Discard(), wf); err == nil || !strings.Contains(err.Error(), "convert hardware template data") {
+		t.Fatalf("err = %v, want conversion failure", err)
+	}
+	if wf.Status.TemplateRendering != v1alpha1.TemplateRenderingFailed || len(wf.Status.Tasks) != 0 || len(wf.Status.Conditions) != 1 || !strings.Contains(wf.Status.Conditions[0].Message, "error converting hardware template data") {
+		t.Fatalf("conversion failure must not continue with empty data or publish tasks: %+v", wf.Status)
 	}
 }
 
