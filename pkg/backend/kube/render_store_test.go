@@ -157,7 +157,7 @@ func (f *fakeMetadataInformer) Lister() toolscache.GenericLister {
 func newTestStore(hws *fakeHardware, res *fakeResolver, inf *fakeInformers) *renderStore {
 	mapper := meta.NewDefaultRESTMapper(nil)
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-	store := newRenderStore(logr.Discard(), inf, mapper, nil, hws.get, res.resolve, prometheus.NewRegistry())
+	store := newRenderStore(logr.Discard(), inf, mapper, nil, "", hws.get, res.resolve, prometheus.NewRegistry())
 	store.referenceInformers = &fakeMetadataFactory{}
 	return store
 }
@@ -401,7 +401,7 @@ func TestRenderStoreCrossNamespaceReference(t *testing.T) {
 	hws, res, hardwareInformers := &fakeHardware{}, &fakeResolver{refs: netRefs("old.org")}, &fakeInformers{}
 	mapper := meta.NewDefaultRESTMapper(nil)
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-	s := newRenderStore(logr.Discard(), hardwareInformers, mapper, metadataClient, hws.get, res.resolve, prometheus.NewRegistry())
+	s := newRenderStore(logr.Discard(), hardwareInformers, mapper, metadataClient, "", hws.get, res.resolve, prometheus.NewRegistry())
 	t.Cleanup(func() {
 		cancel()
 		s.queue.ShutDown()
@@ -451,6 +451,53 @@ func TestRenderStoreCrossNamespaceReference(t *testing.T) {
 	}
 }
 
+func TestRenderStoreReferenceInformerRespectsNamespace(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	metadataClient := metadatafake.NewSimpleMetadataClient(runtime.NewScheme())
+	mapper := meta.NewDefaultRESTMapper(nil)
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+	s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, "tink-system", nil, nil, prometheus.NewRegistry())
+	t.Cleanup(func() {
+		cancel()
+		s.queue.ShutDown()
+		s.referenceInformers.Shutdown()
+	})
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	if err := s.ensureWatch(ctx, gvr); err != nil {
+		t.Fatal(err)
+	}
+	if !toolscache.WaitForCacheSync(ctx.Done(), s.referenceInformers.ForResource(gvr).Informer().HasSynced) {
+		t.Fatal("namespace-scoped metadata informer did not sync")
+	}
+	for _, action := range metadataClient.Actions() {
+		if action.GetNamespace() != "tink-system" {
+			t.Errorf("%s namespace = %q, want tink-system", action.GetVerb(), action.GetNamespace())
+		}
+	}
+}
+
+func TestRenderStoreTrackSkipsOutOfScopeReferences(t *testing.T) {
+	store := newTestStore(&fakeHardware{}, &fakeResolver{}, &fakeInformers{})
+	store.namespace = "tink-system"
+	key := types.NamespacedName{Namespace: "tink-system", Name: "machine1"}
+	references := map[string]tinkerbell.Reference{
+		"same-namespace":  {Name: "cm2", Namespace: "tink-system", Version: "v1", Resource: "configmaps"},
+		"other-namespace": {Name: "cm1", Namespace: "shared", Version: "v1", Resource: "configmaps"},
+		"cluster-scoped":  {Name: "node1", Version: "v1", Resource: "nodes"},
+	}
+
+	if err := store.track(context.Background(), key, references); err != nil {
+		t.Fatal(err)
+	}
+	configMaps := schema.GroupResource{Resource: "configmaps"}
+	if len(store.watched) != 1 || store.watched[configMaps] != struct{}{} {
+		t.Fatalf("watched resources = %v, want only in-scope configmaps", store.watched)
+	}
+	if len(store.refs[key]) != 1 || store.refs[key][0].namespace != "tink-system" {
+		t.Fatalf("tracked references = %v, want only in-scope reference", store.refs[key])
+	}
+}
+
 func TestRenderStoreEmptyListReconcilesReferrers(t *testing.T) {
 	for _, phase := range []string{"initial", "relist"} {
 		t.Run(phase, func(t *testing.T) {
@@ -490,7 +537,7 @@ func TestRenderStoreEmptyListReconcilesReferrers(t *testing.T) {
 			hws, res := &fakeHardware{}, &fakeResolver{refs: netRefs("before-delete")}
 			mapper := meta.NewDefaultRESTMapper(nil)
 			mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-			s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, hws.get, res.resolve, prometheus.NewRegistry())
+			s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, "", hws.get, res.resolve, prometheus.NewRegistry())
 			t.Cleanup(func() {
 				cancel()
 				release.Do(func() { close(allowList) })

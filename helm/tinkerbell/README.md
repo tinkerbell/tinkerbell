@@ -354,6 +354,31 @@ DHCP and DHCPv6 are unaffected: they have separate Service entries, so
 `dhcpBindPort` and `dhcpv6BindPort` may differ. Each declares the container port
 it binds, and each entry is published only when its family is served.
 
+## Namespace Scope
+
+`rbac.type` selects one of two profiles. Every other namespace setting follows from it.
+
+| Setting | `ClusterRole` (default) | `Role` |
+| --- | --- | --- |
+| Backend namespace (`deployment.envs.globals.backendKubeNamespace`) | empty: all namespaces | the release namespace |
+| RBAC | `ClusterRole` and `ClusterRoleBinding`, including CRDs | `Role` and `RoleBinding` in the backend namespace, without CRDs |
+| CRD migrations (`deployment.envs.globals.enableCRDMigrations`) | on | off: install the CRDs once with `kubectl apply -k crd/` |
+| Leader-election Leases and their `Role` | the release namespace | the backend namespace |
+| Auto-discovered Hardware | the release namespace | the backend namespace |
+
+When the backend namespace is set, every part of Tinkerbell defaults to reading and writing only there: Smee, Tootles, Tink Server (including auto-discovery and auto-enrollment), the Tink Controller, Rufio, Second Star, UI auto-login, Hardware references and leader election. The exceptions are the explicit values below, and CRD migrations, which are cluster-scoped. UI user login is not affected; it uses the user's own credentials.
+
+Escape hatches:
+
+- **A `ClusterRole` limited to one namespace:** set `backendKubeNamespace`. CRD migrations stay on.
+- **A `Role` in a namespace other than the release namespace:** set `backendKubeNamespace`. The `Role`s and `RoleBinding`s are created there.
+- **CRD migrations:** set `enableCRDMigrations` to `true` or `false` to override the profile.
+
+Explicit `autoDiscoveryNamespace` and `leaderElectionNamespace` values are used as given and are not checked against the other settings. The chart grants Lease access only in the backend namespace (the release namespace when that is empty), so a `leaderElectionNamespace` elsewhere needs its own `Role`. When the backend namespace is set, Tinkerbell only sees Hardware in it, so an `autoDiscoveryNamespace` elsewhere creates Hardware that Tinkerbell then cannot find.
+
+> [!IMPORTANT]
+> When the backend namespace differs from the release namespace, upgrading to this version moves the leader-election Leases into the backend namespace. During a rolling update the old and new pods can both lead until the old pod stops, and Rufio could run a BMC Task twice. Upgrade once with `--set deployment.strategy.type=Recreate`, or scale the Deployment to zero first.
+
 ## Additional RBAC Rules
 
 The `rbac.additionalRoleRules` field allows appending custom RBAC policy rules to the Tinkerbell role. Each entry follows the Kubernetes [PolicyRule](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#role-and-clusterrole) schema. There are two mutually exclusive rule types:

@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"errors"
+	"maps"
 	"reflect"
 	"strings"
 	"sync"
@@ -35,6 +36,7 @@ import (
 type renderStore struct {
 	informers          informerGetter
 	referenceInformers metadataInformerFactory
+	namespace          string
 	mapper             meta.RESTMapper
 	get                func(context.Context, types.NamespacedName) (*tinkerbell.Hardware, error)
 	resolve            func(context.Context, *tinkerbell.Hardware) (map[string]any, error)
@@ -122,12 +124,14 @@ func newRenderStore(
 	hardwareInformers informerGetter,
 	mapper meta.RESTMapper,
 	metadataClient metadata.Interface,
+	namespace string,
 	get func(context.Context, types.NamespacedName) (*tinkerbell.Hardware, error),
 	resolve func(context.Context, *tinkerbell.Hardware) (map[string]any, error),
 	registry prometheus.Registerer,
 ) *renderStore {
 	store := &renderStore{
 		informers: hardwareInformers,
+		namespace: namespace,
 		mapper:    mapper,
 		get:       get,
 		resolve:   resolve,
@@ -144,7 +148,9 @@ func newRenderStore(
 		notify:    make(chan struct{}, 1),
 		changes:   map[types.NamespacedName]struct{}{},
 	}
-	store.referenceInformers = metadatainformer.NewSharedInformerFactory(&metadataListClient{Interface: metadataClient, listed: store.requeueResource}, 0)
+	store.referenceInformers = metadatainformer.NewFilteredSharedInformerFactory(
+		&metadataListClient{Interface: metadataClient, listed: store.requeueResource}, 0, namespace, nil,
+	)
 	store.renders = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "tinkerbell_hardware_render_attempts_total", Help: "Hardware render attempts by outcome."}, []string{"result"})
 	store.duration = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "tinkerbell_hardware_render_duration_seconds", Help: "Hardware render attempt duration."})
 	store.fallbacks = prometheus.NewGauge(prometheus.GaugeOpts{Name: "tinkerbell_hardware_render_fallback_entries", Help: "Hardware entries serving a previous result after a render failure."})
@@ -345,6 +351,10 @@ func (s *renderStore) forget(key types.NamespacedName) {
 // track records what key references, so that a change to a referenced object
 // re-renders it, and starts watching referenced types not yet watched.
 func (s *renderStore) track(ctx context.Context, key types.NamespacedName, references map[string]tinkerbell.Reference) error {
+	if s.namespace != "" {
+		references = maps.Clone(references)
+		maps.DeleteFunc(references, func(_ string, r tinkerbell.Reference) bool { return r.Namespace != s.namespace })
+	}
 	refs := make([]refKey, 0, len(references))
 	for _, r := range references {
 		refs = append(refs, refKey{strings.ToLower(r.Group), strings.ToLower(r.Resource), r.Namespace, r.Name})

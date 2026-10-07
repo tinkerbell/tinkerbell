@@ -295,11 +295,10 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		s.Config.TinkServer.UseTLS = true
 	}
 
-	// Tink Controller
-	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace)
-
-	// Rufio Controller
-	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster(), rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace)
+	followBackendNamespace(globals, ts, tc, rc, func(name string) bool {
+		f, ok := gfs.GetFlag(name)
+		return ok && f.IsSet()
+	}, inCluster())
 
 	// Second star
 	if err := ssc.Convert(globals.BindAddr, globals.BindAddrV6); err != nil {

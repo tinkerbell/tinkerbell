@@ -3,7 +3,7 @@ kind: {{ .Values.rbac.type }}Binding
 metadata:
   name: {{ .Values.rbac.name }}-binding
   {{- if eq .Values.rbac.type "Role"  }}
-  namespace: {{ .Release.Namespace | quote }}
+  namespace: {{ include "tinkerbell.rbacNamespace" . | quote }}
   {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io

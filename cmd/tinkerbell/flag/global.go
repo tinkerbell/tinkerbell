@@ -142,7 +142,7 @@ var BackendKubeConfig = Config{
 
 var BackendKubeNamespace = Config{
 	Name:  "backend-kube-namespace",
-	Usage: "[kube] namespace to watch for resources",
+	Usage: "[kube] namespace all services read and write by default; empty means all namespaces",
 }
 
 var KubeQPS = Config{
@@ -234,7 +234,7 @@ var EnableETCD = Config{
 
 var EnableCRDMigrations = Config{
 	Name:  "enable-crd-migrations",
-	Usage: "create CRDs in the cluster",
+	Usage: "create CRDs in the cluster; defaults to false when the backend namespace is set",
 }
 
 var BindAddr = Config{

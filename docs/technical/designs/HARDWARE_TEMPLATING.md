@@ -433,9 +433,9 @@ work queue, and a fixed pool of workers renders them:
 - A referenced object added, updated or deleted. The store keeps a reverse index from each
   referenced `(group, resource, namespace, name)` to the Hardware that reference it. The
   first time a new referenced resource appears, the store registers an event handler on
-  the independent metadata factory's informer. This factory watches all namespaces,
-  regardless of `--backend-kube-namespace`, so allowed cross-namespace references stay
-  current. Its informers stop with the render context and are joined at store shutdown.
+  the independent metadata factory's informer. This factory watches the backend namespace,
+  or all namespaces when it is empty; references outside the backend namespace are
+  rejected. Its informers stop with the render context and are joined at store shutdown.
 - A referenced Secret's metadata changing (§7.5).
 
 Watch registration is serialized separately from entry access. A resource is marked
@@ -534,9 +534,9 @@ and read errors; the fallback gauge counts entries serving last-good data after 
 error and decreases on recovery or deletion. No Hardware or reference names are labels.
 
 Informers on referenced types need `list` and `watch` RBAC for those types, not only
-`get`. The independent factory lists and watches across all namespaces, so those permissions
-must be granted cluster-wide for referenced types. Operators grant them through the chart's
-existing `rbac.additionalRoleRules`; the
+`get`. The independent factory lists and watches in the backend namespace, or across all
+namespaces when it is empty, so the permissions must be granted there. Operators grant them
+through the chart's existing `rbac.additionalRoleRules`; the
 templating documentation states that referenced types need all three verbs:
 
 ```yaml

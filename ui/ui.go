@@ -231,7 +231,7 @@ func (c *Config) Handler(log logr.Logger) (http.Handler, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create auto-login kube client: %w", err)
 		}
-		protected.Use(webhttp.AutoLoginMiddleware(autoClient, c.AutoLoginNamespace))
+		protected.Use(webhttp.AutoLoginMiddleware(autoClient.InNamespace(c.AutoLoginNamespace), c.AutoLoginNamespace))
 	} else {
 		protected.Use(webhttp.AuthMiddleware(log, c.URLPrefix))
 	}
