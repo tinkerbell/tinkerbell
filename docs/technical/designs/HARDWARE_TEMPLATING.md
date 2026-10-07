@@ -461,10 +461,12 @@ LIST/WATCH rather than watch-list initialization so no snapshot path bypasses th
 Hardware update handling must include changes to the skip annotation, other metadata
 read by templates, and status attributes. For CRDs, metadata-only updates do not increment
 `metadata.generation`; Hardware status updates do not increment it either. A generation-only
-predicate would miss these inputs. Updates compare private normalized documents, ignoring
-only `metadata.resourceVersion`, `metadata.managedFields`, and the renderer-owned `Rendered`
-condition. Other status changes and mixed condition-plus-input changes still enqueue
-rendering. The `Rendered` condition is bookkeeping, not a render invalidation input.
+predicate would miss these inputs. Updates compare typed copies of the Hardware exactly,
+ignoring only `metadata.resourceVersion` and `metadata.managedFields`; semantic equality
+would miss changes templates can see, such as `1Gi` respelled as `1073741824`. v1alpha1
+Hardware has no
+conditions; the Hardware controller adds filtering of its `Rendered` condition when it adds
+the condition, because that condition is bookkeeping, not a render invalidation input.
 Reference metadata updates do not use this filter: their resource versions signal data
 changes even when the metadata payload otherwise looks identical.
 

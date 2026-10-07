@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"sync"
@@ -16,8 +17,8 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -769,35 +770,39 @@ func TestRenderStoreNotificationsSlowConsumer(t *testing.T) {
 }
 
 func TestRenderStoreHardwareUpdateFilter(t *testing.T) {
-	const hardwareKind = "Hardware"
-	before := &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "tinkerbell.org/v1alpha1", "kind": hardwareKind,
-		"metadata": map[string]any{"name": "m1", "namespace": "tink", "uid": "uid-1", "resourceVersion": "1"},
-		"spec":     map[string]any{"userData": "literal"},
-	}}
+	before := &tinkerbell.Hardware{
+		ObjectMeta: metav1.ObjectMeta{Name: "m1", Namespace: "tink", UID: "uid-1", ResourceVersion: "1"},
+		Spec:       tinkerbell.HardwareSpec{UserData: ptr("literal"), Resources: map[string]apiresource.Quantity{"memory": apiresource.MustParse("1Gi")}},
+		Status: tinkerbell.HardwareStatus{Attributes: &tinkerbell.HardwareAttributes{
+			InBand: &tinkerbell.Attributes{CPU: &tinkerbell.CPU{TotalCores: math.MaxUint32}},
+		}},
+	}
 	for _, test := range []struct {
-		name  string
-		path  []string
-		value any
-		want  bool
+		name   string
+		mutate func(*tinkerbell.Hardware)
+		want   bool
 	}{
-		{name: "resource version", path: []string{"metadata", "resourceVersion"}, value: "2"},
-		{name: "managed fields", path: []string{"metadata", "managedFields"}, value: []any{map[string]any{"manager": "hardware-controller"}}},
-		{name: "renderer condition", path: []string{"status", "conditions"}, value: []any{map[string]any{"type": "Rendered", "status": "False"}}},
-		{name: "other condition", path: []string{"status", "conditions"}, value: []any{map[string]any{"type": "Ready", "status": "True"}}, want: true},
-		{name: "mixed conditions", path: []string{"status", "conditions"}, value: []any{map[string]any{"type": "Rendered"}, map[string]any{"type": "Ready"}}, want: true},
-		{name: "condition and attributes", path: []string{"status"}, value: map[string]any{"conditions": []any{map[string]any{"type": "Rendered"}}, "attributes": map[string]any{"inBand": map[string]any{"collectionMethod": "agent"}}}, want: true},
-		{name: "skip annotation", path: []string{"metadata", "annotations"}, value: map[string]any{templateSkipAnnotation: `["spec.userData"]`}, want: true},
-		{name: "label", path: []string{"metadata", "labels"}, value: map[string]any{"rack": "new"}, want: true},
-		{name: "attribute", path: []string{"status", "attributes", "inBand", "collectionMethod"}, value: "agent", want: true},
-		{name: "spec", path: []string{"spec", "userData"}, value: "changed", want: true},
-		{name: "UID", path: []string{"metadata", "uid"}, value: "uid-2", want: true},
+		{name: "unchanged", mutate: func(*tinkerbell.Hardware) {}},
+		{name: "resource version", mutate: func(hw *tinkerbell.Hardware) { hw.ResourceVersion = "2" }},
+		{name: "managed fields", mutate: func(hw *tinkerbell.Hardware) {
+			hw.ManagedFields = []metav1.ManagedFieldsEntry{{Manager: "hardware-controller"}}
+		}},
+		{name: "skip annotation", mutate: func(hw *tinkerbell.Hardware) {
+			hw.Annotations = map[string]string{templateSkipAnnotation: `["spec.userData"]`}
+		}, want: true},
+		{name: "label", mutate: func(hw *tinkerbell.Hardware) { hw.Labels = map[string]string{"rack": "new"} }, want: true},
+		{name: "quantity respelled", mutate: func(hw *tinkerbell.Hardware) {
+			hw.Spec.Resources["memory"] = apiresource.MustParse("1073741824")
+		}, want: true},
+		{name: "nil to empty slice", mutate: func(hw *tinkerbell.Hardware) { hw.Spec.Interfaces = []tinkerbell.Interface{} }, want: true},
+		{name: "attribute", mutate: func(hw *tinkerbell.Hardware) { hw.Status.Attributes.InBand.CollectionMethod = "agent" }, want: true},
+		{name: "unsigned attribute", mutate: func(hw *tinkerbell.Hardware) { hw.Status.Attributes.InBand.CPU.TotalCores-- }, want: true},
+		{name: "spec", mutate: func(hw *tinkerbell.Hardware) { hw.Spec.UserData = ptr("changed") }, want: true},
+		{name: "UID", mutate: func(hw *tinkerbell.Hardware) { hw.UID = "uid-2" }, want: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			after := before.DeepCopy()
-			if err := unstructured.SetNestedField(after.Object, test.value, test.path...); err != nil {
-				t.Fatal(err)
-			}
+			test.mutate(after)
 			s := newTestStore(&fakeHardware{}, &fakeResolver{}, &fakeInformers{})
 			defer s.queue.ShutDown()
 			original, originalAfter := before.DeepCopy(), after.DeepCopy()
@@ -805,7 +810,7 @@ func TestRenderStoreHardwareUpdateFilter(t *testing.T) {
 			if got := s.queue.Len() != 0; got != test.want {
 				t.Fatalf("queued = %v, want %v", got, test.want)
 			}
-			if !reflect.DeepEqual(before.Object, original.Object) || !reflect.DeepEqual(after.Object, originalAfter.Object) {
+			if !reflect.DeepEqual(before, original) || !reflect.DeepEqual(after, originalAfter) {
 				t.Fatal("filter modified an informer input")
 			}
 		})

@@ -15,7 +15,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -443,59 +442,26 @@ func (s *renderStore) hardwareHandler() toolscache.ResourceEventHandler {
 		enqueue(object)
 	}
 	handler.UpdateFunc = func(before, after any) {
-		oldObject, oldOK := before.(client.Object)
-		newObject, newOK := after.(client.Object)
-		changed := !oldOK || !newOK || hardwareInputsChanged(oldObject, newObject)
-		if changed {
+		oldHardware, oldOK := before.(*tinkerbell.Hardware)
+		newHardware, newOK := after.(*tinkerbell.Hardware)
+		if !oldOK || !newOK || hardwareInputsChanged(oldHardware, newHardware) {
 			handler.AddFunc(after)
-		} else if hw, ok := after.(*tinkerbell.Hardware); ok {
-			s.rememberDecision(hw)
+		} else {
+			s.rememberDecision(newHardware)
 		}
 	}
 	return handler
 }
 
-func hardwareInputsChanged(before, after client.Object) bool {
-	documents := make([]map[string]any, 0, 2)
-	for _, object := range []client.Object{before, after} {
-		document, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
-		if err != nil {
-			return true
-		}
-		document = runtime.DeepCopyJSON(document)
-		unstructured.RemoveNestedField(document, "metadata", "resourceVersion")
-		unstructured.RemoveNestedField(document, "metadata", "managedFields")
-		value, found, err := unstructured.NestedFieldNoCopy(document, "status", "conditions")
-		if err != nil {
-			return true
-		}
-		if found {
-			conditions, ok := value.([]any)
-			if !ok {
-				return true
-			}
-			var remaining []any
-			for _, condition := range conditions {
-				fields, ok := condition.(map[string]any)
-				if !ok {
-					return true
-				}
-				if fields["type"] != "Rendered" {
-					remaining = append(remaining, condition)
-				}
-			}
-			if len(remaining) == 0 {
-				unstructured.RemoveNestedField(document, "status", "conditions")
-			} else if err := unstructured.SetNestedSlice(document, remaining, "status", "conditions"); err != nil {
-				return true
-			}
-		}
-		if status, ok := document["status"].(map[string]any); ok && len(status) == 0 {
-			delete(document, "status")
-		}
-		documents = append(documents, document)
+func hardwareInputsChanged(before, after *tinkerbell.Hardware) bool {
+	b, a := before.DeepCopy(), after.DeepCopy()
+	for _, hw := range []*tinkerbell.Hardware{b, a} {
+		hw.ResourceVersion = ""
+		hw.ManagedFields = nil
 	}
-	return !reflect.DeepEqual(documents[0], documents[1])
+	// Not equality.Semantic: it ignores differences templates can see, such as 1Gi vs
+	// 1073741824 or a nil vs empty slice.
+	return !reflect.DeepEqual(b, a)
 }
 
 func (s *renderStore) enqueueHandler(enqueue func(types.NamespacedName)) toolscache.ResourceEventHandlerFuncs {
