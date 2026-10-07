@@ -278,29 +278,59 @@ func TestRenderStoreUnusedDeniedReference(t *testing.T) {
 	}
 }
 
-func TestRenderStoreFailureServesPrevious(t *testing.T) {
+func TestRenderStoreFailureIsNotServed(t *testing.T) {
 	ctx := context.Background()
 	hws, res := &fakeHardware{}, &fakeResolver{refs: netRefs("example.org")}
 	s := newTestStore(hws, res, &fakeInformers{})
 	key := types.NamespacedName{Namespace: "tink", Name: "m1"}
 	hws.set(templated("1"))
-	s.render(ctx, key)
+	if !s.render(ctx, key) {
+		t.Fatal("initial render failed")
+	}
 
 	broken := templated("2")
 	broken.Spec.UserData = ptr("{{ .references.missing.x }}")
 	hws.set(broken)
+	if got, ok := s.rendered(broken); !ok || *got.Spec.UserData != "domain=example.org" {
+		t.Fatalf("rendered = %v, %v; want the previous rendering while the edit is pending", got, ok)
+	}
 	if s.render(ctx, key) {
 		t.Fatal("render of a broken template must fail")
 	}
-	if got, ok := s.rendered(broken); !ok || *got.Spec.UserData != "domain=example.org" {
-		t.Fatalf("rendered = %v, %v; want the previous rendering", got, ok)
+	if got, ok := s.rendered(broken); ok {
+		t.Fatalf("rendered = %v; a failed rendering must not be served", got)
 	}
 
-	hws.set(templated("3"))
+	fixed := templated("3")
+	if _, ok := s.rendered(fixed); ok {
+		t.Fatal("a pending edit after a failure must not be served")
+	}
+	hws.set(fixed)
 	res.set(netRefs("fixed.org"), nil)
-	s.render(ctx, key)
-	if got, _ := s.rendered(templated("3")); *got.Spec.UserData != "domain=fixed.org" {
-		t.Fatalf("userData = %q after the fix", *got.Spec.UserData)
+	if !s.render(ctx, key) {
+		t.Fatal("render after the fix failed")
+	}
+	if got, ok := s.rendered(fixed); !ok || *got.Spec.UserData != "domain=fixed.org" {
+		t.Fatalf("rendered = %v, %v after the fix", got, ok)
+	}
+}
+
+func TestRenderStoreUnreadableReferenceOnRerender(t *testing.T) {
+	ctx := context.Background()
+	hws, res := &fakeHardware{}, &fakeResolver{refs: netRefs("secret.org")}
+	s := newTestStore(hws, res, &fakeInformers{})
+	hw := templated("1")
+	hws.set(hw)
+	key := client.ObjectKeyFromObject(hw)
+	if !s.render(ctx, key) {
+		t.Fatal("initial render failed")
+	}
+	res.set(map[string]any{}, apierrors.NewForbidden(schema.GroupResource{Resource: "configmaps"}, "net1", errors.New("forbidden")))
+	if s.render(ctx, key) {
+		t.Fatal("a re-render that cannot read a reference must fail")
+	}
+	if got, ok := s.rendered(hw); ok {
+		t.Fatalf("rendered = %v; the previous rendering must not be served", got)
 	}
 }
 
@@ -762,15 +792,15 @@ func TestRenderStoreMetricsAndNotifications(t *testing.T) {
 	broken.ResourceVersion = "2"
 	broken.Spec.UserData = ptr("{{ .references.missing }}")
 	hws.set(broken)
-	if s.render(ctx, key) || testutil.ToFloat64(s.fallbacks) != 1 {
-		t.Fatal("failed rendering must count the last-good fallback")
+	if s.render(ctx, key) {
+		t.Fatal("broken template must fail")
 	}
 	if !s.needsNotification(key) {
 		t.Fatal("failure must notify consumers")
 	}
 	hws.set(hw)
-	if !s.render(ctx, key) || testutil.ToFloat64(s.fallbacks) != 0 {
-		t.Fatal("recovery must clear the fallback gauge")
+	if !s.render(ctx, key) {
+		t.Fatal("recovery render failed")
 	}
 	s.forget(key)
 	select {
