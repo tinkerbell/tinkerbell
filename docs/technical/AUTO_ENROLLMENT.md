@@ -13,7 +13,7 @@ When an Agent connects to the Tink Server:
 1. The Agent sends its attributes (serial numbers, MAC addresses, etc.) to the Tink server.
 1. Check if there is a Hardware object with the `spec.agentID` that matches the Agent ID.
 1. If no workflow exists for the Agent, and auto enrollment is enabled and no Hardware object exists or `Hardware.spec.auto.enrollmentEnabled=true`, Tink server:
-   1. Iterates through all WorkflowRuleSets and checks for a rule that matches the Agent's attributes.
+   1. Iterates through the WorkflowRuleSets and checks for a rule that matches the Agent's attributes. If a Hardware object exists, only WorkflowRuleSets in its namespace are considered; with auto discovery, that is the auto discovery namespace.
    1. Creates a Workflow for the Agent based on the matched WorkflowRuleSet.
 1. Tink Server serves the first Workflow Action to the Agent.
 1. The Agent executes the Workflow Actions.
@@ -63,7 +63,6 @@ spec:
   workflow:
     addAttributes: true
     disabled: false
-    namespace: tink-system
     template:
       agentValue: worker_id
       kvs:
@@ -77,7 +76,7 @@ spec:
 - **workflow [object]**: Workflow holds the data used to configure the created Workflow.
   - **addAttributes [boolean]**: This indicates if the Agent attributes should be added as an Annotation in the created Workflow.
   - **disabled [boolean]**: Disabled indicates whether the Workflow will be enabled or not when created.
-  - **namespace [string]**: The namespace to use when creating the Workflow.
+  - **namespace [string]**: Deprecated. Workflows are always created in the WorkflowRuleSet's namespace. If set, it must be that namespace; a WorkflowRuleSet naming any other namespace is skipped, and Tink Server logs `skipping WorkflowRuleSet whose spec.workflow.namespace is not its own namespace`.
   - **template [object]**: Data related to the configuration of the Template used in the created Workflow.
     - **agentValue [string]**: A value used in the referenced Template for the `Task[].worker` value. For example: "`device_id`" or "`worker_id`".
     - **kvs [map]**: Key-value pairs usable in the referenced Template.
@@ -201,6 +200,7 @@ The following is an example of the attributes data structure and data types of a
 When a matching WorkflowRuleSet is found, a Workflow is created with the following:
 
 1. The name is prefixed by `enrollment-`.
+1. The namespace is the WorkflowRuleSet's namespace.
 1. The owner reference is set to the matching WorkflowRuleSet.
 1. If enabled adds Agent attributes as an annotation.
 
@@ -218,7 +218,6 @@ spec:
   workflow:
     addAttributes: true
     disabled: false
-    namespace: tink-system
     template:
       agentValue: worker_id
       kvs:
@@ -256,6 +255,8 @@ Common issues:
 1. **No matching WorkflowRuleSet found**
    - Verify the agent attributes match at least one rule
    - Check rules syntax for errors
+   - Check that `spec.workflow.namespace` is empty or the WorkflowRuleSet's own namespace
+   - If the Agent has a Hardware object, check that the WorkflowRuleSet is in the Hardware's namespace
    - Enable debug logging on the server
 
 2. **Workflow creation fails**
