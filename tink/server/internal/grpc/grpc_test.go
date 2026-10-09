@@ -523,6 +523,7 @@ type mockBackendReadWriter struct {
 	appliedInBand *tinkerbell.Attributes // captures the attrs passed to ApplyHardwareInBandAttributes
 
 	readHardwareCalls int // counts calls to ReadHardware, to catch redundant re-reads
+	hardwareFilter    data.HardwareFilter
 }
 
 func (m *mockBackendReadWriter) ReadWorkflow(_ context.Context, _ string, _ string) (*tinkerbell.Workflow, error) {
@@ -566,7 +567,8 @@ func (m *mockBackendReadWriter) ReadHardware(_ context.Context, _ string, _ stri
 	return nil, errors.New("hardware not found")
 }
 
-func (m *mockBackendReadWriter) FilterHardware(_ context.Context, _ data.HardwareFilter) (*tinkerbell.Hardware, error) {
+func (m *mockBackendReadWriter) FilterHardware(_ context.Context, f data.HardwareFilter) (*tinkerbell.Hardware, error) {
+	m.hardwareFilter = f
 	if m.hardware != nil {
 		return m.hardware, nil
 	}

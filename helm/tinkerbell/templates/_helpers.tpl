@@ -31,6 +31,42 @@ Usage: {{ include "tinkerbell.servedPort" (dict "v4" $httpPort "v6" $httpPortV6 
 {{- end -}}
 
 {{/*
+The backend namespace. rbac.type selects the profile: with Role (namespaced)
+it defaults to the release namespace, with ClusterRole to empty (all namespaces).
+Usage: {{ include "tinkerbell.backendNamespace" . }}
+*/}}
+{{- define "tinkerbell.backendNamespace" -}}
+{{- if .Values.deployment.envs.globals.backendKubeNamespace -}}
+{{- .Values.deployment.envs.globals.backendKubeNamespace -}}
+{{- else if eq .Values.rbac.type "Role" -}}
+{{- .Release.Namespace -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The namespace for the namespaced RBAC objects: the backend namespace, otherwise
+the release namespace.
+Usage: {{ include "tinkerbell.rbacNamespace" . }}
+*/}}
+{{- define "tinkerbell.rbacNamespace" -}}
+{{- coalesce (include "tinkerbell.backendNamespace" .) .Release.Namespace -}}
+{{- end -}}
+
+{{/*
+enableCRDMigrations, or the profile default when empty or null: on with ClusterRole,
+off with Role, which cannot grant access to cluster-scoped CRDs.
+Usage: {{ include "tinkerbell.enableCRDMigrations" . }}
+*/}}
+{{- define "tinkerbell.enableCRDMigrations" -}}
+{{- $value := .Values.deployment.envs.globals.enableCRDMigrations -}}
+{{- if or (kindIs "invalid" $value) (eq (toString $value) "") -}}
+{{- eq .Values.rbac.type "ClusterRole" -}}
+{{- else -}}
+{{- $value -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Ensure a value is a JSON array. Fails on nil or non-array input.
 - slice/array: use as-is
 - nil/missing: fail with an error (required field)

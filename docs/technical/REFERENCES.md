@@ -214,6 +214,11 @@ These examples are multiple rules.
 
 ### Configuring Access
 
+`--backend-kube-namespace` also limits Hardware reference access. When set, each referenced
+namespaced object must be in that namespace; cross-namespace and cluster-scoped references
+are rejected. When empty, references may target any namespace or a cluster-scoped object,
+subject to the configured allow/deny rules and Kubernetes RBAC.
+
 Use the CLI flags or environment variables to define both the allow and deny rules. The allow list takes precedence over the deny list.
 
 > [!NOTE]  

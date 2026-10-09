@@ -86,7 +86,7 @@ var TinkerbellAutoDiscoveryEnabled = Config{
 
 var TinkerbellAutoDiscoveryNamespace = Config{
 	Name:  "tink-server-auto-discovery-namespace",
-	Usage: "namespace in which the Tink server will create auto discovered Hardware objects",
+	Usage: "namespace in which the Tink server will create auto discovered Hardware objects; defaults to the backend namespace when that is set",
 }
 
 var TinkerbellAutoDiscoveryAutoEnrollmentEnabled = Config{

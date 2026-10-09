@@ -418,8 +418,9 @@ adds no template execution and no network I/O to any of them.
 Rendering therefore happens in the background, and requests only look results up.
 
 **The render store.** The backend keeps a store of rendered Hardware, addressed by
-namespace/name with a Hardware UID recorded on each entry. Lookup and last-successful
-fallback both require the same UID: deletion and recreation at the same name must never
+namespace/name with a Hardware UID recorded on each entry. Lookup and serving the previous
+rendering while a new one is pending both require the same UID: deletion and recreation
+at the same name must never
 inherit the deleted object's result, even when queue events coalesce.
 Each entry records the Hardware UID and `resourceVersion`, the rendered result, and the
 last rendering error. Reference changes invalidate entries through the reverse index and
@@ -433,9 +434,9 @@ work queue, and a fixed pool of workers renders them:
 - A referenced object added, updated or deleted. The store keeps a reverse index from each
   referenced `(group, resource, namespace, name)` to the Hardware that reference it. The
   first time a new referenced resource appears, the store registers an event handler on
-  the independent metadata factory's informer. This factory watches all namespaces,
-  regardless of `--backend-kube-namespace`, so allowed cross-namespace references stay
-  current. Its informers stop with the render context and are joined at store shutdown.
+  the independent metadata factory's informer. This factory watches the backend namespace,
+  or all namespaces when it is empty; references outside the backend namespace are
+  rejected. Its informers stop with the render context and are joined at store shutdown.
 - A referenced Secret's metadata changing (§7.5).
 
 Watch registration is serialized separately from entry access. A resource is marked
@@ -461,10 +462,12 @@ LIST/WATCH rather than watch-list initialization so no snapshot path bypasses th
 Hardware update handling must include changes to the skip annotation, other metadata
 read by templates, and status attributes. For CRDs, metadata-only updates do not increment
 `metadata.generation`; Hardware status updates do not increment it either. A generation-only
-predicate would miss these inputs. Updates compare private normalized documents, ignoring
-only `metadata.resourceVersion`, `metadata.managedFields`, and the renderer-owned `Rendered`
-condition. Other status changes and mixed condition-plus-input changes still enqueue
-rendering. The `Rendered` condition is bookkeeping, not a render invalidation input.
+predicate would miss these inputs. Updates compare typed copies of the Hardware exactly,
+ignoring only `metadata.resourceVersion` and `metadata.managedFields`; semantic equality
+would miss changes templates can see, such as `1Gi` respelled as `1073741824`. v1alpha1
+Hardware has no
+conditions; the Hardware controller adds filtering of its `Rendered` condition when it adds
+the condition, because that condition is bookkeeping, not a render invalidation input.
 Reference metadata updates do not use this filter: their resource versions signal data
 changes even when the metadata payload otherwise looks identical.
 
@@ -525,16 +528,14 @@ also on startup failure. PR8 integrates this with the Hardware status controller
 
 **Metrics.** PR7 supplies the registerer for one store using the existing metrics registry.
 The store registers `tinkerbell_hardware_render_queue_depth`,
-`tinkerbell_hardware_render_duration_seconds`, `tinkerbell_hardware_render_attempts_total`
-(only the bounded `result=success|error` label), and
-`tinkerbell_hardware_render_fallback_entries`. Attempts include watch-registration failure
-and read errors; the fallback gauge counts entries serving last-good data after a rendering
-error and decreases on recovery or deletion. No Hardware or reference names are labels.
+`tinkerbell_hardware_render_duration_seconds` and `tinkerbell_hardware_render_attempts_total`
+(only the bounded `result=success|error` label). Attempts include watch-registration failure
+and read errors. No Hardware or reference names are labels.
 
 Informers on referenced types need `list` and `watch` RBAC for those types, not only
-`get`. The independent factory lists and watches across all namespaces, so those permissions
-must be granted cluster-wide for referenced types. Operators grant them through the chart's
-existing `rbac.additionalRoleRules`; the
+`get`. The independent factory lists and watches in the backend namespace, or across all
+namespaces when it is empty, so the permissions must be granted there. Operators grant them
+through the chart's existing `rbac.additionalRoleRules`; the
 templating documentation states that referenced types need all three verbs:
 
 ```yaml
@@ -550,17 +551,26 @@ rbac:
 If any field fails to render, the whole render fails. Falling back field by field would
 serve raw template text to a machine.
 
-- **A Hardware that has rendered successfully before** keeps serving its last successful
-  rendering. The store records the error, and the Hardware controller sets `Rendered` to
-  `False` with the reason, the failing field, and which rendering is being served (§8.3).
-  A typo in a reference therefore does not take DHCP renewals away from running machines.
-  The cost is that stale values, including old Secret data, keep being served until the
-  error is fixed; the condition and the metric make that visible.
-- **A Hardware that has never rendered successfully** is not ready (§5.7): consumers treat
-  it as not found, and Smee logs the render error.
-- **The last successful rendering is held in memory only.** After a restart, a Hardware
-  whose templates are currently failing has no previous rendering to fall back on, and is
-  not ready until it is fixed.
+A Hardware is served as its most recent rendering. If that rendering fails, the Hardware
+is not ready (§5.7) until it renders again: services treat it as not found, a Workflow
+sets `TemplateRenderingFailed`, and Smee logs the render error. This holds whether or not
+the Hardware rendered successfully before, and before and after a restart.
+
+A re-render runs when the Hardware changes, when a referenced object is added, updated or
+deleted, and after each successful LIST of a referenced type (§5.7). A deleted reference
+therefore stops its old values being served once the queued re-render completes; until
+then the previous rendering is still served, as for any pending render. Losing permission
+to read a reference produces no event, so it takes effect at the next re-render or restart.
+
+While a new rendering is pending after an edit, the previous successful rendering is still
+served, so an input change, such as a status attribute update during provisioning, does not
+make a Hardware briefly unavailable. Once the new rendering completes, it replaces the entry
+whether it succeeded or failed.
+
+A machine that is booting or provisioning during a failure cannot get DHCP, iPXE or
+metadata for it. In DHCP reservation mode, lease renewals also look up the Hardware, so a
+failure that lasts past a running machine's lease (Smee's default is one week) leaves it
+without an address. Fix render failures well within the lease time.
 
 An OSIE archive that is too large (§5.10) is not a render failure. It is reported the same
 way, but the current rendering keeps being served.
@@ -810,7 +820,7 @@ so what it reports is exactly what Smee and Tootles serve, and nothing is render
 | `False` | `ArchiveTooLarge` | The OSIE archive exceeds `--backend-kube-bootstrap-slot-capacity` (§5.10) |
 
 When `False`, the message names the failing field path and says what is
-being served: the previous rendering after a render failure (§5.8), or the current one for
+being served: nothing after a render failure (§5.8), or the current rendering for
 `ArchiveTooLarge`, in which case ISO delivery fails and iPXE delivery is unaffected.
 
 - Uses the normal (unrendered) client; it only writes status.
@@ -893,9 +903,10 @@ type, with the same not-ready handling as Smee.
   Hardware's MAC address, and by Tootles to any client with its IP address. Treat anything
   a Hardware may resolve as disclosed to the provisioning network; write Hardware-wide
   rules accordingly (§6.5).
-- **Stale data.** After a render failure, the previous rendering, including any Secret
-  values it contains, keeps being served (§5.8). Rotating a Secret does not take effect
-  for a Hardware whose render is failing.
+- **Stale data.** While a re-render is pending, the previous rendering, including any
+  Secret values it contains, is still served (§5.8). A rotated Secret or a deleted
+  reference takes effect once the queued re-render completes; lost read permission, which
+  produces no event, only at the next re-render or restart. A failed render is not served.
 - **Resource exhaustion.** Rendering is not sandboxed. The output caps and per-field
   deadline (§5.3) are operational safeguards against mistakes; they do not bound memory or
   CPU, so a Hardware author can exhaust the backend's process. Hardware authors are
@@ -916,7 +927,7 @@ type, with the same not-ready handling as Smee.
 | Document and self key | `metadata` + `spec`, `.hardware` | Same |
 | Renderer | `render.Value` with `WithSkip` | Same |
 | Where rendering runs | Background render store in the kube backend | Same |
-| Render failures | Last successful rendering served | Same |
+| Render failures | Not served until it renders again | Same |
 | Policy and resolution | kube backend | kube backend |
 | Read type for consumers | rendered `*tinkerbell.Hardware` behind `FilterHardware`-only wrappers | read-only domain type |
 | Hardware controller | `Rendered` condition | plus BMC power and inventory |
@@ -940,7 +951,6 @@ references the backend resolves.
 | Templating always on in v1alpha1 | Breaks existing `userData`/`vendorData` containing Jinja, including CAPT's, on upgrade. |
 | Rendering on request, with a cache | A cache miss would put template execution, and for Secrets network I/O, on the DHCP and iPXE path. |
 | Indexing rendered lookup keys | A machine's identity would depend on other objects; a ConfigMap edit could change which Hardware answers DHCP. |
-| Failing closed on render errors | One mistake in a template or reference would take a running machine off the network. |
 | One manager for the whole process | Forces one leader-election lease across unrelated controllers. |
 | Admission webhook with SubjectAccessReview | Not wanted; a Hardware controller condition gives the feedback without webhook operations. |
 | Hardware reconciler inside the Tink Controller | Works for v1alpha1, but the v1alpha2 BMC reconcilers would then have to move out again. |
@@ -967,8 +977,8 @@ The OSIE archive check, `--backend-kube-bootstrap-slot-capacity` and the `Archiv
 reason (§5.10) are delivered with the bootstrap CPIO and `osieFiles` work, on top of these.
 
 Documentation: how to enable templating and exclude or escape existing `{{` before doing so, which
-fields can be templated, the edit-during-boot note, last-successful fallback and its
-behaviour across restarts, reference rules, and `rbac.additionalRoleRules` for referenced
+fields can be templated, the edit-during-boot note, that a failing Hardware is not served,
+reference rules, and `rbac.additionalRoleRules` for referenced
 types.
 
 ## 14. Decisions
@@ -982,7 +992,7 @@ Questions raised during review, and how they were settled:
 | How can Jinja payloads stay literal? | List their exact paths in `tinkerbell.org/render-skip`, a JSON-array annotation (§5.2). |
 | How is templating enabled in v1alpha1? | A process-wide flag, `--backend-kube-hardware-templating-enabled`, off by default (§5.1). |
 | How is request latency protected? | Rendering runs in background workers; requests only look up results (§5.7). |
-| What happens when a render fails? | The last successful rendering keeps being served, and the `Rendered` condition reports the failure (§5.8). |
+| What happens when a render fails? | The Hardware is not served until it renders again, and the `Rendered` condition reports the failure (§5.8). |
 | Should Rufio's Secret reads use the cache? | No. Secret data is read live; Secret changes are observed through a metadata-only informer (§7.5). |
 | How are reference changes detected? | Informer event handlers registered by the render store at runtime per referenced GVK (§5.7). No periodic resync. |
 | How do operators grant access to referenced types? | The chart's existing `rbac.additionalRoleRules`, with `get`, `list` and `watch` (§5.7). |

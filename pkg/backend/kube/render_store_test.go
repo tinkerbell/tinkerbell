@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"sync"
@@ -16,8 +17,8 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -156,7 +157,7 @@ func (f *fakeMetadataInformer) Lister() toolscache.GenericLister {
 func newTestStore(hws *fakeHardware, res *fakeResolver, inf *fakeInformers) *renderStore {
 	mapper := meta.NewDefaultRESTMapper(nil)
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-	store := newRenderStore(logr.Discard(), inf, mapper, nil, hws.get, res.resolve, prometheus.NewRegistry())
+	store := newRenderStore(logr.Discard(), inf, mapper, nil, "", hws.get, res.resolve, prometheus.NewRegistry())
 	store.referenceInformers = &fakeMetadataFactory{}
 	return store
 }
@@ -277,29 +278,59 @@ func TestRenderStoreUnusedDeniedReference(t *testing.T) {
 	}
 }
 
-func TestRenderStoreFailureServesPrevious(t *testing.T) {
+func TestRenderStoreFailureIsNotServed(t *testing.T) {
 	ctx := context.Background()
 	hws, res := &fakeHardware{}, &fakeResolver{refs: netRefs("example.org")}
 	s := newTestStore(hws, res, &fakeInformers{})
 	key := types.NamespacedName{Namespace: "tink", Name: "m1"}
 	hws.set(templated("1"))
-	s.render(ctx, key)
+	if !s.render(ctx, key) {
+		t.Fatal("initial render failed")
+	}
 
 	broken := templated("2")
 	broken.Spec.UserData = ptr("{{ .references.missing.x }}")
 	hws.set(broken)
+	if got, ok := s.rendered(broken); !ok || *got.Spec.UserData != "domain=example.org" {
+		t.Fatalf("rendered = %v, %v; want the previous rendering while the edit is pending", got, ok)
+	}
 	if s.render(ctx, key) {
 		t.Fatal("render of a broken template must fail")
 	}
-	if got, ok := s.rendered(broken); !ok || *got.Spec.UserData != "domain=example.org" {
-		t.Fatalf("rendered = %v, %v; want the previous rendering", got, ok)
+	if got, ok := s.rendered(broken); ok {
+		t.Fatalf("rendered = %v; a failed rendering must not be served", got)
 	}
 
-	hws.set(templated("3"))
+	fixed := templated("3")
+	if _, ok := s.rendered(fixed); ok {
+		t.Fatal("a pending edit after a failure must not be served")
+	}
+	hws.set(fixed)
 	res.set(netRefs("fixed.org"), nil)
-	s.render(ctx, key)
-	if got, _ := s.rendered(templated("3")); *got.Spec.UserData != "domain=fixed.org" {
-		t.Fatalf("userData = %q after the fix", *got.Spec.UserData)
+	if !s.render(ctx, key) {
+		t.Fatal("render after the fix failed")
+	}
+	if got, ok := s.rendered(fixed); !ok || *got.Spec.UserData != "domain=fixed.org" {
+		t.Fatalf("rendered = %v, %v after the fix", got, ok)
+	}
+}
+
+func TestRenderStoreUnreadableReferenceOnRerender(t *testing.T) {
+	ctx := context.Background()
+	hws, res := &fakeHardware{}, &fakeResolver{refs: netRefs("secret.org")}
+	s := newTestStore(hws, res, &fakeInformers{})
+	hw := templated("1")
+	hws.set(hw)
+	key := client.ObjectKeyFromObject(hw)
+	if !s.render(ctx, key) {
+		t.Fatal("initial render failed")
+	}
+	res.set(map[string]any{}, apierrors.NewForbidden(schema.GroupResource{Resource: "configmaps"}, "net1", errors.New("forbidden")))
+	if s.render(ctx, key) {
+		t.Fatal("a re-render that cannot read a reference must fail")
+	}
+	if got, ok := s.rendered(hw); ok {
+		t.Fatalf("rendered = %v; the previous rendering must not be served", got)
 	}
 }
 
@@ -400,7 +431,7 @@ func TestRenderStoreCrossNamespaceReference(t *testing.T) {
 	hws, res, hardwareInformers := &fakeHardware{}, &fakeResolver{refs: netRefs("old.org")}, &fakeInformers{}
 	mapper := meta.NewDefaultRESTMapper(nil)
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-	s := newRenderStore(logr.Discard(), hardwareInformers, mapper, metadataClient, hws.get, res.resolve, prometheus.NewRegistry())
+	s := newRenderStore(logr.Discard(), hardwareInformers, mapper, metadataClient, "", hws.get, res.resolve, prometheus.NewRegistry())
 	t.Cleanup(func() {
 		cancel()
 		s.queue.ShutDown()
@@ -450,6 +481,53 @@ func TestRenderStoreCrossNamespaceReference(t *testing.T) {
 	}
 }
 
+func TestRenderStoreReferenceInformerRespectsNamespace(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	metadataClient := metadatafake.NewSimpleMetadataClient(runtime.NewScheme())
+	mapper := meta.NewDefaultRESTMapper(nil)
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+	s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, "tink-system", nil, nil, prometheus.NewRegistry())
+	t.Cleanup(func() {
+		cancel()
+		s.queue.ShutDown()
+		s.referenceInformers.Shutdown()
+	})
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	if err := s.ensureWatch(ctx, gvr); err != nil {
+		t.Fatal(err)
+	}
+	if !toolscache.WaitForCacheSync(ctx.Done(), s.referenceInformers.ForResource(gvr).Informer().HasSynced) {
+		t.Fatal("namespace-scoped metadata informer did not sync")
+	}
+	for _, action := range metadataClient.Actions() {
+		if action.GetNamespace() != "tink-system" {
+			t.Errorf("%s namespace = %q, want tink-system", action.GetVerb(), action.GetNamespace())
+		}
+	}
+}
+
+func TestRenderStoreTrackSkipsOutOfScopeReferences(t *testing.T) {
+	store := newTestStore(&fakeHardware{}, &fakeResolver{}, &fakeInformers{})
+	store.namespace = "tink-system"
+	key := types.NamespacedName{Namespace: "tink-system", Name: "machine1"}
+	references := map[string]tinkerbell.Reference{
+		"same-namespace":  {Name: "cm2", Namespace: "tink-system", Version: "v1", Resource: "configmaps"},
+		"other-namespace": {Name: "cm1", Namespace: "shared", Version: "v1", Resource: "configmaps"},
+		"cluster-scoped":  {Name: "node1", Version: "v1", Resource: "nodes"},
+	}
+
+	if err := store.track(context.Background(), key, references); err != nil {
+		t.Fatal(err)
+	}
+	configMaps := schema.GroupResource{Resource: "configmaps"}
+	if len(store.watched) != 1 || store.watched[configMaps] != struct{}{} {
+		t.Fatalf("watched resources = %v, want only in-scope configmaps", store.watched)
+	}
+	if len(store.refs[key]) != 1 || store.refs[key][0].namespace != "tink-system" {
+		t.Fatalf("tracked references = %v, want only in-scope reference", store.refs[key])
+	}
+}
+
 func TestRenderStoreEmptyListReconcilesReferrers(t *testing.T) {
 	for _, phase := range []string{"initial", "relist"} {
 		t.Run(phase, func(t *testing.T) {
@@ -489,7 +567,7 @@ func TestRenderStoreEmptyListReconcilesReferrers(t *testing.T) {
 			hws, res := &fakeHardware{}, &fakeResolver{refs: netRefs("before-delete")}
 			mapper := meta.NewDefaultRESTMapper(nil)
 			mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-			s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, hws.get, res.resolve, prometheus.NewRegistry())
+			s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, "", hws.get, res.resolve, prometheus.NewRegistry())
 			t.Cleanup(func() {
 				cancel()
 				release.Do(func() { close(allowList) })
@@ -714,15 +792,15 @@ func TestRenderStoreMetricsAndNotifications(t *testing.T) {
 	broken.ResourceVersion = "2"
 	broken.Spec.UserData = ptr("{{ .references.missing }}")
 	hws.set(broken)
-	if s.render(ctx, key) || testutil.ToFloat64(s.fallbacks) != 1 {
-		t.Fatal("failed rendering must count the last-good fallback")
+	if s.render(ctx, key) {
+		t.Fatal("broken template must fail")
 	}
 	if !s.needsNotification(key) {
 		t.Fatal("failure must notify consumers")
 	}
 	hws.set(hw)
-	if !s.render(ctx, key) || testutil.ToFloat64(s.fallbacks) != 0 {
-		t.Fatal("recovery must clear the fallback gauge")
+	if !s.render(ctx, key) {
+		t.Fatal("recovery render failed")
 	}
 	s.forget(key)
 	select {
@@ -769,35 +847,39 @@ func TestRenderStoreNotificationsSlowConsumer(t *testing.T) {
 }
 
 func TestRenderStoreHardwareUpdateFilter(t *testing.T) {
-	const hardwareKind = "Hardware"
-	before := &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "tinkerbell.org/v1alpha1", "kind": hardwareKind,
-		"metadata": map[string]any{"name": "m1", "namespace": "tink", "uid": "uid-1", "resourceVersion": "1"},
-		"spec":     map[string]any{"userData": "literal"},
-	}}
+	before := &tinkerbell.Hardware{
+		ObjectMeta: metav1.ObjectMeta{Name: "m1", Namespace: "tink", UID: "uid-1", ResourceVersion: "1"},
+		Spec:       tinkerbell.HardwareSpec{UserData: ptr("literal"), Resources: map[string]apiresource.Quantity{"memory": apiresource.MustParse("1Gi")}},
+		Status: tinkerbell.HardwareStatus{Attributes: &tinkerbell.HardwareAttributes{
+			InBand: &tinkerbell.Attributes{CPU: &tinkerbell.CPU{TotalCores: math.MaxUint32}},
+		}},
+	}
 	for _, test := range []struct {
-		name  string
-		path  []string
-		value any
-		want  bool
+		name   string
+		mutate func(*tinkerbell.Hardware)
+		want   bool
 	}{
-		{name: "resource version", path: []string{"metadata", "resourceVersion"}, value: "2"},
-		{name: "managed fields", path: []string{"metadata", "managedFields"}, value: []any{map[string]any{"manager": "hardware-controller"}}},
-		{name: "renderer condition", path: []string{"status", "conditions"}, value: []any{map[string]any{"type": "Rendered", "status": "False"}}},
-		{name: "other condition", path: []string{"status", "conditions"}, value: []any{map[string]any{"type": "Ready", "status": "True"}}, want: true},
-		{name: "mixed conditions", path: []string{"status", "conditions"}, value: []any{map[string]any{"type": "Rendered"}, map[string]any{"type": "Ready"}}, want: true},
-		{name: "condition and attributes", path: []string{"status"}, value: map[string]any{"conditions": []any{map[string]any{"type": "Rendered"}}, "attributes": map[string]any{"inBand": map[string]any{"collectionMethod": "agent"}}}, want: true},
-		{name: "skip annotation", path: []string{"metadata", "annotations"}, value: map[string]any{templateSkipAnnotation: `["spec.userData"]`}, want: true},
-		{name: "label", path: []string{"metadata", "labels"}, value: map[string]any{"rack": "new"}, want: true},
-		{name: "attribute", path: []string{"status", "attributes", "inBand", "collectionMethod"}, value: "agent", want: true},
-		{name: "spec", path: []string{"spec", "userData"}, value: "changed", want: true},
-		{name: "UID", path: []string{"metadata", "uid"}, value: "uid-2", want: true},
+		{name: "unchanged", mutate: func(*tinkerbell.Hardware) {}},
+		{name: "resource version", mutate: func(hw *tinkerbell.Hardware) { hw.ResourceVersion = "2" }},
+		{name: "managed fields", mutate: func(hw *tinkerbell.Hardware) {
+			hw.ManagedFields = []metav1.ManagedFieldsEntry{{Manager: "hardware-controller"}}
+		}},
+		{name: "skip annotation", mutate: func(hw *tinkerbell.Hardware) {
+			hw.Annotations = map[string]string{templateSkipAnnotation: `["spec.userData"]`}
+		}, want: true},
+		{name: "label", mutate: func(hw *tinkerbell.Hardware) { hw.Labels = map[string]string{"rack": "new"} }, want: true},
+		{name: "quantity respelled", mutate: func(hw *tinkerbell.Hardware) {
+			hw.Spec.Resources["memory"] = apiresource.MustParse("1073741824")
+		}, want: true},
+		{name: "nil to empty slice", mutate: func(hw *tinkerbell.Hardware) { hw.Spec.Interfaces = []tinkerbell.Interface{} }, want: true},
+		{name: "attribute", mutate: func(hw *tinkerbell.Hardware) { hw.Status.Attributes.InBand.CollectionMethod = "agent" }, want: true},
+		{name: "unsigned attribute", mutate: func(hw *tinkerbell.Hardware) { hw.Status.Attributes.InBand.CPU.TotalCores-- }, want: true},
+		{name: "spec", mutate: func(hw *tinkerbell.Hardware) { hw.Spec.UserData = ptr("changed") }, want: true},
+		{name: "UID", mutate: func(hw *tinkerbell.Hardware) { hw.UID = "uid-2" }, want: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			after := before.DeepCopy()
-			if err := unstructured.SetNestedField(after.Object, test.value, test.path...); err != nil {
-				t.Fatal(err)
-			}
+			test.mutate(after)
 			s := newTestStore(&fakeHardware{}, &fakeResolver{}, &fakeInformers{})
 			defer s.queue.ShutDown()
 			original, originalAfter := before.DeepCopy(), after.DeepCopy()
@@ -805,7 +887,7 @@ func TestRenderStoreHardwareUpdateFilter(t *testing.T) {
 			if got := s.queue.Len() != 0; got != test.want {
 				t.Fatalf("queued = %v, want %v", got, test.want)
 			}
-			if !reflect.DeepEqual(before.Object, original.Object) || !reflect.DeepEqual(after.Object, originalAfter.Object) {
+			if !reflect.DeepEqual(before, original) || !reflect.DeepEqual(after, originalAfter) {
 				t.Fatal("filter modified an informer input")
 			}
 		})

@@ -88,6 +88,8 @@ Workflow Templates can read the collected inventory to make provisioning decisio
 
 The full Hardware object is exposed to Templates under the lowercase `hardware` key, addressed by its JSON field names. Inventory is therefore at `.hardware.status.attributes.<path>`, for example `.hardware.status.attributes.outOfBand`.
 
+Numeric fields keep their Go integer types, so compare them against integer literals: `{{ if gt .hardware.status.attributes.inBand.cpu.totalCores 8 }}`, not `8.0`.
+
 ```yaml
 apiVersion: tinkerbell.org/v1alpha1
 kind: Template

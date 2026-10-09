@@ -1,6 +1,7 @@
 package webhttp
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,6 +10,8 @@ import (
 	bmcv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	tinkv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/ui/templates"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func init() {
@@ -590,5 +593,42 @@ func TestGetKubeNamespaces_NilClient(t *testing.T) {
 
 	if len(namespaces) != 0 {
 		t.Errorf("namespaces = %v, want []", namespaces)
+	}
+}
+
+func TestKubeClientInNamespace(t *testing.T) {
+	ctx := context.Background()
+	mapper := meta.NewDefaultRESTMapper(nil)
+	for _, kind := range []string{"Hardware", "HardwareList", "Workflow", "WorkflowList"} {
+		mapper.Add(tinkv1alpha1.GroupVersion.WithKind(kind), meta.RESTScopeNamespace)
+	}
+	c := fake.NewClientBuilder().WithScheme(newTestScheme()).WithRESTMapper(mapper).WithRuntimeObjects(
+		newTestHardware("in", "tink", "", ""), newTestHardware("out", "other", "", ""),
+	).Build()
+	k := (&KubeClient{Client: c}).InNamespace("tink")
+
+	namespaces, err := k.ListNamespaces(ctx)
+	if err != nil || len(namespaces) != 1 || namespaces[0] != "tink" {
+		t.Fatalf("ListNamespaces = %v, %v; want [tink]", namespaces, err)
+	}
+	for _, ns := range []string{"", templates.AllNamespace, "tink"} {
+		list, err := k.ListHardware(ctx, ns)
+		if err != nil || len(list.Items) != 1 || list.Items[0].Name != "in" {
+			t.Fatalf("ListHardware(%q) = %v, %v; want only tink/in", ns, list, err)
+		}
+	}
+	if _, err := k.ListHardware(ctx, "other"); err == nil {
+		t.Fatal("ListHardware in another namespace must fail")
+	}
+	if _, err := k.GetHardware(ctx, "other", "out"); err == nil {
+		t.Fatal("GetHardware in another namespace must fail")
+	}
+	if _, err := k.GetHardware(ctx, "tink", "in"); err != nil {
+		t.Fatal(err)
+	}
+	wf := newTestWorkflow("wf", "tpl", tinkv1alpha1.WorkflowStatePending)
+	wf.Namespace = "other"
+	if err := k.Create(ctx, wf); err == nil {
+		t.Fatal("Create in another namespace must fail")
 	}
 }

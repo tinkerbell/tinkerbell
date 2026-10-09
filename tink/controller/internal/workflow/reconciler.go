@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -277,17 +277,20 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 		data[key] = val
 	}
 	contract := toTemplateHardwareData(hardware)
-	data[templateDataHardware] = func() interface{} {
-		// structToMap is used so that fields are accessible in Templates by their json struct tag names instead of
-		// their Go struct field names and their case.
-		// for example, {{ hardware.spec.metadata.instance.id }} instead of {{ hardware.Spec.Metadata.Instance.ID }}.
-		v, err := structToMap(hardware)
-		if err != nil {
-			logger.V(1).Info("error converting hardware to map for use in template data", "error", err)
-			return map[string]interface{}{}
-		}
-		return v
-	}()
+	// Not a JSON round trip: that turns integers into float64 and replaces non-UTF-8 bytes.
+	hardwareData, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&hardware)
+	if err != nil {
+		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
+		stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.TemplateRenderedSuccess,
+			Status:  metav1.ConditionFalse,
+			Reason:  reasonError,
+			Message: fmt.Sprintf("error converting hardware template data: %v", err),
+			Time:    &metav1.Time{Time: metav1.Now().UTC()},
+		})
+		return fmt.Errorf("convert hardware template data: %w", err)
+	}
+	data[templateDataHardware] = hardwareData
 	data[templateDataHardwareLegacy] = contract
 	references, refErr := r.references.ResolveReferences(ctx, &hardware)
 	data[templateDataReferences] = references
@@ -335,24 +338,6 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	stored.Status.State = v1alpha1.WorkflowStatePending
 
 	return reconcile.Result{}, nil
-}
-
-// structToMap converts a struct to a map[string]interface{}.
-func structToMap(item interface{}) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
-
-	// Marshal the struct to JSON.
-	jsonBytes, err := json.Marshal(item)
-	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal the JSON to a map[string]interface{}.
-	if err = json.Unmarshal(jsonBytes, &result); err != nil {
-		return nil, err
-	}
-
-	return result, nil
 }
 
 // templateHardwareData defines the data exposed for a Hardware instance to a Template.

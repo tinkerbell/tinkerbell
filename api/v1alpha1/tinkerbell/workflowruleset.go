@@ -41,8 +41,13 @@ type WorkflowRuleSetWorkflow struct {
 	// Disabled indicates whether the Workflow will be enabled or not when created.
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
-	// TemplateRef is the name of the Template to use for the Workflow.
-	// Namespace is the namespace in which the Workflow will be created.
+	// Namespace must be empty or the WorkflowRuleSet's own namespace. A WorkflowRuleSet
+	// naming another namespace is skipped.
+	//
+	// Deprecated: This field is deprecated and will be removed in a future release.
+	// Workflows are always created in the WorkflowRuleSet's namespace.
+	//
+	// +optional
 	Namespace string `json:"namespace,omitempty"`
 	// AddAttributes indicates if the Agent attributes should be added as an Annotation in the created Workflow.
 	// +optional
