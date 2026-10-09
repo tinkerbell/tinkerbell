@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -43,6 +45,11 @@ type Backend struct {
 	// ResolveReferences applies. An empty deny list denies every reference.
 	HardwareReferenceAllowListRules []string
 	HardwareReferenceDenyListRules  []string
+	// Rendering serves Hardware with the templates in its spec rendered.
+	Rendering bool
+	// Logger receives background rendering errors. Optional.
+	Logger logr.Logger
+	store  *renderStore
 	// QPS is the maximum queries per second to the Kubernetes API server.
 	// If set to 0, defaults to 5. Negative values disable rate limiting.
 	QPS float32
@@ -115,7 +122,7 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 		return nil, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
-	return &Backend{
+	b := &Backend{
 		cluster:                         c,
 		ConfigFilePath:                  cfg.ConfigFilePath,
 		APIURL:                          cfg.APIURL,
@@ -124,7 +131,16 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 		dynamicClient:                   dc,
 		HardwareReferenceAllowListRules: cfg.HardwareReferenceAllowListRules,
 		HardwareReferenceDenyListRules:  cfg.HardwareReferenceDenyListRules,
-	}, nil
+		Rendering:                       cfg.Rendering,
+		Logger:                          cfg.Logger,
+	}
+	if b.Rendering {
+		if b.store, err = b.newRenderStore(); err != nil {
+			return nil, err
+		}
+	}
+
+	return b, nil
 }
 
 func loadConfig(cfg Backend) (Backend, error) {
@@ -152,9 +168,15 @@ func loadConfig(cfg Backend) (Backend, error) {
 	return cfg, nil
 }
 
-// Start starts the client-side cache.
+// Start starts the client-side cache and, with rendering, background rendering.
 func (b *Backend) Start(ctx context.Context) error {
-	return b.cluster.Start(ctx)
+	if b.store == nil {
+		return b.cluster.Start(ctx)
+	}
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return b.cluster.Start(ctx) })
+	g.Go(func() error { return b.store.Start(ctx, renderWorkers) })
+	return g.Wait()
 }
 
 func NewFileRestConfig(kubeconfigPath, namespace string) (*rest.Config, error) {

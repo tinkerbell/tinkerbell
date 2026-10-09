@@ -34,6 +34,7 @@ type Config struct {
 }
 
 type referenceResolver interface {
+	RenderedHardware(ctx context.Context, hw *tinkerbell.Hardware) (*tinkerbell.Hardware, error)
 	ResolveReferences(ctx context.Context, hw *tinkerbell.Hardware) (map[string]any, error)
 }
 

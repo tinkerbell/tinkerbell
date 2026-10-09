@@ -24,7 +24,7 @@ func (b *Backend) FilterBMCMachine(ctx context.Context, opts data.HardwareFilter
 	ctx, span := tracer.Start(ctx, "backend.kube.FilterBMCMachine")
 	defer span.End()
 
-	hw, err := b.FilterHardware(ctx, opts)
+	hw, err := b.RenderedReader().FilterHardware(ctx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to filter hardware: %w", err)
 	}
@@ -33,6 +33,9 @@ func (b *Backend) FilterBMCMachine(ctx context.Context, opts data.HardwareFilter
 		response.SSHPublicKeys = hw.Spec.Metadata.Instance.SSHKeys
 	}
 
+	if hw.Spec.BMCRef == nil || hw.Spec.BMCRef.Name == "" {
+		return nil, fmt.Errorf("hardware does not have a valid BMC reference")
+	}
 	bmcMachine, err := b.filterMachine(ctx, hw.Spec.BMCRef.Name)
 	if err != nil {
 		return nil, err
