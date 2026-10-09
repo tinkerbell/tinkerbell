@@ -121,3 +121,11 @@ func TestFilterBMCMachineRendered(t *testing.T) {
 		t.Fatalf("FilterBMCMachine = %+v, want the rendered Machine name and SSH key", got)
 	}
 }
+
+func TestFilterBMCMachineWithoutBMCRef(t *testing.T) {
+	hw := templated("1")
+	b := newFakeBackend(t, Backend{}, hw)
+	if _, err := b.FilterBMCMachine(context.Background(), data.HardwareFilter{ByName: hw.Name, InNamespace: hw.Namespace}); err == nil {
+		t.Fatal("want an error for Hardware without a BMC reference")
+	}
+}

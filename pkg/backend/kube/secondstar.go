@@ -33,6 +33,9 @@ func (b *Backend) FilterBMCMachine(ctx context.Context, opts data.HardwareFilter
 		response.SSHPublicKeys = hw.Spec.Metadata.Instance.SSHKeys
 	}
 
+	if hw.Spec.BMCRef == nil || hw.Spec.BMCRef.Name == "" {
+		return nil, fmt.Errorf("hardware does not have a valid BMC reference")
+	}
 	bmcMachine, err := b.filterMachine(ctx, hw.Spec.BMCRef.Name)
 	if err != nil {
 		return nil, err
