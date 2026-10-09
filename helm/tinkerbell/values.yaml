@@ -28,6 +28,7 @@ deployment:
       backendKubeConfig: ""
       backendKubeNamespace: "" # namespace all services read and write by default; empty means all namespaces, or the release namespace when rbac.type is Role
       backendKubeQPS: 100
+      backendKubeRenderingEnabled: false # render templates in Hardware specs; escape literal '{{' as {{ "{{" }} before enabling
       bindAddr: ""
       bindAddrV6: ""
       disableHttpToHttpsRedirect: false # set true to stop auto-redirecting plain HTTP requests to HTTPS when TLS is enabled

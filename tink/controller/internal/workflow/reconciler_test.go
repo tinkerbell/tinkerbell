@@ -64,9 +64,52 @@ func GetFakeClientBuilder() *fake.ClientBuilder {
 }
 
 type fakeReferences struct {
-	refs  map[string]any
-	err   error
-	gotHW *string
+	refs      map[string]any
+	err       error
+	gotHW     *string
+	rendered  *v1alpha1.Hardware
+	renderErr error
+}
+
+func (f fakeReferences) RenderedHardware(_ context.Context, hw *v1alpha1.Hardware) (*v1alpha1.Hardware, error) {
+	if f.rendered != nil || f.renderErr != nil {
+		return f.rendered, f.renderErr
+	}
+	return hw, nil
+}
+
+func TestProcessWorkflowRenderedHardware(t *testing.T) {
+	stored := &v1alpha1.Hardware{ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "default"}, Spec: v1alpha1.HardwareSpec{UserData: toPtr("{{ .references.x }}")}}
+	rendered := stored.DeepCopy()
+	rendered.Spec.UserData = toPtr("\x30\x82\x00\xff")
+	text := strings.Replace(minimalTemplate, "IMG_URL:", "LOWER: '{{ .hardware.spec.userData | b64enc }}'\n          LEGACY: '{{ .Hardware.UserData | b64enc }}'\n          IMG_URL:", 1)
+	tpl := &v1alpha1.Template{ObjectMeta: metav1.ObjectMeta{Name: "debian", Namespace: "default"}, Spec: v1alpha1.TemplateSpec{Data: &text}}
+	for name, tt := range map[string]struct {
+		references fakeReferences
+		wantErr    bool
+	}{
+		"rendered":     {references: fakeReferences{rendered: rendered}},
+		"not rendered": {references: fakeReferences{renderErr: errors.New("not rendered")}, wantErr: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := &Reconciler{client: GetFakeClientBuilder().WithObjects(stored, tpl).Build(), references: tt.references}
+			wf := &v1alpha1.Workflow{ObjectMeta: metav1.ObjectMeta{Name: "workflow", Namespace: "default"}, Spec: v1alpha1.WorkflowSpec{HardwareRef: "machine1", TemplateRef: "debian", HardwareMap: map[string]string{"device_1": "agent"}}}
+			err := r.processWorkflow(context.Background(), logr.Discard(), wf)
+			if tt.wantErr {
+				if err == nil || wf.Status.TemplateRendering != v1alpha1.TemplateRenderingFailed || len(wf.Status.Tasks) != 0 {
+					t.Fatalf("err = %v, status = %+v; want a retried rendering failure", err, wf.Status)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := base64.StdEncoding.EncodeToString([]byte(*rendered.Spec.UserData))
+			if env := wf.Status.Tasks[0].Actions[0].Environment; env["LOWER"] != want || env["LEGACY"] != want {
+				t.Fatalf("LOWER = %q, LEGACY = %q; want %q", env["LOWER"], env["LEGACY"], want)
+			}
+		})
+	}
 }
 
 func (f fakeReferences) ResolveReferences(_ context.Context, hw *v1alpha1.Hardware) (map[string]any, error) {
