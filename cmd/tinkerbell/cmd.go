@@ -397,12 +397,13 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 			globals.BackendKubeNamespace,
 			enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar),
 			WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst),
-			WithHardwareReferenceRules(globals.BackendKubeOptions.HardwareReferenceAllowListRules, globals.BackendKubeOptions.HardwareReferenceDenyListRules))
+			WithHardwareReferenceRules(globals.BackendKubeOptions.HardwareReferenceAllowListRules, globals.BackendKubeOptions.HardwareReferenceDenyListRules),
+			WithRendering(globals.BackendKubeOptions.Rendering, log))
 		if err != nil {
 			return startupErr(fmt.Errorf("failed to create kube backend: %w", err))
 		}
-		s.Config.Backend = b
-		h.Config.SetBackendFromFilterer(b)
+		s.Config.Backend = b.RenderedReader()
+		h.Config.SetBackendFromFilterer(b.RenderedReader())
 		ts.Config.SetBackends(b)
 		tc.Config.Client = b.ClientConfig
 		tc.Config.ReferenceResolver = b

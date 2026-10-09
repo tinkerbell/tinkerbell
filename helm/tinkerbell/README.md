@@ -379,6 +379,14 @@ Explicit `autoDiscoveryNamespace` and `leaderElectionNamespace` values are used 
 > [!IMPORTANT]
 > When the backend namespace differs from the release namespace, upgrading to this version moves the leader-election Leases into the backend namespace. During a rolling update the old and new pods can both lead until the old pod stops, and Rufio could run a BMC Task twice. Upgrade once with `--set deployment.strategy.type=Recreate`, or scale the Deployment to zero first.
 
+## Hardware Rendering
+
+`deployment.envs.globals.backendKubeRenderingEnabled: true` renders templates in Hardware
+specs; see [Hardware templating](../../docs/technical/HARDWARE_TEMPLATING.md). Tinkerbell
+then watches every resource type declared in `spec.references`, even references the
+policy denies, so it needs `list` and `watch` on them; `get` is needed only for allowed
+references. Grant types other than Secrets with `rbac.additionalRoleRules`.
+
 ## Additional RBAC Rules
 
 The `rbac.additionalRoleRules` field allows appending custom RBAC policy rules to the Tinkerbell role. Each entry follows the Kubernetes [PolicyRule](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#role-and-clusterrole) schema. There are two mutually exclusive rule types:

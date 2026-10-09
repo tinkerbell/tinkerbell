@@ -276,6 +276,7 @@ helm-lint: ## Lint the Helm chart
 helm-template: ## Helm template for Tinkerbell
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" 2>&1 >/dev/null
 	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" --set "deployment.envs.globals.bindAddr=192.0.2.10" | grep -A1 "name: TINKERBELL_BIND_ADDRESS_V4" | grep -F -q 'value: "192.0.2.10"'
+	helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=1.1.1.1" --set "artifactsFileServer=http://2.2.2.2" --set "deployment.envs.globals.backendKubeRenderingEnabled=true" | grep -A1 "name: TINKERBELL_BACKEND_KUBE_RENDERING_ENABLED" | grep -F -q 'value: "true"'
 	if helm template test helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIP=2001:db8::15" --set "artifactsFileServer=http://2.2.2.2" >/dev/null 2>&1; then
 		echo "FAIL: expected Helm to reject IPv6 publicIP" >&2
 		exit 1

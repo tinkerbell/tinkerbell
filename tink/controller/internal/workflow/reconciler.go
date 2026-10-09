@@ -40,6 +40,7 @@ const (
 )
 
 type referenceResolver interface {
+	RenderedHardware(ctx context.Context, hw *v1alpha1.Hardware) (*v1alpha1.Hardware, error)
 	ResolveReferences(ctx context.Context, hw *v1alpha1.Hardware) (map[string]any, error)
 }
 
@@ -271,6 +272,21 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 			stored.Namespace,
 		)
 	}
+
+	rendered, err := r.references.RenderedHardware(ctx, &hardware)
+	if err != nil {
+		journal.Log(ctx, "error getting rendered hardware")
+		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
+		stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
+			Type:    v1alpha1.TemplateRenderedSuccess,
+			Status:  metav1.ConditionFalse,
+			Reason:  reasonError,
+			Message: fmt.Sprintf("error getting rendered hardware: %v", err),
+			Time:    &metav1.Time{Time: metav1.Now().UTC()},
+		})
+		return err
+	}
+	hardware = *rendered
 
 	data := make(map[string]interface{})
 	for key, val := range stored.Spec.HardwareMap {
