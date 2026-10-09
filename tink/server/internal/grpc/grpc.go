@@ -159,6 +159,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 
 	// hwRef is used in auto discovery and enrollment to avoid multiple lookups of the Hardware object.
 	var hwRef *tinkerbell.Hardware
+	var hwErr error
 	// handle auto discovery
 	if opts.AutoCapabilities.Discovery.Enabled {
 		journal.Log(ctx, "auto discovery triggered")
@@ -169,6 +170,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 			journal.Log(ctx, "error auto discovering Hardware", "error", err)
 			log.Error(err, "error auto discovering Hardware")
 			hw = hwRef
+			hwErr = err
 			// We don't return the error here as we don't want to disrupt any Workflows from running.
 		}
 		hwRef = hw
@@ -187,9 +189,11 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 			// If auto discovery is enabled, we rely on the lookup and/or creation of a Hardware object from the Discover method.
 			// This means that only one Hardware lookup call is every made to the backend.
 			if !opts.AutoCapabilities.Discovery.Enabled {
-				if hw, err := h.hardware(ctx, req.GetAgentId()); err == nil {
-					hwRef = hw
-				}
+				hwRef, hwErr = h.hardware(ctx, req.GetAgentId())
+			}
+			// Enrolling as if there were no Hardware would bypass its enrollmentEnabled and namespace.
+			if err := hardwareLookupError(ctx, log, req.GetAgentId(), hwErr); err != nil {
+				return nil, err
 			}
 			return h.enroll(ctx, req.GetAgentId(), attrs, hwRef)
 		}

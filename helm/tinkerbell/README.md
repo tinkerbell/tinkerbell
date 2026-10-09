@@ -372,7 +372,7 @@ Escape hatches:
 
 - **A `ClusterRole` limited to one namespace:** set `backendKubeNamespace`. CRD migrations stay on.
 - **A `Role` in a namespace other than the release namespace:** set `backendKubeNamespace`. The `Role`s and `RoleBinding`s are created there.
-- **CRD migrations:** set `enableCRDMigrations` to `true` or `false` to override the profile.
+- **CRD migrations:** set `enableCRDMigrations` to `true` or `false` to override the profile. With `rbac.type: Role`, enabling migrations also requires separately granting the release service account cluster-scoped permissions to manage CRDs.
 
 Explicit `autoDiscoveryNamespace` and `leaderElectionNamespace` values are used as given and are not checked against the other settings. The chart grants Lease access only in the backend namespace (the release namespace when that is empty), so a `leaderElectionNamespace` elsewhere needs its own `Role`. When the backend namespace is set, Tinkerbell only sees Hardware in it, so an `autoDiscoveryNamespace` elsewhere creates Hardware that Tinkerbell then cannot find.
 
