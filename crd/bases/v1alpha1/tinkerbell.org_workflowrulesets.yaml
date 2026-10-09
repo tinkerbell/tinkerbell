@@ -67,8 +67,11 @@ spec:
                     type: boolean
                   namespace:
                     description: |-
-                      TemplateRef is the name of the Template to use for the Workflow.
-                      Namespace is the namespace in which the Workflow will be created.
+                      Namespace must be empty or the WorkflowRuleSet's own namespace. A WorkflowRuleSet
+                      naming another namespace is skipped.
+
+                      Deprecated: This field is deprecated and will be removed in a future release.
+                      Workflows are always created in the WorkflowRuleSet's namespace.
                     type: string
                   template:
                     description: Template is the Template specific configuration to

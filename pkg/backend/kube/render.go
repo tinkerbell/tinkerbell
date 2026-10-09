@@ -57,7 +57,11 @@ func renderHardware(hw *tinkerbell.Hardware, references map[string]any) (*tinker
 	if !render.HasTemplates(doc, render.WithSkip(skip)) {
 		return hw, nil
 	}
-	original := runtime.DeepCopyJSON(doc)
+	// Not runtime.DeepCopyJSON(doc): it panics on the uint64 values ToUnstructured produces.
+	original, err := runtime.DefaultUnstructuredConverter.ToUnstructured(hw)
+	if err != nil {
+		return nil, fmt.Errorf("convert hardware %s/%s: %w", hw.Namespace, hw.Name, err)
+	}
 
 	// doc is a map, so it is rendered in place.
 	if _, err := render.Value(doc, map[string]any{"references": runtime.DeepCopyJSON(references)},

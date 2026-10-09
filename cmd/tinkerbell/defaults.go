@@ -371,9 +371,39 @@ func kubeConfig() string {
 	return p
 }
 
-func leaderElectionNamespace(inCluster, enabled bool, namespace string) string {
-	if !inCluster && enabled && namespace == "" {
+// leaderElectionNamespace returns the namespace for leader-election Leases:
+// namespace if set, otherwise backendNamespace, otherwise "default" when running
+// out of cluster with leader election enabled. An empty result makes
+// controller-runtime use the pod's namespace.
+func leaderElectionNamespace(inCluster, enabled bool, namespace, backendNamespace string) string {
+	switch {
+	case namespace != "":
+		return namespace
+	case backendNamespace != "":
+		return backendNamespace
+	case !inCluster && enabled:
 		return defaultLeaderElectionNamespace
 	}
 	return namespace
+}
+
+// followBackendNamespace defaults the Tink Controller, Rufio, auto-discovery,
+// leader-election and CRD-migration settings to follow the backend namespace.
+// Settings for which isSet reports true are left as configured.
+func followBackendNamespace(globals *flag.GlobalConfig, ts *flag.TinkServerConfig, tc *flag.TinkControllerConfig, rc *flag.RufioConfig, isSet func(name string) bool, inCluster bool) {
+	ns := globals.BackendKubeNamespace
+	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster, tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace, ns)
+	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster, rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace, ns)
+	if ns == "" {
+		return
+	}
+	tc.Config.Namespace = ns
+	rc.Config.Namespace = ns
+	if !isSet(flag.TinkerbellAutoDiscoveryNamespace.Name) {
+		ts.Config.Auto.Discovery.Namespace = ns
+	}
+	// A backend namespace usually means a namespaced credential, which cannot write cluster-scoped CRDs.
+	if !isSet(flag.EnableCRDMigrations.Name) {
+		globals.EnableCRDMigrations = false
+	}
 }

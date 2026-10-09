@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -106,6 +107,22 @@ func TestRenderHardwareBinary(t *testing.T) {
 	}
 	if *got.Spec.UserData != raw {
 		t.Fatalf("userData = %q, want %q", *got.Spec.UserData, raw)
+	}
+}
+
+func TestRenderHardwareUnsignedAttributes(t *testing.T) {
+	hw := &tinkerbell.Hardware{
+		Spec: tinkerbell.HardwareSpec{UserData: ptr("cores={{ .hardware.status.attributes.inBand.cpu.totalCores }}")},
+		Status: tinkerbell.HardwareStatus{Attributes: &tinkerbell.HardwareAttributes{
+			InBand: &tinkerbell.Attributes{CPU: &tinkerbell.CPU{TotalCores: math.MaxUint32}},
+		}},
+	}
+	got, err := renderHardware(hw, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := fmt.Sprintf("cores=%d", uint32(math.MaxUint32)); got.Spec.UserData == nil || *got.Spec.UserData != want {
+		t.Fatalf("userData = %v, want %s", got.Spec.UserData, want)
 	}
 }
 

@@ -182,7 +182,7 @@ spec:
             - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_ENABLED
               value: {{ .Values.deployment.envs.tinkServer.autoDiscoveryEnabled | quote }}
             - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_NAMESPACE
-              value: {{ coalesce .Values.deployment.envs.tinkServer.autoDiscoveryNamespace .Release.Namespace | quote }}
+              value: {{ coalesce .Values.deployment.envs.tinkServer.autoDiscoveryNamespace (include "tinkerbell.backendNamespace" .) .Release.Namespace | quote }}
             - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_AUTO_ENROLLMENT_ENABLED
               value: {{ .Values.deployment.envs.tinkServer.autoDiscoveryAutoEnrollmentEnabled | quote }}
           # TOOTLES
@@ -399,7 +399,7 @@ spec:
             - name: TINKERBELL_BACKEND_KUBE_CONFIG
               value: {{ .Values.deployment.envs.globals.backendKubeConfig | quote }}
             - name: TINKERBELL_BACKEND_KUBE_NAMESPACE
-              value: {{ .Values.deployment.envs.globals.backendKubeNamespace | quote }}
+              value: {{ include "tinkerbell.backendNamespace" . | quote }}
             - name: TINKERBELL_BACKEND_KUBE_QPS
               value: {{ .Values.deployment.envs.globals.backendKubeQPS | quote }}
             - name: TINKERBELL_BIND_ADDRESS_V4
@@ -433,7 +433,7 @@ spec:
             - name: TINKERBELL_ENABLE_UI
               value: {{ .Values.deployment.envs.globals.enableUI | quote }}
             - name: TINKERBELL_ENABLE_CRD_MIGRATIONS
-              value: {{ .Values.deployment.envs.globals.enableCRDMigrations | quote }}
+              value: {{ include "tinkerbell.enableCRDMigrations" . | quote }}
             - name: TINKERBELL_TLS_CERT_FILE
               value: {{ .Values.deployment.envs.globals.tlsCertFile | quote }}
             - name: TINKERBELL_TLS_KEY_FILE

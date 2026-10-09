@@ -57,10 +57,26 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 
 	final := &match{}
 	for _, wr := range wrs {
+		// The Workflow's owner reference to wr is only valid in wr's namespace.
+		if ns := wr.Spec.Workflow.Namespace; ns != "" && ns != wr.Namespace { //nolint:staticcheck // read only to reject a mismatch until the field is removed
+			journal.Log(ctx, "skipping WorkflowRuleSet whose spec.workflow.namespace is not its own namespace",
+				"workflowRuleSet", wr.Name, "namespace", wr.Namespace, "workflowNamespace", ns)
+			log.Info("skipping WorkflowRuleSet whose spec.workflow.namespace is not its own namespace",
+				"workflowRuleSet", wr.Name, "namespace", wr.Namespace, "workflowNamespace", ns)
+			continue
+		}
+		// A Workflow can only reference Hardware in its own namespace, and it is created in wr's.
+		if hardware != nil && wr.Namespace != hardware.Namespace {
+			journal.Log(ctx, "skipping WorkflowRuleSet outside the Hardware's namespace",
+				"workflowRuleSet", wr.Name, "namespace", wr.Namespace, "hardwareNamespace", hardware.Namespace)
+			log.Info("skipping WorkflowRuleSet outside the Hardware's namespace",
+				"workflowRuleSet", wr.Name, "namespace", wr.Namespace, "hardwareNamespace", hardware.Namespace)
+			continue
+		}
 		m, err := findMatch(wr, attr, final.numMatches)
 		if err != nil {
-			journal.Log(ctx, "error matching pattern", "error", err)
-			log.Error(err, "error matching pattern")
+			journal.Log(ctx, "error matching pattern", "workflowRuleSet", wr.Name, "namespace", wr.Namespace, "error", err)
+			log.Error(err, "error matching pattern", "workflowRuleSet", wr.Name, "namespace", wr.Namespace)
 			continue
 		}
 		if m != nil {
@@ -73,7 +89,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 		awf := &tinkerbell.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: final.wrs.Spec.Workflow.Namespace,
+				Namespace: final.wrs.Namespace,
 				Labels: map[string]string{
 					"tinkerbell.org/auto-enrollment": "true",
 				},
@@ -104,6 +120,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 				awf.Annotations[constant.AttributesAnnotation] = string(a)
 			} else {
 				journal.Log(ctx, "error marshalling attributes to json", "error", err)
+				log.Error(err, "error marshalling attributes to json")
 			}
 		}
 
@@ -116,7 +133,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 		// If a Hardware object is found add it to the awf.Spec.HardwareRef.
 		if err := h.AutoCapabilities.Enrollment.CreateWorkflow(ctx, awf); err != nil {
 			if apierrors.IsAlreadyExists(err) {
-				journal.Log(ctx, "workflow already exists", "workflow", name, "namespace", final.wrs.Spec.Workflow.Namespace)
+				journal.Log(ctx, "workflow already exists", "workflow", name, "namespace", final.wrs.Namespace)
 				// if we get here, then we didn't find an existing Workflow above, but CreateWorkflow is reporting that there is.
 				// So we treat this as a new Workflow creation and send the same error.
 				// failed precondition and backoff permanent error so that the backoff retry loop stops and the Agent is signaled to try again immediately.
@@ -125,6 +142,8 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 			journal.Log(ctx, "error creating enrollment workflow", "error", err)
 			return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error creating enrollment workflow: %v", err))
 		}
+		journal.Log(ctx, "created enrollment Workflow", "namespace", awf.Namespace, "workflowRuleSet", final.wrs.Name)
+		log.Info("created enrollment Workflow", "namespace", awf.Namespace, "workflowRuleSet", final.wrs.Name)
 
 		ar := &proto.ActionRequest{
 			AgentId: &agentID,
@@ -133,7 +152,7 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 		// Now that we have created a Workflow, we need to call getActionNoAuto to serve an Action to the Agent.
 		return h.getActionNoAuto(ctx, ar)
 	}
-	// If there is no match, return an error.
+	journal.Log(ctx, "no WorkflowRuleSet matched")
 	return nil, status.Errorf(codes.NotFound, "no Workflow Rule Sets found or matched for Agent %s", agentID)
 }
 

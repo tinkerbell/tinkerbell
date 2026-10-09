@@ -81,6 +81,36 @@ func GetBaseURL(c *gin.Context) string {
 type KubeClient struct {
 	client.Client
 	clientset *kubernetes.Clientset
+	// namespace, when set, is the only namespace the client reads or writes.
+	namespace string
+}
+
+// InNamespace returns a copy of k restricted to namespace: requests for any other
+// namespace fail, and ListNamespaces returns only namespace.
+// If namespace is empty, InNamespace returns k.
+func (k *KubeClient) InNamespace(namespace string) *KubeClient {
+	if namespace == "" {
+		return k
+	}
+	return &KubeClient{
+		Client:    scopedClient{Client: client.NewNamespacedClient(k.Client, namespace), namespace: namespace},
+		clientset: k.clientset,
+		namespace: namespace,
+	}
+}
+
+// scopedClient fails a List in another namespace, where client.NewNamespacedClient
+// would silently list its own namespace instead.
+type scopedClient struct {
+	client.Client
+	namespace string
+}
+
+func (s scopedClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if ns := (&client.ListOptions{}).ApplyOptions(opts).Namespace; ns != "" && ns != s.namespace {
+		return fmt.Errorf("namespace %q is outside the backend namespace %q", ns, s.namespace)
+	}
+	return s.Client.List(ctx, list, opts...)
 }
 
 // NewKubeClientFromTokenAndServer creates a Kubernetes client using JWT token and API server URL.
@@ -129,6 +159,9 @@ func (k *KubeClient) AuthorizationV1() kubernetes.Interface {
 
 // ListNamespaces returns all namespace names that the user has access to.
 func (k *KubeClient) ListNamespaces(ctx context.Context) ([]string, error) {
+	if k.namespace != "" {
+		return []string{k.namespace}, nil
+	}
 	var nsList corev1.NamespaceList
 	if err := k.List(ctx, &nsList); err != nil {
 		return nil, fmt.Errorf("failed to list namespaces: %w", err)

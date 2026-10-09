@@ -26,12 +26,12 @@ deployment:
       backendFilePath: ""
       backendKubeBurst: 100
       backendKubeConfig: ""
-      backendKubeNamespace: ""
+      backendKubeNamespace: "" # namespace all services read and write by default; empty means all namespaces, or the release namespace when rbac.type is Role
       backendKubeQPS: 100
       bindAddr: ""
       bindAddrV6: ""
       disableHttpToHttpsRedirect: false # set true to stop auto-redirecting plain HTTP requests to HTTPS when TLS is enabled
-      enableCRDMigrations: true
+      enableCRDMigrations: "" # empty means true when rbac.type is ClusterRole, false when it is Role
       enableRufioController: true
       enableSecondstar: true
       enableSmee: true
@@ -169,7 +169,7 @@ deployment:
     tinkServer:
       autoDiscoveryAutoEnrollmentEnabled: false
       autoDiscoveryEnabled: false
-      autoDiscoveryNamespace: "" # defaults to the namespace in which Tinkerbell is deployed.
+      autoDiscoveryNamespace: "" # defaults to the backend namespace, otherwise the namespace in which Tinkerbell is deployed.
       autoEnrollmentEnabled: false
       bindAddr: ""
       bindPort: 42113

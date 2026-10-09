@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"errors"
+	"maps"
 	"reflect"
 	"strings"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,6 +36,7 @@ import (
 type renderStore struct {
 	informers          informerGetter
 	referenceInformers metadataInformerFactory
+	namespace          string
 	mapper             meta.RESTMapper
 	get                func(context.Context, types.NamespacedName) (*tinkerbell.Hardware, error)
 	resolve            func(context.Context, *tinkerbell.Hardware) (map[string]any, error)
@@ -43,7 +44,6 @@ type renderStore struct {
 	log                logr.Logger
 	renders            *prometheus.CounterVec
 	duration           prometheus.Histogram
-	fallbacks          prometheus.Gauge
 	notify             chan struct{}
 	changes            map[types.NamespacedName]struct{}
 
@@ -104,7 +104,7 @@ type renderEntry struct {
 	uid             types.UID            // of the Hardware owning this entry
 	resourceVersion string               // of the Hardware last rendered
 	err             error                // rendering that resourceVersion failed
-	good            *tinkerbell.Hardware // last successful rendering, nil if none
+	good            *tinkerbell.Hardware // rendering of resourceVersion, nil if it failed
 	identity        bool                 // good is the stored object: nothing needed rendering
 }
 
@@ -123,12 +123,14 @@ func newRenderStore(
 	hardwareInformers informerGetter,
 	mapper meta.RESTMapper,
 	metadataClient metadata.Interface,
+	namespace string,
 	get func(context.Context, types.NamespacedName) (*tinkerbell.Hardware, error),
 	resolve func(context.Context, *tinkerbell.Hardware) (map[string]any, error),
 	registry prometheus.Registerer,
 ) *renderStore {
 	store := &renderStore{
 		informers: hardwareInformers,
+		namespace: namespace,
 		mapper:    mapper,
 		get:       get,
 		resolve:   resolve,
@@ -145,11 +147,12 @@ func newRenderStore(
 		notify:    make(chan struct{}, 1),
 		changes:   map[types.NamespacedName]struct{}{},
 	}
-	store.referenceInformers = metadatainformer.NewSharedInformerFactory(&metadataListClient{Interface: metadataClient, listed: store.requeueResource}, 0)
+	store.referenceInformers = metadatainformer.NewFilteredSharedInformerFactory(
+		&metadataListClient{Interface: metadataClient, listed: store.requeueResource}, 0, namespace, nil,
+	)
 	store.renders = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "tinkerbell_hardware_render_attempts_total", Help: "Hardware render attempts by outcome."}, []string{"result"})
 	store.duration = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "tinkerbell_hardware_render_duration_seconds", Help: "Hardware render attempt duration."})
-	store.fallbacks = prometheus.NewGauge(prometheus.GaugeOpts{Name: "tinkerbell_hardware_render_fallback_entries", Help: "Hardware entries serving a previous result after a render failure."})
-	registry.MustRegister(store.renders, store.duration, store.fallbacks,
+	registry.MustRegister(store.renders, store.duration,
 		prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "tinkerbell_hardware_render_queue_depth", Help: "Hardware keys waiting for rendering."}, func() float64 { return float64(store.queue.Len()) }))
 	return store
 }
@@ -168,16 +171,10 @@ func (s *renderStore) TakeChanges() []types.NamespacedName {
 }
 
 func (s *renderStore) publishLocked(key types.NamespacedName, entry *renderEntry) {
-	if previous := s.entries[key]; previous != nil && previous.err != nil && previous.good != nil {
-		s.fallbacks.Dec()
-	}
 	if entry == nil {
 		delete(s.entries, key)
 	} else {
 		s.entries[key] = entry
-		if entry.err != nil && entry.good != nil {
-			s.fallbacks.Inc()
-		}
 	}
 	s.changes[key] = struct{}{}
 	select {
@@ -233,9 +230,10 @@ func (s *renderStore) Start(ctx context.Context, workers int) error {
 	return nil
 }
 
-// rendered returns the Hardware-wide result. While a new rendering is pending
-// or after it failed, the last successful result is returned. ok is false when
-// hw needs rendering and none has succeeded yet.
+// rendered returns the rendering of hw to serve and reports whether there is one.
+// A failed rendering is never served. While a newer resourceVersion is still
+// rendering, the previous rendering is served if it succeeded, so that status
+// updates during provisioning do not briefly take the Hardware away.
 func (s *renderStore) rendered(hw *tinkerbell.Hardware) (*tinkerbell.Hardware, bool) {
 	s.mu.RLock()
 	e := s.entries[client.ObjectKeyFromObject(hw)]
@@ -313,22 +311,15 @@ func (s *renderStore) render(ctx context.Context, key types.NamespacedName) (suc
 	refs, refErr := s.resolve(ctx, hw)
 	e.good, err = renderHardware(hw, refs)
 	e.identity = e.good == hw
-	var servingPrevious bool
 	if err != nil {
 		e.err = errors.Join(refErr, err)
 		e.good, e.identity = nil, false
 	}
 	s.mu.Lock()
-	if err != nil {
-		if prev := s.entries[key]; prev != nil && prev.uid == hw.UID {
-			e.good = prev.good
-			servingPrevious = prev.good != nil
-		}
-	}
 	s.publishLocked(key, e)
 	s.mu.Unlock()
 	if err != nil {
-		s.log.Error(e.err, "render hardware", "hardware", key, "servingPrevious", servingPrevious)
+		s.log.Error(e.err, "render hardware", "hardware", key)
 	}
 
 	return err == nil && watchErr == nil
@@ -346,6 +337,10 @@ func (s *renderStore) forget(key types.NamespacedName) {
 // track records what key references, so that a change to a referenced object
 // re-renders it, and starts watching referenced types not yet watched.
 func (s *renderStore) track(ctx context.Context, key types.NamespacedName, references map[string]tinkerbell.Reference) error {
+	if s.namespace != "" {
+		references = maps.Clone(references)
+		maps.DeleteFunc(references, func(_ string, r tinkerbell.Reference) bool { return r.Namespace != s.namespace })
+	}
 	refs := make([]refKey, 0, len(references))
 	for _, r := range references {
 		refs = append(refs, refKey{strings.ToLower(r.Group), strings.ToLower(r.Resource), r.Namespace, r.Name})
@@ -443,59 +438,26 @@ func (s *renderStore) hardwareHandler() toolscache.ResourceEventHandler {
 		enqueue(object)
 	}
 	handler.UpdateFunc = func(before, after any) {
-		oldObject, oldOK := before.(client.Object)
-		newObject, newOK := after.(client.Object)
-		changed := !oldOK || !newOK || hardwareInputsChanged(oldObject, newObject)
-		if changed {
+		oldHardware, oldOK := before.(*tinkerbell.Hardware)
+		newHardware, newOK := after.(*tinkerbell.Hardware)
+		if !oldOK || !newOK || hardwareInputsChanged(oldHardware, newHardware) {
 			handler.AddFunc(after)
-		} else if hw, ok := after.(*tinkerbell.Hardware); ok {
-			s.rememberDecision(hw)
+		} else {
+			s.rememberDecision(newHardware)
 		}
 	}
 	return handler
 }
 
-func hardwareInputsChanged(before, after client.Object) bool {
-	documents := make([]map[string]any, 0, 2)
-	for _, object := range []client.Object{before, after} {
-		document, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
-		if err != nil {
-			return true
-		}
-		document = runtime.DeepCopyJSON(document)
-		unstructured.RemoveNestedField(document, "metadata", "resourceVersion")
-		unstructured.RemoveNestedField(document, "metadata", "managedFields")
-		value, found, err := unstructured.NestedFieldNoCopy(document, "status", "conditions")
-		if err != nil {
-			return true
-		}
-		if found {
-			conditions, ok := value.([]any)
-			if !ok {
-				return true
-			}
-			var remaining []any
-			for _, condition := range conditions {
-				fields, ok := condition.(map[string]any)
-				if !ok {
-					return true
-				}
-				if fields["type"] != "Rendered" {
-					remaining = append(remaining, condition)
-				}
-			}
-			if len(remaining) == 0 {
-				unstructured.RemoveNestedField(document, "status", "conditions")
-			} else if err := unstructured.SetNestedSlice(document, remaining, "status", "conditions"); err != nil {
-				return true
-			}
-		}
-		if status, ok := document["status"].(map[string]any); ok && len(status) == 0 {
-			delete(document, "status")
-		}
-		documents = append(documents, document)
+func hardwareInputsChanged(before, after *tinkerbell.Hardware) bool {
+	b, a := before.DeepCopy(), after.DeepCopy()
+	for _, hw := range []*tinkerbell.Hardware{b, a} {
+		hw.ResourceVersion = ""
+		hw.ManagedFields = nil
 	}
-	return !reflect.DeepEqual(documents[0], documents[1])
+	// Not equality.Semantic: it ignores differences templates can see, such as 1Gi vs
+	// 1073741824 or a nil vs empty slice.
+	return !reflect.DeepEqual(b, a)
 }
 
 func (s *renderStore) enqueueHandler(enqueue func(types.NamespacedName)) toolscache.ResourceEventHandlerFuncs {

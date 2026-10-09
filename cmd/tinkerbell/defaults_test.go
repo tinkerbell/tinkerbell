@@ -7,8 +7,10 @@ import (
 
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
+	"github.com/tinkerbell/tinkerbell/rufio"
 	"github.com/tinkerbell/tinkerbell/secondstar"
 	"github.com/tinkerbell/tinkerbell/smee"
+	"github.com/tinkerbell/tinkerbell/tink/controller"
 	"github.com/tinkerbell/tinkerbell/tink/server"
 )
 
@@ -236,6 +238,46 @@ func TestValidatePublicAddressFamilies(t *testing.T) {
 			err := validatePublicAddressFamilies(tt.publicIP, tt.publicIPv6)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("validatePublicAddressFamilies(%v, %v) error = %v, wantErr %v", tt.publicIP, tt.publicIPv6, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestFollowBackendNamespace(t *testing.T) {
+	type result struct {
+		lease, discovery, cache string
+		crdMigrations           bool
+	}
+	tests := map[string]struct {
+		backendNamespace string
+		inCluster        bool
+		explicit         bool
+		want             result
+	}{
+		"empty, in cluster":     {inCluster: true, want: result{discovery: "default", crdMigrations: true}},
+		"empty, out of cluster": {want: result{lease: "default", discovery: "default", crdMigrations: true}},
+		"set":                   {backendNamespace: "tink", inCluster: true, want: result{"tink", "tink", "tink", false}},
+		"set, explicit values win": {
+			backendNamespace: "tink", inCluster: true, explicit: true,
+			want: result{"lease", "discovery", "tink", true},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			globals := &flag.GlobalConfig{BackendKubeNamespace: tt.backendNamespace, EnableCRDMigrations: true}
+			ts := &flag.TinkServerConfig{Config: server.NewConfig(server.WithAutoDiscoveryNamespace("default"))}
+			tc := &flag.TinkControllerConfig{Config: controller.NewConfig()}
+			rc := &flag.RufioConfig{Config: rufio.NewConfig()}
+			if tt.explicit {
+				tc.Config.LeaderElectionNamespace, rc.Config.LeaderElectionNamespace = "lease", "lease"
+				ts.Config.Auto.Discovery.Namespace = "discovery"
+			}
+
+			followBackendNamespace(globals, ts, tc, rc, func(string) bool { return tt.explicit }, tt.inCluster)
+
+			got := result{tc.Config.LeaderElectionNamespace, ts.Config.Auto.Discovery.Namespace, tc.Config.Namespace, globals.EnableCRDMigrations}
+			if got != tt.want || rc.Config.LeaderElectionNamespace != got.lease || rc.Config.Namespace != got.cache {
+				t.Fatalf("got %+v (rufio lease %q, cache %q), want %+v", got, rc.Config.LeaderElectionNamespace, rc.Config.Namespace, tt.want)
 			}
 		})
 	}

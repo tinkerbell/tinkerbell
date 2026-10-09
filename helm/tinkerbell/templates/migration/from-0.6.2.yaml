@@ -15,7 +15,7 @@ deployment:
       backendFilePath: {{ .Values.deployment.envs.globals.backendFilePath }}
       backendKubeConfig: {{ .Values.deployment.envs.globals.backendKubeConfig }}
       backendKubeNamespace: {{ .Values.deployment.envs.globals.backendKubeNamespace }}
-      enableCRDMigrations: {{ .Values.deployment.envs.globals.enableCRDMigrations }}
+      enableCRDMigrations: {{ .Values.deployment.envs.globals.enableCRDMigrations | quote }}
       enableRufioController: {{ .Values.rufio.deploy }}
       enableSecondstar: {{ .Values.deployment.envs.globals.enableSecondstar }}
       enableSmee: {{ .Values.smee.deploy }}

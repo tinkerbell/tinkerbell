@@ -28,7 +28,7 @@ var RufioControllerEnableLeaderElection = Config{
 
 var RufioControllerLeaderElectionNamespace = Config{
 	Name:  "rufio-controller-leader-election-namespace",
-	Usage: "namespace in which the leader election lease will be created",
+	Usage: "namespace in which the leader election lease will be created; empty means the backend namespace when that is set",
 }
 
 var RufioBMCConnectTimeout = Config{

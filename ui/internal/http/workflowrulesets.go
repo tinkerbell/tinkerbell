@@ -207,7 +207,7 @@ func HandleWorkflowRuleSetDetail(c *gin.Context, log logr.Logger) {
 		Annotations:       rs.Annotations,
 		Rules:             rs.Spec.Rules,
 		TemplateRef:       rs.Spec.Workflow.Template.Ref,
-		WorkflowNamespace: rs.Spec.Workflow.Namespace,
+		WorkflowNamespace: rs.Namespace,
 		WorkflowDisabled:  workflowDisabled,
 		AddAttributes:     rs.Spec.Workflow.AddAttributes,
 		AgentValue:        rs.Spec.Workflow.Template.AgentValue,
