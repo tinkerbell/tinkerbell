@@ -163,6 +163,9 @@ func RegisterSmeeFlags(fs *Set, sc *SmeeConfig) {
 	fs.Register(ISOPatchMagicString, ffval.NewValueDefault(&sc.Config.ISO.PatchMagicString, sc.Config.ISO.PatchMagicString))
 	fs.RegisterFamily(ISOStaticIPAMEnabled, V4, ffval.NewValueDefault(&sc.Config.ISO.StaticIPAMEnabled, sc.Config.ISO.StaticIPAMEnabled))
 
+	// Bootstrap Flags
+	fs.Register(BootstrapEnabled, ffval.NewValueDefault(&sc.Config.Bootstrap.Enabled, sc.Config.Bootstrap.Enabled))
+
 	// Log level
 	fs.Register(SmeeLogLevel, ffval.NewValueDefault(&sc.LogLevel, sc.LogLevel))
 
@@ -627,6 +630,13 @@ var ISOPatchMagicString = Config{
 var ISOStaticIPAMEnabled = Config{
 	Name:  "iso-static-ipam-enabled",
 	Usage: "[iso] enable static IPAM when patching the source (upstream) ISO",
+}
+
+// Bootstrap flags. There are no URL flags: iPXE fetches the archive by a
+// root-relative path, from wherever it fetched the script.
+var BootstrapEnabled = Config{
+	Name:  "bootstrap-enabled",
+	Usage: "[bootstrap] serve per-host bootstrap data to iPXE clients",
 }
 
 // Tink Server flags.

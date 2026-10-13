@@ -27,6 +27,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/listener"
+	"github.com/tinkerbell/tinkerbell/smee/internal/bootstrap"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	v6 "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/dhcpv6"
 	reservationv6 "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/dhcpv6/handler/reservation"
@@ -89,6 +90,7 @@ const (
 	IPXEScriptURI = "/ipxe/script/"
 	ISOURI        = "/iso/"
 	ISOURIV6      = "/iso6/"
+	BootstrapURI  = "/bootstrap/"
 
 	// DHCPv6ServerDUIDHashPrefix scopes derived server DUIDs to Smee DHCPv6.
 	DHCPv6ServerDUIDHashPrefix = "tinkerbell:smee:dhcpv6:"
@@ -144,6 +146,8 @@ func (d *DHCPv6Mode) Type() string {
 type Config struct {
 	// Backend is the backend to use for getting data.
 	Backend BackendReader
+	// Bootstrap is the configuration for serving per-host bootstrap data.
+	Bootstrap Bootstrap
 	// DHCP is the configuration for the DHCP service.
 	DHCP DHCP
 	// DHCPv6 is the configuration for the DHCPv6 service.
@@ -172,6 +176,13 @@ type Config struct {
 // builds a Bind must now set Enabled: an address alone no longer serves a
 // family, and Start reports the family as unserved without it.
 type Bind = listener.Bind
+
+// Bootstrap configures delivery of per-host configuration to the OS before its
+// networking starts, as an extra initrd that iPXE fetches over HTTP.
+type Bootstrap struct {
+	// Enabled is a flag to enable or disable serving bootstrap archives.
+	Enabled bool
+}
 
 type Syslog struct {
 	// V4 and V6 are the per-family listen addresses.
@@ -428,6 +439,9 @@ func NewConfig(c Config) *Config {
 			PatchMagicString:  "",
 			StaticIPAMEnabled: false,
 		},
+		Bootstrap: Bootstrap{
+			Enabled: false,
+		},
 		OTEL: OTEL{
 			Endpoint:         "",
 			InsecureEndpoint: false,
@@ -527,7 +541,22 @@ func (c *Config) ScriptHandler(log logr.Logger) http.Handler {
 		KernelName:            c.IPXE.HTTPScriptServer.KernelName,
 		InitrdName:            c.IPXE.HTTPScriptServer.InitrdName,
 	}
+	if c.Bootstrap.Enabled {
+		jh.BootstrapPath = BootstrapURI
+	}
+
 	return jh.HandlerFunc()
+}
+
+// BootstrapHandler returns an http.Handler that serves per-host configuration
+// archives. Returns nil if bootstrap delivery is disabled.
+func (c *Config) BootstrapHandler(log logr.Logger) http.Handler {
+	if !c.Bootstrap.Enabled {
+		return nil
+	}
+	bh := bootstrap.Handler{Logger: log, Backend: c.Backend}
+
+	return bh.HandlerFunc()
 }
 
 // syslogHost returns the host used for the syslog_host kernel parameter in iPXE scripts.

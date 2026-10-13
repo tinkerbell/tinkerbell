@@ -193,6 +193,8 @@ spec:
             - name: TINKERBELL_TOOTLES_LOG_LEVEL
               value: {{ .Values.deployment.envs.tootles.logLevel | quote }}
           # SMEE
+            - name: TINKERBELL_BOOTSTRAP_ENABLED
+              value: {{ .Values.deployment.envs.smee.bootstrapEnabled | quote }}
             - name: TINKERBELL_DHCP_ENABLED_V4
               value: {{ .Values.deployment.envs.smee.dhcpEnabled | quote }}
             - name: TINKERBELL_DHCP_ENABLE_NETBOOT_OPTIONS_V4
