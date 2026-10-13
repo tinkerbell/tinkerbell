@@ -24,7 +24,15 @@ modules=loop,squashfs,sd-mod,usb-storage intel_iommu=on iommu=pt initrd=${initrd
 :download_initrd
 set idx:int32 0
 :retry_initrd
-initrd ${download-url}/${initrd} && goto boot || iseq ${idx} ${retries} && goto initrd-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_initrd
+initrd ${download-url}/${initrd} && goto {{ if .BootstrapURL }}download_bootstrap{{ else }}boot{{ end }} || iseq ${idx} ${retries} && goto initrd-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_initrd
+{{- if .BootstrapURL }}
+
+:download_bootstrap
+# The bootstrap initrd is a relative path only: iPXE fetches it from the server that served this script.
+set idx:int32 0
+:retry_bootstrap
+initrd {{ .BootstrapURL }} && goto boot || iseq ${idx} ${retries} && goto bootstrap-error || inc idx && echo retry in ${retry_delay} seconds ; sleep ${retry_delay} ; goto retry_bootstrap
+{{- end }}
 
 :boot
 set idx:int32 0
@@ -40,6 +48,13 @@ exit
 echo Failed to load initrd
 imgfree
 exit
+{{- if .BootstrapURL }}
+
+:bootstrap-error
+echo Failed to load bootstrap data
+imgfree
+exit
+{{- end }}
 
 :boot-error
 echo Failed to boot
@@ -68,4 +83,9 @@ type Hook struct {
 	RetryDelay            int    // number of seconds to wait between retries
 	KernelName            string // name of the kernel file
 	InitrdName            string // name of the initrd file
+	// BootstrapURL is the per-host configuration archive, loaded as an
+	// additional initrd. It must come after the OS initramfs: the kernel
+	// applies archives in order, so an earlier one would be overwritten.
+	// Empty omits the whole stanza.
+	BootstrapURL string
 }
