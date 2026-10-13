@@ -75,7 +75,7 @@ deployment:
       idleTimeout: "15m"
       logLevel: 0
     smee:
-      bootstrapEnabled: false # serve spec.metadata.osieFiles to iPXE clients
+      bootstrapEnabled: false # serve hardware.spec.metadata.osieFiles bootstrap data endpoint and ISO patching capabilities
       dhcpBindAddr: ""
       dhcpBindInterface: ""
       dhcpEnableNetbootOptions: true # send PXE/iPXE netboot DHCP options (bootfile/next-server/opt43); disable if a non Tinkerbell (Proxy)DHCP owns netboot
