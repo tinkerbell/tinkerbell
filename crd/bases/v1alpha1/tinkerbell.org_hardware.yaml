@@ -500,6 +500,53 @@ spec:
                       slug:
                         type: string
                     type: object
+                  osieFiles:
+                    description: OSIEFiles, when defined, is the set of additional
+                      files to be made available to the OSIE (Operating System Installation
+                      Environment).
+                    items:
+                      description: |-
+                        OSIEFile represents a file to be made available to the OSIE (Operating System Installation Environment).
+                        All files are relative to the default /osie-data directory in the OSIE (Operating System Installation Environment).
+                      properties:
+                        contents:
+                          description: Contents is the contents of the file.
+                          type: string
+                        mode:
+                          description: |-
+                            Mode is the file's permission bits as an octal string, e.g. "0644", "644" or "0o644".
+                            Only permission bits are allowed (max "0777"); setuid, setgid and sticky bits are rejected.
+                            Symbolic forms like "rw-r--r--" and decimal values are invalid.
+                            Omitted or "0" means the default, "0400" (read-only for the owner).
+                          maxLength: 8
+                          pattern: ^(0[oO])?0*[0-7]{1,3}$
+                          type: string
+                        path:
+                          description: |-
+                            Path is the file path where the file should be made available within the default /osie-data directory in the OSIE (Operating System Installation Environment).
+                            A leading "/" is ignored. Empty, "." and ".." segments are not allowed.
+                          maxLength: 255
+                          pattern: ^/?[^/]+(/[^/]+)*$
+                          type: string
+                          x-kubernetes-validations:
+                          - message: path must not contain '.' or '..' segments
+                            rule: '!self.split(''/'').exists(s, s == ''.'' || s ==
+                              ''..'')'
+                      required:
+                      - path
+                      type: object
+                    maxItems: 64
+                    type: array
+                    x-kubernetes-validations:
+                    - message: osieFiles paths must be unique
+                      rule: 'self.all(a, self.exists_one(b, (b.path.startsWith(''/'')
+                        ? b.path.substring(1) : b.path) == (a.path.startsWith(''/'')
+                        ? a.path.substring(1) : a.path)))'
+                    - message: an osieFiles path must not be the parent directory
+                        of another
+                      rule: 'self.all(a, !self.exists(b, (b.path.startsWith(''/'')
+                        ? b.path.substring(1) : b.path).startsWith((a.path.startsWith(''/'')
+                        ? a.path.substring(1) : a.path) + ''/'')))'
                   state:
                     type: string
                 type: object
