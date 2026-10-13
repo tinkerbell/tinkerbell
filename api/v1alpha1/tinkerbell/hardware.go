@@ -321,9 +321,9 @@ type HardwareMetadata struct {
 }
 
 // OSIEFile represents a file to be made available to the OSIE (Operating System Installation Environment).
-// All files are relative to the default /osie-data directory in the OSIE (Operating System Installation Environment).
+// All files are relative to the default /osie_files directory in the OSIE (Operating System Installation Environment).
 type OSIEFile struct {
-	// Path is the file path where the file should be made available within the default /osie-data directory in the OSIE (Operating System Installation Environment).
+	// Path is the file path where the file should be made available within the default /osie_files directory in the OSIE (Operating System Installation Environment).
 	// A leading "/" is ignored. Empty, "." and ".." segments are not allowed.
 	// +kubebuilder:validation:MaxLength=255
 	// +kubebuilder:validation:Pattern=`^/?[^/]+(/[^/]+)*$`

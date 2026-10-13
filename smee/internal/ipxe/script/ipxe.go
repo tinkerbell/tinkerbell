@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/tinkerbell/tinkerbell/smee/internal/bootstrap"
 	"github.com/tinkerbell/tinkerbell/smee/internal/hardware"
 	"github.com/tinkerbell/tinkerbell/smee/internal/metric"
 	"go.opentelemetry.io/otel/attribute"
@@ -36,6 +37,9 @@ type Handler struct {
 	StaticIPXEV6Enabled   bool
 	KernelName            string // name of the kernel file
 	InitrdName            string // name of the initrd file
+	// BootstrapPath is the route per-host configuration archives are served
+	// under on this server, e.g. "/bootstrap/". Empty disables delivery.
+	BootstrapPath string
 }
 
 type addressFamily string
@@ -234,6 +238,19 @@ func getMAC(urlPath string) (net.HardwareAddr, error) {
 	return ha, nil
 }
 
+// bootstrapURL returns the per-host configuration archive URL, or "" when
+// delivery is disabled.
+//
+// It is root-relative: iPXE resolves it against the script's own URL, so it
+// reaches this server however the client reached the script.
+func bootstrapURL(route string, mac net.HardwareAddr) string {
+	if route == "" {
+		return ""
+	}
+
+	return path.Join("/", route, mac.String(), bootstrap.ArchiveName)
+}
+
 func (h *Handler) serveBootScript(ctx context.Context, w http.ResponseWriter, name string, hw hardware.Info, settings familySettings) {
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.String("smee.script_name", name))
@@ -330,6 +347,7 @@ func (h *Handler) defaultScript(span trace.Span, hw hardware.Info, settings fami
 	if hw.OSIE.Initrd != "" {
 		auto.InitrdName = hw.OSIE.Initrd
 	}
+	auto.BootstrapURL = bootstrapURL(h.BootstrapPath, mac)
 	if span.SpanContext().IsSampled() {
 		auto.TraceID = span.SpanContext().TraceID().String()
 	}

@@ -40,6 +40,7 @@ const (
 	routeISOV6             = smee.ISOURIV6
 	routeIPXEBinary        = smee.IPXEBinaryURI
 	routeIPXEScript        = smee.IPXEScriptURI
+	routeBootstrap         = smee.BootstrapURI
 )
 
 // startHTTPServer registers all HTTP/HTTPS routes, applies middleware, and
@@ -73,6 +74,13 @@ func startHTTPServer(ctx context.Context, globals *flag.GlobalConfig, s *flag.Sm
 			routeList.Register(normalizeURLPrefix(s.Config.PXEHTTP.PathPrefix),
 				middleware.WithLogLevel(middleware.LogLevelAlways, ph),
 				"smee PXE-over-HTTP handler",
+			)
+		}
+		if bsh := s.Config.BootstrapHandler(smeeLog); bsh != nil {
+			routeList.Register(routeBootstrap,
+				middleware.WithLogLevel(middleware.LogLevelAlways, bsh),
+				"smee bootstrap data handler",
+				httpserver.WithHTTPSEnabled(tlsEnabled),
 			)
 		}
 	}

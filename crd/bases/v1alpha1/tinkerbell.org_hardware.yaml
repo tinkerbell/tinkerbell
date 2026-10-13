@@ -507,7 +507,7 @@ spec:
                     items:
                       description: |-
                         OSIEFile represents a file to be made available to the OSIE (Operating System Installation Environment).
-                        All files are relative to the default /osie-data directory in the OSIE (Operating System Installation Environment).
+                        All files are relative to the default /osie_files directory in the OSIE (Operating System Installation Environment).
                       properties:
                         contents:
                           description: Contents is the contents of the file.
@@ -523,7 +523,7 @@ spec:
                           type: string
                         path:
                           description: |-
-                            Path is the file path where the file should be made available within the default /osie-data directory in the OSIE (Operating System Installation Environment).
+                            Path is the file path where the file should be made available within the default /osie_files directory in the OSIE (Operating System Installation Environment).
                             A leading "/" is ignored. Empty, "." and ".." segments are not allowed.
                           maxLength: 255
                           pattern: ^/?[^/]+(/[^/]+)*$
