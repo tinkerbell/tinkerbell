@@ -360,6 +360,13 @@ func TestBmcTaskType(t *testing.T) {
 			},
 			want: "VirtualMedia",
 		},
+		{
+			name: "SecureBoot returns SecureBoot",
+			action: bmcv1alpha1.Action{
+				SecureBoot: &bmcv1alpha1.SecureBootAction{Enable: ptr(true)},
+			},
+			want: "SecureBoot",
+		},
 	}
 
 	for _, tt := range tests {

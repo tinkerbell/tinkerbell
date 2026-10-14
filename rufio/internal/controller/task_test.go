@@ -2,7 +2,15 @@ package controller_test
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
+	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -59,6 +68,7 @@ func TestTaskReconcile(t *testing.T) {
 		action                   bmc.Action
 		provider                 *testProvider
 		secret                   *corev1.Secret
+		configMap                *corev1.ConfigMap
 		task                     *bmc.Task
 		shouldErr                bool
 		timeoutErr               bool
@@ -136,6 +146,95 @@ func TestTaskReconcile(t *testing.T) {
 			provider:  &testProvider{Powerstate: "off", PowerSetOK: true},
 			secret:    &corev1.Secret{},
 			task:      createTask("PowerOn", getAction("PowerOn"), &corev1.Secret{}),
+			shouldErr: true,
+		},
+		"success secure boot enable": {
+			taskName: "secure boot enable",
+			action:   bmc.Action{SecureBoot: &bmc.SecureBootAction{Enable: toPtr(true)}},
+			provider: &testProvider{},
+		},
+		"failure on secure boot enable": {
+			taskName:  "secure boot enable",
+			action:    bmc.Action{SecureBoot: &bmc.SecureBootAction{Enable: toPtr(true)}},
+			provider:  &testProvider{ErrSetSecureBoot: errors.New("failed to set secure boot")},
+			shouldErr: true,
+		},
+		"success secure boot disable": {
+			taskName: "secure boot disable",
+			action:   bmc.Action{SecureBoot: &bmc.SecureBootAction{Enable: toPtr(false)}},
+			provider: &testProvider{SecureBootEnabled: true},
+		},
+		"failure on secure boot with no operation set": {
+			taskName:  "secure boot empty",
+			action:    bmc.Action{SecureBoot: &bmc.SecureBootAction{}},
+			provider:  &testProvider{},
+			shouldErr: true,
+		},
+		"success secure boot allow custom keys": {
+			taskName: "secure boot allow custom keys",
+			action:   bmc.Action{SecureBoot: &bmc.SecureBootAction{AllowCustomKeys: toPtr(true)}},
+			provider: &testProvider{},
+		},
+		"failure on secure boot allow custom keys": {
+			taskName:  "secure boot allow custom keys",
+			action:    bmc.Action{SecureBoot: &bmc.SecureBootAction{AllowCustomKeys: toPtr(true)}},
+			provider:  &testProvider{ErrAllowCustomSecureBootKeys: errors.New("failed to allow custom secure boot keys")},
+			shouldErr: true,
+		},
+		"success secure boot allow custom keys disabled": {
+			taskName: "secure boot disallow custom keys",
+			action:   bmc.Action{SecureBoot: &bmc.SecureBootAction{AllowCustomKeys: toPtr(false)}},
+			provider: &testProvider{},
+		},
+		"success secure boot delete PK": {
+			taskName: "secure boot delete pk",
+			action:   bmc.Action{SecureBoot: &bmc.SecureBootAction{ResetKeys: &bmc.SecureBootResetKeysAction{ResetType: "DeletePK"}}},
+			provider: &testProvider{},
+		},
+		"success secure boot database reset keys KEK": {
+			taskName: "secure boot database reset keys kek",
+			action:   bmc.Action{SecureBoot: &bmc.SecureBootAction{DatabaseResetKeys: &bmc.SecureBootDatabaseResetKeysAction{Database: "KEK", ResetType: "DeleteAllKeys"}}},
+			provider: &testProvider{},
+		},
+		"success secure boot certificate import KEK": {
+			taskName:  "secure boot certificate import kek",
+			action:    bmc.Action{SecureBoot: &bmc.SecureBootAction{CertificateImport: &bmc.SecureBootCertificateImportAction{Database: "KEK", CertificatePEMConfigMapRef: bmc.ConfigMapKeyReference{Name: "test-cert", Key: "cert.pem"}}}},
+			provider:  &testProvider{},
+			configMap: createCertConfigMap(t),
+		},
+		"success secure boot reset keys": {
+			taskName: "secure boot reset keys",
+			action:   bmc.Action{SecureBoot: &bmc.SecureBootAction{ResetKeys: &bmc.SecureBootResetKeysAction{ResetType: "DeleteAllKeys"}}},
+			provider: &testProvider{},
+		},
+		"failure on secure boot reset keys": {
+			taskName:  "secure boot reset keys",
+			action:    bmc.Action{SecureBoot: &bmc.SecureBootAction{ResetKeys: &bmc.SecureBootResetKeysAction{ResetType: "DeleteAllKeys"}}},
+			provider:  &testProvider{ErrResetSecureBootKeys: errors.New("failed to reset secure boot keys")},
+			shouldErr: true,
+		},
+		"success secure boot database reset keys": {
+			taskName: "secure boot database reset keys",
+			action:   bmc.Action{SecureBoot: &bmc.SecureBootAction{DatabaseResetKeys: &bmc.SecureBootDatabaseResetKeysAction{Database: "db", ResetType: "ResetAllKeysToDefault"}}},
+			provider: &testProvider{},
+		},
+		"failure on secure boot database reset keys": {
+			taskName:  "secure boot database reset keys",
+			action:    bmc.Action{SecureBoot: &bmc.SecureBootAction{DatabaseResetKeys: &bmc.SecureBootDatabaseResetKeysAction{Database: "db", ResetType: "ResetAllKeysToDefault"}}},
+			provider:  &testProvider{ErrResetSecureBootDatabaseKeys: errors.New("failed to reset secure boot database keys")},
+			shouldErr: true,
+		},
+		"success secure boot certificate import": {
+			taskName:  "secure boot certificate import",
+			action:    bmc.Action{SecureBoot: &bmc.SecureBootAction{CertificateImport: &bmc.SecureBootCertificateImportAction{Database: "db", CertificatePEMConfigMapRef: bmc.ConfigMapKeyReference{Name: "test-cert", Key: "cert.pem"}}}},
+			provider:  &testProvider{},
+			configMap: createCertConfigMap(t),
+		},
+		"failure on secure boot certificate import": {
+			taskName:  "secure boot certificate import",
+			action:    bmc.Action{SecureBoot: &bmc.SecureBootAction{CertificateImport: &bmc.SecureBootCertificateImportAction{Database: "db", CertificatePEMConfigMapRef: bmc.ConfigMapKeyReference{Name: "test-cert", Key: "cert.pem"}}}},
+			provider:  &testProvider{ErrImportSecureBootCertificate: errors.New("failed to import secure boot certificate")},
+			configMap: createCertConfigMap(t),
 			shouldErr: true,
 		},
 		"success with boot device": {
@@ -261,8 +360,12 @@ func TestTaskReconcile(t *testing.T) {
 				task = createTask(tt.taskName, tt.action, secret)
 			}
 
+			objs := []client.Object{task, secret}
+			if tt.configMap != nil {
+				objs = append(objs, tt.configMap)
+			}
 			cluster := newClientBuilder().
-				WithObjects(task, secret).
+				WithObjects(objs...).
 				Build()
 
 			reconciler := controller.NewTaskReconciler(cluster, newTestClient(tt.provider))
@@ -303,6 +406,8 @@ func TestTaskReconcile(t *testing.T) {
 			if len(retrieved.Status.Conditions) != 0 {
 				t.Fatalf("expected no conditions, got: %v", retrieved.Status.Conditions)
 			}
+
+			assertSecureBootCalls(t, tt.action, tt.provider, tt.configMap)
 
 			// Timeout check
 			if tt.timeoutErr {
@@ -356,6 +461,44 @@ func TestTaskReconcile(t *testing.T) {
 			}
 		})
 	}
+}
+
+// createCertConfigMap returns a ConfigMap, in the namespace of the Tasks createTask builds,
+// holding a valid PEM-encoded certificate under the key "cert.pem".
+func createCertConfigMap(t *testing.T) *corev1.ConfigMap {
+	t.Helper()
+
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "test-cert",
+		},
+		Data: map[string]string{
+			"cert.pem": createCertificatePEM(t),
+		},
+	}
+}
+
+// createCertificatePEM returns a PEM-encoded self-signed certificate.
+func createCertificatePEM(t *testing.T) string {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "test"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("creating certificate: %v", err)
+	}
+
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 }
 
 func createTask(name string, action bmc.Action, secret *corev1.Secret) *bmc.Task {
@@ -430,4 +573,132 @@ func createTaskWithRPC(name string, action bmc.Action, secret *corev1.Secret) *b
 	}
 
 	return task
+}
+
+func TestTaskReconcileSecureBootFailureMarksTaskFailed(t *testing.T) {
+	secret := createSecret()
+	task := createTask("enable", bmc.Action{SecureBoot: &bmc.SecureBootAction{Enable: toPtr(true)}}, secret)
+	cluster := newClientBuilder().WithObjects(task, secret).Build()
+	provider := &testProvider{ErrSetSecureBoot: errors.New("boom")}
+
+	request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: task.Namespace, Name: task.Name}}
+	if _, err := controller.NewTaskReconciler(cluster, newTestClient(provider)).Reconcile(context.Background(), request); err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+
+	var retrieved bmc.Task
+	if err := cluster.Get(context.Background(), request.NamespacedName, &retrieved); err != nil {
+		t.Fatalf("expected nil err, got: %v", err)
+	}
+	if !retrieved.HasCondition(bmc.TaskFailed, bmc.ConditionTrue) {
+		t.Fatalf("expected the Task to be Failed, got conditions %+v", retrieved.Status.Conditions)
+	}
+	if got := retrieved.Status.Conditions[0].Message; !strings.Contains(got, "boom") {
+		t.Fatalf("expected the failure message to include the provider error, got %q", got)
+	}
+}
+
+func TestTaskReconcileCertificateImportBadReference(t *testing.T) {
+	validPEM := createCertificatePEM(t)
+	certMap := func(namespace string, data map[string]string) *corev1.ConfigMap {
+		return &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: "test-cert"},
+			Data:       data,
+		}
+	}
+
+	tests := map[string]struct {
+		configMap *corev1.ConfigMap
+	}{
+		"configmap missing": {},
+		"configmap only in another namespace": {
+			configMap: certMap("other", map[string]string{"cert.pem": validPEM}),
+		},
+		"key missing":      {configMap: certMap("default", map[string]string{"other.pem": validPEM})},
+		"empty value":      {configMap: certMap("default", map[string]string{"cert.pem": ""})},
+		"not a PEM":        {configMap: certMap("default", map[string]string{"cert.pem": "not a certificate"})},
+		"not a PEM cert":   {configMap: certMap("default", map[string]string{"cert.pem": "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n"})},
+		"invalid cert DER": {configMap: certMap("default", map[string]string{"cert.pem": "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"})},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			action := bmc.Action{SecureBoot: &bmc.SecureBootAction{CertificateImport: &bmc.SecureBootCertificateImportAction{
+				Database:                   "db",
+				CertificatePEMConfigMapRef: bmc.ConfigMapKeyReference{Name: "test-cert", Key: "cert.pem"},
+			}}}
+			secret := createSecret()
+			task := createTask("import", action, secret)
+			objs := []client.Object{task, secret}
+			if tt.configMap != nil {
+				objs = append(objs, tt.configMap)
+			}
+			cluster := newClientBuilder().WithObjects(objs...).Build()
+			provider := &testProvider{}
+
+			reconciler := controller.NewTaskReconciler(cluster, newTestClient(provider))
+			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: task.Namespace, Name: task.Name}}
+
+			if _, err := reconciler.Reconcile(context.Background(), request); err == nil {
+				t.Fatal("expected an error, got nil")
+			}
+
+			// The BMC must not be touched, and the Task must stay retryable rather than Failed.
+			if provider.ImportSecureBootCertificateCalledWith != [2]string{} {
+				t.Fatalf("expected ImportSecureBootCertificate not to be called, got %v", provider.ImportSecureBootCertificateCalledWith)
+			}
+			var retrieved bmc.Task
+			if err := cluster.Get(context.Background(), request.NamespacedName, &retrieved); err != nil {
+				t.Fatalf("expected nil err, got: %v", err)
+			}
+			if len(retrieved.Status.Conditions) != 0 || !retrieved.Status.StartTime.IsZero() {
+				t.Fatalf("expected the Task to be untouched, got status %+v", retrieved.Status)
+			}
+		})
+	}
+}
+
+// assertSecureBootCalls checks that the Secure Boot operation set in action reached provider
+// with the expected arguments. It does nothing for actions without a Secure Boot operation.
+func assertSecureBootCalls(t *testing.T, action bmc.Action, provider *testProvider, configMap *corev1.ConfigMap) {
+	t.Helper()
+
+	sb := action.SecureBoot
+	if sb == nil {
+		return
+	}
+
+	if sb.Enable != nil {
+		if got, want := provider.SecureBootEnabled, *sb.Enable; got != want {
+			t.Fatalf("expected secure boot enabled=%v, got %v", want, got)
+		}
+	}
+
+	if sb.AllowCustomKeys != nil {
+		if got := provider.AllowCustomSecureBootKeysCalledWith; got == nil || *got != *sb.AllowCustomKeys {
+			t.Fatalf("expected AllowCustomSecureBootKeys called with %v, got %v", *sb.AllowCustomKeys, got)
+		}
+	}
+
+	if sb.ResetKeys != nil {
+		want := sb.ResetKeys.ResetType
+		if got := provider.ResetSecureBootKeysCalledWith; got != want {
+			t.Fatalf("expected ResetSecureBootKeys called with %q, got %q", want, got)
+		}
+	}
+
+	if sb.DatabaseResetKeys != nil {
+		want := [2]string{sb.DatabaseResetKeys.Database, sb.DatabaseResetKeys.ResetType}
+		if got := provider.ResetSecureBootDatabaseKeysCalledWith; got != want {
+			t.Fatalf("expected ResetSecureBootDatabaseKeys called with %v, got %v", want, got)
+		}
+	}
+
+	if sb.CertificateImport != nil {
+		ref := sb.CertificateImport.CertificatePEMConfigMapRef
+		want := [2]string{sb.CertificateImport.Database, configMap.Data[ref.Key]}
+		if got := provider.ImportSecureBootCertificateCalledWith; got != want {
+			t.Fatalf("expected ImportSecureBootCertificate called with %v, got %v", want, got)
+		}
+	}
 }

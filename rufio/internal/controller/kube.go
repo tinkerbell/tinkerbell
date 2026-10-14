@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"strings"
 
@@ -39,7 +41,37 @@ func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef v1.Sec
 	return string(username), string(password), nil
 }
 
-// toPowerState takes a raw BMC power state response and converts it to a v1alpha1.PowerState.
+// resolveCertificatePEM returns the PEM-encoded certificate stored at ref in the ConfigMap in
+// namespace. It fails if the ConfigMap or key is missing, or the value isn't a PEM-encoded X.509
+// certificate, so a bad reference is caught before anything is sent to a BMC.
+func resolveCertificatePEM(ctx context.Context, c client.Client, namespace string, ref bmc.ConfigMapKeyReference) (string, error) {
+	cm := &v1.ConfigMap{}
+	key := types.NamespacedName{Namespace: namespace, Name: ref.Name}
+
+	if err := c.Get(ctx, key, cm); err != nil {
+		if apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("configmap %s not found: %w", key, err)
+		}
+
+		return "", fmt.Errorf("failed to retrieve configmap %s: %w", key, err)
+	}
+
+	value, ok := cm.Data[ref.Key]
+	if !ok {
+		return "", fmt.Errorf("key %q not found in the data of configmap %s", ref.Key, key)
+	}
+
+	block, _ := pem.Decode([]byte(value))
+	if block == nil || block.Type != "CERTIFICATE" {
+		return "", fmt.Errorf("key %q of configmap %s does not hold a PEM-encoded certificate", ref.Key, key)
+	}
+	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
+		return "", fmt.Errorf("key %q of configmap %s does not hold a valid certificate: %w", ref.Key, key, err)
+	}
+
+	return value, nil
+}
+
 func toPowerState(state string) bmc.PowerState {
 	// Normalize the response string for comparison.
 	state = strings.ToLower(state)
