@@ -1,10 +1,11 @@
-package workflow
+package workflowtemplate
 
 import (
 	"errors"
 	"fmt"
 
 	"github.com/distribution/reference"
+	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,9 +29,21 @@ func parse(yamlContent []byte) (*Workflow, error) {
 	return &workflow, nil
 }
 
+// ToWorkflowStatus renders the Workflow Template text templateData with data, as built by Data,
+// and returns the Workflow status it produces: the Tasks and Actions, the AgentID and the
+// GlobalTimeout. workflowName is the name given to the rendered workflow.
+func ToWorkflowStatus(workflowName, templateData string, data map[string]any) (*v1alpha1.WorkflowStatus, error) {
+	wf, err := renderTemplateHardware(workflowName, templateData, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return YAMLToStatus(wf), nil
+}
+
 // renderTemplateHardware renders the workflow template and returns the Workflow and the interpolated bytes.
 func renderTemplateHardware(templateID, templateData string, hardware map[string]interface{}) (*Workflow, error) {
-	rendered, err := renderTemplate("workflow-template", templateData, hardware)
+	rendered, err := Render("workflow-template", templateData, hardware)
 	if err != nil {
 		return nil, fmt.Errorf("%s: err: %w", fmt.Sprintf(errTemplateParsing, templateID), err)
 	}

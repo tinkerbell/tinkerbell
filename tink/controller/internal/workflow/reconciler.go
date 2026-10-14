@@ -10,10 +10,10 @@ import (
 	"github.com/go-logr/logr"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
+	"github.com/tinkerbell/tinkerbell/tink/internal/workflowtemplate"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -22,19 +22,6 @@ import (
 )
 
 const (
-	// templateDataReferences is the key used to access the Hardware references in the template data.
-	// This is lowercase as it is new and follows the all lowercase convention used when referencing
-	// fields in the reference object.
-	templateDataReferences = "references"
-	// templateDataHardware is the key used to access the Hardware data in the template data.
-	templateDataHardware = "hardware"
-	// templateDataHardwareLegacy is the key used to access the Hardware data in the template data.
-	// This is Title cased as it was the original convention used in the template data and is
-	// used for backwards compatibility.
-	//
-	// Deprecated: use templateDataHardware instead. This key will be removed in a future release.
-	templateDataHardwareLegacy = "Hardware"
-
 	// reasonError is the condition Reason set when a workflow step fails.
 	reasonError = "Error"
 )
@@ -288,13 +275,8 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 	}
 	hardware = *rendered
 
-	data := make(map[string]interface{})
-	for key, val := range stored.Spec.HardwareMap {
-		data[key] = val
-	}
-	contract := toTemplateHardwareData(hardware)
-	// Not a JSON round trip: that turns integers into float64 and replaces non-UTF-8 bytes.
-	hardwareData, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&hardware)
+	references, refErr := r.references.ResolveReferences(ctx, &hardware)
+	data, err := workflowtemplate.Data(hardware, stored.Spec.HardwareMap, references)
 	if err != nil {
 		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
 		stored.Status.SetConditionIfDifferent(v1alpha1.WorkflowCondition{
@@ -306,12 +288,8 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 		})
 		return fmt.Errorf("convert hardware template data: %w", err)
 	}
-	data[templateDataHardware] = hardwareData
-	data[templateDataHardwareLegacy] = contract
-	references, refErr := r.references.ResolveReferences(ctx, &hardware)
-	data[templateDataReferences] = references
 
-	tinkWf, err := renderTemplateHardware(stored.Name, pointerToValue(tpl.Spec.Data), data)
+	status, err := workflowtemplate.ToWorkflowStatus(stored.Name, pointerToValue(tpl.Spec.Data), data)
 	if err != nil {
 		journal.Log(ctx, "error rendering template")
 		stored.Status.TemplateRendering = v1alpha1.TemplateRenderingFailed
@@ -327,7 +305,7 @@ func (r *Reconciler) processWorkflow(ctx context.Context, logger logr.Logger, st
 	}
 
 	// populate Task and Action data
-	stored.Status = *YAMLToStatus(tinkWf)
+	stored.Status = *status
 	stored.Status.TemplateRendering = v1alpha1.TemplateRenderingSuccessful
 	stored.Status.SetCondition(v1alpha1.WorkflowCondition{
 		Type:    v1alpha1.TemplateRenderedSuccess,
@@ -354,37 +332,6 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	stored.Status.State = v1alpha1.WorkflowStatePending
 
 	return reconcile.Result{}, nil
-}
-
-// templateHardwareData defines the data exposed for a Hardware instance to a Template.
-type templateHardwareData struct {
-	Disks      []string
-	Interfaces []v1alpha1.Interface
-	UserData   string
-	Metadata   v1alpha1.HardwareMetadata
-	VendorData string
-}
-
-// toTemplateHardwareData converts a Hardware instance of templateHardwareData for use in template
-// rendering.
-func toTemplateHardwareData(hardware v1alpha1.Hardware) templateHardwareData {
-	var contract templateHardwareData
-	for _, disk := range hardware.Spec.Disks {
-		contract.Disks = append(contract.Disks, disk.Device)
-	}
-	if len(hardware.Spec.Interfaces) > 0 {
-		contract.Interfaces = hardware.Spec.Interfaces
-	}
-	if hardware.Spec.UserData != nil {
-		contract.UserData = pointerToValue(hardware.Spec.UserData)
-	}
-	if hardware.Spec.Metadata != nil {
-		contract.Metadata = *hardware.Spec.Metadata
-	}
-	if hardware.Spec.VendorData != nil {
-		contract.VendorData = pointerToValue(hardware.Spec.VendorData)
-	}
-	return contract
 }
 
 func pointerToValue[V any](ptr *V) V {

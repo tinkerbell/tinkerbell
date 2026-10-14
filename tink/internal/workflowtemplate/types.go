@@ -1,4 +1,4 @@
-package workflow
+package workflowtemplate
 
 // Workflow represents a workflow to be executed.
 type Workflow struct {
