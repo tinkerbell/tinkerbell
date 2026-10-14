@@ -47,6 +47,85 @@ type VirtualMediaAction struct {
 	Kind VirtualMediaKind `json:"kind"`
 }
 
+// SecureBootAction represents a UEFI Secure Boot operation. Exactly one field must be set; to
+// run several operations, use one Action per operation. Operations are sent to the BMC in the
+// order the Actions are listed, but when the BMC applies them (typically on the next reboot) is
+// up to the BMC.
+// +kubebuilder:validation:MinProperties:=1
+// +kubebuilder:validation:MaxProperties:=1
+type SecureBootAction struct {
+	// Enable enables (true) or disables (false) UEFI Secure Boot.
+	Enable *bool `json:"enable,omitempty"`
+
+	// AllowCustomKeys enables (true) or disables (false) the platform's out-of-band acceptance
+	// of custom UEFI Secure Boot keys. This is distinct from enabling Secure Boot itself and
+	// from the standardized Setup/Audit/User/Deployed platform mode: it only gates whether a key
+	// store change made through the BMC will be accepted. Not every BMC supports it; the Task
+	// fails with the provider's error if the BMC doesn't.
+	AllowCustomKeys *bool `json:"allowCustomKeys,omitempty"`
+
+	// ResetKeys resets the Secure Boot key databases as a whole, PK included, as opposed to
+	// DatabaseResetKeys which targets a single database other than PK.
+	ResetKeys *SecureBootResetKeysAction `json:"resetKeys,omitempty"`
+
+	// DatabaseResetKeys resets a single Secure Boot key database.
+	DatabaseResetKeys *SecureBootDatabaseResetKeysAction `json:"databaseResetKeys,omitempty"`
+
+	// CertificateImport imports a certificate into a single Secure Boot key database.
+	CertificateImport *SecureBootCertificateImportAction `json:"certificateImport,omitempty"`
+}
+
+// SecureBootResetKeysAction represents resetting the UEFI Secure Boot key databases.
+type SecureBootResetKeysAction struct {
+	// ResetType is the type of key reset to perform: ResetAllKeysToDefault restores every
+	// database to its platform default, DeleteAllKeys empties every database including PK, and
+	// DeletePK empties only PK. DeleteAllKeys and DeletePK both put the firmware in Setup Mode.
+	// +kubebuilder:validation:Enum=ResetAllKeysToDefault;DeleteAllKeys;DeletePK
+	ResetType string `json:"resetType"`
+}
+
+// SecureBootDatabaseResetKeysAction represents resetting a single UEFI Secure Boot key database
+// other than PK, as opposed to SecureBootResetKeysAction which resets the key databases as a
+// whole.
+type SecureBootDatabaseResetKeysAction struct {
+	// Database is the UEFI Secure Boot key database to reset. PK is not offered; use the
+	// secureBoot resetKeys operation with DeletePK to clear it.
+	// +kubebuilder:validation:Enum=db;KEK;dbx
+	Database string `json:"database"`
+
+	// ResetType is the type of key reset to perform: ResetAllKeysToDefault restores the
+	// database to its platform default, DeleteAllKeys empties it.
+	// +kubebuilder:validation:Enum=ResetAllKeysToDefault;DeleteAllKeys
+	ResetType string `json:"resetType"`
+}
+
+// ConfigMapKeyReference references a specific key within a ConfigMap in the same namespace as
+// the object that holds the reference.
+type ConfigMapKeyReference struct {
+	// Name of the ConfigMap.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Key within the ConfigMap's data.
+	// +kubebuilder:validation:MinLength=1
+	Key string `json:"key"`
+}
+
+// SecureBootCertificateImportAction represents importing a certificate into a single UEFI
+// Secure Boot key database, without touching any other database (e.g. leaving PK, and
+// therefore Setup Mode, untouched).
+type SecureBootCertificateImportAction struct {
+	// Database is the UEFI Secure Boot key database to import the certificate into.
+	// +kubebuilder:validation:Enum=PK;KEK;db;dbx
+	Database string `json:"database"`
+
+	// CertificatePEMConfigMapRef references the key of a ConfigMap, in the namespace of the
+	// Workflow, Job or Task, that holds the PEM-encoded certificate to import. A certificate
+	// isn't secret, but is typically too large and too reused across Workflows to inline
+	// directly into an Action.
+	CertificatePEMConfigMapRef ConfigMapKeyReference `json:"certificatePEMConfigMapRef"`
+}
+
 // BootDeviceConfig represents the configuration for setting a boot device.
 type BootDeviceConfig struct {
 	// Device is the name of the device to set as the first boot device.
