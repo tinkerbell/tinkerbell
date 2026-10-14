@@ -148,6 +148,15 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmc.Job, jobPatch 
 		return ctrl.Result{}, err
 	}
 
+	// Before the first Task runs, check that every certificate the Job will import can be read,
+	// so a bad reference is retried instead of failing the Job after earlier Tasks have already
+	// changed the machine.
+	if completedTasksCount == 0 {
+		if err := r.validateCertificateRefs(ctx, job); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Create the first Task for the Job
 	if err := r.createTaskWithOwner(ctx, *job, completedTasksCount, machine.Spec.Connection); err != nil {
 		// Set the Job condition Failed True
@@ -163,6 +172,22 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmc.Job, jobPatch 
 	// Patch the status at the end of reconcile loop
 	err = r.patchStatus(ctx, job, jobPatch)
 	return ctrl.Result{}, err
+}
+
+// validateCertificateRefs checks that the certificate of every Secure Boot certificateImport Task
+// in the Job can be read from its ConfigMap.
+func (r *JobReconciler) validateCertificateRefs(ctx context.Context, job *bmc.Job) error {
+	for i, task := range job.Spec.Tasks {
+		ci := certificateImport(task)
+		if ci == nil {
+			continue
+		}
+		if _, err := resolveCertificatePEM(ctx, r.client, job.Namespace, ci.CertificatePEMConfigMapRef); err != nil {
+			return fmt.Errorf("job %s/%s task %d: resolving certificatePEMConfigMapRef: %w", job.Namespace, job.Name, i, err)
+		}
+	}
+
+	return nil
 }
 
 // getMachine Gets the Machine from MachineRef.

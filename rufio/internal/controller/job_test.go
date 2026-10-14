@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -119,6 +120,54 @@ func TestJobReconcile(t *testing.T) {
 			}
 			if diff := cmp.Diff(retrieved1, retrieved2); diff != "" {
 				t.Fatal(diff)
+			}
+		})
+	}
+}
+
+func TestJobReconcileCertificateImportReference(t *testing.T) {
+	importAction := bmc.Action{SecureBoot: &bmc.SecureBootAction{CertificateImport: &bmc.SecureBootCertificateImportAction{
+		Database:                   "db",
+		CertificatePEMConfigMapRef: bmc.ConfigMapKeyReference{Name: "test-cert", Key: "cert.pem"},
+	}}}
+
+	tests := map[string]struct {
+		configMap *corev1.ConfigMap
+		shouldErr bool
+	}{
+		"referenced configmap holds a certificate": {configMap: createCertConfigMap(t)},
+		// The Job's first Task is a power off: it must not run when a later Task can't import.
+		"referenced configmap missing": {shouldErr: true},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			machine := createMachine()
+			job := createJob("import", machine, getAction("PowerOff"), importAction)
+			objs := []client.Object{job, machine, createSecret()}
+			if tt.configMap != nil {
+				objs = append(objs, tt.configMap)
+			}
+			clnt := newClientBuilder().
+				WithObjects(objs...).
+				WithIndex(&bmc.Task{}, ".metadata.controller", controller.TaskOwnerIndexFunc).
+				Build()
+
+			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: job.Namespace, Name: job.Name}}
+			_, err := controller.NewJobReconciler(clnt).Reconcile(context.Background(), request)
+			if tt.shouldErr && err == nil {
+				t.Fatal("expected an error, got nil")
+			}
+			if !tt.shouldErr && err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+
+			var tasks bmc.TaskList
+			if err := clnt.List(context.Background(), &tasks); err != nil {
+				t.Fatalf("listing tasks: %v", err)
+			}
+			if want := map[bool]int{true: 0, false: 1}[tt.shouldErr]; len(tasks.Items) != want {
+				t.Fatalf("expected %d Tasks, got %d", want, len(tasks.Items))
 			}
 		})
 	}
