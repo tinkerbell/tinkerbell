@@ -178,7 +178,9 @@ type Config struct {
 type Bind = listener.Bind
 
 // Bootstrap configures delivery of per-host configuration to the OS before its
-// networking starts, as an extra initrd that iPXE fetches over HTTP.
+// networking starts. The same archive reaches the machine two ways: written
+// into the bootstrap slot of ISOs that reserve one, or fetched over HTTP as an
+// extra initrd for iPXE. Enabled turns on both.
 type Bootstrap struct {
 	// Enabled is a flag to enable or disable serving bootstrap archives.
 	Enabled bool
@@ -624,6 +626,7 @@ func (c *Config) newISOHandler(log logr.Logger, syslogHost, tinkServerGRPCAddr s
 			SourceISO:         c.ISO.UpstreamURL.String(),
 			StaticIPAMEnabled: staticIPAMEnabled,
 		},
+		BootstrapEnabled: c.Bootstrap.Enabled,
 	}
 	h, err := ih.HandlerFunc()
 	if err != nil {

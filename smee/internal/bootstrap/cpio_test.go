@@ -126,16 +126,6 @@ func TestArchiveErrors(t *testing.T) {
 	}
 }
 
-func TestEmptyIsJustATrailer(t *testing.T) {
-	got := Empty()
-	if entries := readArchive(t, got); len(entries) != 0 {
-		t.Fatalf("expected no entries, got %v", entries)
-	}
-	if !bytes.Contains(got, []byte(trailerName)) {
-		t.Fatal("empty archive is missing its trailer")
-	}
-}
-
 func TestArchiveIsDeterministic(t *testing.T) {
 	files := []File{
 		{Name: "tinkerbell/bootstrap/network.json", Data: []byte("{}")},

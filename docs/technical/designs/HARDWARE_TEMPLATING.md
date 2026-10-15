@@ -597,11 +597,11 @@ old and new values. Avoid editing during provisioning."
 
 The check does not change what is served. The slot limit applies only to ISO delivery; the
 iPXE initrd has no limit, so treating an oversized archive as a render failure would cut
-off DHCP and iPXE boots for a problem only ISO delivery has. Smee keeps checking the
-archive against the capacity in the source ISO's published layout before serving any bytes
-(`smee/internal/iso/iso.go`), and that remains what rejects an oversized ISO. If an ISO is
-built with a different slot size, the flag must be set to match, or the condition and
-Smee's check disagree.
+off DHCP and iPXE boots for a problem only ISO delivery has. Smee also checks the archive
+against the capacity the slot's sector headers declare as it serves the ISO
+(`smee/internal/iso/slot.go`), and does not write an archive that does not fit. If an
+ISO is built with a different slot size, the flag must be set to match, or the condition
+and Smee's check disagree.
 
 ## 6. Design: reference policy in the kube backend
 

@@ -636,7 +636,7 @@ var ISOStaticIPAMEnabled = Config{
 // root-relative path, from wherever it fetched the script.
 var BootstrapEnabled = Config{
 	Name:  "bootstrap-enabled",
-	Usage: "[bootstrap] serve per-host bootstrap data to iPXE clients",
+	Usage: "[bootstrap] serve per-host bootstrap data endpoint and ISO patching capabilities",
 }
 
 // Tink Server flags.

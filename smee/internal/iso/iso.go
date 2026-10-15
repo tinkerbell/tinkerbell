@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	"github.com/tinkerbell/tinkerbell/smee/internal/bootstrap"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso/internal"
 )
@@ -42,6 +43,9 @@ type Handler struct {
 	Backend BackendReader
 	Logger  logr.Logger
 	Patch   Patch
+	// BootstrapEnabled writes each host's bootstrap archive into the
+	// bootstrap slot of source ISOs that reserve one, such as CaptainOS.
+	BootstrapEnabled bool
 }
 
 // Patch holds the data and configuration used for ISO patching.
@@ -142,7 +146,28 @@ func (h *Handler) Copy(ctx context.Context, dst io.Writer, src io.Reader, buf []
 	if len(buf) == 0 {
 		buf = make([]byte, 32*1024)
 	}
+	// The bootstrap slot is found by its sector headers as the bytes stream
+	// through, so it may hold bytes back until it can place them.
+	sl := slotFrom(ctx)
 	var written int64
+	write := func(b []byte) error {
+		// An HTTP/2 response without a body, such as a 304, rejects even an
+		// empty write.
+		if len(b) == 0 {
+			return nil
+		}
+		nw, werr := dst.Write(b)
+		if nw > 0 {
+			written += int64(nw)
+		}
+		if werr != nil {
+			return werr
+		}
+		if nw != len(b) {
+			return io.ErrShortWrite
+		}
+		return nil
+	}
 	for {
 		nr, rerr := src.Read(buf)
 		if rerr != nil && rerr != io.EOF && rerr != context.Canceled { //nolint: errorlint // going to defer to the stdlib on this one.
@@ -159,24 +184,39 @@ func (h *Handler) Copy(ctx context.Context, dst io.Writer, src io.Reader, buf []
 				copy(dup[i:], internal.GetPatch(ctx))
 				b = dup
 			}
-			nw, werr := dst.Write(b)
-			if nw > 0 {
-				written += int64(nw)
+			if sl != nil {
+				b = sl.next(b)
 			}
-			if werr != nil {
-				return written, werr
-			}
-			if nr != nw {
-				return written, io.ErrShortWrite
+			if err := write(b); err != nil {
+				return written, err
 			}
 		}
 		if rerr != nil {
+			if err := h.endSlot(sl, rerr, write); err != nil {
+				return written, err
+			}
 			if rerr == io.EOF {
 				rerr = nil
 			}
 			return written, rerr
 		}
 	}
+}
+
+// endSlot finishes sl at the end of a response, which ended with rerr.
+func (h *Handler) endSlot(sl *slot, rerr error, write func([]byte) error) error {
+	if sl == nil {
+		return nil
+	}
+	if sl.err != nil {
+		h.Logger.Error(sl.err, "bootstrap slot found but not personalized, serving it unmodified")
+	}
+	// Held back bytes may belong to the slot, so they are only sent once the
+	// response is known to be complete.
+	if !errors.Is(rerr, io.EOF) {
+		return nil
+	}
+	return write(sl.flush())
 }
 
 // RoundTrip is a method on the Handler struct that implements the http.RoundTripper interface.
@@ -234,7 +274,7 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 			}, nil
 		}
 
-		fac, hw, err := h.getFacility(req.Context(), ha, h.Backend)
+		fac, hw, spec, err := h.getFacility(req.Context(), ha, h.Backend)
 		if err != nil {
 			log.Info("unable to get the hardware object", "error", err, "mac", ha.String())
 			if apierrors.IsNotFound(err) {
@@ -288,6 +328,7 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 		req.URL.Path = tu.Path
 		req.URL.Host = tu.Host
 		req.URL.Scheme = tu.Scheme
+		req = h.withBootstrap(req, spec)
 	}
 	scheme := schemeHTTP
 	if req.TLS != nil {
@@ -333,6 +374,12 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 	}
 
 	tu := req.URL.String()
+	// The parts of a multipart range response are separated by boundaries, so
+	// its bytes are not one run of the ISO the slot can be placed in.
+	if spec, ok := req.Context().Value(hardwareCtxKey{}).(*tinkerbell.Hardware); ok && !strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Type")), "multipart/") {
+		// The body is copied with the response request's context.
+		resp.Request = req.WithContext(withSlot(req.Context(), &slot{archive: archiveFor(spec)}))
+	}
 	if resp.StatusCode == http.StatusPartialContent {
 		// 0.002% of the time we log a 206 request message.
 		// In testing, it was observed that about 3000 HTTP 206 requests are made per ISO mount.
@@ -348,6 +395,33 @@ func (h *Handler) roundTripWithRedirectCount(req *http.Request, redirectCount in
 	log.V(1).Info("roundtrip complete")
 
 	return resp, nil
+}
+
+// hardwareCtxKey carries the Hardware from the incoming request to the final
+// source ISO response, where its bootstrap slot is placed.
+type hardwareCtxKey struct{}
+
+// withBootstrap prepares req, when bootstrap is enabled, for the bootstrap
+// slot to be placed in the final response, once redirects are followed.
+func (h *Handler) withBootstrap(req *http.Request, spec *tinkerbell.Hardware) *http.Request {
+	if !h.BootstrapEnabled {
+		return req
+	}
+	// The slot's sector headers are only found in unencoded bytes.
+	req.Header.Set("Accept-Encoding", "identity")
+	return req.WithContext(context.WithValue(req.Context(), hardwareCtxKey{}, spec))
+}
+
+// archiveFor returns a function that builds spec's bootstrap archive, so that
+// it is only built for a response that holds the slot.
+func archiveFor(spec *tinkerbell.Hardware) func() ([]byte, error) {
+	return func() ([]byte, error) {
+		files, err := bootstrap.Files(spec)
+		if err != nil {
+			return nil, err
+		}
+		return bootstrap.Archive(files, bootstrap.ModTime(spec))
+	}
 }
 
 func (h *Handler) constructPatch(console, mac string, d *dhcp.DHCP) string {
@@ -379,21 +453,21 @@ func getMAC(urlPath string) (net.HardwareAddr, error) {
 	return hw, nil
 }
 
-func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br BackendReader) (string, dhcp.Hardware, error) {
+func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br BackendReader) (string, dhcp.Hardware, *tinkerbell.Hardware, error) {
 	if br == nil {
-		return "", dhcp.Hardware{}, errors.New("backend is nil")
+		return "", dhcp.Hardware{}, nil, errors.New("backend is nil")
 	}
 
 	spec, err := br.FilterHardware(ctx, data.HardwareFilter{ByMACAddress: mac.String()})
 	if err != nil {
-		return "", dhcp.Hardware{}, err
+		return "", dhcp.Hardware{}, nil, err
 	}
 	hw, err := dhcp.ConvertByMac(ctx, mac, spec)
 	if err != nil {
-		return "", dhcp.Hardware{}, fmt.Errorf("failed to convert hardware data: %w", err)
+		return "", dhcp.Hardware{}, nil, fmt.Errorf("failed to convert hardware data: %w", err)
 	}
 
-	return hw.Netboot.Facility, dhcp.Hardware{DHCP: hw.DHCP, Isoboot: hw.Isoboot}, nil
+	return hw.Netboot.Facility, dhcp.Hardware{DHCP: hw.DHCP, Isoboot: hw.Isoboot}, spec, nil
 }
 
 func randomPercentage(precision int64) float64 {
