@@ -822,6 +822,9 @@ spec:
                                               neighbor advertises (e.g. a MAC address).
                                             type: string
                                           portDescription:
+                                            description: |-
+                                              PortDescription is the neighbor's description of that port (e.g. an
+                                              interface alias configured on the switch).
                                             type: string
                                           portID:
                                             description: |-
@@ -833,13 +836,6 @@ spec:
                                               advertised hostname (e.g. the switch
                                               name).
                                             type: string
-                                          vlanIDs:
-                                            description: VLANIDs lists the VLANs the
-                                              neighbor advertises on this port.
-                                            items:
-                                              format: int32
-                                              type: integer
-                                            type: array
                                         type: object
                                       type: array
                                     mac:
@@ -1106,6 +1102,9 @@ spec:
                                             neighbor advertises (e.g. a MAC address).
                                           type: string
                                         portDescription:
+                                          description: |-
+                                            PortDescription is the neighbor's description of that port (e.g. an
+                                            interface alias configured on the switch).
                                           type: string
                                         portID:
                                           description: |-
@@ -1116,13 +1115,6 @@ spec:
                                           description: SystemName is the neighbor's
                                             advertised hostname (e.g. the switch name).
                                           type: string
-                                        vlanIDs:
-                                          description: VLANIDs lists the VLANs the
-                                            neighbor advertises on this port.
-                                          items:
-                                            format: int32
-                                            type: integer
-                                          type: array
                                       type: object
                                     type: array
                                   mac:
@@ -1521,6 +1513,9 @@ spec:
                                               neighbor advertises (e.g. a MAC address).
                                             type: string
                                           portDescription:
+                                            description: |-
+                                              PortDescription is the neighbor's description of that port (e.g. an
+                                              interface alias configured on the switch).
                                             type: string
                                           portID:
                                             description: |-
@@ -1532,13 +1527,6 @@ spec:
                                               advertised hostname (e.g. the switch
                                               name).
                                             type: string
-                                          vlanIDs:
-                                            description: VLANIDs lists the VLANs the
-                                              neighbor advertises on this port.
-                                            items:
-                                              format: int32
-                                              type: integer
-                                            type: array
                                         type: object
                                       type: array
                                     mac:
@@ -1805,6 +1793,9 @@ spec:
                                             neighbor advertises (e.g. a MAC address).
                                           type: string
                                         portDescription:
+                                          description: |-
+                                            PortDescription is the neighbor's description of that port (e.g. an
+                                            interface alias configured on the switch).
                                           type: string
                                         portID:
                                           description: |-
@@ -1815,13 +1806,6 @@ spec:
                                           description: SystemName is the neighbor's
                                             advertised hostname (e.g. the switch name).
                                           type: string
-                                        vlanIDs:
-                                          description: VLANIDs lists the VLANs the
-                                            neighbor advertises on this port.
-                                          items:
-                                            format: int32
-                                            type: integer
-                                          type: array
                                       type: object
                                     type: array
                                   mac:

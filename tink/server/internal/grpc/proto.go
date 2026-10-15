@@ -62,7 +62,6 @@ func convert(pAttr *proto.AgentAttributes) *data.AgentAttributes {
 				SystemName:      nb.SystemName,
 				PortID:          nb.PortId,
 				PortDescription: nb.PortDescription,
-				VLANIDs:         nb.VlanIds,
 			})
 		}
 		dAttr.NetworkInterfaces = append(dAttr.NetworkInterfaces, n)

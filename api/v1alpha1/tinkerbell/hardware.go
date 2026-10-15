@@ -743,11 +743,10 @@ type LLDPNeighbor struct {
 	// the neighbor names it (e.g. a switch port name).
 	//+optional
 	PortID string `json:"portID,omitempty"`
+	// PortDescription is the neighbor's description of that port (e.g. an
+	// interface alias configured on the switch).
 	//+optional
 	PortDescription string `json:"portDescription,omitempty"`
-	// VLANIDs lists the VLANs the neighbor advertises on this port.
-	//+optional
-	VLANIDs []uint32 `json:"vlanIDs,omitempty"`
 }
 
 // GPUDevice describes a GPU or accelerator device.

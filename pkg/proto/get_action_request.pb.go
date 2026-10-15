@@ -591,7 +591,6 @@ type LLDPNeighbor struct {
 	SystemName      *string                `protobuf:"bytes,2,opt,name=system_name,json=systemName" json:"system_name,omitempty"`
 	PortId          *string                `protobuf:"bytes,3,opt,name=port_id,json=portId" json:"port_id,omitempty"`
 	PortDescription *string                `protobuf:"bytes,4,opt,name=port_description,json=portDescription" json:"port_description,omitempty"`
-	VlanIds         []uint32               `protobuf:"varint,5,rep,packed,name=vlan_ids,json=vlanIds" json:"vlan_ids,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -652,13 +651,6 @@ func (x *LLDPNeighbor) GetPortDescription() string {
 		return *x.PortDescription
 	}
 	return ""
-}
-
-func (x *LLDPNeighbor) GetVlanIds() []uint32 {
-	if x != nil {
-		return x.VlanIds
-	}
-	return nil
 }
 
 type PCI struct {
@@ -1098,15 +1090,14 @@ const file_get_action_request_proto_rawDesc = "" +
 	"\x14enabled_capabilities\x18\x04 \x03(\tR\x13enabledCapabilities\x12\x1d\n" +
 	"\n" +
 	"speed_mbps\x18\x05 \x01(\rR\tspeedMbps\x12:\n" +
-	"\x0elldp_neighbors\x18\x06 \x03(\v2\x13.proto.LLDPNeighborR\rlldpNeighborsJ\x04\b\x03\x10\x04R\x05speed\"\xad\x01\n" +
+	"\x0elldp_neighbors\x18\x06 \x03(\v2\x13.proto.LLDPNeighborR\rlldpNeighborsJ\x04\b\x03\x10\x04R\x05speed\"\x92\x01\n" +
 	"\fLLDPNeighbor\x12\x1d\n" +
 	"\n" +
 	"chassis_id\x18\x01 \x01(\tR\tchassisId\x12\x1f\n" +
 	"\vsystem_name\x18\x02 \x01(\tR\n" +
 	"systemName\x12\x17\n" +
 	"\aport_id\x18\x03 \x01(\tR\x06portId\x12)\n" +
-	"\x10port_description\x18\x04 \x01(\tR\x0fportDescription\x12\x19\n" +
-	"\bvlan_ids\x18\x05 \x03(\rR\avlanIds\"e\n" +
+	"\x10port_description\x18\x04 \x01(\tR\x0fportDescription\"e\n" +
 	"\x03PCI\x12\x16\n" +
 	"\x06vendor\x18\x01 \x01(\tR\x06vendor\x12\x18\n" +
 	"\aproduct\x18\x02 \x01(\tR\aproduct\x12\x14\n" +

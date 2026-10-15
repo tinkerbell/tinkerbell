@@ -62,7 +62,6 @@ func TestToProto(t *testing.T) {
 								SystemName:      toPtr("switch01.example.com"),
 								PortID:          toPtr("d0:11:e5:1c:6f:d8"),
 								PortDescription: toPtr("en0"),
-								VLANIDs:         []uint32{10, 20},
 							},
 							{
 								ChassisID:  toPtr("aa:bb:cc:00:11:22"),
@@ -116,7 +115,6 @@ func TestToProto(t *testing.T) {
 								SystemName:      toPtr("switch01.example.com"),
 								PortId:          toPtr("d0:11:e5:1c:6f:d8"),
 								PortDescription: toPtr("en0"),
-								VlanIds:         []uint32{10, 20},
 							},
 							{
 								ChassisId:  toPtr("aa:bb:cc:00:11:22"),
