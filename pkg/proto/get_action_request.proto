@@ -91,7 +91,6 @@ message LLDPNeighbor {
     string system_name = 2;
     string port_id = 3;
     string port_description = 4;
-    repeated uint32 vlan_ids = 5;
 }
 
 message PCI {

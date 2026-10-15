@@ -56,7 +56,7 @@ func TestAgentAttributesFromInBand(t *testing.T) {
 						LLDPNeighbors: []tinkv1alpha1.LLDPNeighbor{
 							{
 								ChassisID: "aa:bb:cc:00:11:22", SystemName: "switch01",
-								PortID: "Gi1/0/1", PortDescription: "uplink", VLANIDs: []uint32{10, 20},
+								PortID: "Gi1/0/1", PortDescription: "uplink",
 							},
 							{ChassisID: "aa:bb:cc:00:11:33", SystemName: "vswitch01", PortID: "vnet0"},
 						},
@@ -116,11 +116,8 @@ func TestAgentAttributesFromInBand(t *testing.T) {
 	if neighbor.ChassisID != "aa:bb:cc:00:11:22" || neighbor.SystemName != "switch01" || neighbor.PortID != "Gi1/0/1" || neighbor.PortDescription != "uplink" {
 		t.Errorf("NetworkInterfaces[1].LLDPNeighbors[0] = %+v, want ChassisID=aa:bb:cc:00:11:22 SystemName=switch01 PortID=Gi1/0/1 PortDescription=uplink", neighbor)
 	}
-	if neighbor.VLANIDs != "10, 20" {
-		t.Errorf("NetworkInterfaces[1].LLDPNeighbors[0].VLANIDs = %q, want \"10, 20\"", neighbor.VLANIDs)
-	}
-	if neighbors[1].SystemName != "vswitch01" || neighbors[1].PortID != "vnet0" || neighbors[1].VLANIDs != "" {
-		t.Errorf("NetworkInterfaces[1].LLDPNeighbors[1] = %+v, want SystemName=vswitch01 PortID=vnet0 VLANIDs=\"\"", neighbors[1])
+	if neighbors[1].SystemName != "vswitch01" || neighbors[1].PortID != "vnet0" {
+		t.Errorf("NetworkInterfaces[1].LLDPNeighbors[1] = %+v, want SystemName=vswitch01 PortID=vnet0", neighbors[1])
 	}
 	if got.NetworkInterfaces[0].LLDPNeighbors != nil {
 		t.Errorf("NetworkInterfaces[0].LLDPNeighbors = %+v, want nil (no neighbor reported)", got.NetworkInterfaces[0].LLDPNeighbors)
@@ -170,20 +167,3 @@ func TestAgentAttributesFromInBandNonNumericSlotFallsBackToIndex(t *testing.T) {
 
 // humanizeBytes and humanizeSpeedMbps are shared with agent_attributes.go;
 // see agent_attributes_test.go for their tests.
-
-func TestHumanizeVLANIDs(t *testing.T) {
-	tests := []struct {
-		input []uint32
-		want  string
-	}{
-		{nil, ""},
-		{[]uint32{}, ""},
-		{[]uint32{10}, "10"},
-		{[]uint32{10, 20}, "10, 20"},
-	}
-	for _, tc := range tests {
-		if got := humanizeVLANIDs(tc.input); got != tc.want {
-			t.Errorf("humanizeVLANIDs(%v) = %q, want %q", tc.input, got, tc.want)
-		}
-	}
-}

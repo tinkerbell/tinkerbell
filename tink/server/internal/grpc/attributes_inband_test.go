@@ -39,7 +39,7 @@ func TestInBandAttributesFromAgent(t *testing.T) {
 				LLDPNeighbors: []*data.LLDPNeighbor{
 					{
 						ChassisID: ptr("aa:bb:cc:00:11:22"), SystemName: ptr("switch01"),
-						PortID: ptr("Gi1/0/1"), PortDescription: ptr("uplink"), VLANIDs: []uint32{10, 20},
+						PortID: ptr("Gi1/0/1"), PortDescription: ptr("uplink"),
 					},
 					nil,
 					{ChassisID: ptr("aa:bb:cc:00:11:33"), SystemName: ptr("vswitch01"), PortID: ptr("vnet0")},
@@ -100,9 +100,6 @@ func TestInBandAttributesFromAgent(t *testing.T) {
 	neighbor := neighbors[0]
 	if neighbor.ChassisID != "aa:bb:cc:00:11:22" || neighbor.SystemName != "switch01" || neighbor.PortID != "Gi1/0/1" || neighbor.PortDescription != "uplink" {
 		t.Errorf("LLDPNeighbors[0] = %+v, want ChassisID=aa:bb:cc:00:11:22 SystemName=switch01 PortID=Gi1/0/1 PortDescription=uplink", neighbor)
-	}
-	if len(neighbor.VLANIDs) != 2 || neighbor.VLANIDs[0] != 10 || neighbor.VLANIDs[1] != 20 {
-		t.Errorf("LLDPNeighbors[0].VLANIDs = %v, want [10 20]", neighbor.VLANIDs)
 	}
 	if neighbors[1].ChassisID != "aa:bb:cc:00:11:33" || neighbors[1].SystemName != "vswitch01" || neighbors[1].PortID != "vnet0" {
 		t.Errorf("LLDPNeighbors[1] = %+v, want ChassisID=aa:bb:cc:00:11:33 SystemName=vswitch01 PortID=vnet0", neighbors[1])

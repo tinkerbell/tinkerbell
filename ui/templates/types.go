@@ -221,8 +221,6 @@ type AgentLLDPNeighbor struct {
 	SystemName      string `json:"systemName"`
 	PortID          string `json:"portID"`
 	PortDescription string `json:"portDescription"`
-	// VLANIDs is pre-formatted as a comma-separated list (e.g. "10, 20").
-	VLANIDs string `json:"vlanIDs"`
 }
 
 // AgentPCIDevice represents a PCI device from agent attributes.

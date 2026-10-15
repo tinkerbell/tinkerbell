@@ -1,9 +1,11 @@
 package attribute
 
 import (
+	"context"
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ccoveille/go-safecast/v2"
 	"github.com/go-logr/logr"
@@ -12,18 +14,13 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 )
 
-// DiscoverAll runs all attribute discovery. It does not include LLDP
-// neighbor discovery: that's orchestrated separately by the caller (see
-// DiscoverLLDP and MergeLLDPNeighbors), since it can take up to
-// DefaultLLDPTimeout and is run synchronously - see agent.go's
-// ConfigureAndRun. The caller passes this call's own NetworkInterfaces to
-// DiscoverLLDP as the set of interfaces worth waiting on.
-func DiscoverAll(l logr.Logger) *data.AgentAttributes {
+// DiscoverAll discovers all attributes. lldpTimeout is passed to DiscoverNetworks.
+func DiscoverAll(ctx context.Context, l logr.Logger, lldpTimeout time.Duration) *data.AgentAttributes {
 	return &data.AgentAttributes{
 		CPU:               DiscoverCPU(l),
 		Memory:            DiscoverMemory(l),
 		BlockDevices:      DiscoverBlockDevices(l),
-		NetworkInterfaces: DiscoverNetworks(l),
+		NetworkInterfaces: DiscoverNetworks(ctx, l, lldpTimeout),
 		PCIDevices:        DiscoverPCI(l),
 		GPUDevices:        DiscoverGPU(l),
 		Chassis:           DiscoverChassis(l),
@@ -118,16 +115,19 @@ func DiscoverBlockDevices(l logr.Logger) []*data.Block {
 	return blockDevices
 }
 
-// DiscoverNetworks discovers network interfaces. LLDP neighbor discovery is
-// orchestrated separately (see DiscoverLLDP and MergeLLDPNeighbors) since it
-// can take much longer than everything else here.
-func DiscoverNetworks(l logr.Logger) []*data.Network {
+// DiscoverNetworks discovers network interfaces and their LLDP neighbors. It
+// waits up to lldpTimeout for each physical interface that has a link to
+// report a neighbor. A zero lldpTimeout skips LLDP discovery.
+func DiscoverNetworks(ctx context.Context, l logr.Logger, lldpTimeout time.Duration) []*data.Network {
 	net, err := ghw.Network(ghw.WithDisableWarnings())
 	if err != nil {
 		l.V(1).Info("error getting network info", "error", err)
 		return nil
 	}
 	var nics []*data.Network
+	// Virtual interfaces never receive a switch's LLDP advertisement, but
+	// some report a link anyway, so waiting on them always hits the timeout.
+	var physical []string
 	for _, n := range net.NICs {
 		if n == nil {
 			continue
@@ -149,6 +149,14 @@ func DiscoverNetworks(l logr.Logger) []*data.Network {
 			nic.SpeedMbps = toPtr(speedMbps)
 		}
 		nics = append(nics, nic)
+		if !n.IsVirtual {
+			physical = append(physical, n.Name)
+		}
+	}
+
+	neighbors := newLLDP().neighbors(ctx, l, lldpTimeout, physical)
+	for _, nic := range nics {
+		nic.LLDPNeighbors = neighbors[*nic.Name]
 	}
 	return nics
 }
