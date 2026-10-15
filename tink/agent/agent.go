@@ -206,7 +206,11 @@ type Options struct {
 	TransportSelected         TransportType
 	RuntimeSelected           RuntimeType
 	AttributeDetectionEnabled bool
-	BackoffOptions            BackoffOptions
+	// LLDPTimeout bounds how long attribute detection waits for LLDP
+	// neighbors. Detection finishes before any Action runs because an Action
+	// can power-cycle the machine. Zero disables LLDP discovery.
+	LLDPTimeout    time.Duration
+	BackoffOptions BackoffOptions
 }
 
 type Transport struct {
@@ -318,19 +322,7 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 			Actions:          make(chan spec.Action),
 		}
 		if o.AttributeDetectionEnabled {
-			attrs := attribute.DiscoverAll(log)
-			// Blocks for up to attribute.DefaultLLDPTimeout: the physical
-			// task's own actions can finish and trigger a power cycle well
-			// before that timeout would otherwise elapse in the background,
-			// killing discovery before it ever sees a neighbor. Blocking here
-			// guarantees discovery always gets its full window before any
-			// action starts. Always safe to run unconditionally: DiscoverLLDP
-			// reads systemd-networkd's already-accumulated neighbor table, so
-			// it's normally near-instant, and returns immediately on OSes
-			// with no systemd (e.g. HookOS).
-			neighbors := attribute.DiscoverLLDP(inctx, log, attribute.DefaultLLDPTimeout, attrs.NetworkInterfaces)
-			attrs = attribute.MergeLLDPNeighbors(attrs, neighbors)
-			readWriter.Attributes = attrs
+			readWriter.Attributes = attribute.DiscoverAll(inctx, log, o.LLDPTimeout)
 		}
 		log.Info("starting gRPC transport", "server", o.Transport.GRPC.ServerAddrPort, "attributes", readWriter.Attributes)
 		tr = readWriter

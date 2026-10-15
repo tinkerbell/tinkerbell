@@ -215,7 +215,7 @@ func networkInterfaceFromAgent(n *data.Network) tinkerbell.NetworkInterface {
 }
 
 func lldpNeighborFromAgent(n *data.LLDPNeighbor) tinkerbell.LLDPNeighbor {
-	out := tinkerbell.LLDPNeighbor{VLANIDs: n.VLANIDs}
+	var out tinkerbell.LLDPNeighbor
 	if n.ChassisID != nil {
 		out.ChassisID = *n.ChassisID
 	}

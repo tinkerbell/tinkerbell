@@ -64,11 +64,10 @@ type Network struct {
 // LLDPNeighbor is a switch (or other LLDP-speaking device) discovered on the
 // other end of a Network interface's port.
 type LLDPNeighbor struct {
-	ChassisID       *string  `json:"chassisID,omitempty" yaml:"chassisID,omitempty"`
-	SystemName      *string  `json:"systemName,omitempty" yaml:"systemName,omitempty"`
-	PortID          *string  `json:"portID,omitempty" yaml:"portID,omitempty"`
-	PortDescription *string  `json:"portDescription,omitempty" yaml:"portDescription,omitempty"`
-	VLANIDs         []uint32 `json:"vlanIDs,omitempty" yaml:"vlanIDs,omitempty"`
+	ChassisID       *string `json:"chassisID,omitempty" yaml:"chassisID,omitempty"`
+	SystemName      *string `json:"systemName,omitempty" yaml:"systemName,omitempty"`
+	PortID          *string `json:"portID,omitempty" yaml:"portID,omitempty"`
+	PortDescription *string `json:"portDescription,omitempty" yaml:"portDescription,omitempty"`
 }
 
 type PCI struct {

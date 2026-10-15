@@ -66,7 +66,6 @@ func ToProto(a *data.AgentAttributes) *proto.AgentAttributes {
 				SystemName:      nb.SystemName,
 				PortId:          nb.PortID,
 				PortDescription: nb.PortDescription,
-				VlanIds:         nb.VLANIDs,
 			})
 		}
 		result.Network = append(result.Network, n)
