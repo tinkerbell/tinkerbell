@@ -172,6 +172,33 @@ This configuration will:
 5. Set boot device back to disk persistently
 6. Power on the machine to boot from disk
 
+#### Example: Enabling UEFI HTTP Boot with customboot
+
+The `networkBootConfig` action enables/disables UEFI HTTP Boot and/or legacy PXE boot capability in BIOS/UEFI firmware, and can set the URL UEFI HTTP Boot fetches its boot image from. Unlike `bootDevice` (which selects among existing boot options), `networkBootConfig` creates or removes the boot options themselves - useful when a Machine's firmware doesn't have UEFI HTTP Boot enabled by default.
+
+```yaml
+apiVersion: "tinkerbell.org/v1alpha1"
+kind: Workflow
+metadata:
+  name: example-http-boot
+spec:
+  templateRef: example
+  hardwareRef: example
+  bootOptions:
+    bootMode: customboot
+    custombootConfig:
+      preparingActions:
+      - powerAction: "off"
+      - networkBootConfig:
+          httpBootEnabled: true
+          httpBootURL: 'http://172.17.1.1:7080/ipxe/binary/ipxe.efi'
+      - powerAction: "on"
+```
+
+`httpBootURL` points at the iPXE binary Tinkerbell serves under `/ipxe/binary/` (`ipxe.efi` for x86_64, `snp-arm64.efi` for arm64). It must be an `http://` or `https://` URL, and it is not templated - unlike `virtualMediaAction.mediaURL`, `customboot`'s Go-template support (e.g. `{{ (index .Hardware.Interfaces 0).DHCP.MAC }}`) does not apply to `networkBootConfig` fields, so the URL must not contain template syntax.
+
+`httpBootEnabled`, `pxeBootEnabled`, `httpBootURL`, and `httpBootTLSMode` are independent - any combination may be set at once, and a field left unset leaves that setting untouched. Support for this action depends on the BMC's provider implementing it in [bmclib](https://github.com/bmc-toolbox/bmclib); `httpBootTLSMode` is currently only implemented for Dell (iDRAC/Redfish) and returns an error on other providers.
+
 ### Templating in customboot
 
 The `customboot` mode supports Go template syntax in action fields, enabling dynamic configuration based on Hardware specifications. This is particularly useful for virtual media URLs that need to include the Machine's MAC address.
