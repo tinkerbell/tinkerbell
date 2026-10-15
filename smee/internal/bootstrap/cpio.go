@@ -131,12 +131,6 @@ func unixSeconds(t time.Time) uint32 {
 	return uint32(sec)
 }
 
-// Empty returns the archive a freshly built, unpersonalized slot contains.
-func Empty() []byte {
-	a, _ := Archive(nil, time.Time{})
-	return a
-}
-
 func cleanName(name string) (string, error) {
 	// newc names are NUL-terminated, so an embedded NUL would truncate the name.
 	if strings.ContainsRune(name, 0) {
