@@ -4,6 +4,7 @@ import (
 	"context"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
+	bmclibbmc "github.com/bmc-toolbox/bmclib/v2/bmc"
 	"github.com/bmc-toolbox/bmclib/v2/providers"
 	common "github.com/bmc-toolbox/common"
 	"github.com/go-logr/logr"
@@ -113,6 +114,32 @@ type testProvider struct {
 	InventoryDevice *common.Device
 	ErrInventory    error
 	InventoryCalls  int
+
+	// NetworkBootEnabledOK and ErrSetNetworkBootEnabled control the
+	// SetNetworkBootEnabled implementation below, used to test HTTPBootEnabled/PXEBootEnabled
+	// without a live BMC.
+	NetworkBootEnabledOK     bool
+	ErrSetNetworkBootEnabled error
+
+	// HTTPBootURIOK, ErrHTTPBootURISet, and SetHTTPBootURICalls control the
+	// SetHTTPBootURI implementation below, used to test HTTPBootURL without a
+	// live BMC.
+	HTTPBootURIOK       bool
+	ErrHTTPBootURISet   error
+	SetHTTPBootURICalls []string
+
+	// HTTPBootTLSModeOK, ErrHTTPBootTLSModeSet, and SetHTTPBootTLSModeCalls control the
+	// SetHTTPBootTLSMode implementation below, used to test HTTPBootTLSMode without a
+	// live BMC.
+	HTTPBootTLSModeOK       bool
+	ErrHTTPBootTLSModeSet   error
+	SetHTTPBootTLSModeCalls []string
+
+	// NetworkBootCallOrder records, across a single runNetworkBootConfig call, the order
+	// SetHTTPBootTLSMode and SetHTTPBootURI were invoked in - used to assert TLS mode is set
+	// before the URL, since a BMC that still has the stricter TLS mode active can reject a
+	// plain-HTTP URL.
+	NetworkBootCallOrder []string
 }
 
 func (t *testProvider) Name() string {
@@ -136,6 +163,9 @@ func (t *testProvider) Features() registrar.Features {
 		providers.FeatureBootDeviceSet,
 		providers.FeatureVirtualMedia,
 		providers.FeatureInventoryRead,
+		providers.FeatureSetHTTPBootURI,
+		providers.FeatureSetNetworkBootEnabled,
+		providers.FeatureSetHTTPBootTLSMode,
 	}
 }
 
@@ -169,6 +199,22 @@ func (t *testProvider) BootDeviceSet(_ context.Context, _ string, _, _ bool) (ok
 
 func (t *testProvider) SetVirtualMedia(_ context.Context, _ string, _ string) (ok bool, err error) {
 	return t.VirtualMediaOK, t.ErrVirtualMediaInsert
+}
+
+func (t *testProvider) SetNetworkBootEnabled(_ context.Context, _, _ *bool) (ok bool, err error) {
+	return t.NetworkBootEnabledOK, t.ErrSetNetworkBootEnabled
+}
+
+func (t *testProvider) SetHTTPBootURI(_ context.Context, uri string) (ok bool, err error) {
+	t.SetHTTPBootURICalls = append(t.SetHTTPBootURICalls, uri)
+	t.NetworkBootCallOrder = append(t.NetworkBootCallOrder, "SetHTTPBootURI")
+	return t.HTTPBootURIOK, t.ErrHTTPBootURISet
+}
+
+func (t *testProvider) SetHTTPBootTLSMode(_ context.Context, mode bmclibbmc.HTTPBootTLSMode) (ok bool, err error) {
+	t.SetHTTPBootTLSModeCalls = append(t.SetHTTPBootTLSModeCalls, string(mode))
+	t.NetworkBootCallOrder = append(t.NetworkBootCallOrder, "SetHTTPBootTLSMode")
+	return t.HTTPBootTLSModeOK, t.ErrHTTPBootTLSModeSet
 }
 
 // newMockBMCClientFactoryFunc returns a new BMCClientFactoryFunc.
