@@ -244,7 +244,9 @@ PXELinux or Raspberry Pi netboot:
 | `spec.netboot.rpi.configTxt` | Optional | `<SerialNum>/config.txt` is not served inline; the request falls through |
 | `spec.netboot.osie.kernelParams` | Optional | `<SerialNum>/cmdline.txt` is not served inline; the request falls through |
 
-`serialNum` is the full serial number or its last 8 characters. `firmwarePath`
+`serialNum` must be exactly the prefix the Pi sends: the last 8 hex characters
+of its serial number with `TFTP_PREFIX=0`. It is compared verbatim, so the full
+16-character serial never matches. `firmwarePath`
 is the asset-directory subpath that the serial prefix maps to on disk (see the
 Raspberry Pi firmware note above); it is internal to Smee, not a client-visible
 redirect.
