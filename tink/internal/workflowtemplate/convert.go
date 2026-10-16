@@ -1,4 +1,4 @@
-package workflow
+package workflowtemplate
 
 import (
 	"github.com/oklog/ulid/v2"

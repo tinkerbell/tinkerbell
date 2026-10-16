@@ -1,4 +1,4 @@
-package workflow
+package workflowtemplate
 
 import (
 	"testing"
@@ -7,6 +7,9 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 )
+
+// valueTrue is the string a rendered boolean takes in an Action environment.
+const valueTrue = "true"
 
 func TestYAMLToStatus(t *testing.T) {
 	cases := []struct {

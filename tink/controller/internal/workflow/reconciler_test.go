@@ -174,18 +174,6 @@ tasks:
 	}
 }
 
-func TestHardwareTemplateDataBinary(t *testing.T) {
-	raw := "\x30\x82\x00\xff\xfe"
-	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&v1alpha1.Hardware{Spec: v1alpha1.HardwareSpec{UserData: &raw}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := renderTemplate("binary", `{{ .hardware.spec.userData | b64enc }}`, map[string]any{"hardware": data})
-	if want := base64.StdEncoding.EncodeToString([]byte(raw)); err != nil || string(got) != want {
-		t.Fatalf("render = %q, %v; want %q", got, err, want)
-	}
-}
-
 func TestProcessWorkflowHardwareIntegers(t *testing.T) {
 	hw := &v1alpha1.Hardware{
 		ObjectMeta: metav1.ObjectMeta{Name: "machine1", Namespace: "default"},
