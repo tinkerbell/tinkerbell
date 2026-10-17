@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
@@ -212,8 +211,8 @@ func TestWrite(t *testing.T) {
 					t.Fatalf("expected no error, got: %v", err)
 				}
 			}
-			var permanent *backoff.PermanentError
-			if got := errors.As(err, &permanent); got != test.expectedPermanent {
+			var permanent interface{ Permanent() bool }
+			if got := errors.As(err, &permanent) && permanent.Permanent(); got != test.expectedPermanent {
 				t.Fatalf("permanent error = %v, want %v", got, test.expectedPermanent)
 			}
 		})
@@ -251,5 +250,89 @@ func TestNewClientConn(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestErrorClassification(t *testing.T) {
+	type class struct{ noAction, conflict, permanent bool }
+	classify := func(err error) class {
+		var c interface {
+			NoAction() bool
+			Conflict() bool
+			Permanent() bool
+		}
+		if !errors.As(err, &c) {
+			return class{}
+		}
+		return class{c.NoAction(), c.Conflict(), c.Permanent()}
+	}
+	tests := map[string]struct {
+		code      codes.Code
+		wantRead  class
+		wantWrite class
+	}{
+		"NotFound":           {code: codes.NotFound, wantRead: class{noAction: true}, wantWrite: class{permanent: true}},
+		"FailedPrecondition": {code: codes.FailedPrecondition, wantRead: class{noAction: true}, wantWrite: class{permanent: true}},
+		"InvalidArgument":    {code: codes.InvalidArgument, wantWrite: class{permanent: true}},
+		"Aborted":            {code: codes.Aborted, wantRead: class{conflict: true}, wantWrite: class{conflict: true}},
+		"Unavailable":        {code: codes.Unavailable},
+		"Internal":           {code: codes.Internal},
+		"DeadlineExceeded":   {code: codes.DeadlineExceeded},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			serverErr := status.Error(tt.code, "server error")
+			c := &Config{
+				AgentID: "worker-123",
+				TinkServerClient: &mockWorkflowServiceClient{
+					GetActionFunc: func(context.Context, *proto.ActionRequest) (*proto.ActionResponse, error) {
+						return nil, serverErr
+					},
+					ReportActionStatusFunc: func(context.Context, *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
+						return nil, serverErr
+					},
+				},
+			}
+			_, readErr := c.Read(context.Background())
+			if got := classify(readErr); got != tt.wantRead {
+				t.Errorf("Read classification = %+v, want %+v", got, tt.wantRead)
+			}
+			if status.Code(readErr) != tt.code {
+				t.Errorf("Read lost the status code: got %s, want %s", status.Code(readErr), tt.code)
+			}
+			writeErr := c.Write(context.Background(), spec.Event{})
+			if got := classify(writeErr); got != tt.wantWrite {
+				t.Errorf("Write classification = %+v, want %+v", got, tt.wantWrite)
+			}
+			if status.Code(writeErr) != tt.code {
+				t.Errorf("Write lost the status code: got %s, want %s", status.Code(writeErr), tt.code)
+			}
+		})
+	}
+}
+
+func TestRequestDeadline(t *testing.T) {
+	c := &Config{
+		AgentID: "worker-123",
+		TinkServerClient: &mockWorkflowServiceClient{
+			GetActionFunc: func(ctx context.Context, _ *proto.ActionRequest) (*proto.ActionResponse, error) {
+				if _, ok := ctx.Deadline(); !ok {
+					t.Error("GetAction called without a deadline")
+				}
+				return &proto.ActionResponse{}, nil
+			},
+			ReportActionStatusFunc: func(ctx context.Context, _ *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
+				if _, ok := ctx.Deadline(); !ok {
+					t.Error("ReportActionStatus called without a deadline")
+				}
+				return &proto.ActionStatusResponse{}, nil
+			},
+		},
+	}
+	if _, err := c.Read(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Write(context.Background(), spec.Event{}); err != nil {
+		t.Fatal(err)
 	}
 }

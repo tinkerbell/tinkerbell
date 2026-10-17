@@ -18,9 +18,12 @@ func (b *Backend) CreateWorkflow(ctx context.Context, w *v1alpha1.Workflow) erro
 	return nil
 }
 
+// ReadWorkflow reads a Workflow from the API server rather than the cache. Its only caller judges
+// Action status reports, which must be checked against current state: a cache that hasn't caught
+// up would reject valid reports. Reports are infrequent, two per Action, so skipping the cache is cheap.
 func (b *Backend) ReadWorkflow(ctx context.Context, name, namespace string) (*v1alpha1.Workflow, error) {
 	wflw := &v1alpha1.Workflow{}
-	if err := b.cluster.GetClient().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, wflw); err != nil {
+	if err := b.cluster.GetAPIReader().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, wflw); err != nil {
 		return nil, fmt.Errorf("failed to get workflow %s/%s: %w", namespace, name, err)
 	}
 	return wflw, nil

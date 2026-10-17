@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	"github.com/moby/moby/api/types/registry"
 	"github.com/moby/moby/client"
@@ -46,69 +45,50 @@ type Config struct {
 	TransportReader TransportReader
 	RuntimeExecutor RuntimeExecutor
 	TransportWriter TransportWriter
-	Backoff         *backoff.ExponentialBackOff
+	Retry           Retry
 }
 
 func (c *Config) Run(ctx context.Context, log logr.Logger) {
 	// All steps are synchronous and blocking
 	// 1. get an action from the input transport
-	// 3. send running/starting event to the output transport
-	// 4. send the action to the runtime for execution
-	// 5. send the result event to the output transport
-	// 6. go to step 1
-	if c.Backoff == nil {
-		c.Backoff = &backoff.ExponentialBackOff{
-			InitialInterval:     backoff.DefaultInitialInterval,
-			RandomizationFactor: backoff.DefaultRandomizationFactor,
-			Multiplier:          backoff.DefaultMultiplier,
-			MaxInterval:         5 * time.Second,
-		}
-	}
-	// sending true to the channel logs the backoff
-	doBackoff := make(chan bool, 1)
-	defer close(doBackoff)
-
+	// 2. send running/starting event to the output transport
+	// 3. send the action to the runtime for execution
+	// 4. send the result event to the output transport
+	// 5. go to step 1
+	rt := newRetrier(c.Retry)
 	for {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			return
-		case shouldLog := <-doBackoff:
-			duration := c.Backoff.NextBackOff()
-			if shouldLog {
-				log.Info("backing off", "duration", duration.String())
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(duration):
-			}
-		default:
 		}
-
 		action, err := c.TransportReader.Read(ctx)
 		if err != nil {
-			if errors.Is(err, context.Canceled) {
+			if ctx.Err() != nil {
 				return
 			}
-			if isNoAction(err) {
-				doBackoff <- false
-				continue
+			d := rt.next(err)
+			if !isNoAction(err) {
+				log.Info("error reading/retrieving action", "error", err, "retryIn", d.String())
 			}
-			log.Info("error reading/retrieving action", "error", err)
-			doBackoff <- true
-
+			if !sleep(ctx, d) {
+				return
+			}
 			continue
 		}
 
 		log.Info("received action", "action", action)
 		if err := c.TransportWriter.Write(ctx, spec.Event{Action: action, Message: "running action", State: spec.StateRunning}); err != nil {
-			if errors.Is(err, context.Canceled) {
+			if ctx.Err() != nil {
 				return
 			}
-			log.Info("error writing event", "error", err)
-			doBackoff <- true
+			// The server re-serves the Action on the next read, so there is nothing to lose by going back to polling.
+			d := rt.next(err)
+			log.Info("error writing event", "error", err, "retryIn", d.String())
+			if !sleep(ctx, d) {
+				return
+			}
 			continue
 		}
+		rt.next(nil)
 		log.Info("reported action status", "action", action, "state", spec.StateRunning)
 
 		state := spec.StateSuccess
@@ -146,34 +126,43 @@ func (c *Config) Run(ctx context.Context, log logr.Logger) {
 		responseEvent.Message = "action completed"
 		responseEvent.State = state
 
-		// Retry reporting the action completion with backoff. The agent must persist in
-		// reporting the result because the server will not re-serve the action once the agent
-		// has moved past execution. Giving up here would leave the workflow permanently stuck.
-		reportBackoff := &backoff.ExponentialBackOff{
-			InitialInterval:     c.Backoff.InitialInterval,
-			RandomizationFactor: c.Backoff.RandomizationFactor,
-			Multiplier:          c.Backoff.Multiplier,
-			MaxInterval:         c.Backoff.MaxInterval,
-		}
-		writeOp := func() (any, error) {
-			return nil, c.TransportWriter.Write(ctx, responseEvent)
-		}
-		if _, err := backoff.Retry(ctx, writeOp,
-			backoff.WithBackOff(reportBackoff),
-			backoff.WithMaxElapsedTime(0), // Retry indefinitely; giving up leaves the workflow stuck.
-			backoff.WithNotify(func(err error, next time.Duration) {
-				log.Info("error reporting action, retrying", "error", err, "retryIn", next.String())
-			}),
-		); err != nil {
+		if err := c.report(ctx, log, rt, responseEvent); err != nil {
 			if ctx.Err() != nil {
 				return
 			}
-			log.Info("permanent error reporting action", "error", err)
-			return
+			// The server rejected the report for good, for example because the Workflow was deleted.
+			d := rt.next(err)
+			log.Info("action report rejected, returning to polling", "error", err, "retryIn", d.String())
+			if !sleep(ctx, d) {
+				return
+			}
+			continue
 		}
 		log.Info("reported action status", "action", action, "state", state)
+	}
+}
 
-		c.Backoff.Reset() // Reset the backoff after a successful run
+// report sends the Action's final status until it is accepted, rejected as permanent, or ctx is done.
+// The server will not re-serve an Action once the Agent has moved past execution, so
+// giving up on a transient error would leave the Workflow stuck.
+func (c *Config) report(ctx context.Context, log logr.Logger, rt *retrier, event spec.Event) error {
+	for {
+		err := c.TransportWriter.Write(ctx, event)
+		if err == nil {
+			rt.next(nil)
+			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if isPermanent(err) {
+			return err
+		}
+		d := rt.next(err)
+		log.Info("error reporting action, retrying", "error", err, "retryIn", d.String())
+		if !sleep(ctx, d) {
+			return ctx.Err()
+		}
 	}
 }
 
@@ -209,8 +198,8 @@ type Options struct {
 	// LLDPTimeout bounds how long attribute detection waits for LLDP
 	// neighbors. Detection finishes before any Action runs because an Action
 	// can power-cycle the machine. Zero disables LLDP discovery.
-	LLDPTimeout    time.Duration
-	BackoffOptions BackoffOptions
+	LLDPTimeout time.Duration
+	Retry       Retry
 }
 
 type Transport struct {
@@ -241,7 +230,6 @@ type GRPCTransport struct {
 	ServerAddrPort string
 	TLSEnabled     bool
 	TLSInsecure    bool
-	RetryInterval  time.Duration
 }
 type FileTransport struct {
 	WorkflowPath string
@@ -267,12 +255,6 @@ type KubernetesRuntime struct {
 	Namespace          string
 	Kubeconfig         string
 	ServiceAccountName string
-}
-
-// BackoffOptions holds the configuration for the backoff strategy.
-type BackoffOptions struct {
-	// MaxInterval is the maximum interval between retries.
-	MaxInterval time.Duration
 }
 
 func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id string) error {
@@ -383,14 +365,11 @@ func (o *Options) ConfigureAndRun(inctx context.Context, log logr.Logger, id str
 		log.Info("using Docker runtime")
 	}
 
-	bo := backoff.NewExponentialBackOff()
-	bo.MaxInterval = o.BackoffOptions.MaxInterval
-
 	a := &Config{
 		TransportReader: tr,
 		RuntimeExecutor: re,
 		TransportWriter: tw,
-		Backoff:         bo,
+		Retry:           o.Retry,
 	}
 
 	eg, ctx := errgroup.WithContext(inctx)
@@ -489,18 +468,4 @@ func humanDuration(d time.Duration, precision int) string {
 
 	// Join all parts with spaces
 	return strings.Join(parts, "")
-}
-
-// isNoWorkflow checks if the error is a no action available error.
-func isNoAction(err error) bool {
-	type noAction interface {
-		NoAction() bool
-	}
-	if err == nil {
-		return false
-	}
-	if _, ok := err.(noAction); ok {
-		return true
-	}
-	return false
 }
