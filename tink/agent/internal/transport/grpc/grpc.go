@@ -6,22 +6,23 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	gbackoff "google.golang.org/grpc/backoff"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// requestTimeout bounds each call to the Tink Server, which answers in a single attempt,
+// so that a dead connection cannot stall the Agent.
+const requestTimeout = 30 * time.Second
 
 type Config struct {
 	Log              logr.Logger
@@ -32,22 +33,11 @@ type Config struct {
 }
 
 func (c *Config) Read(ctx context.Context) (spec.Action, error) {
-	return c.doRead(ctx)
-}
-
-func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
 	response, err := c.TinkServerClient.GetAction(ctx, &proto.ActionRequest{AgentId: toPtr(c.AgentID), AgentAttributes: ToProto(c.Attributes)})
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return spec.Action{}, &NoWorkflowError{}
-		}
-
-		e := fmt.Errorf("error getting action: %w", err)
-		if isPFVNoActionsAvailable(err) {
-			e = newNoActionsError("no actions available", err)
-		}
-
-		return spec.Action{}, e
+		return spec.Action{}, readError(err)
 	}
 
 	as := spec.Action{
@@ -113,10 +103,6 @@ func (c *Config) doRead(ctx context.Context) (spec.Action, error) {
 }
 
 func (c *Config) Write(ctx context.Context, event spec.Event) error {
-	return c.doWrite(ctx, event)
-}
-
-func (c *Config) doWrite(ctx context.Context, event spec.Event) error {
 	ar := &proto.ActionStatusRequest{
 		WorkflowId:        &event.Action.WorkflowID,
 		AgentId:           &event.Action.AgentID,
@@ -129,15 +115,10 @@ func (c *Config) doWrite(ctx context.Context, event spec.Event) error {
 		ExecutionDuration: toPtr(event.Action.ExecutionDuration),
 		Message:           &proto.ActionMessage{Message: toPtr(event.Message)},
 	}
-	_, err := c.TinkServerClient.ReportActionStatus(ctx, ar)
-	switch status.Code(err) { //nolint:exhaustive // we want to retry on any error that is not explicitly marked as permanent
-	case codes.OK:
-		return nil
-	case codes.NotFound, codes.InvalidArgument, codes.FailedPrecondition:
-		return backoff.Permanent(err)
-	}
-	if err != nil {
-		return fmt.Errorf("error reporting action: %v: %w", ar, err)
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	if _, err := c.TinkServerClient.ReportActionStatus(ctx, ar); err != nil {
+		return writeError(err)
 	}
 
 	return nil
@@ -177,66 +158,6 @@ func specToProto(inState spec.State) *proto.ActionStatusRequest_StateType {
 	}
 }
 
-func isPFVNoActionsAvailable(err error) bool {
-	st := status.Convert(err)
-	if st.Details() != nil {
-		for _, detail := range st.Details() {
-			if violation, ok := detail.(*epb.PreconditionFailure); ok {
-				for _, v := range violation.GetViolations() {
-					if v.GetType() == proto.PreconditionFailureViolation_PRECONDITION_FAILURE_VIOLATION_NO_ACTION_AVAILABLE.String() {
-						return true
-					}
-				}
-			}
-		}
-	}
-	if st.Code() == codes.FailedPrecondition {
-		return true
-	}
-	return false
-}
-
 func toPtr[T any](v T) *T {
 	return &v
-}
-
-// noActionsError represents a structured error with additional context.
-type noActionsError struct {
-	Message string
-	Inner   error
-}
-
-// Error implements the error interface.
-func (e *noActionsError) Error() string {
-	if e.Inner != nil {
-		return fmt.Sprintf("%s: %v", e.Message, e.Inner)
-	}
-	return e.Message
-}
-
-// Unwrap implements the Wrapper interface.
-func (e *noActionsError) Unwrap() error {
-	return e.Inner
-}
-
-// As implements type assertion support.
-func (e *noActionsError) As(target interface{}) bool {
-	if target == nil {
-		return false
-	}
-	_, ok := target.(**noActionsError)
-	return ok
-}
-
-// NoAction implements the NoAction interface in the agent package.
-func (e *noActionsError) NoAction() bool {
-	return true
-}
-
-// newNoActionsError creates a new instance of NoActionsError.
-func newNoActionsError(message string, inner error) *noActionsError {
-	return &noActionsError{
-		Message: message,
-		Inner:   inner,
-	}
 }

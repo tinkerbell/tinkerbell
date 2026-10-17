@@ -34,6 +34,7 @@ type Backend struct {
 	APIURL string
 	// Namespace is an override for the Namespace the kubernetes client will watch.
 	// The default is the Namespace the pod is running in.
+	// Only the cache enforces it, so reads that bypass the cache must check it themselves.
 	Namespace string
 	// ClientConfig is a Kubernetes client config. If specified, it will be used instead of
 	// constructing a client using the other configuration in this object. Optional.
