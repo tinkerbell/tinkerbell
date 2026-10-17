@@ -5,10 +5,11 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -469,10 +470,9 @@ func TestGetAction(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			server := &Handler{
-				Logger:       logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
-				Backend:      &mockBackendReadWriter{workflow: tc.workflow},
-				NowFunc:      func() time.Time { return time.Time{} },
-				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
+				Logger:  logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
+				Backend: &mockBackendReadWriter{workflow: tc.workflow},
+				NowFunc: func() time.Time { return time.Time{} },
 			}
 
 			resp, gotErr := server.GetAction(context.Background(), tc.request)
@@ -901,10 +901,9 @@ func TestGetActionHardwareAttributes(t *testing.T) {
 				hardware: tc.hardware,
 			}
 			server := &Handler{
-				Logger:       logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
-				Backend:      mock,
-				NowFunc:      func() time.Time { return time.Time{} },
-				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
+				Logger:  logr.FromSlogHandler(slog.NewJSONHandler(os.Stdout, nil)),
+				Backend: mock,
+				NowFunc: func() time.Time { return time.Time{} },
 			}
 
 			_, _ = server.GetAction(context.Background(), tc.request)
@@ -1034,7 +1033,6 @@ func TestReportActionStatus(t *testing.T) {
 					workflow: tc.workflow,
 					writeErr: tc.writeErr,
 				},
-				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
 			}
 
 			resp, err := handler.ReportActionStatus(context.Background(), tc.request)
@@ -1070,10 +1068,6 @@ func TestTerminalWorkflowFence(t *testing.T) {
 			handler := &Handler{
 				Logger:  logr.Discard(),
 				Backend: backend,
-				RetryOptions: []backoff.RetryOption{
-					backoff.WithMaxTries(3),
-					backoff.WithBackOff(backoff.NewConstantBackOff(0)),
-				},
 			}
 
 			resp, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("agent-1")})
@@ -1117,8 +1111,7 @@ func TestTerminalWorkflowFence(t *testing.T) {
 			before := workflow.DeepCopy()
 			backend := &mockBackendReadWriter{workflow: workflow}
 			handler := &Handler{
-				Backend:      backend,
-				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
+				Backend: backend,
 			}
 
 			resp, err := handler.ReportActionStatus(context.Background(), tc.request)
@@ -1157,10 +1150,6 @@ func testTerminalWorkflowReports(t *testing.T, workflowState tinkerbell.Workflow
 			backend := &mockBackendReadWriter{workflow: workflow}
 			handler := &Handler{
 				Backend: backend,
-				RetryOptions: []backoff.RetryOption{
-					backoff.WithMaxTries(3),
-					backoff.WithBackOff(backoff.NewConstantBackOff(0)),
-				},
 			}
 
 			resp, err := handler.ReportActionStatus(context.Background(), actionStatusRequest(actionState))
@@ -1214,13 +1203,19 @@ func TestTerminalWorkflowFenceWinsUpdateConflict(t *testing.T) {
 		handler := &Handler{
 			Logger:  logr.Discard(),
 			Backend: backend,
-			RetryOptions: []backoff.RetryOption{
-				backoff.WithMaxTries(2),
-				backoff.WithBackOff(backoff.NewConstantBackOff(0)),
-			},
 		}
 
+		// The conflict is returned as Aborted so the Agent retries soon.
 		_, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("agent-1")})
+		if status.Code(err) != codes.Aborted {
+			t.Fatalf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.Aborted, err)
+		}
+		if backend.workflowLists != 1 {
+			t.Fatalf("expected a single attempt, got %d workflow lists", backend.workflowLists)
+		}
+
+		// The Agent's retry reads the cancellation.
+		_, err = handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("agent-1")})
 		if status.Code(err) != codes.FailedPrecondition {
 			t.Fatalf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.FailedPrecondition, err)
 		}
@@ -1267,12 +1262,18 @@ func testCompletionRetryAfterTerminalWorkflowUpdateConflict(t *testing.T, workfl
 	}
 	handler := &Handler{
 		Backend: backend,
-		RetryOptions: []backoff.RetryOption{
-			backoff.WithMaxTries(3),
-			backoff.WithBackOff(backoff.NewConstantBackOff(0)),
-		},
 	}
 
+	// The conflict is returned as Aborted so the Agent retries soon.
+	_, err := handler.ReportActionStatus(context.Background(), actionStatusRequest(proto.ActionStatusRequest_SUCCESS))
+	if status.Code(err) != codes.Aborted {
+		t.Fatalf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.Aborted, err)
+	}
+	if backend.workflowReads != 1 {
+		t.Fatalf("expected a single attempt, got %d workflow reads", backend.workflowReads)
+	}
+
+	// The Agent's retry reads the terminal Workflow and is acknowledged.
 	resp, err := handler.ReportActionStatus(context.Background(), actionStatusRequest(proto.ActionStatusRequest_SUCCESS))
 	if err != nil {
 		t.Fatalf("completion report returned an error: %v", err)
@@ -1410,10 +1411,9 @@ func TestGetActionTerminalDoesNotShadowActive(t *testing.T) {
 			return []tinkerbell.Workflow{terminalWorkflowFixture("machine0"), activeWorkflowFixture("machine1")}, nil
 		}
 		handler := &Handler{
-			Logger:       logr.Discard(),
-			Backend:      backend,
-			NowFunc:      func() time.Time { return time.Time{} },
-			RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
+			Logger:  logr.Discard(),
+			Backend: backend,
+			NowFunc: func() time.Time { return time.Time{} },
 		}
 
 		resp, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("machine-mac-1")})
@@ -1431,10 +1431,9 @@ func TestGetActionTerminalDoesNotShadowActive(t *testing.T) {
 			return []tinkerbell.Workflow{activeWorkflowFixture("machine1"), terminalWorkflowFixture("machine0")}, nil
 		}
 		handler := &Handler{
-			Logger:       logr.Discard(),
-			Backend:      backend,
-			NowFunc:      func() time.Time { return time.Time{} },
-			RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(1)},
+			Logger:  logr.Discard(),
+			Backend: backend,
+			NowFunc: func() time.Time { return time.Time{} },
 		}
 
 		resp, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("machine-mac-1")})
@@ -1446,7 +1445,7 @@ func TestGetActionTerminalDoesNotShadowActive(t *testing.T) {
 		}
 	})
 
-	t.Run("all terminal fails permanently without retrying", func(t *testing.T) {
+	t.Run("all terminal returns FailedPrecondition after one list", func(t *testing.T) {
 		backend := &mockBackendReadWriter{}
 		backend.listWorkflowsFunc = func() ([]tinkerbell.Workflow, error) {
 			return []tinkerbell.Workflow{terminalWorkflowFixture("machine0"), terminalWorkflowFixture("machine2")}, nil
@@ -1455,10 +1454,6 @@ func TestGetActionTerminalDoesNotShadowActive(t *testing.T) {
 			Logger:  logr.Discard(),
 			Backend: backend,
 			NowFunc: func() time.Time { return time.Time{} },
-			RetryOptions: []backoff.RetryOption{
-				backoff.WithMaxTries(3),
-				backoff.WithBackOff(backoff.NewConstantBackOff(0)),
-			},
 		}
 
 		_, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("machine-mac-1")})
@@ -1466,7 +1461,56 @@ func TestGetActionTerminalDoesNotShadowActive(t *testing.T) {
 			t.Fatalf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.FailedPrecondition, err)
 		}
 		if backend.workflowLists != 1 {
-			t.Fatalf("expected a permanent error to stop retrying after one list, got %d lists", backend.workflowLists)
+			t.Fatalf("expected one list, got %d lists", backend.workflowLists)
 		}
 	})
+}
+
+// TestGetActionSingleAttempt verifies the server does not retry: an idle Agent's
+// request costs one Workflow list and returns immediately. The Agent owns retries.
+func TestGetActionSingleAttempt(t *testing.T) {
+	backend := &countingLister{}
+	handler := &Handler{Logger: logr.Discard(), Backend: backend}
+
+	const agents = 8
+	var wg sync.WaitGroup
+	for range agents {
+		wg.Go(func() {
+			_, err := handler.GetAction(context.Background(), &proto.ActionRequest{AgentId: toPtr("agent-1")})
+			if status.Code(err) != codes.NotFound {
+				t.Errorf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.NotFound, err)
+			}
+		})
+	}
+	wg.Wait()
+	if got := backend.lists.Load(); got != agents {
+		t.Fatalf("expected one workflow list per request, got %d lists for %d requests", got, agents)
+	}
+}
+
+// countingLister is safe for concurrent use and always lists no Workflows.
+type countingLister struct {
+	mockBackendReadWriter
+	lists atomic.Int32
+}
+
+func (c *countingLister) ListWorkflows(context.Context, data.WorkflowFilter) ([]tinkerbell.Workflow, error) {
+	c.lists.Add(1)
+	return nil, nil
+}
+
+// TestReportActionStatusDeletedWorkflow verifies a report for a deleted Workflow is
+// NotFound, which the Agent treats as permanent, rather than retryable Internal.
+func TestReportActionStatusDeletedWorkflow(t *testing.T) {
+	backend := &mockBackendReadWriter{
+		readWorkflowFunc: func() (*tinkerbell.Workflow, error) {
+			return nil, kerrors.NewNotFound(schema.GroupResource{Group: "tinkerbell.org", Resource: "workflows"}, "workflow-1")
+		},
+	}
+	handler := &Handler{Backend: backend}
+
+	_, err := handler.ReportActionStatus(context.Background(), actionStatusRequest(proto.ActionStatusRequest_SUCCESS))
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("unexpected error code: got %s, want %s (error: %v)", status.Code(err), codes.NotFound, err)
+	}
 }

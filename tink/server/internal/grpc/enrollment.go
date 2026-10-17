@@ -6,14 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"time"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
-	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,13 +28,15 @@ type match struct {
 }
 
 // enroll creates a Workflow for an agentID by matching the attr against WorkflowRuleSets.
+// It never serves an Action: the new Workflow has none until the Tink Controller reconciles it,
+// so the returned status tells the Agent to poll again.
 // auto enrollment does not support Templates with multiple Agents defined.
-func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAttributes, hardware *tinkerbell.Hardware) (*proto.ActionResponse, error) {
+func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAttributes, hardware *tinkerbell.Hardware) error {
 	log := h.Logger.WithValues("agentID", agentID)
 	// If auto enrollment is not enabled, then we do not create a Workflow for the AgentID.
 	if hardware != nil && !hardware.Spec.Auto.EnrollmentEnabled {
 		journal.Log(ctx, "auto enrollment is disabled for this hardware", "hardware", hardware.Name)
-		return nil, status.Errorf(codes.FailedPrecondition, "auto enrollment is disabled for this hardware")
+		return status.Errorf(codes.FailedPrecondition, "auto enrollment is disabled for this hardware")
 	}
 
 	// Get all WorkflowRuleSets and check if there is a match to the AgentID or the Attributes (if Attributes are provided by request)
@@ -46,12 +45,12 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 	wrs, err := h.AutoCapabilities.Enrollment.ListWorkflowRuleSets(ctx, data.WorkflowFilter{})
 	if err != nil {
 		journal.Log(ctx, "error getting workflow rules", "error", err)
-		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))
+		return errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))
 	}
 	name, err := makeValidName(agentID, workflowPrefix)
 	if err != nil {
 		journal.Log(ctx, "error making agentID a valid Kubernetes name", "error", err)
-		return nil, status.Errorf(codes.Internal, "error making agentID a valid Kubernetes name: %v", err)
+		return status.Errorf(codes.Internal, "error making agentID a valid Kubernetes name: %v", err)
 	}
 	log = log.WithValues("workflowName", name)
 
@@ -134,26 +133,21 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 		if err := h.AutoCapabilities.Enrollment.CreateWorkflow(ctx, awf); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				journal.Log(ctx, "workflow already exists", "workflow", name, "namespace", final.wrs.Namespace)
-				// if we get here, then we didn't find an existing Workflow above, but CreateWorkflow is reporting that there is.
-				// So we treat this as a new Workflow creation and send the same error.
-				// failed precondition and backoff permanent error so that the backoff retry loop stops and the Agent is signaled to try again immediately.
-				return nil, status.Error(codes.FailedPrecondition, "existing workflow found")
+				// The Workflow exists but isn't in the cache yet. The Agent polls again and finds it once the cache catches up.
+				return status.Error(codes.FailedPrecondition, "existing workflow found")
 			}
 			journal.Log(ctx, "error creating enrollment workflow", "error", err)
-			return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error creating enrollment workflow: %v", err))
+			return errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error creating enrollment workflow: %v", err))
 		}
 		journal.Log(ctx, "created enrollment Workflow", "namespace", awf.Namespace, "workflowRuleSet", final.wrs.Name)
 		log.Info("created enrollment Workflow", "namespace", awf.Namespace, "workflowRuleSet", final.wrs.Name)
 
-		ar := &proto.ActionRequest{
-			AgentId: &agentID,
-		}
-		journal.Log(ctx, "calling getActionNoAuto")
-		// Now that we have created a Workflow, we need to call getActionNoAuto to serve an Action to the Agent.
-		return h.getActionNoAuto(ctx, ar)
+		// The Tink Controller must reconcile the new Workflow before it has an Action to serve.
+		// The Agent picks it up on a later poll.
+		return status.Error(codes.NotFound, "enrollment Workflow created, no Action available yet")
 	}
 	journal.Log(ctx, "no WorkflowRuleSet matched")
-	return nil, status.Errorf(codes.NotFound, "no Workflow Rule Sets found or matched for Agent %s", agentID)
+	return status.Errorf(codes.NotFound, "no Workflow Rule Sets found or matched for Agent %s", agentID)
 }
 
 func findMatch(wr tinkerbell.WorkflowRuleSet, attr *data.AgentAttributes, curMatches int) (*match, error) {
@@ -185,38 +179,4 @@ func findMatch(wr tinkerbell.WorkflowRuleSet, attr *data.AgentAttributes, curMat
 	}
 
 	return nil, nil
-}
-
-// getActionNoAuto calls to the doGetAction method with a retry mechanism that disables auto capabilities.
-func (h *Handler) getActionNoAuto(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
-	operation := func() (*proto.ActionResponse, error) {
-		opts := options{
-			AutoCapabilities: AutoCapabilities{
-				Enrollment: AutoEnrollment{
-					Enabled: false,
-				},
-				Discovery: AutoDiscovery{
-					Enabled: false,
-				},
-			},
-		}
-		return h.doGetAction(ctx, req, opts)
-	}
-	if len(h.RetryOptions) == 0 {
-		h.RetryOptions = []backoff.RetryOption{
-			// This needs to be sufficiently long to allow for the Tink Controller to reconcile the Workflow and any server side caches to pick up
-			// the updated Workflow.
-			backoff.WithMaxTries(10),
-			backoff.WithMaxElapsedTime(30 * time.Second),
-			backoff.WithBackOff(backoff.NewExponentialBackOff()),
-		}
-	}
-	// We retry multiple times as we read-write to the Workflow Status and there can be caching and eventually consistent issues
-	// that would cause the write to fail. A retry to get the latest Workflow resolves these types of issues.
-	resp, err := backoff.Retry(ctx, operation, h.RetryOptions...)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
 }

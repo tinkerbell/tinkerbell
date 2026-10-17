@@ -15,7 +15,7 @@ When an Agent connects to the Tink Server:
 1. If no workflow exists for the Agent, and auto enrollment is enabled and no Hardware object exists or `Hardware.spec.auto.enrollmentEnabled=true`, Tink server:
    1. Iterates through the WorkflowRuleSets and checks for a rule that matches the Agent's attributes. If a Hardware object exists, only WorkflowRuleSets in its namespace are considered; with auto discovery, that is the auto discovery namespace.
    1. Creates a Workflow for the Agent based on the matched WorkflowRuleSet.
-1. Tink Server serves the first Workflow Action to the Agent.
+1. The Tink Controller reconciles the new Workflow, and the Agent receives the first Workflow Action on its next poll.
 1. The Agent executes the Workflow Actions.
 
 > [!NOTE]  

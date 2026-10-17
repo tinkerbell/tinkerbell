@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
@@ -39,7 +38,7 @@ func (h *Handler) hardware(ctx context.Context, agentID string) (*v1alpha1.Hardw
 }
 
 // hardwareLookupError converts a Hardware lookup error into a gRPC status error.
-// It returns nil for a nil error, and a permanent error when multiple Hardware match.
+// It returns nil for a nil error, and FailedPrecondition when multiple Hardware match.
 func hardwareLookupError(ctx context.Context, log logr.Logger, agentID string, err error) error {
 	if err == nil {
 		return nil
@@ -47,7 +46,11 @@ func hardwareLookupError(ctx context.Context, log logr.Logger, agentID string, e
 	journal.Log(ctx, "not enrolling, Hardware lookup failed", "error", err)
 	if foundMultipleHardware(err) {
 		log.Error(err, "not enrolling, Hardware lookup failed")
-		return backoff.Permanent(status.Errorf(codes.FailedPrecondition, "multiple Hardware objects have agent ID %s", agentID))
+		return status.Errorf(codes.FailedPrecondition, "multiple Hardware objects have agent ID %s", agentID)
+	}
+	// Discovery created the Hardware on an earlier request and the cache hasn't caught up yet.
+	if apierrors.IsAlreadyExists(err) {
+		return status.Errorf(codes.FailedPrecondition, "Hardware for agent ID %s exists but is not cached yet", agentID)
 	}
 	return errors.Join(ErrBackendRead, status.Errorf(codes.Unavailable, "error looking up Hardware: %v", err))
 }

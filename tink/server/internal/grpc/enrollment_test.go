@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
@@ -17,11 +16,19 @@ import (
 )
 
 func TestEnroll(t *testing.T) {
+	matchingRuleSets := func(context.Context, data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error) {
+		return []tinkerbell.WorkflowRuleSet{{
+			ObjectMeta: metav1.ObjectMeta{Name: "rs", Namespace: "default"},
+			Spec:       tinkerbell.WorkflowRuleSetSpec{Rules: []string{`{"chassis": {"serial": ["12345"]}}`}},
+		}}, nil
+	}
 	tests := map[string]struct {
 		workerID          string
 		attributes        *proto.AgentAttributes
+		hardware          *tinkerbell.Hardware
 		mockCapabilities  *mockAutoCapabilities
 		expectedErrorCode codes.Code
+		wantCreated       bool
 	}{
 		"successful enrollment": {
 			workerID: "worker-123",
@@ -32,6 +39,7 @@ func TestEnroll(t *testing.T) {
 				ListWorkflowRuleSetsFunc: func(_ context.Context, _ data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error) {
 					return []tinkerbell.WorkflowRuleSet{
 						{
+							ObjectMeta: metav1.ObjectMeta{Name: "rs", Namespace: "default"},
 							Spec: tinkerbell.WorkflowRuleSetSpec{
 								Rules: []string{`{"chassis": {"serial": ["12345"]}}`},
 								Workflow: tinkerbell.WorkflowRuleSetWorkflow{
@@ -46,7 +54,42 @@ func TestEnroll(t *testing.T) {
 					return nil
 				},
 			},
+			// The new Workflow has no Action until the Tink Controller reconciles it.
 			expectedErrorCode: codes.NotFound,
+			wantCreated:       true,
+		},
+		"workflow exists but is not cached yet": {
+			workerID:   "worker-123",
+			attributes: &proto.AgentAttributes{Chassis: &proto.Chassis{Serial: toPtr("12345")}},
+			mockCapabilities: &mockAutoCapabilities{
+				ListWorkflowRuleSetsFunc: matchingRuleSets,
+				CreateWorkflowFunc: func(context.Context, *tinkerbell.Workflow) error {
+					return apierrors.NewAlreadyExists(schema.GroupResource{Group: "tinkerbell.org", Resource: "workflows"}, "enrollment-worker-123")
+				},
+			},
+			expectedErrorCode: codes.FailedPrecondition,
+			wantCreated:       true,
+		},
+		"error creating workflow": {
+			workerID:   "worker-123",
+			attributes: &proto.AgentAttributes{Chassis: &proto.Chassis{Serial: toPtr("12345")}},
+			mockCapabilities: &mockAutoCapabilities{
+				ListWorkflowRuleSetsFunc: matchingRuleSets,
+				CreateWorkflowFunc: func(context.Context, *tinkerbell.Workflow) error {
+					return errors.New("boom")
+				},
+			},
+			expectedErrorCode: codes.Internal,
+			wantCreated:       true,
+		},
+		"enrollment disabled for the hardware": {
+			workerID:   "worker-123",
+			attributes: &proto.AgentAttributes{Chassis: &proto.Chassis{Serial: toPtr("12345")}},
+			hardware:   &tinkerbell.Hardware{ObjectMeta: metav1.ObjectMeta{Name: "hw", Namespace: "default"}},
+			mockCapabilities: &mockAutoCapabilities{
+				ListWorkflowRuleSetsFunc: matchingRuleSets,
+			},
+			expectedErrorCode: codes.FailedPrecondition,
 		},
 		"no matching workflow rule set": {
 			workerID: "worker-123",
@@ -112,6 +155,13 @@ func TestEnroll(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			var created bool
+			if create := tt.mockCapabilities.CreateWorkflowFunc; create != nil {
+				tt.mockCapabilities.CreateWorkflowFunc = func(ctx context.Context, wf *tinkerbell.Workflow) error {
+					created = true
+					return create(ctx, wf)
+				}
+			}
 			handler := &Handler{
 				AutoCapabilities: AutoCapabilities{
 					Enrollment: AutoEnrollment{
@@ -121,12 +171,12 @@ func TestEnroll(t *testing.T) {
 					},
 				},
 				Backend: &mockBackendReadWriter{},
-				RetryOptions: []backoff.RetryOption{
-					backoff.WithMaxTries(1),
-				},
 			}
 
-			_, err := handler.enroll(context.Background(), tt.workerID, convert(tt.attributes), nil)
+			err := handler.enroll(context.Background(), tt.workerID, convert(tt.attributes), tt.hardware)
+			if created != tt.wantCreated {
+				t.Fatalf("CreateWorkflow called = %v, want %v", created, tt.wantCreated)
+			}
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
@@ -214,10 +264,9 @@ func TestEnrollWorkflowNamespace(t *testing.T) {
 			handler := &Handler{
 				AutoCapabilities: AutoCapabilities{Enrollment: AutoEnrollment{Enabled: true, WorkflowRuleSetLister: caps, WorkflowCreator: caps}},
 				Backend:          &mockBackendReadWriter{},
-				RetryOptions:     []backoff.RetryOption{backoff.WithMaxTries(1)},
 			}
 			attr := convert(&proto.AgentAttributes{Chassis: &proto.Chassis{Serial: toPtr("12345")}})
-			_, _ = handler.enroll(context.Background(), "worker-123", attr, tt.hardware)
+			_ = handler.enroll(context.Background(), "worker-123", attr, tt.hardware)
 			if got != tt.want {
 				t.Fatalf("Workflow created in %q, want %q", got, tt.want)
 			}
@@ -248,17 +297,21 @@ func TestGetActionEnrollmentHardwareLookupError(t *testing.T) {
 		createErr   error
 		wantCode    codes.Code
 		wantCreated bool
-		wantTries   int
 	}{
 		"not found enrolls without Hardware": {hardwareErr: notFoundError{}, wantCreated: true},
-		"multiple found is not retried":      {hardwareErr: multipleFoundError{}, wantCode: codes.FailedPrecondition, wantTries: 1},
-		"read error is retried":              {hardwareErr: errors.New("boom"), wantCode: codes.Unavailable, wantTries: 3},
-		"discovery multiple found":           {discovery: true, hardwareErr: multipleFoundError{}, wantCode: codes.FailedPrecondition, wantTries: 1},
-		"discovery read error":               {discovery: true, hardwareErr: errors.New("boom"), wantCode: codes.Unavailable, wantTries: 3},
+		"multiple found":                     {hardwareErr: multipleFoundError{}, wantCode: codes.FailedPrecondition},
+		"read error":                         {hardwareErr: errors.New("boom"), wantCode: codes.Unavailable},
+		"discovery multiple found":           {discovery: true, hardwareErr: multipleFoundError{}, wantCode: codes.FailedPrecondition},
+		"discovery read error":               {discovery: true, hardwareErr: errors.New("boom"), wantCode: codes.Unavailable},
 		"discovery create not found": {
 			discovery: true, hardwareErr: notFoundError{},
 			createErr: apierrors.NewNotFound(schema.GroupResource{Resource: "namespaces"}, "missing"),
-			wantCode:  codes.Unavailable, wantTries: 3,
+			wantCode:  codes.Unavailable,
+		},
+		"discovery create already exists": {
+			discovery: true, hardwareErr: notFoundError{},
+			createErr: apierrors.NewAlreadyExists(schema.GroupResource{Group: "tinkerbell.org", Resource: "hardware"}, "discovery-worker-123"),
+			wantCode:  codes.FailedPrecondition,
 		},
 	}
 	for name, tt := range tests {
@@ -285,8 +338,7 @@ func TestGetActionEnrollmentHardwareLookupError(t *testing.T) {
 						HardwareCreator: createHardwareFunc(func(context.Context, *tinkerbell.Hardware) error { return tt.createErr }),
 					},
 				},
-				Backend:      backend,
-				RetryOptions: []backoff.RetryOption{backoff.WithMaxTries(3), backoff.WithBackOff(&backoff.ZeroBackOff{})},
+				Backend: backend,
 			}
 			req := &proto.ActionRequest{
 				AgentId:         toPtr("worker-123"),
@@ -305,8 +357,8 @@ func TestGetActionEnrollmentHardwareLookupError(t *testing.T) {
 			if got := status.Code(err); got != tt.wantCode {
 				t.Fatalf("code = %v, want %v (err: %v)", got, tt.wantCode, err)
 			}
-			if backend.workflowLists != tt.wantTries {
-				t.Fatalf("tries = %d, want %d", backend.workflowLists, tt.wantTries)
+			if backend.workflowLists != 1 {
+				t.Fatalf("expected a single attempt, got %d workflow lists", backend.workflowLists)
 			}
 		})
 	}
