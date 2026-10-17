@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/tink/agent/internal/spec"
 )
@@ -35,11 +34,6 @@ func (f writerFunc) Write(ctx context.Context, event spec.Event) error {
 	return f(ctx, event)
 }
 
-type testNoActionError struct{}
-
-func (testNoActionError) Error() string  { return "no action" }
-func (testNoActionError) NoAction() bool { return true }
-
 func (m *mock) Read(_ context.Context) (spec.Action, error) {
 	return spec.Action{}, nil
 }
@@ -52,12 +46,22 @@ func (m *mock) Write(_ context.Context, _ spec.Event) error {
 	return nil
 }
 
-func TestRun(_ *testing.T) {
+// TestRun verifies Run stops after cancellation even when every call succeeds and ignores ctx.
+func TestRun(t *testing.T) {
 	c := &Config{TransportReader: &mock{}, RuntimeExecutor: &mock{}, TransportWriter: &mock{}}
 	ctx, cancel := context.WithCancel(context.Background())
-	go c.Run(ctx, logr.Discard())
-	<-time.After(1 * time.Second)
+	done := make(chan struct{})
+	go func() {
+		c.Run(ctx, logr.Discard())
+		close(done)
+	}()
+	time.Sleep(10 * time.Millisecond)
 	cancel()
+	select {
+	case <-done:
+	case <-time.After(testWaitTimeout):
+		t.Fatal("Run did not exit after context cancellation")
+	}
 }
 
 func TestRunSkipsRuntimeWhenRunningReportIsRejected(t *testing.T) {
@@ -72,7 +76,7 @@ func TestRunSkipsRuntimeWhenRunningReportIsRejected(t *testing.T) {
 			return spec.Action{ID: "action-1", TimeoutSeconds: 5}, nil
 		}
 		repollOnce.Do(func() { close(repolled) })
-		return spec.Action{}, testNoActionError{}
+		return spec.Action{}, classified{noAction: true}
 	})
 
 	var executions atomic.Int32
@@ -87,14 +91,14 @@ func TestRunSkipsRuntimeWhenRunningReportIsRejected(t *testing.T) {
 		if event.State != spec.StateRunning {
 			t.Errorf("unexpected completion report after RUNNING was rejected: %s", event.State)
 		}
-		return backoff.Permanent(fmt.Errorf("workflow is failed"))
+		return classified{permanent: true}
 	})
 
 	c := &Config{
 		TransportReader: reader,
 		RuntimeExecutor: executor,
 		TransportWriter: writer,
-		Backoff:         testBackoff(),
+		Retry:           testRetry(),
 	}
 	done := make(chan struct{})
 	go func() {
@@ -139,7 +143,7 @@ func TestRunAcknowledgedCompletionReturnsToPolling(t *testing.T) {
 			return spec.Action{ID: "action-1", TimeoutSeconds: 5}, nil
 		}
 		repollOnce.Do(func() { close(repolled) })
-		return spec.Action{}, testNoActionError{}
+		return spec.Action{}, classified{noAction: true}
 	})
 
 	runtimeStarted := make(chan struct{})
@@ -169,7 +173,7 @@ func TestRunAcknowledgedCompletionReturnsToPolling(t *testing.T) {
 		TransportReader: reader,
 		RuntimeExecutor: executor,
 		TransportWriter: writer,
-		Backoff:         testBackoff(),
+		Retry:           testRetry(),
 	}
 	done := make(chan struct{})
 	go func() {
@@ -210,13 +214,8 @@ func TestRunAcknowledgedCompletionReturnsToPolling(t *testing.T) {
 	}
 }
 
-func testBackoff() *backoff.ExponentialBackOff {
-	return &backoff.ExponentialBackOff{
-		InitialInterval:     time.Millisecond,
-		RandomizationFactor: 0,
-		Multiplier:          1,
-		MaxInterval:         time.Millisecond,
-	}
+func testRetry() Retry {
+	return Retry{PollInterval: time.Millisecond, MaxInterval: time.Millisecond}
 }
 
 // oneActionReader returns one action then blocks until ctx is cancelled.
@@ -266,12 +265,7 @@ func TestRunRetriesWriteFailures(t *testing.T) {
 		TransportReader: &oneActionReader{},
 		RuntimeExecutor: &mock{},
 		TransportWriter: writer,
-		Backoff: &backoff.ExponentialBackOff{
-			InitialInterval:     time.Millisecond,
-			RandomizationFactor: 0,
-			Multiplier:          1,
-			MaxInterval:         time.Millisecond,
-		},
+		Retry:           testRetry(),
 	}
 
 	done := make(chan struct{})
@@ -294,7 +288,7 @@ func TestRunRetriesWriteFailures(t *testing.T) {
 	}
 }
 
-// permanentWriter always returns a backoff.Permanent error on completion writes.
+// permanentWriter always returns a permanent error on completion writes.
 type permanentWriter struct {
 	calls atomic.Int32
 }
@@ -304,25 +298,30 @@ func (w *permanentWriter) Write(_ context.Context, _ spec.Event) error {
 	if n == 1 {
 		return nil // "running" event succeeds
 	}
-	return backoff.Permanent(fmt.Errorf("unrecoverable"))
+	return classified{permanent: true}
 }
 
-func TestRunHaltsOnPermanentWriteError(t *testing.T) {
+func TestRunReturnsToPollingAfterPermanentReportError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	repolled := make(chan struct{})
+	var repollOnce sync.Once
+	var reads atomic.Int32
+	reader := readerFunc(func(context.Context) (spec.Action, error) {
+		if reads.Add(1) == 1 {
+			return spec.Action{ID: "action-1", TimeoutSeconds: 5}, nil
+		}
+		repollOnce.Do(func() { close(repolled) })
+		return spec.Action{}, classified{noAction: true}
+	})
 	writer := &permanentWriter{}
 	c := &Config{
-		TransportReader: &oneActionReader{},
+		TransportReader: reader,
 		RuntimeExecutor: &mock{},
 		TransportWriter: writer,
-		Backoff: &backoff.ExponentialBackOff{
-			InitialInterval:     time.Millisecond,
-			RandomizationFactor: 0,
-			Multiplier:          1,
-			MaxInterval:         time.Millisecond,
-		},
+		Retry:           testRetry(),
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
 	done := make(chan struct{})
 	go func() {
@@ -331,15 +330,20 @@ func TestRunHaltsOnPermanentWriteError(t *testing.T) {
 	}()
 
 	select {
-	case <-time.After(3 * time.Second):
-		t.Fatal("Run did not halt after permanent error")
-	case <-done:
+	case <-repolled:
+	case <-time.After(testWaitTimeout):
+		t.Fatal("agent did not return to polling after the final report was rejected")
+	}
+	// 1 "running" write + 1 rejected completion write, which is not retried.
+	if got := writer.calls.Load(); got != 2 {
+		t.Errorf("expected 2 Write calls, got %d", got)
 	}
 
-	// 1 "running" write + 1 permanent-error completion write = 2 total
-	got := writer.calls.Load()
-	if got != 2 {
-		t.Errorf("expected 2 Write calls, got %d", got)
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(testWaitTimeout):
+		t.Fatal("agent did not exit after context cancellation")
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -18,9 +19,14 @@ func (b *Backend) CreateWorkflow(ctx context.Context, w *v1alpha1.Workflow) erro
 	return nil
 }
 
+// ReadWorkflow returns the Workflow as currently stored by the API server, not as cached,
+// so the result is never stale. A Workflow outside b.Namespace is reported as not found.
 func (b *Backend) ReadWorkflow(ctx context.Context, name, namespace string) (*v1alpha1.Workflow, error) {
+	if b.Namespace != "" && namespace != b.Namespace {
+		return nil, apierrors.NewNotFound(v1alpha1.GroupVersion.WithResource("workflows").GroupResource(), name)
+	}
 	wflw := &v1alpha1.Workflow{}
-	if err := b.cluster.GetClient().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, wflw); err != nil {
+	if err := b.cluster.GetAPIReader().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, wflw); err != nil {
 		return nil, fmt.Errorf("failed to get workflow %s/%s: %w", namespace, name, err)
 	}
 	return wflw, nil
