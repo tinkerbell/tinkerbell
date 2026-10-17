@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/peterbourgon/ff/v4"
-	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/flag/netip"
 	"github.com/tinkerbell/tinkerbell/tink/agent"
 )
@@ -109,9 +108,8 @@ func RegisterRootFlags(c *config, fs *flag.FlagSet) {
 	fs.BoolVar(&c.Options.AttributeDetectionEnabled, "attribute-detection", true, "Enable attribute detection")
 	// One 30s LLDP re-advertise interval plus margin, for a link that came up just before the Agent started.
 	fs.DurationVar(&c.Options.LLDPTimeout, "lldp-timeout", 35*time.Second, "Max time attribute detection waits for LLDP neighbors on connected interfaces, 0 disables LLDP discovery")
-	// This is an implementation detail of github.com/cenkalti/backoff/v5, MaxInterval caps the RetryInterval and not the randomized interval.
-	// 5 seconds will give random exponential backoff times of < 7.5 seconds. See the github.com/cenkalti/backoff/v5 doc for more detail.
-	fs.DurationVar(&c.Options.BackoffOptions.MaxInterval, "backoff-max-interval", time.Second*5, "Max interval for exponential backoff retries")
+	fs.DurationVar(&c.Options.Retry.PollInterval, "poll-interval", agent.DefaultPollInterval, "Average delay between polls for work while idle, each poll is randomized by ±50%")
+	fs.DurationVar(&c.Options.Retry.MaxInterval, "backoff-max-interval", agent.DefaultMaxInterval, "Max delay before retrying after an error or a conflict")
 }
 
 func RegisterRepositoryFlags(c *config, fs *flag.FlagSet) {
@@ -124,7 +122,6 @@ func RegisterGRPCTransportFlags(c *config, fs *flag.FlagSet) {
 	fs.StringVar(&c.Options.Transport.GRPC.ServerAddrPort, "grpc-server", "", "gRPC server address:port")
 	fs.BoolVar(&c.Options.Transport.GRPC.TLSEnabled, "grpc-tls", false, "gRPC TLS enabled")
 	fs.BoolVar(&c.Options.Transport.GRPC.TLSInsecure, "grpc-insecure-tls", false, "gRPC insecure TLS")
-	fs.Var(ffval.NewValueDefault(&c.Options.Transport.GRPC.RetryInterval, 5*time.Second), "grpc-retry-interval", "gRPC retry interval in Seconds")
 }
 
 func RegisterFileTransportFlags(c *config, fs *flag.FlagSet) {

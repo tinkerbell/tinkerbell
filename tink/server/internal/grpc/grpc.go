@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
@@ -19,6 +18,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -87,18 +87,16 @@ type HardwareCreator interface {
 }
 
 // Handler is a server that implements a workflow API.
+//
+// Each request is a single attempt; the returned gRPC status code tells the client whether
+// and when to retry. See docs/technical/designs/AGENT_SERVER_RETRY.md.
 type Handler struct {
 	Logger           logr.Logger
 	Backend          Backend
 	NowFunc          func() time.Time
 	AutoCapabilities AutoCapabilities
-	RetryOptions     []backoff.RetryOption
 
 	proto.UnimplementedWorkflowServiceServer
-}
-
-type options struct {
-	AutoCapabilities AutoCapabilities
 }
 
 type Option func(*Handler)
@@ -116,29 +114,6 @@ func NewHandler(opts ...Option) *Handler {
 }
 
 func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*proto.ActionResponse, error) {
-	operation := func() (*proto.ActionResponse, error) {
-		opts := options{
-			AutoCapabilities: h.AutoCapabilities,
-		}
-		return h.doGetAction(ctx, req, opts)
-	}
-	if len(h.RetryOptions) == 0 {
-		h.RetryOptions = []backoff.RetryOption{
-			backoff.WithMaxElapsedTime(time.Minute),
-			backoff.WithBackOff(backoff.NewConstantBackOff(time.Second)),
-		}
-	}
-	// We retry multiple times as we read-write to the Workflow Status and there can be caching and eventually consistent issues
-	// that would cause the write to fail. A retry to get the latest Workflow resolves these types of issues.
-	resp, err := backoff.Retry(ctx, operation, h.RetryOptions...)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opts options) (*proto.ActionResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, status.Error(codes.Unavailable, "server shutting down")
@@ -161,7 +136,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	var hwRef *tinkerbell.Hardware
 	var hwErr error
 	// handle auto discovery
-	if opts.AutoCapabilities.Discovery.Enabled {
+	if h.AutoCapabilities.Discovery.Enabled {
 		journal.Log(ctx, "auto discovery triggered")
 		// Check if there is an existing Hardware Object.
 		// If not, Discovery creates one.
@@ -183,19 +158,19 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflows: %v", err))
 	}
 	if len(wfs) == 0 {
-		if opts.AutoCapabilities.Enrollment.Enabled {
+		if h.AutoCapabilities.Enrollment.Enabled {
 			journal.Log(ctx, "auto enrollment triggered")
 			// If auto discovery is disabled, we do a Hardware object lookup.
 			// If auto discovery is enabled, we rely on the lookup and/or creation of a Hardware object from the Discover method.
 			// This means that only one Hardware lookup call is every made to the backend.
-			if !opts.AutoCapabilities.Discovery.Enabled {
+			if !h.AutoCapabilities.Discovery.Enabled {
 				hwRef, hwErr = h.hardware(ctx, req.GetAgentId())
 			}
 			// Enrolling as if there were no Hardware would bypass its enrollmentEnabled and namespace.
 			if err := hardwareLookupError(ctx, log, req.GetAgentId(), hwErr); err != nil {
 				return nil, err
 			}
-			return h.enroll(ctx, req.GetAgentId(), attrs, hwRef)
+			return nil, h.enroll(ctx, req.GetAgentId(), attrs, hwRef)
 		}
 		journal.Log(ctx, "no Workflow found")
 		return nil, status.Error(codes.NotFound, "no Workflows found")
@@ -208,7 +183,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	// in the agent-ID index indefinitely; returning early would let one of them
 	// permanently shadow a later pending/running Workflow assigned to the same
 	// agent, so its Action would never be served.
-	var found, preparing, terminal, otherNotRunning bool
+	var found, preparing, notRunning bool
 	for _, w := range wfs {
 		if len(w.Status.Tasks) == 0 {
 			continue
@@ -222,11 +197,7 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 		}
 		if w.Status.State != tinkerbell.WorkflowStatePending && w.Status.State != tinkerbell.WorkflowStateRunning {
 			journal.Log(ctx, "Workflow not in pending or running state")
-			if isAgentTerminalWorkflowState(w.Status.State) {
-				terminal = true
-			} else {
-				otherNotRunning = true
-			}
+			notRunning = true
 			continue
 		}
 		wf = w
@@ -237,14 +208,9 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	if !found {
 		switch {
 		case preparing:
-			// Preparing is transient, so keep the error retryable.
 			return nil, status.Error(codes.FailedPrecondition, "Workflow is in preparing state")
-		case otherNotRunning:
+		case notRunning:
 			return nil, status.Error(codes.FailedPrecondition, "Workflow not in pending or running state")
-		case terminal:
-			// Every candidate is terminal and terminal state never changes, so stop
-			// the server-side retry loop instead of retrying for the full timeout.
-			return nil, backoff.Permanent(status.Error(codes.FailedPrecondition, "Workflow not in pending or running state"))
 		default:
 			journal.Log(ctx, "no Tasks found in Workflow")
 			return nil, status.Error(codes.NotFound, "no Tasks found in Workflow")
@@ -309,6 +275,9 @@ func (h *Handler) doGetAction(ctx context.Context, req *proto.ActionRequest, opt
 	}
 
 	if err := h.Backend.UpdateWorkflow(ctx, &wf, data.UpdateOptions{StatusOnly: true}); err != nil {
+		if apierrors.IsConflict(err) {
+			return nil, status.Errorf(codes.Aborted, "error writing current state: %v", err)
+		}
 		return nil, errors.Join(ErrBackendWrite, status.Errorf(codes.Internal, "error writing current state: %v", err))
 	}
 
@@ -436,28 +405,9 @@ func isAgentTerminalWorkflowState(state tinkerbell.WorkflowState) bool {
 }
 
 func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
-	operation := func() (*proto.ActionStatusResponse, error) {
-		return h.doReportActionStatus(ctx, req)
-	}
-	if len(h.RetryOptions) == 0 {
-		h.RetryOptions = []backoff.RetryOption{
-			backoff.WithMaxElapsedTime(time.Minute),
-			backoff.WithBackOff(backoff.NewConstantBackOff(time.Second)),
-		}
-	}
-	// We retry multiple times as we read-write to the Workflow Status and there can be caching and eventually consistent issues
-	// that would cause the write to fail and a retry to get the latest Workflow resolves these types of issues.
-	resp, err := backoff.Retry(ctx, operation, h.RetryOptions...)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionStatusRequest) (*proto.ActionStatusResponse, error) {
 	// 1. Validate the request
-	if req.GetWorkflowId() == "" {
+	namespace, name, ok := strings.Cut(req.GetWorkflowId(), "/")
+	if !ok || namespace == "" || name == "" {
 		return nil, status.Errorf(codes.InvalidArgument, errInvalidWorkflowID)
 	}
 	if req.GetTaskId() == "" {
@@ -467,9 +417,11 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 		return nil, status.Errorf(codes.InvalidArgument, errInvalidActionName)
 	}
 	// 2. Get the workflow
-	namespace, name, _ := strings.Cut(req.GetWorkflowId(), "/")
 	wf, err := h.Backend.ReadWorkflow(ctx, name, namespace)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, status.Errorf(codes.NotFound, "workflow %s not found", req.GetWorkflowId())
+		}
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow: %v", err))
 	}
 	// 3. Find the Action in the workflow from the request
@@ -482,11 +434,7 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 					case proto.ActionStatusRequest_SUCCESS, proto.ActionStatusRequest_FAILED, proto.ActionStatusRequest_TIMEOUT:
 						return &proto.ActionStatusResponse{}, nil
 					default:
-						return nil, backoff.Permanent(status.Errorf(
-							codes.FailedPrecondition,
-							"Workflow is in %s state",
-							wf.Status.State,
-						))
+						return nil, status.Errorf(codes.FailedPrecondition, "Workflow is in %s state", wf.Status.State)
 					}
 				}
 
@@ -515,14 +463,18 @@ func (h *Handler) doReportActionStatus(ctx context.Context, req *proto.ActionSta
 					TaskName:   wf.Status.Tasks[ti].Name,
 				}
 				if err := h.Backend.UpdateWorkflow(ctx, wf, data.UpdateOptions{StatusOnly: true}); err != nil {
-					return nil, status.Errorf(codes.Internal, "error writing report status: %v", err)
+					code := codes.Internal
+					if apierrors.IsConflict(err) {
+						code = codes.Aborted
+					}
+					return nil, status.Errorf(code, "error writing report status: %v", err)
 				}
 				return &proto.ActionStatusResponse{}, nil
 			}
 		}
 	}
 
-	return &proto.ActionStatusResponse{}, status.Error(codes.NotFound, "action not found")
+	return nil, status.Error(codes.NotFound, "action not found")
 }
 
 // resolveAndAnnotateHardware resolves the Hardware object for a Workflow and persists agent attributes
