@@ -356,28 +356,37 @@ it binds, and each entry is published only when its family is served.
 
 ## Namespace Scope
 
-`rbac.type` selects one of two profiles. Every other namespace setting follows from it.
+`rbac.type` selects one of two profiles, and with `Role`, `rbac.namespaces` selects the namespaces Tinkerbell manages. Every other namespace setting follows from them: the chart derives Tinkerbell's backend namespaces (`TINKERBELL_BACKEND_KUBE_NAMESPACE`) from the same values, so permissions and the watched namespaces cannot drift apart.
+
+```yaml
+rbac:
+  type: Role
+  namespaces: [tink-a, tink-b] # the release namespace is always added
+```
 
 | Setting | `ClusterRole` (default) | `Role` |
 | --- | --- | --- |
-| Backend namespace (`deployment.envs.globals.backendKubeNamespace`) | empty: all namespaces | the release namespace |
-| RBAC | `ClusterRole` and `ClusterRoleBinding`, including CRDs | `Role` and `RoleBinding` in the backend namespace, without CRDs |
+| Backend namespaces | empty: all namespaces | the release namespace plus `rbac.namespaces` |
+| RBAC | `ClusterRole` and `ClusterRoleBinding`, including CRDs | a `Role` and `RoleBinding` in each backend namespace, without CRDs |
 | CRD migrations (`deployment.envs.globals.enableCRDMigrations`) | on | off: install the CRDs once with `kubectl apply -k crd/` |
-| Leader-election Leases and their `Role` | the release namespace | the backend namespace |
-| Auto-discovered Hardware | the release namespace | the backend namespace |
+| Leader-election Leases and their `Role` | the release namespace | the release namespace |
+| Auto-discovered Hardware | the release namespace | the release namespace |
 
-When the backend namespace is set, every part of Tinkerbell defaults to reading and writing only there: Smee, Tootles, Tink Server (including auto-discovery and auto-enrollment), the Tink Controller, Rufio, Second Star, UI auto-login, Hardware references and leader election. The exceptions are the explicit values below, and CRD migrations, which are cluster-scoped. UI user login is not affected; it uses the user's own credentials.
+`rbac.namespaces` must be empty with `ClusterRole`, which already grants every namespace; rendering fails otherwise. The Role and RoleBinding subjects stay the release service account.
+
+When backend namespaces are set, every part of Tinkerbell reads and writes only in them: Smee, Tootles, Tink Server (including auto-discovery and auto-enrollment), the Tink Controller, Rufio, Second Star, UI auto-login, Hardware references and leader election. Each type is watched once per namespace, because Kubernetes authorizes a cluster-wide watch only against cluster-wide permissions; for the same reason, UI auto-login's "All" view lists each backend namespace in turn. Settings that take a single namespace (auto-discovered Hardware and leader-election Leases) use the backend namespace when there is exactly one, and the release namespace otherwise. The exceptions are the explicit values below, and CRD migrations, which are cluster-scoped. UI user login is not affected; it uses the user's own credentials.
 
 Escape hatches:
 
-- **A `ClusterRole` limited to one namespace:** set `backendKubeNamespace`. CRD migrations stay on.
-- **A `Role` in a namespace other than the release namespace:** set `backendKubeNamespace`. The `Role`s and `RoleBinding`s are created there.
+- **A `ClusterRole` limited to one namespace:** set `deployment.envs.globals.backendKubeNamespace`. CRD migrations stay on.
 - **CRD migrations:** set `enableCRDMigrations` to `true` or `false` to override the profile. With `rbac.type: Role`, enabling migrations also requires separately granting the release service account cluster-scoped permissions to manage CRDs.
 
-Explicit `autoDiscoveryNamespace` and `leaderElectionNamespace` values are used as given and are not checked against the other settings. The chart grants Lease access only in the backend namespace (the release namespace when that is empty), so a `leaderElectionNamespace` elsewhere needs its own `Role`. When the backend namespace is set, Tinkerbell only sees Hardware in it, so an `autoDiscoveryNamespace` elsewhere creates Hardware that Tinkerbell then cannot find.
+`deployment.envs.globals.backendKubeNamespace` is deprecated. With `Role` it is one more entry in `rbac.namespaces`; with `ClusterRole` it limits Tinkerbell to that one namespace, as before.
+
+Explicit `autoDiscoveryNamespace` and `leaderElectionNamespace` values are used as given and are not checked against the other settings. The chart grants Lease access only in the namespace described above, so a `leaderElectionNamespace` elsewhere needs its own `Role`. When backend namespaces are set, Tinkerbell only sees Hardware in them, so an `autoDiscoveryNamespace` elsewhere creates Hardware that Tinkerbell then cannot find.
 
 > [!IMPORTANT]
-> When the backend namespace differs from the release namespace, upgrading to this version moves the leader-election Leases into the backend namespace. During a rolling update the old and new pods can both lead until the old pod stops, and Rufio could run a BMC Task twice. Upgrade once with `--set deployment.strategy.type=Recreate`, or scale the Deployment to zero first.
+> When `backendKubeNamespace` is set to a namespace other than the release namespace, the leader-election Leases are in that namespace with `ClusterRole`, and in the release namespace with `Role`, which also adds the release namespace to the backend namespaces and puts newly auto-discovered Hardware there. If an upgrade changes the Lease namespace, the old and new pods can both lead during a rolling update until the old pod stops, and Rufio could run a BMC Task twice. Upgrade once with `--set deployment.strategy.type=Recreate`, or scale the Deployment to zero first.
 
 ## Hardware Rendering
 
@@ -385,7 +394,11 @@ Explicit `autoDiscoveryNamespace` and `leaderElectionNamespace` values are used 
 specs; see [Hardware templating](../../docs/technical/HARDWARE_TEMPLATING.md). Tinkerbell
 then watches every resource type declared in `spec.references`, even references the
 policy denies, so it needs `list` and `watch` on them; `get` is needed only for allowed
-references. Grant types other than Secrets with `rbac.additionalRoleRules`.
+references. Grant types other than Secrets with `rbac.additionalRoleRules`. With several
+backend namespaces, a referenced type is watched in every one of them, so it needs `list`
+and `watch` in each; `rbac.additionalRoleRules` are added to the Role in every namespace,
+so the chart already grants that. In a namespace without these permissions, the watch
+logs `forbidden` errors.
 
 ## Additional RBAC Rules
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -35,8 +36,8 @@ import (
 // hold metadata only and are used just to notice changes.
 type renderStore struct {
 	informers          informerGetter
-	referenceInformers metadataInformerFactory
-	namespace          string
+	referenceInformers metadataInformerFactories
+	namespaces         []string
 	mapper             meta.RESTMapper
 	get                func(context.Context, types.NamespacedName) (*tinkerbell.Hardware, error)
 	resolve            func(context.Context, *tinkerbell.Hardware) (map[string]any, error)
@@ -64,6 +65,22 @@ type metadataInformerFactory interface {
 	ForResource(schema.GroupVersionResource) informers.GenericInformer
 	Start(<-chan struct{})
 	Shutdown()
+}
+
+// metadataInformerFactories holds one factory per watched namespace, or a single
+// all-namespaces factory, because a list of namespaces cannot be watched with one request.
+type metadataInformerFactories []metadataInformerFactory
+
+func (f metadataInformerFactories) Start(stop <-chan struct{}) {
+	for _, factory := range f {
+		factory.Start(stop)
+	}
+}
+
+func (f metadataInformerFactories) Shutdown() {
+	for _, factory := range f {
+		factory.Shutdown()
+	}
 }
 
 type metadataListClient struct {
@@ -123,18 +140,18 @@ func newRenderStore(
 	hardwareInformers informerGetter,
 	mapper meta.RESTMapper,
 	metadataClient metadata.Interface,
-	namespace string,
+	namespaces []string,
 	get func(context.Context, types.NamespacedName) (*tinkerbell.Hardware, error),
 	resolve func(context.Context, *tinkerbell.Hardware) (map[string]any, error),
 	registry prometheus.Registerer,
 ) *renderStore {
 	store := &renderStore{
-		informers: hardwareInformers,
-		namespace: namespace,
-		mapper:    mapper,
-		get:       get,
-		resolve:   resolve,
-		log:       log,
+		informers:  hardwareInformers,
+		namespaces: slices.Clone(namespaces),
+		mapper:     mapper,
+		get:        get,
+		resolve:    resolve,
+		log:        log,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[types.NamespacedName](),
 			workqueue.TypedRateLimitingQueueConfig[types.NamespacedName]{Name: "hardware_render"},
@@ -147,9 +164,14 @@ func newRenderStore(
 		notify:    make(chan struct{}, 1),
 		changes:   map[types.NamespacedName]struct{}{},
 	}
-	store.referenceInformers = metadatainformer.NewFilteredSharedInformerFactory(
-		&metadataListClient{Interface: metadataClient, listed: store.requeueResource}, 0, namespace, nil,
-	)
+	listClient := &metadataListClient{Interface: metadataClient, listed: store.requeueResource}
+	watched := store.namespaces
+	if len(watched) == 0 {
+		watched = []string{metav1.NamespaceAll}
+	}
+	for _, ns := range watched {
+		store.referenceInformers = append(store.referenceInformers, metadatainformer.NewFilteredSharedInformerFactory(listClient, 0, ns, nil))
+	}
 	store.renders = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "tinkerbell_hardware_render_attempts_total", Help: "Hardware render attempts by outcome."}, []string{"result"})
 	store.duration = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "tinkerbell_hardware_render_duration_seconds", Help: "Hardware render attempt duration."})
 	registry.MustRegister(store.renders, store.duration,
@@ -337,9 +359,9 @@ func (s *renderStore) forget(key types.NamespacedName) {
 // track records what key references, so that a change to a referenced object
 // re-renders it, and starts watching referenced types not yet watched.
 func (s *renderStore) track(ctx context.Context, key types.NamespacedName, references map[string]tinkerbell.Reference) error {
-	if s.namespace != "" {
+	if len(s.namespaces) > 0 {
 		references = maps.Clone(references)
-		maps.DeleteFunc(references, func(_ string, r tinkerbell.Reference) bool { return r.Namespace != s.namespace })
+		maps.DeleteFunc(references, func(_ string, r tinkerbell.Reference) bool { return !slices.Contains(s.namespaces, r.Namespace) })
 	}
 	refs := make([]refKey, 0, len(references))
 	for _, r := range references {
@@ -413,18 +435,32 @@ func (s *renderStore) watch(ctx context.Context, gvr schema.GroupVersionResource
 	if _, err := s.mapper.KindFor(gvr); err != nil {
 		return err
 	}
-	inf := s.referenceInformers.ForResource(gvr).Informer()
-	_, err := inf.AddEventHandler(s.enqueueHandler(func(changed types.NamespacedName) {
+	handler := s.enqueueHandler(func(changed types.NamespacedName) {
 		s.mu.RLock()
 		defer s.mu.RUnlock()
 		for hw := range s.referrers[refKey{gvr.Group, gvr.Resource, changed.Namespace, changed.Name}] {
 			s.queue.Add(hw)
 		}
-	}))
-	if err == nil {
-		s.referenceInformers.Start(ctx.Done())
+	})
+	// On failure, remove the handlers already added so that a retry adds each once.
+	type added struct {
+		informer     toolscache.SharedIndexInformer
+		registration toolscache.ResourceEventHandlerRegistration
 	}
-	return err
+	var registered []added
+	for _, factory := range s.referenceInformers {
+		inf := factory.ForResource(gvr).Informer()
+		reg, err := inf.AddEventHandler(handler)
+		if err != nil {
+			for _, r := range registered {
+				_ = r.informer.RemoveEventHandler(r.registration)
+			}
+			return err
+		}
+		registered = append(registered, added{inf, reg})
+	}
+	s.referenceInformers.Start(ctx.Done())
+	return nil
 }
 
 // enqueueHandler calls enqueue with the key of every added, updated or deleted object.

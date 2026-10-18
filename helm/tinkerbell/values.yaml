@@ -26,7 +26,7 @@ deployment:
       backendFilePath: ""
       backendKubeBurst: 100
       backendKubeConfig: ""
-      backendKubeNamespace: "" # namespace all services read and write by default; empty means all namespaces, or the release namespace when rbac.type is Role
+      backendKubeNamespace: "" # deprecated: use rbac.namespaces. With Role, adds one namespace to rbac.namespaces; with ClusterRole, limits Tinkerbell to this one namespace
       backendKubeQPS: 100
       backendKubeRenderingEnabled: false # render templates in Hardware specs; escape literal '{{' as {{ "{{" }} before enabling
       bindAddr: ""
@@ -244,6 +244,10 @@ rbac:
   # - nonResourceURLs: ["/healthz"] # Required. Non-resource URL paths.
   #   verbs: ["get"]                # Required. Allowed operations.
   name: tinkerbell
+  # Namespaces Tinkerbell manages when type is Role. The release namespace is always included.
+  # A Role and RoleBinding are created in each, and Tinkerbell watches exactly these namespaces.
+  # Must be empty with ClusterRole, which manages all namespaces.
+  namespaces: []
   type: ClusterRole # or Role
   secrets:
     enabled: true

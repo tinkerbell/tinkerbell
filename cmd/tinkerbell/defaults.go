@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -387,20 +388,36 @@ func leaderElectionNamespace(inCluster, enabled bool, namespace, backendNamespac
 	return namespace
 }
 
+// primaryNamespace is the one namespace to use for settings that take a single
+// namespace: the pod's namespace when it is one of the backend namespaces,
+// otherwise the first backend namespace, so the result is always watched. Empty
+// means all namespaces are watched.
+func primaryNamespace(namespaces []string, podNamespace string) string {
+	switch {
+	case len(namespaces) == 0:
+		return ""
+	case slices.Contains(namespaces, podNamespace):
+		return podNamespace
+	}
+	return namespaces[0]
+}
+
 // followBackendNamespace defaults the Tink Controller, Rufio, auto-discovery,
-// leader-election and CRD-migration settings to follow the backend namespace.
+// leader-election and CRD-migration settings to follow the backend namespaces.
 // Settings for which isSet reports true are left as configured.
-func followBackendNamespace(globals *flag.GlobalConfig, ts *flag.TinkServerConfig, tc *flag.TinkControllerConfig, rc *flag.RufioConfig, isSet func(name string) bool, inCluster bool) {
-	ns := globals.BackendKubeNamespace
-	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster, tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace, ns)
-	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster, rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace, ns)
-	if ns == "" {
+func followBackendNamespace(globals *flag.GlobalConfig, ts *flag.TinkServerConfig, tc *flag.TinkControllerConfig, rc *flag.RufioConfig, isSet func(name string) bool, inCluster bool, podNamespace string) {
+	namespaces := globals.BackendKubeNamespaces
+	// Leases go in a backend namespace, where a namespaced credential has permissions.
+	leaseNamespace := primaryNamespace(namespaces, podNamespace)
+	tc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster, tc.Config.EnableLeaderElection, tc.Config.LeaderElectionNamespace, leaseNamespace)
+	rc.Config.LeaderElectionNamespace = leaderElectionNamespace(inCluster, rc.Config.EnableLeaderElection, rc.Config.LeaderElectionNamespace, leaseNamespace)
+	if len(namespaces) == 0 {
 		return
 	}
-	tc.Config.Namespace = ns
-	rc.Config.Namespace = ns
+	tc.Config.Namespaces = slices.Clone(namespaces)
+	rc.Config.Namespaces = slices.Clone(namespaces)
 	if !isSet(flag.TinkerbellAutoDiscoveryNamespace.Name) {
-		ts.Config.Auto.Discovery.Namespace = ns
+		ts.Config.Auto.Discovery.Namespace = primaryNamespace(namespaces, podNamespace)
 	}
 	// A backend namespace usually means a namespaced credential, which cannot write cluster-scoped CRDs.
 	if !isSet(flag.EnableCRDMigrations.Name) {

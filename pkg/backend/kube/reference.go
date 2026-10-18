@@ -34,7 +34,7 @@ type source struct {
 }
 
 // ResolveReferences returns the objects hw's spec.references point to, keyed by
-// reference name. When b.Namespace is set, a reference outside it is reported in
+// reference name. When b.Namespaces is set, a reference outside them is reported in
 // the error without being read. Otherwise a reference is read only if the allow
 // list matches it or the deny list does not; with no deny list configured, an
 // implicit deny-all rule is used and can still be overridden by an allow-list
@@ -68,8 +68,8 @@ func (b *Backend) ResolveReferences(ctx context.Context, hw *tinkerbell.Hardware
 		}
 		rf.Group = strings.ToLower(rf.Group)
 		rf.Resource = strings.ToLower(rf.Resource)
-		if b.Namespace != "" && rf.Namespace != b.Namespace {
-			err := fmt.Errorf("reference %q namespace %q is outside configured backend namespace %q", refName, rf.Namespace, b.Namespace)
+		if !b.Watches(rf.Namespace) {
+			err := fmt.Errorf("reference %q namespace %q is outside configured backend namespaces %q", refName, rf.Namespace, strings.Join(b.Namespaces, ","))
 			refErr = errors.Join(refErr, err)
 			continue
 		}

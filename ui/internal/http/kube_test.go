@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -11,7 +12,10 @@ import (
 	tinkv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/ui/templates"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func init() {
@@ -605,7 +609,7 @@ func TestKubeClientInNamespace(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(newTestScheme()).WithRESTMapper(mapper).WithRuntimeObjects(
 		newTestHardware("in", "tink", "", ""), newTestHardware("out", "other", "", ""),
 	).Build()
-	k := (&KubeClient{Client: c}).InNamespace("tink")
+	k := (&KubeClient{Client: c}).InNamespaces("tink")
 
 	namespaces, err := k.ListNamespaces(ctx)
 	if err != nil || len(namespaces) != 1 || namespaces[0] != "tink" {
@@ -630,5 +634,89 @@ func TestKubeClientInNamespace(t *testing.T) {
 	wf.Namespace = "other"
 	if err := k.Create(ctx, wf); err == nil {
 		t.Fatal("Create in another namespace must fail")
+	}
+}
+
+func TestKubeClientInSeveralNamespaces(t *testing.T) {
+	ctx := context.Background()
+	mapper := meta.NewDefaultRESTMapper(nil)
+	for _, kind := range []string{"Hardware", "HardwareList", "Workflow", "WorkflowList"} {
+		mapper.Add(tinkv1alpha1.GroupVersion.WithKind(kind), meta.RESTScopeNamespace)
+	}
+	var listed []string
+	c := fake.NewClientBuilder().WithScheme(newTestScheme()).WithRESTMapper(mapper).WithRuntimeObjects(
+		newTestHardware("a", "tink-a", "", ""), newTestHardware("b", "tink-b", "", ""), newTestHardware("out", "other", "", ""),
+	).WithInterceptorFuncs(interceptor.Funcs{List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+		listed = append(listed, (&client.ListOptions{}).ApplyOptions(opts).Namespace)
+		return c.List(ctx, list, opts...)
+	}}).Build()
+	k := (&KubeClient{Client: c}).InNamespaces("tink-a", "tink-b")
+
+	namespaces, err := k.ListNamespaces(ctx)
+	if err != nil || !slices.Equal(namespaces, []string{"tink-a", "tink-b"}) {
+		t.Fatalf("ListNamespaces = %v, %v; want [tink-a tink-b]", namespaces, err)
+	}
+	for _, ns := range []string{"", templates.AllNamespace} {
+		listed = nil
+		list, err := k.ListHardware(ctx, ns)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var names []string
+		for _, hw := range list.Items {
+			names = append(names, hw.Namespace+"/"+hw.Name)
+		}
+		slices.Sort(names)
+		if !slices.Equal(names, []string{"tink-a/a", "tink-b/b"}) {
+			t.Fatalf("ListHardware(%q) = %v, want tink-a/a and tink-b/b", ns, names)
+		}
+		if !slices.Equal(listed, []string{"tink-a", "tink-b"}) {
+			t.Fatalf("ListHardware(%q) listed namespaces %q, want one List per namespace and none cluster-wide", ns, listed)
+		}
+	}
+	if list, err := k.ListHardware(ctx, "tink-b"); err != nil || len(list.Items) != 1 || list.Items[0].Name != "b" {
+		t.Fatalf("ListHardware(tink-b) = %v, %v; want only tink-b/b", list, err)
+	}
+	if _, err := k.ListHardware(ctx, "other"); err == nil {
+		t.Fatal("ListHardware in another namespace must fail")
+	}
+	if _, err := k.GetHardware(ctx, "tink-b", "b"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := k.GetHardware(ctx, "other", "out"); err == nil {
+		t.Fatal("GetHardware in another namespace must fail")
+	}
+	for _, ns := range []string{"other", ""} {
+		wf := newTestWorkflow("wf", "tpl", tinkv1alpha1.WorkflowStatePending)
+		wf.Namespace = ns
+		if err := k.Create(ctx, wf); err == nil {
+			t.Fatalf("Create in namespace %q must fail with several namespaces", ns)
+		}
+	}
+	wf := newTestWorkflow("wf", "tpl", tinkv1alpha1.WorkflowStatePending)
+	wf.Namespace = "tink-b"
+	disabled := true
+	wf.Spec.Disabled = &disabled
+	if err := k.Create(ctx, wf); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := k.EnableWorkflow(ctx, "tink-b", "wf"); err != nil {
+		t.Fatalf("EnableWorkflow in a listed namespace: %v", err)
+	}
+	stored := &tinkv1alpha1.Workflow{}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: "tink-b", Name: "wf"}, stored); err != nil || stored.Spec.Disabled == nil || *stored.Spec.Disabled {
+		t.Fatalf("stored workflow disabled = %v, %v; want enabled", stored.Spec.Disabled, err)
+	}
+	outside := newTestWorkflow("wf", "tpl", tinkv1alpha1.WorkflowStatePending)
+	outside.Namespace = "other"
+	outside.Spec.Disabled = &disabled
+	if err := c.Create(ctx, outside); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := k.EnableWorkflow(ctx, "other", "wf"); err == nil {
+		t.Fatal("EnableWorkflow in another namespace must fail")
+	}
+	if err := k.Status().Update(ctx, &tinkv1alpha1.Workflow{ObjectMeta: metav1.ObjectMeta{Name: "wf", Namespace: "other"}}); err == nil {
+		t.Fatal("status Update in another namespace must fail")
 	}
 }

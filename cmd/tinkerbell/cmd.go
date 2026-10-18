@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/netip"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -237,7 +238,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 			"ignoredFlags", ignoredFlags,
 		)
 	}
-	cliLog.Info("starting tinkerbell",
+	startKV := []any{
 		"version", build.GitRevision(),
 		"listenerFamilies", globals.ListenerFamilies,
 		"smeeEnabled", globals.EnableSmee,
@@ -254,7 +255,11 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		"globalBindAddress", globals.BindAddr,
 		"globalBindAddressV6", globals.BindAddrV6,
 		"servedFamilies", servedFamilies(globals, s),
-	)
+	}
+	if len(globals.BackendKubeNamespaces) > 0 {
+		startKV = append(startKV, "backendKubeNamespaces", globals.BackendKubeNamespaces)
+	}
+	cliLog.Info("starting tinkerbell", startKV...)
 
 	// Smee
 	s.Convert(globals.PublicIP, globals.PublicIPv6, globals.BindAddr, globals.BindAddrV6, globals.HTTPPort, globals.HTTPPortV6)
@@ -295,10 +300,11 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		s.Config.TinkServer.UseTLS = true
 	}
 
+	podNS := podNamespace()
 	followBackendNamespace(globals, ts, tc, rc, func(name string) bool {
 		f, ok := gfs.GetFlag(name)
 		return ok && f.IsSet()
-	}, inCluster())
+	}, inCluster(), podNS)
 
 	// Second star
 	if err := ssc.Convert(globals.BindAddr, globals.BindAddrV6); err != nil {
@@ -372,7 +378,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 	switch globals.Backend {
 	case "kube":
 		if globals.EnableCRDMigrations {
-			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespace, nil, WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
+			backendNoIndexes, err := newKubeBackend(ctx, globals.BackendKubeConfig, "", globals.BackendKubeNamespaces, nil, WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst))
 			if err != nil {
 				return startupErr(fmt.Errorf("failed to create kube backend with no indexes: %w", err))
 			}
@@ -394,7 +400,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		b, err := newKubeBackend(ctx,
 			globals.BackendKubeConfig,
 			"",
-			globals.BackendKubeNamespace,
+			globals.BackendKubeNamespaces,
 			enabledIndexes(globals.EnableSmee, globals.EnableTootles, globals.EnableTinkServer, globals.EnableSecondStar),
 			WithQPS(globals.BackendKubeOptions.QPS), WithBurst(globals.BackendKubeOptions.Burst),
 			WithHardwareReferenceRules(globals.BackendKubeOptions.HardwareReferenceAllowListRules, globals.BackendKubeOptions.HardwareReferenceDenyListRules),
@@ -411,7 +417,8 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		ssc.Config.Backend = b
 		if uic.Config.EnableAutoLogin {
 			uic.Config.AutoLoginRestConfig = b.ClientConfig
-			uic.Config.AutoLoginNamespace = globals.BackendKubeNamespace
+			uic.Config.AutoLoginNamespace = primaryNamespace(globals.BackendKubeNamespaces, podNS)
+			uic.Config.AutoLoginNamespaces = slices.Clone(globals.BackendKubeNamespaces)
 		}
 	case "file":
 		b, err := newFileBackend(ctx, log, globals.BackendFilePath)

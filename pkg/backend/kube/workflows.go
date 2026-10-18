@@ -20,9 +20,9 @@ func (b *Backend) CreateWorkflow(ctx context.Context, w *v1alpha1.Workflow) erro
 }
 
 // ReadWorkflow returns the Workflow as currently stored by the API server, not as cached,
-// so the result is never stale. A Workflow outside b.Namespace is reported as not found.
+// so the result is never stale. A Workflow outside b.Namespaces is reported as not found.
 func (b *Backend) ReadWorkflow(ctx context.Context, name, namespace string) (*v1alpha1.Workflow, error) {
-	if b.Namespace != "" && namespace != b.Namespace {
+	if !b.Watches(namespace) {
 		return nil, apierrors.NewNotFound(v1alpha1.GroupVersion.WithResource("workflows").GroupResource(), name)
 	}
 	wflw := &v1alpha1.Workflow{}

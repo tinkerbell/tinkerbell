@@ -31,25 +31,70 @@ Usage: {{ include "tinkerbell.servedPort" (dict "v4" $httpPort "v6" $httpPortV6 
 {{- end -}}
 
 {{/*
-The backend namespace. rbac.type selects the profile: with Role (namespaced)
-it defaults to the release namespace, with ClusterRole to empty (all namespaces).
-Usage: {{ include "tinkerbell.backendNamespace" . }}
+The namespaces Tinkerbell watches, as a JSON array. rbac.type selects the profile:
+with Role, the release namespace plus rbac.namespaces; with ClusterRole, empty (all
+namespaces). The deprecated deployment.envs.globals.backendKubeNamespace counts as
+one more entry in rbac.namespaces, and with ClusterRole limits Tinkerbell to it.
+Usage: {{ include "tinkerbell.watchedNamespaces" . | fromJsonArray }}
 */}}
-{{- define "tinkerbell.backendNamespace" -}}
-{{- if .Values.deployment.envs.globals.backendKubeNamespace -}}
-{{- .Values.deployment.envs.globals.backendKubeNamespace -}}
-{{- else if eq .Values.rbac.type "Role" -}}
-{{- .Release.Namespace -}}
+{{- define "tinkerbell.watchedNamespaces" -}}
+{{- $listed := default (list) .Values.rbac.namespaces -}}
+{{- if not (kindIs "slice" $listed) -}}
+{{- fail "rbac.namespaces must be a list of namespace names" -}}
+{{- end -}}
+{{- $legacy := .Values.deployment.envs.globals.backendKubeNamespace -}}
+{{- range $name := concat $listed (ternary (list $legacy) (list) (not (empty $legacy))) -}}
+{{- if not (and (kindIs "string" $name) (le (len $name) 63) (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $name)) -}}
+{{- fail (printf "invalid namespace %q in rbac.namespaces or deployment.envs.globals.backendKubeNamespace: must be one lowercase DNS-1123 label (for several namespaces, list them in rbac.namespaces)" (toString $name)) -}}
+{{- end -}}
+{{- end -}}
+{{- $namespaces := list -}}
+{{- if eq .Values.rbac.type "Role" -}}
+{{- $namespaces = concat (list .Release.Namespace) $listed -}}
+{{- else if $listed -}}
+{{- fail "rbac.namespaces requires rbac.type Role: a ClusterRole already grants every namespace. To limit a ClusterRole to one namespace, set deployment.envs.globals.backendKubeNamespace instead" -}}
+{{- end -}}
+{{- if $legacy -}}
+{{- $namespaces = append $namespaces $legacy -}}
+{{- end -}}
+{{- toJson (uniq $namespaces) -}}
+{{- end -}}
+
+{{/*
+The backend namespaces as the comma-separated TINKERBELL_BACKEND_KUBE_NAMESPACE value.
+Empty means all namespaces.
+Usage: {{ include "tinkerbell.backendNamespaces" . }}
+*/}}
+{{- define "tinkerbell.backendNamespaces" -}}
+{{- include "tinkerbell.watchedNamespaces" . | fromJsonArray | join "," -}}
+{{- end -}}
+
+{{/*
+The namespaces that get the Role/ClusterRole and binding objects, as a JSON array:
+every watched namespace with Role, or one cluster-scoped entry ("") with ClusterRole.
+Usage: {{ include "tinkerbell.roleNamespaces" . | fromJsonArray }}
+*/}}
+{{- define "tinkerbell.roleNamespaces" -}}
+{{- if eq .Values.rbac.type "Role" -}}
+{{- include "tinkerbell.watchedNamespaces" . -}}
+{{- else -}}
+{{- toJson (list "") -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-The namespace for the namespaced RBAC objects: the backend namespace, otherwise
-the release namespace.
-Usage: {{ include "tinkerbell.rbacNamespace" . }}
+The one namespace for settings that take a single namespace (auto-discovered
+Hardware, leader-election Leases and their Role): the watched namespace when there
+is exactly one, otherwise the release namespace. Tinkerbell makes the same choice.
+Usage: {{ include "tinkerbell.primaryNamespace" . }}
 */}}
-{{- define "tinkerbell.rbacNamespace" -}}
-{{- coalesce (include "tinkerbell.backendNamespace" .) .Release.Namespace -}}
+{{- define "tinkerbell.primaryNamespace" -}}
+{{- $namespaces := include "tinkerbell.watchedNamespaces" . | fromJsonArray -}}
+{{- if eq (len $namespaces) 1 -}}
+{{- first $namespaces -}}
+{{- else -}}
+{{- .Release.Namespace -}}
+{{- end -}}
 {{- end -}}
 
 {{/*

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path"
 	"strings"
 
@@ -8,6 +9,8 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/backend/kube"
 	"k8s.io/client-go/rest"
 )
+
+const serviceAccountNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 
 func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {
 	if condition {
@@ -81,6 +84,16 @@ func normalizeURLPrefix(prefix string) string {
 		pattern += "/"
 	}
 	return pattern
+}
+
+// podNamespace returns the namespace of the pod Tinkerbell runs in, or empty
+// when not running in a pod.
+func podNamespace() string {
+	b, err := os.ReadFile(serviceAccountNamespaceFile)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 // inCluster checks if we are running in cluster.
