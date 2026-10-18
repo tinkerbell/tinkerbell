@@ -96,10 +96,10 @@ jobs:
       - name: install helm
         uses: Azure/setup-helm@v5
         with:
-          version: v3.17.0
+          version: v4.3.1
 
-      - name: Lint and Template Helm chart
-        run: make helm-lint helm-template
+      - name: Lint and test Helm chart
+        run: make helm-lint helm-test
 
   build-binaries:
     runs-on: ubuntu-latest
@@ -410,7 +410,7 @@ jobs:
       - name: install helm
         uses: Azure/setup-helm@v5
         with:
-          version: v3.17.0
+          version: v4.3.1
 
       - name: Package and publish the Helm chart
         run: make helm-publish

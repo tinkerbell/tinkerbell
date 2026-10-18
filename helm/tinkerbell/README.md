@@ -514,6 +514,10 @@ The CRDs from v0.6.2 have been updated in v0.19.x. There is no action required f
 
 For help migrating your `values.yaml` from 0.6.2 to 0.19.x, please refer to the [migration guide](../../docs/technical/HELM_VALUES_MIGRATION.md).
 
+## Testing the Chart
+
+Unit tests for the chart's rendered output are in [tests/](./tests), written for the [helm-unittest](https://github.com/helm-unittest/helm-unittest) plugin. Run them from the repository root with `make helm-test`, which installs the pinned plugin version into `out/helm-plugins` on first use. It needs Helm v3.18.0 or newer.
+
 ## Additional Resources
 
 - [Tinkerbell Documentation](https://tinkerbell.org)
