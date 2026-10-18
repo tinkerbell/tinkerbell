@@ -122,6 +122,41 @@ func TestFilterBMCMachineRendered(t *testing.T) {
 	}
 }
 
+func TestFilterBMCMachineUsesHardwareNamespace(t *testing.T) {
+	machine := func(namespace, host string) *bmc.Machine {
+		return &bmc.Machine{ObjectMeta: metav1.ObjectMeta{Name: "m", Namespace: namespace}, Spec: bmc.MachineSpec{Connection: bmc.Connection{
+			Host: host, AuthSecretRef: corev1.SecretReference{Name: "credentials", Namespace: namespace},
+		}}}
+	}
+	secret := func(namespace string) *corev1.Secret {
+		return &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "credentials", Namespace: namespace}, Data: map[string][]byte{"username": []byte("user"), "password": []byte("pass")}}
+	}
+	tests := map[string]struct {
+		objects  []client.Object
+		wantHost string
+	}{
+		"same name in another namespace": {objects: []client.Object{machine("tink", "own"), secret("tink"), machine("other", "foreign"), secret("other")}, wantHost: "own"},
+		"only in another namespace":      {objects: []client.Object{machine("other", "foreign"), secret("other")}},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			hw := templated("1")
+			hw.Spec.BMCRef = &corev1.TypedLocalObjectReference{Kind: "Machine", Name: "m"}
+			b := newFakeBackend(t, Backend{}, append([]client.Object{hw}, tt.objects...)...)
+			got, err := b.FilterBMCMachine(context.Background(), data.HardwareFilter{ByName: hw.Name, InNamespace: hw.Namespace})
+			if tt.wantHost == "" {
+				if err == nil {
+					t.Fatalf("FilterBMCMachine = %+v, want an error for a Machine outside the Hardware's namespace", got)
+				}
+				return
+			}
+			if err != nil || got.Host != tt.wantHost {
+				t.Fatalf("FilterBMCMachine = %+v, %v; want host %q", got, err, tt.wantHost)
+			}
+		})
+	}
+}
+
 func TestFilterBMCMachineWithoutBMCRef(t *testing.T) {
 	hw := templated("1")
 	b := newFakeBackend(t, Backend{}, hw)

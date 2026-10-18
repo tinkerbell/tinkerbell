@@ -36,7 +36,8 @@ func (b *Backend) FilterBMCMachine(ctx context.Context, opts data.HardwareFilter
 	if hw.Spec.BMCRef == nil || hw.Spec.BMCRef.Name == "" {
 		return nil, fmt.Errorf("hardware does not have a valid BMC reference")
 	}
-	bmcMachine, err := b.filterMachine(ctx, hw.Spec.BMCRef.Name)
+	// BMCRef is a local reference: the Machine is in the Hardware's namespace.
+	bmcMachine, err := b.filterMachine(ctx, hw.Namespace, hw.Spec.BMCRef.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +58,9 @@ func (b *Backend) FilterBMCMachine(ctx context.Context, opts data.HardwareFilter
 	return response, nil
 }
 
-// filterMachine looks up a single bmc.Machine object by name.
+// filterMachine looks up a single bmc.Machine object by namespace and name.
 // Exactly one result is expected; zero returns a not-found error and multiple returns a multiple-found error.
-func (b *Backend) filterMachine(ctx context.Context, name string) (*bmc.Machine, error) {
+func (b *Backend) filterMachine(ctx context.Context, namespace, name string) (*bmc.Machine, error) {
 	tracer := otel.Tracer(tracerName)
 	ctx, span := tracer.Start(ctx, "backend.kube.filterMachine")
 	defer span.End()
@@ -69,12 +70,12 @@ func (b *Backend) filterMachine(ctx context.Context, name string) (*bmc.Machine,
 	}
 
 	bmcList := &bmc.MachineList{}
-	if err := b.cluster.GetClient().List(ctx, bmcList, &client.MatchingFields{NameIndex: name}); err != nil {
-		return nil, fmt.Errorf("failed listing bmc machine for (%v): %w", name, err)
+	if err := b.cluster.GetClient().List(ctx, bmcList, client.InNamespace(namespace), &client.MatchingFields{NameIndex: name}); err != nil {
+		return nil, fmt.Errorf("failed listing bmc machine for (%v/%v): %w", namespace, name, err)
 	}
 
 	if len(bmcList.Items) == 0 {
-		err := fmt.Errorf("bmc machine not found: %s", name)
+		err := fmt.Errorf("bmc machine not found: %s/%s", namespace, name)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
