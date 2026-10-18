@@ -1,0 +1,137 @@
+suite: services
+set:
+  trustedProxies: [127.0.0.1/24]
+tests:
+  - it: uses publicIP as the load balancer IP by default
+    template: templates/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+    asserts:
+      - equal: {path: spec.loadBalancerIP, value: 1.1.1.1}
+      - equal: {path: 'metadata.annotations["kube-vip.io/loadbalancerIPs"]', value: "1.1.1.1"}
+
+  - it: prefers service.loadBalancerIP over publicIP
+    template: templates/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+      service.loadBalancerIP: 1.1.1.2
+    asserts:
+      - equal: {path: spec.loadBalancerIP, value: 1.1.1.2}
+      - equal: {path: 'metadata.annotations["kube-vip.io/loadbalancerIPs"]', value: "1.1.1.2"}
+
+  - it: lets a user annotation replace the derived load balancer IPs
+    template: templates/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      publicIPv6: 2001:db8::15
+      artifactsFileServer: http://2.2.2.2
+      service.annotations:
+        kube-vip.io/loadbalancerIPs: 2001:db8::16
+    asserts:
+      - equal: {path: 'metadata.annotations["kube-vip.io/loadbalancerIPs"]', value: 2001:db8::16}
+
+  - it: uses publicIPv6 alone for an IPv6-only service
+    template: templates/service.yaml
+    set:
+      publicIPv6: 2001:db8::15
+      artifactsFileServer: http://2.2.2.2
+    asserts:
+      - equal: {path: 'metadata.annotations["kube-vip.io/loadbalancerIPs"]', value: "2001:db8::15"}
+
+  - it: lists both families for a dual-stack service
+    template: templates/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      publicIPv6: 2001:db8::15
+      artifactsFileServer: http://2.2.2.2
+    asserts:
+      - equal: {path: 'metadata.annotations["kube-vip.io/loadbalancerIPs"]', value: "1.1.1.1,2001:db8::15"}
+
+  - it: accepts publicIPv6 from deployment.envs.globals
+    template: templates/service.yaml
+    set:
+      deployment.envs.globals.publicIPv6: 2001:db8::15
+      artifactsFileServer: http://2.2.2.2
+    asserts:
+      - equal: {path: 'metadata.annotations["kube-vip.io/loadbalancerIPs"]', value: "2001:db8::15"}
+
+  - it: lists both artifact server families on the OSIE service
+    template: templates/osie/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2:7173
+      artifactsFileServerV6: http://[2001:db8:100::102]:7173
+    asserts:
+      - equal: {path: 'metadata.annotations["kube-vip.io/loadbalancerIPs"]', value: "2.2.2.2,2001:db8:100::102"}
+
+  - it: omits IP-family fields from the main service by default
+    template: templates/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+    asserts:
+      - notExists: {path: spec.ipFamilyPolicy}
+      - notExists: {path: spec.ipFamilies}
+
+  - it: omits IP-family fields from the OSIE service by default
+    template: templates/osie/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+    asserts:
+      - notExists: {path: spec.ipFamilyPolicy}
+      - notExists: {path: spec.ipFamilies}
+
+  - it: sets dual-stack IP families on a LoadBalancer OSIE service
+    template: templates/osie/service.yaml
+    set:
+      artifactsFileServer: http://2.2.2.2:7173
+      artifactsFileServerV6: http://[2001:db8:100::102]:7173
+      optional.osie.service.type: LoadBalancer
+      optional.osie.service.ipFamilyPolicy: RequireDualStack
+      optional.osie.service.ipFamilies: [IPv4, IPv6]
+    asserts:
+      - equal: {path: spec.ipFamilyPolicy, value: RequireDualStack}
+      - equal: {path: spec.ipFamilies, value: [IPv4, IPv6]}
+
+  - it: sets dual-stack IP families on a ClusterIP OSIE service
+    template: templates/osie/service.yaml
+    set:
+      artifactsFileServer: http://2.2.2.2:7173
+      artifactsFileServerV6: http://[2001:db8:100::102]:7173
+      optional.osie.service.type: ClusterIP
+      optional.osie.service.ipFamilyPolicy: RequireDualStack
+      optional.osie.service.ipFamilies: [IPv4, IPv6]
+    asserts:
+      - equal: {path: spec.ipFamilyPolicy, value: RequireDualStack}
+      - equal: {path: spec.ipFamilies, value: [IPv4, IPv6]}
+
+  - it: sets single-stack IPv6 on the OSIE service
+    template: templates/osie/service.yaml
+    set:
+      artifactsFileServerV6: http://[2001:db8:100::102]:7173
+      optional.osie.service.ipFamilyPolicy: SingleStack
+      optional.osie.service.ipFamilies: [IPv6]
+    asserts:
+      - equal: {path: spec.ipFamilyPolicy, value: SingleStack}
+      - equal: {path: spec.ipFamilies, value: [IPv6]}
+
+  - it: lets a hookos annotation replace the derived OSIE load balancer IPs
+    template: templates/osie/service.yaml
+    set:
+      artifactsFileServer: http://2.2.2.2:7173
+      optional.hookos.service.annotations:
+        kube-vip.io/loadbalancerIPs: 2.2.2.3
+    asserts:
+      - equal: {path: 'metadata.annotations["kube-vip.io/loadbalancerIPs"]', value: 2.2.2.3}
+
+  - it: leaves the main service without load balancer IPs when publicIP is unset
+    template: templates/service.yaml
+    set:
+      artifactsFileServer: http://2.2.2.2:7173
+      optional.hookos.service.annotations:
+        kube-vip.io/loadbalancerIPs: 2.2.2.3
+    asserts:
+      - notExists: {path: 'metadata.annotations["kube-vip.io/loadbalancerIPs"]'}

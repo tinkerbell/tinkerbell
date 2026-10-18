@@ -1,0 +1,49 @@
+suite: address validation
+templates:
+  - templates/service.yaml
+  - templates/osie/service.yaml
+set:
+  trustedProxies: [127.0.0.1/24]
+tests:
+  - it: renders with IPv4 addresses
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: rejects an IPv6 publicIP
+    template: templates/service.yaml
+    set:
+      publicIP: 2001:db8::15
+      artifactsFileServer: http://2.2.2.2
+    asserts:
+      - failedTemplate:
+          errorPattern: publicIP must be an IPv4 address
+
+  - it: rejects an IPv6 artifactsFileServer
+    template: templates/osie/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://[2001:db8:100::102]:717
+    asserts:
+      - failedTemplate:
+          errorPattern: artifactsFileServer must use an IPv4 address or hostname
+
+  - it: rejects an IPv4 publicIPv6
+    template: templates/service.yaml
+    set:
+      publicIPv6: 1.1.1.1
+      artifactsFileServerV6: http://[2001:db8:100::102]:717
+    asserts:
+      - failedTemplate:
+          errorPattern: publicIPv6 must be an IPv6 address
+
+  - it: rejects an IPv4 artifactsFileServerV6
+    template: templates/osie/service.yaml
+    set:
+      publicIPv6: 2001:db8::15
+      artifactsFileServerV6: http://2.2.2.2:717
+    asserts:
+      - failedTemplate:
+          errorPattern: artifactsFileServerV6 must use an IPv6 address or hostname
