@@ -1,0 +1,81 @@
+suite: deployment environment
+templates:
+  - templates/deployment.yaml
+set:
+  trustedProxies: [127.0.0.1/24]
+tests:
+  - it: sets the IPv4 bind address
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+      deployment.envs.globals.bindAddr: 192.0.2.10
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_BIND_ADDRESS_V4, value: "192.0.2.10"}
+
+  - it: enables Hardware rendering
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+      deployment.envs.globals.backendKubeRenderingEnabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_BACKEND_KUBE_RENDERING_ENABLED, value: "true"}
+
+  - it: derives the IPv6 OSIE URL from artifactsFileServerV6
+    set:
+      publicIPv6: 2001:db8::15
+      artifactsFileServerV6: http://[2001:db8:100::102]:717
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL_V6, value: "http://[2001:db8:100::102]:717"}
+
+  - it: keeps an artifactsFileServerV6 hostname even with an OSIE load balancer IP
+    set:
+      publicIPv6: 2001:db8::15
+      artifactsFileServerV6: http://artifacts-v6.example.com:717
+      optional.osie.service.loadBalancerIP: 2001:db8:100::102
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL_V6, value: "http://artifacts-v6.example.com:717"}
+
+  - it: sets IPv6 values from publicIPv6 and an explicit IPv6 OSIE URL
+    set:
+      publicIPv6: 2001:db8::15
+      artifactsFileServer: http://2.2.2.2
+      deployment.envs.smee.ipxeHttpScriptOsieURLv6: http://[2001:db8::20]/hook
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_PUBLIC_IP_V6, value: "2001:db8::15"}
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_DHCP_SYSLOG_IP_V6, value: ""}
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_SCRIPT_TINK_SERVER_ADDR_PORT_V6, value: ""}
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL_V6, value: "http://[2001:db8::20]/hook"}
+
+  - it: joins the DHCPv6 default name servers
+    set:
+      artifactsFileServer: http://2.2.2.2
+      deployment.envs.smee.dhcpv6DefaultNameServers: [2001:db8::53, 2001:db8::54]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_DHCP_DEFAULT_NAME_SERVERS_V6, value: "2001:db8::53,2001:db8::54"}
+
+  - it: joins the DHCPv6 default domain search list
+    set:
+      artifactsFileServer: http://2.2.2.2
+      deployment.envs.smee.dhcpv6DefaultDomainSearchList: [example.com, lab.example.com]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_DHCP_DEFAULT_DOMAIN_SEARCH_LIST_V6, value: "example.com,lab.example.com"}
