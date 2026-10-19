@@ -164,6 +164,11 @@ linters:
           - cyclop
           - goconst
         path: (.+)_test\.go
+      - linters:
+          # Tests intentionally exercise deprecated APIs and fields for backward compatibility.
+          - staticcheck
+        text: "SA1019:"
+        path: _test\.go
     paths:
       - smee/internal/iso/internal/reverseproxy.go
       - smee/internal/iso/internal/reverseproxy_test.go

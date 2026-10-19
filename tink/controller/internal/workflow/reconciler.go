@@ -348,7 +348,7 @@ func (r *Reconciler) processNewWorkflow(ctx context.Context, logger logr.Logger,
 	// set hardware allowPXE if requested.
 	if stored.Spec.BootOptions.ToggleAllowNetboot || stored.Spec.BootOptions.BootMode != "" {
 		stored.Status.State = v1alpha1.WorkflowStatePreparing
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 	}
 
 	stored.Status.State = v1alpha1.WorkflowStatePending

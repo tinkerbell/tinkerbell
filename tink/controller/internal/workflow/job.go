@@ -96,7 +96,7 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 		return r, nil
 	}
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 }
 
 func (s *state) deleteExisting(ctx context.Context, name jobName) (reconcile.Result, error) {
@@ -135,7 +135,7 @@ func (s *state) deleteExisting(ctx context.Context, name jobName) (reconcile.Res
 	jStatus.Complete = false
 	s.workflow.Status.BootOptions.Jobs[name.String()] = jStatus
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 }
 
 // This function will update the Workflow status.
@@ -150,7 +150,7 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 		journal.Log(ctx, "job already exists", "name", name)
 		if !rj.DeletionTimestamp.IsZero() {
 			journal.Log(ctx, "job is being deleted", "name", name)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 		}
 		// TODO(jacobweinstock): job exists means that the job name and uid from the status are the same.
 		// get the UID and update the status
@@ -158,7 +158,7 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 		jStatus.UID = rj.GetUID()
 		s.workflow.Status.BootOptions.Jobs[name.String()] = jStatus
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 	}
 
 	// create a new job
@@ -185,7 +185,7 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 	}
 	journal.Log(ctx, "job created", "name", name)
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 }
 
 type trackedState string
@@ -222,7 +222,7 @@ func (s *state) trackRunningJob(ctx context.Context, name jobName) (reconcile.Re
 	// still running
 	journal.Log(ctx, "job still running", "name", name)
 	time.Sleep(s.backoff.NextBackOff())
-	return reconcile.Result{Requeue: true}, trackedStateRunning, nil
+	return reconcile.Result{Requeue: true}, trackedStateRunning, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 }
 
 func create(ctx context.Context, cc client.Client, name string, hw *v1alpha1.Hardware, ns string, tasks []bmc.Action, ownerRef []metav1.OwnerReference) error {
