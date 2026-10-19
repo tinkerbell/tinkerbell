@@ -5,11 +5,11 @@ managed:
     - file_option: go_package_prefix
       value: github.com/tinkerbell/tinkerbell/pkg/proto
 plugins:
-  - local: out/tools/protoc-gen-go-v1.36.7
+  - local: out/tools/protoc-gen-go-v1.36.12
     out: pkg/proto
     opt:
       - paths=source_relative
-  - local: out/tools/protoc-gen-go-grpc-v1.5.1
+  - local: out/tools/protoc-gen-go-grpc-v1.6.2
     out: pkg/proto
     opt:
       - paths=source_relative

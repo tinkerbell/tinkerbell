@@ -3,8 +3,8 @@
 
 # Tool versions
 # The templ version must be kept in sync with the version specified in go.mod
-UI_TEMPL_VER := v0.3.1020
-UI_BUN_VER := 1.3.14
+UI_TEMPL_VER := v0.3.1070
+UI_BUN_VER := 1.4.3
 
 # Detect OS and architecture for bun download
 UI_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
