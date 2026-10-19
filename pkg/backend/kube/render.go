@@ -16,7 +16,6 @@ import (
 
 const templateSkipAnnotation = "tinkerbell.org/render-skip"
 
-//nolint:goconst // Keep the complete built-in skip policy readable in one list.
 var skippedHardwarePaths = []string{
 	"apiVersion",
 	"kind",

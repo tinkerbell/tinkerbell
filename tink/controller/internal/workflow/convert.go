@@ -24,7 +24,7 @@ func YAMLToStatus(wf *Workflow) *v1alpha1.WorkflowStatus {
 				Volumes:     action.Volumes,
 				State:       v1alpha1.WorkflowState(proto.ActionStatusRequest_PENDING.String()),
 				Environment: action.Environment,
-				Pid:         action.Pid,
+				Pid:         action.Pid, //nolint:staticcheck // SA1019: deprecated field still propagated for backward compatibility.
 			}
 			if action.Namespaces.Network != "" || action.Namespaces.PID != "" {
 				a.Namespaces = &v1alpha1.ActionNamespaces{

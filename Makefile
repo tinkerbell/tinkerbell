@@ -40,14 +40,15 @@ HELM_REPO_NAME ?= ghcr.io/tinkerbell/charts
 ########### Tools variables ###########
 # Tool versions
 GOIMPORT_VER           := latest
-CONTROLLER_GEN_VERSION := v0.21.0
-BUF_VERSION            := v1.56.0
-PROTOC_GEN_GO_GRPC_VER := v1.5.1  # must be in sync with the version in buf.gen.yaml
-PROTOC_GEN_GO_VER      := v1.36.7 # must be in sync with the version in buf.gen.yaml
-UPX_VER 			   := 4.2.4
-GODEPGRAPH_VER 	       := v0.0.0-20240411160502-0f324ca7e282
-GOLANGCI_LINT_VERSION  := v2.12.2
+CONTROLLER_GEN_VERSION := v0.23.0
+BUF_VERSION            := v1.74.0
+PROTOC_GEN_GO_GRPC_VER := v1.6.2   # must be in sync with the version in buf.gen.yaml
+PROTOC_GEN_GO_VER      := v1.36.12 # must be in sync with the version in buf.gen.yaml
+UPX_VER 			   := 5.2.1
+GODEPGRAPH_VER 	       := v1.0.1-0.20250624161502-7a3cd9aa7767
+GOLANGCI_LINT_VERSION  := v2.15.0
 GO_LICENSES_VER        := v2.0.1
+HELM_UNITTEST_VERSION  := v1.2.1
 
 
 # Tool fully qualified paths (FQP)
@@ -272,7 +273,6 @@ helm-lint: ## Lint the Helm chart
 	helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "artifactsFileServerV6=http://artifacts-v6.example.com:717" --set "optional.osie.service.loadBalancerIP=2001:db8:100::102"
 	helm lint helm/tinkerbell --set "trustedProxies={127.0.0.1/24}" --set "publicIPv6=2001:db8::15" --set "deployment.envs.smee.ipxeHttpScriptOsieURLv6=http://[2001:db8::20]/hook" --set "artifactsFileServer=http://2.2.2.2"
 
-HELM_UNITTEST_VERSION := v1.2.1
 HELM_PLUGINS_DIR ?= $(CURDIR)/out/helm-plugins
 # Helm 4 verifies plugin signatures by default, which git installs do not support.
 HELM_PLUGIN_VERIFY_FLAG = $(if $(filter v3.%,$(shell helm version --template '{{.Version}}')),,--verify=false)
