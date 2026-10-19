@@ -1,44 +1,47 @@
 package flag
 
 import (
+	"fmt"
 	"net/netip"
+	"strings"
 
 	"github.com/peterbourgon/ff/v4/ffval"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/flag/delimitedlist"
 	ntip "github.com/tinkerbell/tinkerbell/pkg/flag/netip"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 type GlobalConfig struct {
-	LogLevel             int
-	Backend              string
-	BackendFilePath      string
-	BackendKubeConfig    string
-	BackendKubeNamespace string
-	OTELEndpoint         string
-	OTELInsecure         bool
-	TrustedProxies       []netip.Prefix
-	ListenerFamilies     constant.ListenerFamilies
-	PublicIP             netip.Addr
-	PublicIPv6           netip.Addr
-	BindAddr             netip.Addr
-	BindAddrV6           netip.Addr
-	HTTPPort             int
-	HTTPPortV6           int
-	HTTPSPort            int
-	HTTPSPortV6          int
-	EnableSmee           bool
-	EnableTootles        bool
-	EnableTinkServer     bool
-	EnableTinkController bool
-	EnableRufio          bool
-	EnableSecondStar     bool
-	EnableUI             bool
-	EnableCRDMigrations  bool
-	EmbeddedGlobalConfig EmbeddedGlobalConfig
-	BackendKubeOptions   BackendKubeOptions
-	TLS                  TLSConfig
-	PrintVersion         bool
+	LogLevel              int
+	Backend               string
+	BackendFilePath       string
+	BackendKubeConfig     string
+	BackendKubeNamespaces []string
+	OTELEndpoint          string
+	OTELInsecure          bool
+	TrustedProxies        []netip.Prefix
+	ListenerFamilies      constant.ListenerFamilies
+	PublicIP              netip.Addr
+	PublicIPv6            netip.Addr
+	BindAddr              netip.Addr
+	BindAddrV6            netip.Addr
+	HTTPPort              int
+	HTTPPortV6            int
+	HTTPSPort             int
+	HTTPSPortV6           int
+	EnableSmee            bool
+	EnableTootles         bool
+	EnableTinkServer      bool
+	EnableTinkController  bool
+	EnableRufio           bool
+	EnableSecondStar      bool
+	EnableUI              bool
+	EnableCRDMigrations   bool
+	EmbeddedGlobalConfig  EmbeddedGlobalConfig
+	BackendKubeOptions    BackendKubeOptions
+	TLS                   TLSConfig
+	PrintVersion          bool
 }
 
 type EmbeddedGlobalConfig struct {
@@ -75,7 +78,11 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 	fs.Register(BackendFilePath, ffval.NewValueDefault(&gc.BackendFilePath, gc.BackendFilePath))
 	fs.Register(KubeBurst, ffval.NewValueDefault(&gc.BackendKubeOptions.Burst, gc.BackendKubeOptions.Burst))
 	fs.Register(BackendKubeConfig, ffval.NewValueDefault(&gc.BackendKubeConfig, gc.BackendKubeConfig))
-	fs.Register(BackendKubeNamespace, ffval.NewValueDefault(&gc.BackendKubeNamespace, gc.BackendKubeNamespace))
+	fs.Register(BackendKubeNamespace, delimitedlist.NewParsed(&gc.BackendKubeNamespaces, ',', parseNamespace,
+		delimitedlist.Accumulate[string](),
+		delimitedlist.Dedupe[string](),
+		delimitedlist.Placeholder[string]("NAMESPACES"),
+	))
 	fs.Register(KubeQPS, ffval.NewValueDefault(&gc.BackendKubeOptions.QPS, gc.BackendKubeOptions.QPS))
 	fs.Register(BackendKubeHardwareReferenceAllowListRules, delimitedlist.New(&gc.BackendKubeOptions.HardwareReferenceAllowListRules, '|'))
 	fs.Register(BackendKubeHardwareReferenceDenyListRules, delimitedlist.New(&gc.BackendKubeOptions.HardwareReferenceDenyListRules, '|'))
@@ -144,7 +151,15 @@ var BackendKubeConfig = Config{
 
 var BackendKubeNamespace = Config{
 	Name:  "backend-kube-namespace",
-	Usage: "[kube] namespace all services read and write by default; empty means all namespaces",
+	Usage: "[kube] namespace all services read and write; repeat or comma-separate for several; empty means all namespaces",
+}
+
+// parseNamespace validates one Kubernetes namespace name.
+func parseNamespace(s string) (string, error) {
+	if errs := validation.IsDNS1123Label(s); len(errs) > 0 {
+		return "", fmt.Errorf("invalid namespace %q: %s", s, strings.Join(errs, "; "))
+	}
+	return s, nil
 }
 
 var KubeQPS = Config{

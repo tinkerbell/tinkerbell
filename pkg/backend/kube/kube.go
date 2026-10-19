@@ -4,6 +4,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
@@ -32,10 +33,11 @@ type Backend struct {
 	ConfigFilePath string
 	// APIURL is the Kubernetes API URL.
 	APIURL string
-	// Namespace is an override for the Namespace the kubernetes client will watch.
-	// The default is the Namespace the pod is running in.
-	// Only the cache enforces it, so reads that bypass the cache must check it themselves.
-	Namespace string
+	// Namespaces are the namespaces the kubernetes client watches, one watch per
+	// namespace and type. Empty means all namespaces.
+	// Only the cache enforces them, so reads that bypass the cache must check them
+	// themselves, with Watches.
+	Namespaces []string
 	// ClientConfig is a Kubernetes client config. If specified, it will be used instead of
 	// constructing a client using the other configuration in this object. Optional.
 	ClientConfig *rest.Config
@@ -95,8 +97,11 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 
 	conf := func(o *cluster.Options) {
 		o.Scheme = rs
-		if cfg.Namespace != "" {
-			o.Cache.DefaultNamespaces = map[string]cache.Config{cfg.Namespace: {}}
+		if len(cfg.Namespaces) > 0 {
+			o.Cache.DefaultNamespaces = make(map[string]cache.Config, len(cfg.Namespaces))
+			for _, ns := range cfg.Namespaces {
+				o.Cache.DefaultNamespaces[ns] = cache.Config{}
+			}
 		}
 	}
 	opts = append(opts, conf)
@@ -127,7 +132,7 @@ func NewBackend(cfg Backend, opts ...cluster.Option) (*Backend, error) {
 		cluster:                         c,
 		ConfigFilePath:                  cfg.ConfigFilePath,
 		APIURL:                          cfg.APIURL,
-		Namespace:                       cfg.Namespace,
+		Namespaces:                      slices.Clone(cfg.Namespaces),
 		ClientConfig:                    cfg.ClientConfig,
 		dynamicClient:                   dc,
 		HardwareReferenceAllowListRules: cfg.HardwareReferenceAllowListRules,
@@ -152,9 +157,10 @@ func loadConfig(cfg Backend) (Backend, error) {
 		ClusterInfo: clientcmdapi.Cluster{
 			Server: cfg.APIURL,
 		},
-		Context: clientcmdapi.Context{
-			Namespace: cfg.Namespace,
-		},
+	}
+	// With several namespaces there is no single default namespace for the client.
+	if len(cfg.Namespaces) == 1 {
+		overrides.Context.Namespace = cfg.Namespaces[0]
 	}
 
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
@@ -195,6 +201,11 @@ func NewFileRestConfig(kubeconfigPath, namespace string) (*rest.Config, error) {
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
 
 	return loader.ClientConfig()
+}
+
+// Watches reports whether namespace is one the backend watches.
+func (b *Backend) Watches(namespace string) bool {
+	return len(b.Namespaces) == 0 || slices.Contains(b.Namespaces, namespace)
 }
 
 func ternary[T any](condition bool, valueIfTrue, valueIfFalse T) T {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -56,6 +57,13 @@ func (s *safeInformer) AddEventHandler(h toolscache.ResourceEventHandler) (tools
 	}
 	s.registrations++
 	return s.FakeInformer.AddEventHandler(h)
+}
+
+func (s *safeInformer) RemoveEventHandler(r toolscache.ResourceEventHandlerRegistration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.registrations--
+	return s.FakeInformer.RemoveEventHandler(r)
 }
 
 func (s *safeInformer) Add(obj metav1.Object) {
@@ -157,8 +165,8 @@ func (f *fakeMetadataInformer) Lister() toolscache.GenericLister {
 func newTestStore(hws *fakeHardware, res *fakeResolver, inf *fakeInformers) *renderStore {
 	mapper := meta.NewDefaultRESTMapper(nil)
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-	store := newRenderStore(logr.Discard(), inf, mapper, nil, "", hws.get, res.resolve, prometheus.NewRegistry())
-	store.referenceInformers = &fakeMetadataFactory{}
+	store := newRenderStore(logr.Discard(), inf, mapper, nil, nil, hws.get, res.resolve, prometheus.NewRegistry())
+	store.referenceInformers = metadataInformerFactories{&fakeMetadataFactory{}}
 	return store
 }
 
@@ -403,7 +411,7 @@ func TestRenderStoreReferenceChangeRequeues(t *testing.T) {
 	cm.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"})
 	other := cm.DeepCopy()
 	other.Name = "unrelated"
-	cmInformer := s.referenceInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).Informer().(*safeInformer)
+	cmInformer := s.referenceInformers[0].ForResource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).Informer().(*safeInformer)
 
 	cmInformer.Update(other, other)
 	if s.queue.Len() != 0 {
@@ -431,7 +439,7 @@ func TestRenderStoreCrossNamespaceReference(t *testing.T) {
 	hws, res, hardwareInformers := &fakeHardware{}, &fakeResolver{refs: netRefs("old.org")}, &fakeInformers{}
 	mapper := meta.NewDefaultRESTMapper(nil)
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-	s := newRenderStore(logr.Discard(), hardwareInformers, mapper, metadataClient, "", hws.get, res.resolve, prometheus.NewRegistry())
+	s := newRenderStore(logr.Discard(), hardwareInformers, mapper, metadataClient, nil, hws.get, res.resolve, prometheus.NewRegistry())
 	t.Cleanup(func() {
 		cancel()
 		s.queue.ShutDown()
@@ -446,7 +454,7 @@ func TestRenderStoreCrossNamespaceReference(t *testing.T) {
 		t.Fatal("initial render failed")
 	}
 	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
-	inf := s.referenceInformers.ForResource(gvr).Informer()
+	inf := s.referenceInformers[0].ForResource(gvr).Informer()
 	if !toolscache.WaitForCacheSync(ctx.Done(), inf.HasSynced) {
 		t.Fatal("metadata informer did not sync")
 	}
@@ -482,38 +490,61 @@ func TestRenderStoreCrossNamespaceReference(t *testing.T) {
 }
 
 func TestRenderStoreReferenceInformerRespectsNamespace(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	metadataClient := metadatafake.NewSimpleMetadataClient(runtime.NewScheme())
-	mapper := meta.NewDefaultRESTMapper(nil)
-	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-	s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, "tink-system", nil, nil, prometheus.NewRegistry())
-	t.Cleanup(func() {
-		cancel()
-		s.queue.ShutDown()
-		s.referenceInformers.Shutdown()
-	})
-	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
-	if err := s.ensureWatch(ctx, gvr); err != nil {
-		t.Fatal(err)
+	tests := map[string][]string{
+		"one namespace":      {"tink-system"},
+		"several namespaces": {"tink-a", "tink-b"},
 	}
-	if !toolscache.WaitForCacheSync(ctx.Done(), s.referenceInformers.ForResource(gvr).Informer().HasSynced) {
-		t.Fatal("namespace-scoped metadata informer did not sync")
-	}
-	for _, action := range metadataClient.Actions() {
-		if action.GetNamespace() != "tink-system" {
-			t.Errorf("%s namespace = %q, want tink-system", action.GetVerb(), action.GetNamespace())
-		}
+	for name, namespaces := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			metadataClient := metadatafake.NewSimpleMetadataClient(runtime.NewScheme())
+			mapper := meta.NewDefaultRESTMapper(nil)
+			mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+			s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, namespaces, nil, nil, prometheus.NewRegistry())
+			t.Cleanup(func() {
+				cancel()
+				s.queue.ShutDown()
+				s.referenceInformers.Shutdown()
+			})
+			gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+			if err := s.ensureWatch(ctx, gvr); err != nil {
+				t.Fatal(err)
+			}
+			if len(s.referenceInformers) != len(namespaces) {
+				t.Fatalf("got %d reference informer factories, want one per namespace (%d)", len(s.referenceInformers), len(namespaces))
+			}
+			for _, factory := range s.referenceInformers {
+				if !toolscache.WaitForCacheSync(ctx.Done(), factory.ForResource(gvr).Informer().HasSynced) {
+					t.Fatal("namespace-scoped metadata informer did not sync")
+				}
+			}
+			listed := map[string]bool{}
+			for _, action := range metadataClient.Actions() {
+				if !slices.Contains(namespaces, action.GetNamespace()) {
+					t.Errorf("%s namespace = %q, want one of %v", action.GetVerb(), action.GetNamespace(), namespaces)
+				}
+				if action.GetVerb() == "list" {
+					listed[action.GetNamespace()] = true
+				}
+			}
+			for _, ns := range namespaces {
+				if !listed[ns] {
+					t.Errorf("namespace %q was never listed", ns)
+				}
+			}
+		})
 	}
 }
 
 func TestRenderStoreTrackSkipsOutOfScopeReferences(t *testing.T) {
 	store := newTestStore(&fakeHardware{}, &fakeResolver{}, &fakeInformers{})
-	store.namespace = "tink-system"
+	store.namespaces = []string{"tink-system", "tink-other"}
 	key := types.NamespacedName{Namespace: "tink-system", Name: "machine1"}
 	references := map[string]tinkerbell.Reference{
-		"same-namespace":  {Name: "cm2", Namespace: "tink-system", Version: "v1", Resource: "configmaps"},
-		"other-namespace": {Name: "cm1", Namespace: "shared", Version: "v1", Resource: "configmaps"},
-		"cluster-scoped":  {Name: "node1", Version: "v1", Resource: "nodes"},
+		"same-namespace":    {Name: "cm2", Namespace: "tink-system", Version: "v1", Resource: "configmaps"},
+		"watched-namespace": {Name: "cm3", Namespace: "tink-other", Version: "v1", Resource: "configmaps"},
+		"other-namespace":   {Name: "cm1", Namespace: "shared", Version: "v1", Resource: "configmaps"},
+		"cluster-scoped":    {Name: "node1", Version: "v1", Resource: "nodes"},
 	}
 
 	if err := store.track(context.Background(), key, references); err != nil {
@@ -523,8 +554,13 @@ func TestRenderStoreTrackSkipsOutOfScopeReferences(t *testing.T) {
 	if len(store.watched) != 1 || store.watched[configMaps] != struct{}{} {
 		t.Fatalf("watched resources = %v, want only in-scope configmaps", store.watched)
 	}
-	if len(store.refs[key]) != 1 || store.refs[key][0].namespace != "tink-system" {
-		t.Fatalf("tracked references = %v, want only in-scope reference", store.refs[key])
+	var tracked []string
+	for _, r := range store.refs[key] {
+		tracked = append(tracked, r.namespace)
+	}
+	slices.Sort(tracked)
+	if !slices.Equal(tracked, []string{"tink-other", "tink-system"}) {
+		t.Fatalf("tracked references = %v, want only in-scope references", store.refs[key])
 	}
 }
 
@@ -567,7 +603,7 @@ func TestRenderStoreEmptyListReconcilesReferrers(t *testing.T) {
 			hws, res := &fakeHardware{}, &fakeResolver{refs: netRefs("before-delete")}
 			mapper := meta.NewDefaultRESTMapper(nil)
 			mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
-			s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, "", hws.get, res.resolve, prometheus.NewRegistry())
+			s := newRenderStore(logr.Discard(), &fakeInformers{}, mapper, metadataClient, nil, hws.get, res.resolve, prometheus.NewRegistry())
 			t.Cleanup(func() {
 				cancel()
 				release.Do(func() { close(allowList) })
@@ -579,7 +615,7 @@ func TestRenderStoreEmptyListReconcilesReferrers(t *testing.T) {
 				if err := s.ensureWatch(ctx, gvr); err != nil {
 					t.Fatal(err)
 				}
-				if !toolscache.WaitForCacheSync(ctx.Done(), s.referenceInformers.ForResource(gvr).Informer().HasSynced) {
+				if !toolscache.WaitForCacheSync(ctx.Done(), s.referenceInformers[0].ForResource(gvr).Informer().HasSynced) {
 					t.Fatal("initial informer sync failed")
 				}
 				select {
@@ -704,7 +740,7 @@ func TestRenderStoreHandlerRegistrationRetry(t *testing.T) {
 	hws, res := &fakeHardware{}, &fakeResolver{refs: netRefs("example.org")}
 	s := newTestStore(hws, res, &fakeInformers{})
 	defer s.queue.ShutDown()
-	inf := s.referenceInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).Informer().(*safeInformer)
+	inf := s.referenceInformers[0].ForResource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).Informer().(*safeInformer)
 	inf.failRegistrations = 1
 	hw := templated("1")
 	hw.Spec.UserData = ptr("host={{ .hardware.metadata.name }}")
@@ -720,6 +756,29 @@ func TestRenderStoreHandlerRegistrationRetry(t *testing.T) {
 	s.processNext(context.Background())
 	if inf.registrations != 1 || len(s.watched) != 1 || s.queue.NumRequeues(key) != 0 {
 		t.Fatal("retry must install one handler and clear registration backoff")
+	}
+}
+
+func TestRenderStoreHandlerRegistrationRollback(t *testing.T) {
+	s := newTestStore(&fakeHardware{}, &fakeResolver{}, &fakeInformers{})
+	defer s.queue.ShutDown()
+	s.referenceInformers = metadataInformerFactories{&fakeMetadataFactory{}, &fakeMetadataFactory{}}
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	first := s.referenceInformers[0].ForResource(gvr).Informer().(*safeInformer)
+	second := s.referenceInformers[1].ForResource(gvr).Informer().(*safeInformer)
+	second.failRegistrations = 1
+
+	if err := s.ensureWatch(context.Background(), gvr); err == nil {
+		t.Fatal("want an error when one namespace's handler cannot be added")
+	}
+	if first.registrations != 0 || second.registrations != 0 || len(s.watched) != 0 {
+		t.Fatalf("after a failure got %d and %d handlers, watched %v; want handlers removed and nothing watched", first.registrations, second.registrations, s.watched)
+	}
+	if err := s.ensureWatch(context.Background(), gvr); err != nil {
+		t.Fatal(err)
+	}
+	if first.registrations != 1 || second.registrations != 1 {
+		t.Fatalf("after a retry got %d and %d handlers, want one per namespace", first.registrations, second.registrations)
 	}
 }
 
@@ -767,7 +826,7 @@ func TestRenderStoreConcurrentWatchRegistration(t *testing.T) {
 	if !s.render(context.Background(), types.NamespacedName{Namespace: "tink", Name: "m1"}) || mapper.calls != 2 {
 		t.Fatal("an established watcher must not be registered again")
 	}
-	inf := s.referenceInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).Informer().(*safeInformer)
+	inf := s.referenceInformers[0].ForResource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).Informer().(*safeInformer)
 	if inf.registrations != 1 {
 		t.Fatal("concurrent workers must install exactly one handler")
 	}

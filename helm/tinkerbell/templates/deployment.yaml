@@ -182,7 +182,7 @@ spec:
             - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_ENABLED
               value: {{ .Values.deployment.envs.tinkServer.autoDiscoveryEnabled | quote }}
             - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_NAMESPACE
-              value: {{ coalesce .Values.deployment.envs.tinkServer.autoDiscoveryNamespace (include "tinkerbell.backendNamespace" .) .Release.Namespace | quote }}
+              value: {{ coalesce .Values.deployment.envs.tinkServer.autoDiscoveryNamespace (include "tinkerbell.primaryNamespace" .) | quote }}
             - name: TINKERBELL_TINK_SERVER_AUTO_DISCOVERY_AUTO_ENROLLMENT_ENABLED
               value: {{ .Values.deployment.envs.tinkServer.autoDiscoveryAutoEnrollmentEnabled | quote }}
           # TOOTLES
@@ -401,7 +401,7 @@ spec:
             - name: TINKERBELL_BACKEND_KUBE_CONFIG
               value: {{ .Values.deployment.envs.globals.backendKubeConfig | quote }}
             - name: TINKERBELL_BACKEND_KUBE_NAMESPACE
-              value: {{ include "tinkerbell.backendNamespace" . | quote }}
+              value: {{ include "tinkerbell.backendNamespaces" . | quote }}
             - name: TINKERBELL_BACKEND_KUBE_QPS
               value: {{ .Values.deployment.envs.globals.backendKubeQPS | quote }}
             - name: TINKERBELL_BACKEND_KUBE_RENDERING_ENABLED

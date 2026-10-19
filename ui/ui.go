@@ -32,8 +32,12 @@ type Config struct {
 	EnableAutoLogin bool
 	// AutoLoginRestConfig is the Kubernetes REST config used when EnableAutoLogin is true.
 	AutoLoginRestConfig *rest.Config
-	// AutoLoginNamespace is the namespace to use for namespace-scoped fallbacks when EnableAutoLogin is true.
+	// AutoLoginNamespace is the namespace to use for namespace-scoped fallbacks, such as
+	// permission checks, when EnableAutoLogin is true.
 	AutoLoginNamespace string
+	// AutoLoginNamespaces restricts auto-login to these namespaces. Empty means
+	// AutoLoginNamespace alone when that is set, otherwise all namespaces.
+	AutoLoginNamespaces []string
 }
 
 type Option func(*Config)
@@ -231,7 +235,11 @@ func (c *Config) Handler(log logr.Logger) (http.Handler, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create auto-login kube client: %w", err)
 		}
-		protected.Use(webhttp.AutoLoginMiddleware(autoClient.InNamespace(c.AutoLoginNamespace), c.AutoLoginNamespace))
+		namespaces := c.AutoLoginNamespaces
+		if len(namespaces) == 0 && c.AutoLoginNamespace != "" {
+			namespaces = []string{c.AutoLoginNamespace}
+		}
+		protected.Use(webhttp.AutoLoginMiddleware(autoClient.InNamespaces(namespaces...), c.AutoLoginNamespace))
 	} else {
 		protected.Use(webhttp.AuthMiddleware(log, c.URLPrefix))
 	}

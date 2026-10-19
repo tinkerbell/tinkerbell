@@ -42,11 +42,11 @@ func WithRendering(enabled bool, log logr.Logger) kubeBackendOpt {
 	}
 }
 
-func newKubeBackend(ctx context.Context, kubeconfig, apiurl, namespace string, indexes map[kube.IndexType]kube.Index, opts ...kubeBackendOpt) (*kube.Backend, error) {
+func newKubeBackend(ctx context.Context, kubeconfig, apiurl string, namespaces []string, indexes map[kube.IndexType]kube.Index, opts ...kubeBackendOpt) (*kube.Backend, error) {
 	defaultConfig := kube.Backend{
 		ConfigFilePath: kubeconfig,
 		APIURL:         apiurl,
-		Namespace:      namespace,
+		Namespaces:     namespaces,
 		Indexes:        indexes,
 		QPS:            defaultQPS,   // Default QPS value. A negative value disables client-side ratelimiting.
 		Burst:          defaultBurst, // Default burst value.

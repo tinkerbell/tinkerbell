@@ -99,7 +99,9 @@ configured, an implicit deny-all rule is used, so a reference must match an
 allow rule. With explicit deny rules, a reference is denied only when it
 matches a deny rule and does not match an allow rule; an allow match takes
 precedence. Policy does not grant Kubernetes permissions: the Service Account
-must also have RBAC access to read and watch the referenced resource.
+must also have RBAC access to read and watch the referenced resource. With several
+backend namespaces, Tinkerbell watches a referenced type in every backend namespace, so
+grant `list` and `watch` on it in each of them.
 
 These rules apply to Hardware-declared references, including those read by
 v1alpha1 Workflow Templates. The v1alpha2 Task and Workflow reference policies
@@ -215,8 +217,8 @@ These examples are multiple rules.
 ### Configuring Access
 
 `--backend-kube-namespace` also limits Hardware reference access. When set, each referenced
-namespaced object must be in that namespace; cross-namespace and cluster-scoped references
-are rejected. When empty, references may target any namespace or a cluster-scoped object,
+namespaced object must be in one of the backend namespaces; references to other namespaces
+and cluster-scoped references are rejected. When empty, references may target any namespace or a cluster-scoped object,
 subject to the configured allow/deny rules and Kubernetes RBAC.
 
 Use the CLI flags or environment variables to define both the allow and deny rules. The allow list takes precedence over the deny list.

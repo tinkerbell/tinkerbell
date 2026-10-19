@@ -60,7 +60,7 @@ func TestResolveReferences(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			b := &Backend{
 				dynamicClient:                   &fakeDynamicClient{gvr: schema.GroupVersionResource{Version: "v1"}, error: tt.readErr},
-				Namespace:                       "tink-system",
+				Namespaces:                      []string{"tink-system"},
 				HardwareReferenceAllowListRules: tt.allow,
 				HardwareReferenceDenyListRules:  tt.deny,
 			}
@@ -89,7 +89,7 @@ func TestResolveReferencesRejectsOutOfScopeNamespace(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			dynamicClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 			b := &Backend{
-				Namespace:                       "tink-system",
+				Namespaces:                      []string{"tink-system", "tink-other"},
 				dynamicClient:                   dynamicClient,
 				HardwareReferenceAllowListRules: []string{`{"source":{"namespace":["tink-system"]}}`},
 			}
