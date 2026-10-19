@@ -8,6 +8,7 @@ import (
 	"github.com/cenkalti/backoff/v5"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -45,6 +46,18 @@ type Reconciler struct {
 	backoff *backoff.ExponentialBackOff
 }
 
+// disableConfigMapCache makes the manager's client read ConfigMaps straight from the API server.
+// ConfigMaps are read rarely and one at a time (a Secure Boot certificate), and a cached read
+// would need list and watch on every ConfigMap in the cluster and would block until the informer
+// syncs, hanging the Task reconciler when that access isn't granted. A direct read only needs get
+// on the referenced ConfigMap.
+func disableConfigMapCache(opts *ctrl.Options) {
+	if opts.Client.Cache == nil {
+		opts.Client.Cache = &client.CacheOptions{}
+	}
+	opts.Client.Cache.DisableFor = append(opts.Client.Cache.DisableFor, &corev1.ConfigMap{})
+}
+
 func NewManager(cfg *rest.Config, opts ctrl.Options, bmcConnectTimeout, powerCheckInterval, inventoryRefreshInterval time.Duration, inventoryCollectionEnabled bool, maxConcurrentReconciles int) (ctrl.Manager, error) {
 	if opts.Scheme == nil {
 		opts.Scheme = DefaultScheme()
@@ -53,6 +66,8 @@ func NewManager(cfg *rest.Config, opts ctrl.Options, bmcConnectTimeout, powerChe
 	if bmcConnectTimeout <= 0 {
 		bmcConnectTimeout = defaultBMCConnectTimeout
 	}
+
+	disableConfigMapCache(&opts)
 
 	mgr, err := ctrl.NewManager(cfg, opts)
 	if err != nil {

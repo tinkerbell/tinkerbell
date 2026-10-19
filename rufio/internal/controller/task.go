@@ -112,6 +112,17 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmc.Task, taskPa
 		}
 	}
 
+	// Resolve what the action needs from the cluster before connecting to the BMC, so a bad
+	// reference is retried instead of failing the Task. Only needed for a new run.
+	var certificatePEM string
+	if ci := certificateImport(task.Spec.Task); ci != nil && task.Status.StartTime.IsZero() {
+		var err error
+		certificatePEM, err = resolveCertificatePEM(ctx, r.client, task.Namespace, ci.CertificatePEMConfigMapRef)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("resolving certificatePEMConfigMapRef for task %s/%s: %w", task.Namespace, task.Name, err)
+		}
+	}
+
 	// Initializing BMC Client
 	bmcClient, err := r.bmcClientFactory(ctx, logger, task.Spec.Connection.Host, username, password, opts)
 	if err != nil {
@@ -180,7 +191,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmc.Task, taskPa
 	now := metav1.Now()
 	task.Status.StartTime = &now
 	// run the specified Task in Task
-	if err := r.runTask(ctx, logger, task.Spec.Task, bmcClient); err != nil {
+	if err := r.runTask(ctx, logger, task.Spec.Task, bmcClient, certificatePEM); err != nil {
 		md := bmcClient.GetMetadata()
 		logger.Info("failed to perform action", "providersAttempted", md.ProvidersAttempted, "action", task.Spec.Task)
 		// Set Task Condition Failed True
@@ -200,8 +211,18 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmc.Task, taskPa
 	return ctrl.Result{}, nil
 }
 
-// runTask executes the defined Task in a Task.
-func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task bmc.Action, bmcClient *bmclib.Client) error {
+// certificateImport returns the Secure Boot certificate import in action, or nil if it has none.
+func certificateImport(action bmc.Action) *bmc.SecureBootCertificateImportAction {
+	if action.SecureBoot == nil {
+		return nil
+	}
+
+	return action.SecureBoot.CertificateImport
+}
+
+// runTask executes the defined Task in a Task. certificatePEM is the certificate a Secure Boot
+// certificateImport action imports, already resolved by the caller.
+func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task bmc.Action, bmcClient *bmclib.Client, certificatePEM string) error {
 	if task.PowerAction != nil {
 		ok, err := bmcClient.SetPowerState(ctx, string(*task.PowerAction))
 		if err != nil {
@@ -252,6 +273,10 @@ func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task b
 		return r.runNetworkBootConfig(ctx, logger, task.NetworkBootConfig, bmcClient)
 	}
 
+	if task.SecureBoot != nil {
+		return r.runSecureBoot(ctx, logger, task.SecureBoot, bmcClient, certificatePEM)
+	}
+
 	logger.Info("no action specified in Task, nothing to do", "task", task)
 
 	return errors.New("no action specified in Task, nothing to do")
@@ -291,6 +316,47 @@ func (r *TaskReconciler) runNetworkBootConfig(ctx context.Context, logger logr.L
 		}
 		md := bmcClient.GetMetadata()
 		logger.Info("http boot url set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "ok", ok)
+	}
+
+	return nil
+}
+
+// runSecureBoot performs the single UEFI Secure Boot operation set in a SecureBootAction.
+func (r *TaskReconciler) runSecureBoot(ctx context.Context, logger logr.Logger, sb *bmc.SecureBootAction, bmcClient *bmclib.Client, certificatePEM string) error {
+	switch {
+	case sb.Enable != nil:
+		if err := bmcClient.SetSecureBoot(ctx, *sb.Enable); err != nil {
+			return fmt.Errorf("failed to perform SetSecureBoot: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("secure boot state set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "enable", *sb.Enable)
+	case sb.AllowCustomKeys != nil:
+		rebootRequired, err := bmcClient.AllowCustomSecureBootKeys(ctx, *sb.AllowCustomKeys)
+		if err != nil {
+			return fmt.Errorf("failed to perform AllowCustomSecureBootKeys: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("custom secure boot keys acceptance set successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "allowCustomKeys", *sb.AllowCustomKeys, "rebootRequired", rebootRequired)
+	case sb.ResetKeys != nil:
+		if err := bmcClient.ResetSecureBootKeys(ctx, bmclibbmc.ResetSecureBootKeysType(sb.ResetKeys.ResetType)); err != nil {
+			return fmt.Errorf("failed to perform ResetSecureBootKeys: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("secure boot keys reset successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "resetType", sb.ResetKeys.ResetType)
+	case sb.DatabaseResetKeys != nil:
+		if err := bmcClient.ResetSecureBootDatabaseKeys(ctx, bmclibbmc.SecureBootDatabase(sb.DatabaseResetKeys.Database), bmclibbmc.ResetSecureBootDatabaseKeysType(sb.DatabaseResetKeys.ResetType)); err != nil {
+			return fmt.Errorf("failed to perform ResetSecureBootDatabaseKeys: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("secure boot database keys reset successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "database", sb.DatabaseResetKeys.Database, "resetType", sb.DatabaseResetKeys.ResetType)
+	case sb.CertificateImport != nil:
+		if err := bmcClient.ImportSecureBootCertificate(ctx, bmclibbmc.SecureBootDatabase(sb.CertificateImport.Database), certificatePEM); err != nil {
+			return fmt.Errorf("failed to perform ImportSecureBootCertificate: %w", err)
+		}
+		md := bmcClient.GetMetadata()
+		logger.Info("secure boot certificate imported successfully", "providersAttempted", md.ProvidersAttempted, "successfulProvider", md.SuccessfulProvider, "database", sb.CertificateImport.Database)
+	default:
+		return errors.New("no secure boot operation specified in Task, nothing to do")
 	}
 
 	return nil
