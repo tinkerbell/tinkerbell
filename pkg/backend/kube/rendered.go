@@ -66,5 +66,5 @@ func (b *Backend) newRenderStore() (*renderStore, error) {
 		return hw, b.cluster.GetClient().Get(ctx, key, hw)
 	}
 	return newRenderStore(b.Logger.WithName("hardware-render"), b.cluster.GetCache(), b.cluster.GetRESTMapper(),
-		metadataClient, b.Namespace, get, b.ResolveReferences, metrics.Registry), nil
+		metadataClient, b.Namespaces, get, b.ResolveReferences, metrics.Registry), nil
 }

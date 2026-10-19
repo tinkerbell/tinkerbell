@@ -29,7 +29,8 @@ import (
 )
 
 type Config struct {
-	Namespace                 string
+	// Namespaces are the namespaces to watch. Empty means all namespaces.
+	Namespaces                []string
 	Client                    *rest.Config
 	EnableLeaderElection      bool
 	LeaderElectionNamespace   string
@@ -42,9 +43,9 @@ type Config struct {
 
 type Option func(*Config)
 
-func WithNamespace(namespace string) Option {
+func WithNamespaces(namespaces ...string) Option {
 	return func(c *Config) {
-		c.Namespace = namespace
+		c.Namespaces = namespaces
 	}
 }
 
@@ -118,8 +119,11 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 		},
 		HealthProbeBindAddress: "0",
 	}
-	if c.Namespace != "" {
-		options.Cache = cache.Options{DefaultNamespaces: map[string]cache.Config{c.Namespace: {}}}
+	if len(c.Namespaces) > 0 {
+		options.Cache = cache.Options{DefaultNamespaces: make(map[string]cache.Config, len(c.Namespaces))}
+		for _, ns := range c.Namespaces {
+			options.Cache.DefaultNamespaces[ns] = cache.Config{}
+		}
 	}
 
 	mgr, err := controller.NewManager(c.Client, options, c.BMCConnectTimeout, c.PowerCheckInterval, c.InventoryRefreshInterval, c.EnableInventoryCollection, c.MaxConcurrentReconciles)

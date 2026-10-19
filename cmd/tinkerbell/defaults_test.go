@@ -3,8 +3,10 @@ package main
 import (
 	"net"
 	"net/netip"
+	"slices"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/cmd/tinkerbell/flag"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/rufio"
@@ -245,26 +247,44 @@ func TestValidatePublicAddressFamilies(t *testing.T) {
 
 func TestFollowBackendNamespace(t *testing.T) {
 	type result struct {
-		lease, discovery, cache string
-		crdMigrations           bool
+		lease, discovery string
+		cache            []string
+		crdMigrations    bool
 	}
 	tests := map[string]struct {
-		backendNamespace string
-		inCluster        bool
-		explicit         bool
-		want             result
+		backendNamespaces []string
+		inCluster         bool
+		podNamespace      string
+		explicit          bool
+		want              result
 	}{
 		"empty, in cluster":     {inCluster: true, want: result{discovery: "default", crdMigrations: true}},
 		"empty, out of cluster": {want: result{lease: "default", discovery: "default", crdMigrations: true}},
-		"set":                   {backendNamespace: "tink", inCluster: true, want: result{"tink", "tink", "tink", false}},
-		"set, explicit values win": {
-			backendNamespace: "tink", inCluster: true, explicit: true,
-			want: result{"lease", "discovery", "tink", true},
+		"one":                   {backendNamespaces: []string{"tink"}, inCluster: true, want: result{"tink", "tink", []string{"tink"}, false}},
+		"one, explicit values win": {
+			backendNamespaces: []string{"tink"}, inCluster: true, explicit: true,
+			want: result{"lease", "discovery", []string{"tink"}, true},
+		},
+		"several, in cluster, pod namespace watched": {
+			backendNamespaces: []string{"tink-a", "tink-system"}, inCluster: true, podNamespace: "tink-system",
+			want: result{"tink-system", "tink-system", []string{"tink-a", "tink-system"}, false},
+		},
+		"several, in cluster, pod namespace not watched": {
+			backendNamespaces: []string{"tink-a", "tink-b"}, inCluster: true, podNamespace: "tink-system",
+			want: result{"tink-a", "tink-a", []string{"tink-a", "tink-b"}, false},
+		},
+		"several, out of cluster": {
+			backendNamespaces: []string{"tink-a", "tink-b"},
+			want:              result{"tink-a", "tink-a", []string{"tink-a", "tink-b"}, false},
+		},
+		"several, explicit values win": {
+			backendNamespaces: []string{"tink-a", "tink-b"}, inCluster: true, podNamespace: "tink-system", explicit: true,
+			want: result{"lease", "discovery", []string{"tink-a", "tink-b"}, true},
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			globals := &flag.GlobalConfig{BackendKubeNamespace: tt.backendNamespace, EnableCRDMigrations: true}
+			globals := &flag.GlobalConfig{BackendKubeNamespaces: tt.backendNamespaces, EnableCRDMigrations: true}
 			ts := &flag.TinkServerConfig{Config: server.NewConfig(server.WithAutoDiscoveryNamespace("default"))}
 			tc := &flag.TinkControllerConfig{Config: controller.NewConfig()}
 			rc := &flag.RufioConfig{Config: rufio.NewConfig()}
@@ -273,11 +293,35 @@ func TestFollowBackendNamespace(t *testing.T) {
 				ts.Config.Auto.Discovery.Namespace = "discovery"
 			}
 
-			followBackendNamespace(globals, ts, tc, rc, func(string) bool { return tt.explicit }, tt.inCluster)
+			followBackendNamespace(globals, ts, tc, rc, func(string) bool { return tt.explicit }, tt.inCluster, tt.podNamespace)
 
-			got := result{tc.Config.LeaderElectionNamespace, ts.Config.Auto.Discovery.Namespace, tc.Config.Namespace, globals.EnableCRDMigrations}
-			if got != tt.want || rc.Config.LeaderElectionNamespace != got.lease || rc.Config.Namespace != got.cache {
-				t.Fatalf("got %+v (rufio lease %q, cache %q), want %+v", got, rc.Config.LeaderElectionNamespace, rc.Config.Namespace, tt.want)
+			got := result{tc.Config.LeaderElectionNamespace, ts.Config.Auto.Discovery.Namespace, tc.Config.Namespaces, globals.EnableCRDMigrations}
+			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(result{})); diff != "" {
+				t.Fatalf("Tink Controller and globals (-want +got):\n%s", diff)
+			}
+			if rc.Config.LeaderElectionNamespace != got.lease || !slices.Equal(rc.Config.Namespaces, got.cache) {
+				t.Fatalf("rufio lease %q, cache %q, want %q, %q", rc.Config.LeaderElectionNamespace, rc.Config.Namespaces, got.lease, got.cache)
+			}
+		})
+	}
+}
+
+func TestPrimaryNamespace(t *testing.T) {
+	tests := map[string]struct {
+		namespaces   []string
+		podNamespace string
+		want         string
+	}{
+		"none":                               {podNamespace: "tink-system", want: ""},
+		"one":                                {namespaces: []string{"tink"}, podNamespace: "tink-system", want: "tink"},
+		"several, pod namespace watched":     {namespaces: []string{"tink-a", "tink-system"}, podNamespace: "tink-system", want: "tink-system"},
+		"several, pod namespace not watched": {namespaces: []string{"tink-a", "tink-b"}, podNamespace: "tink-system", want: "tink-a"},
+		"several, not in a pod":              {namespaces: []string{"tink-a", "tink-b"}, want: "tink-a"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := primaryNamespace(tt.namespaces, tt.podNamespace); got != tt.want {
+				t.Fatalf("primaryNamespace(%v, %q) = %q, want %q", tt.namespaces, tt.podNamespace, got, tt.want)
 			}
 		})
 	}

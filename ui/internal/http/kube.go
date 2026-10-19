@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/a-h/templ"
@@ -14,10 +15,12 @@ import (
 	tinkv1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/ui/templates"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 // Common constants.
@@ -81,36 +84,202 @@ func GetBaseURL(c *gin.Context) string {
 type KubeClient struct {
 	client.Client
 	clientset *kubernetes.Clientset
-	// namespace, when set, is the only namespace the client reads or writes.
-	namespace string
+	// namespaces, when set, are the only namespaces the client reads or writes.
+	namespaces []string
 }
 
-// InNamespace returns a copy of k restricted to namespace: requests for any other
-// namespace fail, and ListNamespaces returns only namespace.
-// If namespace is empty, InNamespace returns k.
-func (k *KubeClient) InNamespace(namespace string) *KubeClient {
-	if namespace == "" {
+// InNamespaces returns a copy of k restricted to namespaces: requests for any
+// other namespace fail, a List across all namespaces lists each of them in turn,
+// and ListNamespaces returns namespaces. Cluster-scoped objects are not restricted.
+// With no namespaces, InNamespaces returns k.
+func (k *KubeClient) InNamespaces(namespaces ...string) *KubeClient {
+	if len(namespaces) == 0 {
 		return k
 	}
+	namespaces = slices.Clone(namespaces)
 	return &KubeClient{
-		Client:    scopedClient{Client: client.NewNamespacedClient(k.Client, namespace), namespace: namespace},
-		clientset: k.clientset,
-		namespace: namespace,
+		Client:     scopedClient{Client: k.Client, namespaces: namespaces},
+		clientset:  k.clientset,
+		namespaces: namespaces,
 	}
 }
 
-// scopedClient fails a List in another namespace, where client.NewNamespacedClient
-// would silently list its own namespace instead.
+// scopedClient restricts a client to namespaces. Unlike client.NewNamespacedClient,
+// which would silently use its own namespace, a request for another namespace fails.
 type scopedClient struct {
 	client.Client
-	namespace string
+	namespaces []string
 }
 
-func (s scopedClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-	if ns := (&client.ListOptions{}).ApplyOptions(opts).Namespace; ns != "" && ns != s.namespace {
-		return fmt.Errorf("namespace %q is outside the backend namespace %q", ns, s.namespace)
+// namespaceFor returns the namespace to use for a request in namespace, or an
+// error when it is outside s.namespaces. An empty namespace means the only
+// namespace when there is one.
+func (s scopedClient) namespaceFor(namespace string) (string, error) {
+	if namespace == "" && len(s.namespaces) == 1 {
+		namespace = s.namespaces[0]
 	}
-	return s.Client.List(ctx, list, opts...)
+	if !slices.Contains(s.namespaces, namespace) {
+		return "", fmt.Errorf("namespace %q is outside the backend namespaces %q", namespace, strings.Join(s.namespaces, ","))
+	}
+	return namespace, nil
+}
+
+// scope checks obj's namespace, defaulting it when there is only one namespace.
+// Cluster-scoped objects pass unchanged.
+func (s scopedClient) scope(obj client.Object) error {
+	if namespaced, err := s.IsObjectNamespaced(obj); err == nil && !namespaced {
+		return nil
+	}
+	ns, err := s.namespaceFor(obj.GetNamespace())
+	if err != nil {
+		return err
+	}
+	obj.SetNamespace(ns)
+	return nil
+}
+
+func (s scopedClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if namespaced, err := s.IsObjectNamespaced(obj); err == nil && !namespaced {
+		return s.Client.Get(ctx, key, obj, opts...)
+	}
+	ns, err := s.namespaceFor(key.Namespace)
+	if err != nil {
+		return err
+	}
+	key.Namespace = ns
+	return s.Client.Get(ctx, key, obj, opts...)
+}
+
+// List lists one namespace, or with no namespace given, each namespace in turn,
+// because a cluster-wide List needs cluster-wide permissions.
+func (s scopedClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if !s.isNamespacedList(list) {
+		return s.Client.List(ctx, list, opts...)
+	}
+	if ns := (&client.ListOptions{}).ApplyOptions(opts).Namespace; ns != "" || len(s.namespaces) == 1 {
+		ns, err := s.namespaceFor(ns)
+		if err != nil {
+			return err
+		}
+		return s.Client.List(ctx, list, append(opts, client.InNamespace(ns))...)
+	}
+	var items []runtime.Object
+	for _, ns := range s.namespaces {
+		part, ok := list.DeepCopyObject().(client.ObjectList)
+		if !ok {
+			return fmt.Errorf("copy %T: not an object list", list)
+		}
+		if err := s.Client.List(ctx, part, append(opts, client.InNamespace(ns))...); err != nil {
+			return err
+		}
+		partItems, err := meta.ExtractList(part)
+		if err != nil {
+			return err
+		}
+		items = append(items, partItems...)
+	}
+	return meta.SetList(list, items)
+}
+
+// isNamespacedList reports whether list holds namespaced objects. When that
+// cannot be determined, it reports true so the list stays restricted.
+func (s scopedClient) isNamespacedList(list client.ObjectList) bool {
+	gvk, err := apiutil.GVKForObject(list, s.Scheme())
+	if err != nil {
+		return true
+	}
+	gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
+	namespaced, err := apiutil.IsGVKNamespaced(gvk, s.RESTMapper())
+	return err != nil || namespaced
+}
+
+func (s scopedClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	if err := s.scope(obj); err != nil {
+		return err
+	}
+	return s.Client.Create(ctx, obj, opts...)
+}
+
+func (s scopedClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	if err := s.scope(obj); err != nil {
+		return err
+	}
+	return s.Client.Update(ctx, obj, opts...)
+}
+
+func (s scopedClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+	if err := s.scope(obj); err != nil {
+		return err
+	}
+	return s.Client.Patch(ctx, obj, patch, opts...)
+}
+
+func (scopedClient) Apply(context.Context, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+	return fmt.Errorf("apply is not supported by a namespace-restricted client")
+}
+
+func (s scopedClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+	if err := s.scope(obj); err != nil {
+		return err
+	}
+	return s.Client.Delete(ctx, obj, opts...)
+}
+
+func (s scopedClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
+	if namespaced, err := s.IsObjectNamespaced(obj); err == nil && !namespaced {
+		return s.Client.DeleteAllOf(ctx, obj, opts...)
+	}
+	ns, err := s.namespaceFor((&client.DeleteAllOfOptions{}).ApplyOptions(opts).Namespace)
+	if err != nil {
+		return err
+	}
+	return s.Client.DeleteAllOf(ctx, obj, append(opts, client.InNamespace(ns))...)
+}
+
+func (s scopedClient) Status() client.SubResourceWriter {
+	return scopedSubResource{scope: s.scope, SubResourceClient: s.Client.SubResource("status")}
+}
+
+func (s scopedClient) SubResource(subResource string) client.SubResourceClient {
+	return scopedSubResource{scope: s.scope, SubResourceClient: s.Client.SubResource(subResource)}
+}
+
+// scopedSubResource applies a scopedClient's namespace check to subresource requests.
+type scopedSubResource struct {
+	client.SubResourceClient
+	scope func(client.Object) error
+}
+
+func (s scopedSubResource) Get(ctx context.Context, obj, subResource client.Object, opts ...client.SubResourceGetOption) error {
+	if err := s.scope(obj); err != nil {
+		return err
+	}
+	return s.SubResourceClient.Get(ctx, obj, subResource, opts...)
+}
+
+func (s scopedSubResource) Create(ctx context.Context, obj, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+	if err := s.scope(obj); err != nil {
+		return err
+	}
+	return s.SubResourceClient.Create(ctx, obj, subResource, opts...)
+}
+
+func (s scopedSubResource) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+	if err := s.scope(obj); err != nil {
+		return err
+	}
+	return s.SubResourceClient.Update(ctx, obj, opts...)
+}
+
+func (s scopedSubResource) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
+	if err := s.scope(obj); err != nil {
+		return err
+	}
+	return s.SubResourceClient.Patch(ctx, obj, patch, opts...)
+}
+
+func (scopedSubResource) Apply(context.Context, runtime.ApplyConfiguration, ...client.SubResourceApplyOption) error {
+	return fmt.Errorf("apply is not supported by a namespace-restricted client")
 }
 
 // NewKubeClientFromTokenAndServer creates a Kubernetes client using JWT token and API server URL.
@@ -159,8 +328,8 @@ func (k *KubeClient) AuthorizationV1() kubernetes.Interface {
 
 // ListNamespaces returns all namespace names that the user has access to.
 func (k *KubeClient) ListNamespaces(ctx context.Context) ([]string, error) {
-	if k.namespace != "" {
-		return []string{k.namespace}, nil
+	if len(k.namespaces) > 0 {
+		return slices.Clone(k.namespaces), nil
 	}
 	var nsList corev1.NamespaceList
 	if err := k.List(ctx, &nsList); err != nil {

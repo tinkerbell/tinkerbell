@@ -1,10 +1,12 @@
 package delimitedlist
 
 import (
+	"slices"
 	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestSpaceList(t *testing.T) {
@@ -135,6 +137,88 @@ func TestParsedValue(t *testing.T) {
 	}
 	if diff := cmp.Diff([]int{9}, target); diff != "" {
 		t.Fatalf("Reset() reused a mutated slice (-want +got):\n%s", diff)
+	}
+}
+
+func TestParsedValueOptions(t *testing.T) {
+	tests := map[string]struct {
+		initial []int
+		opts    []ParsedOption[int]
+		sets    []string
+		want    []int
+		wantErr bool
+	}{
+		"default replaces": {
+			sets: []string{"1,2", "3"},
+			want: []int{3},
+		},
+		"accumulate appends": {
+			opts: []ParsedOption[int]{Accumulate[int]()},
+			sets: []string{"1,2", "3"},
+			want: []int{1, 2, 3},
+		},
+		"accumulate keeps initial": {
+			initial: []int{9},
+			opts:    []ParsedOption[int]{Accumulate[int]()},
+			sets:    []string{"1"},
+			want:    []int{9, 1},
+		},
+		"dedupe within one set": {
+			opts: []ParsedOption[int]{Dedupe[int]()},
+			sets: []string{"1,2,1"},
+			want: []int{1, 2},
+		},
+		"accumulate and dedupe across sets": {
+			opts: []ParsedOption[int]{Accumulate[int](), Dedupe[int]()},
+			sets: []string{"1,2", "2,3", "1"},
+			want: []int{1, 2, 3},
+		},
+		"accumulate failure is atomic": {
+			opts:    []ParsedOption[int]{Accumulate[int]()},
+			sets:    []string{"1", "2,invalid"},
+			want:    []int{1},
+			wantErr: true,
+		},
+		"nil option ignored": {
+			opts: []ParsedOption[int]{nil, Accumulate[int]()},
+			sets: []string{"1", "2"},
+			want: []int{1, 2},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			target := slices.Clone(tt.initial)
+			v := NewParsed(&target, ',', strconv.Atoi, tt.opts...)
+			var err error
+			for _, s := range tt.sets {
+				if err = v.Set(s); err != nil {
+					break
+				}
+			}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Set() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if diff := cmp.Diff(tt.want, target); diff != "" {
+				t.Fatalf("values mismatch (-want +got):\n%s", diff)
+			}
+			if err := v.Reset(); err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(tt.initial, target, cmpopts.EquateEmpty()); diff != "" {
+				t.Fatalf("Reset() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestParsedValuePlaceholder(t *testing.T) {
+	var target []string
+	parse := func(s string) (string, error) { return s, nil }
+	if got := NewParsed(&target, ',', parse).GetPlaceholder(); got != "" {
+		t.Errorf("default GetPlaceholder() = %q, want empty", got)
+	}
+	if got := NewParsed(&target, ',', parse, Placeholder[string]("ITEMS")).GetPlaceholder(); got != "ITEMS" {
+		t.Errorf("GetPlaceholder() = %q, want %q", got, "ITEMS")
 	}
 }
 

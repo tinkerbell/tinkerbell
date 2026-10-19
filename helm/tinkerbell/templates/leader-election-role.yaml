@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ .Values.rbac.name }}-leader-election
-  namespace: {{ include "tinkerbell.rbacNamespace" . | quote }}
+  namespace: {{ include "tinkerbell.primaryNamespace" . | quote }}
 rules:
 - apiGroups:
   - ""

@@ -2,6 +2,7 @@ package flag
 
 import (
 	"net/netip"
+	"slices"
 	"testing"
 
 	"github.com/peterbourgon/ff/v4"
@@ -82,5 +83,40 @@ func TestRegisterGlobalPublicIPv6Env(t *testing.T) {
 
 	if got, want := cfg.PublicIPv6, netip.MustParseAddr("2001:db8::15"); got != want {
 		t.Errorf("PublicIPv6 = %v, want %v", got, want)
+	}
+}
+
+func TestRegisterGlobalBackendKubeNamespaces(t *testing.T) {
+	tests := map[string]struct {
+		args    []string
+		env     string
+		want    []string
+		wantErr bool
+	}{
+		"unset":                {},
+		"one":                  {args: []string{"--backend-kube-namespace=tink"}, want: []string{"tink"}},
+		"repeated":             {args: []string{"--backend-kube-namespace=tink-a", "--backend-kube-namespace=tink-b"}, want: []string{"tink-a", "tink-b"}},
+		"comma-separated":      {args: []string{"--backend-kube-namespace=tink-a, tink-b,"}, want: []string{"tink-a", "tink-b"}},
+		"repeated and deduped": {args: []string{"--backend-kube-namespace=tink-a,tink-b", "--backend-kube-namespace=tink-a"}, want: []string{"tink-a", "tink-b"}},
+		"env var":              {env: "tink-a,tink-b", want: []string{"tink-a", "tink-b"}},
+		"empty env var":        {env: ""},
+		"invalid":              {args: []string{"--backend-kube-namespace=Tink_A"}, wantErr: true},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("TINKERBELL_BACKEND_KUBE_NAMESPACE", tt.env)
+			cfg := &GlobalConfig{}
+			fs := ff.NewFlagSet("test")
+			RegisterGlobal(&Set{FlagSet: fs}, cfg)
+			cmd := &ff.Command{Name: "test", Flags: fs}
+
+			err := cmd.Parse(tt.args, ff.WithEnvVarPrefix(EnvVarPrefix))
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && !slices.Equal(cfg.BackendKubeNamespaces, tt.want) {
+				t.Errorf("BackendKubeNamespaces = %q, want %q", cfg.BackendKubeNamespaces, tt.want)
+			}
+		})
 	}
 }

@@ -42,9 +42,9 @@ func TestReadWorkflow(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		backendNamespace string
-		cached, live     client.Client
-		wantNotFound     bool
+		backendNamespaces []string
+		cached, live      client.Client
+		wantNotFound      bool
 	}{
 		"stale cache": {
 			cached: fake.NewClientBuilder().WithScheme(rs).WithObjects(stale).Build(),
@@ -55,15 +55,20 @@ func TestReadWorkflow(t *testing.T) {
 			live:   fake.NewClientBuilder().WithScheme(rs).WithObjects(current).Build(),
 		},
 		"outside the backend namespace": {
-			backendNamespace: "other",
-			cached:           fake.NewClientBuilder().WithScheme(rs).Build(),
-			live:             fake.NewClientBuilder().WithScheme(rs).WithObjects(current).Build(),
-			wantNotFound:     true,
+			backendNamespaces: []string{"other"},
+			cached:            fake.NewClientBuilder().WithScheme(rs).Build(),
+			live:              fake.NewClientBuilder().WithScheme(rs).WithObjects(current).Build(),
+			wantNotFound:      true,
 		},
 		"inside the backend namespace": {
-			backendNamespace: "tink",
-			cached:           fake.NewClientBuilder().WithScheme(rs).Build(),
-			live:             fake.NewClientBuilder().WithScheme(rs).WithObjects(current).Build(),
+			backendNamespaces: []string{"tink"},
+			cached:            fake.NewClientBuilder().WithScheme(rs).Build(),
+			live:              fake.NewClientBuilder().WithScheme(rs).WithObjects(current).Build(),
+		},
+		"inside one of several backend namespaces": {
+			backendNamespaces: []string{"other", "tink"},
+			cached:            fake.NewClientBuilder().WithScheme(rs).Build(),
+			live:              fake.NewClientBuilder().WithScheme(rs).WithObjects(current).Build(),
 		},
 		"deleted": {
 			cached:       fake.NewClientBuilder().WithScheme(rs).WithObjects(stale).Build(),
@@ -73,7 +78,7 @@ func TestReadWorkflow(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			b := &Backend{Namespace: tt.backendNamespace, cluster: readers{cached: tt.cached, live: tt.live}}
+			b := &Backend{Namespaces: tt.backendNamespaces, cluster: readers{cached: tt.cached, live: tt.live}}
 			got, err := b.ReadWorkflow(context.Background(), "wf", "tink")
 			if tt.wantNotFound {
 				if !apierrors.IsNotFound(err) {

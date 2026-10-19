@@ -1,12 +1,16 @@
+{{- range $i, $namespace := include "tinkerbell.roleNamespaces" . | fromJsonArray }}
+{{- if $i }}
+---
+{{- end }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: {{ .Values.rbac.type }}
+kind: {{ $.Values.rbac.type }}
 metadata:
-  name: {{ .Values.rbac.name }}-role
-  {{- if eq .Values.rbac.type "Role" }}
-  namespace: {{ include "tinkerbell.rbacNamespace" . | quote }}
+  name: {{ $.Values.rbac.name }}-role
+  {{- with $namespace }}
+  namespace: {{ . | quote }}
   {{- end }}
 rules:
-  {{- if eq .Values.rbac.type "ClusterRole" }}
+  {{- if eq $.Values.rbac.type "ClusterRole" }}
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["create", "delete", "get", "list", "patch", "update"]
@@ -35,7 +39,7 @@ rules:
   - apiGroups: ["", "events.k8s.io"]
     resources: ["events"]
     verbs: ["create", "patch", "update"]
-  {{- range .Values.rbac.additionalRoleRules }}
+  {{- range $.Values.rbac.additionalRoleRules }}
   {{- if and (hasKey . "resources") (hasKey . "nonResourceURLs") }}
     {{- fail "rbac.additionalRoleRules: a rule must not specify both 'resources' and 'nonResourceURLs' (they are mutually exclusive per Kubernetes RBAC PolicyRule)" }}
   {{- end }}
@@ -53,3 +57,4 @@ rules:
     {{- end }}
     verbs: {{ include "tinkerbell.toJsonArray" .verbs }}
   {{- end }}
+{{- end }}
