@@ -433,16 +433,16 @@ func humanDuration(d time.Duration, precision int) string {
 	nanos := d.Nanoseconds()
 
 	// Calculate each unit from nanoseconds
-	hours := nanos / (time.Hour.Nanoseconds())
-	remainingAfterHours := nanos % (time.Hour.Nanoseconds())
-	minutes := remainingAfterHours / (time.Minute.Nanoseconds())
-	remainingAfterMinutes := remainingAfterHours % (time.Minute.Nanoseconds())
-	seconds := remainingAfterMinutes / (time.Second.Nanoseconds())
-	remainingAfterSeconds := remainingAfterMinutes % (time.Second.Nanoseconds())
-	milliseconds := remainingAfterSeconds / (time.Millisecond.Nanoseconds())
-	remainingAfterMillis := remainingAfterSeconds % (time.Millisecond.Nanoseconds())
-	microseconds := remainingAfterMillis / (time.Microsecond.Nanoseconds())
-	nanoseconds := remainingAfterMillis % (time.Microsecond.Nanoseconds())
+	hours := nanos / time.Hour.Nanoseconds()
+	remainingAfterHours := nanos % time.Hour.Nanoseconds()
+	minutes := remainingAfterHours / time.Minute.Nanoseconds()
+	remainingAfterMinutes := remainingAfterHours % time.Minute.Nanoseconds()
+	seconds := remainingAfterMinutes / time.Second.Nanoseconds()
+	remainingAfterSeconds := remainingAfterMinutes % time.Second.Nanoseconds()
+	milliseconds := remainingAfterSeconds / time.Millisecond.Nanoseconds()
+	remainingAfterMillis := remainingAfterSeconds % time.Millisecond.Nanoseconds()
+	microseconds := remainingAfterMillis / time.Microsecond.Nanoseconds()
+	nanoseconds := remainingAfterMillis % time.Microsecond.Nanoseconds()
 
 	// Build the duration string with only non-zero units
 	parts := []string{}

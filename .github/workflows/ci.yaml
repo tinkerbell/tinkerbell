@@ -11,8 +11,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/${{ github.repository }}
   CGO_ENABLED: 0
-  GO_VERSION: "1.26"
-  GOLANGCI_LINT_VERSION: "v2.11.2"
+  GO_VERSION: "1.27"
 
 jobs:
   validation:

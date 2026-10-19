@@ -117,7 +117,7 @@ func (f *fakeDynamicClient) Get(_ context.Context, name string, _ metav1.GetOpti
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": f.gvr.Group + "/" + f.gvr.Version,
-			"kind":       cases.Title(language.English, cases.NoLower).String((strings.TrimSuffix(f.gvr.Resource, "s"))),
+			"kind":       cases.Title(language.English, cases.NoLower).String(strings.TrimSuffix(f.gvr.Resource, "s")),
 			"metadata": map[string]interface{}{
 				"name":      name,
 				"namespace": f.namespace,
