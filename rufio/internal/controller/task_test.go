@@ -3,6 +3,7 @@ package controller_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -331,4 +332,62 @@ func createTaskWithRPC(name string, action bmc.Action, secret *corev1.Secret) *b
 	}
 
 	return task
+}
+
+// A Task whose action already ran must not be failed because a later status-check reconcile could
+// not reach the BMC (BMCs are routinely slow right after a power action); it must be requeued until
+// the task timeout is reached.
+func TestTaskReconcileStartedTaskSurvivesBMCConnectionError(t *testing.T) {
+	secret := createSecret()
+	task := createTask("PowerOff", getAction("HardOff"), secret)
+	started := metav1.NewTime(time.Now().Add(-10 * time.Second))
+	task.Status.StartTime = &started
+
+	cluster := newClientBuilder().WithObjects(task, secret).Build()
+	reconciler := controller.NewTaskReconciler(cluster, newTestClient(&testProvider{ErrOpen: errors.New("context deadline exceeded")}))
+	request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: task.Namespace, Name: task.Name}}
+
+	result, err := reconciler.Reconcile(context.Background(), request)
+	if err != nil {
+		t.Fatalf("expected a transient connection error on a started task to be retried, got: %v", err)
+	}
+	if result.RequeueAfter != 3*time.Second {
+		t.Fatalf("expected the task to be requeued after 3s, got: %+v", result)
+	}
+
+	var retrieved bmc.Task
+	if err := cluster.Get(context.Background(), request.NamespacedName, &retrieved); err != nil {
+		t.Fatalf("expected nil err, got: %v", err)
+	}
+	if retrieved.HasCondition(bmc.TaskFailed, bmc.ConditionTrue) {
+		t.Fatalf("a started task must not be failed on a transient connection error, got conditions: %v", retrieved.Status.Conditions)
+	}
+}
+
+// Once a started Task exceeds the task timeout it is failed even when the BMC cannot be reached,
+// so a dead BMC cannot keep a Task requeuing forever.
+func TestTaskReconcileStartedTaskTimesOutWithoutBMC(t *testing.T) {
+	secret := createSecret()
+	task := createTask("PowerOff", getAction("HardOff"), secret)
+	started := metav1.NewTime(time.Now().Add(-time.Hour))
+	task.Status.StartTime = &started
+
+	cluster := newClientBuilder().WithObjects(task, secret).Build()
+	reconciler := controller.NewTaskReconciler(cluster, newTestClient(&testProvider{ErrOpen: errors.New("context deadline exceeded")}))
+	request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: task.Namespace, Name: task.Name}}
+
+	if _, err := reconciler.Reconcile(context.Background(), request); err == nil {
+		t.Fatal("expected the timed-out task to fail")
+	}
+
+	var retrieved bmc.Task
+	if err := cluster.Get(context.Background(), request.NamespacedName, &retrieved); err != nil {
+		t.Fatalf("expected nil err, got: %v", err)
+	}
+	if !retrieved.HasCondition(bmc.TaskFailed, bmc.ConditionTrue) {
+		t.Fatalf("expected the TaskFailed condition after the timeout, got: %v", retrieved.Status.Conditions)
+	}
+	if msg := retrieved.Status.Conditions[0].Message; !strings.Contains(msg, "timeout") {
+		t.Fatalf("expected the timeout, not a connection error, to fail the task, got: %q", msg)
+	}
 }

@@ -30,7 +30,12 @@ import (
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
-const powerActionRequeueAfter = 3 * time.Second
+const (
+	powerActionRequeueAfter = 3 * time.Second
+	// taskTimeout bounds how long a started Task may keep being requeued (status checks, transient
+	// BMC connection errors) before it is failed.
+	taskTimeout = 10 * time.Minute
+)
 
 // TaskReconciler reconciles a Task object.
 type TaskReconciler struct {
@@ -111,9 +116,33 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmc.Task, taskPa
 		}
 	}
 
+	// A Task that already ran its action must not be failed because a later status check could not
+	// reach the BMC: BMCs are routinely slow or unreachable for a few seconds right after a power
+	// action. Only fail such a Task once it exceeds the task timeout.
+	started := !task.Status.StartTime.IsZero()
+	if started {
+		jobRunningTime := time.Since(task.Status.StartTime.Time)
+		// TODO(pokearu): add timeout for tasks on API spec
+		if jobRunningTime >= taskTimeout {
+			timeOutErr := fmt.Errorf("bmc task timeout: %s", jobRunningTime)
+			// Set Task Condition Failed True
+			task.SetCondition(bmc.TaskFailed, bmc.ConditionTrue, bmc.WithTaskConditionMessage(timeOutErr.Error()))
+			patchErr := r.patchStatus(ctx, task, taskPatch)
+			if patchErr != nil {
+				return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, timeOutErr})
+			}
+
+			return ctrl.Result{}, timeOutErr
+		}
+	}
+
 	// Initializing BMC Client
 	bmcClient, err := r.bmcClientFactory(ctx, logger, task.Spec.Connection.Host, username, password, opts)
 	if err != nil {
+		if started {
+			logger.V(1).Info("BMC connection failed while checking the status of a started task, will retry", "error", err.Error(), "requeueAfter", powerActionRequeueAfter)
+			return ctrl.Result{RequeueAfter: powerActionRequeueAfter}, nil
+		}
 		logger.Error(err, "BMC connection failed", "host", task.Spec.Connection.Host)
 		task.SetCondition(bmc.TaskFailed, bmc.ConditionTrue, bmc.WithTaskConditionMessage(fmt.Sprintf("Failed to connect to BMC: %v", err)))
 		patchErr := r.patchStatus(ctx, task, taskPatch)
@@ -137,21 +166,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmc.Task, taskPa
 
 	// Task has StartTime, we check the status.
 	// Requeue if actions did not complete.
-	if !task.Status.StartTime.IsZero() {
-		jobRunningTime := time.Since(task.Status.StartTime.Time)
-		// TODO(pokearu): add timeout for tasks on API spec
-		if jobRunningTime >= 10*time.Minute {
-			timeOutErr := fmt.Errorf("bmc task timeout: %d", jobRunningTime)
-			// Set Task Condition Failed True
-			task.SetCondition(bmc.TaskFailed, bmc.ConditionTrue, bmc.WithTaskConditionMessage(timeOutErr.Error()))
-			patchErr := r.patchStatus(ctx, task, taskPatch)
-			if patchErr != nil {
-				return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, timeOutErr})
-			}
-
-			return ctrl.Result{}, timeOutErr
-		}
-
+	if started {
 		result, err := r.checkTaskStatus(ctx, logger, task.Spec.Task, bmcClient)
 		if err != nil {
 			return result, fmt.Errorf("bmc task status check: %w", err)
