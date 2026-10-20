@@ -13,6 +13,7 @@ import (
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	tinkotel "github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 )
 
@@ -71,33 +72,8 @@ func GetByMac(ctx context.Context, mac net.HardwareAddr, br BackendReader) (Info
 		return Info{}, err
 	}
 	hw, err := dhcp.ConvertByMac(ctx, mac, spec)
-	if err != nil {
-		return Info{}, fmt.Errorf("failed to convert hardware data: %w", err)
-	}
 
-	if hw.DHCP == nil {
-		return Info{}, errors.New("no dhcp data")
-	}
-	if hw.Netboot == nil {
-		return Info{}, errors.New("no netboot data")
-	}
-	d := hw.DHCP
-	n := hw.Netboot
-
-	return Info{
-		AllowNetboot:  n.AllowNetboot,
-		Console:       "",
-		MACAddress:    d.MACAddress,
-		Arch:          d.Arch,
-		VLANID:        d.VLANID,
-		AgentID:       hw.AgentID,
-		Facility:      n.Facility,
-		IPXEScript:    n.IPXEScript,
-		IPXEScriptURL: n.IPXEScriptURL,
-		OSIE:          OSIE(n.OSIE),
-		PXELINUX:      PXELINUX(n.PXELINUX),
-		RPI:           RPI(n.RPI),
-	}, nil
+	return toInfo(ctx, spec, hw, err)
 }
 
 // GetByIP uses the BackendReader to get the hardware data by IP address and
@@ -111,9 +87,16 @@ func GetByIP(ctx context.Context, ip net.IP, br BackendReader) (Info, error) {
 		return Info{}, err
 	}
 	hw, err := dhcp.ConvertByIP(ctx, ip, spec)
-	if err != nil {
-		return Info{}, fmt.Errorf("failed to convert hardware data: %w", err)
+
+	return toInfo(ctx, spec, hw, err)
+}
+
+// toInfo translates converted hardware data to the Info struct.
+func toInfo(ctx context.Context, spec *tinkerbell.Hardware, hw dhcp.Hardware, convertErr error) (Info, error) {
+	if convertErr != nil {
+		return Info{}, fmt.Errorf("failed to convert hardware data: %w", convertErr)
 	}
+	tinkotel.AnnotateHardware(ctx, spec)
 	if hw.DHCP == nil {
 		return Info{}, errors.New("no dhcp data")
 	}

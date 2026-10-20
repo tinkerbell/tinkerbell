@@ -29,9 +29,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 )
 
 // SimpleCarrier is an abstraction for handling traceparent propagation
@@ -122,27 +120,17 @@ func Init(ctx context.Context, c Config) (context.Context, context.CancelFunc, e
 
 func (c Config) initTracing(ctx context.Context) (context.Context, context.CancelFunc, error) {
 	// set the service name that will show up in tracing UIs
-	resAttrs := resource.WithAttributes(semconv.ServiceNameKey.String(c.Servicename))
+	resAttrs := resource.WithAttributes(semconv.ServiceName(c.Servicename))
 	res, err := resource.New(ctx, resAttrs)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("failed to create OpenTelemetry service name resource: %w", err)
 	}
 
-	retryPolicy := `{
-		"methodConfig": [{
-			"retryPolicy": {
-				"MaxAttempts": 1000,
-				"InitialBackoff": ".01s",
-				"MaxBackoff": ".01s",
-				"BackoffMultiplier": 1.0,
-				"RetryableStatusCodes": [ "UNAVAILABLE" ]
-			}
-		}]
-	}`
-
+	// TLS, certificates, headers, and compression come from the standard
+	// OTEL_EXPORTER_OTLP_* environment variables. TLS with the system roots is
+	// the default, so only the insecure case is set here.
 	grpcOpts := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(c.Endpoint),
-		otlptracegrpc.WithDialOption(grpc.WithDefaultServiceConfig(retryPolicy)),
 		otlptracegrpc.WithRetry(otlptracegrpc.RetryConfig{
 			Enabled:         true,
 			InitialInterval: time.Second * 5,
@@ -152,23 +140,20 @@ func (c Config) initTracing(ctx context.Context) (context.Context, context.Cance
 	}
 	if c.Insecure {
 		grpcOpts = append(grpcOpts, otlptracegrpc.WithInsecure())
-	} else {
-		creds := credentials.NewClientTLSFromCert(nil, "")
-		grpcOpts = append(grpcOpts, otlptracegrpc.WithTLSCredentials(creds))
 	}
-	// TODO: add TLS client cert auth
 
 	exporter, err := otlptracegrpc.New(context.Background(), grpcOpts...)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("failed to configure OTLP exporter: %w", err)
 	}
 
-	// TODO: more configuration opportunities here
+	// No sampler is set, so OTEL_TRACES_SAMPLER and OTEL_TRACES_SAMPLER_ARG apply.
 	bsp := sdktrace.NewBatchSpanProcessor(exporter)
 	tracerProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithResource(res),
 		sdktrace.WithSpanProcessor(bsp),
 	)
+	setDefaultEmitter(NewEmitter(bsp, res))
 
 	// set global propagator to tracecontext (the default is no-op).
 	prop := propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
@@ -185,6 +170,7 @@ func (c Config) initTracing(ctx context.Context) (context.Context, context.Cance
 
 	// the public function will wrap this in its own shutdown function
 	return ctx, func() {
+		setDefaultEmitter(nil)
 		ctx1, done := context.WithTimeout(context.Background(), 5*time.Second)
 		err = tracerProvider.Shutdown(ctx1)
 		if err != nil {
