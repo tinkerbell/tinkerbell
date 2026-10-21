@@ -264,6 +264,11 @@ service:
   ipFamilyPolicy: ""
   lbClass: "kube-vip.io/kube-vip-class"
   loadBalancerIP: ""
+  # Set false when the load balancer sends traffic to the load balancer IP or to the pod rather than
+  # to a NodePort, as kube-vip and MetalLB do, so that Kubernetes allocates no NodePorts for the Service.
+  # Null omits the field, keeping the Kubernetes default (true). Rendered only for type LoadBalancer.
+  # See README.md "Service NodePorts".
+  allocateLoadBalancerNodePorts: null
   name: tinkerbell
   ports:
     dhcp:
@@ -334,6 +339,9 @@ optional:
       ipFamilyPolicy: ""
       lbClass: "kube-vip.io/kube-vip-class"
       loadBalancerIP: ""
+      # Null omits the field, keeping the Kubernetes default (true). Does not inherit
+      # service.allocateLoadBalancerNodePorts.
+      allocateLoadBalancerNodePorts: null
       type: LoadBalancer
     affinity: {}
 
