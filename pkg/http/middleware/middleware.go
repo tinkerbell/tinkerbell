@@ -156,9 +156,10 @@ func Recovery(log logr.Logger) func(http.Handler) http.Handler {
 }
 
 // OTel returns middleware that wraps an http.Handler with OpenTelemetry instrumentation.
+// Clients are not authenticated, so their trace context becomes a link, not a parent.
 func OTel(operationName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return otelhttp.NewHandler(next, operationName)
+		return otelhttp.NewHandler(next, operationName, otelhttp.WithPublicEndpointFn(func(*http.Request) bool { return true }))
 	}
 }
 

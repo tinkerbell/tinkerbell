@@ -23,6 +23,7 @@ import (
 	bmclibbmc "github.com/bmc-toolbox/bmclib/v2/bmc"
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	"go.opentelemetry.io/otel/attribute"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -59,7 +60,12 @@ func NewTaskReconciler(c client.Client, bmcClientFactory ClientFunc) *TaskReconc
 // Reconcile runs a Task.
 // Establishes a connection to the BMC.
 // Runs the specified action in the Task.
-func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
+	ctx, span := startSpan(ctx, "tinkerbell.bmc.task.reconcile",
+		attribute.String("tinkerbell.bmc.task.name", req.Name),
+		attribute.String("tinkerbell.bmc.task.namespace", req.Namespace),
+	)
+	defer func() { endSpan(span, err) }()
 	logger := ctrl.LoggerFrom(ctx).WithName("controllers/Task").WithValues("task", req.NamespacedName)
 	logger.Info("Reconciling Task")
 
@@ -72,6 +78,10 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 		logger.Error(err, "Failed to get Task")
 		return ctrl.Result{}, err
+	}
+	span.SetAttributes(attribute.String("tinkerbell.bmc.host", task.Spec.Connection.Host))
+	if o := metav1.GetControllerOf(task); o != nil {
+		span.SetAttributes(attribute.String("tinkerbell.bmc.job.name", o.Name))
 	}
 
 	// Deletion is a noop.
@@ -216,7 +226,9 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmc.Task, taskPa
 }
 
 // runTask executes the defined Task in a Task.
-func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task bmc.Action, bmcClient *bmclib.Client) error {
+func (r *TaskReconciler) runTask(ctx context.Context, logger logr.Logger, task bmc.Action, bmcClient *bmclib.Client) (err error) {
+	ctx, span := startBMCCall(ctx, "tinkerbell.bmc.run", task)
+	defer func() { endBMCCall(span, bmcClient, err) }()
 	if task.PowerAction != nil {
 		ok, err := bmcClient.SetPowerState(ctx, string(*task.PowerAction))
 		if err != nil {
@@ -322,7 +334,9 @@ func boolPtrValue(b *bool) any {
 
 // checkTaskStatus checks if Task action completed.
 // This is currently limited only to a few PowerAction types.
-func (r *TaskReconciler) checkTaskStatus(ctx context.Context, log logr.Logger, task bmc.Action, bmcClient *bmclib.Client) (ctrl.Result, error) {
+func (r *TaskReconciler) checkTaskStatus(ctx context.Context, log logr.Logger, task bmc.Action, bmcClient *bmclib.Client) (result ctrl.Result, err error) {
+	ctx, span := startBMCCall(ctx, "tinkerbell.bmc.check", task)
+	defer func() { endBMCCall(span, bmcClient, err) }()
 	// TODO(pokearu): Extend to all actions.
 	if task.PowerAction != nil {
 		rawState, err := bmcClient.GetPowerState(ctx)

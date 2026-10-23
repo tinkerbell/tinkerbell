@@ -142,7 +142,8 @@ func (c *Config) Start(ctx context.Context, log logr.Logger) error {
 	}
 
 	params := []grpc.ServerOption{
-		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		// Agents are not authenticated, so their trace context becomes a link, not a parent.
+		grpc.StatsHandler(otelgrpc.NewServerHandler(otelgrpc.WithPublicEndpoint())),
 		grpc.UnaryInterceptor(grpcServerMetrics.UnaryServerInterceptor()),
 		grpc.StreamInterceptor(grpcServerMetrics.StreamServerInterceptor()),
 	}
