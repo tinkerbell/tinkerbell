@@ -135,3 +135,58 @@ tests:
         kube-vip.io/loadbalancerIPs: 2.2.2.3
     asserts:
       - notExists: {path: 'metadata.annotations["kube-vip.io/loadbalancerIPs"]'}
+
+  - it: omits allocateLoadBalancerNodePorts from the main service by default
+    template: templates/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+    asserts:
+      - notExists: {path: spec.allocateLoadBalancerNodePorts}
+
+  - it: sets allocateLoadBalancerNodePorts on a LoadBalancer main service
+    template: templates/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+      service.allocateLoadBalancerNodePorts: false
+    asserts:
+      - equal: {path: spec.allocateLoadBalancerNodePorts, value: false}
+
+  - it: omits allocateLoadBalancerNodePorts from a ClusterIP main service
+    template: templates/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+      service.type: ClusterIP
+      service.allocateLoadBalancerNodePorts: false
+    asserts:
+      - equal: {path: spec.type, value: ClusterIP}
+      - notExists: {path: spec.allocateLoadBalancerNodePorts}
+
+  - it: does not give the OSIE service the main service's allocateLoadBalancerNodePorts
+    template: templates/osie/service.yaml
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+      service.allocateLoadBalancerNodePorts: false
+    asserts:
+      - notExists: {path: spec.allocateLoadBalancerNodePorts}
+
+  - it: sets allocateLoadBalancerNodePorts on a LoadBalancer OSIE service
+    template: templates/osie/service.yaml
+    set:
+      artifactsFileServer: http://2.2.2.2
+      optional.osie.service.allocateLoadBalancerNodePorts: false
+    asserts:
+      - equal: {path: spec.allocateLoadBalancerNodePorts, value: false}
+
+  - it: omits allocateLoadBalancerNodePorts from a ClusterIP OSIE service
+    template: templates/osie/service.yaml
+    set:
+      artifactsFileServer: http://2.2.2.2
+      optional.osie.service.type: ClusterIP
+      optional.osie.service.allocateLoadBalancerNodePorts: false
+    asserts:
+      - equal: {path: spec.type, value: ClusterIP}
+      - notExists: {path: spec.allocateLoadBalancerNodePorts}

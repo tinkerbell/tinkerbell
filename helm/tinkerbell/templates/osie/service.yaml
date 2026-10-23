@@ -70,6 +70,9 @@ spec:
   loadBalancerIP: {{ $singleLoadBalancerIP }}
   {{- end }}
   externalTrafficPolicy: Local
+  {{- if not (kindIs "invalid" .Values.optional.osie.service.allocateLoadBalancerNodePorts) }}
+  allocateLoadBalancerNodePorts: {{ .Values.optional.osie.service.allocateLoadBalancerNodePorts }}
+  {{- end }}
   {{- end }}
   {{- if .Values.optional.osie.service.ipFamilyPolicy }}
   ipFamilyPolicy: {{ .Values.optional.osie.service.ipFamilyPolicy }}
