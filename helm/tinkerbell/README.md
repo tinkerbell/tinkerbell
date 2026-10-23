@@ -214,6 +214,36 @@ advertises a port the pod is not listening on. The OSIE Service settings
 apply only when the chart creates that Service; no OSIE Service is created
 when its artifact server uses host networking.
 
+## Service NodePorts
+
+The main Tinkerbell Service and the OSIE artifact Service are of type
+`LoadBalancer` by default, and Kubernetes then allocates a NodePort for each
+of their ports and opens it on every node. Only load balancers that forward
+traffic to the nodes' NodePorts use them. Load balancers that send it to the
+load balancer IP itself, such as kube-vip and MetalLB, do not. To have
+Kubernetes allocate no NodePorts, set `allocateLoadBalancerNodePorts` to
+`false` on each Service:
+
+```yaml
+service:
+  allocateLoadBalancerNodePorts: false
+optional:
+  osie:
+    service:
+      allocateLoadBalancerNodePorts: false
+```
+
+The default, `null`, omits the field, so Kubernetes applies its own default,
+`true`. The chart renders the field only for a Service of type `LoadBalancer`,
+the only type Kubernetes accepts it on; Kubernetes honors it from 1.22 on.
+Both Services use `externalTrafficPolicy: Local`, so Kubernetes still
+allocates their `healthCheckNodePort`; this setting does not change that.
+
+Setting `false` on an existing Service does not release the NodePorts it
+already has, and a Helm upgrade does not remove them. Once the field is
+`false`, remove `nodePort` from the Service's ports to free them. See the
+[Kubernetes documentation](https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation).
+
 ## Required Values
 
 | Parameter | Description | Default |

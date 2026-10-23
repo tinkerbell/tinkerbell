@@ -44,6 +44,9 @@ spec:
   {{- end }}
   loadBalancerIP: {{ coalesce .Values.service.loadBalancerIP $publicIP $publicIPv6 }}
   externalTrafficPolicy: Local
+  {{- if not (kindIs "invalid" .Values.service.allocateLoadBalancerNodePorts) }}
+  allocateLoadBalancerNodePorts: {{ .Values.service.allocateLoadBalancerNodePorts }}
+  {{- end }}
   {{- end }}
   {{- if .Values.service.ipFamilyPolicy }}
   ipFamilyPolicy: {{ .Values.service.ipFamilyPolicy }}
