@@ -39,6 +39,7 @@ ipxe-*.tar.gz
 kubeconfig
 
 certs/
+tinkerbell-pki/
 tmp/
 # helm chart files and directories
 *.tgz
