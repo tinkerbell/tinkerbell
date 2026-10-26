@@ -89,7 +89,7 @@ func kubeAPIServerFlags(kaffs *ff.FlagSet) func(*pflag.Flag) {
 		fc := ff.FlagConfig{
 			LongName: f.Name,
 			Usage:    f.Usage,
-			Value:    f.Value,
+			Value:    newResettableSlice(f.Value),
 		}
 		// feature-gates has a lot of output and includes a lot of '\n' characters
 		// that makes the ffhelp output not output all the flags. We remove all the

@@ -47,6 +47,7 @@ type GlobalConfig struct {
 type EmbeddedGlobalConfig struct {
 	EnableKubeAPIServer bool
 	EnableETCD          bool
+	KubeAPIServerPKIDir string
 }
 
 type BackendKubeOptions struct {
@@ -116,6 +117,7 @@ func RegisterGlobal(fs *Set, gc *GlobalConfig) {
 func RegisterEmbeddedGlobals(fs *Set, gc *GlobalConfig) {
 	fs.Register(EnableKubeAPIServer, ffval.NewValueDefault(&gc.EmbeddedGlobalConfig.EnableKubeAPIServer, gc.EmbeddedGlobalConfig.EnableKubeAPIServer))
 	fs.Register(EnableETCD, ffval.NewValueDefault(&gc.EmbeddedGlobalConfig.EnableETCD, gc.EmbeddedGlobalConfig.EnableETCD))
+	fs.Register(KubeAPIServerPKIDir, ffval.NewValueDefault(&gc.EmbeddedGlobalConfig.KubeAPIServerPKIDir, gc.EmbeddedGlobalConfig.KubeAPIServerPKIDir))
 }
 
 // All these flags are used by at least two services or
@@ -252,6 +254,14 @@ var EnableKubeAPIServer = Config{
 var EnableETCD = Config{
 	Name:  "enable-embedded-etcd",
 	Usage: "enables the embedded etcd",
+}
+
+var KubeAPIServerPKIDir = Config{
+	Name: "kube-apiserver-pki-dir",
+	Usage: "directory holding the embedded kube-apiserver's CA, serving certificate, service account key, and admin kubeconfig; " +
+		"they are generated on first start unless --kube-apiserver-tls-cert-file, --kube-apiserver-tls-private-key-file, --client-ca-file, " +
+		"--service-account-key-file, --service-account-signing-key-file, or --backend-kube-config is set to a non-empty value; " +
+		"it and its files must not be writable by other users",
 }
 
 var EnableCRDMigrations = Config{
