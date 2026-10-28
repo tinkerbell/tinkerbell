@@ -374,3 +374,55 @@ tasks:
 	_, err := renderTemplateHardware("test-oversized", tmpl, map[string]interface{}{"device_1": "08:00:27:00:00:01"})
 	assert.ErrorContains(t, err, "exceeds")
 }
+
+func TestValidateActionSource(t *testing.T) {
+	testCases := []struct {
+		name          string
+		action        Action
+		expectedError bool
+	}{
+		{
+			name:   "image only",
+			action: Action{Name: "stream", Image: "quay.io/tinkerbell/actions/image2disk:v1.0.0"},
+		},
+		{
+			name:   "run only",
+			action: Action{Name: "partition", Run: "sgdisk --zap-all /dev/sda\n"},
+		},
+		{
+			name:   "run with a custom shell",
+			action: Action{Name: "inventory", Run: "print('hi')", Shell: []string{"python3", "-u"}},
+		},
+		{
+			name:          "image and run are mutually exclusive",
+			action:        Action{Name: "both", Image: "alpine", Run: "echo hi"},
+			expectedError: true,
+		},
+		{
+			name:          "neither image nor run",
+			action:        Action{Name: "empty"},
+			expectedError: true,
+		},
+		{
+			name:          "shell without run",
+			action:        Action{Name: "orphan-shell", Image: "alpine", Shell: []string{"bash"}},
+			expectedError: true,
+		},
+		{
+			name:          "invalid image name",
+			action:        Action{Name: "bad-image", Image: "invalid image name"},
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateActionSource(tc.action)
+			if tc.expectedError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
