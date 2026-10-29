@@ -8,6 +8,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -146,8 +147,9 @@ func (s *state) deleteExisting(ctx context.Context, name jobName) (reconcile.Res
 func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobName) (reconcile.Result, error) {
 	// create a new job
 	// The assumption is that the UID is not set. UID checking is not handled here.
-	// 1. look up if there's an existing job with the same name, if so update the status with the UID and return
-	// 2. if there's no existing job, create a new job, update the status with the UID, and return
+	// 1. look up if there's an existing job with the same name. If this Workflow controls it, update the
+	//    status with its UID and return. Otherwise delete it and its Tasks, and return.
+	// 2. if there's no existing job, create a new job and return. The next pass finds it and records its UID.
 
 	rj := &bmc.Job{}
 	if err := s.client.Get(ctx, client.ObjectKey{Name: name.String(), Namespace: s.workflow.Namespace}, rj); err == nil {
@@ -156,7 +158,12 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 			journal.Log(ctx, "job is being deleted", "name", name)
 			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 		}
-		// TODO(jacobweinstock): job exists means that the job name and uid from the status are the same.
+		if !metav1.IsControlledBy(rj, s.workflow) {
+			// A Job of the same name from another Workflow: one created after the clean up phase ran,
+			// or a deleted one the cache still shows. Only a Job this Workflow controls is adopted.
+			journal.Log(ctx, "job is not owned by this workflow, deleting it", "name", name)
+			return s.deleteExisting(ctx, name)
+		}
 		// get the UID and update the status
 		jStatus := s.workflow.Status.BootOptions.Jobs[name.String()]
 		jStatus.UID = rj.GetUID()
@@ -187,6 +194,12 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 	}
 
 	if err := create(ctx, s.client, name.String(), hw, s.workflow.Namespace, actions, ownerRef); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			// The cache doesn't show yet the Job a previous pass created. The next pass adopts it,
+			// or deletes it if it isn't this Workflow's.
+			journal.Log(ctx, "job already exists but is not in the cache yet", "name", name)
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
+		}
 		return reconcile.Result{}, fmt.Errorf("error creating job: %w", err)
 	}
 	journal.Log(ctx, "job created", "name", name)
