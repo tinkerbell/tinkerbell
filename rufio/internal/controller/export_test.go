@@ -20,8 +20,7 @@ var (
 
 // ReconcileInventoryIfDueForTest exposes reconcileInventoryIfDue so tests can
 // exercise BMC inventory collection directly, without driving a full
-// Reconcile() (and therefore without needing a Machine object's own
-// MergeFrom-based status patch to succeed against the fake client).
+// Reconcile().
 func (r *MachineReconciler) ReconcileInventoryIfDueForTest(ctx context.Context, logger logr.Logger, bmcClient *bmclib.Client, bm *bmc.Machine) {
 	r.reconcileInventoryIfDue(ctx, logger, bmcClient, bm)
 }
