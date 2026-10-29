@@ -297,6 +297,7 @@ func TestPostActions(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-workflow",
 					Namespace: "default",
+					UID:       "test-workflow-uid",
 				},
 				Spec: v1alpha1.WorkflowSpec{
 					HardwareRef: "test-hardware",
@@ -330,6 +331,13 @@ func TestPostActions(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      fmt.Sprintf("%s-test-workflow", jobNameCustombootPost),
 					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion: v1alpha1.GroupVersion.String(),
+						Kind:       "Workflow",
+						Name:       "test-workflow",
+						UID:        "test-workflow-uid",
+						Controller: valueToPointer(true),
+					}},
 				},
 				Spec:   bmc.JobSpec{},
 				Status: bmc.JobStatus{},
