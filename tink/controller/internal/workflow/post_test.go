@@ -157,7 +157,9 @@ func TestPostActions(t *testing.T) {
 						State: v1alpha1.WorkflowStateSuccess,
 					},
 					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
+						Jobs: map[string]v1alpha1.JobStatus{
+							fmt.Sprintf("%s-test-workflow", jobNameISOEject): {ExistingJobDeleted: true},
+						},
 					},
 				},
 			},
@@ -167,7 +169,9 @@ func TestPostActions(t *testing.T) {
 						State: v1alpha1.WorkflowStateSuccess,
 					},
 					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
+						Jobs: map[string]v1alpha1.JobStatus{
+							fmt.Sprintf("%s-test-workflow", jobNameISOEject): {ExistingJobDeleted: true},
+						},
 					},
 					Conditions: []v1alpha1.WorkflowCondition{
 						{
