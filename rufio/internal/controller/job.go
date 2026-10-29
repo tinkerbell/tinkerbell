@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,18 +32,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
-// Index key for Job Owner Name.
+// Index key for Job Owner UID.
 const jobOwnerKey = ".metadata.controller"
 
 // JobReconciler reconciles a Job object.
 type JobReconciler struct {
 	client client.Client
+	// reader reads from the API server without the cache, for objects whose cached copy may be stale.
+	reader client.Reader
 }
 
 // NewJobReconciler returns a new JobReconciler.
-func NewJobReconciler(c client.Client) *JobReconciler {
+func NewJobReconciler(c client.Client, reader client.Reader) *JobReconciler {
 	return &JobReconciler{
 		client: c,
+		reader: reader,
 	}
 }
 
@@ -105,9 +109,10 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmc.Job, jobPatch 
 		return ctrl.Result{}, fmt.Errorf("get Job %s/%s MachineRef: %w", job.Namespace, job.Name, err)
 	}
 
-	// List all Task owned by Job
+	// List all Task owned by Job. Match the owner's UID, not its name: Tasks left by a deleted Job
+	// of the same name belong to that Job, not to this one.
 	tasks := &bmc.TaskList{}
-	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: job.Name}, client.InNamespace(job.Namespace))
+	err = r.client.List(ctx, tasks, client.MatchingFields{jobOwnerKey: string(job.UID)}, client.InNamespace(job.Namespace))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to list owned Tasks for Job %s/%s: %w", job.Namespace, job.Name, err)
 	}
@@ -150,6 +155,9 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmc.Job, jobPatch 
 
 	// Create the first Task for the Job
 	if err := r.createTaskWithOwner(ctx, *job, completedTasksCount, machine.Spec.Connection); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return r.handleExistingTask(ctx, job, jobPatch, completedTasksCount)
+		}
 		// Set the Job condition Failed True
 		job.SetCondition(bmc.JobFailed, bmc.ConditionTrue, bmc.WithJobConditionMessage(err.Error()))
 		patchErr := r.patchStatus(ctx, job, jobPatch)
@@ -161,6 +169,66 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmc.Job, jobPatch 
 	}
 
 	// Patch the status at the end of reconcile loop
+	err = r.patchStatus(ctx, job, jobPatch)
+	return ctrl.Result{}, err
+}
+
+// handleExistingTask handles a Task that could not be created because one with its name already exists.
+// Task names are deterministic, so this happens when the cache doesn't show yet a Task that this Job
+// created on an earlier pass, or when a deleted Job of the same name left its Tasks behind. The Task is
+// read without the cache. The Job waits for the Task's watch events, which enqueue it, if the Task is this
+// Job's, or is being deleted and owned by a Job of this name; it checks again later for any other Task
+// being deleted. A Task left by a deleted Job of the same name is deleted. Only a live Task owned by
+// something else fails the Job.
+func (r *JobReconciler) handleExistingTask(ctx context.Context, job *bmc.Job, jobPatch client.Patch, taskIndex int) (ctrl.Result, error) {
+	key := types.NamespacedName{Namespace: job.Namespace, Name: bmc.FormatTaskName(*job, taskIndex)}
+	task := &bmc.Task{}
+	err := r.reader.Get(ctx, key, task)
+	if client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get existing Task %s: %w", key, err)
+	}
+	if apierrors.IsNotFound(err) {
+		// Deleted since the create failed: try again.
+		if err := r.patchStatus(ctx, job, jobPatch); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{RequeueAfter: time.Second}, nil
+	}
+
+	ref := metav1.GetControllerOf(task)
+	ownedByJobOfThisName := ref != nil && ref.Kind == "Job" && ref.APIVersion == bmc.GroupVersion.String() && ref.Name == job.Name
+	switch {
+	case ownedByJobOfThisName && (ref.UID == job.UID || !task.DeletionTimestamp.IsZero()):
+		// Wait for the Task's watch events: they enqueue the Job its controller reference names, this one.
+	case !task.DeletionTimestamp.IsZero():
+		// The Task's watch events enqueue another Job, or none, so check again once it may be gone.
+		if err := r.patchStatus(ctx, job, jobPatch); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{RequeueAfter: time.Second}, nil
+	case ownedByJobOfThisName:
+		// This Job holds the name now, so the Job that owned the Task is gone and the Task is an orphan.
+		// Nothing deletes it with the embedded kube-apiserver, which has no garbage collector.
+		opts := []client.DeleteOption{
+			client.PropagationPolicy(metav1.DeletePropagationBackground),
+			client.Preconditions{UID: &task.UID},
+		}
+		if err := r.client.Delete(ctx, task, opts...); client.IgnoreNotFound(err) != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete Task %s left by a deleted Job: %w", key, err)
+		}
+	default:
+		owner := "no controller"
+		if ref != nil {
+			owner = fmt.Sprintf("%s %s (uid %s)", ref.Kind, ref.Name, ref.UID)
+		}
+		err := fmt.Errorf("task %s already exists and is owned by %s", key, owner)
+		job.SetCondition(bmc.JobFailed, bmc.ConditionTrue, bmc.WithJobConditionMessage(err.Error()))
+		if patchErr := r.patchStatus(ctx, job, jobPatch); patchErr != nil {
+			return ctrl.Result{}, utilerrors.NewAggregate([]error{patchErr, err})
+		}
+		return ctrl.Result{}, err
+	}
+
 	err = r.patchStatus(ctx, job, jobPatch)
 	return ctrl.Result{}, err
 }
@@ -249,7 +317,7 @@ func (r *JobReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, 
 		Complete(r)
 }
 
-// TaskOwnerIndexFunc is Indexer func which returns the owner name for obj.
+// TaskOwnerIndexFunc is Indexer func which returns the owner UID for obj.
 func TaskOwnerIndexFunc(obj client.Object) []string {
 	task, ok := obj.(*bmc.Task)
 	if !ok {
@@ -266,5 +334,5 @@ func TaskOwnerIndexFunc(obj client.Object) []string {
 		return nil
 	}
 
-	return []string{owner.Name}
+	return []string{string(owner.UID)}
 }
