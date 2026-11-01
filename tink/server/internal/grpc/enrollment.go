@@ -1,11 +1,13 @@
 package grpc
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
@@ -47,6 +49,11 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 		journal.Log(ctx, "error getting workflow rules", "error", err)
 		return errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow rules: %v", err))
 	}
+	// The backend lists WorkflowRuleSets in no particular order. Sort them by namespace, then name,
+	// so that when several match the same number of rules, the first of them always wins.
+	slices.SortFunc(wrs, func(a, b tinkerbell.WorkflowRuleSet) int {
+		return cmp.Or(cmp.Compare(a.Namespace, b.Namespace), cmp.Compare(a.Name, b.Name))
+	})
 	name, err := makeValidName(agentID, workflowPrefix)
 	if err != nil {
 		journal.Log(ctx, "error making agentID a valid Kubernetes name", "error", err)
