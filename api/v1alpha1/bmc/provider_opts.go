@@ -122,6 +122,7 @@ type HMACOpts struct {
 	// +optional
 	PrefixSigDisabled bool `json:"prefixSigDisabled,omitempty"`
 	// Secrets are a map of algorithms to secrets used for signing.
+	// A secret reference without a namespace refers to a Secret in the namespace of the Machine or Task.
 	// +optional
 	Secrets HMACSecrets `json:"secrets,omitempty"`
 }

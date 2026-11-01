@@ -48,7 +48,9 @@ func (b *Backend) FilterBMCMachine(ctx context.Context, opts data.HardwareFilter
 		response.CipherSuite = ternary(bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.CipherSuite == "", defaultIPMICipherSuite, bmcMachine.Spec.Connection.ProviderOptions.IPMITOOL.CipherSuite)
 	}
 
-	username, password, err := b.ReadAuthSecret(ctx, bmcMachine.Spec.Connection.AuthSecretRef.Name, bmcMachine.Spec.Connection.AuthSecretRef.Namespace)
+	// A Secret reference without a namespace refers to a Secret in the Machine's namespace.
+	secretRef := bmcMachine.Spec.Connection.AuthSecretRef
+	username, password, err := b.ReadAuthSecret(ctx, secretRef.Name, ternary(secretRef.Namespace == "", bmcMachine.Namespace, secretRef.Namespace))
 	if err != nil {
 		return nil, err
 	}
