@@ -101,7 +101,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmc.Task, taskPa
 	if task.Spec.Connection.ProviderOptions != nil && task.Spec.Connection.ProviderOptions.RPC != nil {
 		opts.ProviderOptions = task.Spec.Connection.ProviderOptions
 		if task.Spec.Connection.ProviderOptions.RPC.HMAC != nil && len(task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
-			se, err := retrieveHMACSecrets(ctx, r.client, task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets)
+			se, err := retrieveHMACSecrets(ctx, r.client, task.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets, task.Namespace)
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("unable to get hmac secrets: %w", err)
 			}
@@ -111,7 +111,7 @@ func (r *TaskReconciler) doReconcile(ctx context.Context, task *bmc.Task, taskPa
 		// Fetching username, password from SecretReference in Connection.
 		// Requeue if error fetching secret
 		var err error
-		username, password, err = resolveAuthSecretRef(ctx, r.client, task.Spec.Connection.AuthSecretRef)
+		username, password, err = resolveAuthSecretRef(ctx, r.client, task.Spec.Connection.AuthSecretRef, task.Namespace)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("resolving connection secret for task %s/%s: %w", task.Namespace, task.Name, err)
 		}
