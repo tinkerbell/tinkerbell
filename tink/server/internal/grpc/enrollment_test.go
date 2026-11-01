@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
@@ -269,6 +270,64 @@ func TestEnrollWorkflowNamespace(t *testing.T) {
 			_ = handler.enroll(context.Background(), "worker-123", attr, tt.hardware)
 			if got != tt.want {
 				t.Fatalf("Workflow created in %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEnrollWorkflowRuleSetOrder(t *testing.T) {
+	ruleSet := func(namespace, name string, rules ...string) tinkerbell.WorkflowRuleSet {
+		return tinkerbell.WorkflowRuleSet{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Spec:       tinkerbell.WorkflowRuleSetSpec{Rules: rules},
+		}
+	}
+	serial := `{"chassis": {"serial": ["12345"]}}`
+	anyMAC := `{"networkInterfaces": {"mac": [{"wildcard": "*"}]}}`
+	tests := map[string]struct {
+		ruleSets  []tinkerbell.WorkflowRuleSet
+		wantOwner string
+	}{
+		"tie goes to the first name": {
+			ruleSets:  []tinkerbell.WorkflowRuleSet{ruleSet("tink", "zzz-default", anyMAC), ruleSet("tink", "server", serial)},
+			wantOwner: "tink/server",
+		},
+		"tie goes to the first namespace": {
+			ruleSets:  []tinkerbell.WorkflowRuleSet{ruleSet("zone-b", "a", serial), ruleSet("zone-a", "z", serial)},
+			wantOwner: "zone-a/z",
+		},
+		"more matching rules win over a first name": {
+			ruleSets:  []tinkerbell.WorkflowRuleSet{ruleSet("tink", "zzz-default", anyMAC, serial), ruleSet("tink", "server", serial)},
+			wantOwner: "tink/zzz-default",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// The result must not depend on the order the backend lists the WorkflowRuleSets in.
+			for _, ruleSets := range [][]tinkerbell.WorkflowRuleSet{tt.ruleSets, {tt.ruleSets[1], tt.ruleSets[0]}} {
+				var got string
+				caps := &mockAutoCapabilities{
+					ListWorkflowRuleSetsFunc: func(context.Context, data.WorkflowFilter) ([]tinkerbell.WorkflowRuleSet, error) {
+						return slices.Clone(ruleSets), nil
+					},
+					CreateWorkflowFunc: func(_ context.Context, wf *tinkerbell.Workflow) error {
+						got = wf.Namespace + "/" + wf.OwnerReferences[0].Name
+						return nil
+					},
+				}
+				handler := &Handler{
+					AutoCapabilities: AutoCapabilities{Enrollment: AutoEnrollment{Enabled: true, WorkflowRuleSetLister: caps, WorkflowCreator: caps}},
+					Backend:          &mockBackendReadWriter{},
+				}
+				attr := convert(&proto.AgentAttributes{
+					Chassis: &proto.Chassis{Serial: toPtr("12345")},
+					Network: []*proto.Network{{Mac: toPtr("de:ad:be:ef:00:00")}},
+				})
+				_ = handler.enroll(context.Background(), "worker-123", attr, nil)
+				if got != tt.wantOwner {
+					t.Fatalf("Workflow created from WorkflowRuleSet %q, want %q (listed as %v/%v, %v/%v)", got, tt.wantOwner,
+						ruleSets[0].Namespace, ruleSets[0].Name, ruleSets[1].Namespace, ruleSets[1].Name)
+				}
 			}
 		})
 	}
