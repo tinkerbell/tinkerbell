@@ -5,6 +5,8 @@
 This repo has two Go modules, the top level module and the `api` module. The top level module is for the Tinkerbell and Agent binaries. The `api` module is for the API definitions.
 The top level module is versioned as `vX.Y.Z`. The `api` module is versioned as `api/vX.Y.Z`. Both version tags are created using the `./script/tag-release.sh` script.
 
+A `vX.Y.Z` tag must point to a commit on `main`, and be the highest semver tag on it: prereleases such as `vX.Y.Z-rc.1` count, `api/vX.Y.Z` doesn't. CI refuses to publish a tag that breaks either rule.
+
 For version vX.Y.Z:
 
 1. Create the annotated tag
