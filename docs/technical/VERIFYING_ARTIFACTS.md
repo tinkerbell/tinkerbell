@@ -2,11 +2,11 @@
 
 CI signs every artifact it publishes, with keyless [Sigstore](https://www.sigstore.dev/) signatures tied to the workflow that built it. There are no keys to fetch.
 
-| Artifact | Signed with |
-| --- | --- |
-| `ghcr.io/tinkerbell/tinkerbell`, `ghcr.io/tinkerbell/tink-agent` | cosign |
-| `oci://ghcr.io/tinkerbell/charts/tinkerbell` | cosign |
-| `tinkerbell-embedded-linux-{amd64,arm64}` release assets | GitHub build provenance attestation |
+| Artifact | Signed with | SBOM |
+| --- | --- | --- |
+| `ghcr.io/tinkerbell/tinkerbell`, `ghcr.io/tinkerbell/tink-agent` | cosign | SPDX, attached to the image by BuildKit |
+| `oci://ghcr.io/tinkerbell/charts/tinkerbell` | cosign | none |
+| `tinkerbell-embedded-linux-{amd64,arm64}` release assets | GitHub build provenance attestation | SPDX, `<binary>.spdx.json` release asset |
 
 Releases are signed by `https://github.com/tinkerbell/tinkerbell/.github/workflows/ci.yaml@refs/tags/<version>`. Builds of `main` are signed by `...ci.yaml@refs/heads/main`. Check the identity that matches what you deploy: a `main` build does not verify as a release.
 
@@ -14,6 +14,7 @@ Requirements:
 
 - [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) v3 or later. cosign v2.6 and later also work with `--new-bundle-format`.
 - [gh](https://cli.github.com/), logged in with `gh auth login`, for the release binaries.
+- `docker buildx`, to read the image SBOMs.
 - Flux v2.8.0 or later, to verify the chart from Flux.
 
 The examples use:
@@ -31,6 +32,23 @@ cosign verify "ghcr.io/tinkerbell/tinkerbell:${VERSION}" \
 ```
 
 The same works for `ghcr.io/tinkerbell/tink-agent`. The multi-platform index and each platform manifest are signed, so a reference pinned to either digest verifies too.
+
+## Image SBOMs
+
+Resolve the tag to a digest, verify that digest, and read the SBOM from it. Reading by digest guarantees the SBOM belongs to the image you verified.
+
+```sh
+IMAGE=ghcr.io/tinkerbell/tinkerbell
+DIGEST=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{ .Manifest.Digest }}')
+
+cosign verify "${IMAGE}@${DIGEST}" \
+  --certificate-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/ci.yaml@refs/tags/${VERSION}" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+docker buildx imagetools inspect "${IMAGE}@${DIGEST}" --format '{{ json .SBOM }}'
+```
+
+The output holds one SPDX document per platform. `cosign verify-attestation` does not see these SBOMs: BuildKit references them from the image index, which the image signature covers.
 
 ## Helm chart
 
@@ -87,4 +105,4 @@ gh attestation verify tinkerbell-embedded-linux-amd64 \
   --source-ref "refs/tags/${VERSION}"
 ```
 
-Run `gh attestation verify` for each file you use.
+Run `gh attestation verify` for each file you use: the attestation also covers the `.spdx.json` SBOMs.

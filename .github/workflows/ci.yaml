@@ -493,8 +493,24 @@ jobs:
       - name: Fix permissions
         run: chmod +x out/tinkerbell-*
 
+      - name: Install syft
+        id: syft
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          syft-version: v1.55.0
+
+      # syft reads the Go module list embedded in each binary.
+      - name: Generate SBOMs
+        run: |
+          for binary in tinkerbell-embedded-linux-amd64 tinkerbell-embedded-linux-arm64; do
+            "${SYFT}" scan "file:out/${binary}" -o "spdx-json=out/${binary}.spdx.json"
+          done
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
+
+      # The SBOMs are listed too, so the provenance attestation covers them.
       - name: Generate checksums
-        run: cd out && sha256sum tinkerbell-embedded-linux-amd64 tinkerbell-embedded-linux-arm64 > checksums-embedded.txt
+        run: cd out && sha256sum tinkerbell-embedded-linux-amd64 tinkerbell-embedded-linux-arm64 tinkerbell-embedded-linux-amd64.spdx.json tinkerbell-embedded-linux-arm64.spdx.json > checksums-embedded.txt
 
       # One SLSA provenance attestation whose subjects are the files in the
       # checksums file, stored by GitHub and verified with
@@ -512,4 +528,5 @@ jobs:
           generateReleaseNotes: true
           draft: true
           prerelease: true
+          # The first glob also matches the SBOMs (<binary>.spdx.json).
           artifacts: "out/tinkerbell-embedded-linux-*,out/checksums-embedded.txt"
