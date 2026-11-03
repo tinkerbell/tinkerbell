@@ -463,6 +463,28 @@ func TestTaskReconcileStartedTaskSurvivesBMCConnectionError(t *testing.T) {
 	}
 }
 
+// A OneTimeBootDeviceAction with an empty device list fails the Task instead of panicking.
+func TestTaskReconcileOneTimeBootDeviceWithoutDevices(t *testing.T) {
+	secret := createSecret()
+	task := createTask("BootPXE", bmc.Action{OneTimeBootDeviceAction: &bmc.OneTimeBootDeviceAction{Devices: []bmc.BootDevice{}}}, secret)
+
+	cluster := newClientBuilder().WithObjects(task, secret).Build()
+	reconciler := controller.NewTaskReconciler(cluster, newTestClient(&testProvider{BootdeviceOK: true}))
+	request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: task.Namespace, Name: task.Name}}
+
+	if _, err := reconciler.Reconcile(context.Background(), request); err == nil {
+		t.Fatal("expected an error for a OneTimeBootDeviceAction without devices")
+	}
+
+	var retrieved bmc.Task
+	if err := cluster.Get(context.Background(), request.NamespacedName, &retrieved); err != nil {
+		t.Fatalf("expected nil err, got: %v", err)
+	}
+	if !retrieved.HasCondition(bmc.TaskFailed, bmc.ConditionTrue) {
+		t.Fatalf("expected the TaskFailed condition, got: %v", retrieved.Status.Conditions)
+	}
+}
+
 // Once a started Task exceeds the task timeout it is failed even when the BMC cannot be reached,
 // so a dead BMC cannot keep a Task requeuing forever.
 func TestTaskReconcileStartedTaskTimesOutWithoutBMC(t *testing.T) {
