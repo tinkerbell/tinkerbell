@@ -7,6 +7,11 @@ on:
       - "v**"
   pull_request:
 
+# Jobs that publish declare the extra permissions they need. A job-level
+# block replaces this one, so it must also grant contents (read or write).
+permissions:
+  contents: read
+
 env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/${{ github.repository }}
@@ -301,6 +306,9 @@ jobs:
 
   build-publish-container-images:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     if: |
       github.ref == 'refs/heads/main' ||
       startsWith(github.ref, 'refs/tags/v')
@@ -368,6 +376,9 @@ jobs:
 
   package-publish-helm-chart:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     if: |
       github.ref == 'refs/heads/main' ||
       startsWith(github.ref, 'refs/tags/v')
@@ -418,6 +429,8 @@ jobs:
 
   release-notes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
       - package-publish-helm-chart
