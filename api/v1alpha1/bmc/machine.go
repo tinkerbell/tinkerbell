@@ -102,7 +102,8 @@ type Connection struct {
 
 	// AuthSecretRef is the SecretReference that contains authentication information of the Machine.
 	// The Secret must contain username and password keys. This is optional as it is not required when using
-	// the RPC provider.
+	// the RPC provider. If its namespace is empty, the Secret is in the namespace of the Machine or Task that
+	// holds this Connection.
 	// +optional
 	AuthSecretRef corev1.SecretReference `json:"authSecretRef"`
 

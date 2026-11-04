@@ -28,7 +28,7 @@ spec:
     insecureTLS: false
 ```
 
-The `connection` object contains the required fields for establishing a BMC connection. Fields `host`, `port` represent the BMC IP for the physical machine and `insecureTLS` instructs weather to use insecure TLS connectivity for performing BMC API calls. Field `authSecretRef` is a `SecretReference` which points to a kubernetes secret that contains the username/password for authenticating BMC API calls.
+The `connection` object contains the required fields for establishing a BMC connection. Fields `host`, `port` represent the BMC IP for the physical machine and `insecureTLS` instructs weather to use insecure TLS connectivity for performing BMC API calls. Field `authSecretRef` is a `SecretReference` which points to a kubernetes secret that contains the username/password for authenticating BMC API calls. If `authSecretRef.namespace` is empty, the secret is looked up in the namespace of the Machine.
 
 ### Machine controller
 
@@ -85,6 +85,8 @@ spec:
   task:
     powerAction: "on"
 ```
+
+If a secret reference in the `connection` of a Task has no namespace, the secret is looked up in the namespace of the Task. A Task created for a Job gets the `connection` of the Job's Machine, with secret references that have no namespace set to the Machine's namespace.
 
 ### Task controller
 

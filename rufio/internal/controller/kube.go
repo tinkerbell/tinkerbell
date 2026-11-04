@@ -13,10 +13,11 @@ import (
 )
 
 // resolveAuthSecretRef Gets the Secret from the SecretReference.
+// A SecretReference without a namespace refers to a Secret in namespace.
 // Returns the username and password encoded in the Secret.
-func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef v1.SecretReference) (string, string, error) {
+func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef v1.SecretReference, namespace string) (string, string, error) {
 	secret := &v1.Secret{}
-	key := types.NamespacedName{Namespace: secretRef.Namespace, Name: secretRef.Name}
+	key := secretKey(secretRef, namespace)
 
 	if err := c.Get(ctx, key, secret); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -37,6 +38,16 @@ func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef v1.Sec
 	}
 
 	return string(username), string(password), nil
+}
+
+// secretKey returns the key of the Secret that ref refers to. A ref without a namespace refers to a
+// Secret in namespace, which is the namespace of the object holding ref.
+func secretKey(ref v1.SecretReference, namespace string) types.NamespacedName {
+	if ref.Namespace != "" {
+		namespace = ref.Namespace
+	}
+
+	return types.NamespacedName{Namespace: namespace, Name: ref.Name}
 }
 
 // toPowerState takes a raw BMC power state response and converts it to a v1alpha1.PowerState.

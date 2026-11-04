@@ -124,6 +124,65 @@ func TestJobReconcile(t *testing.T) {
 	}
 }
 
+// A Task is created in its Job's namespace, which can differ from the Machine's, so the Task's Secret
+// references without a namespace must refer to the Machine's namespace.
+func TestJobReconcileTaskSecretNamespaces(t *testing.T) {
+	machine := func(authSecretRef corev1.SecretReference, hmacNamespace string) *bmc.Machine {
+		m := createMachineWithRPC(secretInNamespace(createHMACSecret(), hmacNamespace))
+		m.Spec.Connection.AuthSecretRef = authSecretRef
+		return m
+	}
+	tests := map[string]struct {
+		machine           *bmc.Machine
+		wantAuthSecretRef corev1.SecretReference
+		wantHMACNamespace string
+	}{
+		"without a namespace refer to the Machine's namespace": {
+			machine:           machine(corev1.SecretReference{Name: "test-bm-auth"}, ""),
+			wantAuthSecretRef: corev1.SecretReference{Name: "test-bm-auth", Namespace: "test-namespace"},
+			wantHMACNamespace: "test-namespace",
+		},
+		"with a namespace are unchanged": {
+			machine:           machine(corev1.SecretReference{Name: "test-bm-auth", Namespace: "other"}, "other"),
+			wantAuthSecretRef: corev1.SecretReference{Name: "test-bm-auth", Namespace: "other"},
+			wantHMACNamespace: "other",
+		},
+		"an unset AuthSecretRef stays unset": {
+			machine:           machine(corev1.SecretReference{}, ""),
+			wantAuthSecretRef: corev1.SecretReference{},
+			wantHMACNamespace: "test-namespace",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			job := createJob("secret-namespaces", tt.machine, getAction("PowerOn"))
+			clnt := newClientBuilder().
+				WithObjects(job, tt.machine).
+				WithIndex(&bmc.Task{}, ".metadata.controller", controller.TaskOwnerIndexFunc).
+				Build()
+
+			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: job.Namespace, Name: job.Name}}
+			if _, err := controller.NewJobReconciler(clnt).Reconcile(context.Background(), request); err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+
+			var task bmc.Task
+			taskKey := types.NamespacedName{Namespace: job.Namespace, Name: bmc.FormatTaskName(*job, 0)}
+			if err := clnt.Get(context.Background(), taskKey, &task); err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			conn := task.Spec.Connection
+			if diff := cmp.Diff(tt.wantAuthSecretRef, conn.AuthSecretRef); diff != "" {
+				t.Errorf("unexpected Task AuthSecretRef (-want +got):\n%s", diff)
+			}
+			if got := conn.ProviderOptions.RPC.HMAC.Secrets["sha256"][0].Namespace; got != tt.wantHMACNamespace {
+				t.Errorf("Task HMAC Secret reference namespace = %q, want %q", got, tt.wantHMACNamespace)
+			}
+		})
+	}
+}
+
 func createJob(name string, machine *bmc.Machine, t ...bmc.Action) *bmc.Job {
 	tasks := []bmc.Action{}
 	if len(t) > 0 {
