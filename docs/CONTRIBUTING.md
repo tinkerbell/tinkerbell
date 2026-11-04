@@ -12,6 +12,7 @@ Thanks for contributing!
 - [Prerequisites](#prerequisites)
   - [DCO Sign Off](#dco-sign-off)
   - [Code of Conduct](#code-of-conduct)
+  - [AI-Assisted Contributions](#ai-assisted-contributions)
 - [Development](#development)
   - [Setting up your development environment](#setting-up-your-development-environment)
   - [Building](#building)
@@ -58,6 +59,10 @@ Please read and understand the DCO found [here](https://github.com/tinkerbell/or
 ### Code of Conduct
 
 Please read and understand the code of conduct found [here](https://github.com/tinkerbell/.github/blob/main/CODE_OF_CONDUCT.md).
+
+### AI-Assisted Contributions
+
+AI tools may be used, but you must disclose their use in the PR description and be able to explain every change. Don't add AI tools as commit trailers. See the [AI Policy](AI_POLICY.md).
 
 ## Development
 
@@ -109,6 +114,7 @@ This checklist is a helper to make sure there's no gotchas that come up when you
 
 - [ ] You've reviewed the [code of conduct](#code-of-conduct)
 - [ ] All commits are DCO signed off
+- [ ] AI use is disclosed per the [AI Policy](AI_POLICY.md)
 - [ ] Code is [formatted and linted](#linting)
 - [ ] Code [builds](#building) successfully
 - [ ] All tests are [passing](#unit-testing)
