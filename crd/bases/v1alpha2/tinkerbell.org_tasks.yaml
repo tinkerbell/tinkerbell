@@ -97,6 +97,7 @@ spec:
                       description: |-
                         Image is an OCI image. Should generally be a fully qualified OCI image reference.
                         For example, quay.io/tinkerbell/actions/image2disk:v1.0.0 or docker.io/library/alpine:3.23
+                        Mutually exclusive with Run; exactly one of Image or Run must be set.
                       type: string
                     name:
                       description: Name is a human readable name for the Action.
@@ -118,6 +119,19 @@ spec:
                         Zero value means no retries.
                       minimum: 0
                       type: integer
+                    run:
+                      description: |-
+                        Run is an inline script executed directly on the host the Agent runs on, outside any
+                        container runtime. The Agent writes the contents to a file and invokes it with Shell.
+                        Mutually exclusive with Image; exactly one of Image or Run must be set.
+                      type: string
+                    shell:
+                      description: |-
+                        Shell is the interpreter argv used to execute Run, e.g. ["python3", "-u"].
+                        Defaults to ["bash", "-x", "-e"]. Only valid together with Run.
+                      items:
+                        type: string
+                      type: array
                     timeoutSeconds:
                       description: |-
                         TimeoutSeconds is the total number of seconds the Action is allowed to run without completing
@@ -140,7 +154,6 @@ spec:
                         type: string
                       type: array
                   required:
-                  - image
                   - name
                   type: object
                 type: array

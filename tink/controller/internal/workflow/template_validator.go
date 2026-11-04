@@ -76,8 +76,8 @@ func validate(wf *Workflow) error {
 				return fmt.Errorf(errInvalidLength, action.Name)
 			}
 
-			if err := validateImageName(action.Image); err != nil {
-				return fmt.Errorf("invalid action image (%s): %v", action.Image, err)
+			if err := validateActionSource(action); err != nil {
+				return err
 			}
 
 			_, ok := actionNameMap[action.Name]
@@ -97,4 +97,25 @@ func hasValidLength(name string) bool {
 func validateImageName(name string) error {
 	_, err := reference.ParseNormalizedNamed(name)
 	return err
+}
+
+// validateActionSource checks that an action defines exactly one execution source: either an OCI
+// image run by a container runtime, or an inline script run directly on the Agent host.
+func validateActionSource(action Action) error {
+	switch {
+	case action.Image != "" && action.Run != "":
+		return fmt.Errorf("action (%s): image and run are mutually exclusive", action.Name)
+	case action.Image == "" && action.Run == "":
+		return fmt.Errorf("action (%s): one of image or run is required", action.Name)
+	case action.Run == "" && len(action.Shell) > 0:
+		return fmt.Errorf("action (%s): shell requires run", action.Name)
+	}
+
+	if action.Image != "" {
+		if err := validateImageName(action.Image); err != nil {
+			return fmt.Errorf("invalid action image (%s): %v", action.Image, err)
+		}
+	}
+
+	return nil
 }

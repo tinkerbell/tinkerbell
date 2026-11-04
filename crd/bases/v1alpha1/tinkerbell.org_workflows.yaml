@@ -471,6 +471,13 @@ spec:
                       items:
                         description: Action represents a workflow action.
                         properties:
+                          background:
+                            description: |-
+                              Background indicates the Action is reported successful before it is executed, and then
+                              run detached in the background with no timeout while the Workflow moves on to the next
+                              Action. Useful for Actions that terminate the Agent itself, such as kexec, reboot, or
+                              power off, where the Workflow must reach a completed state first.
+                            type: boolean
                           command:
                             items:
                               type: string
@@ -490,6 +497,9 @@ spec:
                           id:
                             type: string
                           image:
+                            description: |-
+                              Image is an OCI image the Action runs as a container. Mutually exclusive with run;
+                              exactly one of image or run must be set.
                             type: string
                           message:
                             type: string
@@ -521,6 +531,19 @@ spec:
                               will be removed in a future release. Use namespaces.pid
                               instead.'
                             type: string
+                          run:
+                            description: |-
+                              Run is an inline script executed directly on the Agent host, outside any container
+                              runtime. The Agent writes the contents to a file and invokes it with shell. Mutually
+                              exclusive with image; exactly one of image or run must be set.
+                            type: string
+                          shell:
+                            description: |-
+                              Shell is the interpreter argv used to execute run, e.g. ["python3", "-u"]. Defaults to
+                              ["bash", "-x", "-e"]. Only valid together with run.
+                            items:
+                              type: string
+                            type: array
                           state:
                             type: string
                           timeout:

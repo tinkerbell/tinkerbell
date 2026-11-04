@@ -84,6 +84,68 @@ func TestYAMLToStatus(t *testing.T) {
 			},
 		},
 		{
+			"Host script actions",
+			&Workflow{
+				Version:       "1",
+				Name:          "captain-provision",
+				ID:            "ghi-789",
+				GlobalTimeout: 300,
+				Tasks: []Task{
+					{
+						Name:       "script-task",
+						WorkerAddr: "00:00:53:00:53:F4",
+						Actions: []Action{
+							{
+								Name:    "wipe-disk",
+								Run:     "sgdisk --zap-all /dev/nvme0n1\n",
+								Timeout: 120,
+							},
+							{
+								Name:  "collect-inventory",
+								Run:   "print('hi')",
+								Shell: []string{"python3", "-u"},
+							},
+							{
+								Name:       "reboot",
+								Run:        "systemctl reboot\n",
+								Background: true,
+							},
+						},
+					},
+				},
+			},
+			&v1alpha1.WorkflowStatus{
+				GlobalTimeout: 300,
+				AgentID:       "00:00:53:00:53:F4",
+				Tasks: []v1alpha1.Task{
+					{
+						Name:    "script-task",
+						AgentID: "00:00:53:00:53:F4",
+						Actions: []v1alpha1.Action{
+							{
+								Name:    "wipe-disk",
+								Run:     "sgdisk --zap-all /dev/nvme0n1\n",
+								Timeout: 120,
+								State:   v1alpha1.WorkflowStatePending,
+							},
+							{
+								Name:  "collect-inventory",
+								Run:   "print('hi')",
+								Shell: []string{"python3", "-u"},
+								State: v1alpha1.WorkflowStatePending,
+							},
+							{
+								Name:       "reboot",
+								Run:        "systemctl reboot\n",
+								Background: true,
+								State:      v1alpha1.WorkflowStatePending,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			"Action with namespaces",
 			&Workflow{
 				Version:       "1",
