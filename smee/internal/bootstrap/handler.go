@@ -13,6 +13,7 @@ import (
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	tinkotel "github.com/tinkerbell/tinkerbell/pkg/otel"
 )
 
 // ArchiveName is the file name the Handler serves.
@@ -94,6 +95,7 @@ func (h *Handler) archiveFor(ctx context.Context, mac net.HardwareAddr) ([]byte,
 	if err != nil {
 		return nil, err
 	}
+	tinkotel.AnnotateHardware(ctx, spec)
 	// Same gate as the iPXE script: the files often carry credentials.
 	if !netbootAllowed(spec, mac) {
 		return nil, errNetbootNotAllowed
