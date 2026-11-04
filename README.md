@@ -35,6 +35,7 @@ The Tinkerbell community meets for a video call weekly on Tuesdays. The details 
 ## Contributing
 
 If you are interested in contributing to Tinkerbell, see our [contributing guidelines](docs/CONTRIBUTING.md).
+If you use AI tools to contribute, see our [AI policy](docs/AI_POLICY.md).
 
 ## Design Philosophy
 
