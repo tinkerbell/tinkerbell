@@ -51,8 +51,8 @@ github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/bmc-toolbox/bmclib/v2 v2.3.6-0.20261015063909-146c9866b98e h1:bi8npMJS9jI2LsT1q7H7ptUNc8kqt0jitjINEbvpdS8=
 github.com/bmc-toolbox/bmclib/v2 v2.3.6-0.20261015063909-146c9866b98e/go.mod h1:xXi1aa+b77paefmouTBGiqdUl3S61gS484qVBBjXQmY=
-github.com/bmc-toolbox/common v0.0.1 h1:9Phffpmv1S0Qcfu/BD5j2rWoYMQ/tkA1sZs/9tmohsE=
-github.com/bmc-toolbox/common v0.0.1/go.mod h1:Cdnkm+edb6C0pVkyCrwh3JTXAe0iUF9diDG/DztPI9I=
+github.com/bmc-toolbox/common v0.0.3 h1:2r/J4cew7JzQzh6zGi9IojGHiLzFL/N1j+HbBgnTvXo=
+github.com/bmc-toolbox/common v0.0.3/go.mod h1:Cdnkm+edb6C0pVkyCrwh3JTXAe0iUF9diDG/DztPI9I=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=
 github.com/bombsimon/logrusr/v2 v2.0.1/go.mod h1:ByVAX+vHdLGAfdroiMg6q0zgq2FODY2lc5YJvzmOJio=
 github.com/bougou/go-ipmi v0.8.3 h1:jegrU+5lx5Moe/MiggLFIHCwDoVPd/BZuIOKYZS3BUY=
