@@ -67,6 +67,10 @@ GO_LICENSES_FQP := $(TOOLS_DIR)/go-licenses-$(GO_LICENSES_VER)
 IMAGE_NAME       ?= tinkerbell/tinkerbell:latest
 IMAGE_NAME_AGENT ?= tinkerbell/tink-agent:latest
 DOCKER_CACHE_FROM ?=
+# BuildKit runs this image to scan each platform and attach an SPDX SBOM to the
+# pushed image. Pinned by digest so the SBOM content doesn't change underneath
+# us; 1.12.1 bundles syft v1.51.0. Dependabot does not update it.
+SBOM_GENERATOR   ?= docker/buildkit-syft-scanner:1.12.1@sha256:873a7458c3c8ac8e32c7b796c10e1600b07b963d2aa000a72a2d97aaaa2d6315
 #############################################
 
 all: help
@@ -301,7 +305,7 @@ image: cross-compile third-party-licenses ## Build the Tinkerbell container imag
 
 .PHONY: build-push-image
 build-push-image: third-party-licenses ## Build and push the container image for both Amd64 and Arm64 architectures.
-	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
+	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push --sbom=generator=$(SBOM_GENERATOR) --metadata-file out/metadata-tinkerbell.json -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
 
 .PHONY: image-agent
 image-agent: cross-compile-agent third-party-licenses ## Build the Tink Agent container image
@@ -309,7 +313,7 @@ image-agent: cross-compile-agent third-party-licenses ## Build the Tink Agent co
 
 .PHONY: build-push-image-agent
 build-push-image-agent: third-party-licenses ## Build and push the container image for both Amd64 and Arm64 architectures.
-	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME_AGENT):$(VERSION) -t $(IMAGE_NAME_AGENT):latest -f Dockerfile.agent .
+	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push --sbom=generator=$(SBOM_GENERATOR) --metadata-file out/metadata-tink-agent.json -t $(IMAGE_NAME_AGENT):$(VERSION) -t $(IMAGE_NAME_AGENT):latest -f Dockerfile.agent .
 
 ######### Build container images - end   #########
 
