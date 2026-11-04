@@ -689,6 +689,9 @@ func bmcTaskType(action bmc.Action) string {
 	if action.PowerAction != nil {
 		return "Power"
 	}
+	if action.SecureBoot != nil {
+		return "SecureBoot"
+	}
 	return "Unknown"
 }
 

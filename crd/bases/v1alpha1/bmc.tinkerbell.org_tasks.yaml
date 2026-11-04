@@ -353,6 +353,105 @@ spec:
                     - cycle
                     - reset
                     type: string
+                  secureBoot:
+                    description: |-
+                      SecureBoot represents a UEFI Secure Boot operation: enabling or disabling Secure Boot,
+                      resetting its key databases, or importing a certificate into one.
+                    maxProperties: 1
+                    minProperties: 1
+                    properties:
+                      allowCustomKeys:
+                        description: |-
+                          AllowCustomKeys enables (true) or disables (false) the platform's out-of-band acceptance
+                          of custom UEFI Secure Boot keys. This is distinct from enabling Secure Boot itself and
+                          from the standardized Setup/Audit/User/Deployed platform mode: it only gates whether a key
+                          store change made through the BMC will be accepted. Not every BMC supports it; the Task
+                          fails with the provider's error if the BMC doesn't.
+                        type: boolean
+                      certificateImport:
+                        description: CertificateImport imports a certificate into
+                          a single Secure Boot key database.
+                        properties:
+                          certificatePEMConfigMapRef:
+                            description: |-
+                              CertificatePEMConfigMapRef references the key of a ConfigMap, in the namespace of the
+                              Workflow, Job or Task, that holds the PEM-encoded certificate to import. A certificate
+                              isn't secret, but is typically too large and too reused across Workflows to inline
+                              directly into an Action.
+                            properties:
+                              key:
+                                description: Key within the ConfigMap's data.
+                                minLength: 1
+                                type: string
+                              name:
+                                description: Name of the ConfigMap.
+                                minLength: 1
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                          database:
+                            description: Database is the UEFI Secure Boot key database
+                              to import the certificate into.
+                            enum:
+                            - PK
+                            - KEK
+                            - db
+                            - dbx
+                            type: string
+                        required:
+                        - certificatePEMConfigMapRef
+                        - database
+                        type: object
+                      databaseResetKeys:
+                        description: DatabaseResetKeys resets a single Secure Boot
+                          key database.
+                        properties:
+                          database:
+                            description: |-
+                              Database is the UEFI Secure Boot key database to reset. PK is not offered; use the
+                              secureBoot resetKeys operation with DeletePK to clear it.
+                            enum:
+                            - db
+                            - KEK
+                            - dbx
+                            type: string
+                          resetType:
+                            description: |-
+                              ResetType is the type of key reset to perform: ResetAllKeysToDefault restores the
+                              database to its platform default, DeleteAllKeys empties it.
+                            enum:
+                            - ResetAllKeysToDefault
+                            - DeleteAllKeys
+                            type: string
+                        required:
+                        - database
+                        - resetType
+                        type: object
+                      enable:
+                        description: Enable enables (true) or disables (false) UEFI
+                          Secure Boot.
+                        type: boolean
+                      resetKeys:
+                        description: |-
+                          ResetKeys resets the Secure Boot key databases as a whole, PK included, as opposed to
+                          DatabaseResetKeys which targets a single database other than PK.
+                        properties:
+                          resetType:
+                            description: |-
+                              ResetType is the type of key reset to perform: ResetAllKeysToDefault restores every
+                              database to its platform default, DeleteAllKeys empties every database including PK, and
+                              DeletePK empties only PK. DeleteAllKeys and DeletePK both put the firmware in Setup Mode.
+                            enum:
+                            - ResetAllKeysToDefault
+                            - DeleteAllKeys
+                            - DeletePK
+                            type: string
+                        required:
+                        - resetType
+                        type: object
+                    type: object
                   virtualMediaAction:
                     description: VirtualMediaAction represents a baseboard management
                       virtual media insert/eject.

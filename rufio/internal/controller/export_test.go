@@ -14,6 +14,7 @@ var (
 	HardwareBMCRefIndexKey  = hardwareBMCRefIndexKey
 	HardwareBMCRefIndexFunc = hardwareBMCRefIndexFunc
 	OutOfBandAttributes     = outOfBandAttributes
+	DisableConfigMapCache   = disableConfigMapCache
 )
 
 // ReconcileInventoryIfDueForTest exposes reconcileInventoryIfDue so tests can
