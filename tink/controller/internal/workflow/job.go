@@ -8,6 +8,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -29,9 +30,33 @@ func (j jobName) String() string {
 
 // this function will update the Workflow status.
 func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobName) (reconcile.Result, error) {
+	// No actions and no job recorded means there is no job to create or track, and so nothing to clean up either.
+	if len(actions) == 0 && s.workflow.Status.BootOptions.Jobs[name.String()].UID == "" {
+		journal.Log(ctx, "no actions provided", "name", name)
+		return reconcile.Result{}, nil
+	}
+
 	// there are 3 phases. 1. Clean up existing 2. Create new 3. Track status
-	// 1. clean up existing job if it wasn't already deleted
-	if j, found := s.workflow.Status.BootOptions.Jobs[name.String()]; found && !j.ExistingJobDeleted {
+	// 1. clean up existing job if it wasn't already deleted.
+	// This must run before the first create, so that only a leftover Job from an earlier Workflow
+	// with the same name is deleted, never the Job this Workflow created (Rufio may already be running it).
+	if j := s.workflow.Status.BootOptions.Jobs[name.String()]; !j.ExistingJobDeleted {
+		existing := &bmc.Job{}
+		err := s.client.Get(ctx, client.ObjectKey{Name: name.String(), Namespace: s.workflow.Namespace}, existing)
+		if client.IgnoreNotFound(err) != nil {
+			journal.Log(ctx, "error getting existing job", "name", name, "error", err)
+			// Returning the error would fail the Workflow over a passing error: try again instead.
+			return reconcile.Result{Requeue: true}, nil //nolint:nilerr,staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
+		}
+		if err == nil && metav1.IsControlledBy(existing, s.workflow) {
+			// This Workflow already created the Job, e.g. with a tink-controller version that created it
+			// before cleaning up. There is nothing to clean up, and createJob adopts it.
+			journal.Log(ctx, "existing job is owned by this workflow, keeping it", "name", name)
+			jStatus := s.workflow.Status.BootOptions.Jobs[name.String()]
+			jStatus.ExistingJobDeleted = true
+			s.workflow.Status.BootOptions.Jobs[name.String()] = jStatus
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
+		}
 		journal.Log(ctx, "deleting existing job", "name", name)
 		result, err := s.deleteExisting(ctx, name)
 		if err != nil {
@@ -43,10 +68,6 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 
 	// 2. create a new job
 	if uid := s.workflow.Status.BootOptions.Jobs[name.String()].UID; uid == "" {
-		if len(actions) == 0 {
-			journal.Log(ctx, "no actions provided", "name", name)
-			return reconcile.Result{}, nil
-		}
 		journal.Log(ctx, "no uid found for job", "name", name)
 		result, err := s.createJob(ctx, actions, name)
 		if err != nil {
@@ -146,13 +167,24 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 	// 2. if there's no existing job, create a new job, update the status with the UID, and return
 
 	rj := &bmc.Job{}
-	if err := s.client.Get(ctx, client.ObjectKey{Name: name.String(), Namespace: s.workflow.Namespace}, rj); err == nil {
+	err := s.client.Get(ctx, client.ObjectKey{Name: name.String(), Namespace: s.workflow.Namespace}, rj)
+	if client.IgnoreNotFound(err) != nil {
+		journal.Log(ctx, "error getting job", "name", name, "error", err)
+		// Returning the error would fail the Workflow over a passing error: try again instead.
+		return reconcile.Result{Requeue: true}, nil //nolint:nilerr,staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
+	}
+	if err == nil {
 		journal.Log(ctx, "job already exists", "name", name)
 		if !rj.DeletionTimestamp.IsZero() {
 			journal.Log(ctx, "job is being deleted", "name", name)
 			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 		}
-		// TODO(jacobweinstock): job exists means that the job name and uid from the status are the same.
+		if !metav1.IsControlledBy(rj, s.workflow) {
+			// A Job of the same name from another Workflow: one created after the clean up phase ran,
+			// or a deleted one the cache still shows. Only a Job this Workflow controls is adopted.
+			journal.Log(ctx, "job is not owned by this workflow, deleting it", "name", name)
+			return s.deleteExisting(ctx, name)
+		}
 		// get the UID and update the status
 		jStatus := s.workflow.Status.BootOptions.Jobs[name.String()]
 		jStatus.UID = rj.GetUID()
@@ -181,6 +213,12 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 	}
 
 	if err := create(ctx, s.client, name.String(), hw, s.workflow.Namespace, actions, ownerRef); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			// The cache doesn't show yet the Job a previous pass created. The next pass adopts it,
+			// or deletes it if it isn't this Workflow's.
+			journal.Log(ctx, "job already exists but is not in the cache yet", "name", name)
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
+		}
 		return reconcile.Result{}, fmt.Errorf("error creating job: %w", err)
 	}
 	journal.Log(ctx, "job created", "name", name)
@@ -203,6 +241,11 @@ func (s *state) trackRunningJob(ctx context.Context, name jobName) (reconcile.Re
 	// get the job
 	rj := &bmc.Job{}
 	if err := s.client.Get(ctx, client.ObjectKey{Name: name.String(), Namespace: s.workflow.Namespace}, rj); err != nil {
+		if !apierrors.IsNotFound(err) {
+			// A passing error: Rufio goes on running the Job, so try again.
+			journal.Log(ctx, "error getting job", "name", name, "error", err)
+			return reconcile.Result{Requeue: true}, trackedStateRunning, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
+		}
 		return reconcile.Result{}, trackedStateError, fmt.Errorf("error getting job: %w", err)
 	}
 	if rj.HasCondition(bmc.JobFailed, bmc.ConditionTrue) {

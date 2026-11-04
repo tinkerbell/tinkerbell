@@ -46,7 +46,7 @@ func TestJobReconcile(t *testing.T) {
 				WithIndex(&bmc.Task{}, ".metadata.controller", controller.TaskOwnerIndexFunc).
 				Build()
 
-			reconciler := controller.NewJobReconciler(clnt)
+			reconciler := controller.NewJobReconciler(clnt, clnt)
 
 			request := reconcile.Request{
 				NamespacedName: types.NamespacedName{
