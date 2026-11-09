@@ -5,10 +5,10 @@ go 1.26.8
 require (
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/a-h/templ v0.3.1070
+	github.com/a-h/templ v0.3.1100
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/bmc-toolbox/bmclib/v2 v2.3.6-0.20261015063909-146c9866b98e
-	github.com/bmc-toolbox/common v0.0.1
+	github.com/bmc-toolbox/common v0.0.3
 	github.com/ccoveille/go-safecast/v2 v2.0.1
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/containerd/containerd/v2 v2.3.6
@@ -23,7 +23,7 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-logr/logr v1.4.4
-	github.com/go-playground/validator/v10 v10.30.5
+	github.com/go-playground/validator/v10 v10.30.6
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
@@ -33,7 +33,7 @@ require (
 	github.com/jaypipes/ghw v0.26.0
 	github.com/moby/moby/api v1.56.1
 	github.com/moby/moby/client v0.6.2
-	github.com/nats-io/nats.go v1.54.0
+	github.com/nats-io/nats.go v1.55.0
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/runtime-spec v1.3.0
@@ -45,7 +45,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/tinkerbell/tinkerbell/api v0.0.0 // v0.0.0 is used as a placeholder because a replace directive is used to point to the local api directory
 	github.com/vishvananda/netlink v1.3.1
-	go.etcd.io/etcd/server/v3 v3.7.2
+	go.etcd.io/etcd/server/v3 v3.7.3
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.72.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0
 	go.opentelemetry.io/otel v1.47.0
@@ -54,11 +54,11 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.58.0
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/sync v0.24.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/text v0.43.0
-	google.golang.org/grpc v1.84.0
+	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.36.4
@@ -74,7 +74,7 @@ require (
 )
 
 require (
-	cel.dev/expr v0.25.2 // indirect
+	cel.dev/expr v0.25.3 // indirect
 	cyphar.com/go-pathrs v0.2.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20261006220739-8c912ac31dd4 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
@@ -127,7 +127,7 @@ require (
 	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.15 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.16 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -147,8 +147,8 @@ require (
 	github.com/go-openapi/swag/stringutils v0.28.0 // indirect
 	github.com/go-openapi/swag/typeutils v0.28.0 // indirect
 	github.com/go-openapi/swag/yamlutils v0.28.0 // indirect
-	github.com/go-playground/locales v0.14.1 // indirect
-	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/go-playground/locales v0.14.2 // indirect
+	github.com/go-playground/universal-translator v0.18.2 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
@@ -241,10 +241,10 @@ require (
 	github.com/xiang90/probing v0.0.0-20221125231312-a49e3df8f510 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.etcd.io/bbolt v1.5.0 // indirect
-	go.etcd.io/etcd/api/v3 v3.7.2 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.7.2 // indirect
-	go.etcd.io/etcd/client/v3 v3.7.2 // indirect
-	go.etcd.io/etcd/pkg/v3 v3.7.2 // indirect
+	go.etcd.io/etcd/api/v3 v3.7.3 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.7.3 // indirect
+	go.etcd.io/etcd/client/v3 v3.7.3 // indirect
+	go.etcd.io/etcd/pkg/v3 v3.7.3 // indirect
 	go.etcd.io/raft/v3 v3.7.0 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
