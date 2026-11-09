@@ -68,6 +68,7 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		EmbeddedGlobalConfig: flag.EmbeddedGlobalConfig{
 			EnableKubeAPIServer: (embeddedApiserverExecute != nil),
 			EnableETCD:          (embeddedEtcdExecute != nil),
+			KubeAPIServerPKIDir: defaultKubeAPIServerPKIDir,
 		},
 		BackendKubeOptions: flag.BackendKubeOptions{
 			QPS:   defaultQPS,   // Default QPS value. A negative value disables client-side ratelimiting.
@@ -260,6 +261,15 @@ func executeWithOutput(ctx context.Context, cancel context.CancelFunc, args []st
 		startKV = append(startKV, "backendKubeNamespaces", globals.BackendKubeNamespaces)
 	}
 	cliLog.Info("starting tinkerbell", startKV...)
+
+	// The backend and kube-controller-manager read the kubeconfig flag, so the
+	// PKI must exist before either is configured.
+	if globals.EmbeddedGlobalConfig.EnableKubeAPIServer && embeddedApiserverExecute != nil {
+		if err := ensureKubeAPIServerPKI(ctx, cliLog, gfs, globals.EmbeddedGlobalConfig.KubeAPIServerPKIDir,
+			kubeAPIServerSANs(globals.PublicIP, globals.PublicIPv6)); err != nil {
+			return err
+		}
+	}
 
 	// Smee
 	s.Convert(globals.PublicIP, globals.PublicIPv6, globals.BindAddr, globals.BindAddrV6, globals.HTTPPort, globals.HTTPPortV6)
