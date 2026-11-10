@@ -631,14 +631,19 @@ jobs:
           PUSH_OUTPUT: ${{ needs.package-publish-helm-chart.outputs.push-output }}
           HELM_REPO_NAME: ${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
 
-  # Gathers the release assets and their checksums for attest-binaries and
-  # release-notes, so the job holding the OIDC token runs no build tooling.
+  # Gathers the release assets, generates the binaries' SBOMs, and writes
+  # the checksums for attest-binaries and release-notes, so the job holding
+  # the OIDC token runs no build tooling.
   prepare-release:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
       - version
       - build-embedded-binaries
+    # attest-binaries and release-notes check the release assets against
+    # this, for the reason given on build-embedded-binaries.
+    outputs:
+      checksums: ${{ steps.checksums.outputs.checksums }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -659,8 +664,35 @@ jobs:
           path: ./out
           merge-multiple: true
 
+      # Before syft parses them.
+      - name: Check the binaries against the build
+        run: ./script/release-checksums.sh verify out
+        env:
+          SHA256_AMD64: ${{ needs.build-embedded-binaries.outputs.sha256-amd64 }}
+          SHA256_ARM64: ${{ needs.build-embedded-binaries.outputs.sha256-arm64 }}
+
+      - name: Install syft
+        id: syft
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          syft-version: v1.55.0
+
+      # syft reads the Go module list embedded in each binary.
+      - name: Generate SBOMs
+        run: |
+          for binary in tinkerbell-embedded-linux-amd64 tinkerbell-embedded-linux-arm64; do
+            "${SYFT}" scan "file:out/${binary}" -o "spdx-json=out/${binary}.spdx.json"
+          done
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
+          SYFT_CHECK_FOR_APP_UPDATE: "false"
+
       - name: Generate checksums
-        run: ./script/release-checksums.sh write out
+        id: checksums
+        run: |
+          ./script/release-checksums.sh write out tinkerbell-embedded-linux-amd64.spdx.json tinkerbell-embedded-linux-arm64.spdx.json
+          checksums=$(base64 --wrap=0 out/checksums-embedded.txt)
+          echo "checksums=${checksums}" >> "$GITHUB_OUTPUT"
         env:
           SHA256_AMD64: ${{ needs.build-embedded-binaries.outputs.sha256-amd64 }}
           SHA256_ARM64: ${{ needs.build-embedded-binaries.outputs.sha256-arm64 }}
@@ -672,7 +704,10 @@ jobs:
         with:
           name: release-assets
           path: |
-            out/tinkerbell-embedded-linux-*
+            out/tinkerbell-embedded-linux-amd64
+            out/tinkerbell-embedded-linux-arm64
+            out/tinkerbell-embedded-linux-amd64.spdx.json
+            out/tinkerbell-embedded-linux-arm64.spdx.json
             out/checksums-embedded.txt
           if-no-files-found: error
           retention-days: 7
@@ -700,15 +735,16 @@ jobs:
           name: release-assets
           path: ./out
 
-      # Attest only the binaries build-embedded-binaries produced.
+      # Attest only what build-embedded-binaries and prepare-release produced.
       - name: Check the release assets against the build
         run: ./script/release-checksums.sh check out
         env:
           SHA256_AMD64: ${{ needs.build-embedded-binaries.outputs.sha256-amd64 }}
           SHA256_ARM64: ${{ needs.build-embedded-binaries.outputs.sha256-arm64 }}
+          CHECKSUMS: ${{ needs.prepare-release.outputs.checksums }}
 
-      # One SLSA provenance attestation whose subjects are the binaries and
-      # the checksums file, stored by GitHub and verified with
+      # One SLSA provenance attestation whose subjects are the binaries, their
+      # SBOMs and the checksums file, stored by GitHub and verified with
       # `gh attestation verify`.
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
@@ -716,6 +752,8 @@ jobs:
           subject-path: |
             out/tinkerbell-embedded-linux-amd64
             out/tinkerbell-embedded-linux-arm64
+            out/tinkerbell-embedded-linux-amd64.spdx.json
+            out/tinkerbell-embedded-linux-arm64.spdx.json
             out/checksums-embedded.txt
 
   release-notes:
@@ -725,6 +763,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
       - build-embedded-binaries
+      - prepare-release
       - sign-images
       - sign-chart
       - attest-binaries
@@ -741,16 +780,17 @@ jobs:
           name: release-assets
           path: ./out
 
-      # Publish only the binaries attest-binaries attested.
+      # Publish only what attest-binaries attested.
       - name: Check the release assets against the build
         run: ./script/release-checksums.sh check out
         env:
           SHA256_AMD64: ${{ needs.build-embedded-binaries.outputs.sha256-amd64 }}
           SHA256_ARM64: ${{ needs.build-embedded-binaries.outputs.sha256-arm64 }}
+          CHECKSUMS: ${{ needs.prepare-release.outputs.checksums }}
 
       # Artifact upload doesn't preserve permissions so we need to fix them.
       - name: Fix permissions
-        run: chmod +x out/tinkerbell-*
+        run: chmod +x out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64
 
       - name: Publish Changelog to GitHub
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
@@ -760,4 +800,4 @@ jobs:
           generateReleaseNotes: true
           draft: true
           prerelease: true
-          artifacts: "out/tinkerbell-embedded-linux-amd64,out/tinkerbell-embedded-linux-arm64,out/checksums-embedded.txt"
+          artifacts: "out/tinkerbell-embedded-linux-amd64,out/tinkerbell-embedded-linux-arm64,out/tinkerbell-embedded-linux-amd64.spdx.json,out/tinkerbell-embedded-linux-arm64.spdx.json,out/checksums-embedded.txt"
