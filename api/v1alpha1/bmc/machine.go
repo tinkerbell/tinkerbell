@@ -192,7 +192,7 @@ func WithMachineConditionMessage(m string) MachineSetConditionOption {
 
 // Machine is the Schema for the machines API.
 type Machine struct {
-	metav1.TypeMeta   `json:""`
+	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   MachineSpec   `json:"spec,omitempty"`
@@ -203,7 +203,7 @@ type Machine struct {
 
 // MachineList contains a list of Machines.
 type MachineList struct {
-	metav1.TypeMeta `json:""`
+	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Machine `json:"items"`
 }
