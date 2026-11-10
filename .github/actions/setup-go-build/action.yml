@@ -1,0 +1,62 @@
+name: Set up a Go build
+description: >-
+  Install the Go version in .go-version, restore the Go caches, download the
+  modules and generate the UI assets, so make can build or test. Run it after
+  actions/checkout.
+
+inputs:
+  cache-name:
+    description: >-
+      The name of the build cache to restore. Builds that compile different
+      things keep separate build caches; all of them share the module cache.
+      Pass the same name to save-go-cache.
+    required: true
+  restore-cache:
+    description: Whether to restore the Go caches ("true" or "false").
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: .go-version
+        cache: false
+
+    # The build cache only helps the Go version that wrote it.
+    - name: Get the Go version
+      id: go
+      shell: bash
+      run: echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore Go module cache
+      if: inputs.restore-cache == 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}-
+          ${{ runner.os }}-gomod-
+
+    - name: Restore Go build cache
+      if: inputs.restore-cache == 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/go-build
+        key: ${{ runner.os }}-gobuild-${{ steps.go.outputs.version }}-${{ inputs.cache-name }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-gobuild-${{ steps.go.outputs.version }}-${{ inputs.cache-name }}-${{ hashFiles('**/go.sum') }}-
+          ${{ runner.os }}-gobuild-${{ steps.go.outputs.version }}-${{ inputs.cache-name }}-
+
+    - name: Fix no space errors and Fetch Deps
+      shell: bash
+      run: |
+        # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
+        sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
+        go mod download
+
+    - name: Generate UI assets
+      shell: bash
+      run: make ui-generate

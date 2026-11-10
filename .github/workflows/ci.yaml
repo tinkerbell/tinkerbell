@@ -1,10 +1,9 @@
 name: For each commit and PR
+# Release tags run release.yaml instead.
 on:
   push:
     branches:
       - "main"
-    tags:
-      - "v**"
   pull_request:
 
 # Jobs that publish declare the extra permissions they need. A job-level
@@ -16,11 +15,31 @@ env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/${{ github.repository }}
   CGO_ENABLED: 0
-  GO_VERSION: "1.27"
 
-# Actions are pinned by commit SHA, with the version in a comment, so a moved
-# tag cannot change what runs next to the publishing and signing credentials.
-# Dependabot updates the pins.
+# Actions, here and in .github/actions, are pinned by commit SHA, with the
+# version in a comment, so a moved tag cannot change what runs next to the
+# publishing and signing credentials. Dependabot updates the pins.
+#
+# What runs when:
+#
+#   job                       PR   main
+#   validation                x    x
+#   validate-helm-chart       x    x
+#   build (build.yaml)        x    x
+#   build-container-images    x
+#   version                        x
+#   publish (publish.yaml)         x*
+#   sign                           x*
+#
+#   * Unless the commit carries a release tag: its release.yaml run publishes
+#     it (script/publish-version.sh). These jobs gate on version's publish
+#     output.
+#
+# Artifacts carry binaries between jobs, but any job in the run can replace an
+# artifact. Only a job can set its own outputs, so the jobs that build or push
+# something output its checksums or digest, and the jobs that publish, sign or
+# attest use those outputs, never what came with a download. A matrix leg sets
+# only its own outputs, so the legs don't overwrite each other.
 jobs:
   validation:
     runs-on: ubuntu-latest
@@ -31,64 +50,24 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - name: Set up the Go build
+        uses: ./.github/actions/setup-go-build
         with:
-          go-version: "${{ env.GO_VERSION }}"
-          cache: false
-
-      - name: Restore Go cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-            ${{ runner.os }}-go-
-
-      - name: Fix no space errors and Fetch Deps
-        run: |
-          # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
-          sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
-          go mod download
-
-      - name: Generate UI assets
-        run: make ui-generate
+          cache-name: validation
 
       - name: Run all CI checks, linting, tests, etc
         run: make ci TEST_ARGS="-count=1"
 
-      - name: Trim Go cache
-        if: ${{ github.ref == 'refs/heads/main' }}
-        shell: bash
-        # As the go command works, it either creates build cache files or touches
-        # ones it uses at most once an hour. When it trims the cache, it trims
-        # files that have not been modified/touched in 5+ days.
-        # To keep our saved cache lean, trim all files except ones that were just
-        # created/touched as part of this run.
-        run: |
-          find ~/.cache/go-build -type f -mmin +90 -delete
-
-      - name: Set Go cache date
-        shell: bash
-        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
-
       - name: Save Go cache
         if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: ./.github/actions/save-go-cache
         with:
-          # Caches both the downloaded modules and the compiled build cache.
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          # Save to eg Linux-go-$hash-YYYY-MM-DD to keep the cache fresh
-          key: "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}"
+          cache-name: validation
+          save-module-cache: true
 
       # After the cache save, so the third-party uploader cannot change the
       # cache entry this job saves. Release artifacts don't depend on the
-      # cache: build-binaries and build-embedded-binaries skip it on tags.
+      # cache: release.yaml builds without it.
       - name: upload to codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         env:
@@ -112,13 +91,10 @@ jobs:
         run: make helm-lint helm-test
 
   # Decides, once per run, the version the publishing jobs publish and whether
-  # they publish (script/publish-version.sh), and checks release tags before
-  # anything is published.
+  # they publish (script/publish-version.sh).
   version:
     runs-on: ubuntu-latest
-    if: |
-      github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push'
     outputs:
       version: ${{ steps.version.outputs.version }}
       publish: ${{ steps.version.outputs.publish }}
@@ -130,213 +106,25 @@ jobs:
           fetch-tags: true
           persist-credentials: false
 
-      # A release tag must point to a commit on main. The tag ruleset controls
-      # who can push a tag, not which commit it points to.
-      - name: Check that the tagged commit is on main
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          if ! git rev-parse --verify --quiet origin/main >/dev/null; then
-            echo "::error::origin/main is missing from the checkout"
-            exit 1
-          fi
-          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
-            echo "::error::${GITHUB_REF_NAME} points to ${GITHUB_SHA}, which is not on main"
-            exit 1
-          fi
-
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "${{ env.GO_VERSION }}"
+          go-version-file: .go-version
           cache: false
 
       - name: Decide the version to publish
         id: version
         run: ./script/publish-version.sh
 
-  build-binaries:
-    runs-on: ubuntu-latest
-    # build-publish-container-images checks the downloaded binaries against
-    # these, for the reason given on build-embedded-binaries.
-    outputs:
-      sha256sums-tinkerbell: ${{ steps.checksums.outputs.sha256sums-tinkerbell }}
-      sha256sums-tink-agent: ${{ steps.checksums.outputs.sha256sums-tink-agent }}
-    strategy:
-      matrix:
-        include:
-          - name: tinkerbell
-            make-target: cross-compile
-            artifact-name: tinkerbell-binaries
-          - name: tink-agent
-            make-target: cross-compile-agent
-            artifact-name: tink-agent-binaries
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: "${{ env.GO_VERSION }}"
-          cache: false
-
-      # Release builds start cold, so a cache written by another build cannot
-      # end up in signed release images.
-      - name: Restore Go cache
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-            ${{ runner.os }}-go-
-
-      - name: Fix no space errors and Fetch Deps
-        run: |
-          # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
-          sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
-          go mod download
-
-      - name: Generate UI assets
-        run: make ui-generate
-
-      - name: Compile binaries for ${{ matrix.name }}
-        run: make ${{ matrix.make-target }}
-
-      # Base64 keeps the sha256sum lines on one line.
-      - name: Record the binaries' checksums
-        id: checksums
-        run: |
-          sums=$(sha256sum "out/${NAME}-linux-amd64" "out/${NAME}-linux-arm64")
-          b64=$(base64 --wrap=0 <<<"${sums}")
-          echo "sha256sums-${NAME}=${b64}" >> "$GITHUB_OUTPUT"
-        env:
-          NAME: ${{ matrix.name }}
-
-      - name: Upload binaries
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ${{ matrix.artifact-name }}
-          path: |
-            out/${{ matrix.name }}-*
-          if-no-files-found: error
-
-  build-embedded-binaries:
-    runs-on: ubuntu-latest
-    # The release jobs check the binaries against these. Any job in the run
-    # can replace an artifact, but only this job can set its outputs. Each
-    # matrix leg sets only its own output, so the legs don't overwrite each
-    # other.
-    outputs:
-      sha256-amd64: ${{ steps.checksum.outputs.sha256-amd64 }}
-      sha256-arm64: ${{ steps.checksum.outputs.sha256-arm64 }}
-    strategy:
-      matrix:
-        include:
-          - make-target: cross-compile-embedded-amd64
-            artifact-name: tinkerbell-embedded-linux-amd64
-            goarch: amd64
-          - make-target: cross-compile-embedded-arm64
-            artifact-name: tinkerbell-embedded-linux-arm64
-            goarch: arm64
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: "${{ env.GO_VERSION }}"
-          cache: false
-
-      # Release builds start cold, so a cache written by another build cannot
-      # end up in signed release binaries.
-      - name: Restore Go module cache
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-gomod-
-
-      - name: Restore Go build cache
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/go-build
-          key: ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-
-
-      - name: Fix no space errors and Fetch Deps
-        run: |
-          # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
-          sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
-          go mod download
-
-      - name: Generate UI assets
-        run: make ui-generate
-
-      - name: Compile embedded binary (${{ matrix.goarch }})
-        run: make ${{ matrix.make-target }}
-
-      - name: Record the binary's checksum
-        id: checksum
-        run: |
-          sum=$(sha256sum "out/tinkerbell-embedded-linux-${ARCH}")
-          echo "sha256-${ARCH}=${sum%% *}" >> "$GITHUB_OUTPUT"
-        env:
-          ARCH: ${{ matrix.goarch }}
-
-      - name: Trim Go cache
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: find ~/.cache/go-build -type f -mmin +90 -delete
-
-      - name: Set Go cache date
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
-
-      - name: Save Go module cache
-        if: ${{ github.ref == 'refs/heads/main' && matrix.goarch == 'amd64' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}
-
-      - name: Save Go build cache
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/go-build
-          key: ${{ runner.os }}-gobuild-${{ env.GO_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_DATE }}
-
-      - name: Upload binary
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ${{ matrix.artifact-name }}
-          path: out/tinkerbell-embedded-linux-*
-          if-no-files-found: error
-          # A week on tags, so prepare-release can be re-run on its own.
-          retention-days: ${{ startsWith(github.ref, 'refs/tags/v') && 7 || 1 }}
+  build:
+    uses: ./.github/workflows/build.yaml
 
   build-container-images:
     runs-on: ${{ matrix.runs-on }}
     if: github.event_name == 'pull_request'
     needs:
       - validation
-      - build-binaries
+      - build
     strategy:
       matrix:
         include:
@@ -370,7 +158,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "${{ env.GO_VERSION }}"
+          go-version-file: .go-version
           cache: false
 
       - name: Download binaries
@@ -391,8 +179,7 @@ jobs:
         env:
           DOCKER_CACHE_FROM: ${{ matrix.cache_image }}
 
-  build-publish-container-images:
-    runs-on: ubuntu-latest
+  publish:
     permissions:
       contents: read
       packages: write
@@ -400,404 +187,40 @@ jobs:
     needs:
       - version
       - validation
-      - build-binaries
-    # sign-images signs these digests. Any job in the run can replace an
-    # artifact, but only this job can set its outputs. Each matrix leg sets
-    # only its own output, so the legs don't overwrite each other.
-    outputs:
-      digest-tinkerbell: ${{ steps.digest.outputs.digest-tinkerbell }}
-      digest-tink-agent: ${{ steps.digest.outputs.digest-tink-agent }}
-    env:
-      VERSION: ${{ needs.version.outputs.version }}
-    strategy:
-      matrix:
-        include:
-          - name: tinkerbell
-            artifact_name: tinkerbell-binaries
-            image_name: ghcr.io/${{ github.repository_owner }}/tinkerbell
-            make-target: build-push-image
-          - name: tink-agent
-            artifact_name: tink-agent-binaries
-            image_name: ghcr.io/${{ github.repository_owner }}/tink-agent
-            make-target: build-push-image-agent
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          fetch-tags: true
+      - validate-helm-chart
+      - build
+    uses: ./.github/workflows/publish.yaml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      sha256sums-tinkerbell: ${{ needs.build.outputs.sha256sums-tinkerbell }}
+      sha256sums-tink-agent: ${{ needs.build.outputs.sha256sums-tink-agent }}
 
-      # Add support for more platforms with QEMU (optional)
-      # https://github.com/docker/setup-qemu-action
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - name: Login to ghcr.io
-        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # `make build-push-image{,-agent}` depend on `third-party-licenses`,
-      # which invokes `go-licenses` (and transitively `go list`). Go must be
-      # at least the version declared in go.mod (>= 1.25.7) or `go list`
-      # rejects the module.
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: "${{ env.GO_VERSION }}"
-          cache: false
-
-      # Into an empty directory, not out/, which make treats as its own work
-      # tree: only the two checked binaries move on.
-      - name: Download binaries
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ runner.temp }}/binaries/out
-
-      # Build only from the binaries build-binaries produced: any job in the
-      # run can replace an artifact, but only build-binaries can set its
-      # outputs. install also sets the mode, which artifacts don't keep.
-      - name: Check the binaries against the build
-        run: |
-          if [[ -z "${SHA256SUMS}" ]]; then
-            echo "::error::build-binaries output no checksums for ${NAME}"
-            exit 1
-          fi
-          cd "${RUNNER_TEMP}/binaries"
-          base64 --decode <<<"${SHA256SUMS}" >sha256sums
-          sha256sum --check --strict sha256sums
-          mkdir -p "${GITHUB_WORKSPACE}/out"
-          install -m 0755 "out/${NAME}-linux-amd64" "out/${NAME}-linux-arm64" "${GITHUB_WORKSPACE}/out/"
-        env:
-          NAME: ${{ matrix.name }}
-          SHA256SUMS: ${{ needs.build-binaries.outputs[format('sha256sums-{0}', matrix.name)] }}
-
-      - name: Prepare build environment
-        run: make prepare-buildx
-
-      - name: Build and publish container images
-        run: make ${{ matrix.make-target }}
-        env:
-          IMAGE_NAME: ${{ matrix.image_name }}
-          IMAGE_NAME_AGENT: ${{ matrix.image_name }}
-
-      - name: Record the pushed digest
-        id: digest
-        run: |
-          digest=$(jq -er '."containerimage.digest"' "out/metadata-${NAME}.json")
-          if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-            echo "::error::no image digest in out/metadata-${NAME}.json: ${digest}"
-            exit 1
-          fi
-          echo "digest-${NAME}=${digest}" >> "$GITHUB_OUTPUT"
-        env:
-          NAME: ${{ matrix.name }}
-
-  # The signing jobs hold the OIDC token that signs as this workflow. They run
-  # checkout, cosign-installer and cosign, plus jq and docker buildx imagetools
-  # from the runner image, and take what they sign from job outputs.
-  sign-images:
+  # Holds the OIDC token that signs as this workflow. It runs checkout and the
+  # sign action (cosign-installer and cosign, plus jq and docker buildx
+  # imagetools from the runner image), and signs only digests from outputs.
+  sign:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # cosign pushes the signatures next to the images.
+      # cosign pushes the signatures next to the images and the chart.
       packages: write
       # Keyless cosign signing: the job's OIDC token identifies the workflow.
       id-token: write
-    if: |
-      github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - build-publish-container-images
-    strategy:
-      matrix:
-        include:
-          - name: tinkerbell
-          - name: tink-agent
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install cosign
-        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
-        with:
-          cosign-release: v3.1.4
-
-      - name: Login to ghcr.io
-        run: cosign login "${REGISTRY}" --username "${GITHUB_REPOSITORY_OWNER}" --password-stdin <<<"${GITHUB_TOKEN}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Sign container image
-        run: ./script/sign-image.sh "${IMAGE_NAME}" "${DIGEST}"
-        env:
-          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
-          DIGEST: ${{ needs.build-publish-container-images.outputs[format('digest-{0}', matrix.name)] }}
-
-  package-publish-helm-chart:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     if: needs.version.outputs.publish == 'true'
     needs:
       - version
-      - validate-helm-chart
-      - build-publish-container-images
-    # sign-chart signs what this output names, for the reason given on
-    # build-publish-container-images.
-    outputs:
-      push-output: ${{ steps.push-output.outputs.push-output }}
-    env:
-      VERSION: ${{ needs.version.outputs.version }}
+      - publish
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-          fetch-tags: true
+          persist-credentials: false
 
-      - name: Login to ghcr.io
-        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+      - name: Sign the images and the Helm chart
+        uses: ./.github/actions/sign
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: install helm
-        uses: Azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
-        with:
-          version: v4.3.1
-
-      # helm push prints the pushed reference and digest on stdout; keep them
-      # for signing. pipefail (from shell: bash) keeps a failed push fatal.
-      - name: Package and publish the Helm chart
-        shell: bash
-        run: |
-          mkdir -p out
-          make helm-publish | tee out/helm-push.txt
-        env:
-          HELM_REPO_NAME: ${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
-
-      # Base64 keeps the multi-line output on one line, whatever helm prints.
-      - name: Record the push output
-        id: push-output
-        run: |
-          push_output=$(base64 --wrap=0 out/helm-push.txt)
-          echo "push-output=${push_output}" >> "$GITHUB_OUTPUT"
-
-  sign-chart:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      # cosign pushes the signature next to the chart.
-      packages: write
-      # Keyless cosign signing: the job's OIDC token identifies the workflow.
-      id-token: write
-    if: |
-      github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - package-publish-helm-chart
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install cosign
-        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
-        with:
-          cosign-release: v3.1.4
-
-      - name: Login to ghcr.io
-        run: cosign login "${REGISTRY}" --username "${GITHUB_REPOSITORY_OWNER}" --password-stdin <<<"${GITHUB_TOKEN}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Sign Helm chart
-        run: |
-          mkdir -p out
-          base64 --decode <<<"${PUSH_OUTPUT}" >out/helm-push.txt
-          ./script/sign-chart.sh out/helm-push.txt "${HELM_REPO_NAME}/tinkerbell"
-        env:
-          PUSH_OUTPUT: ${{ needs.package-publish-helm-chart.outputs.push-output }}
-          HELM_REPO_NAME: ${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
-
-  # Gathers the release assets, generates the binaries' SBOMs, and writes
-  # the checksums for attest-binaries and release-notes, so the job holding
-  # the OIDC token runs no build tooling.
-  prepare-release:
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - version
-      - build-embedded-binaries
-    # attest-binaries and release-notes check the release assets against
-    # this, for the reason given on build-embedded-binaries.
-    outputs:
-      checksums: ${{ steps.checksums.outputs.checksums }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Download embedded amd64 binary
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: tinkerbell-embedded-linux-amd64
-          path: ./out
-          merge-multiple: true
-
-      - name: Download embedded arm64 binary
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: tinkerbell-embedded-linux-arm64
-          path: ./out
-          merge-multiple: true
-
-      # Before syft parses them.
-      - name: Check the binaries against the build
-        run: ./script/release-checksums.sh verify out
-        env:
-          SHA256_AMD64: ${{ needs.build-embedded-binaries.outputs.sha256-amd64 }}
-          SHA256_ARM64: ${{ needs.build-embedded-binaries.outputs.sha256-arm64 }}
-
-      - name: Install syft
-        id: syft
-        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
-        with:
-          syft-version: v1.55.0
-
-      # syft reads the Go module list embedded in each binary.
-      - name: Generate SBOMs
-        run: |
-          for binary in tinkerbell-embedded-linux-amd64 tinkerbell-embedded-linux-arm64; do
-            "${SYFT}" scan "file:out/${binary}" -o "spdx-json=out/${binary}.spdx.json"
-          done
-        env:
-          SYFT: ${{ steps.syft.outputs.cmd }}
-          SYFT_CHECK_FOR_APP_UPDATE: "false"
-
-      - name: Generate checksums
-        id: checksums
-        run: |
-          ./script/release-checksums.sh write out tinkerbell-embedded-linux-amd64.spdx.json tinkerbell-embedded-linux-arm64.spdx.json
-          checksums=$(base64 --wrap=0 out/checksums-embedded.txt)
-          echo "checksums=${checksums}" >> "$GITHUB_OUTPUT"
-        env:
-          SHA256_AMD64: ${{ needs.build-embedded-binaries.outputs.sha256-amd64 }}
-          SHA256_ARM64: ${{ needs.build-embedded-binaries.outputs.sha256-arm64 }}
-
-      # Kept for a week, so a failed attest-binaries or release-notes can be
-      # re-run on its own.
-      - name: Upload release assets
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-assets
-          path: |
-            out/tinkerbell-embedded-linux-amd64
-            out/tinkerbell-embedded-linux-arm64
-            out/tinkerbell-embedded-linux-amd64.spdx.json
-            out/tinkerbell-embedded-linux-arm64.spdx.json
-            out/checksums-embedded.txt
-          if-no-files-found: error
-          retention-days: 7
-
-  attest-binaries:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      # Build provenance attestation for the release assets.
-      id-token: write
-      attestations: write
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - build-embedded-binaries
-      - prepare-release
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Download release assets
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-assets
-          path: ./out
-
-      # Attest only what build-embedded-binaries and prepare-release produced.
-      - name: Check the release assets against the build
-        run: ./script/release-checksums.sh check out
-        env:
-          SHA256_AMD64: ${{ needs.build-embedded-binaries.outputs.sha256-amd64 }}
-          SHA256_ARM64: ${{ needs.build-embedded-binaries.outputs.sha256-arm64 }}
-          CHECKSUMS: ${{ needs.prepare-release.outputs.checksums }}
-
-      # One SLSA provenance attestation whose subjects are the binaries, their
-      # SBOMs and the checksums file, stored by GitHub and verified with
-      # `gh attestation verify`.
-      - name: Attest build provenance
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
-        with:
-          subject-path: |
-            out/tinkerbell-embedded-linux-amd64
-            out/tinkerbell-embedded-linux-arm64
-            out/tinkerbell-embedded-linux-amd64.spdx.json
-            out/tinkerbell-embedded-linux-arm64.spdx.json
-            out/checksums-embedded.txt
-
-  release-notes:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - build-embedded-binaries
-      - prepare-release
-      - sign-images
-      - sign-chart
-      - attest-binaries
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Download release assets
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-assets
-          path: ./out
-
-      # Publish only what attest-binaries attested.
-      - name: Check the release assets against the build
-        run: ./script/release-checksums.sh check out
-        env:
-          SHA256_AMD64: ${{ needs.build-embedded-binaries.outputs.sha256-amd64 }}
-          SHA256_ARM64: ${{ needs.build-embedded-binaries.outputs.sha256-arm64 }}
-          CHECKSUMS: ${{ needs.prepare-release.outputs.checksums }}
-
-      # Artifact upload doesn't preserve permissions so we need to fix them.
-      - name: Fix permissions
-        run: chmod +x out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64
-
-      - name: Publish Changelog to GitHub
-        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
-        with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifactErrorsFailBuild: true
-          generateReleaseNotes: true
-          draft: true
-          prerelease: true
-          artifacts: "out/tinkerbell-embedded-linux-amd64,out/tinkerbell-embedded-linux-arm64,out/tinkerbell-embedded-linux-amd64.spdx.json,out/tinkerbell-embedded-linux-arm64.spdx.json,out/checksums-embedded.txt"
+          digest-tinkerbell: ${{ needs.publish.outputs.digest-tinkerbell }}
+          digest-tink-agent: ${{ needs.publish.outputs.digest-tink-agent }}
+          digest-chart: ${{ needs.publish.outputs.digest-chart }}

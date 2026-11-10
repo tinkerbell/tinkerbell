@@ -11,7 +11,7 @@ CI signs every artifact it publishes, with keyless [Sigstore](https://www.sigsto
 
 The first signed release is `v0.26.0`. Earlier releases are not signed.
 
-Releases are signed by `https://github.com/tinkerbell/tinkerbell/.github/workflows/ci.yaml@refs/tags/<version>`. Builds of `main` are signed by `...ci.yaml@refs/heads/main`. Check the identity that matches what you deploy: a `main` build does not verify as a release.
+Releases are signed by `https://github.com/tinkerbell/tinkerbell/.github/workflows/release.yaml@refs/tags/<version>`. Builds of `main` are signed by `https://github.com/tinkerbell/tinkerbell/.github/workflows/ci.yaml@refs/heads/main`. Check the identity that matches what you deploy: a `main` build does not verify as a release.
 
 Requirements:
 
@@ -30,7 +30,7 @@ VERSION=v0.26.0  # the release to check
 
 ```sh
 cosign verify "ghcr.io/tinkerbell/tinkerbell:${VERSION}" \
-  --certificate-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/ci.yaml@refs/tags/${VERSION}" \
+  --certificate-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/release.yaml@refs/tags/${VERSION}" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -40,7 +40,7 @@ Deploy the digest you verified, not the tag: a tag can move after you check it. 
 
 ```sh
 DIGEST=$(cosign verify "ghcr.io/tinkerbell/tinkerbell:${VERSION}" \
-  --certificate-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/ci.yaml@refs/tags/${VERSION}" \
+  --certificate-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/release.yaml@refs/tags/${VERSION}" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   | jq -r '.[0].critical.image."docker-manifest-digest"')
 echo "ghcr.io/tinkerbell/tinkerbell@${DIGEST}"
@@ -58,11 +58,11 @@ The output holds one SPDX document per platform. `cosign verify-attestation` doe
 
 ### `:latest` and mainline builds
 
-`:latest` moves between mainline and release builds, so its signer is either `refs/heads/main` or `refs/tags/vX.Y.Z`:
+`:latest` moves between mainline and release builds, so its signer is either `ci.yaml` at `refs/heads/main` or `release.yaml` at `refs/tags/vX.Y.Z`:
 
 ```sh
 cosign verify ghcr.io/tinkerbell/tinkerbell:latest \
-  --certificate-identity-regexp '^https://github\.com/tinkerbell/tinkerbell/\.github/workflows/ci\.yaml@refs/(heads/main|tags/v[^/]+)$' \
+  --certificate-identity-regexp '^https://github\.com/tinkerbell/tinkerbell/\.github/workflows/(ci\.yaml@refs/heads/main|release\.yaml@refs/tags/v[^/]+)$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -74,7 +74,7 @@ Mainline builds reuse CI build caches, which release builds skip. In production,
 
 ```sh
 cosign verify "ghcr.io/tinkerbell/charts/tinkerbell:${VERSION}" \
-  --certificate-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/ci.yaml@refs/tags/${VERSION}" \
+  --certificate-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/release.yaml@refs/tags/${VERSION}" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -98,7 +98,7 @@ spec:
     provider: cosign
     matchOIDCIdentity:
       - issuer: ^https://token\.actions\.githubusercontent\.com$
-        subject: ^https://github\.com/tinkerbell/tinkerbell/\.github/workflows/ci\.yaml@refs/tags/v0\.26\.0$
+        subject: ^https://github\.com/tinkerbell/tinkerbell/\.github/workflows/release\.yaml@refs/tags/v0\.26\.0$
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -123,7 +123,7 @@ gh release download "${VERSION}" --repo tinkerbell/tinkerbell
 
 gh attestation verify tinkerbell-embedded-linux-amd64 \
   --repo tinkerbell/tinkerbell \
-  --cert-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/ci.yaml@refs/tags/${VERSION}" \
+  --cert-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/release.yaml@refs/tags/${VERSION}" \
   --deny-self-hosted-runners
 ```
 

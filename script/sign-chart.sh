@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Sign a Helm chart pushed to an OCI registry with cosign keyless signing.
 #
-# Reads the chart reference and digest from the output of `helm push`, so the
-# signature goes to exactly what was pushed, by digest, never by tag.
+# Signs the chart by digest, never by tag.
 #
 # The signature carries the identity of whoever signs. In GitHub Actions with
 # `id-token: write`, that is this repository's workflow. Without that OIDC
@@ -11,13 +10,13 @@
 # registry, so the script refuses to run without it.
 #
 # Usage:
-#   sign-chart.sh PUSH_OUTPUT REPOSITORY
+#   sign-chart.sh CHART DIGEST
 #
 # Arguments:
-#   PUSH_OUTPUT  File holding the stdout of `helm push`, which prints
-#                "Pushed: <ref>:<version>" and "Digest: sha256:<hex>".
-#   REPOSITORY   The chart repository the push must have gone to, without tag
-#                (e.g. ghcr.io/tinkerbell/charts/tinkerbell).
+#   CHART   Chart repository without tag or digest
+#           (e.g. ghcr.io/tinkerbell/charts/tinkerbell).
+#   DIGEST  Digest of the pushed chart, from the output of `helm push`
+#           (script/helm-push-digest.sh).
 
 set -euo pipefail
 
@@ -29,33 +28,15 @@ if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || -z "${ACTIONS_ID_TOKEN_REQUEST_T
 fi
 
 if [[ $# -ne 2 ]]; then
-	echo "usage: $0 PUSH_OUTPUT REPOSITORY" >&2
+	echo "usage: $0 CHART DIGEST" >&2
 	exit 2
 fi
-push_output=$1
-expected_repository=$2
+chart=$1
+digest=$2
 
-pushed=$(sed -n 's/^Pushed: //p' "${push_output}")
-digest=$(sed -n 's/^Digest: //p' "${push_output}")
-if [[ $(wc -l <<<"${pushed}") -ne 1 || -z "${pushed}" ]]; then
-	echo "::error::expected one 'Pushed:' line in ${push_output}, got: ${pushed}"
-	exit 1
-fi
 if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-	echo "::error::expected one chart digest in ${push_output}, got: ${digest}"
+	echo "::error::malformed chart digest for ${chart}: '${digest}'"
 	exit 1
 fi
 
-# Strip the tag: everything after the last ':' that follows the last '/'. A
-# registry port (host:5000/...) sits before a '/', so it is kept.
-repository=${pushed%:*}
-if [[ "${repository}" != */* || "${pushed##*/}" != *:* ]]; then
-	echo "::error::cannot parse the chart reference: ${pushed}"
-	exit 1
-fi
-if [[ "${repository}" != "${expected_repository}" ]]; then
-	echo "::error::the chart was pushed to ${repository}, expected ${expected_repository}"
-	exit 1
-fi
-
-cosign sign --yes "${repository}@${digest}"
+cosign sign --yes "${chart}@${digest}"

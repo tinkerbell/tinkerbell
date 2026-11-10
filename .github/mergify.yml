@@ -12,8 +12,8 @@ queue_rules:
       - "#changes-requested-reviews-by=0"
       - check-success=DCO
       - check-success=validation
-      - check-success=build-binaries (tink-agent, cross-compile-agent, tink-agent-binaries)
-      - check-success=build-binaries (tinkerbell, cross-compile, tinkerbell-binaries)
+      - check-success=build / tink-agent
+      - check-success=build / tinkerbell
       - label!=do-not-merge
       - label=ready-to-merge
     merge_conditions:
@@ -25,8 +25,8 @@ queue_rules:
       - "#changes-requested-reviews-by=0"
       - check-success=DCO
       - check-success=validation
-      - check-success=build-binaries (tink-agent, cross-compile-agent, tink-agent-binaries)
-      - check-success=build-binaries (tinkerbell, cross-compile, tinkerbell-binaries)
+      - check-success=build / tink-agent
+      - check-success=build / tinkerbell
       - label!=do-not-merge
       - label=ready-to-merge
       # This extra condition forces draft PR mode (prevents in-place checks)

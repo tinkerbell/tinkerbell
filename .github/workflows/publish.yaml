@@ -1,0 +1,159 @@
+name: Publish
+# Pushes the tinkerbell and tink-agent images and the Helm chart, and outputs
+# their digests for the sign job of the calling workflow. Holds no OIDC token:
+# signing happens in the caller, so the signatures carry its identity.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: The version to publish, from script/publish-version.sh.
+        type: string
+        required: true
+      sha256sums-tinkerbell:
+        description: The tinkerbell checksums the build workflow output.
+        type: string
+        required: true
+      sha256sums-tink-agent:
+        description: The tink-agent checksums the build workflow output.
+        type: string
+        required: true
+    outputs:
+      digest-tinkerbell:
+        description: The pushed digest of the tinkerbell image index.
+        value: ${{ jobs.images.outputs.digest-tinkerbell }}
+      digest-tink-agent:
+        description: The pushed digest of the tink-agent image index.
+        value: ${{ jobs.images.outputs.digest-tink-agent }}
+      digest-chart:
+        description: The pushed digest of the Helm chart.
+        value: ${{ jobs.chart.outputs.digest }}
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  images:
+    name: image (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    outputs:
+      digest-tinkerbell: ${{ steps.digest.outputs.digest-tinkerbell }}
+      digest-tink-agent: ${{ steps.digest.outputs.digest-tink-agent }}
+    strategy:
+      matrix:
+        include:
+          - name: tinkerbell
+            make-target: build-push-image
+          - name: tink-agent
+            make-target: build-push-image-agent
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Add support for more platforms with QEMU (optional)
+      # https://github.com/docker/setup-qemu-action
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `make build-push-image{,-agent}` depend on `third-party-licenses`,
+      # which invokes `go-licenses` (and transitively `go list`). Go must be
+      # at least the version declared in go.mod (>= 1.25.7) or `go list`
+      # rejects the module.
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: .go-version
+          cache: false
+
+      # Into an empty directory, not out/, which make treats as its own work
+      # tree: only the two checked binaries move on.
+      - name: Download binaries
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ matrix.name }}-binaries
+          path: ${{ runner.temp }}/binaries
+
+      # install also sets the mode, which artifacts don't keep.
+      - name: Check the binaries against the build
+        run: |
+          ./script/checksums.sh "${RUNNER_TEMP}/binaries/sha256sums" "${SHA256SUMS}"
+          mkdir -p out
+          install -m 0755 "${RUNNER_TEMP}/binaries/${NAME}-linux-amd64" "${RUNNER_TEMP}/binaries/${NAME}-linux-arm64" out/
+        env:
+          NAME: ${{ matrix.name }}
+          SHA256SUMS: ${{ inputs[format('sha256sums-{0}', matrix.name)] }}
+
+      - name: Prepare build environment
+        run: make prepare-buildx
+
+      - name: Build and publish container images
+        run: make ${{ matrix.make-target }}
+        env:
+          IMAGE_NAME: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}
+          IMAGE_NAME_AGENT: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}
+
+      - name: Record the pushed digest
+        id: digest
+        run: |
+          digest=$(jq -er '."containerimage.digest"' "out/metadata-${NAME}.json")
+          if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::no image digest in out/metadata-${NAME}.json: ${digest}"
+            exit 1
+          fi
+          echo "digest-${NAME}=${digest}" >> "$GITHUB_OUTPUT"
+        env:
+          NAME: ${{ matrix.name }}
+
+  chart:
+    runs-on: ubuntu-latest
+    needs:
+      - images
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: install helm
+        uses: Azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v4.3.1
+
+      # helm push prints the pushed reference and digest on stdout. pipefail
+      # (from shell: bash) keeps a failed push fatal.
+      - name: Package and publish the Helm chart
+        id: publish
+        shell: bash
+        run: |
+          mkdir -p out
+          make helm-publish | tee out/helm-push.txt
+          digest=$(./script/helm-push-digest.sh out/helm-push.txt "${HELM_REPO_NAME}/tinkerbell")
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+        env:
+          HELM_REPO_NAME: ${{ env.REGISTRY }}/${{ github.repository_owner }}/charts

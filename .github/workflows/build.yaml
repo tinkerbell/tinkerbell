@@ -1,0 +1,95 @@
+name: Build
+# Compiles the binaries the images and the release ship, and outputs their
+# checksums for the jobs that publish, sign or attest them (see ci.yaml).
+# Builds for release tags start cold, so a cache written by another build
+# cannot end up in signed release artifacts.
+on:
+  workflow_call:
+    outputs:
+      sha256sums-tinkerbell:
+        description: Base64 sha256sum lines of the tinkerbell binaries.
+        value: ${{ jobs.build.outputs.sha256sums-tinkerbell }}
+      sha256sums-tink-agent:
+        description: Base64 sha256sum lines of the tink-agent binaries.
+        value: ${{ jobs.build.outputs.sha256sums-tink-agent }}
+      sha256sums-embedded-amd64:
+        description: Base64 sha256sum line of the embedded amd64 binary.
+        value: ${{ jobs.build.outputs.sha256sums-embedded-amd64 }}
+      sha256sums-embedded-arm64:
+        description: Base64 sha256sum line of the embedded arm64 binary.
+        value: ${{ jobs.build.outputs.sha256sums-embedded-arm64 }}
+
+permissions:
+  contents: read
+
+env:
+  CGO_ENABLED: 0
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    outputs:
+      sha256sums-tinkerbell: ${{ steps.checksums.outputs.sha256sums-tinkerbell }}
+      sha256sums-tink-agent: ${{ steps.checksums.outputs.sha256sums-tink-agent }}
+      sha256sums-embedded-amd64: ${{ steps.checksums.outputs.sha256sums-embedded-amd64 }}
+      sha256sums-embedded-arm64: ${{ steps.checksums.outputs.sha256sums-embedded-arm64 }}
+    strategy:
+      matrix:
+        include:
+          - name: tinkerbell
+            make-target: cross-compile
+            binaries: tinkerbell-linux-*
+          - name: tink-agent
+            make-target: cross-compile-agent
+            binaries: tink-agent-linux-*
+          - name: embedded-amd64
+            make-target: cross-compile-embedded-amd64
+            binaries: tinkerbell-embedded-linux-amd64
+          - name: embedded-arm64
+            make-target: cross-compile-embedded-arm64
+            binaries: tinkerbell-embedded-linux-arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up the Go build
+        uses: ./.github/actions/setup-go-build
+        with:
+          cache-name: ${{ matrix.name }}
+          restore-cache: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Compile ${{ matrix.name }}
+        run: make ${{ matrix.make-target }}
+
+      # Base64 keeps the sha256sum lines on one line.
+      - name: Record the checksums
+        id: checksums
+        working-directory: out
+        run: |
+          # shellcheck disable=SC2086 # BINARIES is a glob to expand.
+          sums=$(sha256sum ${BINARIES})
+          b64=$(base64 --wrap=0 <<<"${sums}")
+          echo "sha256sums-${NAME}=${b64}" >> "$GITHUB_OUTPUT"
+        env:
+          NAME: ${{ matrix.name }}
+          BINARIES: ${{ matrix.binaries }}
+
+      - name: Save Go cache
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: ./.github/actions/save-go-cache
+        with:
+          cache-name: ${{ matrix.name }}
+
+      # Kept for a week, so a failed job that uses them can be re-run on its
+      # own.
+      - name: Upload binaries
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.name }}-binaries
+          path: out/${{ matrix.binaries }}
+          if-no-files-found: error
+          retention-days: 7
