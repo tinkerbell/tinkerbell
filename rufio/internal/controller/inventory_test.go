@@ -485,3 +485,27 @@ func TestMachineRequestsForHardware(t *testing.T) {
 		})
 	}
 }
+
+func TestHardwareBMCRefIndexFunc(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		obj  ctrlclient.Object
+		want []string
+	}{
+		"linked Hardware is indexed by its Machine name":    {obj: hardwareLinkedTo("bmc-1", ""), want: []string{"bmc-1"}},
+		"Hardware without bmcRef is not indexed":            {obj: hardwareLinkedTo("", ""), want: nil},
+		"Hardware with an empty bmcRef name is not indexed": {obj: createHardwareForMachine(""), want: nil},
+		"non-Hardware object is not indexed":                {obj: &bmc.Machine{}, want: nil},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := controller.HardwareBMCRefIndexFunc(tt.obj)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("HardwareBMCRefIndexFunc() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
