@@ -123,18 +123,21 @@ The following is a working example of running Tinkerbell with all embedded servi
 export TINKERBELL_ETCD_SERVERS=http://localhost:2379
 export TINKERBELL_LOGGING_FORMAT=json
 export TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS=tink_worker_image=ghcr.io/tinkerbell/tink-agent:latest
-export HOOKOS_NGINX_PORT=32768
-export TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL=http://"${HOST_IP:-$(hostname -I | awk '{print $1}')}":"${HOOKOS_NGINX_PORT}"
+export OSIE_NGINX_PORT=32768
+export TINKERBELL_IPXE_HTTP_SCRIPT_OSIE_URL=http://"${HOST_IP:-$(hostname -I | awk '{print $1}')}":"${OSIE_NGINX_PORT}"
+# Smee appends -<arch> to these names.
+export TINKERBELL_IPXE_HTTP_SCRIPT_KERNEL_NAME=vmlinuz-trixie-full
+export TINKERBELL_IPXE_HTTP_SCRIPT_INITRD_NAME=initramfs-trixie-full
 
-# Download and extract all HookOS artifacts
+# Download the CaptainOS artifacts
 # This example only downloads the x86_64 artifacts.
-mkdir -p hookos
-wget https://github.com/tinkerbell/hook/releases/download/latest/hook_latest-lts-x86_64.tar.gz -O hookos/hook.tar.gz
-tar -xvf hookos/hook.tar.gz -C hookos
-rm hookos/hook.tar.gz
-(cd hookos; ln -nfs ./initramfs-latest-lts-x86_64 initramfs-x86_64)
-(cd hookos; ln -nfs ./vmlinuz-latest-lts-x86_64 vmlinuz-x86_64)
-docker run -d --name image-server -p "${HOOKOS_NGINX_PORT}":80 -v "${PWD}"/hookos:/usr/share/nginx/html/ nginx
+# To use HookOS instead, serve the artifacts from https://github.com/tinkerbell/hook/releases
+# and unset the kernel and initrd names above.
+CAPTAINOS_URL=https://github.com/tinkerbell/captain/releases/download/v0.1.0
+mkdir -p captainos
+wget "${CAPTAINOS_URL}/vmlinuz-trixie-full-x86_64" -O captainos/vmlinuz-trixie-full-x86_64
+wget "${CAPTAINOS_URL}/initramfs-trixie-full-x86_64" -O captainos/initramfs-trixie-full-x86_64
+docker run -d --name image-server -p "${OSIE_NGINX_PORT}":80 -v "${PWD}"/captainos:/usr/share/nginx/html/ nginx
 
 # Run Tinkerbell
 # sudo is needed as ports for things like TFTP and DHCP are by default privileged ports.

@@ -506,7 +506,7 @@ var IPXEHTTPScriptInitrdName = Config{
 
 var IPXEHTTPScriptOSIEURL = Config{
 	Name:  "ipxe-http-script-osie-url",
-	Usage: "[ipxe] URL where OSIE (HookOS) images are located",
+	Usage: "[ipxe] URL where OSIE (CaptainOS, HookOS) artifacts are located",
 }
 
 var IPXEHTTPScriptRetries = Config{

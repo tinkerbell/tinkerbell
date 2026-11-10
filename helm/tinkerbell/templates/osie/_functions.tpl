@@ -180,3 +180,28 @@ if at least one map value is non-nil before using it.
 {{- .Values.optional.osie.service.annotations | toYaml -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Kernel and initrd names for the iPXE script; smee appends -<arch>. An explicit smee value wins.
+Otherwise use the CaptainOS names when only CaptainOS is enabled, and the HookOS names when
+HookOS is enabled, as NGINX tries HookOS artifacts first.
+*/}}
+{{- define "tinkerbell.osie.kernelName" -}}
+{{- if .Values.deployment.envs.smee.ipxeHttpScriptKernelName -}}
+{{- .Values.deployment.envs.smee.ipxeHttpScriptKernelName -}}
+{{- else if and .Values.optional.captainos.enabled (not .Values.optional.hookos.enabled) -}}
+{{- printf "vmlinuz-%s" .Values.optional.captainos.flavor -}}
+{{- else -}}
+vmlinuz
+{{- end -}}
+{{- end -}}
+
+{{- define "tinkerbell.osie.initrdName" -}}
+{{- if .Values.deployment.envs.smee.ipxeHttpScriptInitrdName -}}
+{{- .Values.deployment.envs.smee.ipxeHttpScriptInitrdName -}}
+{{- else if and .Values.optional.captainos.enabled (not .Values.optional.hookos.enabled) -}}
+{{- printf "initramfs-%s" .Values.optional.captainos.flavor -}}
+{{- else -}}
+initramfs
+{{- end -}}
+{{- end -}}
