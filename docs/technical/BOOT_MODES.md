@@ -56,7 +56,7 @@ spec:
     isoURL: http://<tinkerbell VIP>:7080/iso/02-7f-92-bd-2d-57/hook.iso
 ```
 
-The `isoboot` mode gets a Machine booted into HookOS by mounting the HookOS ISO, served by the Smee service, as a virtual CD-ROM and then ejecting the virtual CD-ROM after the Workflow. This is accomplished by the Tink Controller by automatically creating a `job.bmc.tinkerbell.org` during the `PREPARING` and `POST` Workflow states. During the `PREPARING` Workflow state the following `job.bmc.tinkerbell.org` to mount the HookOS ISO is created:
+The `isoboot` mode gets a Machine booted into the OSIE (CaptainOS or HookOS) by mounting its ISO, served by the Smee service, as a virtual CD-ROM and then ejecting the virtual CD-ROM after the Workflow. This is accomplished by the Tink Controller by automatically creating a `job.bmc.tinkerbell.org` during the `PREPARING` and `POST` Workflow states. During the `PREPARING` Workflow state the following `job.bmc.tinkerbell.org` to mount the OSIE ISO is created:
 
 ```yaml
 apiVersion: bmc.tinkerbell.org/v1alpha1
@@ -81,7 +81,7 @@ spec:
 
 [Reference](/tink/controller/internal/workflow/pre.go#L106-L141)
 
-During the `POST` Workflow state, the following `job.bmc.tinkerbell.org` is created to eject the HookOS ISO:
+During the `POST` Workflow state, the following `job.bmc.tinkerbell.org` is created to eject the OSIE ISO:
 
 ```yaml
 apiVersion: bmc.tinkerbell.org/v1alpha1

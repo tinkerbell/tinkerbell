@@ -126,8 +126,8 @@ deployment:
       ipxeHttpScriptEnabled: true
       ipxeHttpScriptExtraKernelArgs: [] # Additional kernel arguments to pass to the OSIE. (k=v k=v) that are appended to the kernel cmdline in the iPXE script
       ipxeHttpScriptExtraKernelArgsV6: [] # As above, for IPv6 machines. Defaults to ipxeHttpScriptExtraKernelArgs when empty.
-      ipxeHttpScriptKernelName: "vmlinuz" # name of the kernel file to fetch in the iPXE script, defaults to vmlinuz, which becomes vmlinuz-<arch> in the script
-      ipxeHttpScriptInitrdName: "initramfs" # name of the initrd file to fetch in the iPXE script, defaults to initramfs, which becomes initramfs-<arch> in the script
+      ipxeHttpScriptKernelName: "" # name of the kernel file to fetch in the iPXE script, <name>-<arch> in the script. Empty derives it from the enabled OSIE: vmlinuz-<captainos flavor> when only CaptainOS is enabled, otherwise vmlinuz.
+      ipxeHttpScriptInitrdName: "" # name of the initrd file to fetch in the iPXE script, <name>-<arch> in the script. Empty derives it from the enabled OSIE: initramfs-<captainos flavor> when only CaptainOS is enabled, otherwise initramfs.
       ipxeHttpScriptOsieURL: ""
       ipxeHttpScriptOsieURLv6: ""
       ipxeHttpScriptRetries: 1
@@ -345,22 +345,26 @@ optional:
       type: LoadBalancer
     affinity: {}
 
-  # captainos objects enable downloading and serving CaptainOS artifacts.
-  # Optional, disabled by default.
-  # Can be enabled together with hookos.
+  # captainos objects enable serving CaptainOS artifacts from an image volume.
+  # Enabled by default. Requires the Kubernetes ImageVolume feature (enabled by default in 1.35+).
+  # Can be enabled together with hookos, in which case HookOS artifacts are tried first.
   captainos:
-    enabled: false
+    enabled: true
     image: ghcr.io/tinkerbell/captain/artifacts:v0.1.0
+    # flavor must match the flavor in image: the vX.Y.Z tag is trixie-full, vX.Y.Z-slim is trixie-slim.
+    # It names the default kernel and initrd: vmlinuz-<flavor>-<arch> and initramfs-<flavor>-<arch>.
+    flavor: trixie-full
     pullPolicy: IfNotPresent
 
   # hookos objects enable downloading and serving HookOS artifacts.
-  # Optional, enabled by default.
+  # Optional, disabled by default. To use HookOS instead of CaptainOS, set
+  # optional.hookos.enabled=true and optional.captainos.enabled=false.
   hookos:
     arch: both # x86_64, aarch64, both
     # downloadURL only works with the > 0.8.1 Hook release because
     # previous Hook versions didn't provide a checksum file.
     downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.11.1
-    enabled: true
+    enabled: false
     extension: tar.gz # iso, tar.gz, both
     kernelVersion: both # 5.10, 6.6, both
     persistence:

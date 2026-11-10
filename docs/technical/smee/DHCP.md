@@ -22,7 +22,7 @@ Configure your existing DHCP service to provide the location of the iPXE binary 
 
 - **Step 2**: Now with the Tinkerbell iPXE binary loaded and running, iPXE again broadcasts a request to network boot. The DHCP service again provides all IPAM info as well as the location of the Tinkerbell iPXE script (`auto.ipxe`). iPXE configures its network interface using the IPAM info and then downloads the Tinkerbell iPXE script from the location provided by the DHCP service and runs it.
 
-> Note The `auto.ipxe` is an [iPXE script](https://ipxe.org/scripting) that tells iPXE from where to download the [HookOS](https://github.com/tinkerbell/hook) kernel and initrd so that they can be loaded into memory.
+> Note The `auto.ipxe` is an [iPXE script](https://ipxe.org/scripting) that tells iPXE from where to download the OSIE ([CaptainOS](https://github.com/tinkerbell/captain) or [HookOS](https://github.com/tinkerbell/hook)) kernel and initrd so that they can be loaded into memory.
 
 The following diagram illustrates the process described above. Note that the diagram only describes the network booting parts of the DHCP interaction, not the exchange of IPAM info.
 

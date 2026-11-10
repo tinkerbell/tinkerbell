@@ -20,7 +20,7 @@ When an Agent connects to the Tink Server:
 
 > [!NOTE]  
 > As Auto Enrollment requires the Tink Agent to connect to the Tink Server and the expectation is that no Hardware object exists, it is generally required that the `--dhcp-mode-v4` CLI flag or the `TINKERBELL_DHCP_MODE_V4` environment variable be set to `auto-proxy`.
-> `auto-proxy` mode will get a Machine into HookOS and running the Tink Agent without needing a pre-existing Hardware object. See the [DHCP Boot Modes documentation](./DHCP_BOOT_MODES.md) for more details on the `auto-proxy` mode.
+> `auto-proxy` mode will get a Machine into the OSIE (CaptainOS or HookOS) and running the Tink Agent without needing a pre-existing Hardware object. See the [DHCP Boot Modes documentation](./DHCP_BOOT_MODES.md) for more details on the `auto-proxy` mode.
 
 > [!Note]
 > To create a Workflow object in Kubernetes using the Agent ID, we must follow the Kubernetes naming conventions. This means that the Workflow object name might be modified to fit the requirements, such as replacing invalid characters or truncating the name if it exceeds the maximum length. If the Agent ID is a MAC address, colon characters (`:`) will be replaced with dashes (`-`) to ensure the name is valid.

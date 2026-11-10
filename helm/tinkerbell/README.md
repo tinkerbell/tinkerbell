@@ -4,7 +4,8 @@ This Helm chart deploys Tinkerbell, the bare metal provisioning engine that supp
 
 ## Prerequisites
 
-- Kubernetes 1.19+
+- Kubernetes 1.35+ for the default CaptainOS OSIE, which needs the `ImageVolume` feature.
+  Older clusters can enable the feature gate or use HookOS instead. See [CaptainOS](#captainos).
 - Helm 3.2.0+
 
 ## Installation
@@ -20,10 +21,10 @@ LB_IPV4=192.168.2.116
 # For IPv6-only services, set publicIPv6 instead of publicIP.
 # LB_IPV6=2001:db8:100::116
 
-# Set the artifacts file server URL for HookOS
+# Set the artifacts file server URL for the OSIE (CaptainOS or HookOS)
 ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
 
-# Set the IPv6 artifacts file server URL for HookOS when needed
+# Set the IPv6 artifacts file server URL for the OSIE when needed
 # ARTIFACTS_FILE_SERVER_V6=http://[2001:db8:100::102]:7173
 
 helm upgrade --install tinkerbell . \
@@ -58,10 +59,10 @@ LB_IPV4=192.168.2.116
 # For IPv6-only services, set publicIPv6 instead of publicIP.
 # LB_IPV6=2001:db8:100::116
 
-# Set the artifacts file server URL for HookOS
+# Set the artifacts file server URL for the OSIE (CaptainOS or HookOS)
 ARTIFACTS_FILE_SERVER=http://192.168.2.117:7173
 
-# Set the IPv6 artifacts file server URL for HookOS when needed
+# Set the IPv6 artifacts file server URL for the OSIE when needed
 # ARTIFACTS_FILE_SERVER_V6=http://[2001:db8:100::102]:7173
 
 # Specify the Tinkerbell Helm chart version, here we use the latest release.
@@ -84,17 +85,38 @@ and [bind addresses](#bind-address-behavior) for IPv6 reachability.
 
 ### Optional Components
 
-#### HookOS
+#### CaptainOS
 
-The HookOS section provides downloading and file serving of HookOS artifacts.
+[CaptainOS](https://github.com/tinkerbell/captain) is the default OSIE. Its artifacts are
+mounted from an OCI image with an image volume, so the cluster needs the `ImageVolume`
+feature (enabled by default in Kubernetes 1.35+).
 
 ```yaml
 optional:
+  captainos:
+    enabled: true
+    image: ghcr.io/tinkerbell/captain/artifacts:v0.1.0
+    flavor: trixie-full  # must match the image: vX.Y.Z is trixie-full, vX.Y.Z-slim is trixie-slim
+```
+
+Smee boots `vmlinuz-<flavor>-<arch>` and `initramfs-<flavor>-<arch>` unless
+`deployment.envs.smee.ipxeHttpScriptKernelName` and `ipxeHttpScriptInitrdName` are set.
+See [CaptainOS](../../docs/technical/CAPTAINOS.md) for details.
+
+#### HookOS
+
+The HookOS section provides downloading and file serving of HookOS artifacts. It is
+disabled by default. To use HookOS instead of CaptainOS:
+
+```yaml
+optional:
+  captainos:
+    enabled: false
   hookos:
     enabled: true
     kernelVersion: both  # 5.10, 6.6, both
     arch: both  # x86_64, aarch64, both
-    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.10.0
+    downloadURL: https://github.com/tinkerbell/hook/releases/download/v0.11.1
 ```
 
 #### Kube-vip
@@ -251,8 +273,8 @@ already has, and a Helm upgrade does not remove them. Once the field is
 | `publicIP` | IPv4 address advertised to IPv4 boot clients | `""` |
 | `publicIPv6` | IPv6 address advertised to IPv6 boot clients | `""` |
 | `trustedProxies` | List of trusted proxy CIDRs | `[]` |
-| `artifactsFileServer` | URL for the HookOS artifacts server | `""` |
-| `artifactsFileServerV6` | IPv6 URL for the HookOS artifacts server | `""` |
+| `artifactsFileServer` | URL for the OSIE artifacts server | `""` |
+| `artifactsFileServerV6` | IPv6 URL for the OSIE artifacts server | `""` |
 
 For IPv6 boot flows, set the IPv6-specific values such as `publicIPv6`,
 `artifactsFileServerV6`, and `deployment.envs.smee.ipxeScriptTinkServerAddrPortV6`

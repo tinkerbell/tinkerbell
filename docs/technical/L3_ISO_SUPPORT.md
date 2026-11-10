@@ -11,7 +11,7 @@ In order to use layer 3 provisioning (ISO boot) in Tinkerbell, you need the foll
 
 ## What is Layer 3 Provisioning (ISO Boot)?
 
-Layer 3 provisioning in Tinkerbell is a method of provisioning a machine by running the Tinkerbell operating system installation environment, HookOS, from an ISO file that is booted from a virtual CDROM/DVD device. This is accomplished in Tinkerbell by utilizing the virtual media mounting enabled [Redfish](https://redfish.dmtf.org/) endpoint of a [BMC](https://en.wikipedia.org/wiki/Baseboard_management_controller).
+Layer 3 provisioning in Tinkerbell is a method of provisioning a machine by running the Tinkerbell operating system installation environment (OSIE), CaptainOS or HookOS, from an ISO file that is booted from a virtual CDROM/DVD device. This is accomplished in Tinkerbell by utilizing the virtual media mounting enabled [Redfish](https://redfish.dmtf.org/) endpoint of a [BMC](https://en.wikipedia.org/wiki/Baseboard_management_controller).
 
 ## How Does Layer 3 Provisioning (ISO Boot) in Tinkerbell Work?
 

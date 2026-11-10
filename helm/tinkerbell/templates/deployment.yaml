@@ -296,9 +296,9 @@ spec:
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_EXTRA_KERNEL_ARGS_V6
               value: {{ join " " ( append (default .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgs .Values.deployment.envs.smee.ipxeHttpScriptExtraKernelArgsV6) ( printf "tink_worker_image=%s:%s" .Values.deployment.agentImage (coalesce .Values.deployment.agentImageTag .Chart.AppVersion) ) ) | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_KERNEL_NAME
-              value: {{ .Values.deployment.envs.smee.ipxeHttpScriptKernelName | quote }}
+              value: {{ include "tinkerbell.osie.kernelName" . | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_INITRD_NAME
-              value: {{ .Values.deployment.envs.smee.ipxeHttpScriptInitrdName | quote }}
+              value: {{ include "tinkerbell.osie.initrdName" . | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRIES
               value: {{ .Values.deployment.envs.smee.ipxeHttpScriptRetries | quote }}
             - name: TINKERBELL_IPXE_HTTP_SCRIPT_RETRY_DELAY
