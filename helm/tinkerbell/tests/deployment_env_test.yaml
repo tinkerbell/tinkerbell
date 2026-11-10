@@ -79,3 +79,55 @@ tests:
       - contains:
           path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
           content: {name: TINKERBELL_DHCP_DEFAULT_DOMAIN_SEARCH_LIST_V6, value: "example.com,lab.example.com"}
+
+  - it: uses the CaptainOS kernel and initrd names by default
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_KERNEL_NAME, value: "vmlinuz-trixie-full"}
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_INITRD_NAME, value: "initramfs-trixie-full"}
+
+  - it: follows the CaptainOS flavor
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+      optional.captainos.flavor: trixie-slim
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_KERNEL_NAME, value: "vmlinuz-trixie-slim"}
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_INITRD_NAME, value: "initramfs-trixie-slim"}
+
+  - it: uses the HookOS kernel and initrd names when HookOS is enabled
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+      optional.hookos.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_KERNEL_NAME, value: "vmlinuz"}
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_INITRD_NAME, value: "initramfs"}
+
+  - it: keeps explicit kernel and initrd names
+    set:
+      publicIP: 1.1.1.1
+      artifactsFileServer: http://2.2.2.2
+      deployment.envs.smee.ipxeHttpScriptKernelName: vmlinuz-custom
+      deployment.envs.smee.ipxeHttpScriptInitrdName: initramfs-custom
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_KERNEL_NAME, value: "vmlinuz-custom"}
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].env
+          content: {name: TINKERBELL_IPXE_HTTP_SCRIPT_INITRD_NAME, value: "initramfs-custom"}

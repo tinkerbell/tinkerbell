@@ -34,11 +34,11 @@ files, laid out the way its bootloader expects. Captain publishes all of that as
 
 ### From the published OCI image (recommended)
 
-Images are tagged `<version>-<commit>-<flavor>-<arch>`; the Pi 5 flavor is `trixie-armbian-rpi` and
-the architecture is `arm64`:
+Release images are tagged `<version>-<flavor>`; the Pi 5 flavor is `trixie-armbian-rpi`, tagged
+`rpi`, and its artifacts are `arm64`:
 
 ```console
-$ REF=ghcr.io/tinkerbell/captain/artifacts:v0.0.0-dd8b328-trixie-armbian-rpi-arm64
+$ REF=ghcr.io/tinkerbell/captain/artifacts:v0.1.0-rpi
 $ mkdir -p /var/lib/tinkerbell/tftp && cd /var/lib/tinkerbell/tftp
 
 $ id=$(docker create "$REF" /bin/true)
@@ -49,9 +49,8 @@ $ docker rm "$id"
 ```
 
 > [!NOTE]
-> The `-arm64` in the tag names the architecture of the *boot artifacts*, which is what matters
-> here. The image itself is published as a multi-platform index so that this extraction works on an
-> amd64 or an arm64 host; both manifests carry the same Pi 5 artifacts.
+> The image is published as a multi-platform index so that this extraction works on an amd64 or an
+> arm64 host; both manifests carry the same arm64 Pi 5 artifacts.
 
 The artifacts in the image are organized as follows:
 

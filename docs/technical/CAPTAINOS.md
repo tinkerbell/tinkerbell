@@ -1,6 +1,6 @@
 # CaptainOS
 
-[CaptainOS](https://github.com/tinkerbell/captain) is an alternative Operating System Installation Environment (OSIE) that can be used alongside or instead of HookOS.
+[CaptainOS](https://github.com/tinkerbell/captain) is the default Operating System Installation Environment (OSIE) in the Helm chart. HookOS is still available as an alternative.
 
 ## Prerequisites
 
@@ -12,55 +12,63 @@ CaptainOS uses Kubernetes [ImageVolumes](https://kubernetes.io/docs/concepts/sto
 | 1.33 - 1.34        | Beta        | false   |
 | 1.35+              | Beta        | true    |
 
-For versions where the default is `false`, you must explicitly enable the `ImageVolume` feature gate on both the kubelet and the API server. If ImageVolume is not enabled, pods using CaptainOS image volumes will fail to be created by the API server.
+For versions where the default is `false`, you must explicitly enable the `ImageVolume` feature gate on both the kubelet and the API server, or [use HookOS](#using-hookos-instead). If ImageVolume is not enabled, pods using CaptainOS image volumes will fail to be created by the API server.
 
 Reference: <https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/>
 
-## Enabling CaptainOS
+## Helm Values
 
-CaptainOS is optional and disabled by default. To enable it, set the following Helm values:
+CaptainOS is enabled by default:
 
 ```yaml
 optional:
   captainos:
     enabled: true
-
-deployment:
-  envs:
-    smee:
-      ipxeHttpScriptKernelName: "vmlinuz-6.18.16"
-      ipxeHttpScriptInitrdName: "initramfs-6.18.16"
+    image: ghcr.io/tinkerbell/captain/artifacts:v0.1.0
+    flavor: trixie-full
 ```
 
-Or via `--set` flags:
+- `optional.captainos.enabled` mounts the CaptainOS artifacts image as a volume in the OSIE deployment.
+- `optional.captainos.image` is the CaptainOS artifacts image. The `vX.Y.Z` tag holds the `trixie-full` flavor for x86_64 and aarch64; `vX.Y.Z-slim` holds `trixie-slim`.
+- `optional.captainos.flavor` must match the flavor in `image`. It names the kernel and initrd that Smee boots.
 
-```bash
-helm install tinkerbell tinkerbell/ \
-  --set optional.captainos.enabled=true \
-  --set deployment.envs.smee.ipxeHttpScriptKernelName=vmlinuz-6.18.16 \
-  --set deployment.envs.smee.ipxeHttpScriptInitrdName=initramfs-6.18.16
-```
-
-> [!NOTE]
-> The `ipxeHttpScriptKernelName` and `ipxeHttpScriptInitrdName` values should not include an architecture suffix.
-> The architecture suffix is added at runtime by Tinkerbell when generating the iPXE script, based on the architecture of the machine being provisioned. For example, if `ipxeHttpScriptKernelName` is set to `vmlinuz` and the machine is x86_64, the generated iPXE script will reference `vmlinuz-x86_64`.
-
-- `optional.captainos.enabled` enables the CaptainOS artifacts image volume in the OSIE deployment.
-- `deployment.envs.smee.ipxeHttpScriptKernelName` sets the kernel filename used in the iPXE boot script (default: `vmlinuz`). Architecture is added at runtime.
-- `deployment.envs.smee.ipxeHttpScriptInitrdName` sets the initrd filename used in the iPXE boot script (default: `initramfs`). Architecture is added at runtime.
+When only CaptainOS is enabled and `deployment.envs.smee.ipxeHttpScriptKernelName` and `deployment.envs.smee.ipxeHttpScriptInitrdName` are empty (the default), the chart sets them to `vmlinuz-<flavor>` and `initramfs-<flavor>`. Smee adds the architecture at runtime, so an x86_64 machine boots `vmlinuz-trixie-full-x86_64` and `initramfs-trixie-full-x86_64`. Set those values explicitly to boot other files.
 
 > [!NOTE]
 > CaptainOS artifacts have the following naming conventions.
 > See the [CaptainOS documentation](https://github.com/tinkerbell/captain) for more details.
 > | Artifact | Convention | Example |
 > | -------- | ---------- | ------- |
-> | kernel | `vmlinuz-<kernel version>-<architecture>` | `vmlinuz-6.18.16-x86_64` |
-> | initramfs | `initramfs-<kernel version>-<architecture>` | `initramfs-6.18.16-x86_64` |
-> | ISO | `captainos-<kernel version>-<architecture>.iso` | `captainos-6.18.16-x86_64.iso` |
+> | kernel | `vmlinuz-<flavor>-<architecture>` | `vmlinuz-trixie-full-x86_64` |
+> | initramfs | `initramfs-<flavor>-<architecture>` | `initramfs-trixie-full-x86_64` |
+> | ISO | `captainos-<flavor>-<architecture>.iso` | `captainos-trixie-full-x86_64.iso` |
+
+## ISO Boot
+
+The artifacts image includes the CaptainOS ISOs. To serve them through Smee's ISO patching, point `isoUpstreamURL` at the OSIE file server:
+
+```yaml
+deployment:
+  envs:
+    smee:
+      isoUpstreamURL: "http://<artifacts file server>:7173/captainos-trixie-full-x86_64.iso"
+```
+
+## Using HookOS Instead
+
+```yaml
+optional:
+  captainos:
+    enabled: false
+  hookos:
+    enabled: true
+```
+
+With HookOS enabled, the chart defaults the kernel and initrd names to `vmlinuz` and `initramfs`, as HookOS names them.
 
 ## Deploying Together with HookOS
 
-CaptainOS artifacts can be deployed together with HookOS artifacts. When both are enabled, the NGINX file server is configured to serve artifacts from both, with HookOS artifacts tried first and CaptainOS artifacts used as a fallback.
+CaptainOS artifacts can be deployed together with HookOS artifacts. When both are enabled, the NGINX file server is configured to serve artifacts from both, with HookOS artifacts tried first and CaptainOS artifacts used as a fallback. Smee boots HookOS by default; select CaptainOS globally with the `ipxeHttpScriptKernelName` and `ipxeHttpScriptInitrdName` values, or per Hardware as shown below.
 
 ```yaml
 optional:
@@ -86,8 +94,8 @@ spec:
         allowPXE: true
         osie:
           baseURL: "http://192.168.2.117:7173"
-          kernel: "vmlinuz-6.18.16-custom"
-          initrd: "initramfs-6.18.16-custom"
+          kernel: "vmlinuz-trixie-full-x86_64"
+          initrd: "initramfs-trixie-full-x86_64"
       dhcp:
         ip:
           address: 192.168.2.10

@@ -17,6 +17,9 @@ For versions where the default is "false", you must explicitly enable the
 feature gate on the kubelet and API server.
 
 Reference: https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/
+
+To use HookOS instead, set optional.hookos.enabled=true and
+optional.captainos.enabled=false.
 {{- end }}
 
 Listeners serve: {{ .Values.deployment.envs.globals.listenerFamilies }}{{ if eq (toString .Values.deployment.envs.globals.listenerFamilies) "dual" }} (IPv4 and IPv6){{ end }}.

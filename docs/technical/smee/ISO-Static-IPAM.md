@@ -1,12 +1,12 @@
 # Static IP Address Management in the OSIE ISO
 
-OSIE stands for operating system installation environment. In Tinkerbell we currently have just one, [HookOS](https://github.com/tinkerbell/hook).
-Smee has the capability to Patch the HookOS ISO at runtime to include information about the target machine's network configuration. This is enabled by setting the CLI flag `-iso-static-ipam-enabled=true` along with both `-iso-enabled` and `-iso-url`.
-This document defines the specification/data format for passing this info to the HookOS ISO.
+OSIE stands for operating system installation environment. Tinkerbell has two, [CaptainOS](https://github.com/tinkerbell/captain) (the default) and [HookOS](https://github.com/tinkerbell/hook).
+Smee has the capability to Patch the OSIE ISO at runtime to include information about the target machine's network configuration. This is enabled by setting the CLI flag `-iso-static-ipam-enabled=true` along with both `-iso-enabled` and `-iso-url`.
+This document defines the specification/data format for passing this info to the OSIE ISO.
 
 ## Specification/Data format
 
-This is the spec/ data format for passing the static IP address management information to the HookOS ISO.
+This is the spec/ data format for passing the static IP address management information to the OSIE ISO.
 
 ```ipam=<mac-address>:<vlan-id>:<ip-address>:<netmask>:<gateway>:<hostname>:<dns>:<search-domains>:<ntp>```
 
@@ -32,4 +32,4 @@ Some fields are required so that basic network communication can function proper
 
 ## Implementation details
 
-Smee will set the kernel commandline parameter `ipam=` with the above format. In HookOS, there is a service that reads this cmdline parameter and writes the file(s) and runs the command(s) necessary to configure HookOS the use of all the values. See HookOS for more details on the service and how it works.
+Smee will set the kernel commandline parameter `ipam=` with the above format. The OSIE reads this cmdline parameter and configures its network with all the values. See [CaptainOS](https://github.com/tinkerbell/captain) or [HookOS](https://github.com/tinkerbell/hook) for more details on how each one does it.
