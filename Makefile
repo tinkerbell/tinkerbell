@@ -301,7 +301,7 @@ image: cross-compile third-party-licenses ## Build the Tinkerbell container imag
 
 .PHONY: build-push-image
 build-push-image: third-party-licenses ## Build and push the container image for both Amd64 and Arm64 architectures.
-	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
+	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push --metadata-file out/metadata-tinkerbell.json -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
 
 .PHONY: image-agent
 image-agent: cross-compile-agent third-party-licenses ## Build the Tink Agent container image
@@ -309,7 +309,7 @@ image-agent: cross-compile-agent third-party-licenses ## Build the Tink Agent co
 
 .PHONY: build-push-image-agent
 build-push-image-agent: third-party-licenses ## Build and push the container image for both Amd64 and Arm64 architectures.
-	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push -t $(IMAGE_NAME_AGENT):$(VERSION) -t $(IMAGE_NAME_AGENT):latest -f Dockerfile.agent .
+	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push --metadata-file out/metadata-tink-agent.json -t $(IMAGE_NAME_AGENT):$(VERSION) -t $(IMAGE_NAME_AGENT):latest -f Dockerfile.agent .
 
 ######### Build container images - end   #########
 
