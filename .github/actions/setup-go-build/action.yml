@@ -1,8 +1,7 @@
 name: Set up a Go build
 description: >-
-  Install the Go version in .go-version, restore the Go caches, download the
-  modules and generate the UI assets, so make can build or test. Run it after
-  actions/checkout.
+  Install the Go version in .go-version, restore the Go caches and download
+  the modules, so make can build or test. Run it after actions/checkout.
 
 inputs:
   cache-name:
@@ -56,7 +55,3 @@ runs:
         # fixes "write /run/user/<uid>/<nonce>: no space left on device" error
         sudo mount -o remount,size=3G "/run/user/$(id -u)" || true
         go mod download
-
-    - name: Generate UI assets
-      shell: bash
-      run: make ui-generate
