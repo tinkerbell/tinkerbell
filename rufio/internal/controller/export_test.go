@@ -14,6 +14,7 @@ var (
 	HardwareBMCRefIndexKey  = hardwareBMCRefIndexKey
 	HardwareBMCRefIndexFunc = hardwareBMCRefIndexFunc
 	OutOfBandAttributes     = outOfBandAttributes
+	ToPowerState            = toPowerState
 )
 
 // ReconcileInventoryIfDueForTest exposes reconcileInventoryIfDue so tests can

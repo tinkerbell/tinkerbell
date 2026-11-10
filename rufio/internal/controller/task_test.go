@@ -512,3 +512,77 @@ func TestTaskReconcileStartedTaskTimesOutWithoutBMC(t *testing.T) {
 		t.Fatalf("expected the timeout, not a connection error, to fail the task, got: %q", msg)
 	}
 }
+
+// A BMC reports a transition state such as "PoweringOff" or "PoweringOn" right after accepting a
+// power request. That is not the requested state yet: the Task must keep requeuing until the BMC
+// reports the terminal state, so a host that ignores an ACPI shutdown is caught by the task timeout
+// instead of reported as done.
+func TestTaskReconcilePowerActionWaitsForTerminalState(t *testing.T) {
+	tests := map[string]struct {
+		taskName      string
+		action        bmc.Action
+		transitionRaw string
+		terminalRaw   string
+	}{
+		"soft off": {taskName: "SoftOff", action: getAction("SoftOff"), transitionRaw: "PoweringOff", terminalRaw: "Off"},
+		"hard off": {taskName: "HardOff", action: getAction("HardOff"), transitionRaw: "PoweringOff", terminalRaw: "Off"},
+		"power on": {taskName: "PowerOn", action: getAction("PowerOn"), transitionRaw: "PoweringOn", terminalRaw: "On"},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			secret := createSecret()
+			task := createTask(tt.taskName, tt.action, secret)
+			provider := &testProvider{Powerstate: tt.transitionRaw, PowerSetOK: true}
+
+			cluster := newClientBuilder().WithObjects(task, secret).Build()
+			reconciler := controller.NewTaskReconciler(cluster, newTestClient(provider))
+			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: task.Namespace, Name: task.Name}}
+
+			// First reconcile runs the power action and records the StartTime.
+			if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
+				t.Fatalf("expected nil err, got: %v", err)
+			}
+
+			// The status check observes the transition state.
+			result, err := reconciler.Reconcile(context.Background(), request)
+			if err != nil {
+				t.Fatalf("expected nil err, got: %v", err)
+			}
+			if result.RequeueAfter <= 0 {
+				t.Fatalf("expected the task to be requeued while the BMC reports %s, got: %+v", tt.transitionRaw, result)
+			}
+
+			var retrieved bmc.Task
+			if err := cluster.Get(context.Background(), request.NamespacedName, &retrieved); err != nil {
+				t.Fatalf("expected nil err, got: %v", err)
+			}
+			if !retrieved.Status.CompletionTime.IsZero() {
+				t.Fatalf("expected no completion time while the BMC reports %s, got: %v", tt.transitionRaw, retrieved.Status.CompletionTime)
+			}
+			if retrieved.HasCondition(bmc.TaskCompleted, bmc.ConditionTrue) {
+				t.Fatalf("expected the task not to be completed while the BMC reports %s, got: %v", tt.transitionRaw, retrieved.Status.Conditions)
+			}
+
+			// Once the BMC reports the terminal state, the task completes.
+			provider.Powerstate = tt.terminalRaw
+			result, err = reconciler.Reconcile(context.Background(), request)
+			if err != nil {
+				t.Fatalf("expected nil err, got: %v", err)
+			}
+			if diff := cmp.Diff(result, reconcile.Result{}); diff != "" {
+				t.Fatalf("expected no diff, got: %v", diff)
+			}
+
+			if err := cluster.Get(context.Background(), request.NamespacedName, &retrieved); err != nil {
+				t.Fatalf("expected nil err, got: %v", err)
+			}
+			if retrieved.Status.CompletionTime.IsZero() {
+				t.Fatalf("expected a completion time once the BMC reports %s", tt.terminalRaw)
+			}
+			if !retrieved.HasCondition(bmc.TaskCompleted, bmc.ConditionTrue) {
+				t.Fatalf("expected the TaskCompleted condition once the BMC reports %s, got: %v", tt.terminalRaw, retrieved.Status.Conditions)
+			}
+		})
+	}
+}
