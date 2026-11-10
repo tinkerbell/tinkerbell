@@ -96,6 +96,7 @@ test-api: ## Run go test for API
 .PHONY: vet
 vet: ## Run go vet
 	go vet ./...
+	(cd api; go vet ./...)
 
 .PHONY: fmt
 fmt: $(GOIMPORTS_FQP) ## Run go fmt
@@ -116,13 +117,14 @@ coverage-api: test-api ## Show API test coverage
 	## Filter out generated files
 	cat api/coverage-api.txt | grep -v -E '$(FILE_TO_NOT_INCLUDE_IN_COVERAGE)' > api/coverage-api.out
 	go tool cover -func=api/coverage-api.out
+	mv api/coverage-api.out api/coverage-api.txt
 
 .PHONY: ci-checks
 ci-checks: $(GOIMPORTS_FQP) ./script/ci-checks.sh ## Run the ci-checks.sh script
 	GOIMPORTS=$(GOIMPORTS_FQP) ./script/ci-checks.sh
 
 .PHONY: ci
-ci: ci-checks coverage lint vet ## Runs all the same validations and tests that run in CI
+ci: ci-checks coverage coverage-api lint vet ## Runs all the same validations and tests that run in CI
 
 # Include UI Makefile
 include ui/Makefile
