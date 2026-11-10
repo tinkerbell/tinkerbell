@@ -9,6 +9,7 @@ import (
 	"github.com/bmc-toolbox/bmclib/v2/providers"
 	common "github.com/bmc-toolbox/common"
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	"github.com/jacobweinstock/registrar"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
@@ -21,6 +22,7 @@ import (
 	"k8s.io/client-go/tools/events"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -362,5 +364,124 @@ func TestMachineReconcile_WithHardwareLinked(t *testing.T) {
 
 	if _, err := reconciler.Reconcile(context.Background(), req); err != nil {
 		t.Fatalf("Reconcile() error = %v", err)
+	}
+}
+
+// hardwareLinkedTo returns a Hardware linked to ref ("" for no bmcRef) with the
+// inventory opt-out annotation set to optOut ("" for none).
+func hardwareLinkedTo(ref, optOut string) *tinkerbell.Hardware {
+	hw := createHardwareForMachine(ref)
+	if ref == "" {
+		hw.Spec.BMCRef = nil
+	}
+	if optOut != "" {
+		hw.Annotations = map[string]string{"tinkerbell.org/disable-outofband-inventory": optOut}
+	}
+	return hw
+}
+
+func TestHardwareBecameInventoryEligible_Create(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		hw   *tinkerbell.Hardware
+		want bool
+	}{
+		"bmcRef set":                {hw: hardwareLinkedTo("bmc-1", ""), want: true},
+		"no bmcRef":                 {hw: hardwareLinkedTo("", ""), want: false},
+		"bmcRef empty name":         {hw: createHardwareForMachine(""), want: false},
+		"bmcRef set but opted out":  {hw: hardwareLinkedTo("bmc-1", trueString), want: false},
+		"bmcRef set, opt-out false": {hw: hardwareLinkedTo("bmc-1", "false"), want: true},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := controller.HardwareBecameInventoryEligible().Create(event.CreateEvent{Object: tt.hw}); got != tt.want {
+				t.Errorf("Create() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHardwareBecameInventoryEligible_Update(t *testing.T) {
+	t.Parallel()
+
+	withOutOfBand := hardwareLinkedTo("bmc-1", "")
+	withOutOfBand.Status.Attributes = &tinkerbell.HardwareAttributes{
+		OutOfBand: &tinkerbell.Attributes{LastUpdated: &metav1.Time{}},
+	}
+	withAnnotation := hardwareLinkedTo("bmc-1", "")
+	withAnnotation.Annotations = map[string]string{"example.com/note": "x"}
+
+	tests := map[string]struct {
+		old, new *tinkerbell.Hardware
+		want     bool
+	}{
+		"bmcRef added":                             {old: hardwareLinkedTo("", ""), new: hardwareLinkedTo("bmc-1", ""), want: true},
+		"bmcRef moved to another Machine":          {old: hardwareLinkedTo("bmc-1", ""), new: hardwareLinkedTo("bmc-2", ""), want: true},
+		"bmcRef removed":                           {old: hardwareLinkedTo("bmc-1", ""), new: hardwareLinkedTo("", ""), want: false},
+		"same bmcRef":                              {old: hardwareLinkedTo("bmc-1", ""), new: hardwareLinkedTo("bmc-1", ""), want: false},
+		"status-only update":                       {old: hardwareLinkedTo("bmc-1", ""), new: withOutOfBand, want: false},
+		"metadata-only update":                     {old: hardwareLinkedTo("bmc-1", ""), new: withAnnotation, want: false},
+		"neither linked":                           {old: hardwareLinkedTo("", ""), new: hardwareLinkedTo("", ""), want: false},
+		"inventory opt-out removed":                {old: hardwareLinkedTo("bmc-1", trueString), new: hardwareLinkedTo("bmc-1", ""), want: true},
+		"inventory opt-out set to false":           {old: hardwareLinkedTo("bmc-1", trueString), new: hardwareLinkedTo("bmc-1", "false"), want: true},
+		"inventory opt-out added":                  {old: hardwareLinkedTo("bmc-1", ""), new: hardwareLinkedTo("bmc-1", trueString), want: false},
+		"inventory opt-out unchanged":              {old: hardwareLinkedTo("bmc-1", trueString), new: hardwareLinkedTo("bmc-1", trueString), want: false},
+		"inventory opt-out removed while unlinked": {old: hardwareLinkedTo("", trueString), new: hardwareLinkedTo("", ""), want: false},
+		"bmcRef added while opted out":             {old: hardwareLinkedTo("", trueString), new: hardwareLinkedTo("bmc-1", trueString), want: false},
+		"bmcRef moved while opted out":             {old: hardwareLinkedTo("bmc-1", trueString), new: hardwareLinkedTo("bmc-2", trueString), want: false},
+		"bmcRef added and opt-out removed at once": {old: hardwareLinkedTo("", trueString), new: hardwareLinkedTo("bmc-1", ""), want: true},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := controller.HardwareBecameInventoryEligible().Update(event.UpdateEvent{ObjectOld: tt.old, ObjectNew: tt.new})
+			if got != tt.want {
+				t.Errorf("Update() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHardwareBecameInventoryEligible_DeleteAndGeneric(t *testing.T) {
+	t.Parallel()
+
+	hw := hardwareLinkedTo("bmc-1", "")
+	if controller.HardwareBecameInventoryEligible().Delete(event.DeleteEvent{Object: hw}) {
+		t.Error("Delete() = true, want false")
+	}
+	if controller.HardwareBecameInventoryEligible().Generic(event.GenericEvent{Object: hw}) {
+		t.Error("Generic() = true, want false")
+	}
+}
+
+func TestMachineRequestsForHardware(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		hw   *tinkerbell.Hardware
+		want []reconcile.Request
+	}{
+		"linked Hardware enqueues its Machine in the Hardware's namespace": {
+			hw:   hardwareLinkedTo("bmc-1", ""),
+			want: []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: "test-namespace", Name: "bmc-1"}}},
+		},
+		"unlinked Hardware enqueues nothing": {
+			hw:   hardwareLinkedTo("", ""),
+			want: nil,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := controller.MachineRequestsForHardware(t.Context(), tt.hw)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("MachineRequestsForHardware() mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
