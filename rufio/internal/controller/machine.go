@@ -206,10 +206,9 @@ func (r *MachineReconciler) updatePowerState(ctx context.Context, bm *bmc.Machin
 // reconcileInventoryIfDue collects BMC inventory when it's due (see
 // dueForInventoryRefresh) and writes it to the linked Hardware's status.
 // Failures are logged and evented but never block Machine reconciliation —
-// Hardware and Machine are reconciled independently, and an unreachable/
-// unsupported inventory source (e.g. IPMI-only BMCs, which bmclib cannot collect
-// inventory from at all) is an expected, permanent state for some fleets, not a
-// fatal error.
+// Hardware and Machine are reconciled independently. A BMC without any
+// inventory-capable provider (e.g. IPMI-only) is not a failure: reconcileInventory
+// records the attempt without an event, so it is retried once per refresh interval.
 func (r *MachineReconciler) reconcileInventoryIfDue(ctx context.Context, logger logr.Logger, bmcClient *bmclib.Client, bm *bmc.Machine) {
 	if !r.inventoryCollectionEnabled {
 		return
