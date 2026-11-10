@@ -41,15 +41,23 @@ func resolveAuthSecretRef(ctx context.Context, c client.Client, secretRef v1.Sec
 
 // toPowerState takes a raw BMC power state response and converts it to a v1alpha1.PowerState.
 func toPowerState(state string) bmc.PowerState {
-	// Normalize the response string for comparison.
-	state = strings.ToLower(state)
-
-	switch {
-	case strings.Contains(state, "on"):
-		return bmc.On
-	case strings.Contains(state, "off"):
-		return bmc.Off
-	default:
-		return bmc.Unknown
+	// The IPMI providers report "Chassis Power is on"/"Chassis Power is off", and
+	// the ipmitool provider returns ipmitool's combined stdout and stderr, so the
+	// state line can follow warning lines. Redfish and the others report the bare
+	// state. Check each line on its own.
+	//
+	// Only terminal states map to On/Off. Transition states such as Redfish's
+	// "PoweringOff" and "PoweringOn" must stay Unknown so callers keep waiting.
+	for line := range strings.Lines(state) {
+		line = strings.TrimSpace(strings.ToLower(line))
+		line = strings.TrimPrefix(line, "chassis power is ")
+		switch line {
+		case "on":
+			return bmc.On
+		case "off":
+			return bmc.Off
+		}
 	}
+
+	return bmc.Unknown
 }
