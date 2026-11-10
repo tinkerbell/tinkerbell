@@ -10,4 +10,4 @@ The Tinkerbell team will send a response indicating the next steps in handling y
 
 ## Verifying release artifacts
 
-Container images, the Helm chart and release binaries are signed in CI. See [Verifying release artifacts](technical/VERIFYING_ARTIFACTS.md).
+Container images, the Helm chart and release binaries are signed in CI. The images and the binaries also ship with SBOMs. See [Verifying release artifacts](technical/VERIFYING_ARTIFACTS.md).
