@@ -14,7 +14,7 @@ When an Agent connects to the Tink Server:
 1. Check if there is a Hardware object with the `spec.agentID` that matches the Agent ID.
 1. If no workflow exists for the Agent, and auto enrollment is enabled and no Hardware object exists or `Hardware.spec.auto.enrollmentEnabled=true`, Tink server:
    1. Iterates through the WorkflowRuleSets and checks for a rule that matches the Agent's attributes. If a Hardware object exists, only WorkflowRuleSets in its namespace are considered; with auto discovery, that is the auto discovery namespace.
-   1. Creates a Workflow for the Agent based on the matched WorkflowRuleSet.
+   1. Creates a Workflow for the Agent based on the matched WorkflowRuleSet. See [Choosing between matching WorkflowRuleSets](#choosing-between-matching-workflowrulesets) for which one is used when several match.
 1. The Tink Controller reconciles the new Workflow, and the Agent receives the first Workflow Action on its next poll.
 1. The Agent executes the Workflow Actions.
 
@@ -81,6 +81,13 @@ spec:
     - **agentValue [string]**: A value used in the referenced Template for the `Task[].worker` value. For example: "`device_id`" or "`worker_id`".
     - **kvs [map]**: Key-value pairs usable in the referenced Template.
     - **ref [string]**: The name of a Template object used in the created Workflow.
+
+### Choosing between matching WorkflowRuleSets
+
+When more than one WorkflowRuleSet matches an Agent, Tink Server uses the one with the most rules that match the Agent's attributes.
+If several WorkflowRuleSets match the same number of rules, the first one in alphabetical order of namespace, then name, is used.
+
+This makes a catch-all WorkflowRuleSet possible. For example, given a WorkflowRuleSet named `server` with a rule that matches the MAC addresses of a set of servers, and a WorkflowRuleSet named `zzz-default` in the same namespace with a rule that matches any MAC address, each matches one rule for those servers, so `server` is used for them and `zzz-default` for every other Agent.
 
 ## How to discover Agent attributes
 
