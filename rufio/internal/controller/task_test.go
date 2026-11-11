@@ -102,6 +102,20 @@ func TestTaskReconcile(t *testing.T) {
 			action:   getAction("PowerOn"),
 			provider: &testProvider{Powerstate: "on", PowerSetOK: true, Proto: "rpc"},
 		},
+		"success power on with a secret reference without a namespace": {
+			taskName: "PowerOn",
+			action:   getAction("PowerOn"),
+			provider: &testProvider{Powerstate: "on", PowerSetOK: true},
+			secret:   secretInNamespace(createSecret(), "default"),
+			task:     taskWithoutSecretNamespaces(createTask("PowerOn", getAction("PowerOn"), createSecret())),
+		},
+		"success power on with rpc provider and a secret reference without a namespace": {
+			taskName: "PowerOn",
+			action:   getAction("PowerOn"),
+			provider: &testProvider{Powerstate: "on", PowerSetOK: true, Proto: "rpc"},
+			secret:   secretInNamespace(createHMACSecret(), "default"),
+			task:     taskWithoutSecretNamespaces(createTaskWithRPC("PowerOn", getAction("PowerOn"), createHMACSecret())),
+		},
 		"failure on bmc open": {
 			taskName: "PowerOn", action: getAction("PowerOn"),
 			provider:  &testProvider{ErrOpen: errors.New("failed to open")},
@@ -431,6 +445,18 @@ func createTaskWithRPC(name string, action bmc.Action, secret *corev1.Secret) *b
 	}
 
 	return task
+}
+
+// taskWithoutSecretNamespaces clears the namespace of every Secret reference in the Task's Connection.
+func taskWithoutSecretNamespaces(task *bmc.Task) *bmc.Task {
+	clearSecretNamespaces(&task.Spec.Connection)
+	return task
+}
+
+// secretInNamespace moves secret to namespace.
+func secretInNamespace(secret *corev1.Secret, namespace string) *corev1.Secret {
+	secret.Namespace = namespace
+	return secret
 }
 
 // A Task whose action already ran must not be failed because a later status-check reconcile could

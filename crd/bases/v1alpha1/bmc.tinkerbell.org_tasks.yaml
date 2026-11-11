@@ -50,7 +50,8 @@ spec:
                     description: |-
                       AuthSecretRef is the SecretReference that contains authentication information of the Machine.
                       The Secret must contain username and password keys. This is optional as it is not required when using
-                      the RPC provider.
+                      the RPC provider. If its namespace is empty, the Secret is in the namespace of the Machine or Task that
+                      holds this Connection.
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -196,8 +197,9 @@ spec:
                                     type: object
                                     x-kubernetes-map-type: atomic
                                   type: array
-                                description: Secrets are a map of algorithms to secrets
-                                  used for signing.
+                                description: |-
+                                  Secrets are a map of algorithms to secrets used for signing.
+                                  A secret reference without a namespace refers to a Secret in the namespace of the Machine or Task.
                                 type: object
                             type: object
                           logNotificationsDisabled:

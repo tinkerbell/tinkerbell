@@ -157,6 +157,20 @@ func TestFilterBMCMachineUsesHardwareNamespace(t *testing.T) {
 	}
 }
 
+func TestFilterBMCMachineSecretWithoutNamespace(t *testing.T) {
+	hw := templated("1")
+	hw.Spec.BMCRef = &corev1.TypedLocalObjectReference{Kind: "Machine", Name: "m"}
+	machine := &bmc.Machine{ObjectMeta: metav1.ObjectMeta{Name: "m", Namespace: hw.Namespace}, Spec: bmc.MachineSpec{Connection: bmc.Connection{
+		Host: "host", AuthSecretRef: corev1.SecretReference{Name: "credentials"},
+	}}}
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "credentials", Namespace: hw.Namespace}, Data: map[string][]byte{"username": []byte("user"), "password": []byte("pass")}}
+	b := newFakeBackend(t, Backend{}, hw, machine, secret)
+	got, err := b.FilterBMCMachine(context.Background(), data.HardwareFilter{ByName: hw.Name, InNamespace: hw.Namespace})
+	if err != nil || got.User != "user" || got.Pass != "pass" {
+		t.Fatalf("FilterBMCMachine = %+v, %v; want the credentials from the Secret in the Machine's namespace", got, err)
+	}
+}
+
 func TestFilterBMCMachineWithoutBMCRef(t *testing.T) {
 	hw := templated("1")
 	b := newFakeBackend(t, Backend{}, hw)
