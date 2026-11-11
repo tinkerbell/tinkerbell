@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
+	"github.com/bmc-toolbox/bmclib/v2/providers"
 	common "github.com/bmc-toolbox/common"
 	"github.com/go-logr/logr"
+	"github.com/jacobweinstock/registrar"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
@@ -147,19 +149,19 @@ func TestReconcileInventoryIfDue_ClearsRefreshAnnotationOnSuccess(t *testing.T) 
 	}
 }
 
-// TestReconcileInventoryIfDue_IPMIOnlyHardError verifies that a provider which
-// cannot produce inventory at all (mirroring bmclib's ipmitool driver, which
-// does not implement InventoryGetter) does not error out to the caller and does
+// TestReconcileInventoryIfDue_ProviderError verifies that a provider which
+// implements InventoryGetter but fails does not error out to the caller and does
 // not create a partial/empty status.attributes.outOfBand.
-func TestReconcileInventoryIfDue_IPMIOnlyHardError(t *testing.T) {
+func TestReconcileInventoryIfDue_ProviderError(t *testing.T) {
 	bm := createMachine()
 	hw := createHardwareForMachine(bm.Name)
 	provider := &testProvider{
-		ErrInventory: errors.New("not a InventoryGetter implementation"),
+		ErrInventory: errors.New("inventory request failed"),
 	}
 
 	client := newInventoryTestClient(hw)
-	reconciler := controller.NewMachineReconciler(client, events.NewFakeRecorder(2), newTestClient(provider), 0, 0, true)
+	recorder := events.NewFakeRecorder(2)
+	reconciler := controller.NewMachineReconciler(client, recorder, newTestClient(provider), 0, 0, true)
 	bmcClient := newOpenTestBMCClient(t, provider)
 
 	// reconcileInventoryIfDue has no return value — failures are logged/evented,
@@ -172,6 +174,55 @@ func TestReconcileInventoryIfDue_IPMIOnlyHardError(t *testing.T) {
 	}
 	if controller.OutOfBandAttributes(&got) != nil {
 		t.Errorf("Status.Attributes.OutOfBand = %+v, want nil after a failed collection", controller.OutOfBandAttributes(&got))
+	}
+	if len(recorder.Events) != 1 {
+		t.Errorf("got %d events, want 1 warning for a failed collection", len(recorder.Events))
+	}
+}
+
+// noInventoryProvider wraps testProvider without promoting its Inventory
+// method, mirroring bmclib providers (ipmitool, homeassistant) that do not
+// implement InventoryGetter.
+type noInventoryProvider struct {
+	p *testProvider
+}
+
+func (n *noInventoryProvider) Open(ctx context.Context) error  { return n.p.Open(ctx) }
+func (n *noInventoryProvider) Close(ctx context.Context) error { return n.p.Close(ctx) }
+func (n *noInventoryProvider) PowerStateGet(ctx context.Context) (string, error) {
+	return n.p.PowerStateGet(ctx)
+}
+
+// TestReconcileInventoryIfDue_Unsupported verifies that a BMC without any
+// InventoryGetter provider emits no event and records the attempt, so it is not
+// retried (and logged) on every reconcile.
+func TestReconcileInventoryIfDue_Unsupported(t *testing.T) {
+	bm := createMachine()
+	hw := createHardwareForMachine(bm.Name)
+	provider := &noInventoryProvider{p: &testProvider{}}
+
+	reg := registrar.NewRegistry()
+	reg.Register("noinventory", "ipmi", registrar.Features{providers.FeaturePowerState}, nil, provider)
+	bmcClient := bmclib.NewClient("0.0.0.0", "user", "pass", bmclib.WithRegistry(reg))
+	if err := bmcClient.Open(context.Background()); err != nil {
+		t.Fatalf("failed to open test BMC client: %v", err)
+	}
+
+	client := newInventoryTestClient(hw)
+	recorder := events.NewFakeRecorder(2)
+	reconciler := controller.NewMachineReconciler(client, recorder, newTestClient(provider.p), 0, 0, true)
+	reconciler.ReconcileInventoryIfDueForTest(context.Background(), logr.Discard(), bmcClient, bm)
+
+	if len(recorder.Events) != 0 {
+		t.Errorf("got event %q, want none for a BMC that does not support inventory", <-recorder.Events)
+	}
+	var got tinkerbell.Hardware
+	if err := client.Get(context.Background(), types.NamespacedName{Namespace: "test-namespace", Name: "test-hw"}, &got); err != nil {
+		t.Fatalf("failed to get Hardware: %v", err)
+	}
+	oob := controller.OutOfBandAttributes(&got)
+	if oob == nil || oob.LastUpdated == nil {
+		t.Fatalf("Status.Attributes.OutOfBand = %+v, want LastUpdated set so the next attempt waits a refresh interval", oob)
 	}
 }
 

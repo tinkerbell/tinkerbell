@@ -19,6 +19,7 @@ package controller
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"sort"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
+	bmclibErrs "github.com/bmc-toolbox/bmclib/v2/errors"
 	common "github.com/bmc-toolbox/common"
 	"github.com/ccoveille/go-safecast/v2"
 	"github.com/go-logr/logr"
@@ -181,6 +183,14 @@ func (r *MachineReconciler) findLinkedHardware(ctx context.Context, bm *bmc.Mach
 // opened) and writes it to the linked Hardware's status.
 func (r *MachineReconciler) reconcileInventory(ctx context.Context, logger logr.Logger, bmcClient *bmclib.Client, hw *tinkerbell.Hardware) error {
 	device, err := bmcClient.Inventory(ctx)
+	if errors.Is(err, bmclibErrs.ErrProviderImplementation) {
+		// No provider for this BMC implements inventory (e.g. IPMI-only or
+		// homeassistant). That is permanent, not a failure: record the attempt
+		// so the next one waits a full refresh interval instead of warning on
+		// every power-poll reconcile.
+		logger.V(1).Info("BMC providers do not support inventory collection", "reason", err.Error())
+		return r.applyOutOfBandAttributes(ctx, logger, hw, nil, "")
+	}
 	if err != nil {
 		return fmt.Errorf("get BMC inventory: %w", err)
 	}
