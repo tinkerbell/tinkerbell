@@ -2,11 +2,12 @@
 
 CI signs every artifact it publishes, with keyless [Sigstore](https://www.sigstore.dev/) signatures tied to the workflow that built it. There are no keys to fetch.
 
-| Artifact | Signed with |
-| --- | --- |
-| `ghcr.io/tinkerbell/tinkerbell`, `ghcr.io/tinkerbell/tink-agent` | cosign |
-| `oci://ghcr.io/tinkerbell/charts/tinkerbell` | cosign |
-| `tinkerbell-embedded-linux-{amd64,arm64}` and `checksums-embedded.txt` release assets | GitHub build provenance attestation |
+| Artifact | Signed with | SBOM |
+| --- | --- | --- |
+| `ghcr.io/tinkerbell/tinkerbell`, `ghcr.io/tinkerbell/tink-agent` | cosign | SPDX, attached to the image by BuildKit |
+| `oci://ghcr.io/tinkerbell/charts/tinkerbell` | cosign | none |
+| `tinkerbell-embedded-linux-{amd64,arm64}` release assets | GitHub build provenance attestation | SPDX, `<binary>.spdx.json` release asset |
+| `<binary>.spdx.json` and `checksums-embedded.txt` release assets | GitHub build provenance attestation | none |
 
 The first signed release is `v0.26.0`. Earlier releases are not signed.
 
@@ -16,6 +17,7 @@ Requirements:
 
 - [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) v3 or later. cosign v2.6 and later also work with `--new-bundle-format`.
 - [gh](https://cli.github.com/), logged in with `gh auth login`, for the release binaries.
+- `docker buildx`, to read the image SBOMs.
 - Flux v2.8.0 or later, to verify the chart from Flux.
 
 The examples use:
@@ -43,6 +45,16 @@ DIGEST=$(cosign verify "ghcr.io/tinkerbell/tinkerbell:${VERSION}" \
   | jq -r '.[0].critical.image."docker-manifest-digest"')
 echo "ghcr.io/tinkerbell/tinkerbell@${DIGEST}"
 ```
+
+### Image SBOMs
+
+Read the SBOM from the index digest you verified, so it belongs to that image. The SBOM hangs off the index, so a platform manifest digest doesn't reach it: the command then prints `{}`. `cosign verify` on a tag prints the index digest.
+
+```sh
+docker buildx imagetools inspect "ghcr.io/tinkerbell/tinkerbell@${DIGEST}" --format '{{ json .SBOM }}'
+```
+
+The output holds one SPDX document per platform. `cosign verify-attestation` does not see these SBOMs: BuildKit references them from the image index, which the image signature covers.
 
 ### `:latest` and mainline builds
 
@@ -115,4 +127,4 @@ gh attestation verify tinkerbell-embedded-linux-amd64 \
   --deny-self-hosted-runners
 ```
 
-Run `gh attestation verify` for each file you use, including `checksums-embedded.txt`.
+Run `gh attestation verify` for each file you use, including `checksums-embedded.txt` and the `.spdx.json` SBOMs.
