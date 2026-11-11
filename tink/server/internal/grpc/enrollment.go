@@ -92,10 +92,12 @@ func (h *Handler) enroll(ctx context.Context, agentID string, attr *data.AgentAt
 				Labels: map[string]string{
 					"tinkerbell.org/auto-enrollment": "true",
 				},
+				// Not final.wrs.APIVersion and final.wrs.Kind: only a cache fills in TypeMeta, so a
+				// WorkflowRuleSet read any other way would give the Workflow an owner reference with neither.
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: final.wrs.APIVersion,
-						Kind:       final.wrs.Kind,
+						APIVersion: tinkerbell.GroupVersion.String(),
+						Kind:       "WorkflowRuleSet",
 						Name:       final.wrs.Name,
 						UID:        final.wrs.UID,
 					},
