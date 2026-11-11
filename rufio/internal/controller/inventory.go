@@ -143,8 +143,13 @@ func (r *MachineReconciler) clearRefreshInventoryAnnotation(ctx context.Context,
 	if bm.Annotations[refreshInventoryAnnotation] != trueString {
 		return
 	}
-	patch := ctrlclient.MergeFrom(bm.DeepCopy())
-	delete(bm.Annotations, refreshInventoryAnnotation)
+	// Patch a copy: Patch writes the server's response into the object it's given, and that
+	// response holds the status from before this reconcile. Patching bm would wipe the status this
+	// reconcile set on it, before patchStatus sends it. bm drops the annotation only after the
+	// server has.
+	m := bm.DeepCopy()
+	patch := ctrlclient.MergeFrom(m.DeepCopy())
+	delete(m.Annotations, refreshInventoryAnnotation)
 	// Retried: dueForInventoryRefresh treats refreshInventoryAnnotation as an
 	// unconditional override, so an un-retried, transiently-failed Patch here
 	// would leave it set on the server and force a full (5-30s) BMC inventory
@@ -152,11 +157,13 @@ func (r *MachineReconciler) clearRefreshInventoryAnnotation(ctx context.Context,
 	// cadence, not inventoryRefreshInterval — until some later attempt
 	// happens to succeed.
 	if err := retry.Do(func() error {
-		return r.client.Patch(ctx, bm, patch)
+		return r.client.Patch(ctx, m, patch)
 	}, retry.Attempts(3), retry.Delay(500*time.Millisecond), retry.Context(ctx)); err != nil {
 		logger.Error(err, "failed to clear refresh-inventory annotation after successful collection")
 		r.recorder.Eventf(bm, nil, corev1.EventTypeWarning, "ClearRefreshAnnotationFailed", "ClearRefreshInventoryAnnotation", "clear refresh-inventory annotation: %v", err)
+		return
 	}
+	delete(bm.Annotations, refreshInventoryAnnotation)
 }
 
 // findLinkedHardware returns the Hardware object whose spec.bmcRef points at the

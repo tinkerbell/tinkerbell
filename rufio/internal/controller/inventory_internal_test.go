@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -442,6 +443,59 @@ func TestClearRefreshInventoryAnnotationRetries(t *testing.T) {
 	}
 	if _, ok := bm.Annotations[refreshInventoryAnnotation]; ok {
 		t.Error("refresh-inventory annotation still present after retries succeeded, want it cleared")
+	}
+}
+
+// TestClearRefreshInventoryAnnotationGivesUp covers a Patch that fails on every attempt: the Machine
+// keeps the annotation, in memory as on the server, and a warning event says so.
+func TestClearRefreshInventoryAnnotationGivesUp(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := bmc.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to build scheme: %v", err)
+	}
+	bm := &bmc.Machine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-bm",
+			Namespace:   "test-namespace",
+			Annotations: map[string]string{refreshInventoryAnnotation: trueString},
+		},
+	}
+
+	var attempts int
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(bm).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Patch: func(_ context.Context, _ client.WithWatch, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
+				attempts++
+				return errors.New("injected failure")
+			},
+		}).
+		Build()
+
+	// Room for more events than expected, so an extra one fails the test instead of blocking it.
+	recorder := events.NewFakeRecorder(10)
+	r := &MachineReconciler{client: fakeClient, recorder: recorder}
+	r.clearRefreshInventoryAnnotation(context.Background(), logr.Discard(), bm)
+
+	if attempts != 3 {
+		t.Errorf("Patch called %d times, want 3", attempts)
+	}
+	if bm.Annotations[refreshInventoryAnnotation] != trueString {
+		t.Error("refresh-inventory annotation removed from the Machine although every Patch failed")
+	}
+	var stored bmc.Machine
+	if err := fakeClient.Get(context.Background(), client.ObjectKeyFromObject(bm), &stored); err != nil {
+		t.Fatalf("failed to get Machine: %v", err)
+	}
+	if stored.Annotations[refreshInventoryAnnotation] != trueString {
+		t.Error("refresh-inventory annotation removed from the stored Machine although every Patch failed")
+	}
+	if n := len(recorder.Events); n != 1 {
+		t.Fatalf("recorded %d events, want 1", n)
+	}
+	if e := <-recorder.Events; !strings.HasPrefix(e, "Warning ClearRefreshAnnotationFailed ") {
+		t.Errorf("event = %q, want a ClearRefreshAnnotationFailed warning", e)
 	}
 }
 
