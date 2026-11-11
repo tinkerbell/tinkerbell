@@ -170,10 +170,12 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 		return reconcile.Result{}, fmt.Errorf("hardware %q does not have a BMC", hw.Name)
 	}
 
+	// Not s.workflow.APIVersion and s.workflow.Kind: only the manager's cache fills in TypeMeta, so a
+	// Workflow read any other way would give the Job an owner reference with neither.
 	ownerRef := []metav1.OwnerReference{
 		{
-			APIVersion: s.workflow.APIVersion,
-			Kind:       s.workflow.Kind,
+			APIVersion: v1alpha1.GroupVersion.String(),
+			Kind:       "Workflow",
 			Name:       s.workflow.Name,
 			UID:        s.workflow.UID,
 			Controller: valueToPointer(true),
