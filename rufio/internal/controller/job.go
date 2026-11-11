@@ -149,7 +149,7 @@ func (r *JobReconciler) doReconcile(ctx context.Context, job *bmc.Job, jobPatch 
 	}
 
 	// Create the first Task for the Job
-	if err := r.createTaskWithOwner(ctx, *job, completedTasksCount, machine.Spec.Connection); err != nil {
+	if err := r.createTaskWithOwner(ctx, *job, completedTasksCount, taskConnection(machine)); err != nil {
 		// Set the Job condition Failed True
 		job.SetCondition(bmc.JobFailed, bmc.ConditionTrue, bmc.WithJobConditionMessage(err.Error()))
 		patchErr := r.patchStatus(ctx, job, jobPatch)
@@ -177,6 +177,27 @@ func (r *JobReconciler) getMachine(ctx context.Context, reference bmc.MachineRef
 	}
 
 	return nil
+}
+
+// taskConnection returns the Connection of machine for a Task. A Task is created in its Job's
+// namespace, which can differ from the Machine's, so Secret references without a namespace are set
+// to the Machine's namespace to keep referring to the Machine's Secrets.
+func taskConnection(machine *bmc.Machine) bmc.Connection {
+	conn := machine.Spec.Connection.DeepCopy()
+	if conn.AuthSecretRef.Name != "" && conn.AuthSecretRef.Namespace == "" {
+		conn.AuthSecretRef.Namespace = machine.Namespace
+	}
+	if conn.ProviderOptions != nil && conn.ProviderOptions.RPC != nil && conn.ProviderOptions.RPC.HMAC != nil {
+		for _, refs := range conn.ProviderOptions.RPC.HMAC.Secrets {
+			for i := range refs {
+				if refs[i].Namespace == "" {
+					refs[i].Namespace = machine.Namespace
+				}
+			}
+		}
+	}
+
+	return *conn
 }
 
 // createTaskWithOwner creates a Task object with an OwnerReference set to the Job.

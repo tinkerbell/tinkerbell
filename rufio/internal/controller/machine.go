@@ -28,7 +28,6 @@ import (
 	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -118,7 +117,7 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *bmc.Machine, bm
 	if bm.Spec.Connection.ProviderOptions != nil && bm.Spec.Connection.ProviderOptions.RPC != nil {
 		opts.ProviderOptions = bm.Spec.Connection.ProviderOptions
 		if bm.Spec.Connection.ProviderOptions.RPC.HMAC != nil && len(bm.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets) > 0 {
-			se, err := retrieveHMACSecrets(ctx, r.client, bm.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets)
+			se, err := retrieveHMACSecrets(ctx, r.client, bm.Spec.Connection.ProviderOptions.RPC.HMAC.Secrets, bm.Namespace)
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("unable to get hmac secrets: %w", err)
 			}
@@ -128,7 +127,7 @@ func (r *MachineReconciler) doReconcile(ctx context.Context, bm *bmc.Machine, bm
 		// Fetching username, password from SecretReference
 		// Requeue if error fetching secret
 		var err error
-		username, password, err = resolveAuthSecretRef(ctx, r.client, bm.Spec.Connection.AuthSecretRef)
+		username, password, err = resolveAuthSecretRef(ctx, r.client, bm.Spec.Connection.AuthSecretRef, bm.Namespace)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("resolving Machine %s/%s SecretReference: %w", bm.Namespace, bm.Name, err)
 		}
@@ -240,12 +239,12 @@ func (r *MachineReconciler) patchStatus(ctx context.Context, bm *bmc.Machine, pa
 	return nil
 }
 
-func retrieveHMACSecrets(ctx context.Context, c client.Client, hmacSecrets bmc.HMACSecrets) (rpc.Secrets, error) {
+func retrieveHMACSecrets(ctx context.Context, c client.Client, hmacSecrets bmc.HMACSecrets, namespace string) (rpc.Secrets, error) {
 	sec := rpc.Secrets{}
 	for k, v := range hmacSecrets {
 		for _, s := range v {
 			secret := &corev1.Secret{}
-			key := types.NamespacedName{Namespace: s.Namespace, Name: s.Name}
+			key := secretKey(s, namespace)
 
 			if err := c.Get(ctx, key, secret); err != nil {
 				if apierrors.IsNotFound(err) {

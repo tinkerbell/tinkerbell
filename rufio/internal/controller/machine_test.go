@@ -53,6 +53,16 @@ func TestMachineReconcile(t *testing.T) {
 				},
 			}),
 		},
+		"success power on with a secret reference without a namespace": {
+			provider: &testProvider{Powerstate: "on"},
+			secret:   createSecret(),
+			machine:  withoutSecretNamespaces(createMachine()),
+		},
+		"success power on with RPC provider and a secret reference without a namespace": {
+			provider: &testProvider{Powerstate: "on", Proto: "rpc"},
+			secret:   createHMACSecret(),
+			machine:  withoutSecretNamespaces(createMachineWithRPC(createHMACSecret())),
+		},
 		"fail on open": {
 			provider: &testProvider{ErrOpen: errors.New("failed to open connection")},
 			secret:   createSecret(),
@@ -209,6 +219,24 @@ func createMachine() *bmc.Machine {
 				},
 			},
 		},
+	}
+}
+
+// withoutSecretNamespaces clears the namespace of every Secret reference in the Machine's Connection.
+func withoutSecretNamespaces(machine *bmc.Machine) *bmc.Machine {
+	clearSecretNamespaces(&machine.Spec.Connection)
+	return machine
+}
+
+// clearSecretNamespaces clears the namespace of every Secret reference in conn.
+func clearSecretNamespaces(conn *bmc.Connection) {
+	conn.AuthSecretRef.Namespace = ""
+	if conn.ProviderOptions != nil && conn.ProviderOptions.RPC != nil && conn.ProviderOptions.RPC.HMAC != nil {
+		for _, refs := range conn.ProviderOptions.RPC.HMAC.Secrets {
+			for i := range refs {
+				refs[i].Namespace = ""
+			}
+		}
 	}
 }
 
