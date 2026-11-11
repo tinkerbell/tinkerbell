@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	tinkotel "github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/bootstrap"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	"github.com/tinkerbell/tinkerbell/smee/internal/iso/internal"
@@ -462,6 +463,7 @@ func (h *Handler) getFacility(ctx context.Context, mac net.HardwareAddr, br Back
 	if err != nil {
 		return "", dhcp.Hardware{}, nil, err
 	}
+	tinkotel.AnnotateHardware(ctx, spec)
 	hw, err := dhcp.ConvertByMac(ctx, mac, spec)
 	if err != nil {
 		return "", dhcp.Hardware{}, nil, fmt.Errorf("failed to convert hardware data: %w", err)

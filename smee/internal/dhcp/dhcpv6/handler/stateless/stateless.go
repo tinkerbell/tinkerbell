@@ -208,6 +208,7 @@ func (h *Handler) resolveHardware(ctx context.Context, i v6.Info, log logr.Logge
 		span.SetStatus(codes.Error, lookupErr.Error())
 		return dhcp.Hardware{}, false
 	}
+	tbotel.AnnotateHardware(ctx, spec)
 
 	hw, err := dhcp.ConvertByMac(ctx, i.Mac, spec)
 	if err != nil {

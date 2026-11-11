@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	tinkotel "github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	oteldhcp "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 	"go.opentelemetry.io/otel"
@@ -184,6 +185,7 @@ func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*dhcp.
 	h.setDefaults()
 
 	tracer := otel.Tracer(tracerName)
+	reqCtx := ctx
 	ctx, span := tracer.Start(ctx, "Hardware data get")
 	defer span.End()
 
@@ -193,6 +195,7 @@ func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (*dhcp.
 
 		return nil, nil, err
 	}
+	tinkotel.AnnotateHardware(reqCtx, spec)
 	hw, err := dhcp.ConvertByMac(ctx, mac, spec)
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())

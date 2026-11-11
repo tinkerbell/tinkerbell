@@ -30,6 +30,9 @@ const (
 	ToggleAllowNetbootTrue  WorkflowConditionType = "AllowNetbootTrue"
 	ToggleAllowNetbootFalse WorkflowConditionType = "AllowNetbootFalse"
 	TemplateRenderedSuccess WorkflowConditionType = "TemplateRenderedSuccess"
+	// TraceEmitted is set once, when the Workflow's trace has been handed to the
+	// OpenTelemetry exporter. It is only set when tracing is enabled.
+	TraceEmitted WorkflowConditionType = "TraceEmitted"
 
 	TemplateRenderingSuccessful TemplateRendering = "successful"
 	TemplateRenderingFailed     TemplateRendering = "failed"

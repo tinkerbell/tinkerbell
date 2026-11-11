@@ -27,6 +27,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/constant"
 	"github.com/tinkerbell/tinkerbell/pkg/data"
+	tinkotel "github.com/tinkerbell/tinkerbell/pkg/otel"
 	"github.com/tinkerbell/tinkerbell/smee/internal/dhcp"
 	oteldhcp "github.com/tinkerbell/tinkerbell/smee/internal/dhcp/otel"
 	"go.opentelemetry.io/otel"
@@ -210,6 +211,7 @@ func (h *Handler) Handle(ctx context.Context, conn *ipv4.PacketConn, dp dhcp.Pac
 	case err != nil:
 		log.Info("No hardware found, proceeding with defaults", "error", err.Error())
 	default:
+		tinkotel.AnnotateHardware(ctx, spec)
 		hw, err = dhcp.ConvertByMac(ctx, dp.Pkt.ClientHWAddr, spec)
 		if err != nil && !h.AutoProxyEnabled {
 			log.Info("Ignoring packet", "error", err.Error())

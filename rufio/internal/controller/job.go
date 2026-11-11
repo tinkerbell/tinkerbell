@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	"go.opentelemetry.io/otel/attribute"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,13 +54,18 @@ func NewJobReconciler(c client.Client) *JobReconciler {
 // Reconcile runs a Job.
 // Creates the individual Tasks on the cluster.
 // Watches for Task and creates next Job Task based on conditions.
-func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
+	ctx, span := startSpan(ctx, "tinkerbell.bmc.job.reconcile",
+		attribute.String("tinkerbell.bmc.job.name", req.Name),
+		attribute.String("tinkerbell.bmc.job.namespace", req.Namespace),
+	)
+	defer func() { endSpan(span, err) }()
 	logger := ctrl.LoggerFrom(ctx).WithName("controllers/Job").WithValues("job", req.NamespacedName)
 	logger.Info("Reconciling Job")
 
 	// Fetch the job object
 	job := &bmc.Job{}
-	err := r.client.Get(ctx, req.NamespacedName, job)
+	err = r.client.Get(ctx, req.NamespacedName, job)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -68,6 +74,8 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		logger.Error(err, "Failed to get Job")
 		return ctrl.Result{}, err
 	}
+	linkToWorkflow(span, job)
+	span.SetAttributes(attribute.String("tinkerbell.bmc.machine.name", job.Spec.MachineRef.Name))
 
 	// Deletion is a noop.
 	if !job.DeletionTimestamp.IsZero() {

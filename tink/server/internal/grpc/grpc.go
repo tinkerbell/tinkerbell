@@ -16,6 +16,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/pkg/data"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"github.com/tinkerbell/tinkerbell/pkg/proto"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -125,6 +126,7 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 	defer func() {
 		log.V(1).Info("GetAction code flow journal", "journal", journal.Journal(ctx))
 	}()
+	annotateSpan(ctx, attribute.String("tinkerbell.agent.id", req.GetAgentId()))
 	if req.GetAgentId() == "" {
 		journal.Log(ctx, "invalid Agent ID")
 		return nil, status.Errorf(codes.InvalidArgument, "invalid Agent ID")
@@ -203,6 +205,7 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 		wf = w
 		found = true
 		journal.Log(ctx, "found Workflow", "workflow", wf.Name)
+		annotateWorkflow(ctx, &wf)
 		break
 	}
 	if !found {
@@ -248,6 +251,11 @@ func (h *Handler) GetAction(ctx context.Context, req *proto.ActionRequest) (*pro
 	if err != nil {
 		return nil, err
 	}
+	annotateSpan(ctx,
+		attribute.String("tinkerbell.action.task.id", task.ID),
+		attribute.String("tinkerbell.action.id", action.ID),
+		attribute.String("tinkerbell.action.name", action.Name),
+	)
 	// This check goes after the action is found, so that multi task Workflows can be handled.
 	if task.AgentID != req.GetAgentId() {
 		journal.Log(ctx, "Task not assigned to Agent")
@@ -424,6 +432,14 @@ func (h *Handler) ReportActionStatus(ctx context.Context, req *proto.ActionStatu
 		}
 		return nil, errors.Join(ErrBackendRead, status.Errorf(codes.Internal, "error getting workflow: %v", err))
 	}
+	annotateWorkflow(ctx, wf)
+	annotateSpan(ctx,
+		attribute.String("tinkerbell.agent.id", req.GetAgentId()),
+		attribute.String("tinkerbell.action.task.id", req.GetTaskId()),
+		attribute.String("tinkerbell.action.id", req.GetActionId()),
+		attribute.String("tinkerbell.action.name", req.GetActionName()),
+		attribute.String("tinkerbell.action.state", req.GetActionState().String()),
+	)
 	// 3. Find the Action in the workflow from the request
 	for ti, task := range wf.Status.Tasks {
 		for ai, action := range task.Actions {

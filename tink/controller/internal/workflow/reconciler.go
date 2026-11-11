@@ -10,6 +10,10 @@ import (
 	"github.com/go-logr/logr"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
+	tinkotel "github.com/tinkerbell/tinkerbell/pkg/otel"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,6 +54,8 @@ type Reconciler struct {
 	nowFunc    func() time.Time
 	backoff    *backoff.ExponentialBackOff
 	references referenceResolver
+	// emitter sends Workflow traces. When nil, tinkotel.DefaultEmitter is used.
+	emitter *tinkotel.Emitter
 }
 
 // TODO(jacobweinstock): add functional arguments to the signature.
@@ -85,11 +91,17 @@ type state struct {
 // +kubebuilder:rbac:groups=bmc.tinkerbell.org,resources=job;job/status,verbs=get;list;watch;delete;create
 
 // Reconcile handles Workflow objects. This includes Template rendering, optional Hardware allowPXE toggling, and optional Hardware one-time netbooting.
-func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (result reconcile.Result, err error) {
 	ctx = journal.New(ctx)
+	ctx, span := otel.Tracer(tracerName).Start(ctx, "tinkerbell.workflow.reconcile", trace.WithAttributes(
+		attribute.String("tinkerbell.workflow.name", req.Name),
+		attribute.String("tinkerbell.workflow.namespace", req.Namespace),
+	))
+	var wflow *v1alpha1.Workflow
 	logger := ctrl.LoggerFrom(ctx)
 	defer func() {
 		logger.V(1).Info("Reconcile code flow journal", "journal", journal.Journal(ctx))
+		endReconcileSpan(ctx, span, wflow, result, err)
 	}()
 	logger.Info("Reconcile")
 	journal.Log(ctx, "starting reconcile")
@@ -101,6 +113,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 		return reconcile.Result{}, err
 	}
+	startReconcileSpan(span, stored)
 
 	if !stored.DeletionTimestamp.IsZero() {
 		return reconcile.Result{}, nil
@@ -109,7 +122,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		stored.Status.BootOptions.Jobs = make(map[string]v1alpha1.JobStatus)
 	}
 
-	wflow := stored.DeepCopy()
+	wflow = stored.DeepCopy()
 
 	switch wflow.Status.State {
 	case "":
@@ -178,10 +191,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		rc, err := s.postActions(ctx)
 
 		return rc, errors.Join(err, mergePatchStatus(ctx, r.client, stored, wflow))
-	case v1alpha1.WorkflowStatePending, v1alpha1.WorkflowStateTimeout, v1alpha1.WorkflowStateFailed, v1alpha1.WorkflowStateSuccess:
+	case v1alpha1.WorkflowStatePending:
 		journal.Log(ctx, "controller will not trigger another reconcile", "state", wflow.Status.State)
 
 		return reconcile.Result{}, nil
+	case v1alpha1.WorkflowStateTimeout, v1alpha1.WorkflowStateFailed, v1alpha1.WorkflowStateSuccess:
+		journal.Log(ctx, "controller will not trigger another reconcile", "state", wflow.Status.State)
+
+		return reconcile.Result{}, r.emitTrace(ctx, stored, wflow)
 	case v1alpha1.WorkflowState("STATE_PENDING"):
 		journal.Log(ctx, "workflow using a deprecated pending state, reprocessing", "state", wflow.Status.State)
 

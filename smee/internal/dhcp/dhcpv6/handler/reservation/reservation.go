@@ -316,6 +316,7 @@ func (h *Handler) readBackend(ctx context.Context, mac net.HardwareAddr) (dhcp.H
 	if err != nil {
 		return dhcp.Hardware{}, err
 	}
+	tbotel.AnnotateHardware(ctx, spec)
 
 	hw, err := dhcp.ConvertByMac(ctx, mac, spec)
 	if err != nil {
