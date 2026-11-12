@@ -66,7 +66,7 @@ cosign verify ghcr.io/tinkerbell/tinkerbell:latest \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-Mainline builds are also tagged `vX.Y.(Z+1)-<short-commit-hash>`, as described in [Releasing](../RELEASING.md#mainline-releases). Verify those with `--certificate-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/ci.yaml@refs/heads/main"`.
+Mainline builds are also tagged `vX.Y.(Z+1)-g<short-commit-hash>`, as described in [Releasing](../RELEASING.md#mainline-releases). Verify those with `--certificate-identity "https://github.com/tinkerbell/tinkerbell/.github/workflows/ci.yaml@refs/heads/main"`.
 
 Mainline builds reuse CI build caches, which release builds skip. In production, deploy a release and pin its identity.
 

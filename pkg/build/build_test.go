@@ -88,7 +88,11 @@ func TestVersion(t *testing.T) {
 	}{
 		"valid version": {
 			raw:  "v1.2.3-0.20230405123456-abcdef123456",
-			want: "v1.2.3-abcdef12",
+			want: "v1.2.3-gabcdef12",
+		},
+		"all-digit hash with leading zero": {
+			raw:  "v0.25.1-0.20261112190000-044057920000",
+			want: "v0.25.1-g04405792",
 		},
 		"invalid version returns raw": {
 			raw:     "invalid-version",
@@ -118,7 +122,7 @@ func TestPseudoVersionString(t *testing.T) {
 				CommitHash:  "abcdef12",
 				IsDirty:     false,
 			},
-			want: "v1.2.3-abcdef12",
+			want: "v1.2.3-gabcdef12",
 		},
 		"dirty version": {
 			pv: &pseudoVersion{
@@ -126,7 +130,7 @@ func TestPseudoVersionString(t *testing.T) {
 				CommitHash:  "abcdef12",
 				IsDirty:     true,
 			},
-			want: "v1.2.3-abcdef12+dirty",
+			want: "v1.2.3-gabcdef12+dirty",
 		},
 	}
 

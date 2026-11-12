@@ -90,7 +90,10 @@ func parse(versionString string) (*pseudoVersion, error) {
 
 // String returns the formatted pseudo-version string.
 func (pv *pseudoVersion) String() string {
-	base := fmt.Sprintf("%s-%s", pv.BaseVersion, pv.CommitHash)
+	// The "g" prefix, as in git describe, keeps an all-digit hash from forming a
+	// numeric SemVer identifier, which is invalid with a leading zero and which
+	// Helm rejects as a chart version.
+	base := fmt.Sprintf("%s-g%s", pv.BaseVersion, pv.CommitHash)
 	if pv.IsDirty {
 		return base + "+dirty"
 	}
