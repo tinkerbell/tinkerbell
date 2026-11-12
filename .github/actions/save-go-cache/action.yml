@@ -1,0 +1,46 @@
+name: Save the Go caches
+description: >-
+  Trim and save the Go caches that setup-go-build restores, under a key dated
+  today so the saved caches stay fresh.
+
+inputs:
+  cache-name:
+    description: The name of the build cache, as given to setup-go-build.
+    required: true
+  save-module-cache:
+    description: >-
+      Whether to save the module cache too ("true" or "false"). Every build
+      downloads the same modules, so one build saves them.
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    # As the go command works, it either creates build cache files or touches
+    # ones it uses at most once an hour. When it trims the cache, it trims
+    # files that have not been modified/touched in 5+ days.
+    # To keep the saved cache lean, trim all files except ones that were just
+    # created/touched as part of this run.
+    - name: Trim Go cache
+      shell: bash
+      run: find ~/.cache/go-build -type f -mmin +90 -delete
+
+    - name: Set Go cache date and version
+      id: key
+      shell: bash
+      run: |
+        echo "date=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+        echo "go-version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+
+    - name: Save Go module cache
+      if: inputs.save-module-cache == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}-${{ steps.key.outputs.date }}
+
+    - name: Save Go build cache
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/go-build
+        key: ${{ runner.os }}-gobuild-${{ steps.key.outputs.go-version }}-${{ inputs.cache-name }}-${{ hashFiles('**/go.sum') }}-${{ steps.key.outputs.date }}

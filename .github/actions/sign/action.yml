@@ -1,0 +1,58 @@
+name: Sign the published artifacts
+description: >-
+  Sign the tinkerbell and tink-agent images and the Helm chart, by digest,
+  with cosign keyless signing. The signatures carry the identity of the
+  workflow whose job runs this, which needs id-token: write.
+
+inputs:
+  registry:
+    description: The registry the artifacts were pushed to (e.g. ghcr.io).
+    required: true
+  token:
+    description: The password for the registry, as the repository owner.
+    required: true
+  digest-tinkerbell:
+    description: The pushed digest of the tinkerbell image index.
+    required: true
+  digest-tink-agent:
+    description: The pushed digest of the tink-agent image index.
+    required: true
+  digest-chart:
+    description: The pushed digest of the Helm chart.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install cosign
+      uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      with:
+        cosign-release: v3.1.4
+
+    - name: Login to ${{ inputs.registry }}
+      shell: bash
+      run: cosign login "${REGISTRY}" --username "${GITHUB_REPOSITORY_OWNER}" --password-stdin <<<"${TOKEN}"
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        TOKEN: ${{ inputs.token }}
+
+    - name: Sign the tinkerbell image
+      shell: bash
+      run: ./script/sign-image.sh "${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/tinkerbell" "${DIGEST}"
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        DIGEST: ${{ inputs.digest-tinkerbell }}
+
+    - name: Sign the tink-agent image
+      shell: bash
+      run: ./script/sign-image.sh "${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/tink-agent" "${DIGEST}"
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        DIGEST: ${{ inputs.digest-tink-agent }}
+
+    - name: Sign the Helm chart
+      shell: bash
+      run: ./script/sign-chart.sh "${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/charts/tinkerbell" "${DIGEST}"
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        DIGEST: ${{ inputs.digest-chart }}

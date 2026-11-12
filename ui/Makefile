@@ -36,39 +36,37 @@ $(UI_BUN_FQP):
 	@mv $(UI_TOOLS_DIR)/bun-$(UI_OS)-$(UI_BUN_ARCH)/bun $(UI_BUN_FQP)
 	@rm -rf $(UI_TOOLS_DIR)/bun-$(UI_OS)-$(UI_BUN_ARCH) $(UI_TOOLS_DIR)/bun-$(UI_BUN_VER).zip
 
-# Source files
-UI_TEMPL_SOURCES := $(shell find ui/templates -name '*.templ')
-UI_CSS_SOURCES := ui/assets/css/input.css $(UI_TEMPL_SOURCES)
 UI_DEPS_FILES := ui/package.json ui/bun.lock
 
+# node_modules is local and not committed, so installing it keeps a stamp and
+# only reruns when the package files change.
 ui-install-deps: out/.ui-install-deps.stamp ## Install UI dependencies (bun packages and templ)
 out/.ui-install-deps.stamp: $(UI_TEMPL_FQP) $(UI_BUN_FQP) $(UI_DEPS_FILES)
 	(cd ui && $(UI_BUN_FQP) install)
 	@touch $@
 
-ui-css: out/.ui-css.stamp ## Build UI CSS
-out/.ui-css.stamp: $(UI_BUN_FQP) out/.ui-install-deps.stamp out/.ui-templ.stamp $(UI_CSS_SOURCES)
+# The generated templ code and CSS are committed; see the code generation
+# notes in the top-level Makefile.
+.PHONY: ui-css
+ui-css: $(UI_BUN_FQP) ui-install-deps ui-templ ## Build UI CSS
 	(cd ui && $(UI_BUN_FQP) run tailwindcss -i assets/css/input.css -o assets/css/output.css --minify)
-	@touch $@
 
 .PHONY: ui-css-watch
 ui-css-watch: $(UI_BUN_FQP) ## Watch and rebuild UI CSS on changes
 	(cd ui && $(UI_BUN_FQP) run tailwindcss -i assets/css/input.css -o assets/css/output.css --watch)
 
-ui-templ: out/.ui-templ.stamp ## Generate templ templates
-out/.ui-templ.stamp: $(UI_TEMPL_FQP) $(UI_TEMPL_SOURCES)
+.PHONY: ui-templ
+ui-templ: $(UI_TEMPL_FQP) ## Generate templ templates
 	(cd ui/templates && $(UI_TEMPL_FQP) generate)
-	@touch $@
 
-ui-generate: out/.ui-generate.stamp ## Generate all UI files (templ templates and tailwind CSS)
-out/.ui-generate.stamp: out/.ui-install-deps.stamp out/.ui-css.stamp
+.PHONY: ui-generate
+ui-generate: ui-css ## Generate all UI files (templ templates and tailwind CSS)
 	$(MAKE) fmt
-	@touch $@
 
 .PHONY: ui-clean
 ui-clean: ## Clean UI build artifacts
 	rm -rf ui/node_modules/
 	rm -f ui/templates/*_templ.go
 	rm -f ui/assets/css/output.css
-	rm -f out/.ui-install-deps.stamp out/.ui-templ.stamp out/.ui-css.stamp out/.ui-generate.stamp
+	rm -f out/.ui-install-deps.stamp
 

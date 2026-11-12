@@ -133,39 +133,38 @@ ci: ci-checks coverage coverage-api lint vet ## Runs all the same validations an
 # Include UI Makefile
 include ui/Makefile
 
-# Run go generate
-generated_go_files := \
-		smee/internal/syslog/facility_string.go \
-		smee/internal/syslog/severity_string.go \
-
-generate-go: out/.generate-go.stamp ## Run Go's generate command
-$(generated_go_files): out/.generate-go.stamp
-out/.generate-go.stamp: $(GOIMPORTS_FQP) smee/internal/syslog/message.go
+# Code generation. The generated files are committed and builds use them as
+# they are, so a build needs no generators and never rewrites what was
+# reviewed. Generating only runs when asked for; ci-checks fails when a
+# generated file is out of date.
+.PHONY: generate-go
+generate-go: $(GOIMPORTS_FQP) ## Run Go's generate command
 	go generate -run=".*_string.go" ./...
 	$(GOIMPORTS_FQP) -w .
-	@touch $@
 
-TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
-
+# The binaries are phony targets: go build knows which sources a binary uses
+# and skips work its build cache already holds, which Make can't track as
+# well, and it rebuilds when only GO_TAGS changes.
 crossbinaries := out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64
+.PHONY: $(crossbinaries)
 out/tinkerbell-linux-amd64: FLAGS=GOARCH=amd64
 out/tinkerbell-linux-arm64: FLAGS=GOARCH=arm64
-out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64: $(generated_go_files) $(TINKERBELL_SOURCES)
+out/tinkerbell-linux-amd64 out/tinkerbell-linux-arm64:
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -tags "${GO_TAGS}" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
-TINKERBELL_SOURCES := $(shell find $(go list -deps ./cmd/tinkerbell | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
-
-out/tinkerbell: $(generated_go_files) $(TINKERBELL_SOURCES) ## Compile Tinkerbell for the current architecture
+.PHONY: out/tinkerbell
+out/tinkerbell: ## Compile Tinkerbell for the current architecture
 	${FLAGS} CGO_ENABLED=0 go build -ldflags="-s -w" -tags "${GO_TAGS}" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
 cross-compile: $(crossbinaries) ## Compile for all architectures
 
 embeddedbinaries := out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64
+.PHONY: $(embeddedbinaries)
 out/tinkerbell-embedded-linux-amd64: FLAGS=GOARCH=amd64
 out/tinkerbell-embedded-linux-arm64: FLAGS=GOARCH=arm64
-out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64: $(generated_go_files) $(TINKERBELL_SOURCES)
+out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64:
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -tags "embedded" -ldflags="-s -w" -v -o $@ ./cmd/tinkerbell
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
@@ -177,84 +176,48 @@ checksums-embedded: out/checksums-embedded.txt ## Generate checksums for the cro
 out/checksums-embedded.txt: out/tinkerbell-embedded-linux-amd64 out/tinkerbell-embedded-linux-arm64
 	(cd out; sha256sum tinkerbell-embedded-linux-amd64 tinkerbell-embedded-linux-arm64 > checksums-embedded.txt)
 
-AGENT_SOURCES := $(shell find $(go list -deps ./cmd/agent | grep -i tinkerbell | cut -d"/" -f 4-) -type f -name '*.go')
-
 crossbinaries-agent := out/tink-agent-linux-amd64 out/tink-agent-linux-arm64
+.PHONY: $(crossbinaries-agent)
 out/tink-agent-linux-amd64: FLAGS=GOARCH=amd64
 out/tink-agent-linux-arm64: FLAGS=GOARCH=arm64
-out/tink-agent-linux-amd64 out/tink-agent-linux-arm64: $(AGENT_SOURCES)
+out/tink-agent-linux-amd64 out/tink-agent-linux-arm64:
 	${FLAGS} CGO_ENABLED=0 GOOS=linux go build -tags "${GO_TAGS}" -ldflags="-s -w" -v -o $@ ./cmd/agent
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
-out/tink-agent: $(AGENT_SOURCES) ## Compile Tink Agent for the current architecture
+.PHONY: out/tink-agent
+out/tink-agent: ## Compile Tink Agent for the current architecture
 	${FLAGS} CGO_ENABLED=0 go build -ldflags="-s -w" -tags "${GO_TAGS}" -v -o $@ ./cmd/agent
 	if [ "${COMPRESS}" = "true" ]; then $(MAKE) $(UPX_FQP) && $(UPX_FQP) --best --lzma $@; fi
 
 cross-compile-agent: $(crossbinaries-agent) ## Compile Tink Agent for all architectures
 
-PROTO_SOURCES := $(shell find pkg/proto -name '*.proto')
-
-generate-proto: out/.generate-proto.stamp ## Generate code from proto files.
-out/.generate-proto.stamp: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) $(PROTO_SOURCES) buf.gen.yaml buf.yaml
+.PHONY: generate-proto
+generate-proto: $(BUF_FQP) $(PROTOC_GEN_GO_GRPC_FQP) $(PROTOC_GEN_GO_FQP) ## Generate code from proto files.
 	$(BUF_FQP) generate
 	$(MAKE) fmt
-	@touch $@
 
 # Kubernetes CRD generation
-V1ALPHA1_API_SOURCES := $(shell find api/v1alpha1 -name '*.go' -not -name 'zz_generated*')
-V1ALPHA2_API_SOURCES := $(shell find api/v1alpha2 -name '*.go' -not -name 'zz_generated*')
-
-# The generated CRD YAML files are the real targets (not a stamp) so that
-# deleting or editing any one of them under crd/bases/<version>/ re-triggers
-# generation. A grouped-target rule (&:, GNU Make 4.3+) tells Make that a single
-# controller-gen invocation produces all of them at once. These lists must stay
-# in sync with the +kubebuilder:resource paths in the api sources.
-V1ALPHA1_CRD_FILES := \
-		crd/bases/v1alpha1/bmc.tinkerbell.org_jobs.yaml \
-		crd/bases/v1alpha1/bmc.tinkerbell.org_machines.yaml \
-		crd/bases/v1alpha1/bmc.tinkerbell.org_tasks.yaml \
-		crd/bases/v1alpha1/tinkerbell.org_hardware.yaml \
-		crd/bases/v1alpha1/tinkerbell.org_templates.yaml \
-		crd/bases/v1alpha1/tinkerbell.org_workflowrulesets.yaml \
-		crd/bases/v1alpha1/tinkerbell.org_workflows.yaml \
-
-V1ALPHA2_CRD_FILES := \
-		crd/bases/v1alpha2/bmc.tinkerbell.org_jobs.yaml \
-		crd/bases/v1alpha2/tinkerbell.org_hardware.yaml \
-		crd/bases/v1alpha2/tinkerbell.org_policies.yaml \
-		crd/bases/v1alpha2/tinkerbell.org_tasks.yaml \
-		crd/bases/v1alpha2/tinkerbell.org_workflows.yaml \
-
-manifests-v1alpha1: $(V1ALPHA1_CRD_FILES) ## Generate v1alpha1 CRDs
-$(V1ALPHA1_CRD_FILES) &: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES)
+.PHONY: manifests-v1alpha1
+manifests-v1alpha1: $(CONTROLLER_GEN_FQP) ## Generate v1alpha1 CRDs
 	(cd api/v1alpha1; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha1)
 
-manifests-v1alpha2: $(V1ALPHA2_CRD_FILES) ## Generate v1alpha2 CRDs
-$(V1ALPHA2_CRD_FILES) &: $(CONTROLLER_GEN_FQP) $(V1ALPHA2_API_SOURCES)
+.PHONY: manifests-v1alpha2
+manifests-v1alpha2: $(CONTROLLER_GEN_FQP) ## Generate v1alpha2 CRDs
 	(cd api/v1alpha2; $(CONTROLLER_GEN_FQP) crd webhook paths="./..." output:crd:artifacts:config=../../crd/bases/v1alpha2)
 
+.PHONY: manifests
 manifests: manifests-v1alpha1 manifests-v1alpha2 ## Generate all CRDs
 
-# The generated files are the real targets (not a stamp) so that deleting any
-# one of them re-triggers generation. A grouped-target rule (&:, GNU Make 4.3+)
-# tells Make a single controller-gen invocation produces all of them at once.
-DEEPCOPY_FILES := \
-		api/v1alpha1/tinkerbell/zz_generated.deepcopy.go \
-		api/v1alpha1/bmc/zz_generated.deepcopy.go \
-		api/v1alpha2/tinkerbell/zz_generated.deepcopy.go \
-		api/v1alpha2/tinkerbell/bmc/zz_generated.deepcopy.go \
-
-generate-deepcopy: $(DEEPCOPY_FILES) ## Generate DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 # controller-gen must run inside the nested api/ module: every +kubebuilder:object
 # type lives in the github.com/tinkerbell/tinkerbell/api module, which the root
 # module's ./... expansion excludes, so running from the repo root generates nothing.
-$(DEEPCOPY_FILES) &: $(CONTROLLER_GEN_FQP) $(V1ALPHA1_API_SOURCES) $(V1ALPHA2_API_SOURCES) api/boilerplate.go.txt
+.PHONY: generate-deepcopy
+generate-deepcopy: $(CONTROLLER_GEN_FQP) ## Generate DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	(cd api; $(CONTROLLER_GEN_FQP) object:headerFile="boilerplate.go.txt" paths="./...")
 	$(MAKE) fmt
 
-generate: out/.generate.stamp ## Run all code generation steps
-out/.generate.stamp: $(DEEPCOPY_FILES) out/.generate-proto.stamp out/.generate-go.stamp out/.ui-generate.stamp $(V1ALPHA1_CRD_FILES) $(V1ALPHA2_CRD_FILES)
-	@touch $@
+.PHONY: generate
+generate: generate-deepcopy generate-proto generate-go ui-generate manifests ## Run all code generation steps
 
 .PHONY: dep-graph
 dep-graph: $(GODEPGRAPH_FQP) ## Generate a dependency graph
@@ -302,7 +265,7 @@ prepare-buildx: ## Prepare the buildx environment.
 	docker buildx create --name tinkerbell-multiarch --use --driver docker-container || true
 
 .PHONY: image
-image: cross-compile third-party-licenses ## Build the Tinkerbell container image
+image: third-party-licenses ## Build the Tinkerbell container image from out/tinkerbell-linux-* (run cross-compile first)
 	docker build $(if $(DOCKER_CACHE_FROM),--cache-from $(DOCKER_CACHE_FROM)) -t $(IMAGE_NAME) -f Dockerfile.tinkerbell .
 
 .PHONY: build-push-image
@@ -310,7 +273,7 @@ build-push-image: third-party-licenses ## Build and push the container image for
 	docker buildx build --build-arg BUILDKIT_INLINE_CACHE=1 --platform linux/amd64,linux/arm64 --push --sbom=generator=$(SBOM_GENERATOR) --metadata-file out/metadata-tinkerbell.json -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest -f Dockerfile.tinkerbell .
 
 .PHONY: image-agent
-image-agent: cross-compile-agent third-party-licenses ## Build the Tink Agent container image
+image-agent: third-party-licenses ## Build the Tink Agent container image from out/tink-agent-linux-* (run cross-compile-agent first)
 	docker build $(if $(DOCKER_CACHE_FROM),--cache-from $(DOCKER_CACHE_FROM)) -t $(IMAGE_NAME_AGENT) -f Dockerfile.agent .
 
 .PHONY: build-push-image-agent
@@ -333,8 +296,7 @@ clean-tools: ## Remove all tools
 
 .PHONY: clean-all
 clean-all: clean clean-agent clean-tools ## Remove all binaries and tools
-	rm -f out/.generate-proto.stamp out/.generate-go.stamp
-	rm -f out/.ui-install-deps.stamp out/.ui-templ.stamp out/.ui-css.stamp out/.ui-generate.stamp out/.generate.stamp
+	rm -f out/.ui-install-deps.stamp
 
 ############## Tools ##############
 $(GOIMPORTS_FQP):
