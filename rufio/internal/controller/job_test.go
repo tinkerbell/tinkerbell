@@ -8,9 +8,11 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -227,6 +229,43 @@ func TestJobReconcileCertificateImportReference(t *testing.T) {
 			}
 			if want := map[bool]int{true: 0, false: 1}[tt.shouldErr]; len(tasks.Items) != want {
 				t.Fatalf("expected %d Tasks, got %d", want, len(tasks.Items))
+			}
+		})
+	}
+}
+
+// A Job or Task deleted while it is being reconciled must not fail the reconcile.
+func TestPatchStatusIgnoresNotFound(t *testing.T) {
+	gr := bmc.GroupVersion.WithResource("").GroupResource()
+	tests := map[string]struct {
+		patchErr error
+		wantErr  bool
+	}{
+		"not found is ignored":   {patchErr: apierrors.NewNotFound(gr, "test")},
+		"other errors propagate": {patchErr: apierrors.NewConflict(gr, "test", nil), wantErr: true},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			secret, machine := createSecret(), createMachine()
+			job := createJob("test", machine)
+			task := createTask("test", getAction("PowerOn"), secret)
+			c := interceptor.NewClient(newClientBuilder().
+				WithObjects(job, task, machine, secret).
+				WithIndex(&bmc.Task{}, ".metadata.controller", controller.TaskOwnerIndexFunc).
+				Build(), interceptor.Funcs{
+				SubResourcePatch: func(context.Context, client.Client, string, client.Object, client.Patch, ...client.SubResourcePatchOption) error {
+					return tt.patchErr
+				},
+			})
+			reconcilers := map[client.Object]reconcile.Reconciler{
+				job:  controller.NewJobReconciler(c),
+				task: controller.NewTaskReconciler(c, newTestClient(&testProvider{Powerstate: "on", PowerSetOK: true})),
+			}
+			for obj, r := range reconcilers {
+				_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: client.ObjectKeyFromObject(obj)})
+				if (err != nil) != tt.wantErr {
+					t.Errorf("%T: got err %v, wantErr %v", obj, err, tt.wantErr)
+				}
 			}
 		})
 	}

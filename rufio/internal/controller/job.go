@@ -261,8 +261,7 @@ func (r *JobReconciler) createTaskWithOwner(ctx context.Context, job bmc.Job, ta
 
 // patchStatus patches the specified patch on the Job.
 func (r *JobReconciler) patchStatus(ctx context.Context, job *bmc.Job, patch client.Patch) error {
-	err := r.client.Status().Patch(ctx, job, patch)
-	if err != nil {
+	if err := client.IgnoreNotFound(r.client.Status().Patch(ctx, job, patch)); err != nil {
 		return fmt.Errorf("failed to patch Job %s/%s status: %w", job.Namespace, job.Name, err)
 	}
 
