@@ -46,7 +46,7 @@ In a Git tagged release, at a minimum, the following artifacts are created along
 
 #### Mainline releases
 
-Mainline releases are releases that do not have a corresponding Git tag. The tagging that occurs is only container image and Helm chart image tagging. They are made automatically on each merge to main. The tag format is `vX.Y.(Z+1)-<short-commit-hash>`. For example, if the latest Git tagged release is `v0.21.0` and the commit hash of the merge to main is `0f5c5863`, then the mainline release artifacts tag will be `v0.21.1-0f5c5863`.
+Mainline releases are releases that do not have a corresponding Git tag. The tagging that occurs is only container image and Helm chart image tagging. They are made automatically on each merge to main. The tag format is `vX.Y.(Z+1)-g<short-commit-hash>`. For example, if the latest Git tagged release is `v0.21.0` and the commit hash of the merge to main is `0f5c5863`, then the mainline release artifacts tag will be `v0.21.1-g0f5c5863`. The `g` prefix, as in `git describe`, keeps the version valid SemVer when the hash is all digits with a leading zero.
 
 In a mainline release, at a minimum, the following artifacts are created:
 
