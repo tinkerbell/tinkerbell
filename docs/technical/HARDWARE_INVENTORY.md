@@ -199,6 +199,8 @@ kubectl annotate machine.bmc.tinkerbell.org example-bmc \
 
 Collection is performed by Rufio's Machine controller, which already reconciles each Machine's power state on a fixed interval (the power check interval, default 30 minutes). During that reconcile it reuses the already-open BMC connection to collect inventory when a refresh is due. No second BMC connection is opened.
 
+The controller also reconciles a Machine as soon as a Hardware linked to it becomes eligible for inventory: when the Hardware's `spec.bmcRef` is set or points at a different Machine, or when its `tinkerbell.org/disable-outofband-inventory` annotation is removed. A newly linked machine's first inventory does not wait for the next power check.
+
 Inventory collection can be comparatively slow (5–30 seconds over Redfish), so it deliberately does not run on every power-poll reconcile. Instead, each machine is refreshed at most once per refresh interval (default 24 hours):
 
 1. On each Machine reconcile, the controller finds the Hardware object whose `spec.bmcRef` points at the Machine.

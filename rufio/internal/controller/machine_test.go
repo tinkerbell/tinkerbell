@@ -3,14 +3,22 @@ package controller_test
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
+	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/events"
+	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -262,5 +270,66 @@ func createHMACSecret() *corev1.Secret {
 		Data: map[string][]byte{
 			"secret": []byte("superSecret1"),
 		},
+	}
+}
+
+// newOfflineManager returns a manager whose REST mapper knows Machine and
+// Hardware without discovery, so controllers can be set up without an API
+// server as long as the manager is never started.
+func newOfflineManager(t *testing.T) ctrl.Manager {
+	t.Helper()
+
+	scheme := runtime.NewScheme()
+	if err := bmc.AddToScheme(scheme); err != nil {
+		t.Fatalf("bmc.AddToScheme() error = %v", err)
+	}
+	if err := tinkerbell.AddToScheme(scheme); err != nil {
+		t.Fatalf("tinkerbell.AddToScheme() error = %v", err)
+	}
+	mgr, err := ctrl.NewManager(&rest.Config{Host: "https://127.0.0.1:1"}, ctrl.Options{
+		Scheme: scheme,
+		MapperProvider: func(*rest.Config, *http.Client) (meta.RESTMapper, error) {
+			mapper := meta.NewDefaultRESTMapper(nil)
+			mapper.Add(bmc.GroupVersion.WithKind("Machine"), meta.RESTScopeNamespace)
+			mapper.Add(tinkerbell.GroupVersion.WithKind("Hardware"), meta.RESTScopeNamespace)
+			return mapper, nil
+		},
+		Metrics:                metricsserver.Options{BindAddress: "0"},
+		HealthProbeBindAddress: "0",
+	})
+	if err != nil {
+		t.Fatalf("ctrl.NewManager() error = %v", err)
+	}
+	return mgr
+}
+
+func TestMachineReconcilerSetupWithManager(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		inventoryCollectionEnabled bool
+		wantHardwareIndex          bool
+	}{
+		"inventory collection enabled registers the Hardware bmcRef index": {inventoryCollectionEnabled: true, wantHardwareIndex: true},
+		"inventory collection disabled skips the Hardware bmcRef index":    {inventoryCollectionEnabled: false, wantHardwareIndex: false},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			mgr := newOfflineManager(t)
+			r := controller.NewMachineReconciler(mgr.GetClient(), events.NewFakeRecorder(1), nil, 0, 0, tt.inventoryCollectionEnabled)
+
+			if err := r.SetupWithManager(t.Context(), mgr, ctrlcontroller.Options{SkipNameValidation: new(true)}); err != nil {
+				t.Fatalf("SetupWithManager() error = %v, want nil", err)
+			}
+
+			// Registering an index name a second time fails, so this reveals
+			// whether SetupWithManager registered it.
+			err := mgr.GetFieldIndexer().IndexField(t.Context(), &tinkerbell.Hardware{}, controller.HardwareBMCRefIndexKey, controller.HardwareBMCRefIndexFunc)
+			if gotHardwareIndex := err != nil; gotHardwareIndex != tt.wantHardwareIndex {
+				t.Errorf("Hardware bmcRef index registered = %v, want %v (re-register error: %v)", gotHardwareIndex, tt.wantHardwareIndex, err)
+			}
+		})
 	}
 }

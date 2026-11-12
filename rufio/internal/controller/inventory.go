@@ -36,7 +36,11 @@ import (
 	tinkerbell "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // defaultInventoryRefreshInterval is how often BMC inventory is refreshed per
@@ -82,11 +86,55 @@ const hardwareBMCRefIndexKey = ".spec.bmcRef.name"
 
 // hardwareBMCRefIndexFunc is the IndexerFunc for hardwareBMCRefIndexKey.
 func hardwareBMCRefIndexFunc(obj ctrlclient.Object) []string {
-	hw, ok := obj.(*tinkerbell.Hardware)
-	if !ok || hw.Spec.BMCRef == nil {
+	name := linkedMachineName(obj)
+	if name == "" {
 		return nil
 	}
-	return []string{hw.Spec.BMCRef.Name}
+	return []string{name}
+}
+
+// linkedMachineName returns the name of the Machine obj is linked to, or "" when
+// obj is not a Hardware linked to a Machine.
+func linkedMachineName(obj ctrlclient.Object) string {
+	hw, ok := obj.(*tinkerbell.Hardware)
+	if !ok || hw.Spec.BMCRef == nil {
+		return ""
+	}
+	return hw.Spec.BMCRef.Name
+}
+
+// inventoryEligible reports whether obj is a Hardware linked to a Machine and
+// not opted out of BMC inventory collection.
+func inventoryEligible(obj ctrlclient.Object) bool {
+	return linkedMachineName(obj) != "" && obj.GetAnnotations()[disableOutOfBandInventoryAnnotation] != trueString
+}
+
+// hardwareBecameInventoryEligible passes only Hardware events that make a
+// Hardware eligible for inventory or move an eligible one to another Machine.
+func hardwareBecameInventoryEligible() predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return inventoryEligible(e.Object)
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if !inventoryEligible(e.ObjectNew) {
+				return false
+			}
+			return !inventoryEligible(e.ObjectOld) || linkedMachineName(e.ObjectNew) != linkedMachineName(e.ObjectOld)
+		},
+		DeleteFunc:  func(event.DeleteEvent) bool { return false },
+		GenericFunc: func(event.GenericEvent) bool { return false },
+	}
+}
+
+// machineRequestsForHardware enqueues the Machine a Hardware is linked to, in the
+// Hardware's namespace.
+func machineRequestsForHardware(_ context.Context, obj ctrlclient.Object) []reconcile.Request {
+	name := linkedMachineName(obj)
+	if name == "" {
+		return nil
+	}
+	return []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: obj.GetNamespace(), Name: name}}}
 }
 
 // dueForInventoryRefresh returns true if inventory has never been collected, is

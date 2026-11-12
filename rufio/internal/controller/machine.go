@@ -31,8 +31,10 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // MachineReconciler reconciles a Machine object.
@@ -218,7 +220,7 @@ func (r *MachineReconciler) reconcileInventoryIfDue(ctx context.Context, logger 
 		r.recorder.Eventf(bm, nil, corev1.EventTypeWarning, "HardwareLookupFailed", "FindLinkedHardware", "find linked Hardware: %v", err)
 		return
 	}
-	if hw == nil || hw.Annotations[disableOutOfBandInventoryAnnotation] == trueString || !dueForInventoryRefresh(hw, bm, r.inventoryRefreshInterval) {
+	if hw == nil || !inventoryEligible(hw) || !dueForInventoryRefresh(hw, bm, r.inventoryRefreshInterval) {
 		return
 	}
 	if err := r.reconcileInventory(ctx, logger, bmcClient, hw); err != nil {
@@ -261,10 +263,17 @@ func retrieveHMACSecrets(ctx context.Context, c client.Client, hmacSecrets bmc.H
 }
 
 // SetupWithManager sets up the controller with the Manager. When inventory
-// collection is disabled fleet-wide, the Hardware field index is skipped
-// entirely, so a disabled Machine controller doesn't pay for a Hardware
-// watch/cache it will never use.
+// collection is enabled, it also watches Hardware so that a Hardware becoming
+// eligible for inventory (linked to a Machine and not opted out), or moving to
+// another Machine, reconciles that Machine at once instead of on its next
+// power-check requeue. When inventory collection is disabled fleet-wide, the Hardware field
+// index and watch are skipped entirely, so a disabled Machine controller doesn't
+// pay for a Hardware cache it will never use.
 func (r *MachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts ctrlcontroller.Options) error {
+	b := ctrl.NewControllerManagedBy(mgr).
+		WithOptions(opts).
+		For(&bmc.Machine{})
+
 	if r.inventoryCollectionEnabled {
 		if err := mgr.GetFieldIndexer().IndexField(
 			ctx,
@@ -274,10 +283,12 @@ func (r *MachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 		); err != nil {
 			return err
 		}
+		b = b.Watches(
+			&tinkerbell.Hardware{},
+			handler.EnqueueRequestsFromMapFunc(machineRequestsForHardware),
+			builder.WithPredicates(hardwareBecameInventoryEligible()),
+		)
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
-		WithOptions(opts).
-		For(&bmc.Machine{}).
-		Complete(r)
+	return b.Complete(r)
 }
