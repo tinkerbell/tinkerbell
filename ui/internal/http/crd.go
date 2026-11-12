@@ -20,6 +20,7 @@ var (
 const (
 	schemaTypeString      = "string"
 	schemaTypeInteger     = "integer"
+	schemaTypeBoolean     = "boolean"
 	schemaTypeObject      = "object"
 	schemaTypeArrayString = "array[string]"
 )
@@ -348,8 +349,26 @@ func getWorkflowSchemaFields() []templates.SchemaField {
 						{
 							Name:        "image",
 							Type:        schemaTypeString,
-							Description: "Container image to execute",
-							Required:    true,
+							Description: "Container image to execute (mutually exclusive with run)",
+							Required:    false,
+						},
+						{
+							Name:        "run",
+							Type:        schemaTypeString,
+							Description: "Inline script executed directly on the agent host, outside any container (mutually exclusive with image)",
+							Required:    false,
+						},
+						{
+							Name:        "shell",
+							Type:        schemaTypeArrayString,
+							Description: "Interpreter argv used to execute run, e.g. [\"python3\", \"-u\"] (default: [\"bash\", \"-x\", \"-e\"])",
+							Required:    false,
+						},
+						{
+							Name:        "background",
+							Type:        schemaTypeBoolean,
+							Description: "Report the action successful before executing it, then run it detached in the background (e.g. for reboot)",
+							Required:    false,
 						},
 						{
 							Name:        "timeout",

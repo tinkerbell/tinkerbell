@@ -20,8 +20,15 @@ type Task struct {
 
 // Action is the basic executional unit for a workflow.
 type Action struct {
-	Name        string            `yaml:"name"`
-	Image       string            `yaml:"image"`
+	Name string `yaml:"name"`
+	// Image is an OCI image run as a container. Mutually exclusive with Run.
+	Image string `yaml:"image,omitempty"`
+	// Run is an inline script executed directly on the Agent host. Mutually exclusive with Image.
+	Run string `yaml:"run,omitempty"`
+	// Shell is the interpreter argv used to execute Run. Defaults to ["bash", "-x", "-e"].
+	Shell []string `yaml:"shell,omitempty"`
+	// Background reports the action successful before running it detached in the background.
+	Background  bool              `yaml:"background,omitempty"`
 	Timeout     int64             `yaml:"timeout"`
 	Command     []string          `yaml:"command,omitempty"`
 	OnTimeout   []string          `yaml:"on-timeout,omitempty"`
