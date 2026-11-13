@@ -156,9 +156,13 @@ func (r *MachineReconciler) clearRefreshInventoryAnnotation(ctx context.Context,
 	// collection on every subsequent reconcile — at the powerCheckInterval
 	// cadence, not inventoryRefreshInterval — until some later attempt
 	// happens to succeed.
+	opts := []retry.Option{retry.Attempts(3), retry.Delay(500 * time.Millisecond), retry.Context(ctx)}
+	if r.retryTimer != nil {
+		opts = append(opts, retry.WithTimer(r.retryTimer))
+	}
 	if err := retry.Do(func() error {
 		return r.client.Patch(ctx, m, patch)
-	}, retry.Attempts(3), retry.Delay(500*time.Millisecond), retry.Context(ctx)); err != nil {
+	}, opts...); err != nil {
 		logger.Error(err, "failed to clear refresh-inventory annotation after successful collection")
 		r.recorder.Eventf(bm, nil, corev1.EventTypeWarning, "ClearRefreshAnnotationFailed", "ClearRefreshInventoryAnnotation", "clear refresh-inventory annotation: %v", err)
 		return

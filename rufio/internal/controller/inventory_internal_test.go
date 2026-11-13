@@ -403,6 +403,15 @@ func TestApplyOutOfBandAttributesUnchangedAdvancesTimestamp(t *testing.T) {
 	}
 }
 
+// noWaitTimer is a retry.Timer that fires at once, so retries don't sleep.
+type noWaitTimer struct{}
+
+func (noWaitTimer) After(time.Duration) <-chan time.Time {
+	c := make(chan time.Time, 1)
+	c <- time.Now()
+	return c
+}
+
 // TestClearRefreshInventoryAnnotationRetries is a regression test: a
 // transiently-failing Patch must be retried rather than silently leaving
 // refreshInventoryAnnotation set on the server, which would otherwise force a
@@ -435,7 +444,7 @@ func TestClearRefreshInventoryAnnotationRetries(t *testing.T) {
 		}).
 		Build()
 
-	r := &MachineReconciler{client: fakeClient, recorder: events.NewFakeRecorder(2)}
+	r := &MachineReconciler{client: fakeClient, recorder: events.NewFakeRecorder(2), retryTimer: noWaitTimer{}}
 	r.clearRefreshInventoryAnnotation(context.Background(), logr.Discard(), bm)
 
 	if attempts != 3 {
@@ -475,7 +484,7 @@ func TestClearRefreshInventoryAnnotationGivesUp(t *testing.T) {
 
 	// Room for more events than expected, so an extra one fails the test instead of blocking it.
 	recorder := events.NewFakeRecorder(10)
-	r := &MachineReconciler{client: fakeClient, recorder: recorder}
+	r := &MachineReconciler{client: fakeClient, recorder: recorder, retryTimer: noWaitTimer{}}
 	r.clearRefreshInventoryAnnotation(context.Background(), logr.Discard(), bm)
 
 	if attempts != 3 {
