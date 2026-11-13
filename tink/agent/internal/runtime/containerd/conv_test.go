@@ -261,14 +261,9 @@ func TestParseVolumes(t *testing.T) {
 	t.Run("resolves relative source to absolute", func(t *testing.T) {
 		// Create a temp dir and chdir into it so relative paths resolve there.
 		base := t.TempDir()
-		orig, err := os.Getwd()
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { os.Chdir(orig) })
-		if err := os.Chdir(base); err != nil {
-			t.Fatal(err)
-		}
+		// t.Chdir, not os.Chdir: it sets $PWD, so os.Getwd returns base as
+		// written rather than its realpath, which differs on macOS.
+		t.Chdir(base)
 		vols := []spec.Volume{"./reldir:/container"}
 		got := parseVolumes(log, vols)
 		if len(got) != 1 {
@@ -321,14 +316,9 @@ func TestEnsureBindMountSource(t *testing.T) {
 
 	t.Run("relative path resolved to absolute", func(t *testing.T) {
 		base := t.TempDir()
-		orig, err := os.Getwd()
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { os.Chdir(orig) })
-		if err := os.Chdir(base); err != nil {
-			t.Fatal(err)
-		}
+		// t.Chdir, not os.Chdir: it sets $PWD, so os.Getwd returns base as
+		// written rather than its realpath, which differs on macOS.
+		t.Chdir(base)
 		got, err := ensureBindMountSource("./mydir")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
