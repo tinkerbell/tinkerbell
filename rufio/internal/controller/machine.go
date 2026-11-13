@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	"github.com/bmc-toolbox/bmclib/v2/providers/rpc"
 	"github.com/go-logr/logr"
@@ -43,6 +44,9 @@ type MachineReconciler struct {
 	powerCheckInterval         time.Duration
 	inventoryRefreshInterval   time.Duration
 	inventoryCollectionEnabled bool
+	// retryTimer, if set, replaces the timer that clearRefreshInventoryAnnotation's retries wait
+	// on, so tests don't sleep.
+	retryTimer retry.Timer
 }
 
 const (
