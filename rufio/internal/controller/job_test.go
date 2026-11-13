@@ -49,7 +49,7 @@ func TestJobReconcile(t *testing.T) {
 				WithIndex(&bmc.Task{}, ".metadata.controller", controller.TaskOwnerIndexFunc).
 				Build()
 
-			reconciler := controller.NewJobReconciler(clnt)
+			reconciler := controller.NewJobReconciler(clnt, clnt)
 
 			request := reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -105,6 +105,9 @@ func TestJobReconcile(t *testing.T) {
 			}
 			if task.OwnerReferences[0].Kind != "Job" {
 				t.Fatalf("expected OwnerReferences[0].Kind = 'Job', got '%v'", task.OwnerReferences[0].Kind)
+			}
+			if task.OwnerReferences[0].APIVersion != bmc.GroupVersion.String() {
+				t.Fatalf("expected OwnerReferences[0].APIVersion = '%v', got '%v'", bmc.GroupVersion.String(), task.OwnerReferences[0].APIVersion)
 			}
 
 			// Ensure re-reconciling a job does nothing given the task is still outstanding.
@@ -166,7 +169,7 @@ func TestJobReconcileTaskSecretNamespaces(t *testing.T) {
 				Build()
 
 			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: job.Namespace, Name: job.Name}}
-			if _, err := controller.NewJobReconciler(clnt).Reconcile(context.Background(), request); err != nil {
+			if _, err := controller.NewJobReconciler(clnt, clnt).Reconcile(context.Background(), request); err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
 
@@ -215,7 +218,7 @@ func TestJobReconcileCertificateImportReference(t *testing.T) {
 				Build()
 
 			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: job.Namespace, Name: job.Name}}
-			_, err := controller.NewJobReconciler(clnt).Reconcile(context.Background(), request)
+			_, err := controller.NewJobReconciler(clnt, clnt).Reconcile(context.Background(), request)
 			if tt.shouldErr && err == nil {
 				t.Fatal("expected an error, got nil")
 			}
@@ -258,7 +261,7 @@ func TestPatchStatusIgnoresNotFound(t *testing.T) {
 				},
 			})
 			reconcilers := map[client.Object]reconcile.Reconciler{
-				job:  controller.NewJobReconciler(c),
+				job:  controller.NewJobReconciler(c, c),
 				task: controller.NewTaskReconciler(c, newTestClient(&testProvider{Powerstate: "on", PowerSetOK: true})),
 			}
 			for obj, r := range reconcilers {
