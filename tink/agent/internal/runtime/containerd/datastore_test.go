@@ -35,7 +35,12 @@ import (
 // via a tempdir + symlink and compute the expected suffix the same way
 // nerdctl would, then assert that addrHash matches sha256(realpath)[:8].
 func TestAddrHash_StableForResolvedPath(t *testing.T) {
-	dir := t.TempDir()
+	// On macOS, t.TempDir() is under /var, a symlink to /private/var.
+	// Resolve it so target is its own realpath.
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	target := filepath.Join(dir, "containerd.sock")
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
 		t.Fatal(err)
