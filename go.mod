@@ -5,7 +5,7 @@ go 1.26.8
 require (
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/a-h/templ v0.3.1100
+	github.com/a-h/templ v0.3.1118
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/bmc-toolbox/bmclib/v2 v2.3.6-0.20261015063909-146c9866b98e
 	github.com/bmc-toolbox/common v0.0.3
@@ -174,7 +174,7 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/leodido/go-urn v1.5.0 // indirect
-	github.com/mattn/go-colorable v0.1.15 // indirect
+	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mdlayher/packet v1.1.2 // indirect
