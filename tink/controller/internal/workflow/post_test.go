@@ -161,20 +161,16 @@ func TestPostActions(t *testing.T) {
 					},
 				},
 			},
+			// A fresh Workflow's first reconcile only cleans up any leftover Job; creation
+			// happens on the next one.
 			wantWorkflow: &v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
 					CurrentState: &v1alpha1.CurrentState{
 						State: v1alpha1.WorkflowStateSuccess,
 					},
 					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
-					},
-					Conditions: []v1alpha1.WorkflowCondition{
-						{
-							Type:    v1alpha1.BootJobSetupComplete,
-							Status:  metav1.ConditionTrue,
-							Reason:  reasonCreated,
-							Message: messageJobCreated,
+						Jobs: map[string]v1alpha1.JobStatus{
+							"iso-eject-test-workflow": {ExistingJobDeleted: true},
 						},
 					},
 				},
@@ -414,8 +410,10 @@ func TestPostActions(t *testing.T) {
 			},
 		},
 		"customboot no post actions": {
+			// Cleanup of any leftover Job runs on a fresh Workflow's first reconcile even with no
+			// actions; the no-actions early return happens on the next one.
 			wantResult: reconcile.Result{
-				Requeue: false,
+				Requeue: true,
 			},
 			hardware: &v1alpha1.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
@@ -468,7 +466,9 @@ func TestPostActions(t *testing.T) {
 						State: v1alpha1.WorkflowStateSuccess,
 					},
 					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
+						Jobs: map[string]v1alpha1.JobStatus{
+							"customboot-post-test-workflow": {ExistingJobDeleted: true},
+						},
 					},
 					State: v1alpha1.WorkflowStateSuccess,
 				},
