@@ -5,7 +5,7 @@ deployment:
   additionalEnvs: {{ .Values.deployment.additionalEnvs | toYaml | nindent 4 }}
   additionalArgs: {{ .Values.deployment.additionalArgs | toYaml | nindent 4 }}
   affinity: {{ .Values.deployment.affinity | toYaml | nindent 4 }}
-  agentImage: {{ .Values.deployment.agentImage }}
+  agentImage: {{ .Values.deployment.agentImage | quote }}
   agentImageTag: {{ .Values.deployment.agentImageTag }}
   daemonSet:
     enabled: {{ .Values.deployment.daemonSet.enabled }}
@@ -121,12 +121,12 @@ deployment:
       debugMode: {{ .Values.deployment.envs.tootles.debugMode }}
       logLevel: {{ .Values.deployment.envs.tootles.logLevel }}
   hostNetwork: {{ .Values.deployment.hostNetwork }}
-  image: {{ .Values.deployment.image }}
+  image: {{ .Values.deployment.image | quote }}
   imagePullPolicy: {{ .Values.deployment.imagePullPolicy }}
   imageTag: {{ .Values.deployment.imageTag }}
   init:
     enabled: {{ .Values.deployment.init.enabled }}
-    image: {{ .Values.deployment.init.image }}
+    image: {{ .Values.deployment.init.image | quote }}
     interfaceMode: {{ .Values.deployment.init.interfaceMode }}
     sourceInterface: {{ .Values.deployment.init.sourceInterface }}
   nodeSelector: {{ .Values.deployment.nodeSelector | toYaml | nindent 4 }}
@@ -196,7 +196,7 @@ optional:
       strategy:
         type: {{ .Values.stack.deployment.strategy.type }}
     hostNetwork: {{ .Values.optional.osie.hostNetwork }}
-    image: {{ .Values.stack.image }}
+    image: {{ .Values.stack.image | quote }}
     name: {{ .Values.optional.osie.name }}
     nodeSelector: {{ .Values.optional.osie.nodeSelector | toYaml | nindent 6 }}
     tolerations: {{ .Values.optional.osie.tolerations | toYaml | nindent 6 }}
@@ -225,12 +225,12 @@ optional:
         path: {{ .Values.stack.hook.persistence.localPersistentVolume.path }}
         size: {{ .Values.stack.hook.persistence.localPersistentVolume.size }}
         storageClassName: {{ .Values.stack.hook.persistence.localPersistentVolume.storageClassName }}
-    scriptImage: {{ .Values.optional.hookos.scriptImage }}
+    scriptImage: {{ .Values.optional.hookos.scriptImage | quote }}
   
   kubevip:
     additionalEnv: {{ .Values.optional.kubevip.additionalEnv | toYaml | nindent 6 }}
     enabled: {{ .Values.stack.kubevip.enabled }}
-    image: {{ .Values.optional.kubevip.image }}
+    image: {{ .Values.optional.kubevip.image | quote }}
     imagePullPolicy: {{ .Values.optional.kubevip.imagePullPolicy }}
     interface: {{ .Values.optional.kubevip.interface }}
     name: {{ .Values.optional.kubevip.name }}

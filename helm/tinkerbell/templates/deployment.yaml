@@ -96,7 +96,7 @@ spec:
     spec:
       containers:
         - name: tinkerbell
-          image: {{ .Values.deployment.image }}:{{ coalesce .Values.deployment.imageTag .Chart.AppVersion }}
+          image: "{{ .Values.deployment.image }}:{{ coalesce .Values.deployment.imageTag .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.deployment.imagePullPolicy }}
           {{- with .Values.deployment.additionalArgs }}
           args:
@@ -544,7 +544,7 @@ spec:
       {{- if .Values.deployment.init.enabled }}
       initContainers:
       - name: broadcast-interface
-        image: {{ .Values.deployment.init.image }}
+        image: {{ .Values.deployment.init.image | quote }}
         command: ["/script/host_interface.sh", "-s", "{{ $sourceInterface }}", "-t", "{{ $dhcpInterfaceType }}"]
         volumeMounts:
             - name: script
