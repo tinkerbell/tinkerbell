@@ -119,6 +119,32 @@ func TestRegistryHostsFallsBackWithoutConfiguration(t *testing.T) {
 	}
 }
 
+func TestQualifiedImage(t *testing.T) {
+	const digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	tests := map[string]string{
+		"alpine":                                            "docker.io/library/alpine:latest",
+		"quay.io/tinkerbell/actions/oci2disk":               "quay.io/tinkerbell/actions/oci2disk:latest",
+		"quay.io/tinkerbell/actions/oci2disk:v1":            "quay.io/tinkerbell/actions/oci2disk:v1",
+		"quay.io/tinkerbell/actions/oci2disk:v1@" + digest:  "quay.io/tinkerbell/actions/oci2disk:v1@" + digest,
+		"172.20.0.2:5000/tinkerbell/actions/oci2disk":       "172.20.0.2:5000/tinkerbell/actions/oci2disk:latest",
+		"[fd00:ca7e:6::3]:5000/tinkerbell/actions/oci2disk": "[fd00:ca7e:6::3]:5000/tinkerbell/actions/oci2disk:latest",
+		"[fd00:ca7e:6::3]:5000/library/alpine:3.24":         "[fd00:ca7e:6::3]:5000/library/alpine:3.24",
+		"[fd00:ca7e:6::3]/tinkerbell/actions/oci2disk":      "[fd00:ca7e:6::3]/tinkerbell/actions/oci2disk:latest",
+	}
+
+	for in, want := range tests {
+		t.Run(in, func(t *testing.T) {
+			got, err := qualifiedImage(in)
+			if err != nil {
+				t.Fatalf("qualifiedImage(%q) error: %v", in, err)
+			}
+			if got != want {
+				t.Errorf("qualifiedImage(%q) = %q, want %q", in, got, want)
+			}
+		})
+	}
+}
+
 func registryHostConfig(serverURL, extra string) string {
 	return fmt.Sprintf(`server = %q
 
