@@ -589,7 +589,9 @@ func TestPrepareWorkflow(t *testing.T) {
 			},
 		},
 		"boot mode customboot no preparing actions": {
-			wantResult: reconcile.Result{Requeue: false},
+			// Cleanup of any leftover Job runs on a fresh Workflow's first reconcile even with no
+			// actions; the no-actions early return happens on the next one.
+			wantResult: reconcile.Result{Requeue: true},
 			hardware: &v1alpha1.Hardware{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hardware",
@@ -641,7 +643,9 @@ func TestPrepareWorkflow(t *testing.T) {
 			wantWorkflow: &v1alpha1.Workflow{
 				Status: v1alpha1.WorkflowStatus{
 					BootOptions: v1alpha1.BootOptionsStatus{
-						Jobs: map[string]v1alpha1.JobStatus{},
+						Jobs: map[string]v1alpha1.JobStatus{
+							"customboot-preparing-test-workflow": {ExistingJobDeleted: true},
+						},
 					},
 				},
 			},
