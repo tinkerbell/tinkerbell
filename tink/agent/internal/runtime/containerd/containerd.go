@@ -44,8 +44,7 @@ import (
 	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/containerd/containerd/v2/pkg/oci"
-	"github.com/containers/image/v5/pkg/shortnames"
-	"github.com/containers/image/v5/types"
+	"github.com/distribution/reference"
 	"github.com/go-logr/logr"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -239,13 +238,10 @@ func NewConfig(log logr.Logger, opts ...Opt) (*Config, error) {
 func (c *Config) Execute(ctx context.Context, a spec.Action) error {
 	ctx = namespaces.WithNamespace(ctx, c.Namespace)
 	// Pull the image
-	imageName := a.Image
-	r, err := shortnames.Resolve(&types.SystemContext{PodmanOnlyShortNamesIgnoreRegistriesConfAndForceDockerHub: true}, imageName)
+	imageName, err := qualifiedImage(a.Image)
 	if err != nil {
-		c.Log.Info("unable to resolve image fully qualified name", "error", err)
-	}
-	if r != nil && len(r.PullCandidates) > 0 {
-		imageName = r.PullCandidates[0].Value.String()
+		c.Log.Info("unable to resolve image fully qualified name", "image", a.Image, "error", err)
+		imageName = a.Image
 	}
 	image, err := c.Client.GetImage(ctx, imageName)
 	if err != nil {
@@ -634,4 +630,15 @@ func isIPForwardingEnabled(log logr.Logger) (bool, error) {
 
 	log.V(1).Info("IP forwarding is disabled")
 	return false, nil
+}
+
+// qualifiedImage returns ref in the fully qualified form containerd requires to
+// pull. Short names are expanded to docker.io, and a reference with neither a
+// tag nor a digest is tagged latest.
+func qualifiedImage(ref string) (string, error) {
+	named, err := reference.ParseNormalizedNamed(ref)
+	if err != nil {
+		return "", err
+	}
+	return reference.TagNameOnly(named).String(), nil
 }

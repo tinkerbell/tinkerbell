@@ -1,0 +1,49 @@
+suite: image references
+set:
+  trustedProxies: [127.0.0.1/24]
+  publicIPv6: 2001:db8::15
+  artifactsFileServerV6: http://[2001:db8:100::102]:717
+tests:
+  - it: renders Tinkerbell images from an IPv6 registry
+    template: templates/deployment.yaml
+    set:
+      deployment.image: "[2001:db8::7]:5000/tinkerbell/tinkerbell"
+      deployment.imageTag: v1.0.0
+      deployment.init.enabled: true
+      deployment.init.image: "[2001:db8::7]:5000/tinkerbell/relay-init:v1.0.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "tinkerbell")].image
+          value: "[2001:db8::7]:5000/tinkerbell/tinkerbell:v1.0.0"
+      - equal:
+          path: spec.template.spec.initContainers[?(@.name == "broadcast-interface")].image
+          value: "[2001:db8::7]:5000/tinkerbell/relay-init:v1.0.0"
+
+  - it: renders the kube-vip image from an IPv6 registry
+    template: templates/kube-vip/daemonset.yaml
+    set:
+      optional.kubevip.enabled: true
+      optional.kubevip.image: "[2001:db8::7]:5000/kube-vip/kube-vip:v1.0.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "[2001:db8::7]:5000/kube-vip/kube-vip:v1.0.0"
+
+  - it: renders OSIE images from an IPv6 registry
+    template: templates/osie/deployment.yaml
+    set:
+      optional.osie.image: "[2001:db8::7]:5000/nginx:1.29.5"
+      optional.hookos.enabled: true
+      optional.hookos.scriptImage: "[2001:db8::7]:5000/tinkerbell/hook-download:v1.0.0"
+      optional.captainos.enabled: true
+      optional.captainos.image: "[2001:db8::7]:5000/tinkerbell/captain/artifacts:v1.0.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "[2001:db8::7]:5000/nginx:1.29.5"
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "download-hook")].image
+          value: "[2001:db8::7]:5000/tinkerbell/hook-download:v1.0.0"
+      - equal:
+          path: spec.template.spec.volumes[?(@.name == "captain-artifacts")].image.reference
+          value: "[2001:db8::7]:5000/tinkerbell/captain/artifacts:v1.0.0"

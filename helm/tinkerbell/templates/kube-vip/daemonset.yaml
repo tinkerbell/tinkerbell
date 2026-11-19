@@ -35,7 +35,7 @@ spec:
         - name: vip_interface
           value: {{ . }}
         {{- end }}
-        image: {{ .Values.optional.kubevip.image }}
+        image: {{ .Values.optional.kubevip.image | quote }}
         imagePullPolicy: {{ .Values.optional.kubevip.imagePullPolicy }}
         name: {{ .Values.optional.kubevip.name }}
         securityContext:

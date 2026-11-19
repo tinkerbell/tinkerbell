@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: {{ include "tinkerbell.osie.name" . }}
-        image: {{ include "tinkerbell.osie.image" . }}
+        image: {{ include "tinkerbell.osie.image" . | quote }}
         ports:
         - containerPort: {{ include "tinkerbell.osie.port" . }}
           protocol: TCP
@@ -49,7 +49,7 @@ spec:
         {{- end }}
       {{- if .Values.optional.hookos.enabled }}
       - name: download-hook
-        image: {{ .Values.optional.hookos.scriptImage }}
+        image: {{ .Values.optional.hookos.scriptImage | quote }}
         command: ["/script/entrypoint.sh"]
         args: ["--url", "{{ .Values.optional.hookos.downloadURL }}", "--output-dir", "/output", "--arch", "{{ .Values.optional.hookos.arch }}", "--version", "{{ .Values.optional.hookos.kernelVersion }}", "--ext", "{{ .Values.optional.hookos.extension }}"]
         volumeMounts:
@@ -74,7 +74,7 @@ spec:
       {{- if .Values.optional.captainos.enabled }}
       - name: captain-artifacts
         image:
-          reference: {{ .Values.optional.captainos.image }}
+          reference: {{ .Values.optional.captainos.image | quote }}
           pullPolicy: {{ .Values.optional.captainos.pullPolicy }}
       {{- end }}
       hostNetwork: {{ include "tinkerbell.osie.hostNetwork" . }}
