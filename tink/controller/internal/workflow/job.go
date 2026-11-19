@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
@@ -248,7 +247,7 @@ func (s *state) trackRunningJob(ctx context.Context, name jobName) (reconcile.Re
 	}
 	// still running
 	journal.Log(ctx, "job still running", "name", name)
-	time.Sleep(s.backoff.NextBackOff())
+	// No need to wait here: the Workflow is reconciled again when the Job's status changes (it Owns its Jobs).
 	return reconcile.Result{Requeue: true}, trackedStateRunning, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 }
 
