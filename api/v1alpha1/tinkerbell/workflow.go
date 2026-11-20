@@ -241,12 +241,30 @@ type Task struct {
 
 // Action represents a workflow action.
 type Action struct {
-	ID      string   `json:"id"`
-	Name    string   `json:"name,omitempty"`
-	Image   string   `json:"image,omitempty"`
-	Timeout int64    `json:"timeout,omitempty"`
-	Command []string `json:"command,omitempty"`
-	Volumes []string `json:"volumes,omitempty"`
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+	// Image is an OCI image the Action runs as a container. Mutually exclusive with run;
+	// exactly one of image or run must be set.
+	// +optional
+	Image string `json:"image,omitempty"`
+	// Run is an inline script executed directly on the Agent host, outside any container
+	// runtime. The Agent writes the contents to a file and invokes it with shell. Mutually
+	// exclusive with image; exactly one of image or run must be set.
+	// +optional
+	Run string `json:"run,omitempty"`
+	// Shell is the interpreter argv used to execute run, e.g. ["python3", "-u"]. Defaults to
+	// ["bash", "-x", "-e"]. Only valid together with run.
+	// +optional
+	Shell []string `json:"shell,omitempty"`
+	// Background indicates the Action is reported successful before it is executed, and then
+	// run detached in the background with no timeout while the Workflow moves on to the next
+	// Action. Useful for Actions that terminate the Agent itself, such as kexec, reboot, or
+	// power off, where the Workflow must reach a completed state first.
+	// +optional
+	Background bool     `json:"background,omitempty"`
+	Timeout    int64    `json:"timeout,omitempty"`
+	Command    []string `json:"command,omitempty"`
+	Volumes    []string `json:"volumes,omitempty"`
 	// Deprecated: This field is deprecated and will be removed in a future release. Use namespaces.pid instead.
 	// +kubebuilder:deprecatedversion:warning="Pid is deprecated and will be removed in a future release. Use namespaces.pid instead."
 	Pid               string            `json:"pid,omitempty"`

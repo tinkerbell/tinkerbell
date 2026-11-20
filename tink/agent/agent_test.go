@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -377,5 +378,260 @@ func TestRuntimeTypeSet(t *testing.T) {
 				t.Errorf("Set(%q): got %q, want %q", tt.in, r, tt.want)
 			}
 		})
+	}
+}
+
+// singleActionReader serves one action, then reports that nothing else is available. It signals
+// once the agent has come back to poll again, which is how tests know a full iteration finished.
+type singleActionReader struct {
+	action   spec.Action
+	reads    atomic.Int32
+	repolled chan struct{}
+	once     sync.Once
+}
+
+// testNoActionError is what a transport returns when there is no Action to run.
+type testNoActionError struct{}
+
+func (testNoActionError) Error() string  { return "no action" }
+func (testNoActionError) NoAction() bool { return true }
+
+func newSingleActionReader(action spec.Action) *singleActionReader {
+	return &singleActionReader{action: action, repolled: make(chan struct{})}
+}
+
+func (r *singleActionReader) Read(context.Context) (spec.Action, error) {
+	if r.reads.Add(1) == 1 {
+		return r.action, nil
+	}
+	r.once.Do(func() { close(r.repolled) })
+	return spec.Action{}, testNoActionError{}
+}
+
+func (r *singleActionReader) waitForRepoll(t *testing.T) {
+	t.Helper()
+	select {
+	case <-r.repolled:
+	case <-time.After(testWaitTimeout):
+		t.Fatal("agent did not return to polling")
+	}
+}
+
+// collectStates records the state of every reported event in order.
+func collectStates(states *[]spec.State, mu *sync.Mutex) writerFunc {
+	return func(_ context.Context, event spec.Event) error {
+		mu.Lock()
+		defer mu.Unlock()
+		*states = append(*states, event.State)
+		return nil
+	}
+}
+
+func TestRunDispatchesScriptActionsToScriptExecutor(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	reader := newSingleActionReader(spec.Action{ID: "action-1", Run: "echo hi", TimeoutSeconds: 5})
+
+	var runtimeCalls, scriptCalls atomic.Int32
+	c := &Config{
+		TransportReader: reader,
+		RuntimeExecutor: executorFunc(func(context.Context, spec.Action) error {
+			runtimeCalls.Add(1)
+			return nil
+		}),
+		ScriptExecutor: executorFunc(func(context.Context, spec.Action) error {
+			scriptCalls.Add(1)
+			return nil
+		}),
+		TransportWriter: writerFunc(func(context.Context, spec.Event) error { return nil }),
+		Retry:           testRetry(),
+	}
+	go c.Run(ctx, logr.Discard())
+
+	reader.waitForRepoll(t)
+	if got := scriptCalls.Load(); got != 1 {
+		t.Errorf("script executor called %d times, want 1", got)
+	}
+	if got := runtimeCalls.Load(); got != 0 {
+		t.Errorf("container runtime called %d times for a run action, want 0", got)
+	}
+}
+
+func TestRunDispatchesImageActionsToRuntimeExecutor(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	reader := newSingleActionReader(spec.Action{ID: "action-1", Image: "alpine", TimeoutSeconds: 5})
+
+	var runtimeCalls, scriptCalls atomic.Int32
+	c := &Config{
+		TransportReader: reader,
+		RuntimeExecutor: executorFunc(func(context.Context, spec.Action) error {
+			runtimeCalls.Add(1)
+			return nil
+		}),
+		ScriptExecutor: executorFunc(func(context.Context, spec.Action) error {
+			scriptCalls.Add(1)
+			return nil
+		}),
+		TransportWriter: writerFunc(func(context.Context, spec.Event) error { return nil }),
+		Retry:           testRetry(),
+	}
+	go c.Run(ctx, logr.Discard())
+
+	reader.waitForRepoll(t)
+	if got := runtimeCalls.Load(); got != 1 {
+		t.Errorf("container runtime called %d times, want 1", got)
+	}
+	if got := scriptCalls.Load(); got != 0 {
+		t.Errorf("script executor called %d times for an image action, want 0", got)
+	}
+}
+
+func TestRunBackgroundActionReportsSuccessBeforeExecuting(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	reader := newSingleActionReader(spec.Action{ID: "action-1", Image: "alpine", Background: true, TimeoutSeconds: 5})
+
+	// The executor blocks until released, so if the success report waited on execution the test
+	// would time out rather than pass by luck.
+	release := make(chan struct{})
+	executed := make(chan struct{})
+	executor := executorFunc(func(context.Context, spec.Action) error {
+		<-release
+		close(executed)
+		return nil
+	})
+
+	var mu sync.Mutex
+	states := []spec.State{}
+
+	c := &Config{
+		TransportReader: reader,
+		RuntimeExecutor: executor,
+		ScriptExecutor:  executor,
+		TransportWriter: collectStates(&states, &mu),
+		Retry:           testRetry(),
+	}
+	go c.Run(ctx, logr.Discard())
+
+	reader.waitForRepoll(t)
+
+	mu.Lock()
+	got := append([]spec.State{}, states...)
+	mu.Unlock()
+	want := []spec.State{spec.StateRunning, spec.StateSuccess}
+	if len(got) != len(want) {
+		t.Fatalf("reported states = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("reported states = %v, want %v", got, want)
+		}
+	}
+
+	close(release)
+	select {
+	case <-executed:
+	case <-time.After(testWaitTimeout):
+		t.Fatal("background action never executed")
+	}
+}
+
+func TestRunBackgroundActionFailureIsNotReported(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	reader := newSingleActionReader(spec.Action{ID: "action-1", Run: "false", Background: true})
+
+	failed := make(chan struct{})
+	var mu sync.Mutex
+	states := []spec.State{}
+
+	c := &Config{
+		TransportReader: reader,
+		RuntimeExecutor: executorFunc(func(context.Context, spec.Action) error { return nil }),
+		ScriptExecutor: executorFunc(func(context.Context, spec.Action) error {
+			close(failed)
+			return errors.New("boom")
+		}),
+		TransportWriter: collectStates(&states, &mu),
+		Retry:           testRetry(),
+	}
+	go c.Run(ctx, logr.Discard())
+
+	select {
+	case <-failed:
+	case <-time.After(testWaitTimeout):
+		t.Fatal("background action never executed")
+	}
+	reader.waitForRepoll(t)
+
+	mu.Lock()
+	defer mu.Unlock()
+	for _, s := range states {
+		if s == spec.StateFailure || s == spec.StateTimeout {
+			t.Fatalf("background failure leaked into the workflow: reported states = %v", states)
+		}
+	}
+}
+
+func TestRunZeroTimeoutDoesNotTimeOut(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// TimeoutSeconds is deliberately unset: a zero timeout means no timeout, not an instantly
+	// expired one.
+	reader := newSingleActionReader(spec.Action{ID: "action-1", Image: "alpine"})
+
+	var mu sync.Mutex
+	states := []spec.State{}
+
+	c := &Config{
+		TransportReader: reader,
+		RuntimeExecutor: executorFunc(func(ctx context.Context, _ spec.Action) error {
+			return ctx.Err()
+		}),
+		TransportWriter: collectStates(&states, &mu),
+		Retry:           testRetry(),
+	}
+	go c.Run(ctx, logr.Discard())
+
+	reader.waitForRepoll(t)
+
+	mu.Lock()
+	defer mu.Unlock()
+	want := []spec.State{spec.StateRunning, spec.StateSuccess}
+	if len(states) != len(want) || states[len(states)-1] != spec.StateSuccess {
+		t.Fatalf("reported states = %v, want %v", states, want)
+	}
+}
+
+func TestRunReportsFailureWhenNoExecutorIsConfigured(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// A run action with no ScriptExecutor wired up must fail the action, not panic the agent.
+	reader := newSingleActionReader(spec.Action{ID: "action-1", Run: "echo hi"})
+
+	var mu sync.Mutex
+	states := []spec.State{}
+
+	c := &Config{
+		TransportReader: reader,
+		RuntimeExecutor: executorFunc(func(context.Context, spec.Action) error { return nil }),
+		TransportWriter: collectStates(&states, &mu),
+		Retry:           testRetry(),
+	}
+	go c.Run(ctx, logr.Discard())
+
+	reader.waitForRepoll(t)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(states) == 0 || states[len(states)-1] != spec.StateFailure {
+		t.Fatalf("reported states = %v, want the last to be %v", states, spec.StateFailure)
 	}
 }

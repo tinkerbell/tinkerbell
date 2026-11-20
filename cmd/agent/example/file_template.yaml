@@ -59,3 +59,31 @@
   namespaces:
     pid: host
     network: host
+# Actions can carry an inline script instead of an image. The agent writes it to a file on the
+# host and runs it with `shell`, defaulting to `bash -x -e`. `image` and `run` are mutually
+# exclusive.
+- id: 123459
+  name: action 5 - host script
+  run: |
+    echo "running on $(hostname) as $(id -un)"
+    echo "key1 is ${key1}"
+  timeoutSeconds: 90
+  env:
+    - key: "key1"
+      value: "value1"
+# A different interpreter replaces the default shell entirely, argv and all.
+- id: 123460
+  name: action 6 - host script with a custom shell
+  shell: ["sh", "-u"]
+  run: |
+    echo "running under plain sh"
+  timeoutSeconds: 90
+# A background action is reported successful before it runs, then detached with no timeout. This
+# is what lets a workflow complete before an action takes the machine down. Substitute the sleep
+# below with `systemctl reboot` for the real thing.
+- id: 123461
+  name: action 7 - background
+  background: true
+  run: |
+    sleep 5
+    echo "the workflow already completed while this was still running"

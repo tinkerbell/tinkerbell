@@ -23,7 +23,7 @@ message ActionResponse {
     */
    string name = 5;
    /*
-    * The docker/oci image the action starts from
+    * The docker/oci image the action starts from. Mutually exclusive with run.
     */
    string image = 6;
    /*
@@ -54,6 +54,21 @@ message ActionResponse {
     * The Linux namespaces the action container should run in.
     */
    Namespaces namespaces = 12;
+   /*
+    * An inline script executed directly on the Agent host, outside any container
+    * runtime. Mutually exclusive with image.
+    */
+   string run = 13;
+   /*
+    * The interpreter argv used to execute run, e.g. ["python3", "-u"].
+    * Defaults to ["bash", "-x", "-e"]. Only valid together with run.
+    */
+   repeated string shell = 14;
+   /*
+    * Report the action successful before executing it, then run it detached in the
+    * background with no timeout.
+    */
+   bool background = 15;
 }
 
 /*
