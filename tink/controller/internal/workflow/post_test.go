@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
@@ -531,7 +530,6 @@ func TestPostActions(t *testing.T) {
 			s := &state{
 				workflow: tc.workflow,
 				client:   clientBuilder.Build(),
-				backoff:  backoff.NewExponentialBackOff(),
 			}
 			ctx := context.Background()
 			ctx = journal.New(ctx)
