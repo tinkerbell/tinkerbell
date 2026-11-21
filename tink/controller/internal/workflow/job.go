@@ -8,6 +8,7 @@ import (
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -52,7 +53,7 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 			return reconcile.Result{}, nil
 		}
 		journal.Log(ctx, "no uid found for job", "name", name)
-		result, err := s.createJob(ctx, actions, name)
+		result, ok, err := s.createJob(ctx, actions, name)
 		if err != nil {
 			s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
 				Type:    v1alpha1.BootJobSetupFailed,
@@ -62,6 +63,9 @@ func (s *state) handleJob(ctx context.Context, actions []bmc.Action, name jobNam
 				Time:    &metav1.Time{Time: metav1.Now().UTC()},
 			})
 			return result, err
+		}
+		if !ok {
+			return result, nil
 		}
 		s.workflow.Status.SetCondition(v1alpha1.WorkflowCondition{
 			Type:    v1alpha1.BootJobSetupComplete,
@@ -142,36 +146,47 @@ func (s *state) deleteExisting(ctx context.Context, name jobName) (reconcile.Res
 	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 }
 
-// This function will update the Workflow status.
-func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobName) (reconcile.Result, error) {
-	// create a new job
-	// The assumption is that the UID is not set. UID checking is not handled here.
-	// 1. look up if there's an existing job with the same name, if so update the status with the UID and return
-	// 2. if there's no existing job, create a new job, update the status with the UID, and return
-
+// createJob creates the Workflow's Job, or adopts an existing one by recording its UID in the Workflow status.
+// It reports whether it created or adopted the Job. The status must not have a UID for the Job yet.
+//
+// It adopts only a Job this Workflow controls: when a Workflow is recreated under the same name, the cache
+// can still show the leftover Job that the clean up phase just deleted.
+func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobName) (reconcile.Result, bool, error) {
 	rj := &bmc.Job{}
-	if err := s.client.Get(ctx, client.ObjectKey{Name: name.String(), Namespace: s.workflow.Namespace}, rj); err == nil {
+	err := s.client.Get(ctx, client.ObjectKey{Name: name.String(), Namespace: s.workflow.Namespace}, rj)
+	if client.IgnoreNotFound(err) != nil {
+		// Not a reason to create: the create would fail on "already exists" if the Job is there, and
+		// that requeues without failing the Workflow, which would hide this error.
+		return reconcile.Result{}, false, fmt.Errorf("error getting job: %w", err)
+	}
+	if err == nil {
 		journal.Log(ctx, "job already exists", "name", name)
 		if !rj.DeletionTimestamp.IsZero() {
 			journal.Log(ctx, "job is being deleted", "name", name)
-			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
+			return reconcile.Result{Requeue: true}, false, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 		}
-		// TODO(jacobweinstock): job exists means that the job name and uid from the status are the same.
+		if !metav1.IsControlledBy(rj, s.workflow) {
+			// A Job of the same name from another Workflow: one created after the clean up phase ran,
+			// or a deleted one the cache still shows. Only a Job this Workflow controls is adopted.
+			journal.Log(ctx, "job is not owned by this workflow, deleting it", "name", name)
+			r, err := s.deleteExisting(ctx, name)
+			return r, false, err
+		}
 		// get the UID and update the status
 		jStatus := s.workflow.Status.BootOptions.Jobs[name.String()]
 		jStatus.UID = rj.GetUID()
 		s.workflow.Status.BootOptions.Jobs[name.String()] = jStatus
 
-		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
+		return reconcile.Result{Requeue: true}, true, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 	}
 
 	// create a new job
 	hw, err := hardwareFrom(ctx, s.client, s.workflow)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error getting hardware: %w", err)
+		return reconcile.Result{}, false, fmt.Errorf("error getting hardware: %w", err)
 	}
 	if hw.Spec.BMCRef == nil {
-		return reconcile.Result{}, fmt.Errorf("hardware %q does not have a BMC", hw.Name)
+		return reconcile.Result{}, false, fmt.Errorf("hardware %q does not have a BMC", hw.Name)
 	}
 
 	// Not s.workflow.APIVersion and s.workflow.Kind: only the manager's cache fills in TypeMeta, so a
@@ -187,11 +202,17 @@ func (s *state) createJob(ctx context.Context, actions []bmc.Action, name jobNam
 	}
 
 	if err := create(ctx, s.client, name.String(), hw, s.workflow.Namespace, actions, ownerRef); err != nil {
-		return reconcile.Result{}, fmt.Errorf("error creating job: %w", err)
+		if apierrors.IsAlreadyExists(err) {
+			// The cache doesn't show yet the Job a previous pass created. The next pass adopts it,
+			// or deletes it if it isn't this Workflow's.
+			journal.Log(ctx, "job already exists but is not in the cache yet", "name", name)
+			return reconcile.Result{Requeue: true}, false, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
+		}
+		return reconcile.Result{}, false, fmt.Errorf("error creating job: %w", err)
 	}
 	journal.Log(ctx, "job created", "name", name)
 
-	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
+	return reconcile.Result{Requeue: true}, true, nil //nolint:staticcheck // SA1019: Requeue keeps rate-limited backoff; RequeueAfter would change behavior.
 }
 
 type trackedState string

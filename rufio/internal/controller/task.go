@@ -87,7 +87,9 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	// Create a patch from the initial Task object
 	// Patch is used to update Status after reconciliation
-	taskPatch := client.MergeFrom(task.DeepCopy())
+	// The optimistic lock keeps a reconcile that outlives its Task, deleted and replaced by one of the
+	// same name, from patching the replacement's status.
+	taskPatch := client.MergeFromWithOptions(task.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	logger = logger.WithValues("action", task.Spec.Task, "host", task.Spec.Connection.Host)
 
 	return r.doReconcile(ctx, task, taskPatch, logger)

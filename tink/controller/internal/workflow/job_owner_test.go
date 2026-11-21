@@ -41,7 +41,7 @@ func TestCreateJobOwnerReference(t *testing.T) {
 	cc := fake.NewClientBuilder().WithScheme(scheme).WithObjects(hw).Build()
 	s := &state{client: cc, workflow: wf}
 
-	if _, err := s.createJob(context.Background(), []bmc.Action{{PowerAction: toPtr(bmc.PowerOn)}}, jobNameNetboot); err != nil {
+	if _, _, err := s.createJob(context.Background(), []bmc.Action{{PowerAction: toPtr(bmc.PowerOn)}}, jobNameNetboot); err != nil {
 		t.Fatalf("createJob() error = %v", err)
 	}
 
