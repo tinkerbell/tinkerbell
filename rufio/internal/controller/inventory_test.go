@@ -26,13 +26,10 @@ import (
 
 const trueString = "true"
 
-// newInventoryTestClient builds a fake client that keeps controller-runtime's
-// default FieldManagedObjectTracker (unlike newClientBuilder() above, which
-// swaps in a basic ObjectTracker specifically to work around a MergeFrom+Machine
-// quirk that's unrelated to this file). It supports real Server-Side Apply
-// patch semantics for Hardware, which applyOutOfBandAttributes relies on — unlike
-// newClientBuilder()'s SubResourcePatch interceptor, which deliberately ignores
-// the patch content and does a full Update instead (see its doc comment).
+// newInventoryTestClient builds a fake client with a status subresource for
+// Hardware, whose status applyOutOfBandAttributes writes with Server-Side Apply.
+// Unlike newClientBuilder, it registers client-go's whole scheme and no bmc
+// status subresources.
 func newInventoryTestClient(objs ...ctrlclient.Object) ctrlclient.Client {
 	s := runtime.NewScheme()
 	if err := tinkerbell.AddToScheme(s); err != nil {
