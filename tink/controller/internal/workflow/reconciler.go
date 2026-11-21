@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
+	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	v1alpha1 "github.com/tinkerbell/tinkerbell/api/v1alpha1/tinkerbell"
 	"github.com/tinkerbell/tinkerbell/pkg/journal"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -48,19 +48,14 @@ type referenceResolver interface {
 type Reconciler struct {
 	client     ctrlclient.Client
 	nowFunc    func() time.Time
-	backoff    *backoff.ExponentialBackOff
 	references referenceResolver
 }
 
 // TODO(jacobweinstock): add functional arguments to the signature.
-// TODO(jacobweinstock): write functional argument for customizing the backoff.
 func NewReconciler(client ctrlclient.Client, references referenceResolver) *Reconciler {
-	bo := backoff.NewExponentialBackOff()
-	bo.MaxInterval = 5 * time.Second // this should keep all NextBackOff's under 10 seconds
 	return &Reconciler{
 		client:     client,
 		nowFunc:    time.Now,
-		backoff:    bo,
 		references: references,
 	}
 }
@@ -70,13 +65,15 @@ func (r *Reconciler) SetupWithManager(mgr manager.Manager, opts controller.Optio
 		NewControllerManagedBy(mgr).
 		WithOptions(opts).
 		For(&v1alpha1.Workflow{}).
+		// A Workflow is the controller owner of the bmc Jobs it creates: a change in a Job's status
+		// (Completed, Failed) reconciles the Workflow right away instead of on its next requeue.
+		Owns(&bmc.Job{}).
 		Complete(r)
 }
 
 type state struct {
 	client   ctrlclient.Client
 	workflow *v1alpha1.Workflow
-	backoff  *backoff.ExponentialBackOff
 }
 
 // +kubebuilder:rbac:groups=tinkerbell.org,resources=hardware;hardware/status,verbs=get;list;watch;update;patch
@@ -130,7 +127,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		s := &state{
 			client:   r.client,
 			workflow: wflow,
-			backoff:  r.backoff,
 		}
 		resp, err := s.prepareWorkflow(ctx)
 
@@ -173,7 +169,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		s := &state{
 			client:   r.client,
 			workflow: wflow,
-			backoff:  r.backoff,
 		}
 		rc, err := s.postActions(ctx)
 
