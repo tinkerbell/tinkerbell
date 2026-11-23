@@ -59,6 +59,11 @@ type RedfishOptions struct {
 	// With redfish implementations that manage multiple systems via a single endpoint, this allows for specifying the system to manage.
 	// +optional
 	SystemName string `json:"systemName,omitempty"`
+	// DisableEtagMatch stops the redfish provider from sending a resource's ETag in an If-Match header
+	// on PATCH and POST requests. Some BMC implementations reject a request whose If-Match doesn't
+	// match the ETag they expect, with 412 Precondition Failed, even when the ETag came from a read just before.
+	// +optional
+	DisableEtagMatch bool `json:"disableEtagMatch,omitempty"`
 }
 
 // IPMITOOLOptions contains the ipmitool provider specific options.
