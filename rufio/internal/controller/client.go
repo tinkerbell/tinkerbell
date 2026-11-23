@@ -55,10 +55,19 @@ func NewClientFunc(timeout time.Duration) ClientFunc {
 type BMCOptions struct {
 	*bmc.ProviderOptions
 	rpcSecrets map[rpc.Algorithm][]string
+	// InsecureTLS mirrors Machine.spec.connection.insecureTLS. When false, bmclib's shared HTTP
+	// client verifies BMC certificates against the system trust store (which includes any CA
+	// mounted into the pod), for every HTTP-based provider and the rpc consumer.
+	InsecureTLS bool
 }
 
 func (b BMCOptions) Translate(host string) []bmclib.Option {
 	o := []bmclib.Option{}
+
+	if !b.InsecureTLS {
+		// A nil pool means the system roots.
+		o = append(o, bmclib.WithSecureTLS(nil))
+	}
 
 	if b.ProviderOptions == nil {
 		return o
