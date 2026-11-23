@@ -149,13 +149,7 @@ spec:
 | `bios` | `BiosSetup` |
 | `remote_drive`, `sd_card`, `floppy`, `diag`, `utilities`, `none` | `RemoteDrive`, `SDCard`, `Floppy`, `Diags`, `Utilities`, `None` |
 
-To boot an ISO attached with `virtualMediaAction`, set the device the BMC presents virtual media as. It differs between BMCs, and the wrong one boots something else:
-
-| BMC | Virtual media appears as | `device` | What `cdrom` (`Cd`) does |
-|---|---|---|---|
-| Supermicro | a USB CD | `usb_cdrom` | selects the physical optical drive |
-| NVIDIA OpenBMC (GB200 NVL72 compute tray) | a USB device, "UEFI OpenBMC Virtual Media Device (USB2)" | `usb` | matches no boot option, so the firmware boots its disk |
-| A BMC whose virtual media is an optical device | a CD | `cdrom` | boots the virtual media |
+To boot an ISO attached with `virtualMediaAction`, set the device the BMC presents virtual media as. It differs between BMCs, and the wrong one boots something else: Supermicro presents it as a USB CD (`usb_cdrom`), NVIDIA OpenBMC on a GB200 NVL72 compute tray as a USB device (`usb`).
 
 Machines whose BMCs differ need different `customboot` actions, for example one Cluster API machine template per hardware type:
 
