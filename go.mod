@@ -7,7 +7,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/a-h/templ v0.3.1100
 	github.com/avast/retry-go/v4 v4.7.0
-	github.com/bmc-toolbox/bmclib/v2 v2.3.6-0.20261029070918-22c76b04f666
+	github.com/bmc-toolbox/bmclib/v2 v2.3.6-0.20261123133435-c4b52d78a3df
 	github.com/bmc-toolbox/common v0.0.3
 	github.com/ccoveille/go-safecast/v2 v2.0.1
 	github.com/cenkalti/backoff/v5 v5.0.3
@@ -224,7 +224,7 @@ require (
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/stmcginnis/gofish v0.25.1-0.20260915152414-af1cf20386d5 // indirect
+	github.com/stmcginnis/gofish v0.27.1-0.20261102172810-28ea337674fc // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/u-root/uio v0.0.0-20240224005618-d2acac8f3701 // indirect
