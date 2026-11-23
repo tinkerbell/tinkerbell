@@ -75,6 +75,9 @@ func (b BMCOptions) Translate(host string) []bmclib.Option {
 		if b.Redfish.SystemName != "" {
 			o = append(o, bmclib.WithRedfishSystemName(b.Redfish.SystemName))
 		}
+		if b.Redfish.DisableEtagMatch {
+			o = append(o, bmclib.WithRedfishEtagMatchDisabled(true))
+		}
 	}
 
 	// ipmitool options
