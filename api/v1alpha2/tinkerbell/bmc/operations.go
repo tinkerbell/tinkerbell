@@ -13,6 +13,9 @@ const (
 	BootDeviceBIOS  BootDevice = "bios"
 	BootDeviceCDROM BootDevice = "cdrom"
 	BootDeviceSafe  BootDevice = "safe"
+	BootDeviceUSB   BootDevice = "usb"
+	// BootDeviceUSBCDROM is the BMC's virtual CD as a USB CD: Redfish UsbCd, IPMI boot device selector 8.
+	BootDeviceUSBCDROM BootDevice = "usb_cdrom"
 
 	// VirtualMediaCD represents a virtual CD-ROM.
 	VirtualMediaCD VirtualMediaKind = "CD"
@@ -40,7 +43,10 @@ type VirtualMediaAction struct {
 // BootDeviceConfig represents the configuration for setting a boot device.
 // By default, the boot device is set for the next boot only. If Persistent is set to true, the boot device is set persistently as the first boot device.
 type BootDeviceConfig struct {
-	// Name is the name of the device to set as the first boot device.
+	// Name is the name of the device to set as the first boot device: a bmclib boot device, such as pxe,
+	// disk, cdrom, usb, usb_cdrom, uefi_http or bios. To boot virtual media, use the device the BMC
+	// presents it as, for example usb_cdrom on some Supermicro, usb on NVIDIA's OpenBMC (GB200) and cdrom
+	// where it is an optical device.
 	Name BootDevice `json:"name,omitempty"`
 
 	// Persistent indicates whether the boot device should be set persistently as the first boot device.
