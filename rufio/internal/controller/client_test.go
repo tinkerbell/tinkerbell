@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/bmc-toolbox/bmclib/v2"
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	"github.com/tinkerbell/tinkerbell/api/v1alpha1/bmc"
 	"github.com/tinkerbell/tinkerbell/rufio/internal/controller"
 )
@@ -143,4 +146,52 @@ func (r *redfishSystem) resetIfMatch() (string, bool) {
 func writeJSON(w http.ResponseWriter, body string) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(body))
+}
+
+// TestTranslateProviders checks that a Machine's providers are the only providers the bmclib
+// client registers, so Open connects to no others.
+func TestTranslateProviders(t *testing.T) {
+	tests := map[string]struct {
+		providers []bmc.ProviderName
+		want      []string
+	}{
+		"no providers uses every provider": {
+			want: bmclib.ProviderNames(),
+		},
+		"gofish only": {
+			providers: []bmc.ProviderName{"gofish"},
+			want:      []string{"gofish"},
+		},
+		"names are case insensitive": {
+			providers: []bmc.ProviderName{"GoFish", "intelamt"},
+			want:      []string{"gofish", "IntelAMT"},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			opts := controller.BMCOptions{ProviderOptions: &bmc.ProviderOptions{Providers: tt.providers}}
+			o := append(opts.Translate("127.0.0.1"), bmclib.WithIpmitoolPath(fakeIpmitool(t)))
+			cl := bmclib.NewClient("127.0.0.1", "user", "pass", o...)
+
+			var got []string
+			for _, d := range cl.Registry.Drivers {
+				got = append(got, d.Name)
+			}
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("registered providers mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// fakeIpmitool returns the path of an empty file, so bmclib registers its ipmitool provider
+// without the ipmitool binary installed. It is never run.
+func fakeIpmitool(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "ipmitool")
+	if err := os.WriteFile(path, nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	return path
 }

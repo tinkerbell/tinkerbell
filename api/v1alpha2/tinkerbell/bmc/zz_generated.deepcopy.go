@@ -343,6 +343,11 @@ func (in *ProviderOptions) DeepCopyInto(out *ProviderOptions) {
 		*out = make([]ProviderName, len(*in))
 		copy(*out, *in)
 	}
+	if in.Providers != nil {
+		in, out := &in.Providers, &out.Providers
+		*out = make([]ProviderName, len(*in))
+		copy(*out, *in)
+	}
 	if in.IntelAMT != nil {
 		in, out := &in.IntelAMT, &out.IntelAMT
 		*out = new(IntelAMTOptions)

@@ -157,9 +157,21 @@ spec:
                             items:
                               description: ProviderName is the bmclib specific provider
                                 name. Names are case insensitive.
-                              pattern: (?i)^(ipmitool|asrockrack|gofish|IntelAMT|dell|supermicro|openbmc)$
+                              pattern: (?i)^(ipmi|ipmitool|asrockrack|gofish|IntelAMT|dell|lenovo|compal|supermicro|openbmc)$
                               type: string
                             type: array
+                          providers:
+                            description: |-
+                              Providers limits the BMC providers used for this Machine to the ones listed. Providers not
+                              listed never receive the Machine's credentials and are not tried when a listed one fails.
+                              When empty, every provider is used, as before. Provider names are case insensitive.
+                            items:
+                              description: ProviderName is the bmclib specific provider
+                                name. Names are case insensitive.
+                              pattern: (?i)^(ipmi|ipmitool|asrockrack|gofish|IntelAMT|dell|lenovo|compal|supermicro|openbmc)$
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: set
                           redfish:
                             description: Redfish contains the options to customize
                               the Redfish provider.
