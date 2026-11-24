@@ -133,7 +133,7 @@ type SecureBootCertificateImportAction struct {
 type BootDeviceConfig struct {
 	// Device is the name of the device to set as the first boot device: a bmclib boot device, such as pxe,
 	// disk, cdrom, usb, usb_cdrom, uefi_http or bios. To boot virtual media, use the device the BMC
-	// presents it as, for example usb_cdrom on Supermicro, usb on NVIDIA's OpenBMC (GB200) and cdrom
+	// presents it as, for example usb_cdrom on some Supermicro, usb on NVIDIA's OpenBMC (GB200) and cdrom
 	// where it is an optical device.
 	Device BootDevice `json:"device,omitempty"`
 

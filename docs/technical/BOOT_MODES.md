@@ -149,7 +149,7 @@ spec:
 | `bios` | `BiosSetup` |
 | `remote_drive`, `sd_card`, `floppy`, `diag`, `utilities`, `none` | `RemoteDrive`, `SDCard`, `Floppy`, `Diags`, `Utilities`, `None` |
 
-To boot an ISO attached with `virtualMediaAction`, set the device the BMC presents virtual media as. It differs between BMCs, and the wrong one boots something else: Supermicro presents it as a USB CD (`usb_cdrom`), NVIDIA OpenBMC on a GB200 NVL72 compute tray as a USB device (`usb`).
+To boot an ISO attached with `virtualMediaAction`, set the device the BMC presents virtual media as. It can differ between BMCs, for example: some Supermicro can present it as a USB CD (`usb_cdrom`), NVIDIA OpenBMC on a GB200 NVL72 compute tray as a USB device (`usb`).
 
 Machines whose BMCs differ need different `customboot` actions, for example one Cluster API machine template per hardware type:
 
@@ -165,7 +165,7 @@ Machines whose BMCs differ need different `customboot` actions, for example one 
           mediaURL: "http://<tinkerbell VIP>:7080/iso/<mac>/hook.iso"
           kind: "CD"
       - bootDevice:
-          device: "usb"  # usb_cdrom on Supermicro, cdrom where virtual media is optical
+          device: "usb"  # usb_cdrom on some Supermicro, cdrom where virtual media is optical
           efiBoot: true
       - powerAction: "on"
 ```
