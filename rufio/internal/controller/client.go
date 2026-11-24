@@ -64,6 +64,10 @@ func (b BMCOptions) Translate(host string) []bmclib.Option {
 		return o
 	}
 
+	if len(b.Providers) > 0 {
+		o = append(o, bmclib.WithProviders(toStringSlice(b.Providers)...))
+	}
+
 	// redfish options
 	if b.Redfish != nil {
 		if b.Redfish.Port != 0 {
