@@ -76,8 +76,11 @@ spec:
                         device on the Machine.
                       properties:
                         device:
-                          description: Device is the name of the device to set as
-                            the first boot device.
+                          description: |-
+                            Device is the name of the device to set as the first boot device: a bmclib boot device, such as pxe,
+                            disk, cdrom, usb, usb_cdrom, uefi_http or bios. To boot virtual media, use the device the BMC
+                            presents it as, for example usb_cdrom on some Supermicro, usb on NVIDIA's OpenBMC (GB200) and cdrom
+                            where it is an optical device.
                           type: string
                         efiBoot:
                           description: EFIBoot indicates whether the boot device should

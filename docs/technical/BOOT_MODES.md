@@ -134,6 +134,42 @@ spec:
 [PREPARING Reference](/tink/controller/internal/workflow/pre.go#L158)
 [POST Reference](/tink/controller/internal/workflow/post.go#L61)
 
+#### Boot devices
+
+`bootDevice.device` is a [bmclib](https://github.com/bmc-toolbox/bmclib) boot device. Rufio passes it to bmclib, which sends it to the BMC as below. IPMI supports a subset.
+
+| `device` | Redfish `BootSourceOverrideTarget` |
+|---|---|
+| `pxe` | `Pxe` |
+| `disk` | `Hdd` |
+| `cdrom` | `Cd` |
+| `usb` | `Usb` |
+| `usb_cdrom` | `UsbCd` |
+| `uefi_http` | `UefiHttp` |
+| `bios` | `BiosSetup` |
+| `remote_drive`, `sd_card`, `floppy`, `diag`, `utilities`, `none` | `RemoteDrive`, `SDCard`, `Floppy`, `Diags`, `Utilities`, `None` |
+
+To boot an ISO attached with `virtualMediaAction`, set the device the BMC presents virtual media as. It can differ between BMCs, for example: some Supermicro can present it as a USB CD (`usb_cdrom`), NVIDIA OpenBMC on a GB200 NVL72 compute tray as a USB device (`usb`).
+
+Machines whose BMCs differ need different `customboot` actions, for example one Cluster API machine template per hardware type:
+
+```yaml
+    bootMode: customboot
+    custombootConfig:
+      preparingActions:
+      - powerAction: "off"
+      - virtualMediaAction:
+          mediaURL: ""
+          kind: "CD"
+      - virtualMediaAction:
+          mediaURL: "http://<tinkerbell VIP>:7080/iso/<mac>/hook.iso"
+          kind: "CD"
+      - bootDevice:
+          device: "usb"  # usb_cdrom on some Supermicro, cdrom where virtual media is optical
+          efiBoot: true
+      - powerAction: "on"
+```
+
 #### Example: PXE Boot with customboot
 
 The `customboot` mode can replicate the `netboot` behavior while allowing additional customization. This is useful when you need fine-grained control over the boot sequence:
