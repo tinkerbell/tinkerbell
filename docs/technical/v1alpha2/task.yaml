@@ -7,7 +7,7 @@ metadata:
 spec:
   actions:
     - name: "action 1"
-      if: '{{ eq .hardware.spec.attributes.arch "amd64" }}'
+      if: '{{ eq .hardware.spec.arch "x86_64" }}'
       image: "alpine"
       command: "/bin/sleep"
       args:
@@ -17,17 +17,20 @@ spec:
         # Reference templating: access a referenced ConfigMap's data
         REGISTRY_URL: "{{ .references.clusterConfig.data.registryURL }}"
         # Hardware templating: access fields from the Hardware object
-        DEVICE_ARCH: "{{ .hardware.spec.attributes.arch }}"
+        DEVICE_ARCH: "{{ .hardware.spec.arch }}"
       volumes:
         - "/var/data:/var-data:ro"
       namespaces:
         network: "host"
         pid: "host"
+        mount: "host"
+        ipc: "host"
+      privilegedModeDisabled: false
       retries: 4
       timeoutSeconds: 120
       background: false
     - name: "action 2"
-      if: '{{ eq .hardware.spec.attributes.arch "amd64" }}'
+      if: '{{ eq .hardware.spec.arch "x86_64" }}'
       image: "alpine"
       command: "/bin/sh"
       args:
@@ -38,12 +41,15 @@ spec:
         # Reference templating: access a referenced ConfigMap's data
         REGISTRY_URL: "{{ .references.clusterConfig.data.registryURL }}"
         # Hardware templating: access fields from the Hardware object
-        DEVICE_ARCH: "{{ .hardware.spec.attributes.arch }}"
+        DEVICE_ARCH: "{{ .hardware.spec.arch }}"
       volumes:
         - "/var/data:/var-data:ro"
       namespaces:
         network: "host"
         pid: "host"
+        mount: "host"
+        ipc: "host"
+      privilegedModeDisabled: false
       retries: 4
       timeoutSeconds: 120
       background: false
@@ -55,8 +61,8 @@ spec:
     THREE: "3"
   references:
     "clusterConfig":
+      group: ""
       name: "cluster-settings"
-      namespace: "tinkerbell"
       resource: "configmaps"
       version: "v1"
   vars:

@@ -7,7 +7,13 @@ metadata:
   annotations:
     tinkerbell.org/disabled: "hardware is under maintenance"
 spec:
-  agentID: "1234"
+  agent:
+    authentication:
+      tpm:
+        ekPublicKeyHash: "" #<SHA-256, lowercase hex>    # TPM, pinned
+      wireguard:
+        publicKey: "" # <bootstrap public key, base64>  # WireGuard, pinned
+    id: "1234"
   arch: "x86_64"
   auto:
     enrollmentEnabled: false
@@ -17,47 +23,49 @@ spec:
       host: 0.0.0.0
       credentialsRef:
         name: bm-cred
-        namespace: tinkerbell
       insecureTLS: false
-      #providerOptions:
-      #  preferredOrder:
-      #    - "redfish"
-      #    - "ipmitool"
-      #  redfish:
-      #    port: 443
-      #    useBasicAuth: false
-      #    systemName: "System.Embedded.1"
-      #  ipmitool:
-      #    port: 623
-      #    cipherSuite: "3"
-      #  intelAMT:
-      #    port: 16992
-      #    hostScheme: "http"
-      #  rpc:
-      #    consumerURL: "https://rpc-consumer.example.com"
-      #    logNotificationsDisabled: false
-      #    request:
-      #      httpContentType: "application/json"
-      #      httpMethod: "POST"
-      #      staticHeaders:
-      #        X-Custom-Header:
-      #          - "custom-value"
-      #      timestampFormat: "2006-01-02T15:04:05Z07:00"
-      #      timestampHeader: "X-BMCLIB-Timestamp"
-      #    signature:
-      #      headerName: "X-BMCLIB-Signature"
-      #      appendAlgoToHeaderDisabled: false
-      #      includedPayloadHeaders:
-      #        - "X-BMCLIB-Timestamp"
-      #    hmac:
-      #      prefixSigDisabled: false
-      #      secrets:
-      #        sha256:
-      #          - name: "hmac-secret"
-      #            namespace: "tinkerbell"
-      #    experimental:
-      #      customRequestPayload: '{"custom": "payload"}'
-      #      dotPath: "object.data.body"
+      providerOptions:
+        preferredOrder:
+          - "gofish"
+          - "ipmitool"
+        homeAssistant:
+          switchEntityID: "switch.server_rack_outlet_1"
+          powerOperationDelaySeconds: 5
+        redfish:
+          port: 443
+          useBasicAuth: false
+          systemName: "System.Embedded.1"
+          etagMatchDisabled: false
+        ipmitool:
+          port: 623
+          cipherSuite: "3"
+        intelAMT:
+          port: 16992
+          hostScheme: "http"
+        rpc:
+          consumerURL: "https://rpc-consumer.example.com"
+          logNotificationsDisabled: false
+          request:
+            httpContentType: "application/json"
+            httpMethod: "POST"
+            staticHeaders:
+              X-Custom-Header:
+                - "custom-value"
+            timestampFormat: "2006-01-02T15:04:05Z07:00"
+            timestampHeader: "X-BMCLIB-Timestamp"
+          signature:
+            headerName: "X-BMCLIB-Signature"
+            appendAlgorithmToHeaderDisabled: false
+            includedPayloadHeaders:
+              - "X-BMCLIB-Timestamp"
+          hmac:
+            algorithmPrefixDisabled: false
+            secrets:
+              sha256:
+                - name: "hmac-secret"
+          experimental:
+            customRequestPayload: '{"custom": "payload"}'
+            dotPath: "object.data.body"
   instance:
     lookupID: "a8f3e2b1-9c4d-4e5f-b6a7-8d9e0f1a2b3c"
     metadata: |
@@ -71,16 +79,20 @@ spec:
         ethernets:
           eth0:
             addresses:
-              - {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}/{{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.prefix }}
+              - {{ (index .hardware.spec.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.address }}/{{ (index .hardware.spec.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.prefix }}
             routes:
               - to: default
-                via: {{ (index .hardware.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.gateway }}
+                via: {{ (index .hardware.spec.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.gateway }}
             nameservers:
               addresses:
                 - 8.8.8.8
                 - 8.8.4.4
             dhcp4: false
     osie:
+      files:
+        - contents: '{"bond0": {"interfaces": ["eth0", "eth1"]}}'
+          mode: "0644"
+          path: network/config.json
       initrdURL: "http://192.168.3.4:8080/my-custominitrd"
       isoURL: "https://github.com/tinkerbell/hook/releases/download/v0.11.1/hook-latest-lts-x86_64-efi-initrd.iso"
       kernelParams:
@@ -88,25 +100,25 @@ spec:
       kernelURL: "http://192.168.3.4:8080/my-custom-vmlinuz"
     sshKeys:
       - "ssh-rsa AAAAB3NzaC1yc2E..."
-    userdata: |
+    userData: |
       #cloud-config
       users:
         - name: clouduser
           sudo: ALL=(ALL) NOPASSWD:ALL
           ssh_authorized_keys:
-            - {{ .hardware.instance.sshKeys[0] }}
+            - {{ index .hardware.spec.instance.sshKeys 0 }}
       
       write_files:
         - path: /etc/docker/certs.d/registry.example.com/ca.crt
           permissions: '0644'
           content: |
-            {{ .references.registryCert.data.ca\.crt | b64dec | nindent 12 }}
+            {{ index .references.registryCert.data "ca.crt" | b64dec | nindent 12 }}
       runcmd:
         - echo "Hello from cloud-init!" > /home/clouduser/greeting.txt
         - apt update
     vars:
       exampleVar: "exampleValue"
-    vendordata: |
+    vendorData: |
       #cloud-config
       vendor_data:
         enabled: true
@@ -123,6 +135,7 @@ spec:
               # Vendor specific configuration
               VENDOR_SETTING=true
               VENDOR_ID="my-provider-123"
+    workflowsDisabled: false
   networkInterfaces:
     "52:54:00:41:05:c6":
       dhcp:
@@ -131,19 +144,19 @@ spec:
           leaseTimeSeconds: 86400
         ipv6:
           disabled: false
-          informationRefreshTime: 86400
-          preferredLifetime: 3600
-          validLifetime: 7200
+          informationRefreshTimeSeconds: 86400
+          preferredLifetimeSeconds: 3600
+          validLifetimeSeconds: 7200
       ipam:
+        hostname: "example"
+        vlanID: 110
         ipv4:
           address: "192.168.1.100"
           gateway: "192.168.1.1"
-          prefix: "24"
-          hostname: "example"
+          prefix: 24
           nameservers:
             - "1.1.1.1"
           ntpServers:
-            - "pool.ntp.org"
             - "204.197.163.71"
           domainSearchList:
             - "tinkerbell.org"
@@ -151,12 +164,10 @@ spec:
           classlessStaticRoutes:
             - destinationDescriptor: "192.168.1.0/24"
               router: "192.168.1.254"
-          vlanID: "110"
         ipv6:
           address: "2001:db8:1:1::"
           gateway: "fe80::1"
-          prefix: "64"
-          hostname: "example"
+          prefix: 64
           nameservers:
             - "2001:4860:4860::8888"
             - "2001:4860:4860::8844"
@@ -167,7 +178,6 @@ spec:
           classlessStaticRoutes:
             - destinationDescriptor: "2001:db8:2::/64"
               router: "2001:db8:1::1"
-          vlanID: "110"
       netboot:
         disabled: false
         ipv4:
@@ -183,7 +193,7 @@ spec:
             #!ipxe
             dhcp
             chain --autofree https://boot.netboot.xyz
-          # url: "https://boot.netboot.xyz"
+          #url: "https://boot.netboot.xyz"
         pxelinux:
           config: |
             DEFAULT linux
@@ -191,7 +201,7 @@ spec:
               KERNEL http://example.com/vmlinuz
               APPEND initrd=http://example.com/initrd.img console=ttyS2
         rpi:
-          serialNum: "9ffefdef"
+          serialNumber: "9ffefdef"
           configTxt: |
             sha256=0
             uart_2ndstage=1
@@ -218,7 +228,6 @@ spec:
     "registryCert":
       group: ""
       name: "registry-ca-cert"
-      namespace: "tinkerbell"
       resource: "secrets"
       version: "v1"
   storageDevices:

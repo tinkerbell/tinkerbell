@@ -50,15 +50,17 @@ type Connection struct {
 	// The Secret must contain username and password keys.
 	// This is optional as it is not required when using the RPC provider.
 	// +optional
-	CredentialsRef SimpleReference `json:"credentialsRef,omitempty"`
+	CredentialsRef *SimpleReference `json:"credentialsRef,omitempty"`
 
 	// Host is the IP address or hostname of the BMC.
 	// +kubebuilder:validation:MinLength=1
+	// +required
 	Host string `json:"host"`
 
 	// InsecureTLS indicates whether to skip TLS certificate verification when connecting to the BMC.
+	// Unset is equivalent to false.
 	// +optional
-	InsecureTLS bool `json:"insecureTLS,omitempty"`
+	InsecureTLS *bool `json:"insecureTLS,omitempty"`
 
 	// ProviderOptions contains provider specific options.
 	// +optional

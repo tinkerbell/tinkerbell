@@ -40,7 +40,16 @@ type WorkflowList struct {
 }
 
 // WorkflowSpec defines Tasks and associated options.
+// +kubebuilder:validation:XValidation:rule="!has(self.tasks) || self.tasks.all(t, !has(t.agentID) || (has(self.agents) && self.agents.exists(a, a.id == t.agentID)))",message="tasks[].agentID must name an Agent in spec.agents"
 type WorkflowSpec struct {
+	// Agents are Agents that exist only for this Workflow, for Agents without a Hardware object.
+	// A Task runs on one of them by naming it in tasks[].agentID.
+	// +optional
+	// +listType=map
+	// +listMapKey=id
+	// +kubebuilder:validation:MaxItems=32
+	Agents []WorkflowAgent `json:"agents,omitempty"`
+
 	// Disabled pauses the Workflow when set to true, preventing its Tasks from
 	// executing. When false or unset, the Workflow runs normally.
 	// +optional
@@ -57,7 +66,6 @@ type WorkflowSpec struct {
 	// References:
 	//   config:
 	//     name: my-config
-	//     namespace: tinkerbell
 	//     resource: configmaps
 	//     version: v1
 	//
@@ -74,6 +82,7 @@ type WorkflowSpec struct {
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
 	// Tasks that are run as part of the Workflow.
+	// +kubebuilder:validation:MaxItems=32
 	Tasks []WorkflowTask `json:"tasks,omitempty"`
 
 	// Vars are custom variables that can be filled with arbitrary key-value pairs.
@@ -95,18 +104,76 @@ type Extra struct {
 	Volumes []Volume `json:"volumes,omitempty"`
 }
 
+// WorkflowAgent is an Agent that exists only for a Workflow. Its identity comes from the Workflow
+// rather than a Hardware object.
+type WorkflowAgent struct {
+	// ID is the Agent's ID.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +required
+	ID string `json:"id"`
+
+	// Authentication is how the Agent proves its identity.
+	// +required
+	Authentication WorkflowAgentAuthentication `json:"authentication"`
+}
+
+// WorkflowAgentAuthentication is how a Workflow-scoped Agent proves its identity.
+type WorkflowAgentAuthentication struct {
+	// Wireguard authenticates the Agent by its WireGuard key.
+	// +required
+	Wireguard WorkflowAgentWireguard `json:"wireguard"`
+}
+
+// WorkflowAgentWireguard is a Workflow-scoped Agent's WireGuard key.
+type WorkflowAgentWireguard struct {
+	// PublicKey is the Agent's WireGuard public key, base64 encoded.
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw480]=$`
+	// +required
+	PublicKey string `json:"publicKey"`
+}
+
+// RenderPolicy picks when a Workflow Task is rendered.
+// +kubebuilder:validation:Enum=OnCreate;OnCheckIn
+type RenderPolicy string
+
+const (
+	// RenderPolicyOnCreate renders the Task when the Workflow is created.
+	RenderPolicyOnCreate RenderPolicy = "OnCreate"
+
+	// RenderPolicyOnCheckIn renders the Task when its Agent checks in.
+	RenderPolicyOnCheckIn RenderPolicy = "OnCheckIn"
+)
+
 // WorkflowTask defines a Task entry within a Workflow, binding a Task definition to an Agent and Hardware.
+// +kubebuilder:validation:XValidation:rule="has(self.agentID) != has(self.hardwareRef)",message="exactly one of agentID or hardwareRef must be specified"
+// +kubebuilder:validation:XValidation:rule="!has(self.bootOptions) || has(self.hardwareRef)",message="bootOptions requires hardwareRef"
 type WorkflowTask struct {
-	// AgentID is the ID of the Agent that is to run this Task.
+	// AgentID is the ID of the Workflow-scoped Agent, from spec.agents, that runs this Task.
+	// Mutually exclusive with HardwareRef.
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
 	AgentID string `json:"agentID,omitempty"`
+
+	// Render picks when the Task is rendered. OnCheckIn renders the Task, along with the
+	// Hardware and Workflow it reads, when the Task's Agent checks in.
+	// +kubebuilder:default=OnCreate
+	// +optional
+	Render RenderPolicy `json:"render,omitempty"`
 
 	// Extra configuration that is applied to this specific Task.
 	// +optional
 	Extra *Extra `json:"extra,omitempty"`
 
-	// Hardware is the Hardware and options associated with this Task.
+	// HardwareRef is the Hardware this Task is for. The Task runs on the Hardware's Agent,
+	// templates read the Hardware as .hardware, and BootOptions boot it.
+	// Mutually exclusive with AgentID.
 	// +optional
-	Hardware *WorkflowHardware `json:"hardware,omitempty"`
+	HardwareRef *SimpleReference `json:"hardwareRef,omitempty"`
+
+	// BootOptions are options that control the booting of the Hardware in HardwareRef.
+	// +optional
+	BootOptions *BootOptions `json:"bootOptions,omitempty,omitzero"`
 
 	// TimeoutSeconds is the duration before a Task time out is reached.
 	// A zero or nil value means no timeout.
@@ -114,37 +181,23 @@ type WorkflowTask struct {
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
 	// TaskRef is the Task associated with this Workflow.
-	TaskRef SimpleReference `json:"taskRef,omitempty"`
-}
-
-// WorkflowHardware associates Hardware with a Task.
-// +kubebuilder:validation:XValidation:rule="!has(self.bootOptions) || has(self.hardwareRef)",message="hardwareRef is required when bootOptions is set"
-type WorkflowHardware struct {
-	// BootOptions are options that control the booting of Hardware.
-	// These are only applicable when a HardwareRef is provided.
-	// When specified, the BootOptions will be applied using the HardwareRef defined.
+	// Omit it for a Task that only runs boot operations.
 	// +optional
-	BootOptions *BootOptions `json:"bootOptions,omitempty,omitzero"`
-
-	// HardwareRef is the Hardware object associated with this Task.
-	// This is used if the Task has templating that requires Hardware information.
-	// Required when BootOptions is set.
-	// +optional
-	HardwareRef *SimpleReference `json:"hardwareRef,omitempty"`
+	TaskRef *SimpleReference `json:"taskRef,omitempty"`
 }
 
 // BootOptions are options that control the booting of Hardware.
 type BootOptions struct {
 	// ToggleNetboot indicates whether the the field in the associated Hardware for allowing network booting should
 	// be enabled before the Task is executed and disabled after the Task has completed successfully.
-	// A Hardware Reference must be provided.
+	// HardwareRef must be set.
 	// +optional
 	ToggleNetboot bool `json:"toggleNetboot,omitempty"`
 
 	// ISOURL is the URL of the ISO that will be one-time booted.
 	// When this field is set, a job.bmc.tinkerbell.org object will be created
 	// for getting the associated Hardware into a CDROM booting state.
-	// A Workflow Hardware Reference that contains a bmc must be provided.
+	// HardwareRef must name a Hardware that has a bmc.
 	// BootMode must be set to "isoboot".
 	// +optional
 	// +kubebuilder:validation:Format=uri
@@ -165,10 +218,12 @@ type BootOptions struct {
 type Customboot struct {
 	// PreOperations are the BMC operations that will be run before any Task Actions.
 	// In most cases these operations should get a machine into a state where a Tink Agent is running.
+	// +kubebuilder:validation:MaxItems=32
 	PreOperations []bmc.Operations `json:"preOperations,omitempty"`
 	// PostOperations are the BMC operations that will be run after all Task Actions have completed.
 	// In most cases these operations should get a machine into a state where it can be powered off or rebooted and remove any mounted virtual media.
 	// These operations will be run only if all the associated Task Actions complete successfully.
+	// +kubebuilder:validation:MaxItems=32
 	PostOperations []bmc.Operations `json:"postOperations,omitempty"`
 }
 

@@ -47,7 +47,6 @@ type TaskSpec struct {
 	// References:
 	//   config:
 	//     name: my-config
-	//     namespace: tinkerbell
 	//     resource: configmaps
 	//     version: v1
 	//
@@ -128,6 +127,11 @@ type Action struct {
 	// This is useful for Actions that do things like kexec, reboot, or power off a machine.
 	// +optional
 	Background bool `json:"background,omitempty,omitzero" yaml:"background,omitempty,omitzero"`
+
+	// PrivilegedModeDisabled indicates whether the Action should run in privileged mode or not.
+	// default is false, meaning privileged mode is enabled by default.
+	// +optional
+	PrivilegedModeDisabled *bool `json:"privilegedModeDisabled,omitempty,omitzero" yaml:"privilegedModeDisabled,omitempty,omitzero"`
 }
 
 // Volume is a specification for mounting a location on a Host into an Action container.
@@ -156,4 +160,12 @@ type Namespaces struct {
 	// PID defines the PID namespace
 	// +optional
 	PID string `json:"pid,omitempty,omitzero" yaml:"pid,omitempty,omitzero"`
+
+	// Mount defines the mount namespace.
+	// +optional
+	Mount string `json:"mount,omitempty,omitzero" yaml:"mount,omitempty,omitzero"`
+
+	// IPC defines the IPC namespace.
+	// +optional
+	IPC string `json:"ipc,omitempty,omitzero" yaml:"ipc,omitempty,omitzero"`
 }

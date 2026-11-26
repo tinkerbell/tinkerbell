@@ -63,6 +63,7 @@ require (
 	k8s.io/api v0.36.4
 	k8s.io/apiextensions-apiserver v0.36.4
 	k8s.io/apimachinery v0.36.4
+	k8s.io/apiserver v0.36.4
 	k8s.io/client-go v0.36.4
 	k8s.io/component-base v0.36.4
 	k8s.io/klog/v2 v2.140.0
@@ -265,7 +266,6 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9 // indirect
-	k8s.io/apiserver v0.36.4 // indirect
 	k8s.io/cloud-provider v0.36.4 // indirect
 	k8s.io/cluster-bootstrap v0.36.4 // indirect
 	k8s.io/component-helpers v0.36.4 // indirect

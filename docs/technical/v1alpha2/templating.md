@@ -1,6 +1,6 @@
 # v1alpha2 Templating
 
-When a Workflow is created, Tinkerbell renders the Hardware, Workflow, and Tasks involved. Each of these objects can be templated, and each has access to a fixed set of data sources. This document describes the available data sources, how to refer to them, the order in which objects are rendered, and the constraints on their usage.
+When a Workflow Task is rendered, Tinkerbell renders the Hardware, Workflow, and Task involved. A Task is rendered when the Workflow is created, or, with `render: OnCheckIn`, when the Task's Agent checks in (see [Rendering order](#rendering-order)). Each of these objects can be templated, and each has access to a fixed set of data sources. This document describes the available data sources, how to refer to them, the order in which objects are rendered, and the constraints on their usage.
 
 ## Background
 
@@ -55,7 +55,6 @@ spec:
   references:
     mysecret:
       name: "secret01"
-      namespace: "tinkerbell"
       resource: "secrets"
       version: "v1"
   globals:
@@ -82,7 +81,7 @@ spec:
 
 At render time each object is evaluated against its JSON representation, so every path segment is a **key lookup using the JSON field name**, not the Go struct field name:
 
-- Paths use the lowercase/camelCase JSON names, e.g. `.hardware.spec.attributes.arch`, not `.Hardware.Spec.Attributes.Arch`.
+- Paths use the lowercase/camelCase JSON names, e.g. `.hardware.spec.arch`, not `.Hardware.Spec.Arch`.
 - Lookups are **case-sensitive**. `.task.spec.env.one` matches the key `one`; it will not match `One` or `ONE`.
 - Dot access only works for keys that are valid template identifiers (letters, digits, `_`, not starting with a digit). For any other key — MAC addresses, keys containing `.` or `-`, etc. — use the `index` function:
 
@@ -133,7 +132,7 @@ A `Workflow` orchestrates one or more `Tasks` and binds them to `Hardware`. The 
 | --- | --- |
 | `.workflow` | The Workflow object itself (self-reference). |
 | `.references` | User-defined references declared on the Workflow. |
-| `.hardware` | The `Hardware` object bound to a task via `spec.tasks[].hardware.hardwareRef`. |
+| `.hardware` | The `Hardware` object bound to a task via `spec.tasks[].hardwareRef`. |
 
 ### `.workflow`
 
@@ -154,10 +153,10 @@ References work the same way they do in v1alpha1. Entries name external objects 
 
 ### `.hardware`
 
-When a task sets `spec.tasks[].hardware.hardwareRef`, `.hardware` provides access to that entire `Hardware` object. The `Hardware` object is rendered before the `Workflow` (see [Rendering order](#rendering-order)), so its values are already fully rendered.
+When a task sets `spec.tasks[].hardwareRef`, `.hardware` provides access to that entire `Hardware` object. The `Hardware` object is rendered before the `Workflow` (see [Rendering order](#rendering-order)), so its values are already fully rendered.
 
 ```gotemplate
-{{ .hardware.spec.attributes.arch }}
+{{ .hardware.spec.arch }}
 ```
 
 ## Task templating
@@ -173,17 +172,17 @@ A `Task` is a reusable definition of `Actions`. When a `Workflow` runs a `Task`,
 
 ### `.hardware`
 
-If the `Workflow` that uses the `Task` sets `spec.tasks[].hardware.hardwareRef`, then `.hardware` provides access to that entire `Hardware` object.
+If the `Workflow` runs the `Task` on a Hardware (`spec.tasks[].hardwareRef`), then `.hardware` provides access to that entire `Hardware` object. A Task that runs on a Workflow-scoped Agent (`spec.tasks[].agentID`) has no `.hardware`.
 
 - The referenced `Hardware` object is rendered first (see [Rendering order](#rendering-order)) — any templating in the `Hardware` object is resolved **before** the `Task` is rendered. As a result, `.hardware` values seen by the Task are already fully rendered.
 - **Caveat:** references are object-local. The `Hardware` object's own references (`.hardware.spec.references`) are **not** available to the Task. A Task can only read its own `spec.references` (see [Reference scope](#reference-scope)).
 
 ```gotemplate
 # Access hardware attributes
-{{ .hardware.spec.attributes.arch }}
+{{ .hardware.spec.arch }}
 
 # Conditional on a hardware attribute
-{{ eq .hardware.spec.attributes.arch "amd64" }}
+{{ eq .hardware.spec.arch "x86_64" }}
 
 # Access a map-keyed network interface field
 {{ (index .hardware.spec.networkInterfaces "52:54:00:41:05:c6").ipam.ipv4.gateway }}
@@ -191,14 +190,13 @@ If the `Workflow` that uses the `Task` sets `spec.tasks[].hardware.hardwareRef`,
 
 ### `.references`
 
-References work the same way they do in v1alpha1. Each entry under `spec.references` names an external object to fetch; the fetched object is then available under `.references.<name>`.
+References work much as they do in v1alpha1, except that a reference always resolves in the namespace of the object that declares it. Each entry under `spec.references` names an external object to fetch; the fetched object is then available under `.references.<name>`.
 
 ```yaml
 spec:
   references:
     clusterConfig:
       name: "cluster-settings"
-      namespace: "tinkerbell"
       resource: "configmaps"
       version: "v1"
 ```
@@ -208,7 +206,7 @@ spec:
 {{ .references.clusterConfig.data.registryURL }}
 ```
 
-Each reference is identified by `name`, `namespace`, `resource` (the lowercase, pluralized kind), and `version` (and optionally `group`). Access and rendering of a reference require the appropriate policies to be in place.
+Each reference is identified by `name`, `resource` (the lowercase, pluralized kind), and `version` (and optionally `group`). There is no `namespace` field. Access and rendering of a reference require the appropriate policies to be in place.
 
 ### `.task`
 
@@ -253,8 +251,8 @@ Each Action has an optional `if` field that determines whether the Action runs. 
 
 ```yaml
 actions:
-  - name: "only on amd64"
-    if: '{{ eq .hardware.spec.attributes.arch "amd64" }}'
+  - name: "only on x86_64"
+    if: '{{ eq .hardware.spec.arch "x86_64" }}'
     image: "alpine"
 ```
 
@@ -267,6 +265,8 @@ Objects are rendered in a fixed order so that any object referencing an earlier 
 1. **`Hardware`** is rendered first. Its `.hardware` (self) and `.references` are resolved at this point.
 2. **`Workflow`** is rendered next. It can reference `.workflow` (self), `.references`, and the already-rendered `.hardware`.
 3. **`Task`** is rendered last. It can reference `.task` (self), `.references`, the already-rendered `.hardware`, and the already-rendered `.workflow`.
+
+This order applies each time a Task is rendered. A Task with `render: OnCreate`, the default, is rendered when the Workflow is created. A Task with `render: OnCheckIn` is rendered when its Agent checks in, so the `Hardware` and `Workflow` it reads, including their references, are rendered again at that point and reflect their values then.
 
 Two consequences of this ordering:
 
@@ -307,7 +307,7 @@ To express a conditional, keep the branching **inside** a single field's value r
 ```yaml
 # Works: the conditional resolves to a string value within one field.
 env:
-  IMAGE: '{{ if regexMatch "a(arch|rm)" (lower .hardware.spec.attributes.arch) }}alpine:latest{{ else }}quay.io/tinkerbell/actions/kexec:latest{{ end }}'
+  IMAGE: '{{ if regexMatch "a(arch|rm)" (lower .hardware.spec.arch) }}alpine:latest{{ else }}quay.io/tinkerbell/actions/kexec:latest{{ end }}'
 ```
 
 ```yaml

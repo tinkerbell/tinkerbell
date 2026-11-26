@@ -105,6 +105,12 @@ spec:
                       description: Namespaces defines the Linux namespaces with which
                         the container should configured.
                       properties:
+                        ipc:
+                          description: IPC defines the IPC namespace.
+                          type: string
+                        mount:
+                          description: Mount defines the mount namespace.
+                          type: string
                         network:
                           description: Network defines the network namespace.
                           type: string
@@ -112,6 +118,11 @@ spec:
                           description: PID defines the PID namespace
                           type: string
                       type: object
+                    privilegedModeDisabled:
+                      description: |-
+                        PrivilegedModeDisabled indicates whether the Action should run in privileged mode or not.
+                        default is false, meaning privileged mode is enabled by default.
+                      type: boolean
                     retries:
                       description: |-
                         Retries is the number of times the Action should be run until completed successfully.
@@ -151,21 +162,18 @@ spec:
                 type: object
               references:
                 additionalProperties:
+                  description: Reference identifies an object in the same namespace
+                    as the referring object.
                   properties:
                     group:
                       description: |-
-                        Group of the referent.
+                        Group of the referent. Empty means the core API group.
                         More info: https://kubernetes.io/docs/reference/using-api/#api-groups
                       type: string
                     name:
                       description: |-
                         Name of the referent.
                         More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      type: string
-                    namespace:
-                      description: |-
-                        Namespace of the referent.
-                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
                       type: string
                     resource:
                       description: |-
@@ -174,9 +182,14 @@ spec:
                       type: string
                     version:
                       description: |-
-                        API version of the referent.
+                        API version of the referent. Templates depend on the referent's schema, so the version is
+                        pinned rather than resolved to the cluster's preferred version.
                         More info: https://kubernetes.io/docs/reference/using-api/#api-versioning
                       type: string
+                  required:
+                  - name
+                  - resource
+                  - version
                   type: object
                 description: |-
                   References are dynamic and defined by the user.
@@ -187,7 +200,6 @@ spec:
                   References:
                     config:
                       name: my-config
-                      namespace: tinkerbell
                       resource: configmaps
                       version: v1
 

@@ -9,9 +9,9 @@ spec:
     workflowAutoCreation:
       - rules:
           - networkInterfaces:
-              mac: [ { "wildcard": "*" } ]
+              ports:
+                mac: [ { "wildcard": "*" } ]
         config:
-          namespace: tinkerbell
           addAttributes: true
           disabled: false
           globals:
@@ -24,7 +24,6 @@ spec:
           references:
             "mysecret":
               name: "secret01"
-              namespace: "tinkerbell"
               resource: "secrets"
               version: "v1"
           timeoutSeconds: 600
@@ -39,12 +38,11 @@ spec:
               timeoutSeconds: 300
               taskRef:
                 name: example
-                namespace: tinkerbell
     referenceAccess:
       hardware:
         # all allow rules are combined with a logical OR operation
         allow:
-          # Exact match — hardware named exactly "node-01" in any namespace
+          # Exact match — hardware named exactly "node-01"
           - source:
               name: [ "node-01" ]
             reference:
@@ -53,47 +51,47 @@ spec:
               name: [ "my-secret" ]
               resource: [ "secrets" ]
 
-          # Multiple exact matches (OR) — "node-01" or "node-02" or "node-03" in any namespace
+          # Multiple exact matches (OR) — "node-01" or "node-02" or "node-03"
           - source:
               name: [ "node-01", "node-02", "node-03" ]
             reference:
               name: [ "cluster-config" ]
               resource: [ "configmaps" ]
 
-          # Wildcard — any hardware whose name starts with "worker-" in any namespace
+          # Wildcard — any hardware whose name starts with "worker-"
           - source:
               name: [ { "wildcard": "worker-*" } ]
             reference:
               name: [ "worker-credentials" ]
               resource: [ "secrets" ]
 
-          # Prefix — any hardware in namespaces starting with "prod"
+          # Prefix — any hardware whose name starts with "prod-"
           - source:
-              namespace: [ { "prefix": "prod" } ]
+              name: [ { "prefix": "prod-" } ]
             reference:
               resource: [ "secrets" ]
 
-          # Anything-but — any hardware NOT named "control-plane-01" in any namespace
+          # Anything-but — any hardware NOT named "control-plane-01"
           - source:
               name: [ { "anything-but": [ "control-plane-01" ] } ]
             reference:
               name: [ "shared-config" ]
               resource: [ "configmaps" ]
 
-          # Equals-ignore-case — case-insensitive resource match for hardware named "node-01" in any namespace
+          # Equals-ignore-case — case-insensitive resource match for hardware named "node-01"
           - source:
               name: [ "node-01" ]
             reference:
               resource: [ { "equals-ignore-case": "Secrets" } ]
 
-          # Exists — match any hardware that has a namespace set
+          # Exists — match any hardware that has labels set
           - source:
-              namespace: [ { "exists": true } ]
+              labels: [ { "exists": true } ]
             reference:
               name: [ "global-config" ]
               resource: [ "configmaps" ]
 
-          # Mixed — exact values and extended patterns in same array (OR) in any namespace
+          # Mixed — exact values and extended patterns in same array (OR)
           - source:
               name: [ "node-special", { "wildcard": "gpu-*" }, { "prefix": "edge-" } ]
             reference:
@@ -101,10 +99,9 @@ spec:
               resource: [ "secrets" ]
 
           # All fields in the source are combined with a logical AND operation
-          # This matches if the hardware is named "node-01" in the "tinkerbell" namespace with the specified labels
+          # This matches if the hardware is named "node-01" with the specified labels
           - source:
               name: [ "node-01" ]
-              namespace: [ "tinkerbell" ]
               labels: [ "example-label" , "another-label" ]
             reference:
               name: [ "node-config" ]
@@ -112,42 +109,32 @@ spec:
         deny:
           - source:
               name: [ "node-01" ]
-              namespace: [ "tinkerbell" ]
             reference:
-              name: [ "my-secret" ]
-              namespace: [ "kube-system" ]
+              name: [ "admin-secret" ]
               resource: [ "secrets" ]
       task:
         allow:
           - source:
               name: [ "example-workflow" ]
-              namespace: [ "tinkerbell" ]
             reference:
               name: [ "my-secret" ]
-              namespace: [ "tinkerbell" ]
               resource: [ "secrets" ]
         deny:
           - source:
               name: [ "example-workflow" ]
-              namespace: [ "tinkerbell" ]
             reference:
-              name: [ "my-secret" ]
-              namespace: [ "kube-system" ]
+              name: [ "admin-secret" ]
               resource: [ "secrets" ]
       workflow:
         allow:
           - source:
               name: [ "example-workflow" ]
-              namespace: [ "tinkerbell" ]
             reference:
               name: [ "my-secret" ]
-              namespace: [ "tinkerbell" ]
               resource: [ "secrets" ]
         deny:
           - source:
               name: [ "example-workflow" ]
-              namespace: [ "tinkerbell" ]
             reference:
-              name: [ "my-secret" ]
-              namespace: [ "kube-system" ]
+              name: [ "admin-secret" ]
               resource: [ "secrets" ]

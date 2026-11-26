@@ -62,6 +62,7 @@ type JobSpec struct {
 	// If a single operation fails, job execution stops and sets condition Failed.
 	// Condition Completed is set only if all the operations were successful.
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=32
 	// +kubebuilder:validation:UniqueItems=false
 	Operations []Operations `json:"operations"`
 }
@@ -89,12 +90,10 @@ type JobStatus struct {
 	CompletedOperations int32 `json:"completedOperations,omitempty"`
 }
 
-// SimpleReference is used to reference an object.
-// +kubebuilder:validation:XValidation:rule="(self.name != \"\") == (self.namespace != \"\")",message="name and namespace must both be non-empty or both be empty"
+// SimpleReference identifies an object by name in the same namespace as the referring object.
 type SimpleReference struct {
 	// Name of the object.
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
-
-	// Namespace in which the object resides.
-	Namespace string `json:"namespace"`
 }

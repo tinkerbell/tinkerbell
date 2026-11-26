@@ -21,6 +21,7 @@ type ProviderOptions struct {
 	// Provider names are case insensitive.
 	// The default order is: ipmitool, asrockrack, gofish, intelamt, dell, supermicro, openbmc.
 	// +optional
+	// +listType=atomic
 	PreferredOrder []ProviderName `json:"preferredOrder,omitempty"`
 	// IntelAMT contains the options to customize the IntelAMT provider.
 	// +optional
@@ -37,6 +38,10 @@ type ProviderOptions struct {
 	// RPC contains the options to customize the RPC provider.
 	// +optional
 	RPC *RPCOptions `json:"rpc,omitempty"`
+
+	// HomeAssistant contains the options to customize the HomeAssistant provider.
+	// +optional
+	HomeAssistant *HomeAssistantOptions `json:"homeAssistant,omitempty"`
 }
 
 // ProviderName is the bmclib specific provider name. Names are case insensitive.
@@ -47,30 +52,43 @@ func (p ProviderName) String() string {
 	return string(p)
 }
 
+// HomeAssistantOptions has the config options for the Home Assistant provider. Make me better!
+type HomeAssistantOptions struct {
+	// SwitchEntityID is the entity ID of the Home Assistant switch entity to control power state
+	// +required
+	SwitchEntityID string `json:"switchEntityID"`
+	// PowerOperationDelaySeconds is the number of seconds to wait after a power operation before proceeding
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	PowerOperationDelaySeconds int32 `json:"powerOperationDelaySeconds,omitempty"`
+}
+
 // RedfishOptions contains the redfish provider specific options.
 type RedfishOptions struct {
 	// Port that redfish will use for calls.
 	// +optional
-	Port int `json:"port,omitempty"`
+	Port int32 `json:"port,omitempty"`
 	// UseBasicAuth for redfish calls. The default is false which means token based auth is used.
+	// Unset is equivalent to false.
 	// +optional
-	UseBasicAuth bool `json:"useBasicAuth,omitempty"`
+	UseBasicAuth *bool `json:"useBasicAuth,omitempty"`
 	// SystemName is the name of the system to use for redfish calls.
 	// With redfish implementations that manage multiple systems via a single endpoint, this allows for specifying the system to manage.
 	// +optional
 	SystemName string `json:"systemName,omitempty"`
-	// DisableEtagMatch stops the redfish provider from sending a resource's ETag in an If-Match header
+	// EtagMatchDisabled stops the redfish provider from sending a resource's ETag in an If-Match header
 	// on PATCH and POST requests. Some BMC implementations reject a request whose If-Match doesn't
 	// match the ETag they expect, with 412 Precondition Failed, even when the ETag came from a read just before.
+	// Unset is equivalent to false.
 	// +optional
-	DisableEtagMatch bool `json:"disableEtagMatch,omitempty"`
+	EtagMatchDisabled *bool `json:"etagMatchDisabled,omitempty"`
 }
 
 // IPMITOOLOptions contains the ipmitool provider specific options.
 type IPMITOOLOptions struct {
 	// Port that ipmitool will use for calls.
 	// +optional
-	Port int `json:"port,omitempty"`
+	Port int32 `json:"port,omitempty"`
 	// CipherSuite that ipmitool will use for calls.
 	// +optional
 	CipherSuite string `json:"cipherSuite,omitempty"`
@@ -80,7 +98,7 @@ type IPMITOOLOptions struct {
 type IntelAMTOptions struct {
 	// Port that intelAMT will use for calls.
 	// +optional
-	Port int `json:"port,omitempty"`
+	Port int32 `json:"port,omitempty"`
 
 	// HostScheme determines whether to use http or https for intelAMT calls.
 	// +optional
@@ -100,10 +118,12 @@ type HMACSecrets map[HMACAlgorithm][]SimpleReference
 type RPCOptions struct {
 	// ConsumerURL is the URL where an rpc consumer/listener is running
 	// and to which we will send and receive all notifications.
+	// +required
 	ConsumerURL string `json:"consumerURL"`
 	// LogNotificationsDisabled determines whether responses from rpc consumer/listeners will be logged or not.
+	// Unset is equivalent to false.
 	// +optional
-	LogNotificationsDisabled bool `json:"logNotificationsDisabled,omitempty"`
+	LogNotificationsDisabled *bool `json:"logNotificationsDisabled,omitempty"`
 	// Request is the options used to create the rpc HTTP request.
 	// +optional
 	Request *RequestOpts `json:"request,omitempty"`
@@ -142,22 +162,25 @@ type SignatureOpts struct {
 	// HeaderName is the header name that should contain the signature(s). Example: X-BMCLIB-Signature
 	// +optional
 	HeaderName string `json:"headerName,omitempty"`
-	// AppendAlgoToHeaderDisabled decides whether to append the algorithm to the signature header or not.
+	// AppendAlgorithmToHeaderDisabled decides whether to append the algorithm to the signature header or not.
 	// Example: X-BMCLIB-Signature becomes X-BMCLIB-Signature-256
 	// When set to true, a header will be added for each algorithm. Example: X-BMCLIB-Signature-256 and X-BMCLIB-Signature-512
+	// Unset is equivalent to false.
 	// +optional
-	AppendAlgoToHeaderDisabled bool `json:"appendAlgoToHeaderDisabled,omitempty"`
+	AppendAlgorithmToHeaderDisabled *bool `json:"appendAlgorithmToHeaderDisabled,omitempty"`
 	// IncludedPayloadHeaders are headers whose values will be included in the signature payload. Example: X-BMCLIB-My-Custom-Header
 	// All headers will be deduplicated.
 	// +optional
+	// +listType=atomic
 	IncludedPayloadHeaders []string `json:"includedPayloadHeaders,omitempty"`
 }
 
 // HMACOpts are the options used to create an HMAC signature.
 type HMACOpts struct {
-	// PrefixSigDisabled determines whether the algorithm will be prefixed to the signature. Example: sha256=abc123
+	// AlgorithmPrefixDisabled determines whether the algorithm will be prefixed to the signature. Example: sha256=abc123
+	// Unset is equivalent to false.
 	// +optional
-	PrefixSigDisabled bool `json:"prefixSigDisabled,omitempty"`
+	AlgorithmPrefixDisabled *bool `json:"algorithmPrefixDisabled,omitempty"`
 	// Secrets are a map of algorithms to secrets used for signing.
 	// +optional
 	Secrets HMACSecrets `json:"secrets,omitempty"`
