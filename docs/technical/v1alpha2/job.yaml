@@ -7,13 +7,53 @@ metadata:
 spec:
   hardwareRef:
     name: example
-    namespace: tinkerbell
   #connection:
   #  host: 0.0.0.0
   #  credentialsRef:
   #    name: bm-auth
-  #    namespace: tinkerbell
   #  insecureTLS: false
+  #  providerOptions:
+  #    preferredOrder:
+  #      - "gofish"
+  #      - "ipmitool"
+  #    homeAssistant:
+  #      switchEntityID: "switch.server_rack_outlet_1"
+  #      powerOperationDelaySeconds: 5
+  #    redfish:
+  #      port: 443
+  #      useBasicAuth: false
+  #      systemName: "System.Embedded.1"
+  #      etagMatchDisabled: false
+  #    ipmitool:
+  #      port: 623
+  #      cipherSuite: "3"
+  #    intelAMT:
+  #      port: 16992
+  #      hostScheme: "http"
+  #    rpc:
+  #      consumerURL: "https://rpc-consumer.example.com"
+  #      logNotificationsDisabled: false
+  #      request:
+  #        httpContentType: "application/json"
+  #        httpMethod: "POST"
+  #        staticHeaders:
+  #          X-Custom-Header:
+  #            - "custom-value"
+  #        timestampFormat: "2006-01-02T15:04:05Z07:00"
+  #        timestampHeader: "X-BMCLIB-Timestamp"
+  #      signature:
+  #        headerName: "X-BMCLIB-Signature"
+  #        appendAlgorithmToHeaderDisabled: false
+  #        includedPayloadHeaders:
+  #          - "X-BMCLIB-Timestamp"
+  #      hmac:
+  #        algorithmPrefixDisabled: false
+  #        secrets:
+  #          sha256:
+  #            - name: "hmac-secret"
+  #      experimental:
+  #        customRequestPayload: '{"custom": "payload"}'
+  #        dotPath: "object.data.body"
   operations:
     - powerAction: "off"
       timeoutSeconds: 600
@@ -25,3 +65,26 @@ spec:
     #- virtualMediaAction:
     #    mediaURL: "https://example.com/firmware.iso"
     #    kind: "CD"
+    #- networkBootConfig:
+    #    pxeBootEnabled: false
+    #    httpBootEnabled: true
+    #    httpBootURL: "https://example.com/boot/bootx64.efi"
+    #    httpBootTLSMode: "OneWay" # None, OneWay
+    # Each secureBoot operation sets exactly one field.
+    #- secureBoot:
+    #    enable: true
+    #- secureBoot:
+    #    allowCustomKeys: true
+    #- secureBoot:
+    #    resetKeys:
+    #      resetType: "ResetAllKeysToDefault" # ResetAllKeysToDefault, DeleteAllKeys, DeletePK
+    #- secureBoot:
+    #    databaseResetKeys:
+    #      database: "db" # db, KEK, dbx
+    #      resetType: "ResetAllKeysToDefault" # ResetAllKeysToDefault, DeleteAllKeys
+    #- secureBoot:
+    #    certificateImport:
+    #      database: "db" # PK, KEK, db, dbx
+    #      certificatePEMConfigMapRef:
+    #        name: "secure-boot-certs"
+    #        key: "db.pem"

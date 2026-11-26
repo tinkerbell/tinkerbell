@@ -23,5 +23,6 @@ type BMC struct {
 	BootMode FirmwareMode `json:"bootMode,omitempty"`
 
 	// Connection contains connection data for a Baseboard Management Controller.
+	// +optional
 	Connection *bmc.Connection `json:"connection,omitempty"`
 }

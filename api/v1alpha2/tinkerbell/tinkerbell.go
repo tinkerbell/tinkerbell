@@ -32,12 +32,10 @@ func addKnownTypes(s *runtime.Scheme) error {
 	return nil
 }
 
-// SimpleReference
-// +kubebuilder:validation:XValidation:rule="(has(self.name) && self.name != \"\") == (has(self.namespace) && self.namespace != \"\")",message="name and namespace must both be specified or both be empty"
+// SimpleReference identifies an object by name in the same namespace as the referring object.
 type SimpleReference struct {
 	// Name of the object.
-	Name string `json:"name,omitempty"`
-
-	// Namespace where the object resides.
-	Namespace string `json:"namespace,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	Name string `json:"name"`
 }

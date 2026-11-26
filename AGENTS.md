@@ -48,6 +48,7 @@ Commit the results in the same commit as the source change.
 ## Code
 
 - Follow [docs/DESIGN_PHILOSOPHY.md](docs/DESIGN_PHILOSOPHY.md): no package-level variables or `func init`, `context.Context` first, accept interfaces and return structs, and only `main` decides flags and config.
+- Follow [docs/API_STYLE_GUIDE.md](docs/API_STYLE_GUIDE.md) for the Kubernetes API types in the `api` module.
 - Write doc comments per [Go Doc Comments](https://go.dev/doc/comment). Comment why, not how.
 - Code must not rely on API server defaults. Objects built in Go, including those passed to fake clients in tests, aren't defaulted.
 - Keep coverage within 1% of `main`.

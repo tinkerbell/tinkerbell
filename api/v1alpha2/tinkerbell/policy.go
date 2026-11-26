@@ -93,17 +93,26 @@ type WorkflowRule struct {
 	// Multiple rules in this array are combined with OR logic (any rule can match).
 	// Within each rule, fields are combined with AND logic (all specified fields must match).
 	// If any rule matches, the corresponding Workflow will be created.
-	Rules []AgentAttributes `json:"rules,omitempty"`
+	// +optional
+	// +listType=atomic
+	Rules []AttributesPattern `json:"rules,omitempty"`
 
 	// Config holds the configuration used to create the Workflow when a rule matches.
 	Config WorkflowConfig `json:"config,omitempty"`
 }
 
-// WorkflowConfig defines the Workflow to be created when a rule matches.
-type WorkflowConfig struct {
-	// Namespace is the namespace in which the Workflow will be created.
-	Namespace string `json:"namespace,omitempty"`
+// AttributesPattern is a Quamina pattern matched against an Agent's Attributes.
+// Field names follow Attributes, but a list in Attributes is written as an object,
+// because a pattern field matches when any element of the list matches. For example,
+// {"networkInterfaces": {"ports": {"mac": [{"wildcard": "*"}]}}} matches any Agent with a MAC address.
+// Field names aren't validated; a misspelled field never matches.
+//
+// +kubebuilder:validation:Type=object
+// +kubebuilder:pruning:PreserveUnknownFields
+type AttributesPattern apiextensionsv1.JSON
 
+// WorkflowConfig defines the Workflow to be created, in the Policy's namespace, when a rule matches.
+type WorkflowConfig struct {
 	// AddAttributes indicates if the Agent attributes should be added as an Annotation in the created Workflow.
 	// +optional
 	AddAttributes bool `json:"addAttributes,omitempty"`
@@ -124,7 +133,6 @@ type WorkflowConfig struct {
 	// References:
 	//   config:
 	//     name: my-config
-	//     namespace: tinkerbell
 	//     resource: configmaps
 	//     version: v1
 	//
@@ -139,6 +147,7 @@ type WorkflowConfig struct {
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
 	// Tasks defines the Tasks created in the Workflow.
+	// +kubebuilder:validation:MaxItems=32
 	Tasks []WorkflowTaskConfig `json:"tasks,omitempty"`
 }
 
@@ -181,11 +190,6 @@ type SourcePattern struct {
 	// +optional
 	Name FieldPattern `json:"name,omitempty"`
 
-	// Namespace matches the namespace of the object.
-	// Multiple values are combined with OR logic.
-	// +optional
-	Namespace FieldPattern `json:"namespace,omitempty"`
-
 	// Labels matches labels of the object.
 	// Multiple values are combined with OR logic.
 	// +optional
@@ -200,11 +204,6 @@ type ReferencePattern struct {
 	// Multiple values are combined with OR logic.
 	// +optional
 	Name FieldPattern `json:"name,omitempty"`
-
-	// Namespace matches the namespace of the referenced object.
-	// Multiple values are combined with OR logic.
-	// +optional
-	Namespace FieldPattern `json:"namespace,omitempty"`
 
 	// Group matches the API group of the referenced object.
 	// Multiple values are combined with OR logic.
